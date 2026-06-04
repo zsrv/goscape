@@ -22,8 +22,8 @@ func (p *Player) FaceEntity() int  { return p.faceEntity }
 func (p *Player) SayText() []byte  { return p.sayText }
 func (p *Player) DamageAmt() int   { return p.damageAmt }
 func (p *Player) DamageType() int  { return p.damageType }
-func (p *Player) Damage2Amt() int  { return -1 } // rev244-b2 T13 wires real damage2 fields
-func (p *Player) Damage2Type() int { return -1 } // rev244-b2 T13 wires real damage2 fields
+func (p *Player) Damage2Amt() int  { return p.damage2Amt }
+func (p *Player) Damage2Type() int { return p.damage2Type }
 func (p *Player) CurHP() int       { return int(p.levels[objtype.PlayerStatHitpoints]) }
 func (p *Player) BaseHP() int      { return int(p.baseLevels[objtype.PlayerStatHitpoints]) }
 

@@ -925,7 +925,7 @@ func (s *Server) processInfo() {
 				int32(pFaceX), int32(pFaceZ),
 				int32(p.OrientationX), int32(p.OrientationZ),
 				int32(p.damageAmt), int32(p.damageType),
-				-1, -1, // rev244-b2 T13 wires real damage2 fields
+				int32(p.damage2Amt), int32(p.damage2Type),
 				int32(p.CurHP()), int32(p.BaseHP()),
 				int32(p.animID), int32(p.animDelay),
 				sayPtr,
@@ -966,7 +966,7 @@ func (s *Server) processInfo() {
 				int32(faceX), int32(faceZ),
 				int32(n.OrientationX), int32(n.OrientationZ),
 				int32(n.DamageAmt()), int32(n.DamageType()),
-				-1, -1, // rev244-b2 T13 wires real damage2 fields
+				int32(n.Damage2Amt()), int32(n.Damage2Type()),
 				int32(n.CurHP()), int32(n.BaseHP()),
 				int32(n.AnimID()), int32(n.AnimDelay()),
 				sayPtr,

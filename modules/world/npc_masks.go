@@ -146,34 +146,23 @@ func (n *Npc) SetFaceEntity(entityIndex int) {
 	n.masks |= rsbuf.NpcMaskFaceEntity
 }
 
-// Damage applies `amount` damage of `dmgType` to the NPC this tick, flagging
-// NpcMaskDamage so the NPC-info encoder emits the hitsplat. levels[HP]
-// decrements by amount (clamped at 0). On overkill (amount > cur HP), the
-// emitted damageAmt is clamped to the pre-hit HP so the client shows only
-// damage actually dealt — matches TS Npc.applyDamage (Npc.ts:472-485).
-// Negative amount is coerced to 0 defensively so a script bug cannot heal
-// the NPC.
+// Damage applies `amount` damage of `dmgType` to the NPC this tick.
+// HP clamp is unchanged: levels[HP] decrements by amount (clamped at 0);
+// on overkill the emitted amount clamps to the pre-hit HP. Negative amount
+// coerces to 0 defensively.
 //
-// baseLevels[HP] is seeded at NPC construction (NewNpc) and refilled by
-// ResetHP; Damage no longer touches it. levels[HP] is persistent state
-// (S6d; extended to the full array in NAI-17); scripts calling NPC_STAT(0)
-// on later ticks see real decremented HP.
-//
-// This method is a pure output op — no death / auto-retaliate / aggro logic,
-// matching TS Npc.applyDamage (which is itself called only from the
-// NPC_DAMAGE script handler at NpcOps.ts:267). Death is content-script
-// driven in TS too — there is no engine-side death trigger. Content
-// scripts check NPC_STAT(0)<=0 and call npc_del; the engine path from
-// there (handleNpcDel → Server.removeNpc → NpcLifecycleRespawn at
-// npc_ai.go:26-65 → revertType + AI_SPAWN) is already wired.
+// rev-244: implements the hitmarkSlot alternation from TS Npc.ts:484-494
+// (Npc.ts:475-494, 244). hitmarkSlot%2==0 → first slot (damageAmt/damageType
+// + NpcMaskDamage); hitmarkSlot%2==1 → second slot (damage2Amt/damage2Type +
+// NpcMaskDamage2). hitmarkSlot increments always. Slot resets to 0 each tick
+// in ResetMasks (PathingEntity.ts:610). This is a pure output op.
 func (n *Npc) Damage(amount, dmgType int) {
 	if amount < 0 {
 		amount = 0
 	}
 	cur := n.levels[objtype.NpcStatHitpoints]
 	preHit := cur
-	n.damageAmt = min(amount, cur)
-	n.damageType = dmgType
+	clamped := min(amount, cur)
 	cur -= amount
 	if cur < 0 {
 		cur = 0
@@ -189,7 +178,19 @@ func (n *Npc) Damage(amount, dmgType int) {
 			"new", cur,
 		)
 	}
-	n.masks |= rsbuf.NpcMaskDamage
+	// rev-244: TS Npc.ts:484-493 hitmarkSlot alternation.
+	if n.hitmarkSlot%2 == 1 {
+		// second slot → DAMAGE2
+		n.damage2Amt = clamped
+		n.damage2Type = dmgType
+		n.masks |= rsbuf.NpcMaskDamage2
+	} else {
+		// first slot → DAMAGE
+		n.damageAmt = clamped
+		n.damageType = dmgType
+		n.masks |= rsbuf.NpcMaskDamage
+	}
+	n.hitmarkSlot++
 }
 
 // ResetMasks clears mask bits + ephemeral per-tick state. Persistent fields
@@ -229,6 +230,11 @@ func (n *Npc) ResetMasks() {
 	n.sayText = nil
 	n.damageAmt = -1
 	n.damageType = -1
+	// rev-244: TS PathingEntity.ts:608-610 resets hitmark2Damage/Type → -1
+	// and hitmarkSlot → 0 each tick.
+	n.damage2Amt = -1
+	n.damage2Type = -1
+	n.hitmarkSlot = 0
 	// Reset the primary animation slot at tick end (TS PathingEntity.ts:598-601);
 	// NpcInfo already emitted any NpcMaskAnim this tick. Without this, Animate's
 	// priority guard rejects an equal-priority repeat and the NPC anim plays once.

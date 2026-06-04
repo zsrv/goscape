@@ -449,6 +449,154 @@ func TestFaceSquare_WritesFaceAngle(t *testing.T) {
 	}
 }
 
+// === rev-244 B2 T13: damage2 + hitmarkSlot alternation (Player fork) ===
+//
+// TS contract: PathingEntity.ts:92-96 (244) adds hitmarkSlot=0, hitmark2Damage=-1,
+// hitmark2Type=-1. Player.ts:1871-1890 (244) applyDamage: slot%2==0 → DAMAGE (first),
+// slot%2==1 → DAMAGE2 (second); hitmarkSlot++ always. Reset: PathingEntity.ts:606-610
+// resets hitmark2Damage/Type to -1 AND hitmarkSlot to 0.
+
+// TestPlayerDamage2AlternationSlot0SetsDamage pins that the first call to
+// Damage sets damageAmt/damageType + MaskDamage (slot%2==0 → DAMAGE path).
+// TS Player.ts:1884-1887 (244).
+func TestPlayerDamage2AlternationSlot0SetsDamage(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.baseLevels[3] = 50
+	p.levels[3] = 50
+	// hitmarkSlot=0 on fresh player.
+	p.Damage(10, 1)
+	if p.masks&rsbuf.MaskDamage == 0 {
+		t.Error("slot 0: MaskDamage should be set (TS Player.ts:1887)")
+	}
+	if p.masks&rsbuf.MaskDamage2 != 0 {
+		t.Error("slot 0: MaskDamage2 must NOT be set (wrong slot)")
+	}
+	if p.damageAmt != 10 {
+		t.Errorf("slot 0: damageAmt: got %d, want 10", p.damageAmt)
+	}
+	if p.damageType != 1 {
+		t.Errorf("slot 0: damageType: got %d, want 1", p.damageType)
+	}
+	if p.damage2Amt != -1 {
+		t.Errorf("slot 0: damage2Amt: got %d, want -1 (untouched)", p.damage2Amt)
+	}
+	if p.hitmarkSlot != 1 {
+		t.Errorf("slot 0: hitmarkSlot: got %d, want 1 (incremented)", p.hitmarkSlot)
+	}
+}
+
+// TestPlayerDamage2AlternationSlot1SetsDamage2 pins that the second call to
+// Damage sets damage2Amt/damage2Type + MaskDamage2 (slot%2==1 → DAMAGE2 path).
+// TS Player.ts:1880-1883 (244).
+func TestPlayerDamage2AlternationSlot1SetsDamage2(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.baseLevels[3] = 50
+	p.levels[3] = 50
+	p.Damage(10, 1) // slot 0 → DAMAGE
+	p.Damage(5, 2)  // slot 1 → DAMAGE2
+	if p.masks&rsbuf.MaskDamage2 == 0 {
+		t.Error("slot 1: MaskDamage2 should be set (TS Player.ts:1883)")
+	}
+	if p.damage2Amt != 5 {
+		t.Errorf("slot 1: damage2Amt: got %d, want 5", p.damage2Amt)
+	}
+	if p.damage2Type != 2 {
+		t.Errorf("slot 1: damage2Type: got %d, want 2", p.damage2Type)
+	}
+	// MaskDamage set on first call should still be on.
+	if p.masks&rsbuf.MaskDamage == 0 {
+		t.Error("slot 1: MaskDamage from slot-0 call should still be set")
+	}
+	if p.hitmarkSlot != 2 {
+		t.Errorf("slot 1: hitmarkSlot: got %d, want 2 (incremented twice)", p.hitmarkSlot)
+	}
+}
+
+// TestPlayerDamage2AlternationSlot2OverwritesDamage pins the slot-2 wrap-around:
+// a third call overwrites damageAmt (same DAMAGE slot as slot 0). TS
+// Player.ts:1880: `hitmarkSlot % 2 === 1` is false for slot 2, so DAMAGE is
+// set again.
+func TestPlayerDamage2AlternationSlot2OverwritesDamage(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.baseLevels[3] = 50
+	p.levels[3] = 50
+	p.Damage(10, 1) // slot 0 → DAMAGE=10
+	p.Damage(5, 2)  // slot 1 → DAMAGE2=5
+	p.Damage(3, 3)  // slot 2 → DAMAGE again (overwrite)
+	if p.damageAmt != 3 {
+		t.Errorf("slot 2: damageAmt should be overwritten to 3; got %d", p.damageAmt)
+	}
+	if p.damageType != 3 {
+		t.Errorf("slot 2: damageType should be overwritten to 3; got %d", p.damageType)
+	}
+	if p.hitmarkSlot != 3 {
+		t.Errorf("slot 2: hitmarkSlot: got %d, want 3", p.hitmarkSlot)
+	}
+}
+
+// TestPlayerResetMasksClearsDamage2AndHitmarkSlot pins the per-tick reset:
+// ResetMasks clears damage2Amt/damage2Type to -1 AND hitmarkSlot to 0.
+// TS PathingEntity.ts:606-610 (244).
+func TestPlayerResetMasksClearsDamage2AndHitmarkSlot(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.baseLevels[3] = 50
+	p.levels[3] = 50
+	p.Damage(10, 1) // slot 0
+	p.Damage(5, 2)  // slot 1 → damage2 set
+	p.ResetMasks()
+	if p.damage2Amt != -1 {
+		t.Errorf("damage2Amt after ResetMasks: got %d, want -1", p.damage2Amt)
+	}
+	if p.damage2Type != -1 {
+		t.Errorf("damage2Type after ResetMasks: got %d, want -1", p.damage2Type)
+	}
+	if p.hitmarkSlot != 0 {
+		t.Errorf("hitmarkSlot after ResetMasks: got %d, want 0 (TS PathingEntity.ts:610)", p.hitmarkSlot)
+	}
+}
+
+// TestPlayerDamage2AmtAccessorReturnsField pins that Damage2Amt() returns the
+// real damage2Amt field (not the -1 placeholder).
+func TestPlayerDamage2AmtAccessorReturnsField(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.baseLevels[3] = 50
+	p.levels[3] = 50
+	p.Damage(10, 1) // slot 0
+	p.Damage(7, 2)  // slot 1 → damage2Amt=7
+	if p.Damage2Amt() != 7 {
+		t.Errorf("Damage2Amt(): got %d, want 7", p.Damage2Amt())
+	}
+	if p.Damage2Type() != 2 {
+		t.Errorf("Damage2Type(): got %d, want 2", p.Damage2Type())
+	}
+}
+
+// TestPlayerDamage2InitiallyMinusOne pins that a freshly constructed player
+// has damage2Amt=-1, damage2Type=-1, hitmarkSlot=0.
+func TestPlayerDamage2InitiallyMinusOne(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	if p.damage2Amt != -1 {
+		t.Errorf("damage2Amt initial: got %d, want -1", p.damage2Amt)
+	}
+	if p.damage2Type != -1 {
+		t.Errorf("damage2Type initial: got %d, want -1", p.damage2Type)
+	}
+	if p.hitmarkSlot != 0 {
+		t.Errorf("hitmarkSlot initial: got %d, want 0", p.hitmarkSlot)
+	}
+}
+
+// TestMaskDamage2ConstantsMatchRsbuf pins that modules/world MaskDamage2 and
+// NpcMaskDamage2 equal the rsbuf counterparts (both blocks must stay in sync).
+func TestMaskDamage2ConstantsMatchRsbuf(t *testing.T) {
+	if MaskDamage2 != rsbuf.MaskDamage2 {
+		t.Errorf("world.MaskDamage2=%d != rsbuf.MaskDamage2=%d", MaskDamage2, rsbuf.MaskDamage2)
+	}
+	if NpcMaskDamage2 != rsbuf.NpcMaskDamage2 {
+		t.Errorf("world.NpcMaskDamage2=%d != rsbuf.NpcMaskDamage2=%d", NpcMaskDamage2, rsbuf.NpcMaskDamage2)
+	}
+}
+
 // TestApplyStepFocusesAhead pins M2: a walk step refreshes faceAngle to point
 // one tile ahead in the travel direction (TS PathingEntity.ts:216-220,
 // focus client=false). Combined with D1 this is what makes a walking entity

@@ -13,6 +13,7 @@ const (
 	MaskBigUpdate  = 128
 	MaskSpotAnim   = 256
 	MaskExactMove  = 512
+	MaskDamage2    = 1024 // rev-244: rsbuf prot.rs DAMAGE2=0x400
 )
 
 // NPC update masks — mirrors NpcInfoProt.
@@ -24,4 +25,5 @@ const (
 	NpcMaskChangeType = 32
 	NpcMaskSpotAnim   = 64
 	NpcMaskFaceCoord  = 128
+	NpcMaskDamage2    = 1 // rev-244: rsbuf prot.rs DAMAGE2=0x1 (written first in NPC write order)
 )

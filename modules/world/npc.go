@@ -138,6 +138,8 @@ type Npc struct {
 	animID, animDelay                         int
 	sayText                                   []byte
 	damageAmt, damageType                     int
+	damage2Amt, damage2Type                   int                       // rev-244: PathingEntity.ts:95-96 hitmark2Damage/hitmark2Type
+	hitmarkSlot                               int                       // rev-244: PathingEntity.ts:92; slot%2 drives DAMAGE vs DAMAGE2
 	levels                                    [objtype.NpcStatCount]int // NAI-17: current (boosted) stat values
 	baseLevels                                [objtype.NpcStatCount]int // NAI-17: base values (regen convergence target)
 	resetOnRevert                             bool                      // NAI-17: TS Npc.ts:72; CHANGETYPE→true, KEEPALL→false
@@ -204,6 +206,9 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		animDelay:       -1,
 		damageAmt:       -1,
 		damageType:      -1,
+		damage2Amt:      -1,
+		damage2Type:     -1,
+		hitmarkSlot:     0,
 		spotanimID:      -1,
 		spotanimHeight:  -1,
 		spotanimDelay:   -1,

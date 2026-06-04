@@ -402,6 +402,117 @@ func TestNpc_DelayedNpc_GetsLastTickAdvancedAtCleanup(t *testing.T) {
 	}
 }
 
+// === rev-244 B2 T13: damage2 + hitmarkSlot alternation (Npc fork) ===
+//
+// TS contract mirrors Player fork exactly: Npc.ts:475-494 (244).
+
+// TestNpcDamage2AlternationSlot0SetsDamage pins that the first Damage call
+// sets damageAmt/damageType + NpcMaskDamage (slot%2==0). TS Npc.ts:489-492.
+func TestNpcDamage2AlternationSlot0SetsDamage(t *testing.T) {
+	npc := npcWithHP(t, 20, 20)
+	npc.Damage(5, 1) // slot 0 → DAMAGE
+	if npc.masks&rsbuf.NpcMaskDamage == 0 {
+		t.Error("slot 0: NpcMaskDamage should be set (TS Npc.ts:491)")
+	}
+	if npc.masks&rsbuf.NpcMaskDamage2 != 0 {
+		t.Error("slot 0: NpcMaskDamage2 must NOT be set")
+	}
+	if npc.damageAmt != 5 {
+		t.Errorf("slot 0: damageAmt: got %d, want 5", npc.damageAmt)
+	}
+	if npc.damage2Amt != -1 {
+		t.Errorf("slot 0: damage2Amt: got %d, want -1 (untouched)", npc.damage2Amt)
+	}
+	if npc.hitmarkSlot != 1 {
+		t.Errorf("slot 0: hitmarkSlot: got %d, want 1", npc.hitmarkSlot)
+	}
+}
+
+// TestNpcDamage2AlternationSlot1SetsDamage2 pins that the second Damage call
+// sets damage2Amt/damage2Type + NpcMaskDamage2 (slot%2==1). TS Npc.ts:484-488.
+func TestNpcDamage2AlternationSlot1SetsDamage2(t *testing.T) {
+	npc := npcWithHP(t, 20, 20)
+	npc.Damage(5, 1) // slot 0 → DAMAGE
+	npc.Damage(3, 2) // slot 1 → DAMAGE2
+	if npc.masks&rsbuf.NpcMaskDamage2 == 0 {
+		t.Error("slot 1: NpcMaskDamage2 should be set (TS Npc.ts:487)")
+	}
+	if npc.damage2Amt != 3 {
+		t.Errorf("slot 1: damage2Amt: got %d, want 3", npc.damage2Amt)
+	}
+	if npc.damage2Type != 2 {
+		t.Errorf("slot 1: damage2Type: got %d, want 2", npc.damage2Type)
+	}
+	if npc.hitmarkSlot != 2 {
+		t.Errorf("slot 1: hitmarkSlot: got %d, want 2", npc.hitmarkSlot)
+	}
+}
+
+// TestNpcDamage2AlternationSlot2OverwritesDamage pins slot-2 wrap-around:
+// third call overwrites damageAmt (slot%2==0 again).
+func TestNpcDamage2AlternationSlot2OverwritesDamage(t *testing.T) {
+	npc := npcWithHP(t, 20, 20)
+	npc.Damage(5, 1) // slot 0
+	npc.Damage(3, 2) // slot 1
+	npc.Damage(1, 3) // slot 2 → overwrites DAMAGE
+	if npc.damageAmt != 1 {
+		t.Errorf("slot 2: damageAmt: got %d, want 1 (overwritten)", npc.damageAmt)
+	}
+	if npc.damageType != 3 {
+		t.Errorf("slot 2: damageType: got %d, want 3 (overwritten)", npc.damageType)
+	}
+	if npc.hitmarkSlot != 3 {
+		t.Errorf("slot 2: hitmarkSlot: got %d, want 3", npc.hitmarkSlot)
+	}
+}
+
+// TestNpcResetMasksClearsDamage2AndHitmarkSlot pins the per-tick reset for
+// the Npc fork. TS PathingEntity.ts:606-610 (244).
+func TestNpcResetMasksClearsDamage2AndHitmarkSlot(t *testing.T) {
+	npc := npcWithHP(t, 20, 20)
+	npc.Damage(5, 1) // slot 0
+	npc.Damage(3, 2) // slot 1 → damage2 set
+	npc.ResetMasks()
+	if npc.damage2Amt != -1 {
+		t.Errorf("damage2Amt after ResetMasks: got %d, want -1", npc.damage2Amt)
+	}
+	if npc.damage2Type != -1 {
+		t.Errorf("damage2Type after ResetMasks: got %d, want -1", npc.damage2Type)
+	}
+	if npc.hitmarkSlot != 0 {
+		t.Errorf("hitmarkSlot after ResetMasks: got %d, want 0 (TS PathingEntity.ts:610)", npc.hitmarkSlot)
+	}
+}
+
+// TestNpcDamage2InitiallyMinusOne pins that NewNpc initialises damage2Amt=-1,
+// damage2Type=-1, hitmarkSlot=0.
+func TestNpcDamage2InitiallyMinusOne(t *testing.T) {
+	npc := npcWithHP(t, 10, 10)
+	if npc.damage2Amt != -1 {
+		t.Errorf("damage2Amt initial: got %d, want -1", npc.damage2Amt)
+	}
+	if npc.damage2Type != -1 {
+		t.Errorf("damage2Type initial: got %d, want -1", npc.damage2Type)
+	}
+	if npc.hitmarkSlot != 0 {
+		t.Errorf("hitmarkSlot initial: got %d, want 0", npc.hitmarkSlot)
+	}
+}
+
+// TestNpcDamage2AmtAccessorReturnsField pins that Damage2Amt()/Damage2Type()
+// return the real damage2Amt/damage2Type fields.
+func TestNpcDamage2AmtAccessorReturnsField(t *testing.T) {
+	npc := npcWithHP(t, 20, 20)
+	npc.Damage(5, 1) // slot 0
+	npc.Damage(4, 7) // slot 1 → damage2Amt=4
+	if npc.Damage2Amt() != 4 {
+		t.Errorf("Damage2Amt(): got %d, want 4", npc.Damage2Amt())
+	}
+	if npc.Damage2Type() != 7 {
+		t.Errorf("Damage2Type(): got %d, want 7", npc.Damage2Type())
+	}
+}
+
 // TestNpc_StepsTakenResetEnablesReorientGate_AcrossTicks pins NAI-167: the
 // reorient gate at npc_interaction.go:932 (`n.targetX != -1 && n.stepsTaken == 0`)
 // was forever-broken because stepsTaken accumulated across ticks but was never

@@ -479,7 +479,9 @@ type Player struct {
 
 	chatBytes []byte
 
-	damageAmt, damageType int
+	damageAmt, damageType   int
+	damage2Amt, damage2Type int // rev-244: PathingEntity.ts:95-96 hitmark2Damage/hitmark2Type
+	hitmarkSlot             int // rev-244: PathingEntity.ts:92; slot%2 drives DAMAGE vs DAMAGE2
 
 	spotanimID, spotanimHeight, spotanimDelay int
 
@@ -668,6 +670,9 @@ func newPlayer(c *client) *Player {
 		chatRights:     -1,
 		damageAmt:      -1,
 		damageType:     -1,
+		damage2Amt:     -1,
+		damage2Type:    -1,
+		hitmarkSlot:    0,
 		spotanimID:     -1,
 		spotanimHeight: -1,
 		spotanimDelay:  -1,

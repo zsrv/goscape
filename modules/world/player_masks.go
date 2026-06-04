@@ -129,6 +129,11 @@ func (p *Player) ResetMasks() {
 	p.chatRights = -1
 	p.damageAmt = -1
 	p.damageType = -1
+	// rev-244: TS PathingEntity.ts:608-610 resets hitmark2Damage/Type → -1
+	// and hitmarkSlot → 0 each tick.
+	p.damage2Amt = -1
+	p.damage2Type = -1
+	p.hitmarkSlot = 0
 	// Reset the primary animation slot at tick end (TS PathingEntity.ts:598-601).
 	// processInfo already emitted any MaskAnim earlier this tick, so clearing
 	// here lets the next tick's PlayAnim set a fresh animation; without it the
@@ -168,39 +173,43 @@ func (p *Player) ResetMasks() {
 	p.protect = false
 }
 
-// Damage applies `amount` damage of `dmgType` to the player this tick,
-// flagging MaskDamage so the player-info encoder emits the hitsplat. HP
-// decrements via levels[Hitpoints] (the single source of truth — no
-// separate curHP field as of S6e). On overkill (amount > current HP),
-// damageAmt clamps to the pre-hit HP so the wire shows only damage
-// actually dealt — matches TS Player.applyDamage (Player.ts:1860-1873).
+// Damage applies `amount` damage of `dmgType` to the player this tick.
+// HP clamp is unchanged: levels[Hitpoints] decrements by amount (clamped at 0);
+// on overkill the emitted amount clamps to the pre-hit HP. Negative amount
+// coerces to 0 defensively (deviation from TS — see prior doc).
 //
-// Negative amount coerces to 0 defensively. This deviates from TS where
-// negative amount would heal the player (current - (-3) = current + 3
-// passes the overkill check and writes back). The TS path is almost
-// certainly an unintended consequence of unsigned-input assumptions; we
-// match the *Npc.Damage convention from S6c instead.
+// rev-244: implements the hitmarkSlot alternation from TS Player.ts:1880-1889
+// (Player.ts:1871-1890, 244). hitmarkSlot%2==0 → first slot (damageAmt/damageType
+// + MaskDamage); hitmarkSlot%2==1 → second slot (damage2Amt/damage2Type +
+// MaskDamage2). hitmarkSlot increments always. Slot resets to 0 each tick
+// in ResetMasks (PathingEntity.ts:610). This means slot 0 → DAMAGE, slot 1 →
+// DAMAGE2, slot 2 → overwrites DAMAGE again, per TS parity.
 //
-// This is a pure output op — no death / auto-retaliate / aggro logic,
-// matching TS Player.applyDamage (which is itself called only from the
-// DAMAGE script handler at PlayerOps.ts:778). Player death is fully
-// content-script driven in TS — there is no engine-side death trigger
-// (ServerTriggerType.ts enumerates 167 triggers, zero death-specific).
-// Content scripts detect HP=0 via STAT(0) and drive death via AI_QUEUE
-// triggers; goscape mirrors this faithfully.
+// This is a pure output op — no death / auto-retaliate / aggro logic.
 func (p *Player) Damage(amount, dmgType int) {
 	if amount < 0 {
 		amount = 0
 	}
 	current := int(p.levels[objtype.PlayerStatHitpoints])
-	p.damageAmt = min(amount, current)
-	p.damageType = dmgType
+	clamped := min(amount, current)
 	next := current - amount
 	if next < 0 {
 		next = 0
 	}
 	p.levels[objtype.PlayerStatHitpoints] = uint8(next)
-	p.masks |= rsbuf.MaskDamage
+	// rev-244: TS Player.ts:1880-1889 hitmarkSlot alternation.
+	if p.hitmarkSlot%2 == 1 {
+		// second slot → DAMAGE2
+		p.damage2Amt = clamped
+		p.damage2Type = dmgType
+		p.masks |= rsbuf.MaskDamage2
+	} else {
+		// first slot → DAMAGE
+		p.damageAmt = clamped
+		p.damageType = dmgType
+		p.masks |= rsbuf.MaskDamage
+	}
+	p.hitmarkSlot++
 }
 
 // ResetHP restores levels[Hitpoints] to baseLevels[Hitpoints] — the
