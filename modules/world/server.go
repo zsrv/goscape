@@ -978,11 +978,11 @@ func (c *client) handleLogin() error {
 			return protocol.ErrPayloadTooSmall
 		}
 
-		// TS World.ts:2118-2160 gates the revision (2119) and CRC (2131)
-		// checks on the cleartext header BEFORE calling rsadec (2139), so a
+		// TS gates the revision (World.ts:2157-2158) and CRC (2167-2170)
+		// checks on the cleartext header BEFORE calling rsadec (2176), so a
 		// stale-revision or bad-CRC client never burns RSA CPU — the same
-		// rationale as the address rate-limit gate above. Decode the header
-		// first, validate rev+CRC, then decrypt the RSA tail. L37.
+		// rationale the 225 rate-limit gates used (removed at 244). Decode
+		// the header first, validate rev+CRC, then decrypt the RSA tail. L37.
 		r := packet.NewPacket(c.in.Next(pLen))
 		if err := req.UnmarshalHeader(r); err != nil {
 			// Malformed cleartext header — tell client it's out of date.
