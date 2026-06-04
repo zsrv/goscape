@@ -400,6 +400,11 @@ type Player struct {
 	modalTutorial                                      int
 	tabs                                               [14]int
 	refreshModal, refreshModalClose, requestModalClose bool
+	// overlay / lastOverlay mirror TS Player.ts:358-359 (rev-244).
+	// OpenOverlay (player_script.go) sets overlay; encodeOut flushes on
+	// change. Both default to -1 so the initial state matches TS and the
+	// flush is a no-op until OpenOverlay is first called.
+	overlay, lastOverlay int
 
 	// === resume buttons (sub-spec 5f) ===
 	// Stored by IF_SETRESUMEBUTTONS; consumed by P_PAUSEBUTTON (handlers_dialog.go:10).
@@ -544,6 +549,15 @@ func (p *Player) encodeOut() {
 		}
 		p.refreshModal = false
 	}
+
+	// Overlay flush: mirrors TS NetworkPlayer.ts:192-195 (rev-244).
+	// Sits after the refreshModal block, matching the TS NetworkPlayer
+	// write order. IF_OPENOVERLAY payload = 2 bytes (com as P2 BE).
+	if p.overlay != p.lastOverlay {
+		payload := []byte{byte(p.overlay >> 8), byte(p.overlay)}
+		p.writeOut(gameserver.OpIfOpenOverlay, payload)
+		p.lastOverlay = p.overlay
+	}
 }
 
 // writeOut ISAAC-encrypts op.Opcode, writes any length prefix, then writes
@@ -637,6 +651,8 @@ func newPlayer(c *client) *Player {
 		colors:         [5]int{0, 0, 0, 0, 0},
 		body:           [7]int{0, 10, 18, 26, 33, 36, 42},
 		modalTutorial:  -1,
+		overlay:        -1,
+		lastOverlay:    -1,
 		tabs:           [14]int{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 		appearanceInv:  -1, // test-only sentinel; production binds via SetAppearanceInv from client.go login wiring (NAI-22 Bundle 3).
 		lastAppearance: -1,

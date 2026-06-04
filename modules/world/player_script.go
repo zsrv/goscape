@@ -1331,6 +1331,33 @@ func (p *Player) CloseTutorial() {
 	p.writeOut(gameserver.OpTutOpen, payload)
 }
 
+// OpenOverlay sets the player's full-screen overlay interface. Mirrors TS
+// Player.openOverlay at Engine-TS/src/engine/entity/Player.ts:1955-1965
+// (rev-244 pin 9aadcec4):
+//
+//	openOverlay(com: number) {
+//	    if (this.overlay === com) { return; }
+//	    if (com === -1) { this.clearComListeners(this.overlay); }
+//	    this.overlay = com;
+//	}
+//
+// The wire flush (IF_OPENOVERLAY, opcode 158) is deferred to encodeOut
+// (player.go) which emits on overlay != lastOverlay each tick, matching
+// TS NetworkPlayer.ts:192-195.
+//
+// NOTE: com == -1 clears listeners of the OLD overlay (the current one
+// before this call) — matches TS literally. The call site lands with
+// B4's IF_OPENOVERLAY script op; B2 shipped the wire row (0ef495fb).
+func (p *Player) OpenOverlay(com int) {
+	if p.overlay == com {
+		return
+	}
+	if com == -1 {
+		p.clearComListeners(p.overlay)
+	}
+	p.overlay = com
+}
+
 // FlashTutorial implements script.ActivePlayer.FlashTutorial. Writes
 // a TUT_FLASH server packet (opcode 126, 1-byte tab payload). Direct
 // write — TUT_FLASH is fire-and-forget UI hint, not a modal-state
