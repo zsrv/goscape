@@ -26,8 +26,7 @@ func newZoneTestPlayer(t *testing.T, s *Server, slot, x, z, level int) (*Player,
 	// the production REBUILD path: rebuildScenery → ... → rebuildZones.
 	_ = p.buildArea.rebuildScenery(0)
 	p.buildArea.rebuildZones()
-	s.players[slot] = p
-	s.playerLoop = append(s.playerLoop, p)
+	s.players.set(slot, p)
 	return p, cc
 }
 

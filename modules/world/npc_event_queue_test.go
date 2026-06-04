@@ -539,7 +539,8 @@ func addPlayerToServer(t *testing.T, s *Server, slot, x, z, level int) *Player {
 		level:  level,
 		active: true,
 	}
-	s.players[slot] = p
+	p.slot = slot
+	s.players.set(slot, p)
 	zn := s.zoneMap.Get(level, x, z)
 	p.zoneListElement = zn.EnterPlayer(p, nil)
 	return p
@@ -710,7 +711,7 @@ func newLoggingOutPlayer(t *testing.T, s *Server) *Player {
 }
 
 func playerInLoop(s *Server, p *Player) bool {
-	for _, lp := range s.playerLoop {
+	for lp := range s.players.all() {
 		if lp == p {
 			return true
 		}

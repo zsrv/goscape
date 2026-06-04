@@ -36,7 +36,8 @@ func TestProcessPlayerQueue_NonWeakFiresBeforeWeakSameTick(t *testing.T) {
 
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	s.playerLoop = []*Player{p}
+	p.slot = 1
+	s.players.set(1, p)
 
 	// Interleave NORMAL-WEAK-NORMAL at insertion order, all Delay=0.
 	p.queue = []playerQueueRequest{
@@ -67,7 +68,8 @@ func TestProcessPlayerQueue_WeakOnlyDelayDecrementsInWeakPass(t *testing.T) {
 
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	s.playerLoop = []*Player{p}
+	p.slot = 1
+	s.players.set(1, p)
 
 	p.queue = []playerQueueRequest{
 		{Script: sf, Delay: 3, Type: script.QueueWeak},
@@ -100,7 +102,8 @@ func TestProcessPlayerQueue_WeakEnqueuedByNonWeakFiresSameTick(t *testing.T) {
 
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	s.playerLoop = []*Player{p}
+	p.slot = 1
+	s.players.set(1, p)
 
 	var fired []uint32
 	s.runScriptFn = func(f *script.ScriptFile, _ script.ActivePlayer, _ any, _ script.ServerTriggerType, _ bool, _ []int, _ []string) {

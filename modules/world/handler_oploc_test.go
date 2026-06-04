@@ -973,8 +973,8 @@ func TestHandleOpLocUHappyPathWithOtherPlayerInv(t *testing.T) {
 	inv := inventory.New(93, 28, inventory.StackNormal)
 	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
 	other.invs[93] = inv
-	s.players[2] = other
-	s.playerLoop = append(s.playerLoop, other)
+	other.slot = 2
+	s.players.set(2, other)
 
 	// Register listener pointing at other's uid (not slot) for inv type 93.
 	p.invListenOnCom(93, 149, 0xDEADBEEF)

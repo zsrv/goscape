@@ -297,15 +297,17 @@ func TestUpdateInvsLazyAllocSeedsStockTemp(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	s := &Server{
-		log:        discardLogger(),
-		invTypes:   &objtype.InvTypeConfigs{Configs: configs},
-		invs:       make(map[int]*inventory.Inventory),
-		playerLoop: []*Player{p}, // for LookupPlayerByUID
+		log:      discardLogger(),
+		invTypes: &objtype.InvTypeConfigs{Configs: configs},
+		invs:     make(map[int]*inventory.Inventory),
+		players:  newPlayerList(2048),
 	}
 	s.invLookup = invLookupView{s: s}
 	p.client.server = s
 	p.uid = 12345
 	p.active = true
+	p.slot = 1
+	s.players.set(1, p)
 
 	// Register listener at com=149 — SCOPE_TEMP, source=p.uid.
 	p.invListenOnCom(testInvTypeID, 149, p.uid)
@@ -354,16 +356,18 @@ func buildRunWeightInvServer(t *testing.T, p *Player, invTypeID, objTypeID, objW
 		Weight:    objWeight,
 	}
 	s := &Server{
-		log:        discardLogger(),
-		invTypes:   &objtype.InvTypeConfigs{Configs: invConfigs},
-		objTypes:   &objtype.ObjTypeConfigs{Configs: objConfigs},
-		invs:       make(map[int]*inventory.Inventory),
-		playerLoop: []*Player{p},
+		log:      discardLogger(),
+		invTypes: &objtype.InvTypeConfigs{Configs: invConfigs},
+		objTypes: &objtype.ObjTypeConfigs{Configs: objConfigs},
+		invs:     make(map[int]*inventory.Inventory),
+		players:  newPlayerList(2048),
 	}
 	s.invLookup = invLookupView{s: s}
 	p.client.server = s
 	p.uid = 12345
 	p.active = true
+	p.slot = 1
+	s.players.set(1, p)
 	return s
 }
 
@@ -501,16 +505,18 @@ func TestUpdateInvs_SharedInvDoesNotCountToRunWeight(t *testing.T) {
 	objConfigs := make([]*objtype.ObjType, objTypeID+1)
 	objConfigs[objTypeID] = &objtype.ObjType{Stackable: false, Weight: 1000}
 	s := &Server{
-		log:        discardLogger(),
-		invTypes:   &objtype.InvTypeConfigs{Configs: invConfigs},
-		objTypes:   &objtype.ObjTypeConfigs{Configs: objConfigs},
-		invs:       make(map[int]*inventory.Inventory),
-		playerLoop: []*Player{p},
+		log:      discardLogger(),
+		invTypes: &objtype.InvTypeConfigs{Configs: invConfigs},
+		objTypes: &objtype.ObjTypeConfigs{Configs: objConfigs},
+		invs:     make(map[int]*inventory.Inventory),
+		players:  newPlayerList(2048),
 	}
 	s.invLookup = invLookupView{s: s}
 	p.client.server = s
 	p.uid = 12345
 	p.active = true
+	p.slot = 1
+	s.players.set(1, p)
 
 	// SCOPE_SHARED: invListenOnCom rewrites source to -1.
 	p.invListenOnCom(invTypeID, 149, p.uid)
@@ -592,15 +598,17 @@ func TestUpdateInvsLazyAllocSeedsStockShared(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	s := &Server{
-		log:        discardLogger(),
-		invTypes:   &objtype.InvTypeConfigs{Configs: configs},
-		invs:       make(map[int]*inventory.Inventory),
-		playerLoop: []*Player{p},
+		log:      discardLogger(),
+		invTypes: &objtype.InvTypeConfigs{Configs: configs},
+		invs:     make(map[int]*inventory.Inventory),
+		players:  newPlayerList(2048),
 	}
 	s.invLookup = invLookupView{s: s}
 	p.client.server = s
 	p.uid = 12345
 	p.active = true
+	p.slot = 1
+	s.players.set(1, p)
 
 	// caller source=99; SCOPE_SHARED rewrite inside invListenOnCom flips to -1.
 	p.invListenOnCom(testInvTypeID, 149, 99)

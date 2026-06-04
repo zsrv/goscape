@@ -371,7 +371,7 @@ func seedNpcAtSlot(t *testing.T, s *Server, p *Player, slot int) {
 	p.x, p.z, p.level = 99, 100, 0
 
 	p.slot = slot + 100 // use an offset so player slot doesn't collide with npc slot
-	s.players[p.slot] = p
+	s.players.set(p.slot, p)
 	s.rsbuf.AddPlayer(int32(p.slot))
 	s.rsbuf.SubscribeNpcForTest(int32(p.slot), int32(npcNid))
 }
@@ -453,13 +453,13 @@ func seedTargetPlayerAtSlot(t *testing.T, s *Server, p *Player, slot int) {
 	other, _ := newTestPlayer(t)
 	other.client.server = s
 	other.slot = slot
-	s.players[slot] = other
+	s.players.set(slot, other)
 	s.rsbuf.AddPlayer(int32(slot))
 
 	// Wire the clicker player into the server.
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.slot = slot + 100 // avoid collision with target slot
-	s.players[p.slot] = p
+	s.players.set(p.slot, p)
 	s.rsbuf.AddPlayer(int32(p.slot))
 
 	// Make the target visible to the clicker.

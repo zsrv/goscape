@@ -56,8 +56,9 @@ func TestNpcSetDelayed(t *testing.T) {
 func newServerForScriptTest(t *testing.T) *Server {
 	t.Helper()
 	return &Server{
-		log:   discardLogger(),
-		rsbuf: rsbuf.New(),
+		log:     discardLogger(),
+		rsbuf:   rsbuf.New(),
+		players: newPlayerList(2048),
 	}
 }
 

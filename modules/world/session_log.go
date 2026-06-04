@@ -40,7 +40,7 @@ type SessionLog struct {
 // the SAME tick's batch (matches TS source ordering at World.ts:428-442).
 func (s *Server) processSessionLogs() {
 	if s.currentTick > 0 && s.currentTick%PlayerCoordLogRate == 0 {
-		for _, p := range s.playerLoop {
+		for p := range s.players.all() {
 			// AddSessionLog reacquires sessionLogsMu; do NOT hold it across
 			// this loop. Arc 18 R1.
 			p.AddSessionLog(LoggerEventTypeModerator, "Server check in")

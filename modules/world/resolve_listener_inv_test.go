@@ -39,8 +39,7 @@ func TestResolveListenerInvPlayerSourceMatch(t *testing.T) {
 			42: inventory.New(42, 28, inventory.StackNormal),
 		},
 	}
-	s.players[target.slot] = target
-	s.playerLoop = append(s.playerLoop, target)
+	s.players.set(target.slot, target)
 	want := target.invs[42]
 
 	got := resolveListenerInv(s, InventoryListener{Type: 42, Source: 98765})
@@ -79,8 +78,7 @@ func TestResolveListenerInvPlayerSourceNullInv(t *testing.T) {
 		// invs left nil — Go map reads on a nil map return the zero
 		// value, so target.invs[42] is nil.
 	}
-	s.players[target.slot] = target
-	s.playerLoop = append(s.playerLoop, target)
+	s.players.set(target.slot, target)
 
 	got := resolveListenerInv(s, InventoryListener{Type: 42, Source: 98765})
 

@@ -310,7 +310,7 @@ func TestHandleReportAbuseRangeBoundaryEdges(t *testing.T) {
 }
 
 // reportAbuseSetupWithOnlineOffender extends reportAbuseSetup by also
-// adding an offender Player to the server's playerLoop with the given
+// adding an offender Player to the server's players with the given
 // username. Returns reporter, offender, and recorder.
 func reportAbuseSetupWithOnlineOffender(t *testing.T, offenderName string) (*Player, *Player, *recordingBridges) {
 	t.Helper()
@@ -320,7 +320,12 @@ func reportAbuseSetupWithOnlineOffender(t *testing.T, offenderName string) (*Pla
 	offender.client.server = s
 	offender.username = offenderName
 	offender.active = true
-	s.playerLoop = append(s.playerLoop, offender)
+	slot := s.players.next()
+	if slot == -1 {
+		t.Fatal("reportAbuseSetupWithOnlineOffender: world full")
+	}
+	offender.slot = slot
+	s.players.set(slot, offender)
 	return reporter, offender, rec
 }
 

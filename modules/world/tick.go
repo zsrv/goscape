@@ -194,9 +194,13 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 	}
 }
 
-// snapshotPlayers returns a stable copy of s.playerLoop for one tick pass
-// to iterate: passes like processLogouts splice players out of the live
-// slice mid-iteration, so ranging playerLoop directly would skip entries.
+// snapshotPlayers returns a stable copy of s.players for one tick pass
+// to iterate: passes like processLogouts remove players from the live
+// registry mid-iteration, so ranging players.all() directly would skip
+// entries. (PlayerList.all() iterates over the entities array by index;
+// a concurrent remove zeroes the slot, and the iterator would skip that
+// slot on re-entry — but snapshotting is simpler and preserves the
+// existing tick-goroutine ownership invariant.)
 //
 // The copy lands in s.playerScratch, reused across passes — pre-PERF-1
 // each of the 13 passes allocated a fresh slice, ~13 allocs/tick scaling
@@ -206,7 +210,10 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 func (s *Server) snapshotPlayers() []*Player {
 	s.playersMu.RLock()
 	prev := len(s.playerScratch)
-	s.playerScratch = append(s.playerScratch[:0], s.playerLoop...)
+	s.playerScratch = s.playerScratch[:0]
+	for p := range s.players.all() {
+		s.playerScratch = append(s.playerScratch, p)
+	}
 	s.playersMu.RUnlock()
 	// Nil any tail left over from a previous, larger snapshot so departed
 	// players aren't pinned by the scratch's spare capacity. Invariant:

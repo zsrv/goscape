@@ -246,7 +246,8 @@ func TestResumeAfterDelayExpires(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	s.runScript(buildDelayScript(), p, nil, script.TriggerProc, true, nil, nil)
 	if p.activeScript == nil {
@@ -270,7 +271,8 @@ func TestResumedScriptEmitsMessageGame(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	received := drainConn(t, cc)
 	s.runScript(buildDelayScript(), p, nil, script.TriggerProc, true, nil, nil)
@@ -310,7 +312,8 @@ func TestQueueFiresAtDelayExpiry(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	received := drainConn(t, cc)
 	p.EnqueueScriptArgs(0xAAAA, 1, nil, nil, script.QueueNormal)
@@ -350,7 +353,8 @@ func TestQueueZeroDelayFiresSameTick(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	received := drainConn(t, cc)
 	p.EnqueueScriptArgs(0xBBBB, 0, nil, nil, script.QueueNormal)
@@ -375,7 +379,8 @@ func TestQueueMultipleEntriesPreservesOrder(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	received := drainConn(t, cc)
 	p.EnqueueScriptArgs(0xCCC1, 0, nil, nil, script.QueueNormal)
@@ -937,7 +942,8 @@ func TestStrongQueueWaitsForCanAccessWhileDelayed(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	// Force the player into a busy (delayed) state.
 	p.delayed = true
@@ -982,7 +988,8 @@ func TestSetTimerFiresAfterInterval(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	// Register a timer at interval=5, starting at current tick 0.
 	p.SetTimer(0xA1, 5, nil, nil, script.TimerNormal)
@@ -1030,7 +1037,8 @@ func TestProcessPlayerTimers_NormalFiresBeforeSoftWithinTick(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	p.SetTimer(10, 1, nil, nil, script.TimerSoft)
 	p.SetTimer(20, 1, nil, nil, script.TimerNormal)
@@ -1075,7 +1083,10 @@ func TestProcessPlayerTimers_NormalAcrossAllPlayersBeforeSoftOnAny(t *testing.T)
 	pb, _ := newTestPlayer(t)
 	pb.client.server = s
 	pb.client.encryptor = io2.New([4]uint32{5, 6, 7, 8})
-	s.playerLoop = append(s.playerLoop, pa, pb)
+	pa.slot = 1
+	s.players.set(1, pa)
+	pb.slot = 2
+	s.players.set(2, pb)
 
 	pa.SetTimer(30, 1, nil, nil, script.TimerSoft)
 	pb.SetTimer(40, 1, nil, nil, script.TimerNormal)
@@ -1116,7 +1127,8 @@ func TestSoftTimerFiresWhileDelayed(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 	p.delayed = true
 	p.delayedUntil = s.currentTick + 99
 
@@ -1149,7 +1161,8 @@ func TestNormalTimerBlockedByModalThenFires(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	p.SetTimer(0xD4, 1, nil, nil, script.TimerNormal)
 	p.modalState = modalStateMain // not delayed, but a modal is open → !canAccess
@@ -1188,7 +1201,8 @@ func TestClearTimerStopsFiring(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	p.SetTimer(0xC3, 1, nil, nil, script.TimerNormal)
 	p.ClearTimer(0xC3)
@@ -1289,7 +1303,8 @@ func TestNormalQueueWaitsForIdle(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	p.delayed = true
 	p.delayedUntil = s.currentTick + 99
@@ -1339,7 +1354,7 @@ func TestOpNpc1FiresScriptAndEmitsSay(t *testing.T) {
 
 	// Wire rsbuf so HasNpc(p.slot, nid=0) returns true.
 	p.slot = 1
-	s.players[1] = p
+	s.players.set(1, p)
 	rsbufSeesNpc(t, s, 1, 0)
 
 	// Build the OPNPC1 payload (p2(slot=0)) and fire it through the handler.
@@ -1407,7 +1422,7 @@ func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
 
 	// Wire rsbuf so HasNpc(p.slot, nid=0) returns true.
 	p.slot = 1
-	s.players[1] = p
+	s.players.set(1, p)
 	rsbufSeesNpc(t, s, 1, 0)
 
 	// Fire OPNPC1 click.
@@ -1554,7 +1569,8 @@ func TestProcessPlayerQueueDeliversAllArgs(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	received := drainConn(t, cc)
 	// Enqueue with 2 int args via the new parallel-slice signature.
@@ -1837,7 +1853,8 @@ func TestSuspendedThenWorldSuspendedNoDoubleFire(t *testing.T) {
 
 	// Register player so processActiveScripts iterates over it.
 	s.playersMu.Lock()
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 	s.playersMu.Unlock()
 
 	// processActiveScripts must NOT re-fire: gate is Execution == Suspended only.
@@ -1998,7 +2015,8 @@ func TestTimersSuppressedWhileLoggingOut(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	p.SetTimer(0xE5, 1, nil, nil, script.TimerSoft) // soft: fires even while busy
 	p.loggingOut = true
@@ -2024,7 +2042,8 @@ func TestPreventLogoutMessageEmitted(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 
 	s.currentTick = 100
 	p.lastResponse = s.currentTick // avoid timeout force-logout

@@ -334,6 +334,7 @@ func newTestServer(t *testing.T) *Server {
 		relayActionQueue: make(chan func(), 64),
 		bridgesCtx:       bridgesCtx,
 		bridgesCancel:    bridgesCancel,
+		players:          newPlayerList(2048),
 	}
 	// R4 (Arc 18): pmCount is atomic.Uint32; init to 1 per TS World.ts:167.
 	s.pmCount.Store(1)
@@ -381,11 +382,11 @@ func TestAddPlayerAssignsSlot(t *testing.T) {
 	if p.slot < 1 || p.slot > 2047 {
 		t.Errorf("slot out of range: %d", p.slot)
 	}
-	if s.players[p.slot] != p {
+	if s.players.get(p.slot) != p {
 		t.Error("players[slot] should point to p")
 	}
-	if len(s.playerLoop) != 1 {
-		t.Errorf("playerLoop len: got %d, want 1", len(s.playerLoop))
+	if s.players.count != 1 {
+		t.Errorf("players.count: got %d, want 1", s.players.count)
 	}
 }
 
@@ -399,11 +400,11 @@ func TestRemovePlayerClearsSlot(t *testing.T) {
 
 	s.removePlayerInternal(p)
 
-	if s.players[slot] != nil {
+	if s.players.get(slot) != nil {
 		t.Error("players[slot] should be nil after remove")
 	}
-	if len(s.playerLoop) != 0 {
-		t.Errorf("playerLoop len: got %d, want 0", len(s.playerLoop))
+	if s.players.count != 0 {
+		t.Errorf("players.count: got %d, want 0", s.players.count)
 	}
 }
 
@@ -439,7 +440,7 @@ func TestAddPlayerWorldFull(t *testing.T) {
 	s := newTestServer(t)
 
 	for i := 1; i <= 2047; i++ {
-		s.players[i] = &Player{slot: i}
+		s.players.set(i, &Player{slot: i})
 	}
 
 	c, _ := newTestClient(t)
@@ -466,7 +467,7 @@ func TestAddPlayerConcurrentSafety(t *testing.T) {
 
 	for range 50 {
 		s.playersMu.RLock()
-		_ = len(s.playerLoop)
+		_ = s.players.count
 		s.playersMu.RUnlock()
 	}
 
@@ -513,14 +514,14 @@ func TestProcessLoginsDrainsNewPlayers(t *testing.T) {
 
 	s.playersMu.RLock()
 	queued := len(s.newPlayers)
-	inLoop := len(s.playerLoop)
+	inPlayers := s.players.count
 	s.playersMu.RUnlock()
 
 	if queued != 0 {
 		t.Errorf("newPlayers: got %d, want 0", queued)
 	}
-	if inLoop != 1 {
-		t.Errorf("playerLoop: got %d, want 1", inLoop)
+	if inPlayers != 1 {
+		t.Errorf("players.count: got %d, want 1", inPlayers)
 	}
 	if p.slot < 1 {
 		t.Errorf("slot: got %d, want >= 1", p.slot)
@@ -530,9 +531,8 @@ func TestProcessLoginsDrainsNewPlayers(t *testing.T) {
 func TestProcessLoginsWorldFullRejectsCleanly(t *testing.T) {
 	s := newTestServer(t)
 
-	for i := 1; i < len(s.players); i++ {
-		s.players[i] = &Player{slot: i}
-		s.playerLoop = append(s.playerLoop, s.players[i])
+	for i := 1; i < len(s.players.entities); i++ {
+		s.players.set(i, &Player{slot: i})
 	}
 
 	c, clientConn := newTestClient(t)
@@ -579,10 +579,10 @@ func TestProcessLogoutsTimeoutMarksLoggingOut(t *testing.T) {
 		t.Error("loggingOut should be true after lastResponse timeout")
 	}
 	s.playersMu.RLock()
-	still := len(s.playerLoop)
+	still := s.players.count
 	s.playersMu.RUnlock()
 	if still != 0 {
-		t.Errorf("playerLoop should be empty after logout, got %d", still)
+		t.Errorf("players.count should be 0 after logout, got %d", still)
 	}
 }
 
@@ -601,6 +601,71 @@ func TestProcessInUpdatesLastConnectedWhenGameState(t *testing.T) {
 
 	if p.lastConnected != 42 {
 		t.Errorf("lastConnected: got %d, want 42", p.lastConnected)
+	}
+}
+
+// TestTickIterationPidOrder pins that s.players.all() yields players in
+// ascending pid (slot) order regardless of insertion order.
+//
+// TS World.ts at 244 replaces the IP-bucketed playerLoop HashTable with
+// PlayerList; per-tick processing iterates in pid order (EntityList.ts:37-48).
+// Closes PORTING-EXCEPTION (gap-db-datastruct-4).
+func TestTickIterationPidOrder(t *testing.T) {
+	s := newTestServer(t)
+
+	c1, _ := newTestClient(t)
+	p1 := newPlayer(c1)
+	c2, _ := newTestClient(t)
+	p2 := newPlayer(c2)
+	c3, _ := newTestClient(t)
+	p3 := newPlayer(c3)
+
+	// Add three players; they occupy pids 1, 2, 3 (round-robin from a fresh list).
+	if err := s.addPlayer(p1); err != nil {
+		t.Fatalf("addPlayer p1: %v", err)
+	}
+	if err := s.addPlayer(p2); err != nil {
+		t.Fatalf("addPlayer p2: %v", err)
+	}
+	if err := s.addPlayer(p3); err != nil {
+		t.Fatalf("addPlayer p3: %v", err)
+	}
+
+	// Remove p1 so the next login can claim a higher pid than p2/p3.
+	// (headless round-robin wraps, so remove + re-add gives pid > 3)
+	s.removePlayerInternal(p1)
+
+	c4, _ := newTestClient(t)
+	p4 := newPlayer(c4)
+	if err := s.addPlayer(p4); err != nil {
+		t.Fatalf("addPlayer p4 (re-login): %v", err)
+	}
+
+	// p4 should have been inserted after p3 (pids 2 and 3 are occupied;
+	// the round-robin resumes from lastUsedIndex+1 which is > 3).
+	if p4.slot <= p2.slot || p4.slot <= p3.slot {
+		t.Fatalf("insertion order != pid order: p2.slot=%d p3.slot=%d p4.slot=%d — want p4 > p2 and p4 > p3", p2.slot, p3.slot, p4.slot)
+	}
+
+	// s.players.all() must yield in ascending pid order: p2, p3, p4.
+	var got []*Player
+	for p := range s.players.all() {
+		got = append(got, p)
+	}
+	want := []*Player{p2, p3, p4}
+	if len(got) != len(want) {
+		t.Fatalf("all() length: got %d, want %d", len(got), len(want))
+	}
+	for i, p := range got {
+		if p != want[i] {
+			t.Errorf("all()[%d]: got slot %d, want slot %d", i, p.slot, want[i].slot)
+		}
+	}
+	// Verify strictly ascending pid order.
+	for i := 1; i < len(got); i++ {
+		if got[i].slot <= got[i-1].slot {
+			t.Errorf("pid order violated at index %d: slot %d <= slot %d", i, got[i].slot, got[i-1].slot)
+		}
 	}
 }
 
@@ -738,17 +803,19 @@ func TestLookupPlayerByUIDSkipsInactive(t *testing.T) {
 }
 
 // setPlayerCountForTest is a test-only helper that fills the first playerCount
-// slots of s.players with non-nil placeholder entries, zeroing the rest.
-// s.players is a fixed-size [2048]*Player array, so we iterate-and-assign
-// rather than reassigning the field.
+// slots of s.players with non-nil placeholder entries, clearing the rest.
+// Used by TestScaleByPlayerCountFormula to simulate a given active-player count.
 func setPlayerCountForTest(t *testing.T, s *Server, playerCount int) {
 	t.Helper()
-	for i := range s.players {
-		if i < playerCount {
-			s.players[i] = &Player{}
-		} else {
-			s.players[i] = nil
+	// Clear all existing entries first.
+	for i := range s.players.entities {
+		if s.players.entities[i] != nil {
+			s.players.remove(i)
 		}
+	}
+	// Fill slots 1..playerCount with placeholder entries.
+	for i := 1; i <= playerCount && i < len(s.players.entities); i++ {
+		s.players.set(i, &Player{slot: i})
 	}
 }
 
@@ -771,7 +838,7 @@ func TestScaleByPlayerCountFormula(t *testing.T) {
 		{0, 0, 0},       // zero rate
 		{0, -1, -1},     // negative rate passes through
 	}
-	s := &Server{}
+	s := &Server{players: newPlayerList(2048)}
 	for _, c := range cases {
 		setPlayerCountForTest(t, s, c.playerCount)
 		got := s.scaleByPlayerCount(c.rate)
@@ -846,8 +913,8 @@ func TestLookupPlayerBySlot_Found(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	slot := 5
-	s.players[slot] = p
-	t.Cleanup(func() { s.players[slot] = nil })
+	s.players.set(slot, p)
+	t.Cleanup(func() { s.players.remove(slot) })
 
 	got := s.LookupPlayerBySlot(slot)
 	if got != p {
@@ -856,16 +923,16 @@ func TestLookupPlayerBySlot_Found(t *testing.T) {
 }
 
 // TestLookupPlayerBySlot_OutOfRange returns nil for indices outside
-// [0, len(s.players)).
+// [0, len(s.players.entities)).
 func TestLookupPlayerBySlot_OutOfRange(t *testing.T) {
 	s := newTestServer(t)
 	if got := s.LookupPlayerBySlot(-1); got != nil {
 		t.Errorf("LookupPlayerBySlot(-1): got %v, want nil", got)
 	}
-	if got := s.LookupPlayerBySlot(len(s.players)); got != nil {
+	if got := s.LookupPlayerBySlot(len(s.players.entities)); got != nil {
 		t.Errorf("LookupPlayerBySlot(len): got %v, want nil", got)
 	}
-	if got := s.LookupPlayerBySlot(len(s.players) + 100); got != nil {
+	if got := s.LookupPlayerBySlot(len(s.players.entities) + 100); got != nil {
 		t.Errorf("LookupPlayerBySlot(len+100): got %v, want nil", got)
 	}
 }
@@ -885,7 +952,7 @@ func TestLookupPlayerBySlot_EmptySlotReturnsNil(t *testing.T) {
 // (logoutRequests.has(username) → reply byte 5).
 func TestIsUsernameLoggingOut_HitWhenPlayerLoggingOut(t *testing.T) {
 	s := newTestServer(t)
-	s.players[1] = &Player{username: "bob", loggingOut: true}
+	s.players.set(1, &Player{username: "bob", loggingOut: true})
 
 	if !s.isUsernameLoggingOut("bob") {
 		t.Error("isUsernameLoggingOut(bob): got false, want true")
@@ -898,7 +965,7 @@ func TestIsUsernameLoggingOut_HitWhenPlayerLoggingOut(t *testing.T) {
 // pre-RPC check (which only fires for in-flight logouts on THIS world).
 func TestIsUsernameLoggingOut_MissWhenLoggingOutFalse(t *testing.T) {
 	s := newTestServer(t)
-	s.players[1] = &Player{username: "bob", loggingOut: false}
+	s.players.set(1, &Player{username: "bob", loggingOut: false})
 
 	if s.isUsernameLoggingOut("bob") {
 		t.Error("isUsernameLoggingOut(bob, loggingOut=false): got true, want false")
@@ -909,7 +976,7 @@ func TestIsUsernameLoggingOut_MissWhenLoggingOutFalse(t *testing.T) {
 // keyed by safe-name and ignores other logging-out players.
 func TestIsUsernameLoggingOut_MissWhenNameDiffers(t *testing.T) {
 	s := newTestServer(t)
-	s.players[1] = &Player{username: "alice", loggingOut: true}
+	s.players.set(1, &Player{username: "alice", loggingOut: true})
 
 	if s.isUsernameLoggingOut("bob") {
 		t.Error("isUsernameLoggingOut(bob) with only alice logging out: got true, want false")

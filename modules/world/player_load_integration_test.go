@@ -51,7 +51,7 @@ func TestProcessLogins_NilSavePayload_BootstrapsFresh(t *testing.T) {
 	if p.slot < 1 || p.slot > 2047 {
 		t.Errorf("player not added: slot=%d", p.slot)
 	}
-	if s.players[p.slot] != p {
+	if s.players.get(p.slot) != p {
 		t.Error("players[slot] not set")
 	}
 	if p.invs == nil {
@@ -74,7 +74,7 @@ func TestProcessLogins_ValidSavePayload_LoadsSuccessfully(t *testing.T) {
 	if p.slot < 1 || p.slot > 2047 {
 		t.Errorf("player not added: slot=%d", p.slot)
 	}
-	if s.players[p.slot] != p {
+	if s.players.get(p.slot) != p {
 		t.Error("players[slot] not set")
 	}
 	if p.invs == nil {
@@ -102,7 +102,7 @@ func TestProcessLogins_CorruptSavePayload_FallsBackToBootstrap(t *testing.T) {
 	if p.slot < 1 || p.slot > 2047 {
 		t.Errorf("player must still be added on corrupt SAV: slot=%d", p.slot)
 	}
-	if s.players[p.slot] != p {
+	if s.players.get(p.slot) != p {
 		t.Error("players[slot] not set")
 	}
 	if p.invs == nil {
@@ -195,7 +195,7 @@ func TestLoadSave_CombatLevelFlowsToHuntTooStrongGate(t *testing.T) {
 	s := newTestServer(t)
 	dst.slot = 1
 	dst.active = true
-	s.players[dst.slot] = dst
+	s.players.set(dst.slot, dst)
 	zn := s.zoneMap.Get(dst.level, dst.x, dst.z)
 	dst.zoneListElement = zn.EnterPlayer(dst, nil)
 

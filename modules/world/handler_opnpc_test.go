@@ -31,7 +31,7 @@ func makeOpNpcFixture(t *testing.T) (*Server, *Player, *Npc) {
 	p.x, p.z, p.level = 99, 100, 0
 
 	p.slot = 1
-	s.players[1] = p
+	s.players.set(1, p)
 	s.rsbuf.AddPlayer(1)
 	s.rsbuf.SubscribeNpcForTest(1, int32(npc.nid)) // nid=1
 
@@ -259,7 +259,7 @@ func TestHandleOpNpc1NotVisibleClearsPendingAction(t *testing.T) {
 	p2.client.server = s
 	p2.client.encryptor = io2.New([4]uint32{10, 11, 12, 13})
 	p2.slot = 2
-	s.players[2] = p2
+	s.players.set(2, p2)
 	s.rsbuf.AddPlayer(2) // registered but NOT subscribed to npc nid=1
 	p2.target = p2       // sentinel
 
@@ -687,8 +687,8 @@ func TestHandleOpNpcUHappyPathWithOtherPlayerInv(t *testing.T) {
 	inv := inventory.New(93, 28, inventory.StackNormal)
 	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
 	other.invs[93] = inv
-	s.players[2] = other
-	s.playerLoop = append(s.playerLoop, other)
+	other.slot = 2
+	s.players.set(2, other)
 
 	p.invListenOnCom(93, 149, 0xDEADBEEF)
 
@@ -842,7 +842,7 @@ func TestHandleOpNpcNpcNotVisibleRejected(t *testing.T) {
 	p2.client.server = s
 	p2.client.encryptor = io2.New([4]uint32{10, 11, 12, 13})
 	p2.slot = 2
-	s.players[2] = p2
+	s.players.set(2, p2)
 	s.rsbuf.AddPlayer(2) // registered but NOT subscribed to npc nid=1
 
 	received := drainConn(t, cc2)
@@ -866,7 +866,7 @@ func TestHandleOpNpcTNpcNotVisibleRejected(t *testing.T) {
 	p2.client.server = s
 	p2.client.encryptor = io2.New([4]uint32{14, 15, 16, 17})
 	p2.slot = 2
-	s.players[2] = p2
+	s.players.set(2, p2)
 	s.rsbuf.AddPlayer(2)
 
 	_ = handleOpNpcT(p2, p2x2Payload(1, 7777))
@@ -884,7 +884,7 @@ func TestHandleOpNpcUNpcNotVisibleRejected(t *testing.T) {
 	p2.client.server = s
 	p2.client.encryptor = io2.New([4]uint32{18, 19, 20, 21})
 	p2.slot = 2
-	s.players[2] = p2
+	s.players.set(2, p2)
 	s.rsbuf.AddPlayer(2)
 	// Seed component so the component gate passes; rsbuf-visibility gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{

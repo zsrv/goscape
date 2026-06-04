@@ -97,29 +97,20 @@ type Server struct {
 	// (Engine-TS/src/engine/World.ts:177).
 	deviceLoginCache *ttlcache.Cache[string, int]
 
-	players [2048]*Player
-	// PORTING-EXCEPTION (gap-db-datastruct-4): playerLoop is a flat
-	// []*Player slice; TS World.playerLoop (Engine-TS/src/engine/World.ts:146)
-	// is an IP-bucketed HashTable (TS HashTable.ts) keyed by IP-prefix
-	// hashes that drives per-IP login concurrency caps via the bucket
-	// count returned at TS World.ts:917-932. goscape's per-tick player
-	// iteration walks this flat slice in insertion order; the per-IP
-	// concurrency cap is implemented separately via deviceLoginCache
-	// (server.go:99, ttlcache keyed by device hash, see NAI-... around
-	// loginDeviceAttempts above) which closes the operationally-relevant
-	// bucket-count gap without requiring the HashTable data structure.
-	//
-	// Reverting to a HashTable would re-key every site that touches
-	// playerLoop (~25+ call sites across server.go, tick.go,
-	// player_info.go, friends_smoke_test.go) for no behavioural change
-	// at the wire boundary. Documented; deferred indefinitely. See
-	// PORTING.md.
-	playerLoop []*Player
+	// players is the 244 PlayerList: pid-keyed registry with round-robin
+	// allocation. Replaces the 225-era flat players [2048]*Player array
+	// and playerLoop []*Player insertion-order slice.
+	// TS World.ts:244 uses a single EntityList/PlayerList for both slot
+	// lookup (getPlayer) and ordered iteration (playerLoop.all() → pid order).
+	// Closes PORTING-EXCEPTION (gap-db-datastruct-4).
+	// TS refs: login insert World.ts:940-961, removePlayer World.ts:1643-1648,
+	// getNextPid World.ts:1758-1773, getTotalPlayers World.ts:1730-1732.
+	players    *playerList
 	newPlayers []*Player // guarded by playersMu; drained by processLogins
 	playersMu  sync.RWMutex
 	// playerScratch is the reusable snapshot buffer behind snapshotPlayers
 	// (tick.go). Tick-goroutine-only: the per-tick passes that snapshot
-	// playerLoop run strictly sequentially on the tick goroutine, so one
+	// players run strictly sequentially on the tick goroutine, so one
 	// buffer serves them all. Off-tick snapshotters (broadcastRebuildStaff
 	// on the rebuild worker goroutine, saveAllOnShutdown) must keep
 	// allocating their own copies.
@@ -406,6 +397,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		rebuildReq:       make(chan struct{}, 1),
 		rebuildResult:    make(chan rebuildResult, 1),
 		relayActionQueue: make(chan func(), 64),
+		players:          newPlayerList(2048),
 
 		// Login rate-limit caches. TTLs mirror TS World.ts:176-177.
 		// Address: 60s window, Device: 15s window. Allocated even when
@@ -1243,28 +1235,35 @@ func (s *Server) addPlayer(p *Player) error {
 	s.playersMu.Lock()
 	defer s.playersMu.Unlock()
 
-	for i := 1; i < len(s.players); i++ {
-		if s.players[i] == nil {
-			p.slot = i
-			p.uid = composeUID(p.username37, p.slot) // NAI-113: TS World.ts:937
-			s.players[i] = p
-			s.playerLoop = append(s.playerLoop, p)
-			p.active = true
-			// Seed the default-south orientation now that p.x/p.z are set, so
-			// the always-forced FACE_COORD low-def orients a freshly-logged-in
-			// player south rather than the client's north-east default.
-			p.unfocus()
-			if s.zoneMap != nil {
-				z := s.zoneMap.Get(p.level, p.x, p.z)
-				p.zoneListElement = z.EnterPlayer(p, s.zoneMap.Grid(p.level))
-			}
-			if s.rsbuf != nil {
-				s.rsbuf.AddPlayer(int32(p.slot))
-			}
-			return nil
-		}
+	// Derive the preferred pid window from the client's remote address.
+	// TS World.ts:920-924: getNextPid(isClientConnected(player) ? player.client : null).
+	// Connected clients pass their remote address for IP-windowed allocation;
+	// headless/bot logins (no client) fall back to plain round-robin.
+	// TS World.ts:1758-1773.
+	var remoteAddr string
+	if p.client != nil && p.client.conn != nil {
+		remoteAddr = p.client.conn.RemoteAddr().String()
 	}
-	return errWorldFull
+	pid := getNextPid(s.players, remoteAddr)
+	if pid == -1 {
+		return errWorldFull
+	}
+	p.slot = pid
+	p.uid = composeUID(p.username37, p.slot) // NAI-113: TS World.ts:956
+	s.players.set(pid, p)
+	p.active = true
+	// Seed the default-south orientation now that p.x/p.z are set, so
+	// the always-forced FACE_COORD low-def orients a freshly-logged-in
+	// player south rather than the client's north-east default.
+	p.unfocus()
+	if s.zoneMap != nil {
+		z := s.zoneMap.Get(p.level, p.x, p.z)
+		p.zoneListElement = z.EnterPlayer(p, s.zoneMap.Grid(p.level))
+	}
+	if s.rsbuf != nil {
+		s.rsbuf.AddPlayer(int32(p.slot))
+	}
+	return nil
 }
 
 // bareHost strips the trailing ":port" from a `host:port` form returned
@@ -1319,18 +1318,11 @@ func (s *Server) deviceLoginRateLimitExceeded(uid uint32, remoteAddr string) boo
 	return false
 }
 
-// getTotalPlayers returns the count of live (non-nil) players in the
-// server's player slot table. Lock-free read — matches existing read
-// patterns at npc_hunt.go:116, handler_opnpc.go:17 (playersMu guards
-// writes only).
+// getTotalPlayers returns the count of live players.
+// TS World.ts:1730-1732: return this.players.count.
+// Lock-free read — playersMu guards writes only.
 func (s *Server) getTotalPlayers() int {
-	n := 0
-	for _, p := range s.players {
-		if p != nil {
-			n++
-		}
-	}
-	return n
+	return s.players.count
 }
 
 // isUsernameLoggingOut reports whether a player slot is occupied by an
@@ -1339,12 +1331,9 @@ func (s *Server) getTotalPlayers() int {
 // (World.ts:2194) performs against its in-flight-logout set; goscape
 // stores the equivalent signal on Player.loggingOut (player.go:310,
 // flipped in world_state_ops.go:101 / tick.go:342,350 / reboot.go:56).
-// Lock-free read — same convention as getTotalPlayers above.
+// Lock-free read — playersMu guards writes only.
 func (s *Server) isUsernameLoggingOut(safeName string) bool {
-	for _, p := range s.players {
-		if p == nil {
-			continue
-		}
+	for p := range s.players.all() {
 		if p.username == safeName && p.loggingOut {
 			return true
 		}
@@ -1366,7 +1355,7 @@ func (s *Server) scaleByPlayerCount(rate int) int {
 	return ((4000 - playerCount) * rate) / 4000
 }
 
-// removePlayerInternal performs the slot/zone/playerLoop cleanup for p.
+// removePlayerInternal performs the slot/zone/players cleanup for p.
 // Must only be called from the tick goroutine.
 //
 // Callers should use removePlayerOnTick or removePlayerOnDisconnect,
@@ -1384,7 +1373,7 @@ func (s *Server) removePlayerInternal(p *Player) {
 	s.playersMu.Lock()
 	defer s.playersMu.Unlock()
 
-	if p.slot < 1 || p.slot >= len(s.players) || s.players[p.slot] != p {
+	if p.slot < 1 || p.slot >= len(s.players.entities) || s.players.get(p.slot) != p {
 		return
 	}
 	if s.zoneMap != nil && p.zoneListElement != nil {
@@ -1400,9 +1389,10 @@ func (s *Server) removePlayerInternal(p *Player) {
 		// observer decrement.
 		s.rsbuf.RemovePlayer(int32(p.slot))
 	}
-	s.players[p.slot] = nil
+	// TS World.ts:1641: this.players.remove(player.pid). TS EntityList.ts:70-77.
+	s.players.remove(p.slot)
 
-	// world-ops-2: TS World.removePlayer (World.ts:1601) calls
+	// world-ops-2: TS World.removePlayer (World.ts:1642) calls
 	// changeNpcCollision(player.width, player.x, player.z, player.level,
 	// false) unconditionally after deleting the slot, clearing the
 	// FlagBlockNPCs that SetVisibility(Default) (player.go:674) seeds
@@ -1410,13 +1400,6 @@ func (s *Server) removePlayerInternal(p *Player) {
 	// init (matching the goscape hardcode in SetVisibility).
 	if s.gamemap != nil {
 		s.gamemap.ChangeNPCCollision(1, p.x, p.z, p.level, false)
-	}
-
-	for i, lp := range s.playerLoop {
-		if lp == p {
-			s.playerLoop = append(s.playerLoop[:i], s.playerLoop[i+1:]...)
-			break
-		}
 	}
 }
 
@@ -1518,11 +1501,13 @@ const playerSaveFlushTimeout = bridgeCallTimeout + 2*time.Second
 // operator stops the server lost all progress since the last autosave.
 func (s *Server) saveAllOnShutdown() {
 	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
+	var players []*Player
+	for p := range s.players.all() {
+		players = append(players, p)
+	}
 	s.playersMu.RUnlock()
 	for _, p := range players {
-		if p != nil && p.username != "" {
+		if p.username != "" {
 			s.removePlayerOnTick(p)
 		}
 	}
@@ -1549,7 +1534,7 @@ const PlayerSaveRate = 1500
 
 // autosavePlayers fires a best-effort PlayerAutosave RPC for each
 // active player. Must only be called from the tick goroutine
-// (reads s.playerLoop and captures per-player Save() bytes on-tick
+// (reads s.players and captures per-player Save() bytes on-tick
 // for goroutine-safety).
 //
 // Deviation NAI-PLAYERLOADING-D-AUTOSAVE-FIRE-AND-FORGET: per-call
@@ -1559,8 +1544,8 @@ func (s *Server) autosavePlayers() {
 	if s.loginClient == nil {
 		return
 	}
-	for _, p := range s.playerLoop {
-		if p == nil || p.username == "" {
+	for p := range s.players.all() {
+		if p.username == "" {
 			continue
 		}
 		save := p.Save(s.invTypes, s.varpTypes)
@@ -1592,7 +1577,7 @@ func (s *Server) TrackZone(z *zone.Zone) { s.zonesTracking[z] = struct{}{} }
 
 // LookupPlayerByUID returns the logged-in player whose uid field matches
 // the argument, or nil if no such player is active. Intended to be
-// called from the tick goroutine (playerLoop is unguarded there).
+// called from the tick goroutine (players is unguarded there).
 // Implements the script.PlayerLookup interface consumed by
 // FINDUID / P_FINDUID (S7a).
 //
@@ -1608,8 +1593,8 @@ func (s *Server) LookupPlayerByUID(uid int) script.ActivePlayer {
 	// composeUID output) failed every p_finduid call after the int32-cast
 	// PushInt fix landed.
 	target := int32(uid)
-	for _, p := range s.playerLoop {
-		if p == nil || !p.active {
+	for p := range s.players.all() {
+		if !p.active {
 			continue
 		}
 		if int32(p.uid) == target {
@@ -1622,15 +1607,15 @@ func (s *Server) LookupPlayerByUID(uid int) script.ActivePlayer {
 // LookupPlayerByUsername returns the logged-in player whose username
 // field matches the argument exactly, or nil if none is active.
 // Mirrors TS World.getPlayerByUsername (World.ts:1675-1689). Intended
-// to be called from the tick goroutine (playerLoop is unguarded there).
+// to be called from the tick goroutine (players is unguarded there).
 //
 // Match is case-sensitive on the goscape username field (which is set
 // at login from the client-supplied display name). TS keys on
 // username37 (base37-encoded) but the inputs to this lookup are
 // already strings in goscape's call sites.
 func (s *Server) LookupPlayerByUsername(name string) *Player {
-	for _, p := range s.playerLoop {
-		if p == nil || !p.active {
+	for p := range s.players.all() {
+		if !p.active {
 			continue
 		}
 		if p.username == name {
@@ -1645,10 +1630,7 @@ func (s *Server) LookupPlayerByUsername(name string) *Player {
 // World.getPlayer(slot). Used by OpPlayer handlers to resolve a
 // message's PlayerSlot to a target Player.
 func (s *Server) LookupPlayerBySlot(slot int) *Player {
-	if slot < 0 || slot >= len(s.players) {
-		return nil
-	}
-	return s.players[slot]
+	return s.players.get(slot)
 }
 
 // ZonePlayers returns all valid players in the zone at (level, zoneX, zoneZ).

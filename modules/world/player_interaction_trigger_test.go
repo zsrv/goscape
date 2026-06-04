@@ -266,8 +266,8 @@ func TestFireApTriggerPlayerClearsWaypointsOnAttackPath(t *testing.T) {
 		InstructionCount: 1,
 	})
 
-	s.players[target.slot] = target
-	s.players[clicker.slot] = clicker
+	s.players.set(target.slot, target)
+	s.players.set(clicker.slot, clicker)
 
 	fireApTriggerPlayer(clicker, s, target)
 
@@ -319,8 +319,8 @@ func TestFireApTriggerPlayer_ApRangeCalled_BindsToClicker(t *testing.T) {
 		InstructionCount: 3,
 	})
 
-	s.players[target.slot] = target
-	s.players[clicker.slot] = clicker
+	s.players.set(target.slot, target)
+	s.players.set(clicker.slot, clicker)
 
 	fireApTriggerPlayer(clicker, s, target)
 
@@ -371,8 +371,8 @@ func TestTryInteract_ApPlayer_SameTickRetryActivates(t *testing.T) {
 		InstructionCount: 3,
 	})
 
-	s.players[target.slot] = target
-	s.players[clicker.slot] = clicker
+	s.players.set(target.slot, target)
+	s.players.set(clicker.slot, clicker)
 
 	// Place clicker within AP range (5 tiles) but outside operable range (>1).
 	// Default apRange=10; 5 tiles satisfies inApproachDistance but not
@@ -441,8 +441,8 @@ func TestApTriggerPlayer_SameTickRetry_FullCycle(t *testing.T) {
 		InstructionCount: 3,
 	})
 
-	s.players[target.slot] = target
-	s.players[clicker.slot] = clicker
+	s.players.set(target.slot, target)
+	s.players.set(clicker.slot, clicker)
 
 	clicker.x = 3094
 	clicker.z = 3106

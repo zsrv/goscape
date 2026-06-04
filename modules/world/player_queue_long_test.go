@@ -39,7 +39,8 @@ func TestProcessPlayerQueue_LongStripsArgs0(t *testing.T) {
 
 			p, _ := newTestPlayer(t)
 			p.client.server = s
-			s.playerLoop = []*Player{p}
+			p.slot = 1
+			s.players.set(1, p)
 
 			p.queue = append(p.queue, playerQueueRequest{
 				Script:  sentinel,
@@ -71,7 +72,8 @@ func TestProcessPlayerQueue_LoggingOutAcceleratesLongZeroAction(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.loggingOut = true
-	s.playerLoop = []*Player{p}
+	p.slot = 1
+	s.players.set(1, p)
 
 	// Entry 0: ACCELERATE (args[0]==0), Delay=5 — should fire this tick.
 	// Entry 1: non-accelerate LONG (args[0]==1), Delay=5 — should decrement.
@@ -109,7 +111,8 @@ func TestProcessPlayerQueue_NoAccelerationWhenNotLoggingOut(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.loggingOut = false // explicit — not logging out
-	s.playerLoop = []*Player{p}
+	p.slot = 1
+	s.players.set(1, p)
 
 	p.queue = []playerQueueRequest{
 		{Script: sf, Delay: 5, Type: script.QueueLong, IntArgs: []int{0, 42}},
@@ -138,7 +141,8 @@ func TestProcessPlayerQueue_LoggingOutEmptyIntArgsDoesNotPanic(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.loggingOut = true
-	s.playerLoop = []*Player{p}
+	p.slot = 1
+	s.players.set(1, p)
 
 	p.queue = []playerQueueRequest{
 		{Script: sf, Delay: 5, Type: script.QueueLong, IntArgs: nil},

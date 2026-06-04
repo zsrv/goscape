@@ -166,8 +166,10 @@ func (s *Server) handleRebuildResult(r rebuildResult) {
 // TestHandleClientCheat_Rebuild_Async_PackError_BroadcastsFailureAndSkipsReload).
 func (s *Server) broadcastRebuildStaff(invoker *Player, msg string) {
 	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
+	var players []*Player
+	for p := range s.players.all() {
+		players = append(players, p)
+	}
 	s.playersMu.RUnlock()
 
 	delivered := false
@@ -181,7 +183,7 @@ func (s *Server) broadcastRebuildStaff(invoker *Player, msg string) {
 		}
 	}
 	if invoker != nil && !delivered {
-		// Invoker not in playerLoop (e.g., test scaffolding) — deliver
+		// Invoker not in players (e.g., test scaffolding) — deliver
 		// directly so per-invoker messages still pin.
 		invoker.MessageGame(msg)
 	}

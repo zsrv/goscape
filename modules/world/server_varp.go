@@ -60,7 +60,7 @@ func (w worldVarsView) PlayerCount() int {
 		return 0
 	}
 	w.s.playersMu.RLock()
-	n := len(w.s.playerLoop)
+	n := w.s.players.count
 	w.s.playersMu.RUnlock()
 	return n
 }

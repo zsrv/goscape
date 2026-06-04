@@ -1995,6 +1995,7 @@ func newInOperableTestServer(t *testing.T) (*Server, *objtype.LocType) {
 		zoneMap:        zone.NewZoneMap(),
 		locObjTracker:  newLocObjTracker(),
 		rsbuf:          rsbuf.New(),
+		players:        newPlayerList(2048),
 	}
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
@@ -2848,6 +2849,7 @@ func newObjReachTestServer(t *testing.T) *Server {
 		zoneMap:        zone.NewZoneMap(),
 		locObjTracker:  newLocObjTracker(),
 		rsbuf:          rsbuf.New(),
+		players:        newPlayerList(2048),
 	}
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}

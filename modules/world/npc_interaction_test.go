@@ -2041,6 +2041,7 @@ func newNpcInOperableTestServer(t *testing.T) *Server {
 		zoneMap:        zone.NewZoneMap(),
 		locObjTracker:  newLocObjTracker(),
 		rsbuf:          rsbuf.New(),
+		players:        newPlayerList(2048),
 	}
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}

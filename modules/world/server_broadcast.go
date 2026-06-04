@@ -36,10 +36,7 @@ func (s *Server) BroadcastMes(msg string) {
 	}
 	s.playersMu.RLock()
 	defer s.playersMu.RUnlock()
-	for _, p := range s.players {
-		if p == nil {
-			continue
-		}
+	for p := range s.players.all() {
 		for segment := range strings.SplitSeq(msg, "\n") {
 			if font == nil {
 				p.MessageGame(segment)

@@ -1259,7 +1259,7 @@ func TestHuntPlayersUsesZoneSubscriptionExclusive(t *testing.T) {
 	// active=true so the test catches a registry-fallback regression
 	// regardless of where IsValid checks land in the filter chain.
 	phantom.active = true
-	s.players[99] = phantom
+	s.players.set(99, phantom)
 	hunt := &objtype.HuntType{
 		CheckNpc:           -1,
 		CheckVis:           objtype.HuntVisOff,

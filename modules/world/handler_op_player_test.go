@@ -24,13 +24,13 @@ func makeOpPlayerFixture(t *testing.T) (*Server, *Player, *Player, net.Conn) {
 	clicker.client.server = s
 	clicker.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	clicker.slot = 1
-	s.players[1] = clicker
+	s.players.set(1, clicker)
 	s.rsbuf.AddPlayer(int32(clicker.slot))
 
 	other, _ := newTestPlayer(t)
 	other.client.server = s
 	other.slot = 2
-	s.players[2] = other
+	s.players.set(2, other)
 	s.rsbuf.AddPlayer(int32(other.slot))
 
 	return s, clicker, other, cc
@@ -47,14 +47,14 @@ func makeOpPlayerFixtureWithBothConns(t *testing.T) (*Server, *Player, *Player, 
 	clicker.client.server = s
 	clicker.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	clicker.slot = 1
-	s.players[1] = clicker
+	s.players.set(1, clicker)
 	s.rsbuf.AddPlayer(int32(clicker.slot))
 
 	other, cc2 := newTestPlayer(t)
 	other.client.server = s
 	other.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	other.slot = 2
-	s.players[2] = other
+	s.players.set(2, other)
 	s.rsbuf.AddPlayer(int32(other.slot))
 
 	return s, clicker, other, cc, cc2
@@ -130,9 +130,9 @@ func TestHandleOpPlayer_DelayedSendsUnsetMapFlag(t *testing.T) {
 // (slot empty) → UnsetMapFlag + clearPendingAction, no interaction set.
 // 244: clearPendingAction added on target-not-found reject (TS OpPlayerHandler.ts:21-25).
 func TestHandleOpPlayer_TargetNotLoggedIn(t *testing.T) {
-	s, clicker, _, cc := makeOpPlayerFixture(t)
+	_, clicker, _, cc := makeOpPlayerFixture(t)
 	const missingSlot = 99
-	s.players[missingSlot] = nil
+	// slot missingSlot is unoccupied — s.players.get(missingSlot) returns nil by default
 	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
 
 	received := drainConn(t, cc)
@@ -272,7 +272,7 @@ func TestHandleOpPlayerT_TargetNotLoggedIn(t *testing.T) {
 		missingSlot = 99
 		spellCom    = 7777
 	)
-	s.players[missingSlot] = nil
+	// slot missingSlot is unoccupied — s.players.get(missingSlot) returns nil by default
 	// Seed component so the component gate passes; target-not-found gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
 		spellCom: {RootLayer: spellCom, ActionTarget: objtype.ComActionTargetPlayer},
@@ -518,7 +518,7 @@ func TestHandleOpPlayerU_DelayedSendsUnsetMapFlag(t *testing.T) {
 func TestHandleOpPlayerU_TargetNotLoggedIn(t *testing.T) {
 	s, clicker, _, cc := makeOpPlayerFixture(t)
 	const missingSlot = 99
-	s.players[missingSlot] = nil
+	// slot missingSlot is unoccupied — s.players.get(missingSlot) returns nil by default
 	// Seed component so the component gate passes; target-not-logged-in gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
 		149: {RootLayer: 149, Interactable: true},
@@ -750,7 +750,7 @@ func TestHandleOpPlayerU_ItemNotInSlot_ClearsPendingAction(t *testing.T) {
 func TestHandleOpPlayerU_TargetNotLoggedIn_ClearsPendingAction(t *testing.T) {
 	s, clicker, _, cc := makeOpPlayerFixture(t)
 	const missingSlot = 99
-	s.players[missingSlot] = nil
+	// slot missingSlot is unoccupied — s.players.get(missingSlot) returns nil by default
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
 		149: {RootLayer: 149, Interactable: true},
 	})

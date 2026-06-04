@@ -387,8 +387,7 @@ func teleTestPlayer(t *testing.T) (*Player, net.Conn, *Server) {
 	p.originX, p.originZ = 3094, 3106
 	p.lastTickX, p.lastTickZ, p.lastLevel = 3094, 3106, 0
 	p.slot = 1
-	s.players[1] = p
-	s.playerLoop = append(s.playerLoop, p)
+	s.players.set(1, p)
 	p.active = true
 	if s.rsbuf != nil {
 		s.rsbuf.AddPlayer(int32(1))
@@ -838,7 +837,7 @@ func TestHandleClientCheat_ServerDrop_ClosesConn(t *testing.T) {
 
 	dispatchTeleCheat(t, p, "serverdrop")
 
-	if s.players[slotBefore] != p {
+	if s.players.get(slotBefore) != p {
 		t.Errorf("player removed from slot %d after ::serverdrop; should remain for reconnect", slotBefore)
 	}
 	if _, err := p.client.conn.Write([]byte{0}); err == nil {
@@ -1172,11 +1171,11 @@ func TestHandleClientCheat_Snapshot_WritesHeapFile(t *testing.T) {
 	}
 }
 
-// addOtherTestPlayer adds a second active Player to s.playerLoop with
+// addOtherTestPlayer adds a second active Player to s.players with
 // the given username and coord. Used by teleother/teleto tests.
 // Wires the minimum state for LookupPlayerByUsername + TeleJump to work:
 // active=true, username, x/z/level/originX/originZ/lastTickX/Z/lastLevel,
-// slot assignment, playerLoop append.
+// slot assignment, players.set.
 func addOtherTestPlayer(t *testing.T, s *Server, username string, x, z, level int) *Player {
 	t.Helper()
 	other, otherConn := newTestPlayer(t)
@@ -1194,15 +1193,14 @@ func addOtherTestPlayer(t *testing.T, s *Server, username string, x, z, level in
 	other.lastTickX, other.lastTickZ, other.lastLevel = x, z, level
 	// Find next free slot. teleTestPlayer uses slot 1.
 	slot := 2
-	for slot < len(s.players) && s.players[slot] != nil {
+	for slot < len(s.players.entities) && s.players.entities[slot] != nil {
 		slot++
 	}
-	if slot >= len(s.players) {
+	if slot >= len(s.players.entities) {
 		t.Fatalf("addOtherTestPlayer: no free player slot")
 	}
 	other.slot = slot
-	s.players[slot] = other
-	s.playerLoop = append(s.playerLoop, other)
+	s.players.set(slot, other)
 	other.active = true
 	if s.rsbuf != nil {
 		s.rsbuf.AddPlayer(int32(slot))

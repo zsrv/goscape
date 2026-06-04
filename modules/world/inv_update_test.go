@@ -36,8 +36,7 @@ func newInvListenerTestPlayer(t *testing.T, s *Server, slot int) (*Player, net.C
 	p.uid = composeUID(p.username37, p.slot) // NAI-113: matches Server.addPlayer
 	p.active = true
 	p.invs = map[int]*inventory.Inventory{}
-	s.players[slot] = p
-	s.playerLoop = append(s.playerLoop, p)
+	s.players.set(slot, p)
 	return p, cc
 }
 

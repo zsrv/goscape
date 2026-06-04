@@ -371,7 +371,7 @@ func TestMuteDispatchNodeProductionGate(t *testing.T) {
 	}
 }
 
-// kickAttachTarget wires a second Player as `targetName` into s.playerLoop
+// kickAttachTarget wires a second Player as `targetName` into s.players
 // (active=true) so s.LookupPlayerByUsername(targetName) returns it.
 // Mirrors handler_reportabuse_test.go:315 reportAbuseSetupWithOnlineOffender.
 func kickAttachTarget(t *testing.T, s *Server, targetName string) *Player {
@@ -380,7 +380,12 @@ func kickAttachTarget(t *testing.T, s *Server, targetName string) *Player {
 	target.client.server = s
 	target.username = targetName
 	target.active = true
-	s.playerLoop = append(s.playerLoop, target)
+	slot := s.players.next()
+	if slot == -1 {
+		t.Fatal("kickAttachTarget: world full")
+	}
+	target.slot = slot
+	s.players.set(slot, target)
 	return target
 }
 

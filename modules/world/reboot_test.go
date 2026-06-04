@@ -64,7 +64,8 @@ func TestRebootTimer_SetsShutdownTickAndBroadcasts(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
@@ -92,7 +93,8 @@ func TestRebootTimer_DurationZero(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
@@ -144,7 +146,8 @@ func TestProcessShutdown_MarksAllConnectedPlayersForLogout(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
-	s.playerLoop = append(s.playerLoop, p)
+	p.slot = 1
+	s.players.set(1, p)
 	go io.Copy(io.Discard, cc)
 
 	s.shutdownTick = s.currentTick
@@ -174,7 +177,7 @@ func TestProcessShutdown_ForceRemoveAfter1024Ticks(t *testing.T) {
 
 	s.processShutdown()
 
-	if s.players[slot] != nil {
+	if s.players.get(slot) != nil {
 		t.Errorf("after 1024-tick processShutdown: s.players[%d] still set, want nil (player not removed)", slot)
 	}
 }
@@ -197,8 +200,8 @@ func TestProcessShutdown_ForceRemoveNotSetBeforeDuration(t *testing.T) {
 
 	s.processShutdown()
 
-	if s.players[slot] != p {
-		t.Errorf("after 1023-tick processShutdown: s.players[%d] = %v, want player still present", slot, s.players[slot])
+	if s.players.get(slot) != p {
+		t.Errorf("after 1023-tick processShutdown: s.players[%d] = %v, want player still present", slot, s.players.get(slot))
 	}
 }
 
@@ -237,7 +240,7 @@ func TestProcessShutdown_AcceleratesTickRateAfterDuration2(t *testing.T) {
 	// doesn't fire before the tickRate=0 line — TS sets tickRate AFTER
 	// the online==0 check, so a zero-player world graceful-exits without
 	// touching tickRate.
-	s.players[1] = &Player{slot: 1}
+	s.players.set(1, &Player{slot: 1})
 
 	if s.tickRate != defaultTickRate {
 		t.Fatalf("precondition: tickRate=%v, want defaultTickRate (%v)", s.tickRate, defaultTickRate)
@@ -257,7 +260,7 @@ func TestProcessShutdown_LeavesTickRateAloneWithinDuration2(t *testing.T) {
 	s := newTestServer(t)
 	// duration = 2 — boundary; TS uses `>` so this stays at normal rate.
 	s.shutdownTick = -2
-	s.players[1] = &Player{slot: 1}
+	s.players.set(1, &Player{slot: 1})
 
 	s.processShutdown()
 
@@ -278,8 +281,8 @@ func TestProcessShutdown_ForceRemovesStuckPlayerAfter1024(t *testing.T) {
 	p.client.server = s
 	// Register the player in a real slot so removal is observable
 	// (newPlayer leaves slot=-1, which removePlayerInternal's slot guard
-	// would skip). addPlayer assigns a slot, appends to playerLoop, and
-	// occupies s.players[slot].
+	// would skip). addPlayer assigns a slot via getNextPid and
+	// calls s.players.set(slot, p).
 	if err := s.addPlayer(p); err != nil {
 		t.Fatalf("addPlayer: %v", err)
 	}
@@ -300,12 +303,12 @@ func TestProcessShutdown_ForceRemovesStuckPlayerAfter1024(t *testing.T) {
 
 	s.processShutdown()
 
-	if s.players[slot] != nil {
+	if s.players.get(slot) != nil {
 		t.Errorf("after 1024-tick processShutdown: s.players[%d] still set, want nil (player not force removed)", slot)
 	}
-	for _, lp := range s.playerLoop {
+	for lp := range s.players.all() {
 		if lp == p {
-			t.Errorf("after 1024-tick processShutdown: player still in playerLoop, want removed")
+			t.Errorf("after 1024-tick processShutdown: player still in players, want removed")
 		}
 	}
 }

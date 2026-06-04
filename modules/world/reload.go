@@ -190,7 +190,11 @@ func (s *Server) Reload(clearInvs bool) error {
 
 	// ─── Step 4: clearInvs reconcile ───
 	if clearInvs {
-		s.invs = reconcileInvs(s.players[:], s.invTypes)
+		var allPlayers []*Player
+		for p := range s.players.all() {
+			allPlayers = append(allPlayers, p)
+		}
+		s.invs = reconcileInvs(allPlayers, s.invTypes)
 	}
 
 	// ─── Step 5: load post-inv configs ───

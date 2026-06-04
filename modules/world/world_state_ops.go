@@ -47,17 +47,17 @@ func (s *Server) drainRelayActions() {
 // matches u37, or nil if none. Compares the pre-computed Player.username37
 // field directly (set at login) rather than recomputing the base37 hash
 // per-iteration — matches the precedent at LookupPlayerByUsername
-// (server.go:1116). Tick-only: iterates s.playerLoop without acquiring
+// (server.go:1116). Tick-only: iterates s.players without acquiring
 // playersMu, mirroring the existing LookupPlayerByUsername(string)
 // helper. WorldStateOps closures call this on the tick goroutine where
-// playerLoop is unguarded.
+// players is unguarded.
 //
 // Lookup-miss is a normal occurrence (the friends-server fans a relay
 // to every world; the target may live on a different one). Callers log
 // a miss at Debug — not Warn — to avoid log spam.
 func (s *Server) lookupPlayerByUsername37(u37 uint64) *Player {
-	for _, p := range s.playerLoop {
-		if p == nil || !p.active {
+	for p := range s.players.all() {
+		if !p.active {
 			continue
 		}
 		if p.username37 == u37 {

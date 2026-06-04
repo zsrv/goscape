@@ -73,7 +73,7 @@ func TestHuntNpcsSteadyStateZeroAlloc(t *testing.T) {
 func BenchmarkHuntPlayers(b *testing.B) {
 	for _, count := range []int{8, 40} {
 		b.Run(map[int]string{8: "players8", 40: "players40"}[count], func(b *testing.B) {
-			s := &Server{log: discardLogger()}
+			s := &Server{log: discardLogger(), players: newPlayerList(2048)}
 			typ := &objtype.NpcType{
 				ConfigType: objtype.ConfigType{ID: 0, DebugName: "bench_npc"},
 				Size:       1,
@@ -86,7 +86,7 @@ func BenchmarkHuntPlayers(b *testing.B) {
 			s.zoneMap = zone.NewZoneMap()
 			for i := range count {
 				p := &Player{slot: 1 + i, x: n.x - 4 + i%9, z: n.z - 2 + i/9, level: n.level, active: true}
-				s.players[p.slot] = p
+				s.players.set(p.slot, p)
 				p.zoneListElement = s.zoneMap.Get(p.level, p.x, p.z).EnterPlayer(p, nil)
 			}
 			hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckInv: -1}

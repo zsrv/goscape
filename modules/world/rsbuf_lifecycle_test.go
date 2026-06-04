@@ -24,8 +24,8 @@ func TestServer_PlayerLifecycleRoundTripSmoke(t *testing.T) {
 	// After removePlayer:
 	//  - s.players[slot] should be nil (existing assertion)
 	//  - s.rsbuf must not panic on follow-up queries (nil-slot guards in *Buf)
-	if s.players[pid] != nil {
-		t.Errorf("after removePlayer: s.players[%d] = %v, want nil", pid, s.players[pid])
+	if s.players.get(pid) != nil {
+		t.Errorf("after removePlayer: s.players[%d] = %v, want nil", pid, s.players.get(pid))
 	}
 	// Smoke: query rsbuf — must not panic.
 	_ = s.rsbuf.HasPlayer(int32(pid), 99)

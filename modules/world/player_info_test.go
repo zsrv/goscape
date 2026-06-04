@@ -22,8 +22,7 @@ func setupInfoPlayer(t *testing.T, s *Server, slot, x, z, level int) *Player {
 	p.originX, p.originZ = x, z
 	p.lastTickX, p.lastTickZ, p.lastLevel = x, z, level
 	p.slot = slot
-	s.players[slot] = p
-	s.playerLoop = append(s.playerLoop, p)
+	s.players.set(slot, p)
 	p.active = true
 	if s.rsbuf != nil {
 		s.rsbuf.AddPlayer(int32(slot))

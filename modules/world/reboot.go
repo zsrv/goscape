@@ -15,15 +15,12 @@ func sendUpdateRebootTimer(p *Player, ticks int) {
 }
 
 // rebootTimer schedules a world reboot in `duration` ticks and
-// broadcasts the new countdown to every connected player in
-// s.playerLoop. Mirrors TS World.rebootTimer (World.ts:1787-1793).
+// broadcasts the new countdown to every connected player.
+// Mirrors TS World.rebootTimer (World.ts:1787-1793).
 // NAI-182.
 func (s *Server) rebootTimer(duration int) {
 	s.shutdownTick = s.currentTick + duration
-	for _, p := range s.playerLoop {
-		if p == nil {
-			continue
-		}
+	for p := range s.players.all() {
 		sendUpdateRebootTimer(p, s.shutdownTick-s.currentTick)
 	}
 }
@@ -73,8 +70,8 @@ func (s *Server) processShutdown() {
 	// the existing logout machinery (processLogouts drain path) by
 	// flagging p.loggingOut. The current tick's processLogouts will
 	// then run the standard logout sequence.
-	for _, p := range s.playerLoop {
-		if p != nil && p.client != nil {
+	for p := range s.players.all() {
+		if p.client != nil {
 			p.loggingOut = true
 		}
 	}
@@ -98,19 +95,17 @@ func (s *Server) processShutdown() {
 	//
 	// removePlayerOnTick → removePlayerInternal is idempotent (slot-identity
 	// guard at server.go) and is the same removal helper processLogouts
-	// itself invokes inside a range over s.playerLoop, so iterating here is
-	// safe. Snapshot the loop first: removePlayerInternal mutates
-	// s.playerLoop (splicing the removed player out), so ranging the live
-	// slice while removing would skip entries.
+	// itself invokes. Snapshot first: removePlayerInternal calls
+	// s.players.remove which zeroes slots in the live list; iterating
+	// the live list while removing would observe empty slots mid-scan.
 	if duration >= 1024 {
 		s.playersMu.RLock()
-		stuck := make([]*Player, len(s.playerLoop))
-		copy(stuck, s.playerLoop)
+		var stuck []*Player
+		for p := range s.players.all() {
+			stuck = append(stuck, p)
+		}
 		s.playersMu.RUnlock()
 		for _, p := range stuck {
-			if p == nil {
-				continue
-			}
 			s.log.Error("player force removed", "player", p.username)
 			s.removePlayerOnTick(p)
 		}

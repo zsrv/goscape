@@ -10,9 +10,9 @@ import (
 // make([]*Player)+copy — ~13 allocs/tick (~22/s at 600ms ticks, scaling
 // with player count).
 func TestSnapshotPlayersZeroAllocSteadyState(t *testing.T) {
-	s := &Server{}
-	for range 128 {
-		s.playerLoop = append(s.playerLoop, &Player{})
+	s := &Server{players: newPlayerList(2048)}
+	for i := range 128 {
+		s.players.set(i+1, &Player{slot: i + 1})
 	}
 
 	// Warm the scratch to steady state.
@@ -30,22 +30,25 @@ func TestSnapshotPlayersZeroAllocSteadyState(t *testing.T) {
 }
 
 // TestSnapshotPlayersCopiesAndDecouples pins the semantic the passes rely
-// on: the snapshot reflects playerLoop at call time and stays stable while
-// the live slice mutates mid-iteration (processLogouts splices players out
-// of playerLoop while ranging the snapshot).
+// on: the snapshot reflects players at call time and stays stable while
+// the live registry mutates mid-iteration (processLogouts removes players
+// from the live playerList while ranging the snapshot).
 func TestSnapshotPlayersCopiesAndDecouples(t *testing.T) {
-	a, b, c := &Player{}, &Player{}, &Player{}
-	s := &Server{playerLoop: []*Player{a, b, c}}
+	a, b, c := &Player{slot: 1}, &Player{slot: 2}, &Player{slot: 3}
+	s := &Server{players: newPlayerList(2048)}
+	s.players.set(1, a)
+	s.players.set(2, b)
+	s.players.set(3, c)
 
 	snap := s.snapshotPlayers()
 	if len(snap) != 3 || snap[0] != a || snap[1] != b || snap[2] != c {
-		t.Fatalf("snapshot does not mirror playerLoop order/content")
+		t.Fatalf("snapshot does not mirror players order/content")
 	}
 
-	// Splice b out of the live slice (what removePlayerInternal does).
-	s.playerLoop = append(s.playerLoop[:1], s.playerLoop[2:]...)
+	// Remove b from the live registry (what removePlayerInternal does).
+	s.players.remove(2)
 	if len(snap) != 3 || snap[0] != a || snap[1] != b || snap[2] != c {
-		t.Errorf("snapshot mutated by live-slice splice; want stable copy")
+		t.Errorf("snapshot mutated by live-registry remove; want stable copy")
 	}
 
 	// The next snapshot reflects the new state.
@@ -60,13 +63,16 @@ func TestSnapshotPlayersCopiesAndDecouples(t *testing.T) {
 // length must be nil'd so departed players aren't kept reachable by the
 // scratch's spare capacity for the rest of the process lifetime.
 func TestSnapshotPlayersClearsStaleTail(t *testing.T) {
-	s := &Server{}
-	for range 8 {
-		s.playerLoop = append(s.playerLoop, &Player{})
+	s := &Server{players: newPlayerList(2048)}
+	for i := range 8 {
+		s.players.set(i+1, &Player{slot: i + 1})
 	}
 	s.snapshotPlayers() // scratch now holds 8 player pointers
 
-	s.playerLoop = s.playerLoop[:2] // 6 players "log out"
+	// "Log out" 6 players.
+	for i := 3; i <= 8; i++ {
+		s.players.remove(i)
+	}
 	s.snapshotPlayers()
 
 	scratch := s.playerScratch[:cap(s.playerScratch)]
@@ -82,9 +88,9 @@ func TestSnapshotPlayersClearsStaleTail(t *testing.T) {
 func BenchmarkSnapshotPlayers(b *testing.B) {
 	for _, n := range []int{50, 500} {
 		b.Run(map[int]string{50: "players50", 500: "players500"}[n], func(b *testing.B) {
-			s := &Server{}
-			for range n {
-				s.playerLoop = append(s.playerLoop, &Player{})
+			s := &Server{players: newPlayerList(2048)}
+			for i := range n {
+				s.players.set(i+1, &Player{slot: i + 1})
 			}
 			b.ReportAllocs()
 			for b.Loop() {

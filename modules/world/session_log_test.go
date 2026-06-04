@@ -175,7 +175,10 @@ func TestProcessSessionLogsCoordLog(t *testing.T) {
 	p2.client.server = s
 	p2.session = "p2"
 	p2.level, p2.x, p2.z = 0, 3210, 3215
-	s.playerLoop = []*Player{p1, p2}
+	p1.slot = 1
+	s.players.set(1, p1)
+	p2.slot = 2
+	s.players.set(2, p2)
 	s.currentTick = PlayerCoordLogRate
 
 	s.processSessionLogs()
@@ -216,7 +219,8 @@ func TestProcessSessionLogsCoordLogTickZeroSkip(t *testing.T) {
 	rec := installRecordingBridges(s)
 	p1, _ := newTestPlayer(t)
 	p1.client.server = s
-	s.playerLoop = []*Player{p1}
+	p1.slot = 1
+	s.players.set(1, p1)
 	s.currentTick = 0 // tick 0 with tick % rate == 0 must NOT push
 
 	s.processSessionLogs()
@@ -237,7 +241,8 @@ func TestProcessSessionLogsCoordLogPhaseOrder(t *testing.T) {
 	rec := installRecordingBridges(s)
 	p1, _ := newTestPlayer(t)
 	p1.client.server = s
-	s.playerLoop = []*Player{p1}
+	p1.slot = 1
+	s.players.set(1, p1)
 	s.currentTick = PlayerCoordLogRate
 	// Pre-seed an unrelated entry to verify it precedes the coord-log
 	// push in the batch (insertion order = slice append order).
@@ -264,7 +269,8 @@ func TestProcessSessionLogsNonRateTickNoCoordLog(t *testing.T) {
 	rec := installRecordingBridges(s)
 	p1, _ := newTestPlayer(t)
 	p1.client.server = s
-	s.playerLoop = []*Player{p1}
+	p1.slot = 1
+	s.players.set(1, p1)
 	s.currentTick = PlayerCoordLogRate + 1 // not a rate tick
 
 	s.processSessionLogs()

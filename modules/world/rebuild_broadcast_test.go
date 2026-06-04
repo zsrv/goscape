@@ -28,8 +28,13 @@ func TestBroadcastRebuildStaff_DeliversToInvokerAndStaffOnly(t *testing.T) {
 	peasant.staffModLevel = 0
 	peasant.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
+	invoker.slot = 1
+	staff.slot = 2
+	peasant.slot = 3
 	s.playersMu.Lock()
-	s.playerLoop = []*Player{invoker, staff, peasant}
+	s.players.set(1, invoker)
+	s.players.set(2, staff)
+	s.players.set(3, peasant)
 	s.playersMu.Unlock()
 
 	invokerRcv := drainConn(t, invokerConn)
@@ -69,8 +74,11 @@ func TestBroadcastRebuildStaff_FsnotifyTriggered_NoInvoker(t *testing.T) {
 	peasant.staffModLevel = 0
 	peasant.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
+	staff.slot = 1
+	peasant.slot = 2
 	s.playersMu.Lock()
-	s.playerLoop = []*Player{staff, peasant}
+	s.players.set(1, staff)
+	s.players.set(2, peasant)
 	s.playersMu.Unlock()
 
 	staffRcv := drainConn(t, staffConn)
