@@ -99,7 +99,7 @@ func onReconnect(s *Server, p *Player) {
 	// (Player.ts:554-555) did `this.masks |= this.entitymask` (face_entity
 	// resync) and `this.masks |= PlayerInfoProt.APPEARANCE`. Both lines
 	// were deleted at 244 (pin 9aadcec4). Appearance is now handled by the
-	// unconditional `p.masks |= MaskAppearance` in processLogins (tick.go)
+	// unconditional `p.masks |= MaskAppearance` in processLogins (tick.go:325)
 	// before the reconnect/fresh-login branch, covering both paths. [rev-244 B3]
 
 	// (l) force moveSpeed back to INSTANT. Mirrors TS

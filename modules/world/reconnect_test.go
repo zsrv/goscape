@@ -41,12 +41,16 @@ func TestOnReconnect_EmitsResyncSequence(t *testing.T) {
 
 	// (b) No varps in newTestServer, so varp loop emits nothing.
 
-	// (c) No shutdown timer (shutdownTick == -1 by default), so no UPDATE_REBOOT_TIMER.
+	// (c) buildArea — no wire emission (handled by the shouldRebuild path);
+	// nothing to verify here. (Letters track the implementation's step
+	// comments in login_resync.go.)
 
-	// (d) closeModal(true) — clears weakQueue then early-returns on
+	// (d) No shutdown timer (shutdownTick == -1 by default), so no UPDATE_REBOOT_TIMER.
+
+	// (e) closeModal(true) — clears weakQueue then early-returns on
 	// modalState==None (default on newTestPlayer); no wire packet.
 
-	// (e) Tabs: newTestPlayer initializes tabs to all -1 (non-zero), so
+	// (f) Tabs: newTestPlayer initializes tabs to all -1 (non-zero), so
 	// IfSetTab is called for each of the 14 tabs.
 	// Each IF_SETTAB packet: opcode(1) + P2(com)(2) + P1(tab)(1) = 4 bytes.
 	for tab := 0; tab < 14; tab++ {
@@ -60,9 +64,9 @@ func TestOnReconnect_EmitsResyncSequence(t *testing.T) {
 		offset += 4 // opcode(1) + com P2(2) + tab P1(1)
 	}
 
-	// (f) No invListeners in newTestPlayer, so no packets from refreshInvs.
+	// (g) No invListeners in newTestPlayer, so no packets from refreshInvs.
 
-	// (g) 21 × UPDATE_STAT — 7 bytes each: opcode(1) + stat(1) + exp/10 P4(4) + level(1).
+	// (h) 21 × UPDATE_STAT — 7 bytes each: opcode(1) + stat(1) + exp/10 P4(4) + level(1).
 	for i := 0; i < 21; i++ {
 		if len(got) < offset+7 {
 			t.Fatalf("stream too short at UPDATE_STAT[%d]: got %d bytes, offset %d", i, len(got), offset)
@@ -74,7 +78,7 @@ func TestOnReconnect_EmitsResyncSequence(t *testing.T) {
 		offset += 7
 	}
 
-	// (h) UPDATE_RUN_ENERGY — 2 bytes: opcode(1) + energy/100 P1(1).
+	// (i) UPDATE_RUN_ENERGY — 2 bytes: opcode(1) + energy/100 P1(1).
 	if len(got) < offset+2 {
 		t.Fatalf("stream too short at UPDATE_RUN_ENERGY: got %d bytes, offset %d", len(got), offset)
 	}
@@ -84,7 +88,7 @@ func TestOnReconnect_EmitsResyncSequence(t *testing.T) {
 	}
 	offset += 2
 
-	// (i) RESET_ANIMS — 1 byte: opcode only.
+	// (j) RESET_ANIMS — 1 byte: opcode only.
 	if len(got) < offset+1 {
 		t.Fatalf("stream too short at RESET_ANIMS: got %d bytes, offset %d", len(got), offset)
 	}
