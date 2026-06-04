@@ -4,7 +4,10 @@
 package world
 
 import (
+	"encoding/base64"
 	"math/rand/v2"
+
+	"github.com/zsrv/goscape/pkg/coordgrid"
 )
 
 // Timing constants — mirror TS InputTracking.ts:10-14.
@@ -29,6 +32,33 @@ const (
 	// EventTrackingHandler.ts:9 (`bytes.length > 500`).
 	inputTrackingMaxBlobBytes = 500
 )
+
+// InputTrackingBlob is a single recorded EVENT_TRACKING payload, wrapped
+// with sequence number and player coordinate. Mirrors TS
+// InputTrackingBlob.ts:1-11.
+//
+//   - Seq: 1-based sequence index within the recording window.
+//   - Data: base64-encoded raw client payload (mirrors TS
+//     Buffer.from(data).toString('base64') at InputTrackingBlob.ts:8).
+//   - Coord: packed player coordinate (coordgrid.PackCoord) at the
+//     moment Record was called; mirrors TS InputTracking.ts:135
+//     `this.player.coord`.
+type InputTrackingBlob struct {
+	Seq   int
+	Data  string // base64
+	Coord int
+}
+
+// NewInputTrackingBlob constructs an InputTrackingBlob from raw bytes.
+// seq is the 1-based sequence index; coord is the packed player coord.
+// Mirrors TS InputTrackingBlob constructor (InputTrackingBlob.ts:6-10).
+func NewInputTrackingBlob(data []byte, seq, coord int) InputTrackingBlob {
+	return InputTrackingBlob{
+		Seq:   seq,
+		Data:  base64.StdEncoding.EncodeToString(data),
+		Coord: coord,
+	}
+}
 
 // InputTracking is the per-player input-recording state machine. Mirrors
 // TS InputTracking class. One instance per logged-in Player, allocated
@@ -63,10 +93,11 @@ type InputTracking struct {
 	// TS InputTracking.ts:30.
 	endTrackingAt int
 
-	// recordedBlobs: accumulated EVENT_TRACKING payloads for this window.
-	// Submitted (as recordedBlobs[0] only — TS quirk) at submitEvents.
-	// TS InputTracking.ts:33.
-	recordedBlobs [][]byte
+	// recordedBlobs: accumulated EVENT_TRACKING payloads for this window,
+	// each wrapped in an InputTrackingBlob (seq, base64 data, coord).
+	// ALL blobs are submitted at submitEvents (244 changed from 225 which
+	// sent only recordedBlobs[0]). TS InputTracking.ts:33.
+	recordedBlobs []InputTrackingBlob
 	// recordedBlobsSizeTotal: byte total across all recordedBlobs. Compared
 	// against cfg.NodeLimitBytesPerTrackingSession by the handler. TS
 	// InputTracking.ts:35.
@@ -122,13 +153,18 @@ func (t *InputTracking) ShouldSubmitTrackingDetails() bool {
 	return t.player.submitInput || t.player.client.server.cfg.NodeSubmitInput
 }
 
-// Record appends rawData to recordedBlobs and grows the size total.
-// Mirrors TS record (lines 130-133). Caller is responsible for any
-// gating (the handler checks IsActive, ShouldSubmitTrackingDetails,
-// and recordedBlobsSizeTotal cap before calling Record).
+// Record wraps rawData in an InputTrackingBlob and appends to recordedBlobs.
+// sizeTotal is updated with the RAW length BEFORE the push (TS line 134).
+// seq = len(recordedBlobs) + 1 (1-based, evaluated before push, TS line 135).
+// coord = player's packed coord at call time, mirrors TS `this.player.coord`.
+// Mirrors TS record (InputTracking.ts:133-135). Caller is responsible for
+// gating (the handler checks IsActive, ShouldSubmitTrackingDetails, and
+// recordedBlobsSizeTotal cap before calling Record).
 func (t *InputTracking) Record(rawData []byte) {
-	t.recordedBlobsSizeTotal += len(rawData)
-	t.recordedBlobs = append(t.recordedBlobs, rawData)
+	t.recordedBlobsSizeTotal += len(rawData) // TS line 134: accumulate BEFORE push
+	seq := len(t.recordedBlobs) + 1          // 1-based (TS: recordedBlobs.length + 1 before push)
+	coord := coordgrid.PackCoord(t.player.level, t.player.x, t.player.z)
+	t.recordedBlobs = append(t.recordedBlobs, NewInputTrackingBlob(rawData, seq, coord))
 }
 
 // enable transitions tracking to active. Mirrors TS enable (lines 94-103).
@@ -159,8 +195,9 @@ func (t *InputTracking) disable(currentTick int) {
 
 // submitEvents finalises the window. Mirrors TS submitEvents (lines 140-158).
 // Branches:
-//   - hasSeenReport && shouldSubmit → loggerBridge.SubmitInputTracking(player, recordedBlobs[0])
-//     (TS submits only blob index 0, even when multiple blobs were recorded — quirk preserved).
+//   - hasSeenReport && shouldSubmit → loggerBridge.SubmitInputTracking(username,
+//     sessionUUID, ALL recordedBlobs). 244 sends ALL blobs (TS line 147);
+//     225 sent only recordedBlobs[0] — that quirk is removed.
 //   - !hasSeenReport && !cfg.NodeDebug → ENGINE session log "Client did
 //     not submit an input tracking report" + requestIdleLogout = true
 //     (TS InputTracking.ts:150; ported in NAI-74).
@@ -171,7 +208,16 @@ func (t *InputTracking) submitEvents() {
 	s := t.player.client.server
 	if t.hasSeenReport {
 		if t.ShouldSubmitTrackingDetails() {
-			s.loggerBridge.SubmitInputTracking(t.player, t.recordedBlobs[0])
+			// 244 submit shape: username + session UUID + ALL blobs.
+			// Session-string fork mirrors TS InputTracking.ts:147:
+			//   player instanceof NetworkPlayer ? player.client.uuid : 'headless'
+			// goscape (player.go:1469-1497): p.session is set from the login
+			// UUID (NetworkPlayer path); empty session falls back to "headless".
+			sessionUUID := t.player.session
+			if sessionUUID == "" {
+				sessionUUID = "headless"
+			}
+			s.loggerBridge.SubmitInputTracking(t.player.username, sessionUUID, t.recordedBlobs)
 		}
 	} else if !s.cfg.NodeDebug {
 		// NAI-74: NAI-73-D close. Per TS InputTracking.ts:150 — emits

@@ -62,11 +62,11 @@ type LoggerBridge interface {
 	// of the ReportAbuseReason enum value (e.g. "MACROING").
 	NotifyPlayerReport(player *Player, offender, reason string)
 
-	// SubmitInputTracking posts a per-player input-recording blob from the
+	// SubmitInputTracking posts per-player input-recording blobs from the
 	// anti-cheat tracking subsystem (TS World.submitInputTracking at
-	// World.ts:2314-2321, channel 'input_track'). blob is the raw bytes
-	// from the EVENT_TRACKING client packet.
-	SubmitInputTracking(player *Player, blob []byte)
+	// World.ts:2343-2351). 244 re-shape: username + session UUID + ALL blobs
+	// (225 sent only recordedBlobs[0]; see InputTracking.ts:141-149).
+	SubmitInputTracking(username, sessionUUID string, blobs []InputTrackingBlob)
 
 	// SubmitSessionLogs posts the per-tick batch of session-log entries.
 	// Mirrors TS LoggerThread 'session_log' channel (LoggerThread.ts:31-37,
@@ -313,7 +313,7 @@ func (noopBridges) PublicMessage(string, int, string)                         {}
 func (noopBridges) NotifyPlayerBan(string, string, time.Time)                 {}
 func (noopBridges) NotifyPlayerMute(string, string, time.Time)                {}
 func (noopBridges) NotifyPlayerReport(*Player, string, string)                {}
-func (noopBridges) SubmitInputTracking(*Player, []byte)                       {}
+func (noopBridges) SubmitInputTracking(string, string, []InputTrackingBlob)   {}
 func (noopBridges) SubmitSessionLogs([]SessionLog)                            {}
 func (noopBridges) OnFriendlistUpdate(uint64, []*friendspb.FriendEntry)       {}
 func (noopBridges) OnIgnorelistUpdate(uint64, []uint64)                       {}

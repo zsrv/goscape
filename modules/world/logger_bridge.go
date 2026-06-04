@@ -1,7 +1,6 @@
 package world
 
 import (
-	"encoding/base64"
 	"log/slog"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
@@ -35,15 +34,30 @@ func (b *slogLoggerBridge) NotifyPlayerReport(p *Player, offender, reason string
 }
 
 // SubmitInputTracking emits an 'input_track' record. Mirrors TS
-// World.submitInputTracking's loggerThread.postMessage call (World.ts:2315).
-// blob is base64-encoded for log readability and to match TS
-// Buffer.from(buf).toString('base64') (World.ts:2319).
-func (b *slogLoggerBridge) SubmitInputTracking(p *Player, blob []byte) {
+// World.submitInputTracking's loggerThread.postMessage call
+// (World.ts:2343-2351). 244 re-shape: username + session_uuid + ALL blobs
+// are emitted (225 sent only recordedBlobs[0]).
+//
+// Each blob carries Seq, Data (base64), and Coord — matching the TS
+// InputTrackingBlob shape (InputTrackingBlob.ts:1-11). The blobs are
+// emitted as a JSON-serialisable []any slice for slog structured output.
+// Proto message shapes are owned by B5/private-sibling; this slog seam
+// is adapted for 244 without touching .proto files.
+func (b *slogLoggerBridge) SubmitInputTracking(username, sessionUUID string, blobs []InputTrackingBlob) {
+	blobsAny := make([]any, len(blobs))
+	for i, bl := range blobs {
+		blobsAny[i] = map[string]any{
+			"seq":   bl.Seq,
+			"data":  bl.Data,
+			"coord": bl.Coord,
+		}
+	}
 	b.log.Info("input_track",
 		"type", "input_track",
-		"session", p.session,
-		"blob_len", len(blob),
-		"blob_b64", base64.StdEncoding.EncodeToString(blob),
+		"username", username,
+		"session_uuid", sessionUUID,
+		"blob_count", len(blobs),
+		"blobs", blobsAny,
 	)
 }
 

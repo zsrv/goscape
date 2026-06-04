@@ -1,10 +1,11 @@
 package world
 
 import (
-	"bytes"
+	"encoding/base64"
 	"net"
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 )
 
@@ -83,7 +84,9 @@ func TestInputTrackingShouldSubmitTrackingDetailsMatrix(t *testing.T) {
 	}
 }
 
-// TestInputTrackingRecord pins blob accumulation and size totalisation.
+// TestInputTrackingRecord pins basic blob accumulation and size totalisation.
+// Detailed Record() shape (seq/coord/base64) is covered by
+// TestInputTrackingRecordWrapsBlobs.
 func TestInputTrackingRecord(t *testing.T) {
 	tt, _, _, _ := inputTrackingTestSetup(t)
 	tt.Record([]byte{1, 2, 3})
@@ -94,8 +97,9 @@ func TestInputTrackingRecord(t *testing.T) {
 	if got, want := tt.recordedBlobsSizeTotal, 5; got != want {
 		t.Errorf("recordedBlobsSizeTotal: got %d, want %d", got, want)
 	}
-	if !bytes.Equal(tt.recordedBlobs[0], []byte{1, 2, 3}) {
-		t.Errorf("recordedBlobs[0]: got %x, want 010203", tt.recordedBlobs[0])
+	wantData := base64.StdEncoding.EncodeToString([]byte{1, 2, 3})
+	if tt.recordedBlobs[0].Data != wantData {
+		t.Errorf("recordedBlobs[0].Data: got %q, want %q", tt.recordedBlobs[0].Data, wantData)
 	}
 }
 
@@ -214,15 +218,27 @@ func TestInputTrackingDisableIdempotent(t *testing.T) {
 // TestInputTrackingSubmitEventsMatrix pins all 4 branches of
 // submitEvents (TS InputTracking.submitEvents at lines 140-158).
 func TestInputTrackingSubmitEventsMatrix(t *testing.T) {
+	// blobsFromRaw is a helper to build []InputTrackingBlob from raw slices,
+	// mirroring what Record() would produce (seq from 1, coord=0 for simplicity).
+	blobsFromRaw := func(raws [][]byte) []InputTrackingBlob {
+		if raws == nil {
+			return nil
+		}
+		out := make([]InputTrackingBlob, len(raws))
+		for i, r := range raws {
+			out[i] = NewInputTrackingBlob(r, i+1, 0)
+		}
+		return out
+	}
 	cases := []struct {
 		name               string
 		hasSeenReport      bool
 		shouldSubmit       bool
 		nodeDebug          bool
-		blobsBefore        [][]byte
+		blobsRaw           [][]byte // raw bytes → converted to []InputTrackingBlob via helper
 		wantBridgeCalls    int
 		wantKick           bool
-		wantSubmittedBlob  []byte
+		wantBlobCount      int  // 244: ALL blobs sent (not just blob[0])
 		wantSessionLogPush bool // NAI-74
 	}{
 		{
@@ -230,10 +246,10 @@ func TestInputTrackingSubmitEventsMatrix(t *testing.T) {
 			hasSeenReport:      true,
 			shouldSubmit:       true,
 			nodeDebug:          false,
-			blobsBefore:        [][]byte{{0xAA}, {0xBB}, {0xCC}},
+			blobsRaw:           [][]byte{{0xAA}, {0xBB}, {0xCC}},
 			wantBridgeCalls:    1,
 			wantKick:           false,
-			wantSubmittedBlob:  []byte{0xAA}, // TS quirk: only blob[0]
+			wantBlobCount:      3, // 244: all 3 blobs sent
 			wantSessionLogPush: false,
 		},
 		{
@@ -241,7 +257,7 @@ func TestInputTrackingSubmitEventsMatrix(t *testing.T) {
 			hasSeenReport:      true,
 			shouldSubmit:       false,
 			nodeDebug:          false,
-			blobsBefore:        [][]byte{{0xAA}},
+			blobsRaw:           [][]byte{{0xAA}},
 			wantBridgeCalls:    0,
 			wantKick:           false,
 			wantSessionLogPush: false,
@@ -251,7 +267,7 @@ func TestInputTrackingSubmitEventsMatrix(t *testing.T) {
 			hasSeenReport:      false,
 			shouldSubmit:       false,
 			nodeDebug:          false,
-			blobsBefore:        nil,
+			blobsRaw:           nil,
 			wantBridgeCalls:    0,
 			wantKick:           true,
 			wantSessionLogPush: true, // NAI-74: TS InputTracking.ts:150
@@ -261,7 +277,7 @@ func TestInputTrackingSubmitEventsMatrix(t *testing.T) {
 			hasSeenReport:      false,
 			shouldSubmit:       false,
 			nodeDebug:          true,
-			blobsBefore:        nil,
+			blobsRaw:           nil,
 			wantBridgeCalls:    0,
 			wantKick:           false,
 			wantSessionLogPush: false,
@@ -271,9 +287,9 @@ func TestInputTrackingSubmitEventsMatrix(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tt, p, _, rec := inputTrackingTestSetup(t)
 			tt.hasSeenReport = tc.hasSeenReport
-			tt.recordedBlobs = tc.blobsBefore
+			tt.recordedBlobs = blobsFromRaw(tc.blobsRaw)
 			tt.recordedBlobsSizeTotal = 0
-			for _, b := range tc.blobsBefore {
+			for _, b := range tc.blobsRaw {
 				tt.recordedBlobsSizeTotal += len(b)
 			}
 			tt.waitingForRemainingData = true
@@ -287,9 +303,9 @@ func TestInputTrackingSubmitEventsMatrix(t *testing.T) {
 			if got := len(rec.inputTracks); got != tc.wantBridgeCalls {
 				t.Errorf("bridge calls: got %d, want %d", got, tc.wantBridgeCalls)
 			}
-			if tc.wantBridgeCalls > 0 && tc.wantSubmittedBlob != nil {
-				if !bytes.Equal(rec.inputTracks[0].blob, tc.wantSubmittedBlob) {
-					t.Errorf("submitted blob: got %x, want %x", rec.inputTracks[0].blob, tc.wantSubmittedBlob)
+			if tc.wantBridgeCalls > 0 {
+				if got := len(rec.inputTracks[0].blobs); got != tc.wantBlobCount {
+					t.Errorf("submitted blob count: got %d, want %d", got, tc.wantBlobCount)
 				}
 			}
 			if got := p.requestIdleLogout; got != tc.wantKick {
@@ -334,6 +350,166 @@ func TestInputTrackingSubmitEventsMatrix(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// rev-244 B3: InputTrackingBlob + submit re-shape (Task 14)
+// ---------------------------------------------------------------------------
+
+// TestInputTrackingBlobCtor pins InputTrackingBlob construction:
+// seq stored verbatim, data is base64 of rawData, coord stored verbatim.
+// Mirrors InputTrackingBlob.ts:6-10.
+func TestInputTrackingBlobCtor(t *testing.T) {
+	raw := []byte{0xDE, 0xAD, 0xBE, 0xEF}
+	b := NewInputTrackingBlob(raw, 3, 0xC0DE)
+	if b.Seq != 3 {
+		t.Errorf("Seq: got %d, want 3", b.Seq)
+	}
+	wantData := base64.StdEncoding.EncodeToString(raw)
+	if b.Data != wantData {
+		t.Errorf("Data: got %q, want %q", b.Data, wantData)
+	}
+	if b.Coord != 0xC0DE {
+		t.Errorf("Coord: got %d, want 0xC0DE", b.Coord)
+	}
+}
+
+// TestInputTrackingBlobCtorZeroCoord verifies that a zero coord is
+// stored (not dropped), matching InputTrackingBlob.ts:4 (coord?: number).
+func TestInputTrackingBlobCtorZeroCoord(t *testing.T) {
+	b := NewInputTrackingBlob([]byte{0x01}, 1, 0)
+	if b.Coord != 0 {
+		t.Errorf("Coord: got %d, want 0", b.Coord)
+	}
+}
+
+// TestInputTrackingRecordWrapsBlobs pins that Record() wraps each raw
+// payload into an InputTrackingBlob with:
+//   - seq starting at 1 and incrementing
+//   - coord = player's packed coord at record time
+//   - Data = base64 of the raw payload
+//   - sizeTotal accumulates RAW lengths (before push, per TS line 134)
+//
+// Moving the player between Record calls proves coord is captured per blob.
+// Mirrors InputTracking.ts:133-135.
+func TestInputTrackingRecordWrapsBlobs(t *testing.T) {
+	tt, p, _, _ := inputTrackingTestSetup(t)
+
+	// First record: player at level=0, x=100, z=200.
+	p.level, p.x, p.z = 0, 100, 200
+	raw1 := []byte{0x01, 0x02, 0x03}
+	tt.Record(raw1)
+
+	// Move player before second record.
+	p.level, p.x, p.z = 1, 300, 400
+	raw2 := []byte{0x04, 0x05}
+	tt.Record(raw2)
+
+	// sizeTotal accumulates raw lengths.
+	if got, want := tt.recordedBlobsSizeTotal, 5; got != want {
+		t.Errorf("recordedBlobsSizeTotal: got %d, want %d", got, want)
+	}
+	if got := len(tt.recordedBlobs); got != 2 {
+		t.Fatalf("recordedBlobs len: got %d, want 2", got)
+	}
+
+	// First blob.
+	b0 := tt.recordedBlobs[0]
+	if b0.Seq != 1 {
+		t.Errorf("blob[0].Seq: got %d, want 1", b0.Seq)
+	}
+	wantData0 := base64.StdEncoding.EncodeToString(raw1)
+	if b0.Data != wantData0 {
+		t.Errorf("blob[0].Data: got %q, want %q", b0.Data, wantData0)
+	}
+	wantCoord0 := coordgrid.PackCoord(0, 100, 200)
+	if b0.Coord != wantCoord0 {
+		t.Errorf("blob[0].Coord: got %d, want %d (level=0 x=100 z=200)", b0.Coord, wantCoord0)
+	}
+
+	// Second blob — different coord.
+	b1 := tt.recordedBlobs[1]
+	if b1.Seq != 2 {
+		t.Errorf("blob[1].Seq: got %d, want 2", b1.Seq)
+	}
+	wantData1 := base64.StdEncoding.EncodeToString(raw2)
+	if b1.Data != wantData1 {
+		t.Errorf("blob[1].Data: got %q, want %q", b1.Data, wantData1)
+	}
+	wantCoord1 := coordgrid.PackCoord(1, 300, 400)
+	if b1.Coord != wantCoord1 {
+		t.Errorf("blob[1].Coord: got %d, want %d (level=1 x=300 z=400)", b1.Coord, wantCoord1)
+	}
+}
+
+// TestInputTrackingSubmitPassesAllBlobs pins the 244 submit re-shape:
+// the bridge receives username + session UUID + ALL recorded blobs (not
+// just blob[0] as in 225). Mirrors InputTracking.ts:147 +
+// World.ts:2343-2350.
+func TestInputTrackingSubmitPassesAllBlobs(t *testing.T) {
+	tt, p, _, rec := inputTrackingTestSetup(t)
+	p.username = "alice"
+	p.session = "test-session-uuid-1234"
+	p.level, p.x, p.z = 0, 100, 200
+
+	p.submitInput = true
+	tt.hasSeenReport = true
+	tt.waitingForRemainingData = true
+
+	// Record 3 blobs.
+	tt.Record([]byte{0xAA})
+	tt.Record([]byte{0xBB, 0xCC})
+	tt.Record([]byte{0xDD})
+
+	tt.submitEvents()
+
+	if got := len(rec.inputTracks); got != 1 {
+		t.Fatalf("bridge calls: got %d, want 1", got)
+	}
+	call := rec.inputTracks[0]
+	if call.username != "alice" {
+		t.Errorf("username: got %q, want alice", call.username)
+	}
+	if call.sessionUUID != "test-session-uuid-1234" {
+		t.Errorf("sessionUUID: got %q, want test-session-uuid-1234", call.sessionUUID)
+	}
+	if got := len(call.blobs); got != 3 {
+		t.Errorf("blobs count: got %d, want 3", got)
+	}
+}
+
+// TestInputTrackingSubmitSessionUUIDHeadless pins that a nil-client
+// (headless) player sends "headless" as the session UUID. Mirrors TS
+// InputTracking.ts:147 `player instanceof NetworkPlayer ? ... : 'headless'`.
+func TestInputTrackingSubmitSessionUUIDHeadless(t *testing.T) {
+	// "Headless" in goscape: p.session == "" (tick.go:394 sets "headless"
+	// on login if the session UUID from the login service is empty).
+	// submitEvents resolves the session string via:
+	//   sessionUUID := p.session; if sessionUUID == "" { sessionUUID = "headless" }
+	// which mirrors TS InputTracking.ts:147:
+	//   player instanceof NetworkPlayer ? player.client.uuid : 'headless'
+	s := newTestServer(t)
+	p2, _ := newTestPlayer(t)
+	p2.username = "headlessbot"
+	p2.session = "" // headless sentinel — empty session → submitEvents emits "headless"
+	p2.client.server = s
+	rec := installRecordingBridges(s)
+
+	tt := &InputTracking{player: p2}
+	tt.hasSeenReport = true
+	tt.waitingForRemainingData = true
+	p2.submitInput = true
+	tt.Record([]byte{0xFF})
+
+	tt.submitEvents()
+
+	if got := len(rec.inputTracks); got != 1 {
+		t.Fatalf("bridge calls: got %d, want 1", got)
+	}
+	// p2.session="" → session string resolves to "headless"
+	if call := rec.inputTracks[0]; call.sessionUUID != "headless" {
+		t.Errorf("sessionUUID for empty session: got %q, want headless", call.sessionUUID)
+	}
+}
+
 // TestInputTrackingOnCycleDispatch pins OnCycle's branch dispatch.
 // Each case pins one of: enable, disable, grace-expired-submit, or no-op.
 func TestInputTrackingOnCycleDispatch(t *testing.T) {
@@ -362,7 +538,7 @@ func TestInputTrackingOnCycleDispatch(t *testing.T) {
 			tt.endTrackingAt = tc.endAt
 			tt.enabled = tc.enabled
 			tt.waitingForRemainingData = tc.waiting
-			tt.recordedBlobs = [][]byte{{0xAA}} // populate so we can detect submitEvents reset
+			tt.recordedBlobs = []InputTrackingBlob{{Seq: 1, Data: "qg==", Coord: 0}} // populate so we can detect submitEvents reset
 			tt.recordedBlobsSizeTotal = 1
 			p.client.server.cfg.NodeDebug = true // suppress kick
 
