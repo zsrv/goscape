@@ -598,16 +598,23 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	}
 
 	for _, spawn := range s.gamemap.NpcSpawns() {
+		// Nil/bounds guard: invalid type IDs are rejected before nid
+		// consumption (TS GameMap.ts:126-129 at 9aadcec4 — printFatalError
+		// + continue fires before `new Npc`).
 		if spawn.TypeID < 0 || spawn.TypeID >= len(npcTypes.Configs) {
 			continue
 		}
 		typ := npcTypes.Configs[spawn.TypeID]
-		if !shouldSpawnNpc(typ, cfg.NodeMembers) {
+		if typ == nil {
 			continue
 		}
-		n := NewNpc(0, spawn.TypeID, spawn.X, spawn.Z, spawn.Level, typ)
-		if err := s.addNpc(n, -1, true); err != nil {
-			s.log.Warn("npc registry full; dropping remaining spawns", "err", err)
+		// 244 hoist: spawnBootNpc consumes a nid BEFORE the members gate
+		// (TS GameMap.ts:131-134 at pin 9aadcec4). On F2P worlds, members-
+		// only NPCs are gated out but their nid is still consumed, keeping
+		// the nid sequence identical to a members world. [gamemap-2]
+		n := s.spawnBootNpc(typ, spawn.TypeID, spawn.X, spawn.Z, spawn.Level, cfg.NodeMembers)
+		if n != nil && n.nid < 0 {
+			s.log.Warn("npc registry full; dropping remaining spawns")
 			break
 		}
 	}
@@ -623,15 +630,23 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 }
 
 // shouldSpawnNpc gates a boot-time NPC spawn against the world's members
-// flag, mirroring TS GameMap.loadNpcs (GameMap.ts:131): a members-only
-// NpcType (npcType.members == true) spawns only on a members world
-// (this.members == true). The TS expression
+// flag, mirroring TS GameMap.loadNpcs (GameMap.ts:132 at pin 9aadcec4): a
+// members-only NpcType (npcType.members == true) spawns only on a members
+// world (this.members == true). The TS expression
 // `(npcType.members && this.members) || !npcType.members` reduces to:
-// skip iff npcType is members-only AND world is F2P. The tile F2P gate
-// (GameMap.ts:122-124) is already enforced upstream in
+// skip iff npcType is members-only AND world is F2P.
+//
+// At 244 (pin 9aadcec4) the members gate (GameMap.ts:132) is applied AFTER
+// Npc construction which consumes getNextNid() (GameMap.ts:131). goscape's
+// analog is spawnBootNpc (npc_registry.go [gamemap-2]) which calls
+// allocNpcSlot() before invoking shouldSpawnNpc, so nids are consumed even
+// for gated-out members NPCs. shouldSpawnNpc itself is unchanged by the hoist
+// — it remains the gate predicate used at the post-alloc decision point.
+//
+// The tile F2P gate (GameMap.ts:122-124) is already enforced upstream in
 // pkg/gamemap/load.go's loadNPCs and stays orthogonal to this gate.
-// A nil typ is also rejected (the spawn loop's pre-existing nil-guard
-// is folded in here for a single early-out).
+// A nil typ is rejected by the spawn loop's bounds check before calling
+// spawnBootNpc — see the [gamemap-2] hoist comment in NewServer.
 // [gamemap-1]
 func shouldSpawnNpc(typ *objtype.NpcType, worldMembers bool) bool {
 	if typ == nil {

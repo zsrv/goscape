@@ -933,3 +933,62 @@ func TestAddNpcAt_PopulatesSizeBlockWalkMoveRestrict(t *testing.T) {
 		t.Fatalf("moveRestrict = %v, want %v", real.moveRestrict, typ.MoveRestrict)
 	}
 }
+
+// TestSpawnLoopNidGap pins rev-244 B3 gamemap-2: on a non-members world the
+// nid allocator must advance for every valid NpcType in the spawn list —
+// including members-only NPCs that are gated out — so that the nid sequence
+// has gaps where members NPCs were skipped. This mirrors TS
+// GameMap.loadNpcs:131-134 (pin 9aadcec4) which hoists `new Npc(...,
+// World.getNextNid(), ...)` ABOVE the members gate.
+//
+// Fixture: three spawns in order — F2P, members-only, F2P — on a non-members
+// world. The first F2P NPC gets nid N; the members NPC is skipped (gate) but
+// its nid N+1 is consumed; the second F2P NPC gets nid N+2.
+//
+// FAIL expected under 225-style gate-before-alloc (members skip → no nid
+// consumed → third NPC gets N+1). PASS after 244 hoist (nid consumed for
+// skipped members NPC → third NPC gets N+2).
+func TestSpawnLoopNidGap(t *testing.T) {
+	s := newTestServer(t)
+
+	f2pTyp := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 1},
+		Size:       1,
+		Members:    false,
+	}
+	membersTyp := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 2},
+		Size:       1,
+		Members:    true,
+	}
+
+	worldMembers := false
+	spawns := []*objtype.NpcType{f2pTyp, membersTyp, f2pTyp}
+
+	// Call spawnBootNpc — the 244-faithful helper that implements the hoisted
+	// nid-consumption loop. Under pre-hoist (225-style) code this helper does
+	// not exist and the inline loop in server.go gates before allocating; the
+	// test therefore fails until the hoist is applied.
+	var registered []*Npc
+	for _, typ := range spawns {
+		n := s.spawnBootNpc(typ, int(typ.ConfigType.ID), 100, 100, 0, worldMembers)
+		if n != nil {
+			registered = append(registered, n)
+		}
+	}
+
+	if len(registered) != 2 {
+		t.Fatalf("registered NPC count: got %d, want 2 (members NPC must be skipped)", len(registered))
+	}
+
+	firstNid := registered[0].nid
+	thirdNid := registered[1].nid
+
+	// The gap: members NPC consumed nid firstNid+1, so the second F2P NPC
+	// must be at firstNid+2 — NOT firstNid+1 (which would mean no gap).
+	wantThirdNid := firstNid + 2
+	if thirdNid != wantThirdNid {
+		t.Errorf("third NPC nid: got %d, want %d — members-skipped NPC must consume nid %d (244 hoist [gamemap-2])",
+			thirdNid, wantThirdNid, firstNid+1)
+	}
+}

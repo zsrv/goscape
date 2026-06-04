@@ -10,6 +10,58 @@ import (
 
 var errNpcsFull = errors.New("npc registry full")
 
+// spawnBootNpc is the 244-faithful single-spawn step for the boot-time NPC
+// pass. It mirrors TS GameMap.loadNpcs at 9aadcec4:131-134, where Npc
+// construction (consuming World.getNextNid()) is hoisted ABOVE the members
+// gate — so on a non-members world a nid is consumed for each members-only
+// NPC in the list, producing gaps in the F2P nid sequence that keep it
+// identical to the members-world sequence.
+//
+// Contract:
+//   - typ nil-check must be done by the caller BEFORE calling (TS
+//     printFatalError+continue at :126-129 fires before `new Npc`; a nil
+//     typ must not consume a nid).
+//   - allocNpcSlot() is called unconditionally — nid consumed even if the
+//     members gate rejects the NPC (matching TS: Npc constructed with
+//     getNextNid() then not passed to addNpc).
+//   - Returns nil when the members gate rejects the NPC (nid burned, no
+//     Npc registered).
+//   - Returns a sentinel *Npc with nid=-1 when the registry is full;
+//     callers must check n.nid < 0 to detect and break the spawn loop.
+//
+// [gamemap-2]
+func (s *Server) spawnBootNpc(typ *objtype.NpcType, typeID, x, z, level int, worldMembers bool) *Npc {
+	// 244 hoist: allocate nid BEFORE the members gate (TS GameMap.ts:131
+	// at pin 9aadcec4 — `new Npc(..., World.getNextNid(), ...)` above the
+	// `if ((npcType.members && this.members) || !npcType.members)` check).
+	nid := s.allocNpcSlot()
+	if nid < 0 {
+		return &Npc{nid: -1} // registry full sentinel; caller checks nid < 0
+	}
+	if !shouldSpawnNpc(typ, worldMembers) {
+		// Nid consumed but NPC discarded — F2P worlds burn a nid per skipped
+		// members NPC, keeping nid sequences identical across world types.
+		return nil
+	}
+	n := NewNpc(nid, typeID, x, z, level, typ)
+	// Complete firstSpawn registration: mirror the addNpc(firstSpawn=true)
+	// branch for the slot-assignment fields (allocation already done above).
+	n.nid = nid
+	n.uid = (n.typeId << 16) | nid
+	n.server = s
+	s.npcs[nid] = n
+	s.npcLoop = append(s.npcLoop, n)
+	if s.rsbuf != nil {
+		s.rsbuf.AddNpc(int32(n.nid), int32(n.typeId))
+	}
+	// Delegate post-registration setup (position restore, zone enter,
+	// collision, resetEntityForRespawn, AI_SPAWN trigger) to addNpc with
+	// firstSpawn=false — which applies all shared tail logic without
+	// re-allocating a slot.
+	_ = s.addNpc(n, -1, false)
+	return n
+}
+
 // allocNpcSlot returns a free nid (1..8191). Returns -1 if full.
 func (s *Server) allocNpcSlot() int {
 	for offset := 0; offset < len(s.npcs)-1; offset++ {
