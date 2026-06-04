@@ -31,8 +31,6 @@ type recordedLoggerCall struct {
 }
 type recordedInputTrackingCall struct {
 	method      string // "SubmitInputTracking"
-	player      *Player
-	blob        []byte // deprecated: kept for legacy test compat (pre-244); nil in 244 calls
 	username    string
 	sessionUUID string
 	blobs       []InputTrackingBlob

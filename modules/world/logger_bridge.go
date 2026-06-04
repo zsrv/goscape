@@ -17,7 +17,7 @@ type slogLoggerBridge struct {
 
 // NewSlogLoggerBridge wraps parent in a child logger keyed
 // component=logger_bridge.
-func NewSlogLoggerBridge(parent *slog.Logger) *slogLoggerBridge {
+func NewSlogLoggerBridge(parent *slog.Logger) LoggerBridge {
 	return &slogLoggerBridge{log: parent.With("component", "logger_bridge")}
 }
 

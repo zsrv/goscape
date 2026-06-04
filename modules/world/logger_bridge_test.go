@@ -57,6 +57,9 @@ func TestSlogLoggerBridgeSubmitInputTracking(t *testing.T) {
 		"username=alice",
 		"session_uuid=test-session-uuid",
 		"blob_count=2",
+		"blobs=", // the payload attribute itself must be present
+		"seq:1",  // first blob rendered inside the blobs attribute
+		"seq:2",  // second blob present → ALL blobs emitted, not just [0]
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("log output missing %q: %s", want, out)
