@@ -15,6 +15,7 @@ type fakeSource struct {
 	faceEntity                                     int
 	sayText                                        []byte
 	damageAmt, damageType, curHP, baseHP           int
+	damage2Amt, damage2Type                        int
 	faceSquareX, faceSquareZ                       int
 	chatColour, chatEffect, chatRights             int
 	chatBytes                                      []byte
@@ -40,6 +41,8 @@ func (f *fakeSource) FaceEntity() int         { return f.faceEntity }
 func (f *fakeSource) SayText() []byte         { return f.sayText }
 func (f *fakeSource) DamageAmt() int          { return f.damageAmt }
 func (f *fakeSource) DamageType() int         { return f.damageType }
+func (f *fakeSource) Damage2Amt() int         { return f.damage2Amt }
+func (f *fakeSource) Damage2Type() int        { return f.damage2Type }
 func (f *fakeSource) CurHP() int              { return f.curHP }
 func (f *fakeSource) BaseHP() int             { return f.baseHP }
 func (f *fakeSource) FaceSquareX() int        { return f.faceSquareX }
@@ -199,6 +202,57 @@ func TestWriteMaskPayloads_CanonicalOrder(t *testing.T) {
 	for i := range want {
 		if got[i] != want[i] {
 			t.Errorf("byte[%d]: got 0x%02x, want 0x%02x (full=%#v)", i, got[i], want[i], got)
+		}
+	}
+}
+
+// TestMaskDamage2BitValue pins MaskDamage2 == 0x400 (rsbuf 244 prot.rs DAMAGE2=0x400).
+func TestMaskDamage2BitValue(t *testing.T) {
+	if MaskDamage2 != 0x400 {
+		t.Errorf("MaskDamage2: got 0x%x, want 0x400", MaskDamage2)
+	}
+}
+
+// TestDamage2Payload pins the DAMAGE2 wire encoding: p1(amt) p1(type) p1(cur) p1(base),
+// identical to DAMAGE (rsbuf 244 renderer.rs PlayerInfoDamage::new with damage_taken2/damage_type2).
+func TestDamage2Payload(t *testing.T) {
+	p := &fakeSource{masks: MaskDamage2, damage2Amt: 5, damage2Type: 2, curHP: 30, baseHP: 45}
+	buf := packet.NewPacket(nil)
+	writeMaskPayloads(buf, p, MaskDamage2)
+	got := bytesWritten(buf)
+	// p1(5) p1(2) p1(30) p1(45)
+	want := []byte{0x05, 0x02, 0x1e, 0x2d}
+	if len(got) != len(want) {
+		t.Fatalf("length: got %d, want %d (bytes=%#v)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("byte[%d]: got %#x, want %#x", i, got[i], want[i])
+		}
+	}
+}
+
+// TestPlayerDamage2WrittenLast pins DAMAGE2 appearing AFTER DAMAGE in the wire stream
+// (rsbuf 244 info.rs write_blocks: DAMAGE at line 374-376, DAMAGE2 at line 402-404 — last
+// after EXACT_MOVE). Uses DAMAGE + DAMAGE2 together to confirm relative order.
+func TestPlayerDamage2WrittenLast(t *testing.T) {
+	p := &fakeSource{
+		masks:     MaskDamage | MaskDamage2,
+		damageAmt: 10, damageType: 1, curHP: 40, baseHP: 50,
+		damage2Amt: 5, damage2Type: 2,
+	}
+	buf := packet.NewPacket(nil)
+	writeMaskPayloads(buf, p, MaskDamage|MaskDamage2)
+	got := bytesWritten(buf)
+	// DAMAGE first: p1(10) p1(1) p1(40) p1(50)
+	// DAMAGE2 last: p1(5) p1(2) p1(40) p1(50)  (shares curHP/baseHP)
+	want := []byte{0x0a, 0x01, 0x28, 0x32, 0x05, 0x02, 0x28, 0x32}
+	if len(got) != len(want) {
+		t.Fatalf("length: got %d, want %d (bytes=%#v)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("byte[%d]: got %#x, want %#x (full=%#v)", i, got[i], want[i], got)
 		}
 	}
 }

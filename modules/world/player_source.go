@@ -16,14 +16,16 @@ func (p *Player) EntityMask() int         { return p.entitymask }
 func (p *Player) AppearanceBytes() []byte { return p.appearanceBuf }
 
 // Mask payload accessors.
-func (p *Player) AnimID() int     { return p.animID }
-func (p *Player) AnimDelay() int  { return p.animDelay }
-func (p *Player) FaceEntity() int { return p.faceEntity }
-func (p *Player) SayText() []byte { return p.sayText }
-func (p *Player) DamageAmt() int  { return p.damageAmt }
-func (p *Player) DamageType() int { return p.damageType }
-func (p *Player) CurHP() int      { return int(p.levels[objtype.PlayerStatHitpoints]) }
-func (p *Player) BaseHP() int     { return int(p.baseLevels[objtype.PlayerStatHitpoints]) }
+func (p *Player) AnimID() int      { return p.animID }
+func (p *Player) AnimDelay() int   { return p.animDelay }
+func (p *Player) FaceEntity() int  { return p.faceEntity }
+func (p *Player) SayText() []byte  { return p.sayText }
+func (p *Player) DamageAmt() int   { return p.damageAmt }
+func (p *Player) DamageType() int  { return p.damageType }
+func (p *Player) Damage2Amt() int  { return -1 } // rev244-b2 T13 wires real damage2 fields
+func (p *Player) Damage2Type() int { return -1 } // rev244-b2 T13 wires real damage2 fields
+func (p *Player) CurHP() int       { return int(p.levels[objtype.PlayerStatHitpoints]) }
+func (p *Player) BaseHP() int      { return int(p.baseLevels[objtype.PlayerStatHitpoints]) }
 
 // FaceSquareX/Z feed the rsbuf FACE_COORD mask payload (their only callers) —
 // the EFFECTIVE face coord (active faceSquare, else resting faceAngle/south)

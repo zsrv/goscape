@@ -170,6 +170,7 @@ func (b *Buf) ComputePlayer(
 	faceEntity, faceX, faceZ int32,
 	orientationX, orientationZ int32,
 	damageTaken, damageType int32,
+	damageTaken2, damageType2 int32, // rsbuf 244 lib.rs:67-68
 	currentHitpoints, baseHitpoints int32,
 	animID, animDelay int32,
 	say *string,
@@ -219,6 +220,8 @@ func (b *Buf) ComputePlayer(
 	p.OrientationZ = orientationZ
 	p.DamageTaken = damageTaken
 	p.DamageType = damageType
+	p.DamageTaken2 = damageTaken2
+	p.DamageType2 = damageType2
 	p.CurrentHitpoints = currentHitpoints
 	p.BaseHitpoints = baseHitpoints
 	p.AnimID = animID
@@ -309,6 +312,7 @@ func (b *Buf) ComputeNpc(
 	faceEntity, faceX, faceZ int32,
 	orientationX, orientationZ int32,
 	damageTaken, damageType int32,
+	damageTaken2, damageType2 int32, // rsbuf 244 lib.rs:240-241
 	currentHitpoints, baseHitpoints int32,
 	animID, animDelay int32,
 	say *string,
@@ -349,6 +353,8 @@ func (b *Buf) ComputeNpc(
 	n.OrientationZ = orientationZ
 	n.DamageTaken = damageTaken
 	n.DamageType = damageType
+	n.DamageTaken2 = damageTaken2
+	n.DamageType2 = damageType2
 	n.CurrentHitpoints = currentHitpoints
 	n.BaseHitpoints = baseHitpoints
 	n.AnimID = animID

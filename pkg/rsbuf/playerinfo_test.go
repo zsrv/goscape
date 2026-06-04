@@ -27,6 +27,7 @@ func setupLocalPlayer(b *Buf, pid int32, modify func(p *Player)) {
 		-1,
 		-1, -1,
 		-1, -1,
+		-1, -1, // damageTaken2, damageType2
 		-1, -1,
 		-1, -1,
 		-1, -1,
@@ -141,6 +142,7 @@ func setupOtherPlayer(b *Buf, pid int32, modify func(p *Player)) {
 		-1,
 		-1, -1,
 		-1, -1,
+		-1, -1, // damageTaken2, damageType2
 		-1, -1,
 		-1, -1,
 		-1, -1,
@@ -548,6 +550,7 @@ func TestPlayerInfo_Encode_LocalIdleNoOthers(t *testing.T) {
 		-1, -1,            // faceX, faceZ
 		-1, -1, // orientationX, orientationZ
 		-1, -1, // damageTaken, damageType
+		-1, -1, // damageTaken2, damageType2
 		-1, -1, // currentHitpoints, baseHitpoints
 		-1, -1, // animID, animDelay
 		nil,          // say

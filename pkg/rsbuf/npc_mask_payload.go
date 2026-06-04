@@ -8,10 +8,17 @@ func writeNpcMaskHeader(buf *packet.Packet, masks int) {
 	buf.P1(uint8(masks))
 }
 
-// writeNpcMaskPayloads writes payloads in fixed order:
-// ANIM → FACE_ENTITY → SAY → DAMAGE → CHANGE_TYPE → SPOT_ANIM → FACE_COORD
+// writeNpcMaskPayloads writes payloads in fixed order (rsbuf 244 info.rs:683-707):
+// DAMAGE2 (FIRST) → ANIM → FACE_ENTITY → SAY → DAMAGE → CHANGE_TYPE → SPOT_ANIM → FACE_COORD
 // All straight big-endian (no alt-byte variants).
 func writeNpcMaskPayloads(buf *packet.Packet, n NpcSource, forceMasks int) {
+	// DAMAGE2 is written FIRST (rsbuf 244 info.rs:683-685; NpcInfoProt::DAMAGE2 = 0x1).
+	if forceMasks&NpcMaskDamage2 != 0 {
+		buf.P1(uint8(n.Damage2Amt()))
+		buf.P1(uint8(n.Damage2Type()))
+		buf.P1(uint8(n.CurHP()))
+		buf.P1(uint8(n.BaseHP()))
+	}
 	if forceMasks&NpcMaskAnim != 0 {
 		buf.P2(uint16(n.AnimID()))
 		buf.P1(uint8(n.AnimDelay()))

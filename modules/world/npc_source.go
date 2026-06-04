@@ -20,6 +20,8 @@ func (n *Npc) FaceEntity() int     { return n.faceEntity }
 func (n *Npc) SayText() []byte     { return n.sayText }
 func (n *Npc) DamageAmt() int      { return n.damageAmt }
 func (n *Npc) DamageType() int     { return n.damageType }
+func (n *Npc) Damage2Amt() int     { return -1 } // rev244-b2 T13 wires real damage2 fields
+func (n *Npc) Damage2Type() int    { return -1 } // rev244-b2 T13 wires real damage2 fields
 func (n *Npc) CurHP() int          { return n.levels[objtype.NpcStatHitpoints] }
 func (n *Npc) BaseHP() int         { return n.baseLevels[objtype.NpcStatHitpoints] }
 func (n *Npc) ChangeTypeID() int   { return n.changeTypeID }

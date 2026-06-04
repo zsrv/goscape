@@ -25,6 +25,7 @@ type Npc struct {
 	FaceX, FaceZ                           int32
 	OrientationX, OrientationZ             int32
 	DamageTaken, DamageType                int32
+	DamageTaken2, DamageType2              int32 // rsbuf 244 npc.rs:20-21
 	CurrentHitpoints, BaseHitpoints        int32
 	AnimID, AnimDelay                      int32
 	Say                                    *string
@@ -51,6 +52,8 @@ func newNpc(nid, ntype int32) *Npc {
 		OrientationZ:     -1,
 		DamageTaken:      -1,
 		DamageType:       -1,
+		DamageTaken2:     -1,
+		DamageType2:      -1,
 		CurrentHitpoints: -1,
 		BaseHitpoints:    -1,
 		AnimID:           -1,
@@ -77,6 +80,8 @@ func (n *Npc) cleanup() {
 	n.FaceZ = -1
 	n.DamageTaken = -1
 	n.DamageType = -1
+	n.DamageTaken2 = -1
+	n.DamageType2 = -1
 	n.CurrentHitpoints = -1
 	n.BaseHitpoints = -1
 	n.AnimID = -1

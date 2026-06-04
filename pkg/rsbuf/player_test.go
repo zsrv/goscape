@@ -155,6 +155,33 @@ func TestPlayerCleanup_PreservesPersistent(t *testing.T) {
 	}
 }
 
+// TestPlayerDamage2SentinelDefaults pins that newPlayer initialises
+// DamageTaken2 and DamageType2 to -1 (rsbuf 244 player.rs:82-83).
+func TestPlayerDamage2SentinelDefaults(t *testing.T) {
+	p := newPlayer(42)
+	if p.DamageTaken2 != -1 {
+		t.Errorf("DamageTaken2: got %d, want -1", p.DamageTaken2)
+	}
+	if p.DamageType2 != -1 {
+		t.Errorf("DamageType2: got %d, want -1", p.DamageType2)
+	}
+}
+
+// TestPlayerCleanup_ResetsDamage2 pins that cleanup resets DamageTaken2/DamageType2
+// to -1 (rsbuf 244 player.rs:113-114).
+func TestPlayerCleanup_ResetsDamage2(t *testing.T) {
+	p := newPlayer(5)
+	p.DamageTaken2 = 3
+	p.DamageType2 = 1
+	p.cleanup()
+	if p.DamageTaken2 != -1 {
+		t.Errorf("cleanup: DamageTaken2 not reset to -1 (got %d)", p.DamageTaken2)
+	}
+	if p.DamageType2 != -1 {
+		t.Errorf("cleanup: DamageType2 not reset to -1 (got %d)", p.DamageType2)
+	}
+}
+
 func TestChat_Construction(t *testing.T) {
 	c := &Chat{Bytes: []byte{0x10, 0x20}, Color: 1, Effect: 2, Ignored: 3}
 	if c.Color != 1 || c.Effect != 2 || c.Ignored != 3 {

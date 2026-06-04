@@ -30,6 +30,7 @@ type Player struct {
 	FaceX, FaceZ                           int32
 	OrientationX, OrientationZ             int32
 	DamageTaken, DamageType                int32
+	DamageTaken2, DamageType2              int32 // rsbuf 244 player.rs:28-29
 	CurrentHitpoints, BaseHitpoints        int32
 	AnimID, AnimDelay                      int32
 	Say                                    *string // nil = no say this tick
@@ -83,6 +84,8 @@ func newPlayer(pid int32) *Player {
 		OrientationZ:     -1,
 		DamageTaken:      -1,
 		DamageType:       -1,
+		DamageTaken2:     -1,
+		DamageType2:      -1,
 		CurrentHitpoints: -1,
 		BaseHitpoints:    -1,
 		AnimID:           -1,
@@ -113,6 +116,8 @@ func (p *Player) cleanup() {
 	p.FaceZ = -1
 	p.DamageTaken = -1
 	p.DamageType = -1
+	p.DamageTaken2 = -1
+	p.DamageType2 = -1
 	p.CurrentHitpoints = -1
 	p.BaseHitpoints = -1
 	p.AnimID = -1

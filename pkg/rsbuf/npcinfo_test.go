@@ -22,6 +22,7 @@ func setupNpc(b *Buf, nid, ntype int32, modify func(n *Npc)) {
 		-1, -1, -1, // faceEntity, faceX, faceZ
 		-1, -1, // orientationX, orientationZ
 		-1, -1, // damageTaken, damageType
+		-1, -1, // damageTaken2, damageType2
 		-1, -1, // currentHitpoints, baseHitpoints
 		-1, -1, // animID, animDelay
 		nil,        // say
@@ -37,7 +38,7 @@ func TestNpcInfo_Encode_Empty(t *testing.T) {
 	ni := NewNpcInfo()
 	b.AddPlayer(1)
 	// Position self at (3200, 0, 3200) — no NPCs registered, so nearby/tracked
-	// sets are both empty. 42-arg ComputePlayer signature (verify against
+	// sets are both empty. 44-arg ComputePlayer signature (verify against
 	// (*Buf).ComputePlayer in pkg/rsbuf/buf.go).
 	b.ComputePlayer(
 		1,             // pid
@@ -55,6 +56,7 @@ func TestNpcInfo_Encode_Empty(t *testing.T) {
 		-1, -1,            // faceX, faceZ
 		-1, -1, // orientationX, orientationZ
 		-1, -1, // damageTaken, damageType
+		-1, -1, // damageTaken2, damageType2
 		-1, -1, // currentHitpoints, baseHitpoints
 		-1, -1, // animID, animDelay
 		nil,          // say
@@ -315,7 +317,7 @@ func TestNpcInfo_TrackedNpc_RemoveBecauseLevelMismatch(t *testing.T) {
 		7, 100,
 		3200, 1, 3200, // level=1 — mismatch with player level=0
 		false, -1, -1, true, 0,
-		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
 	)
 	b.npcs[7].Observers = 5
 	b.players[1].Build.Npcs.Insert(7)
@@ -347,7 +349,7 @@ func TestNpcInfo_TrackedNpc_RemoveBecauseOutOfDistance(t *testing.T) {
 		7, 100,
 		npcX, 0, 3200,
 		false, -1, -1, true, 0,
-		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
 	)
 	b.npcs[7].Observers = 5
 	b.players[1].Build.Npcs.Insert(7)
@@ -379,7 +381,7 @@ func TestNpcInfo_TrackedNpc_RemoveBecauseInactive(t *testing.T) {
 		false, -1, -1,
 		false, // active=false
 		0,
-		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
 	)
 	b.npcs[7].Observers = 5
 	b.players[1].Build.Npcs.Insert(7)
@@ -545,7 +547,7 @@ func TestNpcInfo_ObserverCountFloorsAtZero(t *testing.T) {
 		7, 100,
 		3200, 1, 3200, // level=1 — mismatch with player level=0; prevents re-add
 		false, -1, -1, true, 0,
-		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
 	)
 	b.npcs[7].Observers = 0
 	b.players[1].Build.Npcs.Insert(7)

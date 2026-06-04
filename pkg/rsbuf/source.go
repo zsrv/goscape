@@ -25,6 +25,8 @@ type PlayerSource interface {
 	SayText() []byte
 	DamageAmt() int
 	DamageType() int
+	Damage2Amt() int
+	Damage2Type() int
 	CurHP() int
 	BaseHP() int
 	FaceSquareX() int

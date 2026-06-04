@@ -1,7 +1,9 @@
 package rsbuf
 
-// NPC mask bit constants — matches rsbuf branch 225 NpcInfoProt.
+// NPC mask bit constants — matches rsbuf branch 244 NpcInfoProt.
+// DAMAGE2 = 0x1 fills the previously-unused slot; no existing constants change.
 const (
+	NpcMaskDamage2    = 0x1 // rsbuf 244 prot.rs DAMAGE2 — written FIRST in write order (info.rs:683-685)
 	NpcMaskAnim       = 0x2
 	NpcMaskFaceEntity = 0x4
 	NpcMaskSay        = 0x8
@@ -27,6 +29,8 @@ type NpcSource interface {
 	SayText() []byte
 	DamageAmt() int
 	DamageType() int
+	Damage2Amt() int
+	Damage2Type() int
 	CurHP() int
 	BaseHP() int
 	ChangeTypeID() int

@@ -13,10 +13,10 @@ func writeMaskHeader(buf *packet.Packet, masks int) {
 }
 
 // writeMaskPayloads writes mask payloads in canonical rsbuf order
-// (info.rs:362-401), matching Java client `getPlayerExtended` read order
+// (rsbuf 244 info.rs:362-404), matching Java client `getPlayerExtended` read order
 // (client.java:10444-10559). Order is ascending bit-value:
 // APPEARANCE -> ANIM -> FACE_ENTITY -> SAY -> DAMAGE -> FACE_COORD ->
-// CHAT -> SPOT_ANIM -> EXACT_MOVE.
+// CHAT -> SPOT_ANIM -> EXACT_MOVE -> DAMAGE2 (LAST, info.rs:402-404).
 //
 // forceMasks is the effective mask set to write (may differ from p.Masks() for
 // low-def variants). Callers requesting CHAT suppression must pre-strip
@@ -48,6 +48,10 @@ func writeMaskPayloads(buf *packet.Packet, p PlayerSource, forceMasks int) {
 	}
 	if forceMasks&MaskExactMove != 0 {
 		writeExactMove(buf, p)
+	}
+	// DAMAGE2 is written LAST — appended after EXACT_MOVE in rsbuf 244 (info.rs:402-404).
+	if forceMasks&MaskDamage2 != 0 {
+		writeDamage2(buf, p)
 	}
 }
 
@@ -98,6 +102,15 @@ func writeAppearance(buf *packet.Packet, p PlayerSource) {
 func writeDamage(buf *packet.Packet, p PlayerSource) {
 	buf.P1(uint8(p.DamageAmt()))
 	buf.P1(uint8(p.DamageType()))
+	buf.P1(uint8(p.CurHP()))
+	buf.P1(uint8(p.BaseHP()))
+}
+
+// writeDamage2 writes the DAMAGE2 payload — same 4-byte shape as DAMAGE
+// (rsbuf 244 renderer.rs PlayerInfoDamage::new with damage_taken2/damage_type2).
+func writeDamage2(buf *packet.Packet, p PlayerSource) {
+	buf.P1(uint8(p.Damage2Amt()))
+	buf.P1(uint8(p.Damage2Type()))
 	buf.P1(uint8(p.CurHP()))
 	buf.P1(uint8(p.BaseHP()))
 }

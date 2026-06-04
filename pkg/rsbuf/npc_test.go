@@ -103,6 +103,33 @@ func TestNpcCleanup_ZeroesTransient(t *testing.T) {
 	}
 }
 
+// TestNpcDamage2SentinelDefaults pins that newNpc initialises
+// DamageTaken2 and DamageType2 to -1 (rsbuf 244 npc.rs:50-51).
+func TestNpcDamage2SentinelDefaults(t *testing.T) {
+	n := newNpc(7, 100)
+	if n.DamageTaken2 != -1 {
+		t.Errorf("DamageTaken2: got %d, want -1", n.DamageTaken2)
+	}
+	if n.DamageType2 != -1 {
+		t.Errorf("DamageType2: got %d, want -1", n.DamageType2)
+	}
+}
+
+// TestNpcCleanup_ResetsDamage2 pins that cleanup resets DamageTaken2/DamageType2
+// to -1 (rsbuf 244 npc.rs:77-78).
+func TestNpcCleanup_ResetsDamage2(t *testing.T) {
+	n := newNpc(7, 100)
+	n.DamageTaken2 = 3
+	n.DamageType2 = 1
+	n.cleanup()
+	if n.DamageTaken2 != -1 {
+		t.Errorf("cleanup: DamageTaken2 not reset to -1 (got %d)", n.DamageTaken2)
+	}
+	if n.DamageType2 != -1 {
+		t.Errorf("cleanup: DamageType2 not reset to -1 (got %d)", n.DamageType2)
+	}
+}
+
 func TestNpcCleanup_PreservesPersistent(t *testing.T) {
 	// Per upstream npc.rs:62-83 commented-out lines:
 	// faceEntity, orientationX, orientationZ persist across ticks.

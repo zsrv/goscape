@@ -248,6 +248,7 @@ func TestComputePlayer_WritesAllFields(t *testing.T) {
 		/*faceEntity*/ 9 /*faceX*/, 10 /*faceZ*/, 11,
 		/*orientationX*/ 12 /*orientationZ*/, 13,
 		/*damageTaken*/ 7 /*damageType*/, 1,
+		/*damageTaken2*/ -1 /*damageType2*/, -1,
 		/*currentHitpoints*/ 90 /*baseHitpoints*/, 99,
 		/*animID*/ 808 /*animDelay*/, 0,
 		/*say*/ &say,
@@ -328,7 +329,7 @@ func TestComputePlayer_NilSlotIsNoop(t *testing.T) {
 	// pid 5 not added — players[5] is nil.
 	b.ComputePlayer(5, 50, 0, 60, 48, 56,
 		false, false, -1, -1, VisibilityDefault, 0, false, 0,
-		nil, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		nil, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 		nil, nil, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
 	if b.players[5] != nil {
 		t.Error("ComputePlayer on nil slot allocated player")
@@ -340,7 +341,7 @@ func TestComputePlayer_NegativePIDIsNoop(t *testing.T) {
 	b.AddPlayer(5)
 	b.ComputePlayer(-1, 50, 0, 60, 48, 56,
 		false, false, -1, -1, VisibilityDefault, 0, false, 0,
-		nil, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		nil, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 		nil, nil, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
 	// no panic
 }
@@ -350,7 +351,7 @@ func TestComputePlayer_NilSayBytesAndMessageProduceNilSubstructs(t *testing.T) {
 	b.AddPlayer(5)
 	b.ComputePlayer(5, 50, 0, 60, 48, 56,
 		false, false, -1, -1, VisibilityDefault, 0, false, 0,
-		nil, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		nil, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 		nil /*say*/, nil /*message*/, 0, 0, 0, -1, -1, -1,
 		-1 /*exactStartX*/, -1, -1, -1, -1, -1, -1)
 	p := b.players[5]
@@ -371,7 +372,7 @@ func TestComputePlayer_CrossZoneMoveUpdatesZoneMap(t *testing.T) {
 	// Tick 1: place at (50, 0, 50). Zone is (50>>3=6, 0, 50>>3=6).
 	b.ComputePlayer(5, 50, 0, 50, 48, 48, false, false, -1, -1,
 		VisibilityDefault, 0, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
-		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 	if _, ok := b.zoneMap.Zone(50, 0, 50).players[5]; !ok {
 		t.Fatal("after tick 1: zoneMap zone(50,0,50) should contain pid 5")
@@ -380,7 +381,7 @@ func TestComputePlayer_CrossZoneMoveUpdatesZoneMap(t *testing.T) {
 	// Tick 2: cross-zone move to (64, 0, 50). Zone is (64>>3=8, 0, 6).
 	b.ComputePlayer(5, 64, 0, 50, 48, 48, false, false, -1, -1,
 		VisibilityDefault, 0, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
-		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 
 	if _, ok := b.zoneMap.Zone(50, 0, 50).players[5]; ok {
@@ -397,13 +398,13 @@ func TestComputePlayer_SameZoneMoveDoesNotTouchZoneMap(t *testing.T) {
 	// Tick 1: place at (50, 0, 50). Zone (6, 0, 6).
 	b.ComputePlayer(5, 50, 0, 50, 48, 48, false, false, -1, -1,
 		VisibilityDefault, 0, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
-		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 
 	// Tick 2: same-zone move to (55, 0, 50). 55>>3=6 — same zone.
 	b.ComputePlayer(5, 55, 0, 50, 48, 48, false, false, -1, -1,
 		VisibilityDefault, 0, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
-		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 
 	if _, ok := b.zoneMap.Zone(50, 0, 50).players[5]; !ok {
@@ -421,7 +422,7 @@ func TestComputePlayer_AlwaysPushesPlayerGrid(t *testing.T) {
 	b.AddPlayer(5)
 	b.ComputePlayer(5, 50, 0, 50, 48, 48, false, false, -1, -1,
 		VisibilityDefault, 0, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
-		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 
 	key := uint32(coordgrid.PackCoord(0, 50, 50))
@@ -432,7 +433,7 @@ func TestComputePlayer_AlwaysPushesPlayerGrid(t *testing.T) {
 	// Same-zone move pushes the new tile too.
 	b.ComputePlayer(5, 55, 0, 50, 48, 48, false, false, -1, -1,
 		VisibilityDefault, 0, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
-		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 	newKey := uint32(coordgrid.PackCoord(0, 55, 50))
 	if got := b.playerGrid[newKey]; len(got) != 1 || got[0] != 5 {
@@ -454,6 +455,7 @@ func TestComputeNpc_WritesAllFields(t *testing.T) {
 		/*faceEntity*/ 9 /*faceX*/, 10 /*faceZ*/, 11,
 		/*orientationX*/ 12 /*orientationZ*/, 13,
 		/*damageTaken*/ 7 /*damageType*/, 1,
+		/*damageTaken2*/ -1 /*damageType2*/, -1,
 		/*currentHitpoints*/ 90 /*baseHitpoints*/, 99,
 		/*animID*/ 808 /*animDelay*/, 0,
 		/*say*/ &say,
@@ -506,7 +508,7 @@ func TestComputeNpc_NilSlotIsNoop(t *testing.T) {
 	b := New()
 	// nid 50 not added.
 	b.ComputeNpc(50, 100, 60, 0, 70, false, -1, -1, false, 0,
-		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
 	if b.npcs[50] != nil {
 		t.Error("ComputeNpc on nil slot allocated npc")
 	}
@@ -516,9 +518,9 @@ func TestComputeNpc_NegativeIDsAreNoop(t *testing.T) {
 	b := New()
 	b.AddNpc(50, 100)
 	b.ComputeNpc(-1, 100, 60, 0, 70, false, -1, -1, false, 0,
-		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
 	b.ComputeNpc(50, -1, 60, 0, 70, false, -1, -1, false, 0,
-		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
 	// Both should no-op. Pin that the negative-ntype call did NOT
 	// overwrite NType=100 on the existing slot — without this assertion
 	// the test would silently pass even if the ntype<0 guard were removed.
@@ -534,13 +536,13 @@ func TestComputeNpc_CrossZoneMoveUpdatesZoneMap(t *testing.T) {
 	b := New()
 	b.AddNpc(50, 100)
 	b.ComputeNpc(50, 100, 50, 0, 50, false, -1, -1, true, 0,
-		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
 	if _, ok := b.zoneMap.Zone(50, 0, 50).npcs[50]; !ok {
 		t.Fatal("after first compute: zone (6,0,6) should contain nid 50")
 	}
 
 	b.ComputeNpc(50, 100, 64, 0, 50, false, -1, -1, true, 0,
-		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
 	if _, ok := b.zoneMap.Zone(50, 0, 50).npcs[50]; ok {
 		t.Error("after cross-zone: old zone still contains nid 50")
 	}
@@ -556,10 +558,10 @@ func TestCleanup_ClearsPlayerGridAndCallsEntityCleanup(t *testing.T) {
 	// Compute populates state + playerGrid.
 	b.ComputePlayer(5, 50, 0, 50, 48, 48, true, false, 1, 2,
 		VisibilityDefault, 0, true, 0xff, []byte{1}, -1, -1, -1, -1, -1, -1, -1,
-		-1, -1, -1, 808, 0, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, 808, 0, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 	b.ComputeNpc(10, 100, 60, 0, 60, true, 1, 2, true, 0xff,
-		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 808, nil, -1, -1, -1)
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 808, nil, -1, -1, -1)
 	if len(b.playerGrid) == 0 {
 		t.Fatal("test setup: ComputePlayer did not populate playerGrid")
 	}
@@ -627,7 +629,7 @@ func TestCleanup_NilSlotsAreSkipped(t *testing.T) {
 	// No AddPlayer / AddNpc calls — all slots nil.
 	b.ComputePlayer(5, 50, 0, 50, 48, 48, false, false, -1, -1,
 		VisibilityDefault, 0, false, 0, nil, -1, -1, -1, -1, -1, -1, -1,
-		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 	// playerGrid push from ComputePlayer was a no-op (nil slot guard).
 	b.Cleanup() // must not panic on nil-slot iteration
@@ -813,6 +815,84 @@ func TestSubscribeNpcForTest_NilSlotIsNoOp(t *testing.T) {
 	b.SubscribeNpcForTest(5, 20)
 	if b.HasNpc(5, 20) {
 		t.Error("HasNpc(5, 20) true after SubscribeNpcForTest on nil slot")
+	}
+}
+
+// TestComputePlayer_Damage2Fields pins that ComputePlayer stores damageTaken2/damageType2
+// into the Player slot (rsbuf 244 lib.rs:140-141).
+func TestComputePlayer_Damage2Fields(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	b.ComputePlayer(5, 50, 0, 60, 48, 56,
+		false, false, -1, -1, VisibilityDefault, 0, true, 0,
+		nil, -1, -1, -1, -1, -1, -1, -1, -1,
+		/*damageTaken2=*/ 3 /*damageType2=*/, 2,
+		-1, -1, -1, -1,
+		nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1)
+	p := b.players[5]
+	if p.DamageTaken2 != 3 {
+		t.Errorf("DamageTaken2: got %d, want 3", p.DamageTaken2)
+	}
+	if p.DamageType2 != 2 {
+		t.Errorf("DamageType2: got %d, want 2", p.DamageType2)
+	}
+}
+
+// TestComputeNpc_Damage2Fields pins that ComputeNpc stores damageTaken2/damageType2
+// into the Npc slot (rsbuf 244 lib.rs:274-275).
+func TestComputeNpc_Damage2Fields(t *testing.T) {
+	b := New()
+	b.AddNpc(50, 100)
+	b.ComputeNpc(50, 100, 60, 0, 70, false, -1, -1, true, 0,
+		-1, -1, -1, -1, -1, -1, -1,
+		/*damageTaken2=*/ 4 /*damageType2=*/, 1,
+		-1, -1, -1, -1, nil, -1, -1, -1)
+	n := b.npcs[50]
+	if n.DamageTaken2 != 4 {
+		t.Errorf("DamageTaken2: got %d, want 4", n.DamageTaken2)
+	}
+	if n.DamageType2 != 1 {
+		t.Errorf("DamageType2: got %d, want 1", n.DamageType2)
+	}
+}
+
+// TestComputePlayer_Damage2Cleanup pins that Cleanup resets DamageTaken2/DamageType2 to -1.
+func TestComputePlayer_Damage2Cleanup(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	b.ComputePlayer(5, 50, 0, 60, 48, 56,
+		false, false, -1, -1, VisibilityDefault, 0, true, 0,
+		nil, -1, -1, -1, -1, -1, -1, -1, -1,
+		/*damageTaken2=*/ 3 /*damageType2=*/, 2,
+		-1, -1, -1, -1,
+		nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1)
+	b.Cleanup()
+	p := b.players[5]
+	if p.DamageTaken2 != -1 {
+		t.Errorf("after Cleanup: DamageTaken2 = %d, want -1", p.DamageTaken2)
+	}
+	if p.DamageType2 != -1 {
+		t.Errorf("after Cleanup: DamageType2 = %d, want -1", p.DamageType2)
+	}
+}
+
+// TestComputeNpc_Damage2Cleanup pins that Cleanup resets DamageTaken2/DamageType2 to -1.
+func TestComputeNpc_Damage2Cleanup(t *testing.T) {
+	b := New()
+	b.AddNpc(50, 100)
+	b.ComputeNpc(50, 100, 60, 0, 70, false, -1, -1, true, 0,
+		-1, -1, -1, -1, -1, -1, -1,
+		/*damageTaken2=*/ 4 /*damageType2=*/, 1,
+		-1, -1, -1, -1, nil, -1, -1, -1)
+	b.Cleanup()
+	n := b.npcs[50]
+	if n.DamageTaken2 != -1 {
+		t.Errorf("after Cleanup: DamageTaken2 = %d, want -1", n.DamageTaken2)
+	}
+	if n.DamageType2 != -1 {
+		t.Errorf("after Cleanup: DamageType2 = %d, want -1", n.DamageType2)
 	}
 }
 

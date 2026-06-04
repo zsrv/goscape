@@ -11,7 +11,7 @@ const (
 	VisibilityHard                      // nobody sees (hidden-online, invis-to-all)
 )
 
-// PlayerInfo mask bit constants — matches rsbuf branch 225 PlayerInfoProt.
+// PlayerInfo mask bit constants — matches rsbuf branch 244 PlayerInfoProt.
 const (
 	MaskAppearance = 0x1
 	MaskAnim       = 0x2
@@ -23,4 +23,5 @@ const (
 	MaskBig        = 0x80
 	MaskSpotAnim   = 0x100
 	MaskExactMove  = 0x200
+	MaskDamage2    = 0x400 // rsbuf 244 prot.rs DAMAGE2 — appended LAST in write order (info.rs:402-404)
 )
