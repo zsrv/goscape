@@ -3,9 +3,9 @@ package cache
 import (
 	"log/slog"
 	"os"
-	"path/filepath"
 	"sync/atomic"
 
+	"github.com/zsrv/goscape/pkg/io/filestream"
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
 
@@ -50,28 +50,66 @@ func CRC() *CRCSnapshot {
 // either the old-complete or new-complete snapshot, never a torn write.
 //
 // cachePath is the cache root (mirrors world.Config.CachePath, e.g.
-// "data/pack"); per-archive paths are joined as <cachePath>/client/<name>.
-// Completes the data-path-resolution work from Arc 13 V (ad7eaa78) which
-// shipped realCacheDir(t) for PreloadClient but missed this function;
-// the prior hardcoded "data/pack/client/" relative path emitted
-// `WARN cache: loadCrc Stat failed` noise under git-worktree test runs.
+// "data/pack"). MakeCRCs opens a FileStream at cachePath and reads archive
+// 0 to derive CRCs — matching TS CrcTable.ts:11-27 at 9aadcec4:
+//
+//	count = OnDemand.cache.count(0)
+//	for i = 0; i < count; i++ {
+//	    jag = cache.read(0, i)   // decompress=false (2-arg form, FileStream.ts:43)
+//	    if jag { p4(getcrc) } else { p4(0) }
+//	}
+//
+// Archive 0 file 0 is conventionally absent in the RS2 dat/idx cache; its
+// idx entry is all zeros (sector=0 → Read returns nil → p4(0)), reproducing
+// the leading-zero slot that the 225 shape wrote explicitly as p4(0).
+//
+// CrcBuffer wire shape: always 36 bytes (TS: new Packet(new Uint8Array(4*9))).
+// When count < 9 the unused tail stays zero (faithful to the pre-allocated
+// fixed buffer). CrcTable has exactly count entries.
+//
+// CrcBuffer32 (TS CrcTable.ts:26): remains dropped — login compares the
+// table, not the 32-bit hash; the divergence is recorded in the audit trail.
+//
+// Module-init guard (CrcTable.ts:29-33): maps to the existing world-start
+// and ::reload call sites (modules/world/world.go + reload.go). No new call
+// sites are added.
+//
+// filestream.New creates missing cache files when cachePath does not exist
+// yet; an empty cache yields count=0 → 36 zero bytes + empty table.
 func MakeCRCs(cachePath string) {
-	buf := packet.NewPacket(make([]byte, 0, 4*9))
-	table := make([]uint32, 0, 9)
+	// Open FileStream read-only; New creates empty dat/idx if missing.
+	// TS: OnDemand.cache is a FileStream opened once at server start;
+	// Go opens a short-lived view here so MakeCRCs stays self-contained
+	// and does not require a shared FileStream reference in the package.
+	// readOnly=true avoids O_RDWR on files the packer may be writing.
+	fs := filestream.New(cachePath, false, true)
+	defer fs.Close() //nolint:errcheck // Close on read-only cache; errors are non-fatal.
 
-	// slot 0: header (always 0)
-	buf.P4(0)
-	table = append(table, 0)
+	count := fs.Count(0)
 
-	clientDir := filepath.Join(cachePath, "client")
-	for _, name := range []string{"title", "config", "interface", "media", "models", "textures", "wordenc", "sounds"} {
-		crc := loadCrc(filepath.Join(clientDir, name))
-		buf.P4(crc)
+	// Fixed 36-byte buffer: TS CrcBuffer = new Packet(new Uint8Array(4*9)).
+	// Zero-initialised; the first count*4 bytes are filled by the loop;
+	// the remainder stays zero (faithful to the TS pre-allocated buffer).
+	var wire [4 * 9]byte
+
+	table := make([]uint32, 0, count)
+
+	for i := range count {
+		data := fs.Read(0, i, false) // decompress=false, TS FileStream.ts:43
+		var crc uint32
+		if data != nil {
+			crc = packet.GetCRC(data, 0, len(data))
+		}
+		// Big-endian p4 at offset i*4 in the fixed wire buffer.
+		wire[i*4] = byte(crc >> 24)
+		wire[i*4+1] = byte(crc >> 16)
+		wire[i*4+2] = byte(crc >> 8)
+		wire[i*4+3] = byte(crc)
 		table = append(table, crc)
 	}
 
 	crcPtr.Store(&CRCSnapshot{
-		Bytes: append([]byte(nil), buf.Bytes()...),
+		Bytes: append([]byte(nil), wire[:]...),
 		Table: table,
 	})
 }
