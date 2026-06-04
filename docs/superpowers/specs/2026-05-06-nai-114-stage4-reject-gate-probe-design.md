@@ -8,7 +8,7 @@
 
 ## 1. Symptom (post-Stage-3)
 
-Stage 3 instrumentation (commits `a5e78ec` Provider.Names accessor, `6b489b3` boot-time `[opheldu,*]` registry log, `9d19da3` 6 inline DEBUG lines in `handleOpHeldU` L370-L418) shipped and was smoked.
+Stage 3 instrumentation (commits `a999f1e` Provider.Names accessor, `f9cce99` boot-time `[opheldu,*]` registry log, `f3e5846` 6 inline DEBUG lines in `handleOpHeldU` L370-L418) shipped and was smoked.
 
 Smoke binding (per `nai_114_stage3_binding.md`):
 
@@ -65,7 +65,7 @@ Static-read does NOT bind any of these — RuneScript content (which drives INV_
 - **Reverting the Stage 4 transient probe.** Handled at Stage 5 close.
 - **Production-quality logging.** Throwaway probe. No log-level tuning, field-stability guarantees, or test coverage of log-line shape.
 - **Stage-3 sites L370-L418.** Reverted by commits 3+4; not re-instrumented (the trigger-lookup region is unreachable until the upstream gate is fixed).
-- **`a5e78ec` Provider.Names() accessor.** Stays — long-term API.
+- **`a999f1e` Provider.Names() accessor.** Stays — long-term API.
 
 ## 4. Stage 1 — instrumentation implementation
 
@@ -73,8 +73,8 @@ Static-read does NOT bind any of these — RuneScript content (which drives INV_
 
 1. `docs(spec): NAI-114 Stage 4 — reject-gate probe design` ← this commit.
 2. `docs(plan): NAI-114 Stage 4 — reject-gate probe plan` ← from `writing-plans`.
-3. `revert: chore(debug): NAI-114 Stage 3 — opheldu trigger-lookup hit-trace` ← `git revert 9d19da3`.
-4. `revert: chore(debug): NAI-114 Stage 3 — boot-time opheldu script-registry log` ← `git revert 6b489b3`.
+3. `revert: chore(debug): NAI-114 Stage 3 — opheldu trigger-lookup hit-trace` ← `git revert f3e5846`.
+4. `revert: chore(debug): NAI-114 Stage 3 — boot-time opheldu script-registry log` ← `git revert f9cce99`.
 5. `chore(debug): NAI-114 Stage 4 — opheldu reject-gate instrumentation` ← single transient implementation commit.
 
 After commit 4, `handleOpHeldU` returns to its pre-Stage-3 shape. Commit 5's diff is purely additive against that baseline.

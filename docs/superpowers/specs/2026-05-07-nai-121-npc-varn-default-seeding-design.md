@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-07
 **Status:** spec — investigation sub-spec (Bundle 1 fix → Bundle 2 V-PARTIAL Stage 1 audit → Bundle 3 V-PARTIAL Stage 2 fix sized from findings → smoke) per `investigation_subspec_cadence`.
-**Predecessor:** NAI-120 close (commit `a3cda5d`, smoke 2026-05-07). NAI-120 SECONDARY routed forward; smoke produced "It's not after you." gate-fire on Tutorial Island giant-rat attack. Adjacent V-PARTIAL on `%npc_combat_xp_multiplier` reading 0 also pulled in (NAI-120 followups parked item).
+**Predecessor:** NAI-120 close (commit `2183216`, smoke 2026-05-07). NAI-120 SECONDARY routed forward; smoke produced "It's not after you." gate-fire on Tutorial Island giant-rat attack. Adjacent V-PARTIAL on `%npc_combat_xp_multiplier` reading 0 also pulled in (NAI-120 followups parked item).
 **Cadence:** Bundle 1 (single subagent-driven-development cycle, smoke-binding fix) → Bundle 2 (Sonnet Explore investigation subagent, audit-only, no production code) → Bundle 3 (sized from Bundle 2 findings — possibly subagent-driven-development, possibly direct edit if ≤30 LOC) → user-launched smoke handoff → conditional close.
 **Tech stack:** Go 1.26+.
 **Upstream sources:** `LostCityRS/Engine-TS` (TS engine, per `ts_source_canonical_path`); `LostCityRS/Content/scripts/**/*.varn` (4 declared `.varn` config files, 5 vars total).
@@ -752,4 +752,4 @@ After every bundle: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...` (
 - Goscape `pkg/script/handlers_vars.go` — current type-blind opcode handlers.
 - Goscape `pkg/objtype/varptype.go`, `varstype.go` — registry templates to mirror.
 - Memory: `npc_varn_default_seed_per_type.md`, `nai_followups.md` (NAI-120 V-PARTIAL parked entry).
-- Smoke 2026-05-07 (NAI-120 close commit `a3cda5d` log).
+- Smoke 2026-05-07 (NAI-120 close commit `2183216` log).

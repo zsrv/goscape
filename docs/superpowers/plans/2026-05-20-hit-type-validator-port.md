@@ -34,7 +34,7 @@ git log --oneline -1
 git status
 ```
 
-Expected: HEAD shows `df1999e8 spec(script): HitType validator port + NpcStat read-path validator coverage` (or a more recent commit on top of it). `git status` shows only `config.yaml` modified plus standing untracked noise (`.bash_profile`, `.claude/`, `.vscode`, etc.). **Do not stage or modify any of that noise.**
+Expected: HEAD shows `052821a9 spec(script): HitType validator port + NpcStat read-path validator coverage` (or a more recent commit on top of it). `git status` shows only `config.yaml` modified plus standing untracked noise (`.bash_profile`, `.claude/`, `.vscode`, etc.). **Do not stage or modify any of that noise.**
 
 ---
 
@@ -625,7 +625,7 @@ If no smoke-pack target exists in this repo, skip this step and note it in the c
 
 Run:
 ```bash
-git log --oneline df1999e8..HEAD
+git log --oneline 052821a9..HEAD
 git status
 ```
 

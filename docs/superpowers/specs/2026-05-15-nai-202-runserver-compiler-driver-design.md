@@ -1,7 +1,7 @@
 # NAI-202: bytecode compiler arc — `runServerCompiler` driver port
 
 **Date**: 2026-05-15
-**Predecessor**: NAI-201 (`compiler-foundation registries`; closed at `c3ac3b6`). NAI-201 §12 enumerated the four prerequisite data registries this slice consumes (`NpcStatMap`, `NpcModeMap`, `ScriptOpcodeMap`, `ScriptOpcodePointers`). All four are present at HEAD.
+**Predecessor**: NAI-201 (`compiler-foundation registries`; closed at `650061c`). NAI-201 §12 enumerated the four prerequisite data registries this slice consumes (`NpcStatMap`, `NpcModeMap`, `ScriptOpcodeMap`, `ScriptOpcodePointers`). All four are present at HEAD.
 **Arc step**: Third sub-spec of the bytecode compiler arc. NAI-200 shipped the symbol-table data type (`CompilerTypeInfo` → `TypeInfo`). NAI-201 shipped the four input registries. NAI-202 ships the driver that orchestrates them.
 
 ## 0. Pre-context: what NAI-202 ports and stops short of

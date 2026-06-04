@@ -682,9 +682,9 @@ Expected output (besides pre-existing Makefile WIP + untracked dotfiles): no uns
 
 - [ ] **Step 4: Confirm commit log**
 
-Run: `git log --oneline 60258c77..HEAD`
+Run: `git log --oneline 0863e23a..HEAD`
 
-Expected: 9 commits — spec (84d9b039) + T1..T8 in order. Each commit message references its task number except the spec.
+Expected: 9 commits — spec (2cdb1925) + T1..T8 in order. Each commit message references its task number except the spec.
 
 This task has no commit of its own — it's a gate.
 
@@ -700,7 +700,7 @@ This task has no commit of its own — it's a gate.
 
 - [ ] **Step 1: Write the close memory file**
 
-Write `friends_server_slice4b_close.md` with this content (substitute `<HEAD>` with the actual HEAD SHA from `git rev-parse --short HEAD` and `<COMMIT-RANGE>` with `84d9b039..<HEAD>` after T9 passes):
+Write `friends_server_slice4b_close.md` with this content (substitute `<HEAD>` with the actual HEAD SHA from `git rev-parse --short HEAD` and `<COMMIT-RANGE>` with `2cdb1925..<HEAD>` after T9 passes):
 
 ```markdown
 ---

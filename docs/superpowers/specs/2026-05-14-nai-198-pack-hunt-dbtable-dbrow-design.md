@@ -1,7 +1,7 @@
 # NAI-198: `.hunt` + `.dbtable` + `.dbrow` packer slice (final config cohort)
 
 **Date**: 2026-05-14
-**Predecessor**: NAI-197 (`.seq` + `.flo` + `.spotanim` + `.idk` packer slice; closed at `470f44c`)
+**Predecessor**: NAI-197 (`.seq` + `.flo` + `.spotanim` + `.idk` packer slice; closed at `6713144`)
 **Cohort identity**: Final three configs in the `tools/pack/config/*.ts` family. With this slice, the `pkg/pack/` per-config layer is complete (all 18 TS configs ported). Two novel dispatch shapes vs NAI-192..197:
 1. **DbTable → DbRow chronological coupling**: TS PackShared.ts:393-414 packs `.dbtable` first, calls `DbTableType.load('data/pack')` to populate the runtime cache, then packs `.dbrow` (which calls `DbTableType.get(value)` at pack time for typed-column schema resolution). Goscape mirrors this by loading `*DbTableTypeConfigs` from the just-written `dbtable.dat` between the two packers.
 2. **Hunt's 9-registry fan-out**: largest cross-coupling of any config — `parseHuntConfig` resolves names against `CategoryPack`, `InvPack`, `LocPack`, `NpcPack`, `ObjPack`, `ParamPack`, `VarnPack`, `VarpPack`, plus iterating `HuntPack` itself. All registries already have lazy `ensureFooPack` helpers in `pack_configs.go`.

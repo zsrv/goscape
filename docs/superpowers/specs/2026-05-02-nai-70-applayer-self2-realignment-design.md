@@ -1,7 +1,7 @@
 # NAI-70 — AP-Player / OP-Player Self/Self2 binding realignment to TS
 
 **Status:** Spec written 2026-05-02.
-**Predecessor:** NAI-69 (HEAD `e43dfe8`). Net deviation tally entering: 13.
+**Predecessor:** NAI-69 (HEAD `a9b24b5`). Net deviation tally entering: 13.
 **Closes:** `NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY`.
 **Tech stack:** Go 1.26+. TS source canonical path: `LostCityRS/Engine-TS`.
 
@@ -157,7 +157,7 @@ Everything else is doc/test maintenance.
 
 ## 6. Pre-flight grep targets (controller_preflight)
 
-Verified at HEAD `e43dfe8`:
+Verified at HEAD `a9b24b5`:
 
 - `rg "NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY" modules/ pkg/`
   → 5 hits:
@@ -504,7 +504,7 @@ Net deviation tally: 13 → 12.
 - `true_to_ts_gate.md` — every behavioral change cited against TS
   Player.ts:1129 + 1151 + ScriptRunner.ts:84-87.
 - `controller_preflight.md` — pre-flight grep targets in §6 verified
-  against HEAD `e43dfe8`.
+  against HEAD `a9b24b5`.
 - `enumerate_all_sites.md` — all `srv.runScript` callers + all 6+
   fixture call sites enumerated; no implementer-side discovery left.
 - `risk_register_premise_grep.md` — NAI-69's missed AP-Player premise

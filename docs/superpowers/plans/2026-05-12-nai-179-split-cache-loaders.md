@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+, `pkg/io/jagfile`, `pkg/io/packet`, existing `pkg/objtype.ConfigType` base shape.
 
-**Spec:** `docs/superpowers/specs/2026-05-12-nai-179-split-cache-loaders-design.md` (commit `869e258`).
+**Spec:** `docs/superpowers/specs/2026-05-12-nai-179-split-cache-loaders-design.md` (commit `764027a`).
 
 **TS source anchors:**
 - `Engine-TS/src/cache/config/MesanimType.ts:1-71`

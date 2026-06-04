@@ -2,7 +2,7 @@
 
 **Status:** Spec
 **Date:** 2026-05-04
-**Predecessor:** NAI-88 (Stage 1 lifecycle-revert probe scaffold; closed at HEAD `211bf34`)
+**Predecessor:** NAI-88 (Stage 1 lifecycle-revert probe scaffold; closed at HEAD `0e6d83c`)
 **Tech stack:** Go 1.26+. `pkg/zone`, `modules/world`, `pkg/entity`. No new deps.
 
 ## 1. Problem
@@ -138,7 +138,7 @@ If smoke surfaces an adjacent untracked divergence (per `smoke_surfaces_adjacent
 3. Advance 5 ticks (per the project's tick-loop test fixture). 
 4. Assert post-tick: `loc.IsChanged() == false` (revert ran), `loc.IsActive == true` (TS Zone.changeLoc semantics held through revert), `loc.LifecycleTick == -1` (untracked).
 
-This test fails on HEAD `211bf34` (case-3 AddLoc fires; loc remains changed). It passes after Bundle 1.
+This test fails on HEAD `0e6d83c` (case-3 AddLoc fires; loc remains changed). It passes after Bundle 1.
 
 ### Existing-test audit
 

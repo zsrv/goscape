@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26+; ripgrep for token discovery; read-only access to `LostCityRS/Engine-TS/` (TS reference) + `LostCityRS/Content/scripts/skill_combat/` (content cross-ref) + `LostCityRS/Content/data/src/scripts/configs/` (param.dat / npc.dat / obj.dat .pack sources).
 
-**Spec:** `docs/superpowers/specs/2026-05-08-nai-124-damage-magnitude-investigation-design.md` (commit `6a4667b`).
+**Spec:** `docs/superpowers/specs/2026-05-08-nai-124-damage-magnitude-investigation-design.md` (commit `f8c3401`).
 
-**Predecessor:** NAI-123 close commit `5687f4e`; residual #1 carry-forward (NAI-123 §7).
+**Predecessor:** NAI-123 close commit `b7c16b0`; residual #1 carry-forward (NAI-123 §7).
 
 ---
 
@@ -36,7 +36,7 @@ No production code files modified in this plan.
 git log --oneline -3
 ```
 
-Expected: top line `6a4667b spec(nai-124): damage magnitude investigation — pre-cap input reads huge`. Second line `5687f4e chore(close): NAI-123 …`.
+Expected: top line `f8c3401 spec(nai-124): damage magnitude investigation — pre-cap input reads huge`. Second line `b7c16b0 chore(close): NAI-123 …`.
 
 - [ ] **Step 1.2: Verify the spec line refs at HEAD**
 
@@ -60,7 +60,7 @@ Write `docs/superpowers/findings/2026-05-08-nai-124-stage1-findings.md` with thi
 # NAI-124 — Stage 1 findings
 
 **Date:** 2026-05-08
-**Spec:** `docs/superpowers/specs/2026-05-08-nai-124-damage-magnitude-investigation-design.md` (`6a4667b`)
+**Spec:** `docs/superpowers/specs/2026-05-08-nai-124-damage-magnitude-investigation-design.md` (`f8c3401`)
 **Cadence:** controller-direct Stage 1 audit per `bundle0_short_circuits_stage1_audit`. No audit subagent dispatched.
 
 ## Per-surface verdicts
@@ -191,7 +191,7 @@ If S1 alone cannot produce the symptom (the spec hypothesizes this is the case),
 rg -n "Params\[" pkg/ modules/ --type go | grep -v "_test.go"
 ```
 
-Capture the full list. Already-known fixed sites (per NAI-122 `849e2fd`): `pkg/script/handlers_config.go:38` (paramLookup set branch), `pkg/script/handlers_inv.go:249` (INV_TOTALPARAM), `modules/world/npc_hunt.go:291` (sumPlayerInvParam).
+Capture the full list. Already-known fixed sites (per NAI-122 `92ca5c4`): `pkg/script/handlers_config.go:38` (paramLookup set branch), `pkg/script/handlers_inv.go:249` (INV_TOTALPARAM), `modules/world/npc_hunt.go:291` (sumPlayerInvParam).
 
 - [ ] **Step 3.2: For each site not in the NAI-122-fixed list, classify the int conversion**
 
@@ -223,7 +223,7 @@ Edit findings doc. Under `### S2`:
 
 **Sites enumerated:** <count> via `rg "Params\[" pkg/ modules/ --type go | grep -v _test.go`.
 
-**Sites already fixed by NAI-122 849e2fd:** <list with line refs>.
+**Sites already fixed by NAI-122 92ca5c4:** <list with line refs>.
 
 **Sites unfixed:** <list with line refs and classification>.
 
@@ -464,9 +464,9 @@ Append to the findings doc:
 ```markdown
 ## Cross-references
 
-- Spec: `docs/superpowers/specs/2026-05-08-nai-124-damage-magnitude-investigation-design.md` (`6a4667b`).
-- NAI-123 close: `5687f4e` (smoke that surfaced this residual).
-- NAI-122 set-branch sign-ext fix: `849e2fd`.
+- Spec: `docs/superpowers/specs/2026-05-08-nai-124-damage-magnitude-investigation-design.md` (`f8c3401`).
+- NAI-123 close: `b7c16b0` (smoke that surfaced this residual).
+- NAI-122 set-branch sign-ext fix: `92ca5c4`.
 - TS sources read: <list of TS files with line refs touched in Tasks 2-7>.
 - Goscape line refs verified at HEAD: <list of goscape files with line refs>.
 

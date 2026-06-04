@@ -4544,7 +4544,7 @@ func newNpcFindHeroState(npc ActiveNpc, mw WorldVars, intOperand int) *ScriptSta
 // TestNpcReadOpResolvesOperand pins the core of the H1 fix: a generic NPC
 // read op (NPC_UID) resolves the int operand — operand 0 reads ActiveNpc,
 // operand 1 (`.npc2`) reads OtherActiveNpc. Mirrors TS state.activeNpc getter
-// (ScriptState.ts:246-252); the NPC twin of the player fix 42156517.
+// (ScriptState.ts:246-252); the NPC twin of the player fix f0f287fa.
 func TestNpcReadOpResolvesOperand(t *testing.T) {
 	for _, tc := range []struct {
 		name    string

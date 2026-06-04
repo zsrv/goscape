@@ -21,7 +21,7 @@
 - Modify: `pkg/script/active.go:277-283` (interface contract doc-comment update — no signature change)
 
 **Pre-flight context:**
-- HEAD `3fea9c1` (after spec polish commit). Verify all line numbers via re-grep at task time per `controller_preflight` memory.
+- HEAD `5331405` (after spec polish commit). Verify all line numbers via re-grep at task time per `controller_preflight` memory.
 - `(*Player).invListenOnCom` body at `modules/world/player.go:636-646` enters NAI-25 with NO TS-faithfulness branches. The method just does lazy-init + map overwrite. The three new branches are the entire surface change.
 - `objtype` import in `modules/world/player.go`: verify at task time via `head -20 modules/world/player.go`. If absent, add `"github.com/zsrv/goscape/pkg/objtype"` to the import block.
 - `(*Server).invTypes` field path: verified accessible via `p.client.server.invTypes` based on `invLookupView.Get` reading `v.s.invTypes` at `modules/world/server_invs.go:16`. The field type is `*objtype.InvTypeConfigs` (per `pkg/objtype/invtype.go:89-96`), with `Configs []*InvType` slice indexed by typeID.
@@ -587,7 +587,7 @@ EOF
   - `handlers_debug.go` → `DebugOps.ts`; 0 NumberNotNull
   - `handlers_number.go` → `NumberOps.ts`; 0 NumberNotNull
   - `handlers_lastinput_test.go` → handlers physically live in `handlers_dialog.go`; covered by dialog audit.
-- PlayerOps.ts cross-file residue math: PlayerOps.ts has 56 NumberNotNull; NAI-24 Bundle 1 (commit `f2047e2`) audited 47 popInt sites in `handlers_player.go`. The 9-site delta lives in PlayerOps.ts opcodes that goscape dispatches from a different file. Bundle 2 implementer enumerates and assigns each delta opcode to its goscape handler file.
+- PlayerOps.ts cross-file residue math: PlayerOps.ts has 56 NumberNotNull; NAI-24 Bundle 1 (commit `edd9c88`) audited 47 popInt sites in `handlers_player.go`. The 9-site delta lives in PlayerOps.ts opcodes that goscape dispatches from a different file. Bundle 2 implementer enumerates and assigns each delta opcode to its goscape handler file.
 
 **Per-pop-site decision rubric** (verbatim from spec § Bundle 2 § "Per-file audit-pass cadence"):
 
@@ -621,7 +621,7 @@ Expected: 56 lines. For each line, identify the enclosing TS opcode case (`case 
 Cross-reference NAI-24 Bundle 1's audit table:
 
 ```bash
-git show f2047e2 | grep -E "^\| handle" | head -60
+git show edd9c88 | grep -E "^\| handle" | head -60
 ```
 
 The 47 audited handlers map to opcodes whose TS NumberNotNull sites NAI-24 visited. Subtract from the 56-site enumeration → produces the 9-site delta.
@@ -789,7 +789,7 @@ Audit pass per NAI-25 spec § Bundle 2 § "PlayerOps.ts cross-file
 residue cross-check". Re-grep of PlayerOps.ts confirmed N
 NumberNotNull sites for opcodes that goscape dispatches from
 handlers_dialog.go — the cross-file residue NAI-24 Bundle 1's
-file-scoped audit (commit f2047e2) didn't visit.
+file-scoped audit (commit edd9c88) didn't visit.
 
 N net new wraps across M handlers; K sites SKIPped per audit
 table. N new TestHandle<OpName>NullRejected tests.
@@ -915,7 +915,7 @@ Per-file wrap-and-test commits in this bundle (own commits):
 
 PlayerOps.ts cross-file residue accounting:
 - 56 NumberNotNull in PlayerOps.ts
-- 47 audited in NAI-24 Bundle 1 (commit f2047e2) for handlers_player.go
+- 47 audited in NAI-24 Bundle 1 (commit edd9c88) for handlers_player.go
 - 9-site delta enumerated and assigned (per Step 1 table):
   - <K1> sites in handlers_dialog.go (Step 3 audit)
   - <K2> sites in handlers_timer.go (Step 4 audit)
@@ -1031,7 +1031,7 @@ EOF
 - Bundle 1: Task 1 Step 1's `grep -rn "invListenOnCom\|InvListenOnCom" pkg/ modules/` re-runs the cross-package pin search at task time. Spec-write-time grep results are recorded in the pre-flight context for comparison.
 - Bundle 2: Task 2 Step 1's PlayerOps.ts re-enumeration covers the cross-file residue. Steps 2-4 grep each TS counterpart fresh at audit time.
 
-**Spec-followup-tracker-freshness** (per `spec_followup_tracker_freshness` memory): tracker entry assertions verified at HEAD `3fea9c1` (post-spec polish commit, pre-Bundle-1). Re-verified again at task dispatch via Step 1 grep commands.
+**Spec-followup-tracker-freshness** (per `spec_followup_tracker_freshness` memory): tracker entry assertions verified at HEAD `5331405` (post-spec polish commit, pre-Bundle-1). Re-verified again at task dispatch via Step 1 grep commands.
 
 **Controller-preflight discipline**: every implementer dispatch begins with a Step 1 pre-flight verification (file paths, line numbers, helper init state, cross-package pins).
 

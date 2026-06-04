@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26 (`math.Floor`, `math.Max`, integer division on `int`); existing `pkg/objtype/playerstat.go` constants (`PlayerStatAttack`…`PlayerStatMagic`); existing `rsbuf.MaskAppearance`; `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go ...` invocation prefix per CLAUDE.md.
 
-**Spec:** `docs/superpowers/specs/2026-05-20-nai184-combat-level-recompute-design.md` (commit `58d25f3a`).
+**Spec:** `docs/superpowers/specs/2026-05-20-nai184-combat-level-recompute-design.md` (commit `fcb3242f`).
 
-**HEAD at start:** `58d25f3a` on top of `a9221d24` (handlePWalk port).
+**HEAD at start:** `fcb3242f` on top of `578bf55b` (handlePWalk port).
 
 ---
 
@@ -925,13 +925,13 @@ Run: `git show --stat HEAD`
 
 Expected: two files changed, ~50 lines diff.
 
-Run: `git log --oneline 58d25f3a..HEAD`
+Run: `git log --oneline fcb3242f..HEAD`
 
 Expected: exactly 5 new commits (T1, T2, T3, T4, T5).
 
-Run: `git log --oneline a9221d24..HEAD`
+Run: `git log --oneline 578bf55b..HEAD`
 
-Expected: 6 commits (the spec commit `58d25f3a` + the 5 implementation commits).
+Expected: 6 commits (the spec commit `fcb3242f` + the 5 implementation commits).
 
 ---
 

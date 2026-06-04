@@ -14,7 +14,7 @@
   - `src/engine/entity/Npc.ts:216-239` (Npc.executeScript reference).
   - `src/engine/World.ts:530-560` (`processWorld` world-queue dispatch — canonical shape for `resumeOrFinishWorld`).
 
-**Pre-flight verified at HEAD `fe84be5`:**
+**Pre-flight verified at HEAD `bad484c`:**
 
 | Spec audit | Result |
 |---|---|

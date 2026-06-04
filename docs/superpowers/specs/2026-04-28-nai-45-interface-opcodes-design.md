@@ -54,7 +54,7 @@ Pre-existing gaps **not** introduced by NAI-45 (no new deviation tags):
 
 ---
 
-## Pre-flight (verified at HEAD `9112726`)
+## Pre-flight (verified at HEAD `c22449d`)
 
 | Claim | Result |
 |---|---|

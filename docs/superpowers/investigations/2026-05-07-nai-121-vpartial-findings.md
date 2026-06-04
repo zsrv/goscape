@@ -34,7 +34,7 @@ Confirmed via dispatch site `modules/world/npc_registry.go:88-99` enqueues a non
 
 `processNpcEventQueue` (`modules/world/npc_event_queue.go:37-49`) iterates `s.npcEventQueue`, skips `req.Npc.delayed == true`, then calls `s.runNpcScript(req.Script, req.Npc, nil, nil, nil)`. No `n.dead` gate. Pointers + ActiveNpc are set correctly via `buildNpcScriptState`.
 
-**Tick-phase ordering (verified at HEAD `20b43e0`, `modules/world/tick.go:35-50`):**
+**Tick-phase ordering (verified at HEAD `23b2259`, `modules/world/tick.go:35-50`):**
 
 ```
 35  s.processClientsIn()
@@ -106,7 +106,7 @@ Rationale:
 3. If Scenario B confirmed: route to content-pack rebuild.
 
 **NAI-121 close criteria (per plan §12):**
-- Bundle 1 cross-package green at HEAD `20b43e0` ✓
+- Bundle 1 cross-package green at HEAD `23b2259` ✓
 - Bundle 2 findings doc committed (this doc)
 - User-launched smoke confirms "It's not after you." gate no longer fires on Tutorial Island giant rat (PRIMARY)
 - Combat XP V-PARTIAL re-parked in `nai_followups.md` with NAI-122 reference
@@ -116,5 +116,5 @@ Rationale:
 ## 5. References
 
 - TS source canonical: `LostCityRS/Engine-TS` (per `ts_source_canonical_path` memory). Audit-claimed TS line `World.ts:1284-1289` (sync AI_SPAWN dispatch) — not independently verified by controller; flag for NAI-122 brainstorm verification.
-- Goscape commits in scope: 1f73294 (plan) → c33d5ca (T9) → 20b43e0 (Bundle 1 close-gate review fixes).
+- Goscape commits in scope: 6d97d9b (plan) → 6b70697 (T9) → 23b2259 (Bundle 1 close-gate review fixes).
 - Memory entries applied: `audit_subagent_fabrication` (controller verified tick-ordering claim at HEAD), `dispatch_correct_reach_blocked` (PRIMARY closes on smoke-bind even when SECONDARY routes forward).

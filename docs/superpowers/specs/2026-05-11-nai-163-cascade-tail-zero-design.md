@@ -19,7 +19,7 @@ ts_source:
 
 **Cadence:** ~70 LOC handlers + ~30 LOC interface adapter + ~200 LOC tests = ~300 LOC across four bundles. Below NAI-162's ~620 LOC envelope; runs as one sub-spec with per-bundle close commits (B0 → B1 → B2 → B3) and a final NAI-163 roll-up close that cites the tightened-regex recount.
 **Tech stack:** Go 1.26+ (`go_version.md`).
-**Cascade-tail context:** missing-handler audit at HEAD `c4648f8`, **using the tightened regex** `Op[A-Za-z][A-Za-z0-9]*` (per `missing_handler_audit_regex_flaw.md` — the original `Op[A-Za-z]+` regex collapsed `OpBusy` into the dispatched `OpBusy2`), reports **4 unhandled opcodes**:
+**Cascade-tail context:** missing-handler audit at HEAD `0027628`, **using the tightened regex** `Op[A-Za-z][A-Za-z0-9]*` (per `missing_handler_audit_regex_flaw.md` — the original `Op[A-Za-z]+` regex collapsed `OpBusy` into the dispatched `OpBusy2`), reports **4 unhandled opcodes**:
 
 ```
 OpBusy
@@ -43,7 +43,7 @@ NAI-162 closed sweep #4 (15 ops; 18 → 3 by the original audit, 4 by the tighte
 | **NPC iterator scan** | OpNpcHunt 2525 | 1 | ~30 lines | none — `NewHuntAllNpcIterator` already exists (NAI-35-T3, used by `OpNpcHuntAll`) |
 | **NPC entity create** | OpNpcAdd 2500 | 1 | ~10 lines | new `World.AddNpcAt` interface method + `modules/world` adapter |
 
-**Re-confirmed at HEAD `c4648f8` via direct re-read of TS source per `spec_ts_source_read.md`:**
+**Re-confirmed at HEAD `0027628` via direct re-read of TS source per `spec_ts_source_read.md`:**
 
 | Op | Re-confirmed status |
 |---|---|

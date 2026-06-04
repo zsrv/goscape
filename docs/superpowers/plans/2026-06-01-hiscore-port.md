@@ -624,7 +624,7 @@ git commit --no-gpg-sign -m "feat(login): call updateHiscores on PlayerLogout [l
 
 - [ ] **Step 1: Flip the PORTING-CLOSED.md row**
 
-Find the row at `docs/PORTING-CLOSED.md:68` (`⚠️ MED ... login-server-9 / gap-db-datastruct-9 ... EXCEPTION-DOCUMENTED fix/med-bundle-19 (e48fcf6f)`). Change its status cell from `✅ **EXCEPTION-DOCUMENTED** fix/med-bundle-19 (e48fcf6f)` to `✅ **FIXED** fix/hiscore-port` and append to the row's notes:
+Find the row at `docs/PORTING-CLOSED.md:68` (`⚠️ MED ... login-server-9 / gap-db-datastruct-9 ... EXCEPTION-DOCUMENTED fix/med-bundle-19 (b15c84f9)`). Change its status cell from `✅ **EXCEPTION-DOCUMENTED** fix/med-bundle-19 (b15c84f9)` to `✅ **FIXED** fix/hiscore-port` and append to the row's notes:
 
 ```
 PROMOTED EXCEPTION → FIXED 2026-06-01 (fix/hiscore-port): the blocking dependency

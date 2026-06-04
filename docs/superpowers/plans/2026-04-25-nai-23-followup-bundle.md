@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+. Existing test scaffolding (`Init`/`Execute`/`mockNpc` in `pkg/script/`; `newTestPlayer(t)` at `modules/world/player_test.go:14`; existing huntPlayers integration patterns at `npc_hunt_test.go`). No new dependencies.
 
-**Reference**: `docs/superpowers/specs/2026-04-25-nai-23-followup-bundle-design.md` (committed at `6b2ea9c`).
+**Reference**: `docs/superpowers/specs/2026-04-25-nai-23-followup-bundle-design.md` (committed at `ce3fd23`).
 
 ---
 
@@ -40,7 +40,7 @@ Edit:
 ```
 ### Stale `*Npc.typ` snapshot after changetype (newly observable post-NAI-18)
 
-**Resolved 2026-04-24 (NAI-19 Task 3, commit `abc8d32`).** `n.lookupType(newType)` is
+**Resolved 2026-04-24 (NAI-19 Task 3, commit `8e94b29`).** `n.lookupType(newType)` is
 now lifted outside the `if reset` block in `(*Npc).changeTypeImpl` and unconditionally
 assigned to `n.typ` (`modules/world/npc_masks.go:68-69`). Both CHANGETYPE and KEEPALL
 paths refresh the snapshot; `n.typ.X` reads after a changetype are no longer stale.
@@ -74,7 +74,7 @@ NAI-20 Task 2 introduced `*Npc.size` and `*Npc.blockWalk` snapshot fields
 ```
 ### Promote `n.size` snapshot to LoS-path reads (`inApproachDistance`, `approachEntitySize`)
 
-**Resolved 2026-04-25 (NAI-21 Bundle 1, commit `80122da`).** Both call sites now read
+**Resolved 2026-04-25 (NAI-21 Bundle 1, commit `ed2f432`).** Both call sites now read
 the snapshot: `(*Npc).inApproachDistance` reads `n.size` for `selfSize`
 (`modules/world/npc_interaction.go:581`); `approachEntitySize` reads `t.size` for the
 `*Npc` branch (`modules/world/npc_interaction.go:532`). Two regression tests landed:
@@ -137,9 +137,9 @@ Edit by appending after the existing "Spec-write checklist addition:" block. New
 
 **Triggered also by:** NAI-23 spec-write (2026-04-25) caught two additional stale
 primary entries — `nai_followups.md:786` (`Stale *Npc.typ snapshot after
-changetype`, resolved by NAI-19 Task 3 commit `abc8d32`) and `nai_followups.md:1272`
+changetype`, resolved by NAI-19 Task 3 commit `8e94b29`) and `nai_followups.md:1272`
 (`Promote n.size snapshot to LoS-path reads`, resolved by NAI-21 Bundle 1 commit
-`80122da`) — plus one stale cross-ref at `:244`. Three stale entries discovered
+`ed2f432`) — plus one stale cross-ref at `:244`. Three stale entries discovered
 in a single spec-write pre-flight pass confirms the pattern: NAI-N close commits
 routinely resolve the work without updating the corresponding tracker entry.
 Suggests NAI-N close commits should explicitly include tracker-entry updates as
@@ -1083,8 +1083,8 @@ handlers_npc.go, handlers_inv.go, handlers_interface.go.
 
 Net deviation count: 14 → 14.
 
-Closes memory: nai_followups.md:786 (Resolved by NAI-19 Task 3, commit abc8d32)
-Closes memory: nai_followups.md:1272 (Resolved by NAI-21 Bundle 1, commit 80122da)
+Closes memory: nai_followups.md:786 (Resolved by NAI-19 Task 3, commit 8e94b29)
+Closes memory: nai_followups.md:1272 (Resolved by NAI-21 Bundle 1, commit ed2f432)
 Closes memory: nai_followups.md:244 (Resolved by NAI-16 Task 2 cross-ref)
 Closes memory: spec_followup_tracker_freshness.md (NAI-23 corroborating addendum)
 

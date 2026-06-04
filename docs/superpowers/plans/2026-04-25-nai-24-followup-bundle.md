@@ -19,7 +19,7 @@
 - Test: `pkg/script/handlers_player_test.go` (per-handler null-pin tests; one per newly added WRAP)
 
 **Pre-flight context:**
-- File enters NAI-24 with **3** pre-existing `checkNotNull` wraps at lines 104, 121, 700. The implementer reads them as templates: `handleAnimProtect` (line 104, op `"P_ANIMPROTECT"`), `handleAllowDesign` (line 121, op `"ALLOWDESIGN"`), `handleMidiJingle` (line 700, op `"MIDI_JINGLE"`). Verified against HEAD `260ba03` via `grep -n "checkNotNull" pkg/script/handlers_player.go` — the only 5 occurrences are line 58 (doc-comment), line 61 (helper definition), and the 3 wrap call sites at 104/121/700.
+- File enters NAI-24 with **3** pre-existing `checkNotNull` wraps at lines 104, 121, 700. The implementer reads them as templates: `handleAnimProtect` (line 104, op `"P_ANIMPROTECT"`), `handleAllowDesign` (line 121, op `"ALLOWDESIGN"`), `handleMidiJingle` (line 700, op `"MIDI_JINGLE"`). Verified against HEAD `0031ce3` via `grep -n "checkNotNull" pkg/script/handlers_player.go` — the only 5 occurrences are line 58 (doc-comment), line 61 (helper definition), and the 3 wrap call sites at 104/121/700.
 - 49 total `s.PopInt()` sites in the file. The audit covers all 49; the 3 pre-existing wraps appear in the audit table as `WRAP (pre-existing)` rows confirming they're TS-faithful.
 - Test fixture pattern: existing tests in this file use `mp := &mockPlayer{}` + `sf := &ScriptFile{...}` + `state := Init(sf, mp, false, nil, nil)` + `Execute(state)` (no helper builder; tests inline the ScriptFile construction). `newSingleOp` helper exists at line 49 for trivial single-opcode scripts but most existing tests inline the ScriptFile.
 - Null-pin test naming convention (verified across `handlers_inv_test.go` and `handlers_interface_test.go`): `TestHandle<OpName>NullRejected` — the project standard. Use this exact form, not `RejectsNullSentinel` (which the spec drafted but does not match codebase precedent per `plan_grep_helper_patterns` memory).
@@ -187,7 +187,7 @@ EOF
 - Test: `pkg/script/handlers_inv_test.go:383-412` (`TestInvTransmitRegistersListener` assertion flip)
 
 **Pre-flight context:**
-- HEAD `ae4d75c` (after spec commit). The 1-line fix is at `handlers_inv.go:429`. Verify line numbers re-grep at task time per `controller_preflight` memory.
+- HEAD `1cc0e0f` (after spec commit). The 1-line fix is at `handlers_inv.go:429`. Verify line numbers re-grep at task time per `controller_preflight` memory.
 - `mockPlayer` already implements `UID() int` returning `m.uidValue` (`pkg/script/runner_test.go:428`); pre-existing `uidValue int` field at line 189. No fixture additions needed — just set `mp.uidValue` at construction.
 - Existing test `TestInvTransmitRegistersListener` at `handlers_inv_test.go:386-412` constructs `mp := &mockPlayer{}` (line 387) — `uidValue` defaults to zero. Bundle 2 changes that to `mp := &mockPlayer{uidValue: 42}` (any deterministic non-zero value is fine; `42` chosen as a clear test-fixture sentinel).
 - The existing test `TestInvTransmitNoActivePlayerErrors` at `handlers_inv_test.go:416` is **unaffected** — `requireActivePlayer` fires and returns before `s.Self.UID()` is called. Confirm at task time by re-reading the early-return order in `handleInvTransmit`.
@@ -281,7 +281,7 @@ Replace the existing doc-comment (lines 412-419) with:
 // wrapped with check(com, NumberNotNull) in TS; invType uses
 // InvTypeValid (not NumberNotNull) — stays raw (NAI-23 Bundle 4b).
 // Source porting fix landed in NAI-24 Bundle 2 — origin commit
-// 947540b (S6u) erroneously hard-coded -1.
+// 5b67653 (S6u) erroneously hard-coded -1.
 ```
 
 - [ ] **Step 6: Run the flipped test to verify PASS**
@@ -311,7 +311,7 @@ git commit --no-gpg-sign -m "$(cat <<'EOF'
 feat(script): NAI-24 Bundle 2 — INV_TRANSMIT source uid remediation
 
 Silent porting-bug fix per NAI-24 spec § Bundle 2. handleInvTransmit
-at handlers_inv.go:429 was passing source=-1 (origin commit 947540b
+at handlers_inv.go:429 was passing source=-1 (origin commit 5b67653
 / S6u); TS InvOps.ts:650 passes state.activePlayer.uid. Equivalence
 determination against (*Player).invListenOnCom dispatch
 (modules/world/player.go:471-479, :632-633) confirms not equivalent:

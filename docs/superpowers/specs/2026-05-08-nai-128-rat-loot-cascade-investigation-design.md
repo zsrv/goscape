@@ -2,7 +2,7 @@
 
 **Status:** spec — draft 1
 **Date:** 2026-05-08
-**Predecessor:** NAI-127 close (`feab7bb`); investigates item 2 of NAI-127's smoke matrix (rat death-loot drop FAIL with no new unhandled-opcode WARN).
+**Predecessor:** NAI-127 close (`27090aa`); investigates item 2 of NAI-127's smoke matrix (rat death-loot drop FAIL with no new unhandled-opcode WARN).
 **Cadence:** investigation+fix sub-spec per `investigation_subspec_cadence` — Stage 1 risk-weighted-short-circuit binding via synthetic Go probe; Stage 2 fix in-scope if ≤~50 LOC, else route to NAI-129; Stage 3 conditional smoke at close.
 **Tech stack:** Go 1.26+.
 
@@ -12,14 +12,14 @@ Bind the rat-death-loot blocker by walking the full death-loot cascade chain end
 
 ## §1 — Symptom and binding-hypothesis refutation
 
-**Smoke (NAI-127 close, `feab7bb`, 2026-05-08):**
+**Smoke (NAI-127 close, `27090aa`, 2026-05-08):**
 Fresh char + bronze dagger vs Tutorial Island giant rat. Rat dies (NAI-127 PRIMARY item 1 met — NPC_FINDHERO WARN silenced). **Item 2 of the smoke matrix (rat death-loot drop) FAILED with no new unhandled-opcode WARN.**
 
 NAI-127 spec §6 risk-note named the cascade-suspect:
 
 > "If `player_melee_attack` is itself blocked by another unhandled opcode upstream of `npc_heropoints($damage_capped)`, item 2 will FAIL with 'rat dies, no loot' — symptom indistinguishable from NPC_FINDHERO returning 0 in goscape's empty-ledger case."
 
-**Static disasm at HEAD `feab7bb`** (per `disasm_reframes_inferred_binding`):
+**Static disasm at HEAD `27090aa`** (per `disasm_reframes_inferred_binding`):
 
 A one-shot `pkg/script` test walked the call graph from `[label,player_melee_attack]` plus every reachable death/retaliate/tutorial-side root (`[ai_queue2,_]`, `[ai_queue3,_]`, `[ai_queue3,newbiegiantrat]`, `[ai_opplayer2,_]`, `[ai_opplayer2,newbiegiantrat]`, `[opnpc2,newbiegiantrat]`, `[apnpc2,newbiegiantrat]`, `[queue,combat_damage_player]`, `[queue,playerhit_n_retaliate]`, `[queue,set_rat_kill]`), following every `OpGosubWithParams` edge transitively via `Provider.GetByID`. Reached **148 scripts** total. Cross-checked the union of opcodes used against the global `pkg/script.handlers` map.
 

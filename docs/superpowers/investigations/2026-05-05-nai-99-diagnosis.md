@@ -16,7 +16,7 @@ Stage 1.1 dump surfaced a smoking-gun hypothesis (**H5**) not in the original H1
 ## Audit baseline (Bundle 0 controller pre-flight)
 
 ```
-NAI-99 Bundle 0 pre-flight at HEAD 47d76a9:
+NAI-99 Bundle 0 pre-flight at HEAD 3c9e3f9:
 - Step 1.2 LayerGroundDecor branch: match (gamemap.go:73 — case loc.LayerGroundDecor → ChangeFloor when active==1)
 - Step 1.3 ChangeFloor single-tile: confirmed (api.go:74-80, no W×L loop)
 - Step 1.4 ChangeLoc W×L: confirmed (api.go:91 — for index := 0; index < width*length; index++)
@@ -32,8 +32,8 @@ NAI-99 Bundle 0 pre-flight at HEAD 47d76a9:
 
 | Test | Path | Disposition | Notes |
 |---|---|---|---|
-| `TestNAI99_FountainFootprintDump_Lumbridge` | `pkg/gamemap/nai99_fountain_dump_test.go` | PASS — dump captured | bbox widened to z∈[3214,3228] in commit `863fa40` after the initial bbox missed the fountain (NAI-99 T2-followup). 64 loc instances; fountain at (3221, 3226) confirmed. Only 1 tile flagged of 4-tile expected footprint. |
-| `TestNAI99_FountainCoverage_Lumbridge` | same | SKIP-pinned (commit `98a3904`) | Reproduces — global StaticLocs scan finds 39 fountain instances of typeID=879; first instance asserted is at (2556,3113); identical divergence at Lumbridge (3221,3226) confirmed in instance 34 of the same run. |
+| `TestNAI99_FountainFootprintDump_Lumbridge` | `pkg/gamemap/nai99_fountain_dump_test.go` | PASS — dump captured | bbox widened to z∈[3214,3228] in commit `00d1b74` after the initial bbox missed the fountain (NAI-99 T2-followup). 64 loc instances; fountain at (3221, 3226) confirmed. Only 1 tile flagged of 4-tile expected footprint. |
+| `TestNAI99_FountainCoverage_Lumbridge` | same | SKIP-pinned (commit `3a15435`) | Reproduces — global StaticLocs scan finds 39 fountain instances of typeID=879; first instance asserted is at (2556,3113); identical divergence at Lumbridge (3221,3226) confirmed in instance 34 of the same run. |
 
 Skip-pin (verbatim from Step 6.3 run, copied into the test body):
 
@@ -128,5 +128,5 @@ NAI-99: instance 0 footprint coverage divergence — flagged=[(2556,3113)=0x100]
 ## Notes on plan deviations
 
 - Tasks 4 (H2 Rust rsmod cross-check) and 5 (H4 l-pack decoder diff) were skipped per the spec's §3 short-circuit policy. Both hypotheses were mechanically eliminable from the Stage 1.1 dump alone (fountain shape=10 → LayerGround route, not GroundDecor; shape decoded correctly). The Rust audit and TS l-pack diff would have added cost without changing the verdict.
-- Task 2's initial bbox (`x∈[3217,3225] z∈[3214,3220]`) missed the fountain entirely (z=3226 is north of zHi=3220). A controller scratch global-name scan (uncommitted) located the fountain at (3221, 3226), and Task 2 was followed up with a bbox widen (commit `863fa40`) to z∈[3214,3228].
+- Task 2's initial bbox (`x∈[3217,3225] z∈[3214,3220]`) missed the fountain entirely (z=3226 is north of zHi=3220). A controller scratch global-name scan (uncommitted) located the fountain at (3221, 3226), and Task 2 was followed up with a bbox widen (commit `00d1b74`) to z∈[3214,3228].
 - Task 6's coverage test asserts on the FIRST static-loc instance of typeID=879 (which is at `(2556,3113)`, not Lumbridge's `(3221,3226)`). The bug is identical at both — instance 34 of the same scan exhibits the Lumbridge symptom. Skip-pin uses instance 0's verbatim values per `skip_pin_full_struct_capture`.

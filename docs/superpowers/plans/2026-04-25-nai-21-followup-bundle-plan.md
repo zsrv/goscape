@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26+. Existing packages: `modules/world` (production + tests), `pkg/script` (consumed only via existing exported APIs). No new files, no new packages, no new exported types.
 
-**Spec:** `docs/superpowers/specs/2026-04-25-nai-21-followup-bundle-design.md` (commit `955e72e`).
+**Spec:** `docs/superpowers/specs/2026-04-25-nai-21-followup-bundle-design.md` (commit `045f9ea`).
 
-**Predecessor:** NAI-20 follow-up bundle (HEAD `b734c7f` at plan-write time).
+**Predecessor:** NAI-20 follow-up bundle (HEAD `3514264` at plan-write time).
 
 **Deviation accounting:** 16 → 16 net. Bundle 1 closes S7c-D1 (-1) and introduces NAI-21-D1 (+1, internal-mechanism only).
 
@@ -212,7 +212,7 @@ If tests pass at this stage, the test setup is wrong (likely the LoS scenario do
 grep -n "n\.size\|n\.blockWalk" /home/owner/Code/github.com/zsrv/goscape/modules/world/npc.go | head -10
 ```
 
-Expected: confirms `n.size` and `n.blockWalk` are present as `*Npc` fields and seeded at `NewNpc` (NAI-20 Task 2, commit `6cfcd61`). If absent, NAI-20 has been reverted and this task is blocked.
+Expected: confirms `n.size` and `n.blockWalk` are present as `*Npc` fields and seeded at `NewNpc` (NAI-20 Task 2, commit `ec0c5e7`). If absent, NAI-20 has been reverted and this task is blocked.
 
 - [ ] **Step 1: Edit `approachEntitySize` to read snapshot**
 
@@ -630,7 +630,7 @@ grep -rn "NAI-17-D1" /home/owner/Code/github.com/zsrv/goscape/pkg \
                      /home/owner/Code/github.com/zsrv/goscape/docs
 ```
 
-Expected (per spec pre-flight at HEAD `b734c7f`): zero production-code references; only `nai_followups.md` has the entry (the entry being retired) and possibly the spec doc itself. If additional sites surface, they MUST be enumerated and updated as part of this task — do not proceed past Step 1 until accounted for.
+Expected (per spec pre-flight at HEAD `3514264`): zero production-code references; only `nai_followups.md` has the entry (the entry being retired) and possibly the spec doc itself. If additional sites surface, they MUST be enumerated and updated as part of this task — do not proceed past Step 1 until accounted for.
 
 - [ ] **Step 1: Verify grep enumeration result**
 
@@ -918,7 +918,7 @@ Insert after this line a Resolved marker, then preserve the original body:
 
 **Resolved 2026-04-25 (NAI-21 Bundle 3).** Strong-form test landed at
 `modules/world/npc_script_test.go` `TestNpcTurnReentryQueueAppendDuringIteration`.
-Pre-flight finding at HEAD `b734c7f`: the original deferral's "neither fixture
+Pre-flight finding at HEAD `3514264`: the original deferral's "neither fixture
 exists today" claim was fully stale — `Provider.Register()` is exported
 (`pkg/script/provider.go:182`, docstring explicitly mentions test usage),
 `*ScriptFile` is exported with public `LookupKey` field, and the
@@ -1067,7 +1067,7 @@ EOF
 git log --oneline -5
 ```
 
-Expected: shows the close commit, the three bundle commits, and the prior NAI-20 close at `b734c7f`.
+Expected: shows the close commit, the three bundle commits, and the prior NAI-20 close at `3514264`.
 
 ---
 

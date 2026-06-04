@@ -1,6 +1,6 @@
 # NAI-132 — INV_* handler ports (CHANGESLOT / DROPITEM / MOVEITEM_CERT / MOVEITEM_UNCERT) + MOVETOSLOT validator-backfill + Remove minmax
 
-**Predecessor:** NAI-131 close (`5858e11`) §3 deferred set. NAI-131 listed 7 handlers as "no goscape implementation yet"; pre-flight at NAI-132 spec-write found `INV_MOVETOSLOT` IS implemented (handlers_inv.go:866) but lacks NAI-131's dual-protect/scope validators. Six TS opcodes remain dispatch-less: `OpBothMoveInv` (4301), `OpInvChangeSlot` (4304), `OpInvDropItemDelayed` (4310), `OpInvDropItem` (4311), `OpInvMoveItemCert` (4319), `OpInvMoveItemUncert` (4320). NAI-132 ports four of them; defers `BOTH_MOVEINV` and `INV_DROPITEM_DELAYED` to later sub-specs that build the prerequisite infrastructure.
+**Predecessor:** NAI-131 close (`1fb03c1`) §3 deferred set. NAI-131 listed 7 handlers as "no goscape implementation yet"; pre-flight at NAI-132 spec-write found `INV_MOVETOSLOT` IS implemented (handlers_inv.go:866) but lacks NAI-131's dual-protect/scope validators. Six TS opcodes remain dispatch-less: `OpBothMoveInv` (4301), `OpInvChangeSlot` (4304), `OpInvDropItemDelayed` (4310), `OpInvDropItem` (4311), `OpInvMoveItemCert` (4319), `OpInvMoveItemUncert` (4320). NAI-132 ports four of them; defers `BOTH_MOVEINV` and `INV_DROPITEM_DELAYED` to later sub-specs that build the prerequisite infrastructure.
 
 **Tech stack:** Go 1.26+. No new dependencies.
 

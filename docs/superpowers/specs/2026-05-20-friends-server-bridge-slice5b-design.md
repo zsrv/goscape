@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-20
 **Slice:** 5b of 7 (friends-server bridge arc; slice 5 decomposed into 5a/5b)
-**Predecessor:** slice 5a (close commit `d3946e9b`, opened `NAI-S5A-D-DISPATCHER-NO-ACTION` + 3 other permanent tags; see `[[friends-server-slice5a-close]]`)
+**Predecessor:** slice 5a (close commit `49cb8e00`, opened `NAI-S5A-D-DISPATCHER-NO-ACTION` + 3 other permanent tags; see `[[friends-server-slice5a-close]]`)
 **Closes:** `NAI-S5A-D-DISPATCHER-NO-ACTION` (piecewise — one bullet per wired opcode)
 **Opens:** `NAI-S5B-D-CLEARLOGOUTS-NO-GOSCAPE-QUEUE`, `NAI-S5B-D-NO-RUNESCRIPT-RUNTIME`, optionally `NAI-S5B-D-NO-INGAME-EMIT-BROADCAST` and/or `NAI-S5B-D-NO-INGAME-EMIT-TRACK` (gated on plan-time investigation)
 

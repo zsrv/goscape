@@ -1,11 +1,11 @@
 # NAI-138 Stage 1 → Stage 2 handoff
 
-**Stage 1 close commit:** `13806b8`
+**Stage 1 close commit:** `4bdb7b2`
 **Spec doc:** `docs/superpowers/specs/2026-05-09-nai-138-cs1-reeval-investigation-design.md`
 **Stage 1 plan:** `docs/superpowers/plans/2026-05-09-nai-138-stage-1-cs1-reeval-investigation.md`
 **Date:** 2026-05-09
-**Bundle 0 commit:** `ca8d937`
-**Stage 1 synthesis commit:** `13806b8`
+**Bundle 0 commit:** `cdc5366`
+**Stage 1 synthesis commit:** `4bdb7b2`
 
 ## Synthesis verdict
 
@@ -59,7 +59,7 @@ For Hypothesis C (Encoder-byte divergence):
 Author the NAI-138 Stage 2 implementation plan at
 docs/superpowers/plans/2026-05-09-nai-138-stage-2-encoder-defect.md.
 
-Predecessor: NAI-138 Stage 1 closed at 13806b8 (Stage 1 synthesis
+Predecessor: NAI-138 Stage 1 closed at 4bdb7b2 (Stage 1 synthesis
 commit). Verdict in
 docs/superpowers/specs/2026-05-09-nai-138-cs1-reeval-investigation-design.md
 §6.3. Handoff doc:

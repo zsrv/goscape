@@ -51,7 +51,7 @@ func CRC() *CRCSnapshot {
 //
 // cachePath is the cache root (mirrors world.Config.CachePath, e.g.
 // "data/pack"); per-archive paths are joined as <cachePath>/client/<name>.
-// Completes the data-path-resolution work from Arc 13 V (e156c1ca) which
+// Completes the data-path-resolution work from Arc 13 V (ad7eaa78) which
 // shipped realCacheDir(t) for PreloadClient but missed this function;
 // the prior hardcoded "data/pack/client/" relative path emitted
 // `WARN cache: loadCrc Stat failed` noise under git-worktree test runs.

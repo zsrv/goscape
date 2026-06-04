@@ -6,7 +6,7 @@
 
 **Architecture:** Thin handler + fat setter. Validator is a bare-number free function alongside `checkSkinColour` / `checkQueue`. Lookup maps are package-level `map[int]int` vars in a new `modules/world/player_gender.go` file alongside the `Player` struct (mirrors TS class-level statics at `Player.ts:110-188`). `(*Player).SetGender(gender int)` contains the for-loop + map lookups + slot-1 hardcode + final `p.gender = gender` write. SETGENDER does NOT flip `MaskAppearance` — TS-faithful deferred-rebuild pattern (callers follow with BUILDAPPEARANCE per `makeover_mage.rs2:58-64`).
 
-**Tech Stack:** Go 1.26. Project conventions per `CLAUDE.md`: prefix Go commands with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`; PATH set via `unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"` if needed; commits use `git commit --no-gpg-sign`; stage explicitly (the working tree has standing noise — `config.yaml`, untracked dotfiles, `RUNESCRIPT.md` — **never stage these**). Spec: `docs/superpowers/specs/2026-05-20-setgender-genderval-port-design.md` (commit `3ece830c`).
+**Tech Stack:** Go 1.26. Project conventions per `CLAUDE.md`: prefix Go commands with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`; PATH set via `unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"` if needed; commits use `git commit --no-gpg-sign`; stage explicitly (the working tree has standing noise — `config.yaml`, untracked dotfiles, `RUNESCRIPT.md` — **never stage these**). Spec: `docs/superpowers/specs/2026-05-20-setgender-genderval-port-design.md` (commit `4708e574`).
 
 ---
 
@@ -38,7 +38,7 @@ git log --oneline -3
 git status
 ```
 
-Expected: HEAD shows `3ece830c docs(spec): SETGENDER body port + GenderValid validator` on top of `86737212 chore(close): Queue + SkinColour validator port` on top of `a143eb0b docs(script): SkinColour bracket-space consistency`. `git status` shows `config.yaml` modified plus standing untracked noise (`.bash_profile`, `.bashrc`, `.claude/`, `.gitconfig`, `.gitmodules`, `.mcp.json`, `.profile`, `.ripgreprc`, `.vscode`, `.zprofile`, `.zshrc`, `RUNESCRIPT.md`). **Do not stage or modify any of that noise.**
+Expected: HEAD shows `4708e574 docs(spec): SETGENDER body port + GenderValid validator` on top of `ebe043a4 chore(close): Queue + SkinColour validator port` on top of `d2db42bf docs(script): SkinColour bracket-space consistency`. `git status` shows `config.yaml` modified plus standing untracked noise (`.bash_profile`, `.bashrc`, `.claude/`, `.gitconfig`, `.gitmodules`, `.mcp.json`, `.profile`, `.ripgreprc`, `.vscode`, `.zprofile`, `.zshrc`, `RUNESCRIPT.md`). **Do not stage or modify any of that noise.**
 
 - [ ] **Step 1: Establish baseline gate**
 
@@ -158,7 +158,7 @@ Adds checkGender(v int, op string) error mirroring TS GenderValid
 inclusive [0, 1]. Sibling to checkSkinColour/checkQueue/checkHitType
 in the bare-number free-function style.
 
-T1 of SETGENDER body port + GenderValid slice (spec 3ece830c).
+T1 of SETGENDER body port + GenderValid slice (spec 4708e574).
 EOF
 )"
 git show --stat HEAD
@@ -484,7 +484,7 @@ holds an idkit value not present in the relevant lookup map, the slot
 is overwritten with -1 (TS-literal `Map.get() ?? -1`). Content-unreachable
 today; pinned for future TS sync.
 
-T2 of SETGENDER body port + GenderValid slice (spec 3ece830c).
+T2 of SETGENDER body port + GenderValid slice (spec 4708e574).
 EOF
 )"
 git show --stat HEAD
@@ -604,7 +604,7 @@ pattern.
 mockPlayer impl records the gender argument on a setGenderCalls slice
 for handler tests. Production *Player impl was added in T2.
 
-T3 of SETGENDER body port + GenderValid slice (spec 3ece830c).
+T3 of SETGENDER body port + GenderValid slice (spec 4708e574).
 EOF
 )"
 git show --stat HEAD
@@ -847,7 +847,7 @@ Retires NAI-162-D-STUB-SETGENDER. The b0_stubs.go file + its table-driven
 test now describe 5 stubs (down from 6): PUSH_VARBIT, POP_VARBIT, LC_OP,
 OC_IOP, OC_OP.
 
-T4 of SETGENDER body port + GenderValid slice (spec 3ece830c).
+T4 of SETGENDER body port + GenderValid slice (spec 4708e574).
 EOF
 )"
 git show --stat HEAD
@@ -911,7 +911,7 @@ Expected: no staged changes (everything from T1-T4 is already committed), `confi
 git commit --no-gpg-sign --allow-empty -m "$(cat <<'EOF'
 chore(close): SETGENDER body port + GenderValid
 
-Closes the SETGENDER body port slice from spec 3ece830c. Five-task
+Closes the SETGENDER body port slice from spec 4708e574. Five-task
 slice that:
 
 - Adds checkGender(v int, op string) error — TS GenderValid mirror,
@@ -961,15 +961,15 @@ Run:
 git log --oneline -8
 ```
 
-Expected: 8-commit slice on top of `3ece830c`:
+Expected: 8-commit slice on top of `4708e574`:
 - `chore(close): SETGENDER body port + GenderValid` (T5 close)
 - `feat(script): wire real handleSetGender at SETGENDER (T4)`
 - `feat(script): add ActivePlayer.SetGender + mockPlayer impl` (T3)
 - `feat(world): port Player gender body-recoloring maps + SetGender` (T2)
 - `feat(script): add checkGender validator` (T1)
-- `docs(spec): SETGENDER body port + GenderValid validator` (3ece830c)
-- `chore(close): Queue + SkinColour validator port` (86737212)
-- `docs(script): SkinColour bracket-space consistency` (a143eb0b)
+- `docs(spec): SETGENDER body port + GenderValid validator` (4708e574)
+- `chore(close): Queue + SkinColour validator port` (ebe043a4)
+- `docs(script): SkinColour bracket-space consistency` (d2db42bf)
 
 No `config.yaml` or untracked noise in the slice's commits.
 

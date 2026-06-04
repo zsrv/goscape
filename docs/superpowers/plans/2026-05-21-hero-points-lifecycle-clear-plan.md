@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26.3; goscape `pkg/script/` (RuneScript interpreter), `modules/world/` (game world / entities). All `go` invocations must be prefixed with `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` (per CLAUDE.md + slice-close memos — the `/home/owner/go/current` symlink points to nonexistent `go1.26.2`).
 
-**Spec:** `docs/superpowers/specs/2026-05-21-hero-points-lifecycle-clear-design.md` (committed at `e516513f`).
+**Spec:** `docs/superpowers/specs/2026-05-21-hero-points-lifecycle-clear-design.md` (committed at `376ffa68`).
 
 ---
 
@@ -1122,6 +1122,6 @@ After Task 5 commits cleanly, the slice is logically complete. Carry-forward boo
 Final gate state expected:
 - `-race ./...` 57+ pkgs, 0 FAIL (~155s)
 - `TestPackAll_TwelveStageSmoke` PASS
-- 5 commits on top of spec commit `e516513f` (Tasks 1-5, one commit each)
+- 5 commits on top of spec commit `376ffa68` (Tasks 1-5, one commit each)
 - 0 deviation pins opened or retired (informal English deferral on Player.cleanup is not a formal pin)
 - Carry-forward menu loses "Hero-points consumption"; gains nothing new

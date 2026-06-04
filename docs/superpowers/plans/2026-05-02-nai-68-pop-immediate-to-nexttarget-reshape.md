@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-05-02-nai-68-pop-immediate-to-nexttarget-reshape-design.md`.
 
-**Predecessor HEAD:** `921868d` (spec scope correction commit).
+**Predecessor HEAD:** `3257bd2` (spec scope correction commit).
 
 ---
 
@@ -1118,7 +1118,7 @@ to support same-tick retry without infinite-loop risk.
 - `controller_preflight.md` — pre-flight grep gates surfaced a scope
   conflict between TS L1166-1170 and goscape's existing across-tick
   re-fire mechanism BEFORE plan-write; spec corrected at commit
-  `921868d`.
+  `3257bd2`.
 - `tracker_entry_framing_can_be_incomplete.md` — reframed mid-plan when
   the original spec's TS L1166-1170 inclusion conflicted with goscape's
   state machine.

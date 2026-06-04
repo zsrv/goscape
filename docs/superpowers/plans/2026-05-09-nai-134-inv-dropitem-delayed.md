@@ -16,7 +16,7 @@
 - `Engine-TS/src/engine/World.ts:157` — queue declaration.
 - `Engine-TS/src/engine/World.ts:563-573` — drain loop.
 
-**Pre-flight (verified at HEAD `c52644e`):**
+**Pre-flight (verified at HEAD `54ff866`):**
 - Helpers: `requireActivePlayer` (handlers_player.go:35), `checkInvType` (handlers_player.go:142), `checkCoord` (handlers_npc.go:13), `checkObjType` (handlers_obj.go:21), `checkObjStack` (handlers_obj.go:31), `checkDuration` (handlers_loc.go:278), `resolveInv` (handlers_inv.go:14).
 - Pointer flags: `PtrProtectedActivePlayer = 1<<9`, `PtrProtectedActivePlayer2 = 1<<10` (pointer.go:22-28).
 - Operand: `s.Script.IntOperands[s.PC]` is `int32`; comparisons against untyped `0`/`1` work as in `handleBothMoveInv` (handlers_inv.go:1230).

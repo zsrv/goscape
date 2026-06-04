@@ -65,7 +65,7 @@
 git log --oneline -5
 ```
 
-Expected: `dc7eb69 docs(spec): NAI-98 — correct H7 probe algorithm` and `dd77fa2 docs(spec): NAI-98 — GroundDecor reach Stage 2 narrow-then-fix` near the top, above `2a99116 chore(close): NAI-97`.
+Expected: `17f86b5 docs(spec): NAI-98 — correct H7 probe algorithm` and `a95fe34 docs(spec): NAI-98 — GroundDecor reach Stage 2 narrow-then-fix` near the top, above `7b8118f chore(close): NAI-97`.
 
 - [ ] **Step 1.2: Verify `gm.CanTravel` signature**
 
@@ -387,7 +387,7 @@ Per `execution_mode_default`: subagent-driven-development. One subagent per Phas
 
 ## Task 4: Phase 2 — sub-H8 fix: port TS Player.pathToPathingTarget gate
 
-**Sub-H surfaced:** H8 (tickloop-level state mutation). Phase 1 commit `daf1e28` confirmed both repros via `t.Logf("H8 FIRES by elimination")`:
+**Sub-H surfaced:** H8 (tickloop-level state mutation). Phase 1 commit `0531929` confirmed both repros via `t.Logf("H8 FIRES by elimination")`:
 - Repro A (NPC 943, src=(3221,3218)→dst=(3218,3216)): `BFS path internally consistent (2 waypoints, last=(3219,3216))` — last waypoint cheb-1 of dst.
 - Repro B (NPC 3, src=(3218,3213)→dst=(3223,3216)): `BFS path internally consistent (2 waypoints, last=(3222,3216))` — last waypoint cheb-1 of dst.
 
@@ -717,7 +717,7 @@ git add modules/world/interaction.go modules/world/interaction_h8_test.go module
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 fix(world): NAI-98 Phase 2 — port TS Player.pathToPathingTarget gate
 
-Sub-H8 fix. Phase 1 probe (commit daf1e28) surfaced H8 by elimination
+Sub-H8 fix. Phase 1 probe (commit 0531929) surfaced H8 by elimination
 on both Repro A (NPC 943) and Repro B (NPC 3): BFS path internally
 consistent and StepValidator-walkable; reach abandonment is at
 tickloop level.

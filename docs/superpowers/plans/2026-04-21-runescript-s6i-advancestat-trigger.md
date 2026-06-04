@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go; `pkg/script` Provider lookup; `modules/world` Player level-up dispatch.
 
-**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6i-advancestat-trigger-design.md`](../specs/2026-04-21-runescript-s6i-advancestat-trigger-design.md) (commit `3b3d5ac`)
+**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6i-advancestat-trigger-design.md`](../specs/2026-04-21-runescript-s6i-advancestat-trigger-design.md) (commit `fc9c4cc`)
 
 ---
 

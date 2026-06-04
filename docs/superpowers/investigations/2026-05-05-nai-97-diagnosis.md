@@ -3,7 +3,7 @@
 **Spec:** `docs/superpowers/specs/2026-05-05-nai-97-grounddecor-reach-investigation-design.md`
 **Plan:** `docs/superpowers/plans/2026-05-05-nai-97-grounddecor-reach-investigation.md`
 **Audit date:** 2026-05-05
-**HEAD at audit start:** e31c26b (NAI-97 plan commit)
+**HEAD at audit start:** 47515d4 (NAI-97 plan commit)
 
 ## Summary
 
@@ -25,7 +25,7 @@ integration test (NAI-98 first task).
 ## Audit baseline (Bundle 0 controller pre-flight)
 
 ```
-NAI-97 Bundle 0 pre-flight at HEAD e31c26b:
+NAI-97 Bundle 0 pre-flight at HEAD 47515d4:
 - Step 1.2 ChangeLocCollision sig (gamemap.go:61): match — LayerGroundDecor branch at :72 with active==1 gate at :73
 - Step 1.3 PostDecode lines (loctype.go:166-176): match — Active=-1 → 0 default, →1 if (Shapes==[10] || Op != nil); :183 default BlockWalk:true
 - Step 1.4 pathfinder API names (api.go): match — FindPathPlain:40, FindPathToEntity:47, FindPathToLoc:54, FindNaivePath:62, FindPath:70
@@ -38,9 +38,9 @@ NAI-97 Bundle 0 pre-flight at HEAD e31c26b:
 
 | Test | Result | Disposition |
 |---|---|---|
-| `TestNAI97_LocWalkDump_Lumbridge` | PASS (dump-only, 100 lines `-v` output captured) | always passes; output captured at Stage 1.1 (commit `5d08c71`) |
-| `TestNAI97_NPC943_PathAroundFountain` | SKIP (anomaly reproduces on empty FlagMap; `{Waypoints:[] Alternative:true Success:true}` pinned) | skipped per plan §8.4; commit `9c88e3b` |
-| `TestNAI97_NPC3_MidRouteAbandonment` | SKIP (same shape, same pin) | skipped per plan §8.4; commit `9c88e3b` |
+| `TestNAI97_LocWalkDump_Lumbridge` | PASS (dump-only, 100 lines `-v` output captured) | always passes; output captured at Stage 1.1 (commit `a538ce7`) |
+| `TestNAI97_NPC943_PathAroundFountain` | SKIP (anomaly reproduces on empty FlagMap; `{Waypoints:[] Alternative:true Success:true}` pinned) | skipped per plan §8.4; commit `f5446b8` |
+| `TestNAI97_NPC3_MidRouteAbandonment` | SKIP (same shape, same pin) | skipped per plan §8.4; commit `f5446b8` |
 
 **Important caveat on the SKIP tests:** the empty-FlagMap setup is degenerate
 per memory `empty_flagmap_degenerate_routefinder`. The observed
@@ -94,7 +94,7 @@ values for both implementations.
 **Evidence:**
 - goscape `pkg/objtype/loctype.go:29, 79-80, 166-176, 183` (read at audit time)
 - TS `LostCityRS/Engine-TS/src/cache/config/LocType.ts:79, 127, 202-214`
-- Stage 1.1 dump (commit `5d08c71`, captured at `$TMPDIR/nai97_dump.log` at audit time)
+- Stage 1.1 dump (commit `a538ce7`, captured at `$TMPDIR/nai97_dump.log` at audit time)
 
 ### H2 — LocType.Active PostDecode coercion
 
@@ -150,7 +150,7 @@ is identical and Shapes/Op fields are decoded identically):
 - goscape `pkg/gamemap/gamemap.go:52-78` (read at audit time)
 - TS `LostCityRS/Engine-TS/src/engine/GameMap.ts:259-263, 326-341`
 - goscape `pkg/pathfinder/routefinder/api.go:74-99, 135-146`
-- Stage 1.1 FlagMap dump (commit `5d08c71`) shows expected per-layer flag writes
+- Stage 1.1 FlagMap dump (commit `a538ce7`) shows expected per-layer flag writes
 
 ### H4 — Pathfinder API call-site dispatch routing
 
@@ -195,7 +195,7 @@ pathfinder shape bug. Repro A/B do NOT escalate H4.
 - goscape `modules/world/interaction.go:600-672`
 - TS `LostCityRS/Engine-TS/src/engine/entity/PathingEntity.ts:457-476`
 - `pkg/pathfinder/routefinder/routefinder.go:107, 117-153, 165-180`
-- Repro A/B commit `9c88e3b`, captured Route value pinned in `t.Skip`
+- Repro A/B commit `f5446b8`, captured Route value pinned in `t.Skip`
 
 ### H5 — Post-FindPath waypoint discard / interaction-state reset
 

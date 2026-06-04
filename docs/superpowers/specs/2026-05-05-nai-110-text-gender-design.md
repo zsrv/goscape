@@ -159,7 +159,7 @@ Per `plan_test_coverage_crosscheck` memory: every case below MUST appear in the 
 | `Gender()` semantics drift (0/1 mapping) | `Player.gender` field at `modules/world/player.go:166` is the int written into the appearance buffer at `modules/world/appearance.go:64` (`buf.P1(uint8(p.gender))`). TS uses `=== 0` for male; goscape mirrors. NAI-47 SETIDKIT already depends on this mapping (`handlers_player.go:207-209`). |
 | Tab/byte width concerns | N/A — strings, not numbers. |
 
-**Verified premises (controller pre-flight `controller_preflight`) at HEAD `47ee264`:**
+**Verified premises (controller pre-flight `controller_preflight`) at HEAD `d3269ae`:**
 - `OpTextGender = 4504` declared at `pkg/script/opcode.go:416`. ✓
 - Name-table entry at `pkg/script/opcode.go:1165-1166` (`return "TEXT_GENDER"`). ✓
 - NO dispatch entry in `pkg/script/handlers.go` map. ✓
@@ -171,7 +171,7 @@ Per `plan_test_coverage_crosscheck` memory: every case below MUST appear in the 
 - TS handler at `PlayerOps.ts:787-794`. ✓
 - TS pop order at `ScriptState.ts:341-347`. ✓
 
-All 10 premises verified at HEAD `47ee264` before plan-author dispatch.
+All 10 premises verified at HEAD `d3269ae` before plan-author dispatch.
 
 ---
 

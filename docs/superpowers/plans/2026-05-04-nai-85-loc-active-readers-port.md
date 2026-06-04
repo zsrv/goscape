@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Wire four active-loc reader opcodes — LOC_PARAM (3011), LOC_NAME (3010), LOC_TYPE (3013), LOC_SHAPE (3012) — end-to-end: extend the `ActiveLoc` interface with `Shape()`, add a `checkLocShape` range validator, implement four `handleLoc*` handlers, register them in the dispatch map, and update the two test mocks plus `fakeConfigs`. Cascade-blocker: `[oploc1, newbie_door1]` no-handler-for-LOC_PARAM error from NAI-83 close smoke at HEAD `8659c5f`.
+**Goal:** Wire four active-loc reader opcodes — LOC_PARAM (3011), LOC_NAME (3010), LOC_TYPE (3013), LOC_SHAPE (3012) — end-to-end: extend the `ActiveLoc` interface with `Shape()`, add a `checkLocShape` range validator, implement four `handleLoc*` handlers, register them in the dispatch map, and update the two test mocks plus `fakeConfigs`. Cascade-blocker: `[oploc1, newbie_door1]` no-handler-for-LOC_PARAM error from NAI-83 close smoke at HEAD `9afcbba`.
 
 **Architecture:** Stub-not-completed accessor port (4 opcodes from same TS file `LocOps.ts:114-135`). The opcode constants and name table already exist; this plan adds four handlers + dispatch entries + one interface accessor (`Shape()`) + one range validator following the NAI-83 LOC_ANGLE pattern. `pkg/entity.Loc.Shape()` already exists as the producer-side accessor (`(l.Info >> 14) & 0x1F` at `pkg/entity/loc.go:31`); no producer-side change. `LocType.Name` and `LocType.Params` are populated by the existing cache decoder (`objtype/loctype.go:72, :153`); no decoder change. `paramLookup` (`handlers_config.go:17-49`) is reused for LOC_PARAM via the established NPC_PARAM template (`handlers_config.go:297-311`).
 
 **Tech Stack:** Go 1.26+ (per `go_version.md`).
 
-**Spec:** `docs/superpowers/specs/2026-05-04-nai-85-loc-active-readers-port-design.md` (committed `2ce8bbb`).
+**Spec:** `docs/superpowers/specs/2026-05-04-nai-85-loc-active-readers-port-design.md` (committed `66efe49`).
 
 **Cadence:** spec + plan + single combined review at end (per `compressed_cadence.md` 15–100 LOC band; ~80 production LOC). No per-task two-stage review. One implementer subagent owns T1+T2+T3; reviewer subagent runs once at end.
 
@@ -701,11 +701,11 @@ T3 is verification-only. No file changes. Proceed to combined review.
 
 ## Combined Review (single, end-of-impl)
 
-**Per `compressed_cadence.md` 15–100 LOC band:** dispatch ONE reviewer subagent against the cumulative diff `2ce8bbb..HEAD` (spec→impl range), not per-task reviewers.
+**Per `compressed_cadence.md` 15–100 LOC band:** dispatch ONE reviewer subagent against the cumulative diff `66efe49..HEAD` (spec→impl range), not per-task reviewers.
 
 **Reviewer prompt template (subagent):**
 
-> Review the implementation of NAI-85 (LOC_PARAM/NAME/TYPE/SHAPE active-loc reader port). Spec at `docs/superpowers/specs/2026-05-04-nai-85-loc-active-readers-port-design.md` (commit `2ce8bbb`). Plan at `docs/superpowers/plans/2026-05-04-nai-85-loc-active-readers-port.md`. Cumulative diff: `git diff 2ce8bbb..HEAD`.
+> Review the implementation of NAI-85 (LOC_PARAM/NAME/TYPE/SHAPE active-loc reader port). Spec at `docs/superpowers/specs/2026-05-04-nai-85-loc-active-readers-port-design.md` (commit `66efe49`). Plan at `docs/superpowers/plans/2026-05-04-nai-85-loc-active-readers-port.md`. Cumulative diff: `git diff 66efe49..HEAD`.
 >
 > TS reference: `LostCityRS/Engine-TS/src/engine/script/handlers/LocOps.ts:114-135` and `ScriptValidators.ts` (`LocTypeValid`, `LocShapeValid`, `ParamTypeValid`).
 >
@@ -740,7 +740,7 @@ After reviewer subagent reports clean (or after addressing any review feedback),
 git commit --no-gpg-sign --allow-empty -m "$(cat <<'EOF'
 close: NAI-85 — LOC_PARAM/NAME/TYPE/SHAPE active-loc readers ported
 
-Cascade: door-click smoke at NAI-83 close (HEAD 8659c5f) surfaced
+Cascade: door-click smoke at NAI-83 close (HEAD 9afcbba) surfaced
 [oploc1, newbie_door1] no-handler-for-LOC_PARAM error at pc=14. Now
 wired: ActiveLoc.Shape() accessor, checkLocShape range validator, four
 handlers (LOC_TYPE/NAME/SHAPE/PARAM), four dispatch entries. LOC_NAME
@@ -767,7 +767,7 @@ EOF
 - §4.5 mock updates (fakeActiveLoc + mockActiveLoc) → T1 Steps 1.2, 1.4 ✓
 - §3 fakeConfigs extension (params map) → T1 Step 1.3 ✓
 - §5 11 test functions → T1 Step 1.5 ✓
-- §5.1 pre-flight verification (HEAD 8659c5f) → File Manifest line numbers ✓
+- §5.1 pre-flight verification (HEAD 9afcbba) → File Manifest line numbers ✓
 - §6 TS-fidelity ledger → reviewer prompt items 1–4 ✓
 - §6 LC_NAME inherited divergence → close commit body + reviewer prompt item 7 ✓
 - §8 smoke / cascade routing → close commit body ✓

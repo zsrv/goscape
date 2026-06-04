@@ -9,7 +9,7 @@
 
 Port the `SOUND_SYNTH` script opcode (2104) end-to-end so
 `[proc,open_and_close_door]` runs past pc=68. Cascade-blocker
-surfaced by NAI-86's close door-click smoke at HEAD `cbe1524`:
+surfaced by NAI-86's close door-click smoke at HEAD `3f1deba`:
 
 ```
 script="[proc,open_and_close_door]" err="no handler for SOUND_SYNTH (opcode 2104) at pc=68"

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26 (stdlib only). Tests reuse existing `newTestServer`, `newTestPlayer`, `NewNpc`, `newTriggerFixture` (from S6j-era `interaction_trigger_test.go`), and `newNoopScriptFile` helpers.
 
-**Spec reference:** `docs/superpowers/specs/2026-04-21-runescript-s6n-apnpc-range-gating-design.md` (commit `7a27ec7`).
+**Spec reference:** `docs/superpowers/specs/2026-04-21-runescript-s6n-apnpc-range-gating-design.md` (commit `d9bbd57`).
 
 **Build commands (per CLAUDE.md):**
 - Build: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./...`

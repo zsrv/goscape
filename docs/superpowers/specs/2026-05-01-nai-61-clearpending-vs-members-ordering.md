@@ -16,7 +16,7 @@ cross-task reviewers. Filed under `nai_followups.md` § "NAI-60 — CLOSED
 already calls `p.ClearPendingAction()` BEFORE the members-only check. The
 other three U-handlers diverge.
 
-## §2. The divergence (verified at HEAD `bb7b826`)
+## §2. The divergence (verified at HEAD `6d129e0`)
 
 | Handler | TS clear position | goscape current position | Members-check position |
 |---|---|---|---|

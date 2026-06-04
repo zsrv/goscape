@@ -4,7 +4,7 @@
 **Cadence**: combined spec + plan, no formal review (per
 `compressed_cadence.md`, ≤15 production-LOC threshold; ~3 production
 LOC + ~10 test LOC).
-**Predecessor**: NAI-106 (HEAD `608b961` — `FromBase37` zero-reject
+**Predecessor**: NAI-106 (HEAD `ba10776` — `FromBase37` zero-reject
 narrowing).
 **Trigger**: NAI-85 surfaced/deferred follow-up entry
 `NAI-85-D-LC_NAME-FIELD-CHOICE` in `nai_followups.md`. Goscape's

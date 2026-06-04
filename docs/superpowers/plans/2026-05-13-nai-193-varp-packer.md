@@ -8,8 +8,8 @@
 
 **Tech Stack:** Go 1.26+. Stdlib + `pkg/io/packet` + `pkg/io/jagfile` + NAI-191 `pkg/pack` foundation + NAI-192 PackShared infrastructure.
 
-**Spec:** `docs/superpowers/specs/2026-05-13-nai-193-varp-packer-design.md` (commit `c26c06b`).
-**HEAD at plan-write:** `c26c06b`.
+**Spec:** `docs/superpowers/specs/2026-05-13-nai-193-varp-packer-design.md` (commit `acc9133`).
+**HEAD at plan-write:** `acc9133`.
 
 ---
 
@@ -25,7 +25,7 @@
 
 ## Pre-flight verification (controller, before dispatching tasks)
 
-Verified at plan-write against HEAD `c26c06b`:
+Verified at plan-write against HEAD `acc9133`:
 
 | Premise | Verification |
 |---|---|

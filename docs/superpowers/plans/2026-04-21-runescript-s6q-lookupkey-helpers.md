@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26, standard `testing` package.
 
-**Spec:** `docs/superpowers/specs/2026-04-21-runescript-s6q-lookupkey-helpers-design.md` (commit `cb4165d`).
+**Spec:** `docs/superpowers/specs/2026-04-21-runescript-s6q-lookupkey-helpers-design.md` (commit `f549cc3`).
 
 ---
 

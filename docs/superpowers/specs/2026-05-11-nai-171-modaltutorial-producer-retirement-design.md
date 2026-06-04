@@ -4,13 +4,13 @@
 
 **Tech stack:** Go 1.26+ (per `go_version` memory).
 
-**Lineage:** Retires `NAI-59-D-MODALTUTORIAL-NO-PRODUCER` — opened at NAI-59 close (2026-04-30 cluster). Producer landed via NAI-112 (`679122a`, "H6.c TUT_OPEN unconditional re-emit"); tracker was never housekept. Same pattern as NAI-169's NAI-44-D-PLAYER-WALKTRIGGER-NOOP retirement.
+**Lineage:** Retires `NAI-59-D-MODALTUTORIAL-NO-PRODUCER` — opened at NAI-59 close (2026-04-30 cluster). Producer landed via NAI-112 (`dbe7768`, "H6.c TUT_OPEN unconditional re-emit"); tracker was never housekept. Same pattern as NAI-169's NAI-44-D-PLAYER-WALKTRIGGER-NOOP retirement.
 
 ## 1. Goal
 
 Retire the stale `NAI-59-D-MODALTUTORIAL-NO-PRODUCER` deviation tag. PRIMARY: tracker `nai_followups.md` accurately reflects production state. SECONDARY: the doc-comment at `modules/world/player_interface.go:137-139` no longer cites a deviation whose underlying gap is closed.
 
-## 2. Goscape state at HEAD `86259ef`
+## 2. Goscape state at HEAD `8b310bb`
 
 ### 2.1 Producer side (TS `openTutorial` → goscape `OpenTutorial`)
 
@@ -69,7 +69,7 @@ Six strike-through / annotation edits:
 
 | Line | Current state | New state |
 |---|---|---|
-| ~3213-3222 | Open: NAI-59-D-MODALTUTORIAL-NO-PRODUCER (closure: future IF_OPENTUT opcode handler sub-spec) | RETIRED 2026-05-11 by NAI-171 — TUT_OPEN handler landed via NAI-112 (`679122a`) at `pkg/script/handlers_interface.go:94`; OpenTutorial at `player_script.go:971` writes `modalTutorial`. |
+| ~3213-3222 | Open: NAI-59-D-MODALTUTORIAL-NO-PRODUCER (closure: future IF_OPENTUT opcode handler sub-spec) | RETIRED 2026-05-11 by NAI-171 — TUT_OPEN handler landed via NAI-112 (`dbe7768`) at `pkg/script/handlers_interface.go:94`; OpenTutorial at `player_script.go:971` writes `modalTutorial`. |
 | ~3242 | Open-list item: IF_OPENTUT opcode handler closes NAI-59-D-MODALTUTORIAL-NO-PRODUCER | RETIRED 2026-05-11 by NAI-171. |
 | ~3491 | Lineage carry-forward: NAI-59-D-MODALTUTORIAL-NO-PRODUCER (conditional on tutorial-content driver) | RETIRED 2026-05-11 by NAI-171. |
 | ~3543 | Same | Same. |
@@ -112,7 +112,7 @@ No TDD pair — no production logic changes. Behavior was pinned by NAI-112's ex
 
 ## 9. Verification protocol (per `verification_before_completion`)
 
-**Pre-T1 baseline:** `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/... ./pkg/script/...` green at HEAD `86259ef`.
+**Pre-T1 baseline:** `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/... ./pkg/script/...` green at HEAD `8b310bb`.
 
 **Post-T1:** same tests green; no behavior change. `git show <T1-SHA>` confirms only the 3-line comment rewrite at `player_interface.go:137-139` (no other touches).
 

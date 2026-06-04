@@ -8,11 +8,11 @@
 
 **Tech Stack:** Go 1.26+ (`go_version.md`).
 
-**Spec:** `docs/superpowers/specs/2026-05-11-nai-166-low-los-sweep-design.md` (commit `17e0307`).
+**Spec:** `docs/superpowers/specs/2026-05-11-nai-166-low-los-sweep-design.md` (commit `8073c77`).
 
-**HEAD at plan-write:** `17e0307`.
+**HEAD at plan-write:** `8073c77`.
 
-**Scope correction during plan-write:** the brainstorm/spec initially cited 12 production sites across 4 files; plan-author re-grep at HEAD `17e0307` showed only 4 sites still carry the broken `(1, 0, 0, 0)` shape — all in `pkg/script/`. The `modules/world/` hunt sites already pass `(1, 1, 1, 0)` (likely fixed during NAI-9 / NAI-12). The spec was amended in commit `17e0307` to reflect verified HEAD.
+**Scope correction during plan-write:** the brainstorm/spec initially cited 12 production sites across 4 files; plan-author re-grep at HEAD `8073c77` showed only 4 sites still carry the broken `(1, 0, 0, 0)` shape — all in `pkg/script/`. The `modules/world/` hunt sites already pass `(1, 1, 1, 0)` (likely fixed during NAI-9 / NAI-12). The spec was amended in commit `8073c77` to reflect verified HEAD.
 
 ---
 

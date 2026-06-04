@@ -10,7 +10,7 @@
 
 **Spec reference:** `docs/superpowers/specs/2026-04-25-nai-22-followup-bundle-design.md`
 
-**Pre-flight findings (plan-write time, HEAD `66a2f9f`):**
+**Pre-flight findings (plan-write time, HEAD `e2c495c`):**
 1. **Bundle 3 simplification.** `Player.SetAppearanceInv(id int)` already exists at `modules/world/player_script.go:365` — it writes `p.appearanceInv` and flips `MaskAppearance`. Plan uses this directly; the spec's proposed package-private `setAppearanceInv` is unneeded.
 2. **Bundle 2 accessor shape.** `*ObjTypeConfigs` and `*ParamTypeConfigs` expose `Configs []*Type` slices directly (no `Get(id)` accessor). The new helper indexes the slice with bounds-check.
 3. **Bundle 3 caller path.** `client.go:113` uses `c.server` (not `c.s`). `c.server.invTypes` is the `*objtype.InvTypeConfigs` registry; `.Worn` is a public `int` field at `pkg/objtype/invtype.go:95`.
@@ -205,7 +205,7 @@ Expected: All 5 new tests FAIL. Likely failure modes:
 - `TestAddNpcNilScriptProviderNoQueue`: PASS (no producer → no queue, accidentally green)
 - `TestProcessNpcEventQueueDispatchesSpawn`: `setup: queue len 0, want 1`
 
-**Pre-existing-failure protocol**: per `verify_implementer_claims` memory, before claiming any of these are red, also run the full package: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/`. If unrelated tests fail at HEAD, verify they also fail at HEAD~1 before declaring them pre-existing. NAI-22 Bundle 1 is starting from `66a2f9f` (the spec commit), not `4a696c7`.
+**Pre-existing-failure protocol**: per `verify_implementer_claims` memory, before claiming any of these are red, also run the full package: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/`. If unrelated tests fail at HEAD, verify they also fail at HEAD~1 before declaring them pre-existing. NAI-22 Bundle 1 is starting from `e2c495c` (the spec commit), not `804da2e`.
 
 ### Task 1.2: Implement AI_SPAWN producer in addNpc
 

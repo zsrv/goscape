@@ -4,7 +4,7 @@
 **Cadence**: combined spec + plan, single end-of-impl review (per
 `compressed_cadence.md`, ≤15 production-LOC threshold; ~12 production
 LOC).
-**Predecessor**: NAI-102 (HEAD `d8f0a4d` — TUT_CLOSE handler +
+**Predecessor**: NAI-102 (HEAD `4677680` — TUT_CLOSE handler +
 `Player.closeTutorial()` port).
 **Trigger**: NAI-95 smoke residual (nai_followups.md "From NAI-95"):
 `[proc,chatplayer_page]` script crashes on DISPLAYNAME at pc=24

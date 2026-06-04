@@ -4,7 +4,7 @@
 **TS pin:** `LostCityRS/RuneScriptTS` @ `b8c338801fbb72d294ff9576a58925a8d3f6de47`
 **TS source-of-truth:** `src/compiler/semantics/TypeChecking.ts` (1546 LOC) plus
 `src/compiler/configuration/command/{DynamicCommandHandler,TypeCheckingContext}.ts`
-**Predecessor:** NAI-205 (close commit `b700ba6`, on `main`)
+**Predecessor:** NAI-205 (close commit `bb75f60`, on `main`)
 **Successor:** NAI-207 (codegen, projected)
 **Tech Stack:** Go 1.26+
 
@@ -23,7 +23,7 @@ to each AST node and is ready for codegen (NAI-207).
 
 ## 2. Inputs from NAI-205
 
-The following are in place at `main` (`b700ba6`):
+The following are in place at `main` (`bb75f60`):
 
 | Package | Surface |
 |---|---|

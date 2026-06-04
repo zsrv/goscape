@@ -8,8 +8,8 @@
 
 **Tech Stack:** Go 1.26+. Stdlib only (`testing`, `reflect`). No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-05-14-nai-201-compiler-foundation-registries-design.md` (commit `1b25104`).
-**HEAD at plan-write:** `1b25104`.
+**Spec:** `docs/superpowers/specs/2026-05-14-nai-201-compiler-foundation-registries-design.md` (commit `7d41e25`).
+**HEAD at plan-write:** `7d41e25`.
 
 ---
 
@@ -26,7 +26,7 @@
 
 ## Pre-flight verification (controller, before dispatching tasks)
 
-Verified at plan-write against HEAD `1b25104`:
+Verified at plan-write against HEAD `7d41e25`:
 
 | Premise | Verification | Result |
 |---|---|---|
@@ -1223,13 +1223,13 @@ Append to `pkg/script/opcode_pointers_test.go`:
 // ScriptOpcodePointers key is in the valid Opcode range — i.e. ≤ the
 // max Op* constant defined in pkg/script/opcode.go. Enumerating all
 // 394 Op* constants in this test would be brittle; the weaker bound
-// (≤ OpTimeSpent, the highest goscape constant at HEAD `1b25104`)
+// (≤ OpTimeSpent, the highest goscape constant at HEAD `7d41e25`)
 // catches typo cases that would assign a wildly-out-of-range value.
 //
 // If pkg/script/opcode.go adds a new Op* constant with value >
 // OpTimeSpent, update this constant.
 func TestScriptOpcodePointers_KeysAreBoundedOpcodes(t *testing.T) {
-	const maxOp = OpTimeSpent // 10003 at HEAD 1b25104
+	const maxOp = OpTimeSpent // 10003 at HEAD 7d41e25
 	for op := range ScriptOpcodePointers {
 		if op > maxOp {
 			t.Errorf("ScriptOpcodePointers[op=%d]: exceeds known max Op* = %d", op, maxOp)

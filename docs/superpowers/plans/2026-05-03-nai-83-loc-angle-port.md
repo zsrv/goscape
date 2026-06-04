@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+ (per `go_version.md`).
 
-**Spec:** `docs/superpowers/specs/2026-05-03-nai-83-loc-angle-port-design.md` (committed `d8c92fb`).
+**Spec:** `docs/superpowers/specs/2026-05-03-nai-83-loc-angle-port-design.md` (committed `7210339`).
 
 **Cadence:** spec + plan + single combined review at end (per `compressed_cadence.md` 15–100 LOC band; ~22 production LOC). No per-task two-stage review. One implementer subagent owns T1+T2+T3; reviewer subagent runs once at end.
 
@@ -347,11 +347,11 @@ T3 is verification-only. No file changes. Proceed to combined review.
 
 ## Combined Review (single, end-of-impl)
 
-**Per `compressed_cadence.md` 15–100 LOC band:** dispatch ONE reviewer subagent against the cumulative diff `d8c92fb..HEAD` (spec→impl range), not per-task reviewers.
+**Per `compressed_cadence.md` 15–100 LOC band:** dispatch ONE reviewer subagent against the cumulative diff `7210339..HEAD` (spec→impl range), not per-task reviewers.
 
 **Reviewer prompt template (subagent):**
 
-> Review the implementation of NAI-83 (LOC_ANGLE opcode port). Spec at `docs/superpowers/specs/2026-05-03-nai-83-loc-angle-port-design.md` (commit `d8c92fb`). Plan at `docs/superpowers/plans/2026-05-03-nai-83-loc-angle-port.md`. Cumulative diff: `git diff d8c92fb..HEAD`.
+> Review the implementation of NAI-83 (LOC_ANGLE opcode port). Spec at `docs/superpowers/specs/2026-05-03-nai-83-loc-angle-port-design.md` (commit `7210339`). Plan at `docs/superpowers/plans/2026-05-03-nai-83-loc-angle-port.md`. Cumulative diff: `git diff 7210339..HEAD`.
 >
 > TS reference: `LostCityRS/Engine-TS/src/engine/script/handlers/LocOps.ts:45-47` and `ScriptValidators.ts:106` (`LocAngleValid`).
 >

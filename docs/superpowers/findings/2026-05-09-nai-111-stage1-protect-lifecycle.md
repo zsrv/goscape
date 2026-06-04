@@ -1,7 +1,7 @@
 # NAI-111 — Stage 1 findings: protect-flag lifecycle audit
 
 **Date:** 2026-05-09
-**Spec:** docs/superpowers/specs/2026-05-09-nai-111-protect-lifecycle-investigation-design.md (751e5ab)
+**Spec:** docs/superpowers/specs/2026-05-09-nai-111-protect-lifecycle-investigation-design.md (b13394b)
 **Cadence:** general-purpose Sonnet audit subagent per investigation_subspec_cadence.
 
 ---

@@ -104,7 +104,7 @@ not a deviation.
 
 ---
 
-## Pre-flight (verified at HEAD `56315d1`)
+## Pre-flight (verified at HEAD `0ee2e7a`)
 
 | Claim | Result |
 |---|---|
@@ -735,7 +735,7 @@ blocks above the function (currently L18-23). Top-of-function summary
 remains.
 
 The `s.scriptProvider != nil` guard mirrors the sibling pattern in
-`handleNpcWalkTrigger` (post-NAI-51 fixup at commit `23ec2a2`); per
+`handleNpcWalkTrigger` (post-NAI-51 fixup at commit `d5e7c19`); per
 `plan_sibling_site_guard_audit.md`. The pre-NAI-59 `handleIfButton`
 already enters `GetByTriggerSpecific` without guarding, but T6 adds
 the guard since the surrounding handler structure is being reshaped

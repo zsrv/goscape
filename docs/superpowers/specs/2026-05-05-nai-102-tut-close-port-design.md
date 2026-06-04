@@ -4,7 +4,7 @@
 **Cadence**: combined spec + plan, single end-of-impl review (per
 `compressed_cadence.md`, ≤15 production-LOC threshold; ~10 production
 LOC).
-**Predecessor**: NAI-101 (HEAD `6e5be8d` — queueWaypoints TS-faithful
+**Predecessor**: NAI-101 (HEAD `9b92ee8` — queueWaypoints TS-faithful
 reverse-copy; Lumbridge fountain path-around chain
 NAI-96→98→100→101 closed).
 **Trigger**: NAI-76 spec §6 R4 deferral + `stub_deferred_comment_marker.md`

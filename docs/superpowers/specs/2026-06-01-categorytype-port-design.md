@@ -395,7 +395,7 @@ NPC_FINDCAT; `TS InvOps.ts:638 check(category, CategoryTypeValid)
    chosen id.
 3. **Mock cascade.** Compile errors at every `Configs`-implementing test
    double until they grow a `CategoryType` method. Resume-doc precedent
-   from `h-core-3`'s `VarsType` addition (`med-bundle-15` `b0a86b33`)
+   from `h-core-3`'s `VarsType` addition (`med-bundle-15` `591039eb`)
    confirms this is a bounded cost (one parallel-shape impl per consumer).
 
 ## Build & ship
@@ -408,7 +408,7 @@ NPC_FINDCAT; `TS InvOps.ts:638 check(category, CategoryTypeValid)
 - **Docs commit subject:** `docs(porting): close gap-world-reload-events-8 / cfg-var-9 / h-npc-3 cluster`.
 - **Closure shape:** 3-row merged-alias single closure (cite `gap-world-reload-events-8 / cfg-var-9 / h-npc-3` in the PORTING-CLOSED.md row, body cites this spec).
 - **Docs to update:**
-  - `docs/PORTING-CLOSED.md` — promote the existing `✅ EXCEPTION-DOCUMENTED` row (line 74, `fix/med-bundle-18` `2b2e904c`) to `✅ FIXED` citing the new commit SHA. Body updated to reflect the actual port (loader + Provider + reload arm + tightened validator) rather than the pre-port deferral rationale.
+  - `docs/PORTING-CLOSED.md` — promote the existing `✅ EXCEPTION-DOCUMENTED` row (line 74, `fix/med-bundle-18` `207496e9`) to `✅ FIXED` citing the new commit SHA. Body updated to reflect the actual port (loader + Provider + reload arm + tightened validator) rather than the pre-port deferral rationale.
   - `PORTING.md` — extend the "Recent audit history" / Arc 28 line with this closure.
   - `docs/superpowers/audits/2026-05-28-ts-parity-audit-fresh.md:974` — mark the STALE-DEFER cluster as closed by this commit.
 - **#274 flip prediction:** no-op — this work touches neither `deploy/bundled/goscape.yaml` nor `pkg/util/build/build.go`. Pre-FF md5sum snapshot both; post-FF empty-delta confirmation.

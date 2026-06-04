@@ -181,13 +181,13 @@ func TestScriptOpcodePointers_SpotChecks(t *testing.T) {
 // ScriptOpcodePointers key is in the valid Opcode range — i.e. ≤ the
 // max Op* constant defined in pkg/script/opcode.go. Enumerating all
 // Op* constants in this test would be brittle; the weaker bound
-// (≤ OpTimeSpent, the highest goscape constant at HEAD `1b25104`)
+// (≤ OpTimeSpent, the highest goscape constant at HEAD `7d41e25`)
 // catches typo cases that would assign a wildly-out-of-range value.
 //
 // If pkg/script/opcode.go adds a new Op* constant with value >
 // OpTimeSpent, update this constant.
 func TestScriptOpcodePointers_KeysAreBoundedOpcodes(t *testing.T) {
-	const maxOp = OpTimeSpent // 10003 at HEAD 1b25104
+	const maxOp = OpTimeSpent // 10003 at HEAD 7d41e25
 	for op := range ScriptOpcodePointers {
 		if op > maxOp {
 			t.Errorf("ScriptOpcodePointers[op=%d]: exceeds known max Op* = %d", op, maxOp)

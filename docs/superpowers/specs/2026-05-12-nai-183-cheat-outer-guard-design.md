@@ -23,7 +23,7 @@ Pre-flight against `LostCityRS/Engine-TS` reveals:
 - The dev-block arms `::reboot` and `::slowreboot` carry inner `&& Environment.NODE_PRODUCTION` clauses *inside* the outer `!NODE_PRODUCTION` block. Inside that outer block `NODE_PRODUCTION` is provably false, so these arms are **literal dead code** in TS. Only `::serverdrop` (no inner clause) actually fires. Likely a refactor artifact (variable renamed/inverted, inner clauses never updated).
 - `::say` is **not in TS ClientCheatHandler** at all — it's a separate ChatHandler. Goscape's `case "say"` arm has no TS-equivalent gate to mirror.
 
-Goscape state at HEAD `bc97189`:
+Goscape state at HEAD `82f245d`:
 
 - Per-arm `if p.staffModLevel < 2 { return nil }` on: `::getcoord` (handlers_game.go:374), `::tele` (:382), `::reboot` (:434), `::slowreboot` (:445), `::serverdrop` (:459).
 - `::say` (handlers_game.go:368-371) has no gate.

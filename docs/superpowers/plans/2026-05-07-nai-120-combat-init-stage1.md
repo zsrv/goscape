@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26+; goscape `pkg/script` package; ripgrep for token extraction; Sonnet Explore audit subagent; read-only access to `LostCityRS/Engine-TS` (TS handlers) + `LostCityRS/Content/scripts/skill_combat/` (rs2 sources).
 
-**Spec:** `docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md` (commit `b020daa`).
+**Spec:** `docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md` (commit `99c71a9`).
 
-**Predecessor:** NAI-119 close commit `de13459`; smoke residual #2 ("no handler for MAP_MULTIWAY (opcode 1014)" at pc=1 of `[proc,player_in_combat_check]` when attacking tutorial rats).
+**Predecessor:** NAI-119 close commit `a042d2b`; smoke residual #2 ("no handler for MAP_MULTIWAY (opcode 1014)" at pc=1 of `[proc,player_in_combat_check]` when attacking tutorial rats).
 
 **Inner-ring files** (8 total, ~1195 source lines):
 
@@ -249,7 +249,7 @@ rg -n "OpPushVarp|OpPopVarp|OpPushVarn|OpPopVarn|OpPushVars|OpPopVars|OpPushVarb
 rg -n "handlePushVarn|handlePopVarn" pkg/script/handlers_vars.go
 ```
 
-Expected at HEAD `de13459`:
+Expected at HEAD `a042d2b`:
 - `OpPushVarp / OpPopVarp / OpPushVars / OpPopVars` — fully wired.
 - `OpPushVarn / OpPopVarn` — wired but flagged "stub until S6" at `pkg/script/handlers.go:207-208`. Read the actual handler bodies; classify whether stub semantics suffice for inner-ring NPC-stat reads (e.g., does the stub return zero/null in a TS-faithful manner, or does it error?).
 - `OpPushVarbit / OpPopVarbit` — Bundle 0 task confirms.
@@ -349,7 +349,7 @@ Markdown table:
 ```markdown
 ## §9 risk register — Bundle 0 final HEAD verification
 
-| Item | Status at HEAD de13459 | Evidence |
+| Item | Status at HEAD a042d2b | Evidence |
 |---|---|---|
 | R1 ADD wired | ✅ | opcode.go:434 + handlers.go:27 (verified at spec-write) |
 | R2 BRANCH_* family wired | ✅ | opcode.go:39-43,55-56 + handlers.go:21-23 (representative) |
@@ -381,8 +381,8 @@ Structure (template — fill from `$TMPDIR/nai-120-tokens/`):
 # NAI-120 — Bundle 0 controller pre-flight findings
 
 **Date:** 2026-05-07
-**Spec:** `docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md` (commit `b020daa`)
-**HEAD at pre-flight:** `de13459` (NAI-119 close)
+**Spec:** `docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md` (commit `99c71a9`)
+**HEAD at pre-flight:** `a042d2b` (NAI-119 close)
 
 This is the Bundle 0 deliverable per spec §4.5. Bundle 1 (audit subagent dispatch) consumes it.
 
@@ -485,7 +485,7 @@ Static enumeration of every distinct opcode / var / proc-call /
 label-jump / constant referenced by the 8 inner-ring combat-init
 .rs2 files (skill_combat/scripts/player/, ~1195 lines). Cross-
 referenced against pkg/script/opcode.go + handlers*.go at HEAD
-de13459; classified W/D/U/P-in-ring/F per spec §4.2.
+a042d2b; classified W/D/U/P-in-ring/F per spec §4.2.
 
 Includes:
 - Per-file token extraction tables.
@@ -500,7 +500,7 @@ TS-source signatures land at
 docs/superpowers/investigations/2026-05-07-nai-120-bundle1-audit.md
 in the next task.
 
-Spec: docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md (commit b020daa).
+Spec: docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md (commit 99c71a9).
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -667,7 +667,7 @@ across the per-file Stage 2 bundles.
 Controller spot-checked <N> verdicts independently against TS
 source per audit_subagent_fabrication; <addendum-note-or-clean>.
 
-Spec: docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md (commit b020daa).
+Spec: docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md (commit 99c71a9).
 Bundle 0: <commit-from-task-6>.
 
 Stage 2 plan to be written separately per investigation_subspec_cadence
@@ -697,7 +697,7 @@ NAI-120 Stage 1 closed. Bundle 0 findings: docs/superpowers/investigations/2026-
 
 Audit binds <N> missing handlers across <M> Stage 2 bundles (see Bundle 1 §"Stage 2 bundle ordering"). Dependency edges: <one-line summary>.
 
-Next: write Stage 2 plan covering Bundles 2A..2E. Spec is unchanged at docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md (commit b020daa) — §6 specifies cadence, §6.4 specifies test seeds. Use writing-plans skill. Per-bundle TDD shape: T1 RED (per-handler unit tests with ScriptState fixtures, scriptstate_test_fixture_idioms applied) → T2 GREEN (handler + dispatch) → T3 verify (controller fresh `go test ./...`) → T4 review (Sonnet code-reviewer).
+Next: write Stage 2 plan covering Bundles 2A..2E. Spec is unchanged at docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md (commit 99c71a9) — §6 specifies cadence, §6.4 specifies test seeds. Use writing-plans skill. Per-bundle TDD shape: T1 RED (per-handler unit tests with ScriptState fixtures, scriptstate_test_fixture_idioms applied) → T2 GREEN (handler + dispatch) → T3 verify (controller fresh `go test ./...`) → T4 review (Sonnet code-reviewer).
 
 Bundle 1 surfaced <K> frontier items (see Bundle 0 §2 "Frontier list" + §6) — record in nai_followups.md at NAI-120 final close, not during Stage 2.
 

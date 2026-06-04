@@ -897,7 +897,7 @@ func handleInvMoveFromSlot(s *ScriptState) error {
 // SECOND). Then check(inv, InvTypeValid); check(com, NumberNotNull);
 // activePlayer.invListenOnCom(inv, com, activePlayer.uid). TS validates
 // inv BEFORE com (InvOps.ts:647-648); mirror that order.
-// Source porting fix landed in NAI-24 Bundle 2 — origin commit 947540b
+// Source porting fix landed in NAI-24 Bundle 2 — origin commit 5b67653
 // (S6u) erroneously hard-coded -1.
 //
 // NAI-113 T9: pop order corrected to match TS (com from top, invType

@@ -3,7 +3,7 @@
 **Date:** 2026-06-01
 **Branch:** `fix/hiscore-port`
 **Closes audit IDs:** `login-server-9`, `gap-db-datastruct-9` (2-row merged alias)
-**Prior state:** EXCEPTION-DOCUMENTED (`fix/med-bundle-19`, `e48fcf6f`), STALE-DEFER in the
+**Prior state:** EXCEPTION-DOCUMENTED (`fix/med-bundle-19`, `b15c84f9`), STALE-DEFER in the
 2026-05-28 fresh audit ledger.
 
 ## Problem

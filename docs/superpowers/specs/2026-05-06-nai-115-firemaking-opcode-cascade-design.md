@@ -10,7 +10,7 @@ Go 1.26+. Target packages: `pkg/script/` (handlers + dispatch table), `pkg/scrip
 
 ## 2. Bundle 0 finding
 
-The NAI-114 close memo asserted that `MAP_LOCADDUNSAFE (1012)` was still pending. **This is stale**: commit `03bff85` ("feat(script): NAI-114 Stage 2 — port MAP_LOCADDUNSAFE handler") landed the port mid-NAI-114, before Stages 3-5 pivoted to the dispatch-bug fix. `MAP_BLOCKED (1007)` was already done in NAI-36 T4. Remaining cascade is **7 opcodes**, not 8.
+The NAI-114 close memo asserted that `MAP_LOCADDUNSAFE (1012)` was still pending. **This is stale**: commit `1ea166d` ("feat(script): NAI-114 Stage 2 — port MAP_LOCADDUNSAFE handler") landed the port mid-NAI-114, before Stages 3-5 pivoted to the dispatch-bug fix. `MAP_BLOCKED (1007)` was already done in NAI-36 T4. Remaining cascade is **7 opcodes**, not 8.
 
 Authoritative opcode partition derived from the .rs2 source files (more authoritative than disasm):
 
@@ -158,6 +158,6 @@ Per `smoke_surfaces_adjacent_divergences`: if Bundle 1 smoke reveals e.g., obj-s
 
 **Predecessor:**
 - NAI-114 close memo (memory/nai_followups.md ~L5748)
-- Stage 1.2 audit: `docs/superpowers/investigations/2026-05-06-nai-114-stage1-audit.md` (commit `4a0ad1e`)
+- Stage 1.2 audit: `docs/superpowers/investigations/2026-05-06-nai-114-stage1-audit.md` (commit `47f78da`)
 
 **Memory crosschecks applied:** `bundle0_short_circuits_stage1_audit`, `smoke_surfaces_adjacent_divergences`, `cascade_theory_smoke_binding`, `scriptstate_test_fixture_idioms`, `defensive_gate_doc_comment_label`, `plan_sibling_site_guard_audit`, `plan_grep_helper_patterns`, `mock_recorder_field_naming_check`, `close_commit_memory_trailer`, `ts_source_canonical_path`.

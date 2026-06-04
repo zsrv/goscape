@@ -16,7 +16,7 @@ entirely. NAI-37 close noted the interface method had no consumer; the
 `dead_api_polish.md` audit deadline was set to "verify before NAI-39 or
 remove."
 
-Verified at HEAD `21d6b62`:
+Verified at HEAD `03d2255`:
 
 - `pkg/script/state.go:82-86` — interface declaration on `WorldVars`.
 - `modules/world/server_varp.go:110-123` — `worldVarsView.IsZoneAllocated`
@@ -47,7 +47,7 @@ can be re-added in one line.
 - **Go 1.26+** (per `go_version.md`).
 - TS source: `Engine-TS` only (per `ts_source_canonical_path.md`). No TS
   changes; this is goscape-side dead-code retirement, not a port.
-- HEAD baseline: `21d6b62` (NAI-37 close).
+- HEAD baseline: `03d2255` (NAI-37 close).
 
 ## Scope
 

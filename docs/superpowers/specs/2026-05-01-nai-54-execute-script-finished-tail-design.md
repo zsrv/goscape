@@ -111,7 +111,7 @@ Single sub-spec, single bundle, full cadence per
   logout cleanup, `pkg/script/handlers_npc.go:767`,
   `pkg/script/npc_iterator.go:26`). All TS-faithful as-is.
 - The `unsetMapFlag()`-style processInteraction tail polish
-  (different surface; covered by NAI-44 polish commit `9112726`).
+  (different surface; covered by NAI-44 polish commit `c22449d`).
 - Any ScriptRunner / ScriptState reshape.
 
 ## Design

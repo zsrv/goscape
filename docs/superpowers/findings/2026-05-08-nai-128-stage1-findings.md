@@ -1,16 +1,16 @@
 # NAI-128 — Stage 1 findings
 
 **Date:** 2026-05-08
-**Stage 1 plan:** `docs/superpowers/plans/2026-05-08-nai-128-rat-loot-cascade-investigation.md` (`f48f1e4`)
-**Spec:** `docs/superpowers/specs/2026-05-08-nai-128-rat-loot-cascade-investigation-design.md` (`6c1c6be`)
+**Stage 1 plan:** `docs/superpowers/plans/2026-05-08-nai-128-rat-loot-cascade-investigation.md` (`06c4641`)
+**Spec:** `docs/superpowers/specs/2026-05-08-nai-128-rat-loot-cascade-investigation-design.md` (`6f59550`)
 **Probe:** `modules/world/nai128_rat_loot_test.go::TestNAI128_RatLootCascade`
-**HEAD after T5:** `ba5823b`
+**HEAD after T5:** `608ed66`
 
 ## Outcome: BINDING FOUND
 
 The synthetic cascade probe drives the rat death-loot end-to-end against the real Lumbridge cache, asserting at each link. T1–T4 PASS; **T5 FAILS** at the final `obj_add` link.
 
-### Subtest results at HEAD `ba5823b`
+### Subtest results at HEAD `608ed66`
 
 | Subtest | Result | Evidence |
 |---|---|---|
@@ -94,7 +94,7 @@ The existing probe (`TestNAI128_RatLootCascade`) becomes the regression gate for
 
 ```
 NAI-128 Stage 2 brainstorm. Stage 1 probe at
-modules/world/nai128_rat_loot_test.go ran on 2026-05-08; HEAD ba5823b.
+modules/world/nai128_rat_loot_test.go ran on 2026-05-08; HEAD 608ed66.
 
 Outcome: BINDING FOUND. T1–T4 PASS, T5 FAIL: zone.Objs has 0 entries
 at rat coord post-cascade. Bound candidate per spec §4.2: E (ai_queue3

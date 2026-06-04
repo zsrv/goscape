@@ -9,7 +9,7 @@
 **Tech Stack:** Go 1.26+; goscape engine; `LostCityRS/Engine-TS` canonical reference. Existing helpers reused: `newTestPlayer`, `newTestNpc`, `newTestServer`, `discardLogger`, `gamemap.New/Init`, `objtype.LoadLocTypes`, `populateStaticLocsIntoZones`, `packTestCoord`.
 
 **Spec:** `docs/superpowers/specs/2026-05-05-nai-101-queuewaypoints-reverse-design.md`.
-**Predecessor:** NAI-100 (commit `a45c123`) shipped fountain footprint coverage; smoke 2026-05-05 surfaced the path-around residual.
+**Predecessor:** NAI-100 (commit `d58a60f`) shipped fountain footprint coverage; smoke 2026-05-05 surfaced the path-around residual.
 
 ---
 
@@ -473,7 +473,7 @@ func TestNAI101_FountainPathAround_RealCache(t *testing.T) {
 
 	// Pin the routefinder output shape (3 direction-change points) the
 	// stepOnce iteration must traverse. Bundle 0 probe captured this exact
-	// shape at HEAD `a45c123` (post-NAI-100):
+	// shape at HEAD `d58a60f` (post-NAI-100):
 	//   [0] (3220, 3225, 0)
 	//   [1] (3220, 3229, 0)
 	//   [2] (3219, 3230, 0)

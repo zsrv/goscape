@@ -3,8 +3,8 @@
 **Date:** 2026-05-11
 **Status:** Design
 **Tracker:** Retires `NAI-173-FU-FOLLOW-MODE-INVESTIGATION` (carry-forward from NAI-173 close at `nai_followups.md` "## From NAI-173")
-**Predecessor:** NAI-173 (PathingEntity reach arm — `31ba413` close)
-**HEAD at design:** `31ba413` (top of main, post-NAI-173 close)
+**Predecessor:** NAI-173 (PathingEntity reach arm — `975d214` close)
+**HEAD at design:** `975d214` (top of main, post-NAI-173 close)
 
 ## 1. Problem
 

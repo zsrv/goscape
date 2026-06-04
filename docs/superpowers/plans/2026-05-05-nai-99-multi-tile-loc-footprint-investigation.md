@@ -58,7 +58,7 @@
 git log --oneline -5
 ```
 
-Expected: `51b693b chore(close): NAI-98 …` is at or near the top. The NAI-99 spec commit `1971e3d` should be at HEAD.
+Expected: `4ed5acc chore(close): NAI-98 …` is at or near the top. The NAI-99 spec commit `4073c1f` should be at HEAD.
 
 - [ ] **Step 1.2: Verify spec citation for `ChangeLocCollision` GroundDecor branch**
 

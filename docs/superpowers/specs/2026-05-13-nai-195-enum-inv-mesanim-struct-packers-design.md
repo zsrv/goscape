@@ -1,7 +1,7 @@
 # NAI-195: `.enum` + `.inv` + `.mesanim` + `.struct` packer slice
 
 **Date**: 2026-05-13
-**Predecessor**: NAI-194 (`.param` packer slice; closed at 8de3c23)
+**Predecessor**: NAI-194 (`.param` packer slice; closed at 23e23c1)
 **Cohort identity**: Server-only configs (no client jagfile, no CRC validator). Defers `.hunt` (545 TS LOC; isolated outlier) to NAI-196.
 
 ## 1. Goal

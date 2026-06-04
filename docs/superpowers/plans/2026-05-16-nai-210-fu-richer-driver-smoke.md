@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26+, project test layout `pkg/pack/compiler/runescript/`, standard `testing` + `os` + `encoding/binary` packages. No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-05-16-nai-210-fu-richer-driver-smoke-design.md` (committed at `2dfa5db`).
+**Spec:** `docs/superpowers/specs/2026-05-16-nai-210-fu-richer-driver-smoke-design.md` (committed at `65954e8`).
 
-**Pre-flight state (HEAD `2dfa5db`):**
+**Pre-flight state (HEAD `65954e8`):**
 
 - `compile_test.go` has 5 tests: `TestCompile_MissingCoreSymbols_ReturnsError`, `TestCompile_JagWriter_EndToEnd`, `TestCompile_Js5Writer_EndToEnd`, `TestCompile_HandlerInjectionUsedDuringRun`, `TestCompile_NilHandlerDefaultsToBase`. The first and last three are preserved unchanged.
 - `JagFileScriptWriter` produces two files at `<Output>/script.dat` and `<Output>/script.idx`. `script.dat` layout: `BE32(lastID+1)` + `BE32(jagFileVersion=27)` + concatenated script blobs by id ascending. `script.idx` layout: `BE32(lastID+1)` + `BE32(blobLen)` per id (or `BE32(0)` if missing).
@@ -122,7 +122,7 @@ grep -n 'encoding/binary' pkg/pack/compiler/runescript/compile_test.go
 
 If the import is absent, add it to the import block (alphabetical order; goes after `"encoding"` if present, or as a fresh `"encoding/binary"` entry between any earlier-letter and later-letter imports).
 
-Current imports (HEAD `2dfa5db`) are `"os"`, `"path/filepath"`, `"testing"`, plus internal `semantics` import. Add `"encoding/binary"` as the first import in the stdlib group.
+Current imports (HEAD `65954e8`) are `"os"`, `"path/filepath"`, `"testing"`, plus internal `semantics` import. Add `"encoding/binary"` as the first import in the stdlib group.
 
 - [ ] **Step 3: Run the test, expect PASS**
 
@@ -393,7 +393,7 @@ All sections covered.
 
 **Placeholder scan:** No TODOs, no "add appropriate X", no "similar to Task N", no "TBD". Every code step contains the full code.
 
-**Type consistency:** `Config`, `CompilerTypeInfo`, `WriterConfig`, `JagWriterConfig`, `Js5WriterConfig`, `semantics.StrictFeatureLevel{}` all match the API at HEAD `2dfa5db` (verified by reading `pkg/pack/compiler/runescript/compile.go`). Test function names: T1 uses `TestCompile_JagWriter_PinsScriptHeader` consistently; T2 uses `TestCompile_Js5Writer_PinsScriptHeader` consistently. Byte offset numbers `[8:21]`, `[14:24]`, `[33:37]` are arithmetic-checked against `len("[proc,helper]")==13` and `len("helper.rs2")==10`.
+**Type consistency:** `Config`, `CompilerTypeInfo`, `WriterConfig`, `JagWriterConfig`, `Js5WriterConfig`, `semantics.StrictFeatureLevel{}` all match the API at HEAD `65954e8` (verified by reading `pkg/pack/compiler/runescript/compile.go`). Test function names: T1 uses `TestCompile_JagWriter_PinsScriptHeader` consistently; T2 uses `TestCompile_Js5Writer_PinsScriptHeader` consistently. Byte offset numbers `[8:21]`, `[14:24]`, `[33:37]` are arithmetic-checked against `len("[proc,helper]")==13` and `len("helper.rs2")==10`.
 
 **Byte offset math check:**
 - script.dat: `BE32(lastID+1)` [0:4] + `BE32(version)` [4:8] = 8 bytes header. Blob starts at 8.

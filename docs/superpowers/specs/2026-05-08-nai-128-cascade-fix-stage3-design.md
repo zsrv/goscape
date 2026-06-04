@@ -1,7 +1,7 @@
 # NAI-128 Stage 3 — Production-residual binding probe (design)
 
-**Predecessor:** Stage 2 design at `2026-05-08-nai-128-cascade-fix-stage2-design.md` (`cdeecf4`); plan at `2026-05-08-nai-128-cascade-fix-stage2.md` (`0e7ece8`); fixture work landed in commits `dbb4301`, `77304c8`, `681ba9c`.
-**HEAD at brainstorm:** `681ba9c`.
+**Predecessor:** Stage 2 design at `2026-05-08-nai-128-cascade-fix-stage2-design.md` (`350a982`); plan at `2026-05-08-nai-128-cascade-fix-stage2.md` (`f5e3ff8`); fixture work landed in commits `2e2f341`, `b8e20c0`, `e47c1d3`.
+**HEAD at brainstorm:** `e47c1d3`.
 **Tech stack:** Go 1.26+, `log/slog`, `world.Config.NodeDebug` (default `true`), no new deps.
 
 ## §1 Goal
@@ -13,9 +13,9 @@ Bind the NAI-128 production residual via **live-smoke gateway instrumentation** 
 **Out of scope:**
 - Production fix for whatever layer binds.
 - Generalizing to other NPC types — the fix in the follow-up sub-spec generalizes.
-- Reverting any Stage 2 fixture work — `dbb4301` (view parity), `77304c8` (T6), `681ba9c` (multi-tick driver) are correct fixture code regardless of binding.
+- Reverting any Stage 2 fixture work — `2e2f341` (view parity), `b8e20c0` (T6), `e47c1d3` (multi-tick driver) are correct fixture code regardless of binding.
 
-## §2 Pre-flight findings (controller grep + read at HEAD `681ba9c`)
+## §2 Pre-flight findings (controller grep + read at HEAD `e47c1d3`)
 
 - `Npc.Damage` (`modules/world/npc_masks.go:165`) is a "pure output op — no death / auto-retaliate / aggro logic. The AI sub-spec will later ship a real combat loop." (lines 162–164). Decrements HP + emits damage mask, nothing else.
 - No production caller of `npc.heroPoints.AddHero` exists outside `Npc.AddHeroPoints` (`modules/world/npc_script.go:74`), which is itself only called from `handleNpcHeroPoints` (`pkg/script/handlers_npc.go:1089`) — the NPC_HEROPOINTS opcode handler.

@@ -8,7 +8,7 @@
 
 **Stage 2 is NOT in this plan.** Bundle 2 fix tasks are data-dependent on Stage 1 verdict (TS source citations from 1.A, client trigger sites from 1.B, content trigger pattern from 1.C). After T9 emits the handoff, `/clear` and author a separate `2026-05-XX-nai-138-stage-2-<layer>.md` plan per `superpowers_clear_between_spec_and_impl`.
 
-**Tech Stack:** Go 1.26+ (no production code in Stage 1). Reference repos: `/home/owner/Code/github.com/LostCityRS/Engine-TS`, `/home/owner/Code/github.com/LostCityRS/Client-Java`, `/home/owner/Code/github.com/LostCityRS/Content`, `/home/owner/Code/github.com/LostCityRS/RuneScriptKt`. Spec doc: `docs/superpowers/specs/2026-05-09-nai-138-cs1-reeval-investigation-design.md` at commit `f95c5cb`.
+**Tech Stack:** Go 1.26+ (no production code in Stage 1). Reference repos: `/home/owner/Code/github.com/LostCityRS/Engine-TS`, `/home/owner/Code/github.com/LostCityRS/Client-Java`, `/home/owner/Code/github.com/LostCityRS/Content`, `/home/owner/Code/github.com/LostCityRS/RuneScriptKt`. Spec doc: `docs/superpowers/specs/2026-05-09-nai-138-cs1-reeval-investigation-design.md` at commit `cf5d6ed`.
 
 ---
 
@@ -16,7 +16,7 @@
 
 | File | Responsibility | Status |
 |------|----------------|--------|
-| `docs/superpowers/specs/2026-05-09-nai-138-cs1-reeval-investigation-design.md` | Append Bundle 0 verdict (§6.1, §6.2) and Stage 1 synthesis verdict (§6.3) inline. | Modify (committed at f95c5cb) |
+| `docs/superpowers/specs/2026-05-09-nai-138-cs1-reeval-investigation-design.md` | Append Bundle 0 verdict (§6.1, §6.2) and Stage 1 synthesis verdict (§6.3) inline. | Modify (committed at cf5d6ed) |
 | `docs/superpowers/handoffs/2026-05-09-nai-138-stage-1-binding.md` | Stage 1 close note: synthesis verdict, chosen fix layer, citations for Stage 2 plan author, paste-ready Stage 2 resume prompt. | Create at T9 |
 
 No production files are modified in Stage 1. No tests are added.
@@ -277,7 +277,7 @@ emitter that the click-toggle path implicitly receives.
 
 Inputs: /home/owner/Code/github.com/LostCityRS/Engine-TS/src/
 
-The carryover hypothesis (from goscape NAI-137 close commit 33f3349) asserts
+The carryover hypothesis (from goscape NAI-137 close commit 1bc1800) asserts
 that the ONLY engine-side VarPlayerType.RUN consumers in TS are
 Player.ts:697-699 (energy=0 reset) and PlayerOps.ts:1208 (P_RUN handler),
 both bare setVar calls with no extra refresh signal. THIS IS A LOAD-BEARING

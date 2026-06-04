@@ -84,7 +84,7 @@ Single-zone, no filtering, stale-check on each yield. Much simpler than the NPC 
 
 ## §3. Goscape mapping
 
-### §3.1 Existing infra (verified at HEAD `14ddf45`)
+### §3.1 Existing infra (verified at HEAD `a52b9b6`)
 
 - **`pkg/script/loc_ops.go:25`** — `LocOps.AllLocsInZone(level, x, z) []ActiveLoc`. Already exists; consumed by NAI-114 MAP_LOCADDUNSAFE. Implementation at `modules/world/script_loc_ops.go:85-92` — returns the zone's `Locs` slice copy, no per-tile filtering. Drop-in snapshot source.
 - **`pkg/script/handlers_npc.go:64-83`** — `setActiveNpcSlot` reference template for the dual-slot helper.
@@ -345,7 +345,7 @@ Test-fixture pattern: cribbed from existing `handlers_npc_test.go` FINDNEXT test
 
 ## §7. Verification
 
-1. Both new test files (`loc_iterator_test.go`) and additions (`handlers_loc_test.go`) fail at HEAD `14ddf45`.
+1. Both new test files (`loc_iterator_test.go`) and additions (`handlers_loc_test.go`) fail at HEAD `a52b9b6`.
 2. Apply §4 production diffs.
 3. New tests pass.
 4. `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...` clean.
@@ -401,7 +401,7 @@ After review approves: handoff to user for §8 smoke. On smoke bind: close commi
 ## §11. Pattern memories applied
 
 - `iterator_state_pattern` — single-tick iterator template (custom struct + state field + Lookup-style snapshot + Stale check), reused for LOC family. NAI-33 reference impl.
-- `controller_preflight` — Bundle 0 verified all anchor lines/symbols at HEAD `14ddf45` (NPC iterator template, LocOps interface, OtherActiveNpc/PtrActiveLoc2 existence, opcode constants, state field offsets).
+- `controller_preflight` — Bundle 0 verified all anchor lines/symbols at HEAD `a52b9b6` (NPC iterator template, LocOps interface, OtherActiveNpc/PtrActiveLoc2 existence, opcode constants, state field offsets).
 - `audit_full_method_against_ts` — TS LocIterator + LOC_FINDALLZONE + LOC_FINDNEXT all read end-to-end from primary sources (ScriptIterators.ts:365-385, LocOps.ts:96-112).
 - `plan_helper_coverage` — `setActiveLocSlot` mirrors `setActiveNpcSlot` exactly; both threading the same `s.Script.IntOperands[s.PC]` + same panic-on-other-operand invariant.
 - `compressed_cadence` — Cadence B (single combined review, not per-task two-stage) chosen for ~100 LOC well-templated work.

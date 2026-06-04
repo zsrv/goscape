@@ -2443,7 +2443,7 @@ Expected: `12 OK / 0 ERR / 0 SKIP`. If any stage degrades, that is a blocker —
 Final commit at end of slice (squash/no-squash — match prior slice cadence of one commit per logical chunk; no merge commit needed):
 
 ```bash
-git log --oneline 3c47fc97..HEAD
+git log --oneline 112f8171..HEAD
 # expect ~16-18 commits (Phase 1: 8-9, Phase 2: 4-5, Phase 3: 3, Phase 4: 1-2)
 ```
 

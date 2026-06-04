@@ -59,7 +59,7 @@ func checkStatID(id int, op string) error {
 // triage of every existing call site, which is out of scope and risks
 // regressing the overwhelmingly common operand-0 path. The protect-slot
 // gate is already operand-aware where it matters (NAI-133, h-inv-3 in
-// med-bundle-15 #f7234212); script bodies that need Self2 explicitly
+// med-bundle-15 #23feee4d); script bodies that need Self2 explicitly
 // call requireActivePlayer2. Adding a new gate function (e.g.
 // requireOperandAwareActivePlayer) for the narrow handler subset that
 // IS operand-routed would be the correct future port if a real

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+, Go test (table-driven matrix). TDD per `superpowers:test-driven-development`.
 
-**Spec:** `docs/superpowers/specs/2026-05-04-nai-91-shape-aware-inoperabledistance-design.md` (committed at 2581927).
+**Spec:** `docs/superpowers/specs/2026-05-04-nai-91-shape-aware-inoperabledistance-design.md` (committed at 60621ee).
 
 ---
 

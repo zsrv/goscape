@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26 (`clear(map)` builtin available), standard `testing` package, no external deps.
 
-**Spec:** `docs/superpowers/specs/2026-04-21-runescript-s6p-invlistener-map-item-validation-design.md` (commit `2c56883`).
+**Spec:** `docs/superpowers/specs/2026-04-21-runescript-s6p-invlistener-map-item-validation-design.md` (commit `155f27a`).
 
 **TS-faithfulness gate active:** User requires "true to TS." S6p introduces **zero** new deviations. Two closed: S6m-D3, S6o-D3.
 

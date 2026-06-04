@@ -6,7 +6,7 @@
 
 **Architecture:** Bare-number free-function checkers in the existing `pkg/script/handlers_npc.go` / `pkg/script/handlers_player.go` sibling style (analog: `checkHuntVis`, `checkNotNull`, `checkHitType`). No new `pkg/objtype/` files — TS has no named enum constants for either validator (only string labels `'AIQueue'` / `'SkinColour'`). Three handler call-site wraps; five doc-comment refreshes (production + test); three existing-test rewrites; six new tests.
 
-**Tech Stack:** Go 1.26. Project conventions per `CLAUDE.md`: prefix Go commands with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`; PATH set via `unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"` if needed; commits use `git commit --no-gpg-sign`; stage explicitly (the working tree has standing noise — `config.yaml`, untracked dotfiles, `RUNESCRIPT.md` — **never stage these**). Spec: `docs/superpowers/specs/2026-05-20-queue-skincolour-validator-design.md` (commit `13101dce`).
+**Tech Stack:** Go 1.26. Project conventions per `CLAUDE.md`: prefix Go commands with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`; PATH set via `unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"` if needed; commits use `git commit --no-gpg-sign`; stage explicitly (the working tree has standing noise — `config.yaml`, untracked dotfiles, `RUNESCRIPT.md` — **never stage these**). Spec: `docs/superpowers/specs/2026-05-20-queue-skincolour-validator-design.md` (commit `3750ac6e`).
 
 ---
 
@@ -34,7 +34,7 @@ git log --oneline -2
 git status
 ```
 
-Expected: HEAD shows `13101dce docs(spec): Queue + SkinColour validator port (TS-literal range shift)` on top of `f9db1cc0 chore(close): HitType validator port + NpcStat read-path validator coverage`. `git status` shows only `config.yaml` modified plus standing untracked noise (`.bash_profile`, `.bashrc`, `.claude/`, `.gitconfig`, `.gitmodules`, `.mcp.json`, `.profile`, `.ripgreprc`, `.vscode`, `.zprofile`, `.zshrc`, `RUNESCRIPT.md`). **Do not stage or modify any of that noise.**
+Expected: HEAD shows `3750ac6e docs(spec): Queue + SkinColour validator port (TS-literal range shift)` on top of `7965eda1 chore(close): HitType validator port + NpcStat read-path validator coverage`. `git status` shows only `config.yaml` modified plus standing untracked noise (`.bash_profile`, `.bashrc`, `.claude/`, `.gitconfig`, `.gitmodules`, `.mcp.json`, `.profile`, `.ripgreprc`, `.vscode`, `.zprofile`, `.zshrc`, `RUNESCRIPT.md`). **Do not stage or modify any of that noise.**
 
 - [ ] **Step 1: Establish baseline gate**
 
@@ -975,7 +975,7 @@ Expected: both green, smoke-pack `12 OK / 0 ERR / 0 SKIP`.
 git log --oneline -7
 ```
 
-Expected sequence (newest first): close(chore) → T5 (if produced an edit) → T4 → T3 → T2 → T1 → `13101dce docs(spec): ...` → `f9db1cc0 chore(close): HitType ...`.
+Expected sequence (newest first): close(chore) → T5 (if produced an edit) → T4 → T3 → T2 → T1 → `3750ac6e docs(spec): ...` → `7965eda1 chore(close): HitType ...`.
 
 - [ ] **Step 3: Write close commit**
 

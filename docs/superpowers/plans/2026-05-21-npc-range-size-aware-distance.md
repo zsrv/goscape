@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26.3, `pkg/script` package (script handlers + test fixtures), `modules/world` package (production Npc adapter).
 
-**Spec:** `docs/superpowers/specs/2026-05-21-npc-range-size-aware-distance-design.md` (committed at `ba34a89f`).
+**Spec:** `docs/superpowers/specs/2026-05-21-npc-range-size-aware-distance-design.md` (committed at `ae9d22d4`).
 
 ---
 
@@ -536,7 +536,7 @@ git log --oneline -3 && git status --short
 
 Expected:
 - New commit at HEAD with the message above
-- Previous commit `ba34a89f docs(spec): NPC_RANGE size-aware distance design`
+- Previous commit `ae9d22d4 docs(spec): NPC_RANGE size-aware distance design`
 - `git status` shows only `M  config.yaml` (standing drift unchanged)
 
 ---

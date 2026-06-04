@@ -12,7 +12,7 @@ ts_source:
 
 **Cadence:** ~30 LOC code + ~80 LOC tests = ~110 LOC. Sits in the 100-300 LOC band — separate spec + plan, single combined Sonnet reviewer at end-of-impl. Subagent-driven-development per `execution_mode_default.md`.
 **Tech stack:** Go 1.26+ (`go_version.md`).
-**Cascade-tail context:** missing-handler audit at HEAD `4cfc1ea` reports **21 unhandled opcodes** (`missing_handler_audit.md` one-liner). This sub-spec ports 3; remaining 18 stay forward-routable to NAI-162+.
+**Cascade-tail context:** missing-handler audit at HEAD `dada5ae` reports **21 unhandled opcodes** (`missing_handler_audit.md` one-liner). This sub-spec ports 3; remaining 18 stay forward-routable to NAI-162+.
 
 ---
 

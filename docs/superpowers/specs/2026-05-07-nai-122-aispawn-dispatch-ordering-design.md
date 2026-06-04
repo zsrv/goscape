@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-07
 **Status:** Spec (pre-plan)
-**Predecessor:** NAI-121 (closed `81284c7`); Bundle 2 V-PARTIAL audit `286df53`.
+**Predecessor:** NAI-121 (closed `a17ed5d`); Bundle 2 V-PARTIAL audit `4837354`.
 **Cadence:** investigation sub-spec (`investigation_subspec_cadence`); Bundle-0 short-circuit (`bundle0_short_circuits_stage1_audit`); cascade-bound close (`cascade_theory_smoke_binding`).
 **Tech stack:** Go 1.26+.
 
@@ -107,7 +107,7 @@ Materialized only if B0.1 confirms Scenario A AND B0.2 locks an engine-side fix 
 
 **B1.T3 — Re-verify NAI-121 PRIMARY pin under new code path.**
 
-- `TestAddNpc_FreshSpawn_PlayerUidVarnReadsMinusOne` (existing, NAI-121-T3 commit `b7f5bf4`) must still pass. The order `resetEntityForRespawn` → AI_SPAWN dispatch is preserved (lines 79 → 88 of `npc_registry.go`); sync replacement keeps that order. No code change in this task; verification only. Bundle 1 reviewer flags green.
+- `TestAddNpc_FreshSpawn_PlayerUidVarnReadsMinusOne` (existing, NAI-121-T3 commit `4b88eaf`) must still pass. The order `resetEntityForRespawn` → AI_SPAWN dispatch is preserved (lines 79 → 88 of `npc_registry.go`); sync replacement keeps that order. No code change in this task; verification only. Bundle 1 reviewer flags green.
 
 **B1.T4 — Reentrancy / boot-storm audit (controller pre-flight, no commit).**
 

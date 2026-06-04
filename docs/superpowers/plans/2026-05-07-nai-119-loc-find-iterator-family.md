@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26+, package `pkg/script`. References: `pkg/script/npc_iterator.go`, `pkg/script/handlers_npc.go:64-83, 704-795`. TS source: `Engine-TS/src/engine/script/ScriptIterators.ts:365-385`, `LocOps.ts:96-112`.
 
-**Spec:** `docs/superpowers/specs/2026-05-07-nai-119-loc-find-iterator-family-design.md` (commit `becd18e`).
+**Spec:** `docs/superpowers/specs/2026-05-07-nai-119-loc-find-iterator-family-design.md` (commit `7fb403d`).
 
-**HEAD at plan-writing:** `becd18e`. All file:line anchors below verified at this HEAD.
+**HEAD at plan-writing:** `7fb403d`. All file:line anchors below verified at this HEAD.
 
 ---
 
@@ -805,12 +805,12 @@ Expected:
 ```
 <sha>  feat(script): NAI-119 T2 — LOC_FINDALLZONE + LOC_FINDNEXT handlers
 <sha>  feat(script): NAI-119 T1 — LocIterator + ScriptState fields
-becd18e docs(spec): NAI-119 — LOC_FIND iterator family port (LOC_FINDALLZONE + LOC_FINDNEXT)
+7fb403d docs(spec): NAI-119 — LOC_FIND iterator family port (LOC_FINDALLZONE + LOC_FINDNEXT)
 ```
 
 ### - [ ] Step 3.2: Verify aggregate file scope
 
-Run: `git diff --stat becd18e..HEAD -- pkg/`
+Run: `git diff --stat 7fb403d..HEAD -- pkg/`
 
 Expected (approximate):
 ```

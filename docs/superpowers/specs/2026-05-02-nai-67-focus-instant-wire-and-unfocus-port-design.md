@@ -3,7 +3,7 @@
 **Status:** spec.
 **Author:** zsrv (with Claude).
 **Date:** 2026-05-02.
-**Predecessor:** NAI-66 (closed at `d160bb0`).
+**Predecessor:** NAI-66 (closed at `2fba909`).
 **Net deviation tally:** 13 (post-NAI-66) → -1 close, +1 open → **13** at NAI-67 close.
 **Tech stack:** Go 1.26+.
 

@@ -4,8 +4,8 @@
 **Status:** Spec (awaiting plan)
 **Tech stack:** Go 1.26+
 **TS source:** `LostCityRS/Engine-TS/tools/pack/FsCache.ts`, `tools/pack/Parse.ts`, `tools/pack/NameMap.ts`, `tools/pack/PackFileBase.ts`, and the format-agnostic helpers in `tools/pack/PackFile.ts` (file-freshness cohort + generic `crawlConfigNames`).
-**Predecessors:** NAI-190 (`World.reload()` port + `::reload` cheat). NAI-190 close commit `6becca6` notes `::rebuild` as the lone remaining `ClientCheatHandler.ts` carryforward, blocked on the pack-pipeline arc opened here.
-**HEAD at spec-write:** `6becca6`
+**Predecessors:** NAI-190 (`World.reload()` port + `::reload` cheat). NAI-190 close commit `e7b2950` notes `::rebuild` as the lone remaining `ClientCheatHandler.ts` carryforward, blocked on the pack-pipeline arc opened here.
+**HEAD at spec-write:** `e7b2950`
 
 ## §1 Goal
 
@@ -31,7 +31,7 @@ The slice is the foundation on which every NAI-192+ per-config packer (`obj`, `l
 
 ## §3 Pre-flight audit
 
-Per `controller_preflight` and `risk_register_premise_grep`, every premise below was re-verified against HEAD `6becca6`.
+Per `controller_preflight` and `risk_register_premise_grep`, every premise below was re-verified against HEAD `e7b2950`.
 
 ### §3.1 TS file scope
 
@@ -47,7 +47,7 @@ Per `controller_preflight` and `risk_register_premise_grep`, every premise below
 
 ### §3.2 `pkg/io/jagfile` already exists
 
-Verified at HEAD `6becca6`:
+Verified at HEAD `e7b2950`:
 
 ```
 pkg/io/jagfile/
@@ -404,5 +404,5 @@ Total arc projected at ~10-15 sub-specs, several thousand LOC Go. NAI-191's clea
 
 - TS source: `LostCityRS/Engine-TS/tools/pack/{FsCache,Parse,NameMap,PackFileBase,PackFile}.ts`.
 - jagfile backend (already ported): `pkg/io/jagfile/jagfile.go`.
-- Predecessor close: NAI-190 (`6becca6`) — `World.reload()` port + `::reload` cheat.
+- Predecessor close: NAI-190 (`e7b2950`) — `World.reload()` port + `::reload` cheat.
 - Memory anchors: `controller_preflight`, `risk_register_premise_grep`, `true_to_ts_gate`, `defensive_gate_doc_comment_label`, `compressed_cadence` (does NOT apply — this slice is too large for compressed cadence; standard spec+plan).

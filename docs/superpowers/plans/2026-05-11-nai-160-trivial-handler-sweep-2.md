@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+ (`go_version.md`). All `go` commands prefix `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` per global CLAUDE.md.
 
-**Spec:** `docs/superpowers/specs/2026-05-11-nai-160-trivial-handler-sweep-2-design.md` @ `0813498`.
+**Spec:** `docs/superpowers/specs/2026-05-11-nai-160-trivial-handler-sweep-2-design.md` @ `76c8d61`.
 
 **Cadence pointers:**
 - `execution_mode_default.md` — subagent-driven-development, one subagent per task, two-stage Sonnet review at end-of-impl.
@@ -48,7 +48,7 @@
 
 Before dispatching T1, controller agent verifies the spec premises against HEAD (per `controller_preflight.md`):
 
-- [ ] `git rev-parse HEAD` matches the SHA in the spec header (`5109c53`) — if a newer commit landed, re-run `missing_handler_audit.md` one-liner to confirm the 7 target opcodes are still in the unhandled set.
+- [ ] `git rev-parse HEAD` matches the SHA in the spec header (`c0e8245`) — if a newer commit landed, re-run `missing_handler_audit.md` one-liner to confirm the 7 target opcodes are still in the unhandled set.
 - [ ] `grep -n "OpSay\|OpHeadIconsGet\|OpHeadIconsSet\|OpPExactMove\|OpInvAllStock\|OpNpcAttackRange\|OpNpcInRange" pkg/script/handlers.go` returns zero matches (none are registered yet).
 - [ ] `grep -n "func (p \*Player) Say\b\|func (p \*Player) ExactMove\b" modules/world/player_masks.go` confirms the `*Player.Say` and `*Player.ExactMove` methods exist at the cited line ranges (player_masks.go:8 / :28).
 - [ ] `grep -n "func (n \*Npc) targetWithinMaxRange\b" modules/world/npc_interaction.go` confirms the unexported method exists at the cited line (:591).
@@ -1454,7 +1454,7 @@ GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./...
 
 Expected: all PASS, no race warnings.
 
-- [ ] **Two-stage review** — single `superpowers:code-reviewer` agent on Sonnet, scope = `git log --oneline 5109c53..HEAD` (the 7 NAI-160 commits). Per `superpowers_code_reviewer_model.md`, NOT Opus.
+- [ ] **Two-stage review** — single `superpowers:code-reviewer` agent on Sonnet, scope = `git log --oneline c0e8245..HEAD` (the 7 NAI-160 commits). Per `superpowers_code_reviewer_model.md`, NOT Opus.
 
 Reviewer's prompt should explicitly cover:
 - TS-fidelity per handler against the cited TS line ranges in commit bodies

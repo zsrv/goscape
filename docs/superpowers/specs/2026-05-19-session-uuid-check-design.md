@@ -100,7 +100,7 @@ For a fresh DB, `000001_init.up.sql` runs first (creating the unconstrained `ses
 
 ## Application code
 
-**No changes.** `insertSession` in `modules/login/db.go:158-168` already passes a `uuid.NewString()` value (from `handler.go` slice-7 code, see `45cd3e44`). The CHECK is purely defensive against future regressions.
+**No changes.** `insertSession` in `modules/login/db.go:158-168` already passes a `uuid.NewString()` value (from `handler.go` slice-7 code, see `d7aa851b`). The CHECK is purely defensive against future regressions.
 
 ## Tests
 

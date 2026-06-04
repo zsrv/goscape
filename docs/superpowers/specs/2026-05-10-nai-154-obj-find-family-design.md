@@ -8,7 +8,7 @@
 
 ## §1. Background
 
-Successor to NAI-152 / NAI-153 (`a47e9cf`) which closed the mindrune-pickup chain by extending `ActiveObj` with `ObjCount`/`IsValidFor`/`ObjType`/`Coords` and porting `OBJ_TYPE`/`OBJ_COUNT`/`OBJ_TAKEITEM`. The cascade-tail audit (per `missing_handler_audit.md`) at `a47e9cf` reports **34 undispatched opcodes**; the OBJ family (3505–3509) is the largest cohesive sibling cluster on the existing ActiveObj surface.
+Successor to NAI-152 / NAI-153 (`5d07235`) which closed the mindrune-pickup chain by extending `ActiveObj` with `ObjCount`/`IsValidFor`/`ObjType`/`Coords` and porting `OBJ_TYPE`/`OBJ_COUNT`/`OBJ_TAKEITEM`. The cascade-tail audit (per `missing_handler_audit.md`) at `5d07235` reports **34 undispatched opcodes**; the OBJ family (3505–3509) is the largest cohesive sibling cluster on the existing ActiveObj surface.
 
 The five opcodes:
 
@@ -113,7 +113,7 @@ TS `World.getObj(x, z, level, type, hash64)` returns the first ground `Obj` at t
 
 ## §3. Goscape mapping
 
-### §3.1 Existing infra (verified at HEAD `a47e9cf`)
+### §3.1 Existing infra (verified at HEAD `5d07235`)
 
 - **`pkg/script/active.go:910-915`** — `ActiveObj` interface with `ObjType() int`, `Coords()`, `ObjCount()`, `IsValidFor(playerUID int)`. No extension needed for NAI-154.
 - **`pkg/script/state.go:306`** — `ActiveObj ActiveObj` field exists; `OtherActiveObj` does NOT.
@@ -557,7 +557,7 @@ Each T-task in the plan produces production code in tight one-to-one mapping wit
 
 ## §7. Verification
 
-1. New test file (`obj_iterator_test.go`) and additions (`handlers_obj_test.go`) fail at HEAD `a47e9cf`.
+1. New test file (`obj_iterator_test.go`) and additions (`handlers_obj_test.go`) fail at HEAD `5d07235`.
 2. Apply §4 production diffs.
 3. New tests pass.
 4. `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...` clean (no pre-existing failures introduced).
@@ -617,7 +617,7 @@ After review approves: handoff to user for §8 smoke. On smoke bind: close commi
 ## §11. Pattern memories applied
 
 - `iterator_state_pattern` — single-tick iterator template (custom struct + state field + Lookup-style snapshot + Stale check), cloned from NAI-119 LocIterator.
-- `controller_preflight` — Pre-flight verified all anchor lines/symbols at HEAD `a47e9cf` (PtrActiveObj2 existence, ActiveObj interface shape, opcode constants 3505-3509, Server.GetObj signature, Zone.Objs field, LocIterator template, handleOcName/handleOcParam templates).
+- `controller_preflight` — Pre-flight verified all anchor lines/symbols at HEAD `5d07235` (PtrActiveObj2 existence, ActiveObj interface shape, opcode constants 3505-3509, Server.GetObj signature, Zone.Objs field, LocIterator template, handleOcName/handleOcParam templates).
 - `plan_helper_coverage` — `setActiveObjSlot` mirrors `setActiveLocSlot` exactly (same IntOperand 0/1 + same panic-on-other-operand invariant).
 - `audit_full_method_against_ts` — TS ObjIterator + 5 handlers all read end-to-end from primary sources (ScriptIterators.ts:387-407, ObjOps.ts:95-201).
 - `parallel_spatial_index_migration_pattern` — no migration in scope here; the new WorldVars.GetObj/ZoneObjs are pure read seams over existing Server.GetObj + Zone.Objs.

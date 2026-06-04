@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+, `log/slog`, `time`, `strings`. TS source canonical path: `LostCityRS/Engine-TS`.
 
-**Predecessor:** NAI-73 (HEAD `6a8f84c` after spec commit). Spec: `docs/superpowers/specs/2026-05-03-nai-74-session-log-subsystem-design.md` (commit `6a8f84c`).
+**Predecessor:** NAI-73 (HEAD `138ce1f` after spec commit). Spec: `docs/superpowers/specs/2026-05-03-nai-74-session-log-subsystem-design.md` (commit `138ce1f`).
 
 **Constants** (defined once in `modules/world/session_log.go`):
 - `LoggerEventTypeEngine    = 0` — server-only (TS `LoggerEventType.ENGINE`)
@@ -17,7 +17,7 @@
 - `LoggerEventTypeAdventure = 3` — visible to players
 - `PlayerCoordLogRate       = 50` — TS `World.PLAYER_COORDLOGRATE` (World.ts:125), 30s @ 600ms
 
-**Premises verified at HEAD `6a8f84c`** (per `controller_preflight.md`):
+**Premises verified at HEAD `138ce1f`** (per `controller_preflight.md`):
 
 ```
 $ rg -n "addSessionLog|SessionLog|sessionLog|LoggerEventType|SESSION_LOG" --include="*.go" .
@@ -1464,7 +1464,7 @@ Expected: clean.
 
 - [ ] **Step 3: Append the NAI-74 entry to `nai_followups.md`**
 
-Append the standard NAI close entry to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Use the NAI-73 entry (lines ~3770-3870 in the file at HEAD `6a8f84c`) as the template. The entry must include:
+Append the standard NAI close entry to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Use the NAI-73 entry (lines ~3770-3870 in the file at HEAD `138ce1f`) as the template. The entry must include:
 
 - HEAD SHA + timestamp
 - Closes: NAI-71-D-OPHELD-NO-SESSION-LOG, NAI-73-D-INPUT-NO-SESSION-LOG-KICK

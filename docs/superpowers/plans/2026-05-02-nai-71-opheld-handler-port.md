@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-05-02-nai-71-opheld-handler-port-design.md`.
 
-**Predecessor commit:** `5fd2a78` (NAI-71 spec). HEAD entering: `5fd2a78`.
+**Predecessor commit:** `e3dabe9` (NAI-71 spec). HEAD entering: `e3dabe9`.
 
 ---
 

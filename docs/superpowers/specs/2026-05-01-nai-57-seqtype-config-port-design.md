@@ -74,7 +74,7 @@ struct shape, not a deviation.
 
 ---
 
-## Pre-flight (verified at HEAD `516383a`)
+## Pre-flight (verified at HEAD `6950942`)
 
 | Claim | Result |
 |---|---|

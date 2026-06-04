@@ -3,16 +3,16 @@
 - **Sub-spec**: NAI-24
 - **Date**: 2026-04-25
 - **Scope label**: B (logical-grouping follow-up bundle — `pkg/script` only; ~30-50 LOC production + ~30-50 LOC tests across 2 bundles; advances the `From NAI-23` NumberNotNull-sweep tracker on its highest-leverage remaining file; resolves the NAI-23 INV_TRANSMIT source-uid divergence as a silent porting-bug fix; introduces 0 new deviations; net deviation count 14 → 14)
-- **Predecessors**: NAI-23 (follow-up bundle) — last on `main` as `9e2c489`
+- **Predecessors**: NAI-23 (follow-up bundle) — last on `main` as `a1b2b0f`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation
 
 Two actionable items land in NAI-24:
 
-1. **`handlers_player.go` NumberNotNull audit (Bundle 1).** The `From NAI-23` tracker entry at `nai_followups.md:1394-1397` enumerates `handlers_player.go` as the highest-leverage remaining audit-pass file: TS counterpart `PlayerOps.ts` has 35 unwrapped NumberNotNull sites (56 total minus 21 absorbed by NAI-23 Bundle 4c's IF_* audit). Pre-flight against HEAD `9e2c489` confirms density: `pkg/script/handlers_player.go` is 715 LOC with 49 `s.PopInt()` call sites and 3 existing `checkNotNull` wraps (lines 104/121/700 — `handleAnimProtect`, `handleAllowDesign`, `handleMidiJingle`) — comparable to NAI-23 Bundle 4b's `handlers_inv.go` (50 pops, 0 wraps going in) and Bundle 4c's `handlers_interface.go` (35 pops, 0 wraps going in). Bundle 1 applies the NAI-23 Bundle 4 audit cadence verbatim on this single file: per-pop-site WRAP / SKIP / ESCALATE rubric anchored to PlayerOps.ts; one `checkNotNull` wrap per WRAP; one negative-pin test per WRAP; single feat commit with the audit table embedded in the message.
+1. **`handlers_player.go` NumberNotNull audit (Bundle 1).** The `From NAI-23` tracker entry at `nai_followups.md:1394-1397` enumerates `handlers_player.go` as the highest-leverage remaining audit-pass file: TS counterpart `PlayerOps.ts` has 35 unwrapped NumberNotNull sites (56 total minus 21 absorbed by NAI-23 Bundle 4c's IF_* audit). Pre-flight against HEAD `a1b2b0f` confirms density: `pkg/script/handlers_player.go` is 715 LOC with 49 `s.PopInt()` call sites and 3 existing `checkNotNull` wraps (lines 104/121/700 — `handleAnimProtect`, `handleAllowDesign`, `handleMidiJingle`) — comparable to NAI-23 Bundle 4b's `handlers_inv.go` (50 pops, 0 wraps going in) and Bundle 4c's `handlers_interface.go` (35 pops, 0 wraps going in). Bundle 1 applies the NAI-23 Bundle 4 audit cadence verbatim on this single file: per-pop-site WRAP / SKIP / ESCALATE rubric anchored to PlayerOps.ts; one `checkNotNull` wrap per WRAP; one negative-pin test per WRAP; single feat commit with the audit table embedded in the message.
 
-2. **INV_TRANSMIT source-uid remediation (Bundle 2).** The `From NAI-23` tracker entry at `nai_followups.md:1356-1386` documents a divergence surfaced by NAI-23 Bundle 4b's code-quality review: `handleInvTransmit` at `pkg/script/handlers_inv.go:429` calls `s.Self.InvListenOnCom(invType, com, -1)` (source=-1, world-shared inventory dispatch); TS `InvOps.ts:650` calls `state.activePlayer.invListenOnCom(invType.id, com, state.activePlayer.uid)` (source = active player's own uid). Origin commit `947540b` (S6u). Pre-flight equivalence determination against `(*Player).invListenOnCom` docstring at `modules/world/player.go:632-633` and the `updateInvs` dispatch at `:471-479`: **not equivalent**. `-1` reads from `Server.invs[Type]`; `p.uid` reads from `Server.players[uid].invs[Type]`. For a typical backpack listen, those resolve to different inventory objects — INV_TRANSMIT in goscape is reading from the wrong store. Bundle 2 applies a 1-line silent porting-bug fix (no deviation tag), updates the doc-comment narration to TS-faithful, flips one existing test assertion from `Source: -1` to `Source: <self.uid>`, and marks the NAI-23 tracker entry Resolved.
+2. **INV_TRANSMIT source-uid remediation (Bundle 2).** The `From NAI-23` tracker entry at `nai_followups.md:1356-1386` documents a divergence surfaced by NAI-23 Bundle 4b's code-quality review: `handleInvTransmit` at `pkg/script/handlers_inv.go:429` calls `s.Self.InvListenOnCom(invType, com, -1)` (source=-1, world-shared inventory dispatch); TS `InvOps.ts:650` calls `state.activePlayer.invListenOnCom(invType.id, com, state.activePlayer.uid)` (source = active player's own uid). Origin commit `5b67653` (S6u). Pre-flight equivalence determination against `(*Player).invListenOnCom` docstring at `modules/world/player.go:632-633` and the `updateInvs` dispatch at `:471-479`: **not equivalent**. `-1` reads from `Server.invs[Type]`; `p.uid` reads from `Server.players[uid].invs[Type]`. For a typical backpack listen, those resolve to different inventory objects — INV_TRANSMIT in goscape is reading from the wrong store. Bundle 2 applies a 1-line silent porting-bug fix (no deviation tag), updates the doc-comment narration to TS-faithful, flips one existing test assertion from `Source: -1` to `Source: <self.uid>`, and marks the NAI-23 tracker entry Resolved.
 
 The two items cluster naturally by package boundary (both in `pkg/script`) and by theme (audit-pass fidelity hygiene). Bundle 1 is the primary scope item and follows established Bundle 4 audit cadence; Bundle 2 is a bounded cleanup that absorbs a NAI-23 spillover before it goes stale. Bundles touch disjoint files (`handlers_player.go` vs. `handlers_inv.go`) — no inter-bundle dependencies.
 
@@ -74,7 +74,7 @@ if err := checkNotNull(v, "OP_NAME"); err != nil {
 
 #### Audit table format (canonical artifact)
 
-Embedded in the Bundle 1 feat commit message, mirroring NAI-23 Bundle 4c's shape (commit `7c5e812`):
+Embedded in the Bundle 1 feat commit message, mirroring NAI-23 Bundle 4c's shape (commit `ab9c681`):
 
 | Handler | popInt context | TS wraps? | Decision | Rationale (TS file:line) |
 |---------|---------------|-----------|----------|-------------------------|
@@ -113,13 +113,13 @@ Per `plan_grep_helper_patterns` memory: before prescribing inline boilerplate in
 
 #### Commit shape
 
-Single feat commit: `feat(script): NAI-24 Bundle 1 — handlers_player.go NumberNotNull audit`. Body contains the audit table inline (per NAI-23 Bundle 4c precedent at commit `7c5e812`). Skip-reason breakdown summarized at the end. Standard `Co-Authored-By: Claude Opus 4.7 (1M context)` trailer.
+Single feat commit: `feat(script): NAI-24 Bundle 1 — handlers_player.go NumberNotNull audit`. Body contains the audit table inline (per NAI-23 Bundle 4c precedent at commit `ab9c681`). Skip-reason breakdown summarized at the end. Standard `Co-Authored-By: Claude Opus 4.7 (1M context)` trailer.
 
 ### Bundle 2 — INV_TRANSMIT source-uid remediation
 
 **Goal**: Fix `handleInvTransmit` at `pkg/script/handlers_inv.go:429` to pass `s.Self.UID()` instead of `-1`, matching TS `InvOps.ts:650`. Update doc-comment narration at lines 412-419 to TS-faithful. Flip the existing `TestInvTransmitRegistersListener` assertion. Mark the NAI-23 tracker entry Resolved.
 
-**Source**: NAI-23 close — tracker entry `INV_TRANSMIT source-uid divergence (surfaced by Bundle 4b audit)` at `nai_followups.md:1356-1386`. Origin commit `947540b` (S6u).
+**Source**: NAI-23 close — tracker entry `INV_TRANSMIT source-uid divergence (surfaced by Bundle 4b audit)` at `nai_followups.md:1356-1386`. Origin commit `5b67653` (S6u).
 
 #### Equivalence determination (pre-flight finding)
 
@@ -167,7 +167,7 @@ s.Self.InvListenOnCom(invType, com, s.Self.UID())
 // wrapped with check(com, NumberNotNull) in TS; invType uses
 // InvTypeValid (not NumberNotNull) — stays raw (NAI-23 Bundle 4b).
 // Source porting fix landed in NAI-24 Bundle 2 — origin commit
-// 947540b (S6u) erroneously hard-coded -1.
+// 5b67653 (S6u) erroneously hard-coded -1.
 ```
 
 3. `pkg/script/handlers_inv_test.go` lines 386-412 (`TestInvTransmitRegistersListener` assertion flip):

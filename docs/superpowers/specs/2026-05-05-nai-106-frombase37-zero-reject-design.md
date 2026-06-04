@@ -4,7 +4,7 @@
 **Cadence**: combined spec + plan, single end-of-impl review (per
 `compressed_cadence.md`, ≤15 production-LOC threshold; 1 production
 LOC + 1 test fixture edit).
-**Predecessor**: NAI-105 (HEAD `76a2ff4` — `ToBase37` divide-out-37
+**Predecessor**: NAI-105 (HEAD `b6d616f` — `ToBase37` divide-out-37
 loop port).
 **Trigger**: NAI-105 surfaced/deferred follow-up entry
 `NAI-105-D-FROMBASE37-ZERO-REJECT` in `nai_followups.md`. Goscape's

@@ -16,7 +16,7 @@ ts_source:
 
 **Cadence:** 100-300 LOC band (8 handlers + ~5 ActivePlayer methods + tests + 1 helper) — separate spec + plan, single combined Sonnet reviewer at end-of-impl. Subagent-driven-development per `execution_mode_default.md`.
 **Tech stack:** Go 1.26+ (`go_version.md`).
-**Cascade-tail context:** missing-handler audit at HEAD 0a5085c reports **47 unhandled opcodes** (`missing_handler_audit.md` one-liner). This sub-spec ports 8; remaining 39 stay forward-routable to NAI-150+.
+**Cascade-tail context:** missing-handler audit at HEAD 8aa61b1 reports **47 unhandled opcodes** (`missing_handler_audit.md` one-liner). This sub-spec ports 8; remaining 39 stay forward-routable to NAI-150+.
 
 ---
 

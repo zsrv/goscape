@@ -4,7 +4,7 @@
 **Status:** Design (combined spec + plan per `compressed_cadence.md`)
 **Tracker:** Retires `NAI-162-D-LASTLOGIN-NO-PACKET` (4 in-code citations)
 **Predecessor:** NAI-162 B1 (trivial-handler sweep #4 — exposed `LastLoginInfo()` on the `ActiveProtectedPlayer` interface as a no-op pending ServerProt port)
-**HEAD at design:** main (post-NAI-180 close `bd232fd`)
+**HEAD at design:** main (post-NAI-180 close `081c95e`)
 
 ## 1. Problem
 
@@ -39,7 +39,7 @@ buf.p2(message.unreadMessageCount);
 
 Server prot identity: `ServerGameProt.LAST_LOGIN_INFO = new ServerGameProt(140, 9)`.
 
-## 2. Affected sites (pre-flight verified at HEAD `bd232fd`)
+## 2. Affected sites (pre-flight verified at HEAD `081c95e`)
 
 - `pkg/io/protocol/game/server/prot.go` — no `OpLastLoginInfo` entry; opcode 140 unused (verified via `grep -n "140" prot.go` returns zero hits for an `OpCode:` use).
 - `modules/world/player.go:239` — `messageCount int` exists at `// === chat state ===`. No `lastLoginTime` field.
@@ -126,7 +126,7 @@ func (p *Player) LastLoginInfo() {
 ```
 
 `time` import must be added to `modules/world/player_script.go`'s
-`import ( ... )` block — verified absent at HEAD `bd232fd`. (`player.go`
+`import ( ... )` block — verified absent at HEAD `081c95e`. (`player.go`
 already imports `"time"` for the `mutedUntil time.Time` field at
 line 238; that's a different file.)
 
@@ -253,7 +253,7 @@ divergence at this packet's emission site.
 
 - `compressed_cadence.md` — combined spec+plan, single TDD bundle.
 - `controller_preflight.md` — all six affected sites grep-verified
-  at HEAD `bd232fd` (§2).
+  at HEAD `081c95e` (§2).
 - `verify_implementer_claims.md` — at impl-close, fresh `go test
   ./modules/world/... -count=1 -run LastLoginInfo` + repo-wide
   `go test ./...` will ground-truth.

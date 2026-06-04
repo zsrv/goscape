@@ -13,7 +13,7 @@ ts_source:
 
 **Cadence:** 4 production lines + 2 new tests + ~5 LOC handler refactor + 1 test inversion + doc-comment retirement. Mid-band per `runescript_cadence.md` — two-task subagent dispatch with two-stage review per task.
 
-**Scope correction during plan-write:** Initial brainstorm/spec drafting cited 12 production sites across 4 files. Plan-author re-grep at HEAD `1ccb372` showed only 4 sites still carry the broken `(1, 0, 0, 0)` shape — both in `pkg/script/`. The `modules/world/npc_hunt.go` and `modules/world/npc_hunt_entities.go` sites already pass `(1, 1, 1, 0)`, likely fixed during NAI-9 / NAI-12. Spec inventory below reflects verified HEAD. Exemplifies `controller_preflight.md` catching stale plan premises.
+**Scope correction during plan-write:** Initial brainstorm/spec drafting cited 12 production sites across 4 files. Plan-author re-grep at HEAD `f569f36` showed only 4 sites still carry the broken `(1, 0, 0, 0)` shape — both in `pkg/script/`. The `modules/world/npc_hunt.go` and `modules/world/npc_hunt_entities.go` sites already pass `(1, 1, 1, 0)`, likely fixed during NAI-9 / NAI-12. Spec inventory below reflects verified HEAD. Exemplifies `controller_preflight.md` catching stale plan premises.
 
 **Tech stack:** Go 1.26+ (`go_version.md`).
 

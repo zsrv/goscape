@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-21
 **Slice:** 4b of 7 (friends-server bridge arc; slice 4 decomposed into 4a/4b/4c)
-**Predecessor:** slice 4a (close commit `60258c77`, retired `NAI-S1-D-NO-FOLLOWER-BROADCAST`; see `[[friends-server-slice4a-close]]`)
+**Predecessor:** slice 4a (close commit `0863e23a`, retired `NAI-S1-D-NO-FOLLOWER-BROADCAST`; see `[[friends-server-slice4a-close]]`)
 **Closes:** `NAI-S1-D-PM-NO-DELIVERY`
 **Opens:** `NAI-S4B-D-NO-INGAME-PM-EMIT` (mirrors `NAI-S4A-D-NO-INGAME-PACKET-EMIT`, blocked on NAI-182-D5)
 

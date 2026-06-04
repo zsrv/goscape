@@ -13,7 +13,7 @@ Mid-tick iteration safety solved by end-of-tick mark/compact (deferred from TS's
 
 **Tech stack:** Go 1.26+; project root `/home/owner/Code/github.com/zsrv/goscape`. All `go` commands prefixed with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`. All commits use `git commit --no-gpg-sign`.
 
-**Pre-flight verified at plan-write (commit `5170ba4`):**
+**Pre-flight verified at plan-write (commit `738a97b`):**
 - `*Npc` fields: `nid int` (npc.go:28), `uid int` (npc.go:33), `lifecycle int` (npc.go:46), `dead bool` (npc.go:49), `activeScript *script.ScriptState` (npc.go:82), `queue []script.NpcQueueRequest` (npc.go:85), `huntTarget entity` (npc.go:93).
 - `*Server` fields: `npcs [8192]*Npc` (server.go:93), `npcLoop []*Npc` (server.go:94), `nextNpcSlot int` (server.go:96).
 - `allocNpcSlot` scans `s.npcs` for nil starting at `s.nextNpcSlot`, returns 1..8191 (skips 0); reuses freed slots when found (npc_registry.go:14-32).

@@ -2,7 +2,7 @@
 
 ## Motivation
 
-Five script-VM opcodes are declared in `pkg/script/opcode.go` but have no handler registered in `pkg/script/handlers.go` at HEAD `61af038` (NAI-35 close). All surfaced as `runner.go:71` runtime errors during the post-NAI-35 smoke run. Classic `protocol_stub_not_completed.md` shape — declared opcodes without dispatch wiring, tests pass against absent registrations because no test exercises the script-VM dispatch path for those opcode numbers.
+Five script-VM opcodes are declared in `pkg/script/opcode.go` but have no handler registered in `pkg/script/handlers.go` at HEAD `90011c5` (NAI-35 close). All surfaced as `runner.go:71` runtime errors during the post-NAI-35 smoke run. Classic `protocol_stub_not_completed.md` shape — declared opcodes without dispatch wiring, tests pass against absent registrations because no test exercises the script-VM dispatch path for those opcode numbers.
 
 Smoke-surfaced stubs:
 
@@ -33,7 +33,7 @@ Post-NAI-36 behavior: all 5 opcodes execute TS-faithfully; PatrolMode preserves 
   - `src/engine/entity/PathingEntity.ts:267-298` (PathingEntity.teleport canonical body)
   - `src/engine/entity/Npc.ts:729` (PatrolMode `dest.level` reference)
   - `src/engine/entity/Npc.ts:377-379` (clearPatrol)
-- Existing infrastructure (verified at HEAD 61af038):
+- Existing infrastructure (verified at HEAD 90011c5):
   - `(n *Npc) queueWaypoint(x, z int)` at `modules/world/npc_ai.go:84` — to be exported as `QueueWaypoint`.
   - `(n *Npc) Teleport(x, z, level int)` at `modules/world/npc_script.go:109` (NAI-34 extraction).
   - `(p *Player) Teleport(x, z, level int)` at `modules/world/player_script.go:226`.
@@ -240,7 +240,7 @@ Standard cadence per `runescript_cadence.md` (~240 prod LOC + ~34 tests; well ab
 - **Stale tracker entries** (medium risk): NAI-34-D1..D5 doc-comments at `pkg/script/active.go:501` and `modules/world/npc_script.go:95-97` reference all 5 deviations together. T7 partially closes (D1+D2 only). **Mitigation**: per `retire_deviation_grep_all_comments.md`, T7 must `rg "NAI-34-D" pkg/ modules/ cmd/` at task close and update each comment site to reflect partial-closure framing — not just production touch points.
 - **Smoke-gate timing**: NAI-35 smoke gate items (Lumbridge NPC_PARAM, Al-Kharid HUNTALL, Barbarian Village NPC_HUNTALL, Wizards' Tower MAP_FINDSQUARE) are still pending from NAI-35 close. T8 hands off NAI-36 smokes additively, not as a block. NAI-35 + NAI-36 smokes should be run in one session per `smoke_test_server_handoff.md`.
 - **`Closes memory:` trailer discipline** (per `close_commit_memory_trailer.md`): T8 close commit must enumerate the closed `nai_followups.md` items so the partial-closure of NAI-34-D1..D5 is grep-discoverable from `git log` (e.g. "Closes memory: NAI-34 follow-up #2 PatrolMode + #1 NPC_WALK + parity D1/D2/D5-Player").
-- **Plan-author premise drift**: spec was authored with all premises HEAD-verified at `61af038`. Plan-author MUST re-verify each "Existing infrastructure" line in Tech stack against HEAD before dispatch (per `controller_preflight.md`).
+- **Plan-author premise drift**: spec was authored with all premises HEAD-verified at `90011c5`. Plan-author MUST re-verify each "Existing infrastructure" line in Tech stack against HEAD before dispatch (per `controller_preflight.md`).
 
 ## Smoke handoff (T8)
 

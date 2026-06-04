@@ -8,8 +8,8 @@
 
 **Tech Stack:** Go 1.26+. Stdlib + `pkg/io/packet` (`Alloc`, `Load`, `P1`/`P2`/`PJStrLF`/`G1`/`G2`, `Save`) + NAI-191–198 `pkg/pack` foundation (`PackFile`, `ShouldBuildFile`, `ShouldBuild`, `GetLatestModified`, `ListFilesExt`).
 
-**Spec:** `docs/superpowers/specs/2026-05-14-nai-199-pack-specials-design.md` (commit `5b4dea1`).
-**HEAD at plan-write:** `5b4dea1`.
+**Spec:** `docs/superpowers/specs/2026-05-14-nai-199-pack-specials-design.md` (commit `7f873ce`).
+**HEAD at plan-write:** `7f873ce`.
 
 ---
 
@@ -44,7 +44,7 @@
 
 ## Pre-flight verification (controller, before dispatching tasks)
 
-Verified at plan-write against HEAD `5b4dea1`:
+Verified at plan-write against HEAD `7f873ce`:
 
 | Premise | Verification |
 |---|---|
@@ -773,7 +773,7 @@ After T1–T4 commits:
 
 Expected: PASS across the whole repo.
 
-- [ ] Run: `git log --oneline 5b4dea1..HEAD` to confirm exactly 4 new commits (T1–T4).
+- [ ] Run: `git log --oneline 7f873ce..HEAD` to confirm exactly 4 new commits (T1–T4).
 
 - [ ] Verify the `NAI-199-D-TS-CODE-STALENESS-GATE` tag appears in exactly the expected sites:
 

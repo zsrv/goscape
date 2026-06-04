@@ -2075,7 +2075,7 @@ func TestNpc_InOperableDistance_WallStraight_OnTile(t *testing.T) {
 // TestNpc_InOperableDistance_WallStraightMatrix mirrors the player-side
 // matrix at four wall_straight angles, srcSize=1. preFlags expectations
 // inverted from plan: FlagBlockX on src tile causes ReachWall1 to return
-// false (per pkg/pathfinder/reach/strategy.go); see T1 commit 8dde8a7.
+// false (per pkg/pathfinder/reach/strategy.go); see T1 commit 35f0d0d.
 func TestNpc_InOperableDistance_WallStraightMatrix(t *testing.T) {
 	type tile struct {
 		dx, dz   int

@@ -740,7 +740,7 @@ it in the user's home directory.
 
 A marker commit denoting NAI-14 closure, matching the pattern
 `chore(nai): NAI-N closed — ...` from NAI-13's close commit
-(`18b99d0 chore(nai): NAI-13 closed — PLAYER* modes + entitymask plumbing`).
+(`108d518 chore(nai): NAI-13 closed — PLAYER* modes + entitymask plumbing`).
 This commit has no file changes — it's a series-marker.
 
 ```bash

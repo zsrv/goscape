@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26+ (`go_version.md`).
 
-**Spec:** `docs/superpowers/specs/2026-05-11-nai-165-low-arg-shape-fix-design.md` (commit `f0b6f5c`).
+**Spec:** `docs/superpowers/specs/2026-05-11-nai-165-low-arg-shape-fix-design.md` (commit `74c7431`).
 
-**HEAD at plan-write:** `f0b6f5c`.
+**HEAD at plan-write:** `74c7431`.
 
 ---
 
@@ -525,7 +525,7 @@ Use Edit on `nai_followups.md` to insert a new section at end-of-file. The file 
 
 ## From NAI-165 (2026-05-11) — `isLineOfWalk` + `handleLineOfWalk` arg-shape fix (CLOSED)
 
-NAI-165 spec at `docs/superpowers/specs/2026-05-11-nai-165-low-arg-shape-fix-design.md` (commit `f0b6f5c`); plan at `docs/superpowers/plans/2026-05-11-nai-165-low-arg-shape-fix.md`. Closed at `<COMMIT-SHA>` (single TDD commit).
+NAI-165 spec at `docs/superpowers/specs/2026-05-11-nai-165-low-arg-shape-fix-design.md` (commit `74c7431`); plan at `docs/superpowers/plans/2026-05-11-nai-165-low-arg-shape-fix.md`. Closed at `<COMMIT-SHA>` (single TDD commit).
 
 Symmetric mirror of NAI-163-D-LOS-ARG-SHAPE-FIX. Two production sites flipped from `(1, 0, 0, 0)` → `(1, 1, 1, 0)`:
 - `pkg/script/handlers_map.go:175` — `isLineOfWalk` wrapper (MAP_FINDSQUARE LOW arms inherit)

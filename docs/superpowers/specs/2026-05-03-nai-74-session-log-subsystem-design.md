@@ -1,7 +1,7 @@
 # NAI-74 — Session-log subsystem foundation + carry-forward closes
 
 **Status:** Spec written 2026-05-03.
-**Predecessor:** NAI-73 (HEAD `a09d11b`). Net deviation tally entering: 14.
+**Predecessor:** NAI-73 (HEAD `9ff767f`). Net deviation tally entering: 14.
 **Closes:** 2 deviations:
 - `NAI-71-D-OPHELD-NO-SESSION-LOG` — `handleOpHeld` (op != 5) + `handleOpHeldT` activate the deferred `LoggerEventType.MODERATOR` push (TS `OpHeldHandler.ts:62-65`, `OpHeldTHandler.ts:61`).
 - `NAI-73-D-INPUT-NO-SESSION-LOG-KICK` — `InputTracking.submitEvents` no-report kick branch activates the deferred `LoggerEventType.ENGINE` push (TS `InputTracking.ts:150`).
@@ -39,7 +39,7 @@ Both were tagged with the same closure path: "future moderator-logging sub-spec 
 
 The script opcode `OpSessionLog` (2098) is reserved at `pkg/script/opcode.go:198` with no handler yet — NAI-74 ports the dispatch.
 
-## 2. Current state at HEAD (`a09d11b`)
+## 2. Current state at HEAD (`9ff767f`)
 
 ### 2.1 Dependencies (verified present)
 

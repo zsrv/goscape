@@ -10,7 +10,7 @@
 
 **Authoritative task numbering:** T0, T1, T2, T3, T4, T5, T6, T7, T8, T9. Per `[[plan_code_block_t_number_drift]]`, all in-file doc comments and commit subjects must use this numbering.
 
-**Spec:** `docs/superpowers/specs/2026-05-16-nai-208-pointer-checker.md` (commit `95e3adc`).
+**Spec:** `docs/superpowers/specs/2026-05-16-nai-208-pointer-checker.md` (commit `0fdc6bb`).
 
 ---
 
@@ -78,7 +78,7 @@ Run:
 grep -n "MessagePointerUninitialized\|MessagePointerCorrupted\|MessagePointerCorruptedLoc\|MessagePointerRequiredLoc" pkg/pack/compiler/diagnostics/messages.go
 ```
 
-Expected (lines 113-116 at HEAD `95e3adc`):
+Expected (lines 113-116 at HEAD `0fdc6bb`):
 
 ```
 MessagePointerUninitialized = "Attempt to access uninitialized pointer %s."

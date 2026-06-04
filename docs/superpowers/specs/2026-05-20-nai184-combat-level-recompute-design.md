@@ -1,6 +1,6 @@
 # NAI-184 — Port `getCombatLevel` + recompute-on-stat-change
 
-**Predecessors:** NAI-184 cheat cohort (close commit 4ad6343 — opened `DEVIATION-NAI-184-D1-SETSTAT-NO-COMBAT-REBUILD`); P_WALK pathfinder port (HEAD `a9221d24`).
+**Predecessors:** NAI-184 cheat cohort (close commit 0bcfae7 — opened `DEVIATION-NAI-184-D1-SETSTAT-NO-COMBAT-REBUILD`); P_WALK pathfinder port (HEAD `578bf55b`).
 
 **Status:** drafted 2026-05-20.
 
@@ -199,6 +199,6 @@ After all hooks land and tests pass:
 ## 9. Memory pointers
 
 - Predecessor close: `[[handlepwalk-pathfinder-port-close]]`.
-- Pre-decessor cluster: NAI-184 cheat cohort (close commit `4ad6343`).
+- Pre-decessor cluster: NAI-184 cheat cohort (close commit `0bcfae7`).
 - Will retire: `DEVIATION-NAI-184-D1-SETSTAT-NO-COMBAT-REBUILD`, `NAI-PLAYERLOADING-D-COMBAT-LEVEL-NOT-RECOMPUTED-ON-LOAD`, informal AddXP combat-level deferral.
 - Net effect on `~145 live NAI-XXX-D-*` board: −2 formal pins.

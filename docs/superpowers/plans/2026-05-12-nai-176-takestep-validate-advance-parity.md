@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+ (per `go_version.md`). No new deps. Modules touched: `modules/world/`.
 
-**Spec:** `docs/superpowers/specs/2026-05-12-nai-176-takestep-validate-advance-parity-design.md` (committed at `be86b77`).
+**Spec:** `docs/superpowers/specs/2026-05-12-nai-176-takestep-validate-advance-parity-design.md` (committed at `7aa1b5d`).
 
 **TS canonical:** `LostCityRS/Engine-TS/src/engine/entity/PathingEntity.ts:202-232` (validateAndAdvanceStep), `617-683` (takeStep). Per `ts_source_canonical_path.md`.
 

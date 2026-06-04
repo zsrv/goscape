@@ -2,7 +2,7 @@
 
 **Status:** spec
 **Date:** 2026-05-08
-**Predecessor:** NAI-127 close (`feab7bb`) smoke residual #1 — bronze arrows from Combat Instructor fill 25 inventory slots instead of stacking. NAI-128/129 closed the cascading rat-loot residual; NAI-130 picks up the next NAI-127 residual on the active Tutorial Island content path.
+**Predecessor:** NAI-127 close (`27090aa`) smoke residual #1 — bronze arrows from Combat Instructor fill 25 inventory slots instead of stacking. NAI-128/129 closed the cascading rat-loot residual; NAI-130 picks up the next NAI-127 residual on the active Tutorial Island content path.
 **Tech stack:** Go 1.26+
 **Cadence:** full (brainstorm → spec → plan → subagent-driven TDD with two-stage review).
 

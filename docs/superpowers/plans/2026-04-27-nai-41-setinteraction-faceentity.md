@@ -6,7 +6,7 @@
 
 **Architecture:** Single TDD task. Extend `Player.SetInteraction` with a type-switch on `target.(type)` for `*Player`/`*Npc`/default branches, with the TS idempotency check (`if faceEntity != X`) inlined to match `Npc.SetInteraction:651-666`. Delete the redundant contact-time write block in `processInteraction`. Drop the closed deviation comment block. Track one new deviation (`NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ`) in the `default` arm.
 
-**Tech Stack:** Go 1.26+ (per `go_version.md`; use `use-modern-go` skill). TS source: `LostCityRS/Engine-TS` only per `ts_source_canonical_path.md`. HEAD baseline: `d4b4eba` (NAI-41 spec commit).
+**Tech Stack:** Go 1.26+ (per `go_version.md`; use `use-modern-go` skill). TS source: `LostCityRS/Engine-TS` only per `ts_source_canonical_path.md`. HEAD baseline: `8d78b9f` (NAI-41 spec commit).
 
 ---
 
@@ -27,7 +27,7 @@ Spec at `docs/superpowers/specs/2026-04-27-nai-41-setinteraction-faceentity-desi
 
 Per `controller_preflight.md`: re-grep each premise against HEAD before dispatching the task.
 
-| Check | Command | Expected at HEAD `d4b4eba` |
+| Check | Command | Expected at HEAD `8d78b9f` |
 |-------|---------|---------------------------|
 | `Player.SetInteraction` body shape | `sed -n '43,57p' modules/world/interaction.go` | matches §3 of spec |
 | `processInteraction` contact branch | `sed -n '95,118p' modules/world/interaction.go` | shows `SetFaceEntity(npc.nid)` block at 98-100 + deviation comment at 101-112 |

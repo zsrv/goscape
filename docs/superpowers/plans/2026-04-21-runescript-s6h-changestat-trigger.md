@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go; `modules/world` tick loop; `pkg/script` trigger lookup + ScriptFile type.
 
-**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6h-changestat-trigger-design.md`](../specs/2026-04-21-runescript-s6h-changestat-trigger-design.md) (commit `1d3b5ab`)
+**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6h-changestat-trigger-design.md`](../specs/2026-04-21-runescript-s6h-changestat-trigger-design.md) (commit `b1ba2f1`)
 
 ---
 

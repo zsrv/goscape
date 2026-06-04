@@ -3,7 +3,7 @@
 - **Sub-spec**: NAI-27
 - **Date**: 2026-04-25
 - **Scope label**: A (TS-faithfulness audit, NAI-26-style cadence applied to a sibling family — `pkg/script/handlers_timer.go` (5 timer handlers) + `pkg/script/active.go` interface + `modules/world/player_timer.go` + `modules/world/player.go` `playerTimer` struct + `modules/world/tick.go` consumer + 4 new VARARG opcode handlers in a new `pkg/script/handlers_player_vararg.go` file + 0-LOC NPC queue audit memo; ~360-520 LOC production + tests across 3 bundles; resolves one untracked GETTIMER semantic divergence + introduces 4 new opcodes consuming the NAI-26 `popScriptArgs` infrastructure; introduces 0 new deviation tags by default; net deviation count 14 → 14)
-- **Predecessors**: NAI-26 (queue family audit) — last on `main` as `cb13507`
+- **Predecessors**: NAI-26 (queue family audit) — last on `main` as `81062c5`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation
@@ -191,7 +191,7 @@ Re-read `handleNpcQueue` (`pkg/script/handlers_npc.go:316-332`) line-by-line vs 
 
 ### Polish + close
 
-**Polish commit absorbs** (per NAI-26 mirror cadence — see `59e0959` for shape):
+**Polish commit absorbs** (per NAI-26 mirror cadence — see `bb7c5f5` for shape):
 
 - Any review minors flagged during the per-bundle code-review step.
 - Any drive-by stale-narrative comment fixes the audits surface (e.g. handler docstrings that referenced "single intArg" need to reflect the parallel-slice shape).

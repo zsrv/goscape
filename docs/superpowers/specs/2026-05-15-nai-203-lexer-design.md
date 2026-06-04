@@ -2,7 +2,7 @@
 
 ## 0. Pre-context: where this slice sits in the arc
 
-NAI-202 (closed at 38de2a7) shipped `pkg/pack/compiler.BuildSymbols(srcDir, dataPackDir)` — the 32-key symbol table TS `Compiler.ts:330-365` hands to `CompileServerScript`. After NAI-202, the **only** thing blocking end-to-end `.rs2` → `script.dat/idx` compilation is the external `@lostcityrs/runescript` compiler itself.
+NAI-202 (closed at e2a424a) shipped `pkg/pack/compiler.BuildSymbols(srcDir, dataPackDir)` — the 32-key symbol table TS `Compiler.ts:330-365` hands to `CompileServerScript`. After NAI-202, the **only** thing blocking end-to-end `.rs2` → `script.dat/idx` compilation is the external `@lostcityrs/runescript` compiler itself.
 
 That compiler is non-trivial — RuneScriptTS clone at `/home/owner/Code/github.com/LostCityRS/RuneScriptTS` is **130 TypeScript files** plus two ANTLR4 grammars (`src/antlr/RuneScriptLexer.g4` 105 lines, `RuneScriptParser.g4` 228 lines) compiled via `antlr-ng` to TypeScript. The arc decomposition from NAI-202 §12, lightly refined here:
 

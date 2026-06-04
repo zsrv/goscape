@@ -15,7 +15,7 @@
 
 **Spec reference:** `docs/superpowers/specs/2026-04-25-nai-27-timer-vararg-npc-queue-audit-design.md`.
 
-**HEAD at plan-write:** `0f39b81` (after spec commit). Plan-author preflight surfaced **three spec premise corrections** captured in Task 3's pre-flight context — none invalidate the spec, all reduce Bundle 3's scope.
+**HEAD at plan-write:** `82b60f6` (after spec commit). Plan-author preflight surfaced **three spec premise corrections** captured in Task 3's pre-flight context — none invalidate the spec, all reduce Bundle 3's scope.
 
 ---
 
@@ -49,7 +49,7 @@ The following premise corrections were caught at plan-write per memory `controll
 - Modify: `pkg/script/handlers_timer_test.go:33-52` (TestSoftTimerSetsSoftType — no field change but body uses lastSetTimer struct → may need recompile-clean assertion)
 
 **Pre-flight context:**
-- HEAD `0f39b81` at task dispatch. Verify all line numbers via re-grep at task time per `controller_preflight` memory.
+- HEAD `82b60f6` at task dispatch. Verify all line numbers via re-grep at task time per `controller_preflight` memory.
 - `(*Server).runScript` signature at `modules/world/script.go:14` is `(sf *script.ScriptFile, self script.ActivePlayer, protect bool, intArgs []int, stringArgs []string)` — already accepts the parallel-slice shape; no signature change needed at the call site, only the call-site arguments change.
 - The `t.IntArg` consumer at `tick.go:292` is the **only** production reader of `playerTimer.IntArg` (verified via `grep -n "t\.IntArg\b" modules/world/`). Mock-test consumers in `pkg/script/runner_test.go` will compile-break and require updates, covered by Step 5 below.
 - No new tests in Bundle 1 — purely mechanical. Bundle 2 adds the real assertions for popScriptArgs + script-missing.
@@ -444,7 +444,7 @@ git status
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 feat(world,script): NAI-27 Bundle 1 — playerTimer parallel-slice plumbing
 
-Mirrors NAI-26 Bundle 1 (366c543) cadence on the timer family. Widens
+Mirrors NAI-26 Bundle 1 (07527db) cadence on the timer family. Widens
 playerTimer.IntArg int → IntArgs []int + StringArgs []string, widens
 (*Player).SetTimer + script.ActivePlayer.SetTimer interface to carry
 the parallel slices, and updates the tick.go:292 timer-fire site to
@@ -1939,7 +1939,7 @@ EOF
 - Modify: `~/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (close-commit memory updates).
 
 **Pre-flight context:**
-- HEAD will be at the Bundle 3 commit. Verify `git log --oneline -4` shows the 3 NAI-27 bundle commits + the spec commit `0f39b81`.
+- HEAD will be at the Bundle 3 commit. Verify `git log --oneline -4` shows the 3 NAI-27 bundle commits + the spec commit `82b60f6`.
 - Polish commit is OPTIONAL — only commit it if reviewer-flagged minors actually exist. If no review minors land, skip directly to the close commit (Step 4).
 - Per memory `close_commit_memory_trailer`: the close commit MUST include a `Closes memory:` trailer pointing at the new memory entry path.
 
@@ -2083,7 +2083,7 @@ GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...
 ```
 
 Expected:
-- 4-5 NAI-27 commits on top of `0f39b81` (3 bundles + optional polish + close).
+- 4-5 NAI-27 commits on top of `82b60f6` (3 bundles + optional polish + close).
 - Working tree clean.
 - All tests PASS.
 

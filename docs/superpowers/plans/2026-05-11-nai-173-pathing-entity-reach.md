@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+. No new dependencies. `pkg/pathfinder/reach.Reached` already imported at both production sites (verified `interaction.go:11`, `npc_interaction.go:10`).
 
-**Spec:** `docs/superpowers/specs/2026-05-11-nai-173-pathing-entity-reach.md` (HEAD `9745bae`).
+**Spec:** `docs/superpowers/specs/2026-05-11-nai-173-pathing-entity-reach.md` (HEAD `c69c281`).
 
 ---
 

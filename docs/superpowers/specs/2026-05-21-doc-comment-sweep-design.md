@@ -21,7 +21,7 @@ Predecessor [[hero-points-lifecycle-clear-close]] memo enumerated 4 candidate an
 **Empirical verification at slice start:**
 
 - `gofmt -l pkg/script/active.go pkg/script/handlers_npc_test.go pkg/script/handlers_player_test.go modules/world/npc_registry.go` returns NO output — all 4 files are gofmt-clean.
-- Commit `a0b5bc16 Run gofmt` (between [[combat-sub-spec-framing-doc-cleanup-close]] and [[hero-points-lifecycle-clear-close]]) had already normalized the alignment drift.
+- Commit `d0f55eac Run gofmt` (between [[combat-sub-spec-framing-doc-cleanup-close]] and [[hero-points-lifecycle-clear-close]]) had already normalized the alignment drift.
 - The visible "two-tier" alignment in `mockActiveNpc` methods (`handlers_player_test.go:45-84`) is gofmt's natural behavior: the blank line at L60 separates two alignment groups (methods-with-return-values block vs methods-without-return-values block), each aligned independently. This is NOT drift.
 
 **Conclusion:** Anchors #2/#3/#4 from predecessor memo are FALSE POSITIVES. Only anchor #1 is real. The carry-forward memo class needs an explicit note (delivered via this slice's close memo) so future predecessors stop regenerating the claim.
@@ -160,7 +160,7 @@ Single in-session commit by main thread. No plan, no subagent dispatch.
 - **Close memo:** `~/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/doc_comment_sweep_close.md`.
 - **MEMORY.md index:** prepend a 1-line entry pointing at the close memo.
 - **Carry-forward menu:** retire "doc-comment sweep slice" item from next pivot menu in successor close memos.
-- **Explicit false-positive retirement in close memo:** the close memo MUST state that anchors #2/#3/#4 from predecessor memo (gofmt drift in `active.go` / `handlers_npc_test.go` / `handlers_player_test.go`) were false-positives normalized by commit `a0b5bc16 Run gofmt`, and that the visible "two-tier" alignment in `mockActiveNpc` is gofmt's natural blank-line-separated alignment behavior NOT drift. Future close memos must NOT regenerate this claim.
+- **Explicit false-positive retirement in close memo:** the close memo MUST state that anchors #2/#3/#4 from predecessor memo (gofmt drift in `active.go` / `handlers_npc_test.go` / `handlers_player_test.go`) were false-positives normalized by commit `d0f55eac Run gofmt`, and that the visible "two-tier" alignment in `mockActiveNpc` is gofmt's natural blank-line-separated alignment behavior NOT drift. Future close memos must NOT regenerate this claim.
 
 ## Patterns worth carrying forward
 

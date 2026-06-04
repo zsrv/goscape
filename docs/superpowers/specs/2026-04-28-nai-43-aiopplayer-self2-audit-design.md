@@ -8,7 +8,7 @@ follow-up tag and recording the audit verdict.
 ## Motivation
 
 `NAI-40-SB3` was opened at NAI-40 close (carry-forward 2026-04-27,
-`5661fd9`) as "NPC-AI OPPLAYER&lt;N&gt; Self2 binding audit; conditional on
+`a34cbdf`) as "NPC-AI OPPLAYER&lt;N&gt; Self2 binding audit; conditional on
 grep showing aiOpPlayer&lt;N&gt; dispatch sets Self2 or not." The rationale
 was: NAI-39 introduced `Self2` substrate and NAI-40 wired the first
 production producer (Player→Player op-click), so the AI-side dispatch
@@ -48,7 +48,7 @@ trigger branches. `this`=Npc, `this.target`=Player → `_activePlayer`
 populated, `_activePlayer2` left nil. This is the canonical TS shape
 goscape must mirror.
 
-**goscape behavior at HEAD `ce95e3e`** — `buildNpcScriptState`
+**goscape behavior at HEAD `4b3cd58`** — `buildNpcScriptState`
 (`modules/world/npc_script.go:225-261`) implements the TS asymmetry
 correctly:
 
@@ -126,7 +126,7 @@ asserts `state.OtherActiveNpc != nil` but not `state.ActiveNpc != other`
 
 - **Go 1.26+** (per `go_version.md`).
 - TS source: `Engine-TS` only (per `ts_source_canonical_path.md`).
-- HEAD baseline: `ce95e3e` (NAI-42 close).
+- HEAD baseline: `4b3cd58` (NAI-42 close).
 
 ## Scope
 

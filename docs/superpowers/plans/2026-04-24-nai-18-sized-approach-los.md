@@ -506,7 +506,7 @@ EOF
 **Files:**
 - Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (the NAI-12 "Deferred: size-aware inApproachDistance LoS" entry starting at line 542)
 
-This is the NAI close commit. Follows the established chore(nai) pattern (see `c9e2cec` NAI-17 close, `df41e06` NAI-16 close) and carries the `Closes memory:` trailer per the `close_commit_memory_trailer.md` memory entry.
+This is the NAI close commit. Follows the established chore(nai) pattern (see `943976e` NAI-17 close, `d56dd76` NAI-16 close) and carries the `Closes memory:` trailer per the `close_commit_memory_trailer.md` memory entry.
 
 - [ ] **Step 1: Annotate the NAI-12 follow-up entry as resolved**
 

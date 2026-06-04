@@ -2,8 +2,8 @@
 
 **Date:** 2026-05-16
 **Status:** spec
-**Scope:** test-only follow-up to NAI-210 (driver + output sinks, shipped 2026-05-16 at `bc58648`)
-**Predecessor:** NAI-211 (per-phase Diagnostics + BaseDiagnosticsHandler, shipped 2026-05-16 at `159e7f1`) unblocked this work.
+**Scope:** test-only follow-up to NAI-210 (driver + output sinks, shipped 2026-05-16 at `4a9b212`)
+**Predecessor:** NAI-211 (per-phase Diagnostics + BaseDiagnosticsHandler, shipped 2026-05-16 at `08a1e09`) unblocked this work.
 **Closes:** NAI-210 follow-up #1 ("RICHER-DRIVER-SMOKE") tracked in [[nai210_close]] / [[nai_followups]].
 
 ## 1. Motivation

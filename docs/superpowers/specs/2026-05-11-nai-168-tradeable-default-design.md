@@ -4,7 +4,7 @@
 
 **Tech stack:** Go 1.26+ (per `go_version` memory).
 
-**Lineage:** Retires `nai_followups.md NAI-152-D-OBJTYPE-TRADEABLE-DEFAULT` (opened end-of-plan reviewer of NAI-152 B1, `25034ad..3e83236`; pre-dates B1).
+**Lineage:** Retires `nai_followups.md NAI-152-D-OBJTYPE-TRADEABLE-DEFAULT` (opened end-of-plan reviewer of NAI-152 B1, `4af37fc..8c76405`; pre-dates B1).
 
 ## 1. Goal
 
@@ -23,7 +23,7 @@ Port TS class-field default `tradeable = true` (`ObjType.ts:177`) into goscape's
 
 Decode `case 200` setting `tradeable = true` exists in both TS and goscape (`objtype.go:293`); not affected.
 
-## 3. Goscape state at HEAD `16addde`
+## 3. Goscape state at HEAD `e5c255b`
 
 `pkg/objtype/objtype.go:307-336` — `NewObjType` struct literal omits `Tradeable`. Go zero-value `false` propagates to:
 
@@ -145,7 +145,7 @@ Per `compressed_cadence`: one combined spec+plan doc; single TDD commit pair.
 
 ## 11. Verification protocol (per `verification_before_completion`)
 
-Pre-T1: snapshot HEAD `16addde` clean `go test ./pkg/objtype/...` baseline (`GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/...`).
+Pre-T1: snapshot HEAD `e5c255b` clean `go test ./pkg/objtype/...` baseline (`GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/...`).
 
 Expected RED-phase outcomes after T1 commit (NewObjType still defaults Tradeable=false):
 
@@ -165,7 +165,7 @@ Per `verify_implementer_claims`: controller verifies fresh `git show <SHA>` post
 
 - `compressed_cadence` — combined spec+plan doc; single TDD commit pair (well within ≤~15 LOC threshold for production change).
 - `runescript_cadence` — preserved spec → impl → close phasing despite cadence compression.
-- `controller_preflight` — pre-impl grep+Read pass against HEAD `16addde` already enumerated all read/write sites + TS source; re-grep at impl-time before T2.
+- `controller_preflight` — pre-impl grep+Read pass against HEAD `e5c255b` already enumerated all read/write sites + TS source; re-grep at impl-time before T2.
 - `verify_implementer_claims` — fresh `go test` and `git show` at every commit boundary.
 - `plan_enumerate_struct_literals` — R2 mitigation: enumerate `ObjType{}` literals before T2 to catch incidental zero-value-Tradeable dependents.
 - `audit_full_method_against_ts` — R1 mitigation: TS source of truth audited line-by-line for class field, decode-case-15, decode-case-200, post-decode fixups (lines 57/61), and cert-template inheritance (line 297).

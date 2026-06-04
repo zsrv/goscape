@@ -2,7 +2,7 @@
 
 **Status:** spec
 **Date:** 2026-05-08
-**Predecessor:** NAI-128 Stage 3 close (`67256b2`) bound the rat-loot residual to layer L7 (post-add zone-broadcast gap).
+**Predecessor:** NAI-128 Stage 3 close (`a653fbc`) bound the rat-loot residual to layer L7 (post-add zone-broadcast gap).
 **Tech stack:** Go 1.26+
 **Cadence:** full (brainstorm → spec → plan → subagent-driven TDD with two-stage review).
 

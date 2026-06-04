@@ -10,7 +10,7 @@
 
 Retire two NAI-98-D tracker-orphan deviation tags. PRIMARY: production comments no longer cite "DEVIATION" labels for items that aren't actually live deviations (one is a historical alignment note, one is a behaviorally-equivalent goscape defensive type-check). SECONDARY: fix wrong TS line reference (cites `PathingEntity.ts:1201-1202` but TS PathingEntity.ts has only 685 lines; correct citation is `Player.ts:1201-1202`).
 
-## 2. Tag-by-tag analysis at HEAD `e6aa7d2`
+## 2. Tag-by-tag analysis at HEAD `2645037`
 
 ### 2.1 `NAI-98-D-LOC-OBJ-NO-OP-ALIGNED-TO-TS` (misnamed alignment note)
 
@@ -155,7 +155,7 @@ No TDD pair — no production logic changes.
 
 ## 8. Verification protocol (per `verification_before_completion`)
 
-**Pre-T1 baseline:** `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -count=1 ./modules/world/...` green at HEAD `e6aa7d2`.
+**Pre-T1 baseline:** `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -count=1 ./modules/world/...` green at HEAD `2645037`.
 
 **Post-T1:** same tests green; no behavior change. `git show <T1-SHA>` confirms only comment changes at `interaction.go:739-753` and `interaction_test.go:385-386`.
 

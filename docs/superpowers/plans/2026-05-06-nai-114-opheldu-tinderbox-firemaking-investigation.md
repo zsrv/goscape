@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+; goscape `pkg/script` + `pkg/objtype` packages; Sonnet audit subagent; read-only access to `LostCityRS/Engine-TS`, `LostCityRS/Server`, `LostCityRS/Client-Java` rev-225.
 
-**Spec:** `docs/superpowers/specs/2026-05-06-nai-114-opheldu-tinderbox-firemaking-investigation-design.md` (commit `f6e2a49`).
+**Spec:** `docs/superpowers/specs/2026-05-06-nai-114-opheldu-tinderbox-firemaking-investigation-design.md` (commit `116efda`).
 
 **Bundle 0 findings (already in spec, summarized):**
 - `[opheldu,tinderbox]` IS registered (key=0x93a91, sourced from `LostCityRS/Server/.../firemaking.rs2`).

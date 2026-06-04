@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+. `pkg/script` (engine), `modules/world` (server). All `go` invocations prefixed `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go ...` per global CLAUDE.md.
 
-**Spec:** `docs/superpowers/specs/2026-05-07-nai-123-zero-damage-investigation-design.md` (commit `105ee0f`).
+**Spec:** `docs/superpowers/specs/2026-05-07-nai-123-zero-damage-investigation-design.md` (commit `e0fe346`).
 
 ---
 
@@ -479,7 +479,7 @@ EOF
 
 Reviewer prompt:
 
-> Review the two-commit bundle implementing NAI-123 (zero-damage residual fix). Spec at `docs/superpowers/specs/2026-05-07-nai-123-zero-damage-investigation-design.md` (commit `105ee0f`). Plan at `docs/superpowers/plans/2026-05-07-nai-123-zero-damage-investigation.md`.
+> Review the two-commit bundle implementing NAI-123 (zero-damage residual fix). Spec at `docs/superpowers/specs/2026-05-07-nai-123-zero-damage-investigation-design.md` (commit `e0fe346`). Plan at `docs/superpowers/plans/2026-05-07-nai-123-zero-damage-investigation.md`.
 >
 > Commit 1 (`HEAD~1`): wiring fix in `processNpcQueue` + new test `TestProcessNpcQueue_SetsStateLastInt`.
 > Commit 2 (`HEAD`): mechanical rename `NpcQueueRequest.IntArg` → `LastInt`.

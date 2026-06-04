@@ -6,7 +6,7 @@
 
 **Architecture:** New validators (`checkCoord`, `checkNpcType`, `checkHuntVis`, `checkCategoryType`) live next to `checkNotNull` in `pkg/script/handlers_npc.go`. A new `NpcLookup` interface is added to `ScriptState` (parallel to `InvLookup`/`PlayerLookup`), implemented world-side as `serverNpcLookup` doing linear iteration over `s.npcs` with type/coord/distance filters. Each handler validates all inputs, consults the bridge, and writes the found NPC to either `ActiveNpc` (IntOperand=0) or `OtherActiveNpc` (IntOperand=1) via a shared `setActiveNpcSlot` helper.
 
-**Tech Stack:** Go 1.26+. `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...` for verification. `git commit --no-gpg-sign` for commits. Branch: `main` (project convention — no worktree needed per established S-series workflow). Spec source: `docs/superpowers/specs/2026-04-24-runescript-s7f-npc-find-family-design.md` (commit `1368c0a`).
+**Tech Stack:** Go 1.26+. `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...` for verification. `git commit --no-gpg-sign` for commits. Branch: `main` (project convention — no worktree needed per established S-series workflow). Spec source: `docs/superpowers/specs/2026-04-24-runescript-s7f-npc-find-family-design.md` (commit `64a2e22`).
 
 ---
 

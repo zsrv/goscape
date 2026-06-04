@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.x, `google.golang.org/protobuf`, `github.com/google/uuid` v1.6.0 (already in `go.mod` as indirect), `modernc.org/sqlite`, `google.golang.org/grpc`, `pkg/loginpb`.
 
-**Predecessor:** slice 6 close commit `fa9e5aef`; spec commit `0611423a` at `docs/superpowers/specs/2026-05-19-friends-server-bridge-slice7-design.md`.
+**Predecessor:** slice 6 close commit `969f5cfd`; spec commit `05128047` at `docs/superpowers/specs/2026-05-19-friends-server-bridge-slice7-design.md`.
 
 **Gate (must hold post-slice):** `-race` clean across all 30 packages; smoke-pack 12 OK / 0 ERR / 0 SKIP.
 

@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-06
 **Status:** spec — investigation sub-spec (Bundle 0 has narrowed scope to H3; Stage 1 audit + Stage 2 fix + smoke per `investigation_subspec_cadence`).
-**Predecessor:** NAI-113 smoke residual (close commit `881e899`, smoke 2026-05-06).
+**Predecessor:** NAI-113 smoke residual (close commit `71bdc66`, smoke 2026-05-06).
 **Cadence:** Bundle 0 controller pre-flight (already complete; findings embedded below) → Stage 1.1 controller disasm extension → Stage 1.2 Sonnet audit subagent (opcode-coverage walk) → controller HEAD-verification → Stage 2 TDD fix → user-launched smoke handoff → conditional Stage 3 per `cascade_theory_smoke_binding`.
 **Tech stack:** Go 1.26+.
 **Upstream sources:** `LostCityRS/Engine-TS` (TS engine, per `ts_source_canonical_path`); `LostCityRS/Server` (content-side `firemaking.rs2` + `light_source.rs2`); `LostCityRS/Client-Java` rev-225 (Java client wire reference).

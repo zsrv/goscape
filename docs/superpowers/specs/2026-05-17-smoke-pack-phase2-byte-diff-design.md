@@ -12,7 +12,7 @@
 
 Add a `--reference-dir <path>` flag to the existing `goscape-cli smoke-pack` verb. When set, after each PackAll stage runs, byte-diff every file the stage wrote (or modified) under `--out-dir` against the same relative path under `--reference-dir`. Report a per-stage `DIFF` count in the summary table and a bounded "Diff details" section listing the first non-matching byte for each diverged file.
 
-**Why this matters now.** Phase 1 shipped 11 stages running best-effort against real Content. Phase 1 surfaced exactly one byte-level latent bug (the clientinterface pjstr-terminator fix at `81d8da22`) by happenstance — a downstream stage panicked. Most stages emit data that no test currently inspects, so silent byte drift can accumulate. Phase 2 turns the smoke into a real fidelity check: every file is compared against the canonical TS output.
+**Why this matters now.** Phase 1 shipped 11 stages running best-effort against real Content. Phase 1 surfaced exactly one byte-level latent bug (the clientinterface pjstr-terminator fix at `6312712f`) by happenstance — a downstream stage panicked. Most stages emit data that no test currently inspects, so silent byte drift can accumulate. Phase 2 turns the smoke into a real fidelity check: every file is compared against the canonical TS output.
 
 The reference is regenerated locally by the operator (`bun tools/pack/PackAll.ts` against the same `Content` checkout); it is gitignored in Engine-TS at `data/pack/`. Engine-TS and goscape both write to the same `{client,server}/...` layout, so the diff is a straightforward relative-path lookup.
 

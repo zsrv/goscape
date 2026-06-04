@@ -1,7 +1,7 @@
 # NAI-124 — Stage 1 findings
 
 **Date:** 2026-05-08
-**Spec:** `docs/superpowers/specs/2026-05-08-nai-124-damage-magnitude-investigation-design.md` (`6a4667b`)
+**Spec:** `docs/superpowers/specs/2026-05-08-nai-124-damage-magnitude-investigation-design.md` (`f8c3401`)
 **Cadence:** controller-direct Stage 1 audit per `bundle0_short_circuits_stage1_audit`. No audit subagent dispatched.
 
 ## Per-surface verdicts
@@ -19,7 +19,7 @@
 - `pkg/objtype/paramtype.go:111` — `DefaultInt uint32` (unsigned storage).
 - `pkg/objtype/paramtype.go:121` — `decode(code 2)` reads `dat.G4()` (unsigned 4 bytes).
 - `pkg/objtype/paramtype.go:178-185` — `NewParamType` zero-inits `DefaultInt = 0`; the dangling comment at `:183` admits "this is -1 in js, default 0 here".
-- `pkg/script/handlers_config.go:51` — `s.PushInt(int(pt.DefaultInt))` with NO `int32` cast. Set branch at `:43` IS sign-extended (`int(int32(iv))` per NAI-122 `849e2fd`); default branch is not.
+- `pkg/script/handlers_config.go:51` — `s.PushInt(int(pt.DefaultInt))` with NO `int32` cast. Set branch at `:43` IS sign-extended (`int(int32(iv))` per NAI-122 `92ca5c4`); default branch is not.
 
 **Two divergent sub-cases:**
 1. ParamType with no `code 2` ever set: TS = -1; goscape = 0.
@@ -40,7 +40,7 @@
 **Verdict:** DIVERGENT (real bug at 2 additional sites; same root cause as S1; NOT contributors to bronze-dagger-vs-rat smoke).
 
 **Sites enumerated** via `rg "Params\[" pkg/ modules/ --type go | grep -v _test.go`:
-- `pkg/script/handlers_config.go:31-43` (paramLookup set branch) — NAI-122 `849e2fd` fixed via `int(int32(iv))`.
+- `pkg/script/handlers_config.go:31-43` (paramLookup set branch) — NAI-122 `92ca5c4` fixed via `int(int32(iv))`.
 - `pkg/script/handlers_inv.go:247-252` (INV_TOTALPARAM set branch) — NAI-122 fixed.
 - `modules/world/npc_hunt.go:289-293` (sumPlayerInvParam set branch) — NAI-122 fixed.
 
@@ -159,7 +159,7 @@ Cascading downstream:
 **Tutorial starting worn slots:** any starter clothing in default tutorial flow plus the bronze dagger handed out by combat instructor. Searched `Content/scripts --include=*.obj` for `param=strengthbonus,` — non-zero strengthbonus is set explicitly only on weapons / select armour pieces. Tutorial-starting clothing (default tunic / trousers / etc.) does NOT set `strengthbonus`, so the default branch returns 0 for those slots.
 
 **Per-slot strengthbonus on the smoke path:**
-- Bronze dagger (right hand): `param=strengthbonus,3` per `Content/scripts/skill_combat/configs/melee/daggers.obj:30`. Set branch (NAI-122 `849e2fd` sign-ext fixed): contributes +3.
+- Bronze dagger (right hand): `param=strengthbonus,3` per `Content/scripts/skill_combat/configs/melee/daggers.obj:30`. Set branch (NAI-122 `92ca5c4` sign-ext fixed): contributes +3.
 - All other worn slots: `strengthbonus` not set; default branch (S1) returns 0 (`strengthbonus` ParamType `default=0`).
 
 **Running sum:** `$strengthbonus = 0 + 3 = 3`.
@@ -187,11 +187,11 @@ Cascading downstream:
 
 ## Cross-references
 
-- Spec: `docs/superpowers/specs/2026-05-08-nai-124-damage-magnitude-investigation-design.md` (`6a4667b`).
-- Plan: `docs/superpowers/plans/2026-05-08-nai-124-damage-magnitude-stage1.md` (`140b7e6`).
-- NAI-123 close: `5687f4e` (smoke that surfaced this residual).
-- NAI-122 set-branch sign-ext fix: `849e2fd`.
-- NAI-122 close: `aabdb65` (flagged DecodeParams uint32-storage as future audit).
+- Spec: `docs/superpowers/specs/2026-05-08-nai-124-damage-magnitude-investigation-design.md` (`f8c3401`).
+- Plan: `docs/superpowers/plans/2026-05-08-nai-124-damage-magnitude-stage1.md` (`4926399`).
+- NAI-123 close: `b7c16b0` (smoke that surfaced this residual).
+- NAI-122 set-branch sign-ext fix: `92ca5c4`.
+- NAI-122 close: `2cdeeb9` (flagged DecodeParams uint32-storage as future audit).
 
 **TS sources read:**
 - `LostCityRS/Engine-TS/src/cache/config/ParamHelper.ts:9-41` (getIntParam / decodeParams).

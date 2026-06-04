@@ -9,14 +9,14 @@
 
 ## 1. Context & motivation
 
-NAI-110 closed at `a7926f1` with a user-launched smoke (2026-05-06):
+NAI-110 closed at `7797185` with a user-launched smoke (2026-05-06):
 
 - ✅ TEXT_GENDER warn silenced; `[proc,tutorial_please_wait_woodcutting]` no longer aborts at pc=4.
 - 🆕 New blocker on tutorial path: clicking the inventory tab (post `tut_flash(^tab_inventory)`) does **not** advance the chatbox AND does **not** display the inventory side panel. No warn log was reported.
 
 Both symptoms point at the TUT_CLICKSIDE → `[tutorial,_]` script-trigger pipeline failing to fire (or firing without effect). Goscape has the wire handler at `modules/world/handler_interface.go:138-149` and the `TriggerTutorial=159` enum at `pkg/script/trigger.go:164`. Unit tests at `modules/world/handler_interface_test.go:71-128` pass against an in-process `Provider.Register(...)` fixture, so the wiring is correct in isolation but not necessarily against the loaded cache.
 
-**Pre-flight observations (Bundle 0 controller probe at HEAD `a7926f1`):**
+**Pre-flight observations (Bundle 0 controller probe at HEAD `7797185`):**
 
 - `modules/world/handler_interface.go:138-149` — `handleTutClickSide` reads tab byte; gates `0 ≤ tab ≤ 13`; calls `s.scriptProvider.GetByTriggerSpecific(script.TriggerTutorial, -1, -1)`; calls `s.runScript(sf, p, nil, true, nil, nil)` — passes `nil, nil` for intArgs/stringArgs.
 - `pkg/script/provider.go:145-153` — `GetByTriggerSpecific(t, -1, -1)` returns `byKey[uint32(trigger)]` directly (global lookup; no fallback).
@@ -156,7 +156,7 @@ Per `smoke_test_server_handoff`, Stage-2 smoke is user-launched.
 
 ---
 
-## 9. Verified premises (controller pre-flight at HEAD `a7926f1`)
+## 9. Verified premises (controller pre-flight at HEAD `7797185`)
 
 - ✅ `modules/world/handler_interface.go:138-149` — `handleTutClickSide` shape as quoted in §1.
 - ✅ `pkg/script/provider.go:145-153` — `GetByTriggerSpecific` returns `byKey[uint32(trigger)]` for `(-1, -1)`.

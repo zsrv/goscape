@@ -8,7 +8,7 @@
 
 **Tech stack:** Go 1.26+. TDD per `superpowers:test-driven-development`. Sonnet code-reviewer per bundle (never Opus per `superpowers_code_reviewer_model`). Controller pre-flight before each implementer dispatch per `controller_preflight`. User-launched smoke at end of Bundle 2 per `smoke_test_server_handoff`.
 
-**Spec:** `docs/superpowers/specs/2026-05-08-nai-127-rat-ai-handler-subset-design.md` (`5a53aed`).
+**Spec:** `docs/superpowers/specs/2026-05-08-nai-127-rat-ai-handler-subset-design.md` (`8b73dea`).
 
 ---
 

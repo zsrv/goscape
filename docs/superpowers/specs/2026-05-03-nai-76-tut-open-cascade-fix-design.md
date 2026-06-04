@@ -3,7 +3,7 @@
 - **Sub-spec**: NAI-76
 - **Date**: 2026-05-03
 - **Scope label**: Investigation-and-fix sub-spec — Stage 1 short-circuited at brainstorm time (root cause concrete and grep-confirmed: `pkg/script/opcode.go:222,851` declares `OpTutOpen Opcode = 2122` plus the `case OpTutOpen: return "TUT_OPEN"` name entry, but `pkg/script/handlers.go` has no entry registering a handler for opcode 2122; the runtime emits `WARN script execute error script=[proc,tutorialstep_page] err="no handler for TUT_OPEN (opcode 2122) at pc=112"` on every login). Stage 2 = single port task: handler in `pkg/script`, `OpenTutorial(int)` method on `*world.Player`, `OpTutOpen` opcode in `pkg/io/protocol/game/server/prot.go`, `modalStateTut` bit in `modules/world/player.go`, encodeOut diff-check emit branch, ActivePlayer interface extension. User-mediated Java-client smoke (per `smoke_test_server_handoff.md`) as binding feature-correctness gate. Smoke decision tree (§7) routes residual symptoms (door visual / click-away modal dismiss) into NAI-77+ if not cascade-resolved.
-- **Predecessors**: NAI-75 (SPLIT_* opcode port) — last on `main` as `4b75e14`
+- **Predecessors**: NAI-75 (SPLIT_* opcode port) — last on `main` as `6081e17`
 - **Source root**:
   - `LostCityRS/Engine-TS` (TS canonical for `pkg/script` and `modules/world` per `ts_source_canonical_path.md`)
     - `src/engine/script/handlers/PlayerOps.ts:723-725` — TUT_OPEN handler shape
@@ -17,7 +17,7 @@
 
 ## Motivation
 
-NAI-75 closed cleanly with the SPLIT_* opcode port (chatnpc dialog rendering unblocked). The user ran a re-smoke against HEAD `4b75e14`. Three symptoms surfaced or remained:
+NAI-75 closed cleanly with the SPLIT_* opcode port (chatnpc dialog rendering unblocked). The user ran a re-smoke against HEAD `6081e17`. Three symptoms surfaced or remained:
 
 1. **TUT_OPEN error log**: every login emits
    ```
@@ -33,7 +33,7 @@ The TUT_OPEN error is loud, concrete, and grep-confirmed. Per `investigation_sub
 
 ## Stage 1 short-circuit evidence
 
-Re-grep at brainstorm time against HEAD `4b75e14`:
+Re-grep at brainstorm time against HEAD `6081e17`:
 
 - `pkg/script/opcode.go:222`: `OpTutOpen             Opcode = 2122`
 - `pkg/script/opcode.go:851`: `case OpTutOpen:` → `return "TUT_OPEN"`

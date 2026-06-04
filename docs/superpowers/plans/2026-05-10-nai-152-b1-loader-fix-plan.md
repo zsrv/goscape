@@ -870,7 +870,7 @@ git add modules/world/handler_opobj.go modules/world/handler_opobj_test.go
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 chore(close): NAI-152 B1 — retire B1.5 probe + pin handler regression
 
-B1.5 probe (commit 16ca758) confirmed the op_slot_empty gate fired
+B1.5 probe (commit 1ad2131) confirmed the op_slot_empty gate fired
 with opLen=0 for mindrune, reframing B1 from handler-gate removal to
 the loader fix landed in T1-T5. Probe is retired in this commit:
 8 gateway log sites + 3 probe-only test cases + bytes/slog imports

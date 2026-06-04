@@ -3,7 +3,7 @@
 - **Sub-spec**: NAI-19
 - **Date**: 2026-04-24
 - **Scope label**: C (cross-package bundle — `pkg/gamemap`, `pkg/cache`, `modules/asset`, `modules/world`; ~270-370 LOC production + ~120-180 LOC tests; revised down ~10 LOC after plan-time discovery that `gm.ChangeNPCCollision` already exists)
-- **Predecessors**: NAI-16 (MIDI encoders + PRELOADED registry) — last on `main` as `6e535dd`
+- **Predecessors**: NAI-16 (MIDI encoders + PRELOADED registry) — last on `main` as `caea569`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation

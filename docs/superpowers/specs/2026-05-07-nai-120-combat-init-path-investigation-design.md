@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-07
 **Status:** spec — investigation sub-spec (Stage 1 audit → Stage 2 per-file TDD ports → smoke → conditional Stage 3) per `investigation_subspec_cadence`.
-**Predecessor:** NAI-119 smoke residual #2 (close commit `de13459`, smoke 2026-05-07). Smoke surfaced `[proc,player_in_combat_check]` failing at pc=1 with "no handler for MAP_MULTIWAY (opcode 1014)" when attacking rats in tutorial; pc=1 means downstream handlers along the combat-init chain are likely also missing — sizing on MAP_MULTIWAY alone is naive (per `enumerate_all_sites`).
+**Predecessor:** NAI-119 smoke residual #2 (close commit `a042d2b`, smoke 2026-05-07). Smoke surfaced `[proc,player_in_combat_check]` failing at pc=1 with "no handler for MAP_MULTIWAY (opcode 1014)" when attacking rats in tutorial; pc=1 means downstream handlers along the combat-init chain are likely also missing — sizing on MAP_MULTIWAY alone is naive (per `enumerate_all_sites`).
 **Cadence:** Bundle 0 controller pre-flight (no commits, no subagent) → Bundle 1 Stage 1 audit (one Explore subagent, Sonnet) → Bundle 2..N Stage 2 TDD ports (one bundle per inner-ring file, full TDD) → user-launched smoke handoff → conditional Stage 3.
 **Tech stack:** Go 1.26+.
 **Upstream sources:** `LostCityRS/Engine-TS` (TS engine, per `ts_source_canonical_path`); `LostCityRS/Content/scripts/skill_combat/scripts/player/*.rs2` (8 inner-ring `.rs2` files, ~1200 lines total).
@@ -95,7 +95,7 @@ Categorization tags:
 
 RS2 `%name` reads compile to a typed PUSH_VARP / PUSH_VARN / PUSH_VARS / PUSH_VARBIT opcode + var-id constant. Two failure modes:
 
-- **(a) PUSH_VAR opcode itself not wired (handler missing)** — at HEAD `de13459`: PUSH_VARP / POP_VARP / PUSH_VARS / POP_VARS / PUSH_VARN / POP_VARN all wired (`handlers.go:203-208`, with PUSH_VARN/POP_VARN flagged as "stub until S6"). Controller verifies stub vs. real impl per actual TS-fidelity at HEAD. PUSH_VARBIT / POP_VARBIT not yet checked at spec-write — Bundle 0 will pin.
+- **(a) PUSH_VAR opcode itself not wired (handler missing)** — at HEAD `a042d2b`: PUSH_VARP / POP_VARP / PUSH_VARS / POP_VARS / PUSH_VARN / POP_VARN all wired (`handlers.go:203-208`, with PUSH_VARN/POP_VARN flagged as "stub until S6"). Controller verifies stub vs. real impl per actual TS-fidelity at HEAD. PUSH_VARBIT / POP_VARBIT not yet checked at spec-write — Bundle 0 will pin.
 - **(b) The named var isn't registered in goscape's var registry** — affects only that var. Controller grep-checks goscape's var-registry path (TBD in Bundle 0 — not plan-author convention-inferred per `mock_recorder_field_naming_check`) for each `%name`.
 
 Bundle 0 produces a `(V)` sub-table:
@@ -197,7 +197,7 @@ Template-pre-written at plan close, materialized only on smoke failure (per `inv
 
 ## 9. Risk register (HEAD-verified at spec-write)
 
-All §9 entries grep+Read-verified at HEAD `de13459` per `risk_register_premise_grep`:
+All §9 entries grep+Read-verified at HEAD `a042d2b` per `risk_register_premise_grep`:
 
 - **R1 — ADD math op wired:** `OpAdd Opcode = 4600` declared at `pkg/script/opcode.go:434`; dispatched at `pkg/script/handlers.go:27`. ✅ Verified.
 - **R2 — BRANCH_* opcodes wired:** `OpBranch / OpBranchNot / OpBranchEquals / OpBranchLessThan / OpBranchGreaterThan / OpBranchLessThanOrEquals / OpBranchGreaterThanOrEquals` declared at `pkg/script/opcode.go:39-43, 55-56`; representative subset (`OpBranch` / `OpBranchEquals` / `OpBranchNot`) dispatched at `pkg/script/handlers.go:21-23`. ✅ Verified for the family.

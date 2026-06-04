@@ -7,11 +7,11 @@
 
 ## Goal
 
-Surface the root cause of the **observed non-revert** of a script-driven `loc_change(inviswall, 3)` on Tutorial Island's `newbie_door1` at HEAD `60a7055`. Stage 1 of the investigation: install **probe `slog.Debug` emissions** on the goscape lifecycle revert path so a single user-driven re-smoke discriminates the two surviving hypotheses. **No behavior changes.** Stage 2 (NAI-89, separate brainstorm) ports the fix once the probe data lands.
+Surface the root cause of the **observed non-revert** of a script-driven `loc_change(inviswall, 3)` on Tutorial Island's `newbie_door1` at HEAD `5fc381d`. Stage 1 of the investigation: install **probe `slog.Debug` emissions** on the goscape lifecycle revert path so a single user-driven re-smoke discriminates the two surviving hypotheses. **No behavior changes.** Stage 2 (NAI-89, separate brainstorm) ports the fix once the probe data lands.
 
 This is an investigation sub-spec per `investigation_subspec_cadence.md`: Stage 1 risk-weighted-short-circuit audit → Stage 2 fix → conditional Stage 3.
 
-## Smoke evidence (HEAD `60a7055`, NAI-87 close re-smoke)
+## Smoke evidence (HEAD `5fc381d`, NAI-87 close re-smoke)
 
 User clicked `newbie_door1` at tick 40 (player at 3095, target (3098, 3107), `cheb_dist=3`). Player walked ticks 40→43, reached (3098, 3107) at tick 43; **at tick 43 `target_type_id` flipped 3014 → 83 (inviswall)** at the same coord, with `interacted=true` and `target_still_set=false`. Player walked through the inviswall (target now walkable). User reports closed door **does NOT reappear past tick 46+**. Tick rate ≈600 ms/tick (3-tick lifecycle window = 1.8 s).
 
@@ -46,7 +46,7 @@ Pre-Stage-1 hypothesis ranking (from `nai_followups.md` NAI-87 carry-forward):
 - Existing in-repo probe convention (gating, schema, NodeDebug-gated, nil-log safe):
   - `modules/world/handler_oploc.go:104-118` — single-call-site frame
   - `modules/world/interaction_debug.go:48-69` — multi-field interaction frame
-- HEAD pin: `60a7055` (NAI-87 close).
+- HEAD pin: `5fc381d` (NAI-87 close).
 
 ## Stage 1 design — probe set
 
@@ -54,7 +54,7 @@ All probes are **`slog.Debug`-level**, **`s.cfg.NodeDebug`-gated**, **nil-log sa
 
 ### Probe sites and field schemas
 
-| # | Site | File:line at HEAD `60a7055` | Event name | Purpose |
+| # | Site | File:line at HEAD `5fc381d` | Event name | Purpose |
 |---|---|---|---|---|
 | P1 | `Server.processZones` lifecycle iter (top of `for _, np := range snap`) | `modules/world/tick.go:482` | `nai88 process_zones iter` | Confirms `processZones` runs and reports tracker size + iteration cursor |
 | P2 | `Server.turnLoc` entry (before `LifecycleTick != now` early-return) | `modules/world/loc_turn.go:15` | `nai88 turn_loc entry` | Discriminates (d): if fires every tick 44→46+ with the right LifecycleTick we expect a match at tick 46 |

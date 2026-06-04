@@ -59,7 +59,7 @@ Note PROJANIM_NPC uses **slot-only** lookup (`World.getNpc(slot)`); the `_expect
 - `pkg/script/active.go:430` `ActivePlayer.Slot()`, `:449 X()`, `:454 Z()`, `:444 UID()` — reused for PROJANIM_PL.
 - `pkg/script/active.go:670+` `ActiveNpc.NpcX()/NpcZ()/NpcLevel()/Nid()` — reused for PROJANIM_NPC.
 - `pkg/script/state.go:121-126` `WorldVars.LookupPlayerByUID(uid) ActivePlayer` — reused for PROJANIM_PL.
-- `pkg/script/opcode.go` — `OpProjAnimMap = 1018` (line 92), `OpProjAnimPl = 2091` (line 191), `OpProjAnimNpc = 2546` (line 283); name-table entries at lines 599 / 789 / 965. **All three already declared, none currently dispatched.** Confirmed via `grep -n PROJANIM pkg/script/handlers*.go pkg/script/dispatch*.go` returning no matches at HEAD `acb9df5`.
+- `pkg/script/opcode.go` — `OpProjAnimMap = 1018` (line 92), `OpProjAnimPl = 2091` (line 191), `OpProjAnimNpc = 2546` (line 283); name-table entries at lines 599 / 789 / 965. **All three already declared, none currently dispatched.** Confirmed via `grep -n PROJANIM pkg/script/handlers*.go pkg/script/dispatch*.go` returning no matches at HEAD `f224216`.
 
 ## 5. New surface
 
@@ -116,7 +116,7 @@ The `w.s == nil` guard mirrors the existing convention in `worldVarsView.LookupP
 
 ### 5.3. Mock WorldVars consumers (test files) — must compile-fix
 
-Adding methods to `WorldVars` breaks every existing test impl. Three consumers identified via `grep -rln "func.*AnimMap(level" --include="*.go"` at HEAD `acb9df5`:
+Adding methods to `WorldVars` breaks every existing test impl. Three consumers identified via `grep -rln "func.*AnimMap(level" --include="*.go"` at HEAD `f224216`:
 
 1. **`pkg/script/handlers_vars_test.go:51`** — `mockWorld` minimal stub. Add empty `MapProjAnim` (no-op) and `LookupNpcBySlot` (return nil).
 2. **`pkg/script/handlers_map_test.go:423`** — `spotAnimMapWorld` recording mock. Add empty stubs (these tests do not exercise PROJANIM).

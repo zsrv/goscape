@@ -2,7 +2,7 @@
 
 **Status:** spec — draft 1
 **Date:** 2026-05-07
-**Predecessor:** NAI-122 close (`aabdb65`); residual #1 (zero-damage / non-zero XP).
+**Predecessor:** NAI-122 close (`2cdeeb9`); residual #1 (zero-damage / non-zero XP).
 **Cadence:** investigation_subspec_cadence — Stage 1 short-circuited per `bundle0_short_circuits_stage1_audit` (Bundle 0 produced a binding line-level TS-vs-goscape diff). Stage 2 fix → user-launched smoke.
 **Tech stack:** Go 1.26+.
 
@@ -184,5 +184,5 @@ User-launched per `smoke_test_server_handoff`. Server binary on host; client = `
 
 - TS source verbatim: `LostCityRS/Engine-TS/src/engine/entity/Npc.ts:241-245, 538-560`; `NpcQueueRequest.ts:1-25`; `script/ScriptState.ts:129`.
 - Goscape divergence anchor: `modules/world/npc_script.go:469-493`.
-- NAI-122 close commit: `aabdb65`. NAI-122 close memo: `nai_followups.md:6174-6229`.
+- NAI-122 close commit: `2cdeeb9`. NAI-122 close memo: `nai_followups.md:6174-6229`.
 - NAI-26 (variadic queue ops parallel-slice convention): does NOT apply here — fixed-arg ai_queue path is single-int.

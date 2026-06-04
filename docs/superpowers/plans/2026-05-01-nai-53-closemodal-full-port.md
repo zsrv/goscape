@@ -1005,7 +1005,7 @@ EOF
 - [ ] **Step 6.1: Verify all earlier tasks landed**
 
 Run: `git log --oneline -7`
-Expected: 5 commits since `d0a72c1` (NAI-52 close), one per T1–T5.
+Expected: 5 commits since `07490ed` (NAI-52 close), one per T1–T5.
 
 Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...`
 Expected: all PASS.

@@ -643,7 +643,7 @@ Expected: `Result: 12 OK, 0 ERR, 0 SKIP` in the final summary line. This gate co
 
 - [ ] **Step 6.3: Write memory close memo**
 
-Create `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/post_friends_arc_cleanup_b3_close.md` with this content (replace the commit-hash placeholders with actuals from `git log --oneline 0b81521e..HEAD`):
+Create `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/post_friends_arc_cleanup_b3_close.md` with this content (replace the commit-hash placeholders with actuals from `git log --oneline af55430b..HEAD`):
 
 ```markdown
 ---
@@ -683,7 +683,7 @@ In `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory
 - [post-friends-arc cleanup B3 close](post_friends_arc_cleanup_b3_close.md) — session_uuid CHECK shipped 2026-05-19 across N commits <first>..<last> on top of [[post-friends-arc-cleanup-b-close]]; new migration 000002 rebuilds session table with shape-level CHECK ('' OR `GLOB '????????-????-????-????-????????????'`) + inline coerces pre-slice-7 IP:port rows to ""; 3 new tests (rejection / empty-accept / legacy-coerce-with-AUTOINCREMENT-continuity) + 1 existing test fixup (TestInsertSession uses UUID literal); zero app-code change (insertSession already writes UUIDs); friends DB unaffected; -race clean; smoke-pack 12 OK; retires B3 deferred-item line
 ```
 
-Replace `N`, `<first>`, `<last>` with actuals from `git log --oneline 0b81521e..HEAD | wc -l` and the first/last short hashes.
+Replace `N`, `<first>`, `<last>` with actuals from `git log --oneline af55430b..HEAD | wc -l` and the first/last short hashes.
 
 - [ ] **Step 6.5: Verify the memory entry length**
 

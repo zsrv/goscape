@@ -884,7 +884,7 @@ Merged per-unit `deferred_markers` + the deferred-marker-sweep critic. Assessmen
 | `pkg/objtype/spotanimtype.go:60-67`,`idktype.go:49-71` | OOB recol_s/recol_d silent-discard | CONFIRMED-EXCEPTION | Accurate; matches JS TypedArray silent-discard |
 | `pkg/objtype/flotype.go:11-14` | minimal binary view scope | CONFIRMED-EXCEPTION | Accurate; full-field TS FloType reduced by design |
 | `pkg/objtype/hunttype.go:213` | CheckInv forward-looking note | CONFIRMED-EXCEPTION | About a consumer, not HuntType decode |
-| `pkg/script/handlers_npc.go:154-164` | S7f-D3 no CategoryType loader | ✅ **FIXED** `fix/categorytype-port` (`3f935519`) | TS CategoryType.ts:12-66 IS a runtime loader; real gap (cfg-var-9/h-npc-3). CLOSED 2026-06-01 — loader + Provider + reload arm + full-bound validator. See docs/PORTING-CLOSED.md. |
+| `pkg/script/handlers_npc.go:154-164` | S7f-D3 no CategoryType loader | ✅ **FIXED** `fix/categorytype-port` (`9968b923`) | TS CategoryType.ts:12-66 IS a runtime loader; real gap (cfg-var-9/h-npc-3). CLOSED 2026-06-01 — loader + Provider + reload arm + full-bound validator. See docs/PORTING-CLOSED.md. |
 | `pkg/objtype/npcmode.go:14-36` | NAI-201 QUEUE1..20 omitted | CONFIRMED-EXCEPTION | TS keeps them commented out; Go matches |
 | `pkg/objtype/varptype.go etc` | printError log+continue | CONFIRMED-EXCEPTION | Verified vs VarPlayer/Npc/Shared; matches printError |
 | `pkg/objtype/dbtabletype.go:11-13` | per-column flag constants future-use | CONFIRMED-EXCEPTION | Informational; consumed by DbTableIndex (ported) |
@@ -933,7 +933,7 @@ Merged per-unit `deferred_markers` + the deferred-marker-sweep critic. Assessmen
 | `pkg/script/handlers_player.go:1988-1993` | P_OPHELD unimplemented stub | CONFIRMED-EXCEPTION | TS also throws unimplemented |
 | `pkg/script/handlers_player.go:608` | StatRandom JavaRandom vs rand/v2 | CONFIRMED-EXCEPTION | No JavaRandom port; range-equivalent |
 | `pkg/script/handlers_player.go:111-136` | checkLocAngle/Shape retained unused | CONFIRMED-EXCEPTION | LocOps concern, not PlayerOps |
-| `pkg/script/handlers_npc.go:132-164` | M14 queue-range / S7f-D3 categorytype | CONFIRMED-EXCEPTION / ✅ **FIXED** `fix/categorytype-port` (`3f935519`) | M14 correct; categorytype real gap (h-npc-3). CLOSED 2026-06-01 — full TS CategoryTypeValid bound check at checkCategoryType. See docs/PORTING-CLOSED.md. |
+| `pkg/script/handlers_npc.go:132-164` | M14 queue-range / S7f-D3 categorytype | CONFIRMED-EXCEPTION / ✅ **FIXED** `fix/categorytype-port` (`9968b923`) | M14 correct; categorytype real gap (h-npc-3). CLOSED 2026-06-01 — full TS CategoryTypeValid bound check at checkCategoryType. See docs/PORTING-CLOSED.md. |
 | `pkg/script/handlers_npc.go:453-...` | NAI-126/125/127 nil-World guards | CONFIRMED-EXCEPTION | Unreachable defensive |
 | `pkg/script/handlers_npc.go:1397-1398` | NAI-160 attackrange widen | CONFIRMED-EXCEPTION | Value-identical |
 | `modules/world/npc_script_lookup.go:111-121` | S7f-D2 FINDEXACT linear scan | CONFIRMED-EXCEPTION | First-match modulo iteration order (h-npc-7) |
@@ -968,7 +968,7 @@ Merged per-unit `deferred_markers` + the deferred-marker-sweep critic. Assessmen
 
 **STALE-DEFER markers needing comment cleanup (live findings exist):** `handlers_npc.go` S7f-D3 (h-npc-3), `pixpack/convert.go` quantize (cache-graphics-4), `player_script.go` WEALTHEVENT (logger-transport-5), `tick.go`/`player_script.go` NAI-144-D4 shutdown flag (world-tick-2), `heropoints.go` 'Stub' (util-1/util-2), `npc_interaction.go` resetDefaults (npc-core-1), `npc_player_modes.go` SMART (now implemented), `interaction_trigger.go` apRangeCalled no-op (interaction-8), `loc_iterator.go` 'equivalent' (h-loc-4/-5), `handlers_inv.go` RecipientSession, `handlers_obj.go` NAI-153-D3 (h-obj-1/-2), `handlers_vars.go`/`handlers.go` 'stub until S6'/'MVP int-only', `login/handler.go` hiscores (login-server-9), and the various `handlers.go` stale 'stub' headers (h-core-8 + sweep findings on P_WALK/SPLIT_*/Camera).
 
-✅ CLOSED 2026-06-01 — `fix/categorytype-port` (`3f935519`) ports the loader + Provider + reload arm + full-bound validator for the gap-world-reload-events-8 / cfg-var-9 / h-npc-3 cluster. See docs/PORTING-CLOSED.md.
+✅ CLOSED 2026-06-01 — `fix/categorytype-port` (`9968b923`) ports the loader + Provider + reload arm + full-bound validator for the gap-world-reload-events-8 / cfg-var-9 / h-npc-3 cluster. See docs/PORTING-CLOSED.md.
 
 ---
 

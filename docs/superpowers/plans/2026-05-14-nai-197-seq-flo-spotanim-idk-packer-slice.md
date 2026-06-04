@@ -8,8 +8,8 @@
 
 **Tech Stack:** Go 1.26+. Stdlib + `pkg/io/packet` + `pkg/io/jagfile` + NAI-191–196 `pkg/pack` foundation + `pkg/colorconv` (`Rgb15toHsl16`) + `pkg/objtype` (`LoadSeqTypes(dir, *SeqFrameConfigs)`, `LoadSpotanimTypes`, `LoadIdkTypes`).
 
-**Spec:** `docs/superpowers/specs/2026-05-14-nai-197-seq-flo-spotanim-idk-packer-slice-design.md` (commit `529db65`).
-**HEAD at plan-write:** `529db65`.
+**Spec:** `docs/superpowers/specs/2026-05-14-nai-197-seq-flo-spotanim-idk-packer-slice-design.md` (commit `d0f64a2`).
+**HEAD at plan-write:** `d0f64a2`.
 
 ---
 
@@ -37,7 +37,7 @@
 
 ## Pre-flight verification (controller, before dispatching tasks)
 
-Verified at plan-write against HEAD `529db65`:
+Verified at plan-write against HEAD `d0f64a2`:
 
 | Premise | Verification |
 |---|---|

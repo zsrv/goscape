@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26+; existing packages `pkg/cache`, `pkg/gamemap`, `pkg/objtype`, `pkg/rsbuf`, `pkg/script`, `modules/asset`, `modules/world`. All `go` invocations prefixed with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`. All commits use `--no-gpg-sign`.
 
-**Spec:** `docs/superpowers/specs/2026-04-24-nai-19-path-b-bundle-design.md` (commit `6d10ba8`).
+**Spec:** `docs/superpowers/specs/2026-04-24-nai-19-path-b-bundle-design.md` (commit `dd6f0ef`).
 
-**Predecessor HEAD:** `6e535dd` (NAI-16 closed).
+**Predecessor HEAD:** `caea569` (NAI-16 closed).
 
 ---
 

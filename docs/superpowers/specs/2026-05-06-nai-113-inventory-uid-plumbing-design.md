@@ -2,20 +2,20 @@
 
 **Date:** 2026-05-06
 **Status:** spec — direct fix sub-spec (Bundle 0 line-level diff short-circuit; no Stage 1 audit cadence)
-**Predecessor:** NAI-112 SECONDARY residual (PRIMARY closed at `679122a`)
+**Predecessor:** NAI-112 SECONDARY residual (PRIMARY closed at `dbe7768`)
 **Tech Stack:** Go 1.26+
 **TS reference:** `LostCityRS/Engine-TS` (canonical port source)
 
 ## 1. Symptom
 
-After NAI-112 PRIMARY fix (`679122a`), Tutorial Island chatbox advances to "Cut down a tree" on inventory-tab click as required. The SECONDARY half remains open: bronze axe (1351) + tinderbox (590) added by `[tutorial,_]` `^newbie_survival_instructor_open_inventory` branch
+After NAI-112 PRIMARY fix (`dbe7768`), Tutorial Island chatbox advances to "Cut down a tree" on inventory-tab click as required. The SECONDARY half remains open: bronze axe (1351) + tinderbox (590) added by `[tutorial,_]` `^newbie_survival_instructor_open_inventory` branch
 ```
 inv_add(inv, bronze_axe, 1);
 inv_add(inv, tinderbox, 1);
 ```
 do not display in the Java client's inventory side panel after the click. Inventory contents are added server-side (NAI-112 Bundle 1 INV_ADD logs verified) but never serialized to the client.
 
-## 2. Root cause (static analysis at HEAD `679122a`)
+## 2. Root cause (static analysis at HEAD `dbe7768`)
 
 **Bug A — `Player.uid` is never assigned in production code.**
 

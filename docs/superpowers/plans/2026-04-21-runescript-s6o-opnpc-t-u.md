@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26 (stdlib only). Tests reuse the existing `makeOpNpcFixture` helper from `handler_opnpc_test.go` (S6b).
 
-**Spec reference:** `docs/superpowers/specs/2026-04-21-runescript-s6o-opnpc-t-u-design.md` (commit `229b602`).
+**Spec reference:** `docs/superpowers/specs/2026-04-21-runescript-s6o-opnpc-t-u-design.md` (commit `8436553`).
 
 **Build commands (per CLAUDE.md):**
 - Build: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./...`

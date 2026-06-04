@@ -2,8 +2,8 @@
 
 - **Sub-spec**: NAI-78
 - **Date**: 2026-05-03
-- **Scope label**: Investigation-and-fix sub-spec — Stage 1 short-circuited at brainstorm time (root cause concrete and grep-confirmed at HEAD `27c5860`: `modules/world/interaction.go::tryInteract` (lines 310-343) implements only 2 of TS `Player.tryInteract`'s 4 dispatch branches and does NOT gate the AP fire on `apTrigger != null`. Adjacent loc with `[oploc<n>]` registered but no `[aploc<n>]` — the canonical door pattern — falls into the AP block, the no-script path inside `fireApTriggerLoc` (`interaction_trigger.go:411-415`) calls `ClearInteraction` + `interactionFired = true`, and `tryInteract` returns `true`. Pre-step's `interacted=true` gates the post-step branch off, so OPLOC never fires and the player never paths). Stage 2 = single-file refactor of `tryInteract` to mirror TS Player.ts:1113-1184 4-branch dispatch + defaultOp NIH port + retire the now-dead AP/OP no-script branches in fire helpers. User-mediated Java-client smoke (per `smoke_test_server_handoff.md`) as binding feature-correctness gate. Bundle 3 conditional template (LOC opcode ports) drafted for the likely 2nd-order surface.
-- **Predecessors**: NAI-77 (handleMoveClick port) — last on `main` as `27c5860`
+- **Scope label**: Investigation-and-fix sub-spec — Stage 1 short-circuited at brainstorm time (root cause concrete and grep-confirmed at HEAD `a6b19de`: `modules/world/interaction.go::tryInteract` (lines 310-343) implements only 2 of TS `Player.tryInteract`'s 4 dispatch branches and does NOT gate the AP fire on `apTrigger != null`. Adjacent loc with `[oploc<n>]` registered but no `[aploc<n>]` — the canonical door pattern — falls into the AP block, the no-script path inside `fireApTriggerLoc` (`interaction_trigger.go:411-415`) calls `ClearInteraction` + `interactionFired = true`, and `tryInteract` returns `true`. Pre-step's `interacted=true` gates the post-step branch off, so OPLOC never fires and the player never paths). Stage 2 = single-file refactor of `tryInteract` to mirror TS Player.ts:1113-1184 4-branch dispatch + defaultOp NIH port + retire the now-dead AP/OP no-script branches in fire helpers. User-mediated Java-client smoke (per `smoke_test_server_handoff.md`) as binding feature-correctness gate. Bundle 3 conditional template (LOC opcode ports) drafted for the likely 2nd-order surface.
+- **Predecessors**: NAI-77 (handleMoveClick port) — last on `main` as `a6b19de`
 - **Source root**:
   - `LostCityRS/Engine-TS` (TS canonical for `pkg/script` and `modules/world` per `ts_source_canonical_path.md`)
     - `src/engine/entity/Player.ts:1113-1184` — `tryInteract(allowOpScenery)` 4-branch dispatch
@@ -17,7 +17,7 @@
 
 ## Motivation
 
-NAI-77 closed the chatnpc click-away cascade (handleMoveClick port). The user re-smoked at HEAD `676d10f` and confirmed:
+NAI-77 closed the chatnpc click-away cascade (handleMoveClick port). The user re-smoked at HEAD `3d5be1a` and confirmed:
 
 - Symptom-2 (click-away modal dismiss): PASS — NAI-77 silenced cleanly.
 - Symptom-1 (RS Guide door at Tutorial Island): FAIL, unchanged from NAI-76 smoke. **OPLOC1 packet received on the server, but no visible client effect (no walk, no chat, no action menu update). Player does NOT move at all.**
@@ -34,7 +34,7 @@ Bundle 0 controller pre-flight (per `controller_preflight.md` + `investigation_s
 
 ## Stage 1 short-circuit evidence
 
-Re-grep at brainstorm time against HEAD `27c5860`.
+Re-grep at brainstorm time against HEAD `a6b19de`.
 
 ### Goscape `tryInteract` shape (`modules/world/interaction.go:310-343`)
 
@@ -292,7 +292,7 @@ Six regression tests (one per TS branch + two retry edge cases). Fixture: spawn 
 | `TestTryInteract_DefaultAp_NoScripts_Loc` | approach-range-only Loc (2 tiles away); no AP no OP; pre-step `allowOpScenery=false` | branch 3 fires; pre-step returns `false`; `apRange == -1` after; post-step `allowOpScenery=true` reaches branch 4; `defaultOp` emitted (or no-op if not in operable yet) |
 | `TestTryInteract_AprangeRetry_PreservesNAI69` | adjacent Loc; `[aploc1]` script that calls `p_aprange(2)`; no OP | NAI-69 retry: pre-step returns `false` after branch 2 (apRangeCalled=true); waypoints preserved; processInteraction's post-step re-evaluates with new range |
 
-Plan-author MUST verify the NAI-69 retry test at HEAD `676d10f` — re-run `TestTryInteract_…AprangeRetry…` (if the test exists with another name) and ensure the new branch-2 shape (`apRangeCalled` check after `tryFireApTrigger` return, before `return true`) preserves NAI-69 semantics. `nai_followups.md` confirms NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY is independent of this work.
+Plan-author MUST verify the NAI-69 retry test at HEAD `3d5be1a` — re-run `TestTryInteract_…AprangeRetry…` (if the test exists with another name) and ensure the new branch-2 shape (`apRangeCalled` check after `tryFireApTrigger` return, before `return true`) preserves NAI-69 semantics. `nai_followups.md` confirms NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY is independent of this work.
 
 ### `modules/world/interaction_test.go` — `defaultOp` direct test
 
@@ -351,7 +351,7 @@ CGO_ENABLED=0 go run -trimpath ./cmd/goscape --config.file config.yaml
 
 **Materializes only if smoke item 2 fails with a script-error log line.** Pre-templated here so the controller can dispatch quickly without re-architecture.
 
-The `[oploc1,newbie_door1]` body + transitive procs (`~check_axis`, `~open_and_close_door`, `~door_open`) require these script opcodes that are NOT in `pkg/script/handlers.go` dispatch map at HEAD `27c5860`:
+The `[oploc1,newbie_door1]` body + transitive procs (`~check_axis`, `~open_and_close_door`, `~door_open`) require these script opcodes that are NOT in `pkg/script/handlers.go` dispatch map at HEAD `a6b19de`:
 
 | Opcode | Const | TS handler | Goscape gap |
 |---|---|---|---|

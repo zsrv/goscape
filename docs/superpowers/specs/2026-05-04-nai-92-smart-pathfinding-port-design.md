@@ -20,7 +20,7 @@ The port reshapes `pathToTarget` to read `p.target` directly (TS parity), type-s
 
 ## 2. Context: NAI-91 smoke binding
 
-NAI-91 fixed the `inOperableDistance` reach-gate (player on the door tile passes the operable check); the door re-click is green. Smoke confirmed at commit `74d7e7d` (2026-05-04). Adjacent symptom logged in `nai_followups.md` "From NAI-91": Survival Expert NPC (typeId=943) at `(3104, 3093)` unreachable from player at `(3101, 3105)`, `cheb_dist=12`, repathed=true, steps_taken=0. The pathfinder runs but finds no route — different mechanism from NAI-91's reach-gate.
+NAI-91 fixed the `inOperableDistance` reach-gate (player on the door tile passes the operable check); the door re-click is green. Smoke confirmed at commit `86b273d` (2026-05-04). Adjacent symptom logged in `nai_followups.md` "From NAI-91": Survival Expert NPC (typeId=943) at `(3104, 3093)` unreachable from player at `(3101, 3105)`, `cheb_dist=12`, repathed=true, steps_taken=0. The pathfinder runs but finds no route — different mechanism from NAI-91's reach-gate.
 
 **Static binding (no Stage 1 instrumentation):**
 

@@ -1,7 +1,7 @@
 # NAI-120 — Bundle 1 TS-Source Signature Audit
 
 **Date:** 2026-05-07
-**Input:** Bundle 0 findings — `docs/superpowers/investigations/2026-05-07-nai-120-bundle0-findings.md` (commit `47fa923` per spec §4.5 / 50e3a7d HEAD-at-pre-flight)
+**Input:** Bundle 0 findings — `docs/superpowers/investigations/2026-05-07-nai-120-bundle0-findings.md` (commit `cd5fcc2` per spec §4.5 / 854a8a6 HEAD-at-pre-flight)
 **Scope:** Per-entry TS-source signature audit for all 12 entries in the NAI-120 missing-handler list (11 × (D) opcodes + 1 × V-PARTIAL varn binding).
 
 This document is the complete Stage 2 reference. A plan-author can read only this file plus the rs2 source to write per-handler tests and ports without consulting Engine-TS.
@@ -609,7 +609,7 @@ This differs from the original 2A-2E split in that `player_melee.rs2` (Bundle 2B
 
 2. **Before `busy2`:** Grep `pkg/script/active.go` for `HasInteraction` and `HasWaypoints`. Both must be absent (confirmed at Bundle 1 audit time). Also verify `(*Player).hasWaypoints()` (lowercase, package-private) exists at `modules/world/interaction.go:297` — the exported wrapper goes on `*Player` in `player_script.go`.
 
-3. **Before `npc_statadd`/`npc_statsub`:** Grep `pkg/script/handlers_npc.go` for any partial `handleNpcStatAdd` or `handleNpcStatSub` implementation that may have been added since `50e3a7d`. Merge rather than duplicate if found.
+3. **Before `npc_statadd`/`npc_statsub`:** Grep `pkg/script/handlers_npc.go` for any partial `handleNpcStatAdd` or `handleNpcStatSub` implementation that may have been added since `854a8a6`. Merge rather than duplicate if found.
 
 4. **Before `spotanim_npc`:** Grep `pkg/script/active.go` `ActiveNpc` interface for `PlaySpotAnim` — confirmed absent at Bundle 1 audit time. Reuse `checkSpotAnimType` already at `pkg/script/handlers_map.go:212`.
 

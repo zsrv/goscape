@@ -1,7 +1,7 @@
 # NAI-197: `.seq` + `.flo` + `.spotanim` + `.idk` packer slice
 
 **Date**: 2026-05-14
-**Predecessor**: NAI-196 (`.loc`/`.obj`/`.npc` packer slice + TS-canonical ordering rewrite; closed at `46a770e`)
+**Predecessor**: NAI-196 (`.loc`/`.obj`/`.npc` packer slice + TS-canonical ordering rewrite; closed at `542950a`)
 **Cohort identity**: Second client+server config family — four "client-bound" branches that TS gates on `rebuildClient = true` and that mirror NAI-196's unconditional-client-pack pattern. Uniform shape across all four: per-id walk of the type-specific `PackFile`, client opcodes per TS, server contains 250-trailer + `pjstr(debugname)` for three of four (`.flo` server is empty per-id). No new dispatch patterns.
 
 ## 1. Goal
@@ -270,7 +270,7 @@ Per `[[pin_test_self_trigger_production_doc]]`: if the extended doc-comment inco
 | R5: `LoadSpotanimTypes` is capitalised `Spotanim` not `SpotAnim` | Low | `pkg/objtype/spotanimtype.go:93` confirmed. Round-trip test uses `LoadSpotanimTypes` not `LoadSpotAnimTypes`. | ✅ verified |
 | R6: `ColorConversion` invocation site for `.spotanim` and `.idk` recol values | Med | TS `SpotAnimConfig.ts:1` and `IdkConfig.ts:1` import `ColorConversion`. Per `[[colorconv_rgb24to15_in_writer]]`, conversion typically lives at writer site. Plan-author reads TS line-by-line; if writer-side, port via `pkg/colorconv` (already exists for NAI-140 work); if parser-side, port in `parseFooConfigFor`. | ⚠️ plan-author traces each file's `ColorConversion.` call sites + ports through `pkg/colorconv` |
 | R7: Empty `numberKeys` / `stringKeys` dead branches in `.idk` (and possibly others) | Med | Per `[[dead_param_from_literal_ts_port]]` + `NAI-195-D-DEADBRANCH-OMITTED`, omit empty branches in Go port. `.idk` has `numberKeys: []` confirmed; the other three need per-config verification. | ⚠️ plan-author verifies per config |
-| R8: NAI-196 T6 round-trip test setup pattern reuse | Low | Existing `loc_roundtrip_test.go`, `obj_roundtrip_test.go`, `npc_roundtrip_test.go` (landed at NAI-196 T6, commit `22c0b3d`) are the templates. Plan-author cross-references at plan-write for shape (`.pack` files, `PackConfigs` invocation, loader call). | ✅ verified |
+| R8: NAI-196 T6 round-trip test setup pattern reuse | Low | Existing `loc_roundtrip_test.go`, `obj_roundtrip_test.go`, `npc_roundtrip_test.go` (landed at NAI-196 T6, commit `dcd57e0`) are the templates. Plan-author cross-references at plan-write for shape (`.pack` files, `PackConfigs` invocation, loader call). | ✅ verified |
 | R9: Required `.pack` registry source files for 15-config integration test | Med | Add `anim.pack`, `flo.pack`, `spotanim.pack`, `idk.pack` to the NAI-196 fixture builder's pack-registry list (the existing list already covers model/category/hunt/texture/seq/loc/npc/obj/varp/varn/vars/param/enum/inv/mesanim/struct = 16 entries; this slice adds 4 → 20 total). | ⚠️ plan-author audits NAI-196 fixture builder + adds 4 new `.pack` stubs |
 | R10: `PackedData(FooPack.Max)` boundary semantics | Low | NAI-196 verified `PackFile.Max()` semantics match TS `PackFile.max` (size+1). Pattern reused unchanged. | ✅ verified |
 | R11: `.spotanim` and `.flo` debugname-trailer condition asymmetry | Med | `.spotanim` and `.idk` emit 250-trailer when `debugname.length > 0` (TS uniform `if (debugname.length)`). `.flo` does NOT emit 250-trailer — its debugname is on the CLIENT side as opcode 6 (gated `!startsWith("flo_")`). Plan-author distinguishes per-config. | ⚠️ plan-author writes per-task code-block reflecting the four distinct shapes |

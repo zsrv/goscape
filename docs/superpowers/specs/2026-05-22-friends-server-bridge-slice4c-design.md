@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-22
 **Slice:** 4c of 7 (friends-server bridge arc; slice 4 decomposed into 4a/4b/4c)
-**Predecessor:** slice 4b (close commit `add114bb`, retired `NAI-S1-D-PM-NO-DELIVERY`; see `[[friends-server-slice4b-close]]`)
+**Predecessor:** slice 4b (close commit `3dce374c`, retired `NAI-S1-D-PM-NO-DELIVERY`; see `[[friends-server-slice4b-close]]`)
 **Closes:** `NAI-S1-D-PLAYERCAP-LOG-ONLY`, `NAI-S2-D-PLAYERLOGIN-IGNORES-ACCEPTED`
 **Opens:** none
 

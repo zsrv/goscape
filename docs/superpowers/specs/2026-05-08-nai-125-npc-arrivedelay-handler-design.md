@@ -2,7 +2,7 @@
 
 **Status:** spec — draft 1
 **Date:** 2026-05-08
-**Predecessor:** NAI-124 close (`48e95ab`); NAI-123 residual B (`[proc,npc_death]` server-log WARN at NAI-123 close `5687f4e`).
+**Predecessor:** NAI-124 close (`d70d822`); NAI-123 residual B (`[proc,npc_death]` server-log WARN at NAI-123 close `b7c16b0`).
 **Cadence:** subagent-driven-development — single bundle (additive port), Sonnet code-reviewer pass, user-launched smoke. Standard-shape spec, not investigation cadence.
 **Tech stack:** Go 1.26+.
 
@@ -12,12 +12,12 @@ Port TS `NpcOps.ts:542-555` `NPC_ARRIVEDELAY` (opcode 2502) into goscape. The op
 
 ## §1 — Symptom and binding evidence
 
-**Smoke (NAI-123 close, `5687f4e`, 2026-05-07):**
+**Smoke (NAI-123 close, `b7c16b0`, 2026-05-07):**
 - Tutorial Island fresh char kills giant rat (post-NAI-123 non-zero red hitsplats).
 - Server log emits `WARN: script "[proc,npc_death]": no handler for NPC_ARRIVEDELAY (opcode 2502) at pc=4`.
 - Whatever ops follow `NPC_ARRIVEDELAY` at pc≥5 in `npc_death` (loot drop / respawn timer / kill-count XP / etc.) are not running because `Execute` aborts at the first unknown opcode (`pkg/script/runner.go:55-77`).
 
-**Verification at HEAD (`48e95ab`):**
+**Verification at HEAD (`d70d822`):**
 
 ```
 $ rg "OpNpcArriveDelay" pkg/ modules/
@@ -301,7 +301,7 @@ All seven tests sit in `handlers_npc_test.go` (same file as `mockNpc`). Each con
 
 **Goscape behavior:** No `delayed` boolean assignment; only `SetDelayed(ticks)` (which writes `delayedUntil`).
 
-**Rationale:** Goscape's `Npc.delayed bool` field exists (`npc.go:82`) and is written by `SetDelayed` itself, per the established `handleNpcDelay` precedent (NPC_DELAY-N, NAI-20). Confirmed at HEAD `48e95ab` — `(*Npc).SetDelayed` body at `modules/world/npc.go:323-326`:
+**Rationale:** Goscape's `Npc.delayed bool` field exists (`npc.go:82`) and is written by `SetDelayed` itself, per the established `handleNpcDelay` precedent (NPC_DELAY-N, NAI-20). Confirmed at HEAD `d70d822` — `(*Npc).SetDelayed` body at `modules/world/npc.go:323-326`:
 
 ```go
 func (n *Npc) SetDelayed(ticks int) {

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+, modules/world. Uses existing `parseIntOr`, `recordingBridges`, `newTestServer`/`newTestPlayer`, `reportAbuseSetupWithOnlineOffender`-style player-loop wiring.
 
-**Spec:** `docs/superpowers/specs/2026-05-12-nai-186-supermod-cheats-design.md` (commit 6e972a6).
+**Spec:** `docs/superpowers/specs/2026-05-12-nai-186-supermod-cheats-design.md` (commit 6a1aab8).
 
 **Memory anchors:**
 - `drainconn_iocopy_race` — do not combine `io.Copy(io.Discard, cc)` with `drainAfterTele` on the same conn.
@@ -22,7 +22,7 @@
 
 ## Pre-flight verification (verified at plan-write, no action required)
 
-These were re-greped at plan-write against HEAD (commit 6e972a6). The plan-author/controller may re-confirm before each dispatch, but the answers are baked in below.
+These were re-greped at plan-write against HEAD (commit 6a1aab8). The plan-author/controller may re-confirm before each dispatch, but the answers are baked in below.
 
 | ID | Question | Answer |
 |----|----------|--------|
@@ -1151,7 +1151,7 @@ EOF
 **Files:**
 - Modify: `modules/world/handlers_game.go:367-381` — replace the NAI-185-D4 carryforward block with the NAI-186-D2 version.
 
-**Context:** The NAI-185 close commit (ecc832b) left a 15-line comment block at L367-381 listing 10 unported cheats in 3 clusters. NAI-186 completes the super-mod cluster — drop those 4 cheats from the listing; supersede the tag.
+**Context:** The NAI-185 close commit (b2631d4) left a 15-line comment block at L367-381 listing 10 unported cheats in 3 clusters. NAI-186 completes the super-mod cluster — drop those 4 cheats from the listing; supersede the tag.
 
 - [ ] **Step 1: Read the current carryforward block**
 
@@ -1311,7 +1311,7 @@ EOF
 )"
 ```
 
-(Empty close commit is OPTIONAL — per recent close-commit precedent at ecc832b / 50d24df, a close-commit is conventional but not required if Task 6's commit already captures the cluster-retirement narrative. Use `--allow-empty` only if there's no content to commit; otherwise let Task 6's commit BE the close commit and skip this step.)
+(Empty close commit is OPTIONAL — per recent close-commit precedent at b2631d4 / 5cbd949, a close-commit is conventional but not required if Task 6's commit already captures the cluster-retirement narrative. Use `--allow-empty` only if there's no content to commit; otherwise let Task 6's commit BE the close commit and skip this step.)
 
 - [ ] **Step 5: Update memory if any non-derivable lessons surfaced**
 

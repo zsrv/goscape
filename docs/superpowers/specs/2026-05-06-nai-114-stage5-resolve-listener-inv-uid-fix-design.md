@@ -8,7 +8,7 @@
 
 ## 1. Symptom + Stage 4 binding
 
-NAI-114 Stage 4 instrumentation shipped at commit `7f9d7e3` and was smoked on tutorial firemaking. 5/5 OPHELDU events (ticks 63, 74, 77, 80, 85) bound:
+NAI-114 Stage 4 instrumentation shipped at commit `550840b` and was smoked on tutorial firemaking. 5/5 OPHELDU events (ticks 63, 74, 77, 80, 85) bound:
 
 ```
 opheldu entry  obj=2511 slot=2 comId=3214 useObj=590 useSlot=1 useComId=3214 delayed=false delayedUntil=60
@@ -73,7 +73,7 @@ This is the latent half of a partial NAI-24 fix. Per `pkg/script/handlers_inv.go
 - Rewrite `resolveListenerInv` body to mirror `updateInvs`'s UID-lookup pattern.
 - Update its doc comment to say "UID" instead of "slot".
 - Add 4 unit tests in a new file `modules/world/resolve_listener_inv_test.go` pinning all four branches.
-- After user-smoke confirms tutorial firemaking works: revert the Stage 4 probe (`7f9d7e3`) in this same sub-spec and ship a NAI-114 close commit with `Closes memory:` trailer.
+- After user-smoke confirms tutorial firemaking works: revert the Stage 4 probe (`550840b`) in this same sub-spec and ship a NAI-114 close commit with `Closes memory:` trailer.
 
 ### Out of scope
 - Any change to registration sites (`pkg/script/handlers_inv.go`) — already correct.
@@ -190,7 +190,7 @@ User re-launches goscape after commit 3 lands, connects via Java client rev-225,
 
 Three commits land in this order:
 
-4. `Revert "chore(debug): NAI-114 Stage 4 — opheldu reject-gate instrumentation"` ← `git revert 7f9d7e3`. Removes the 18 inline DEBUG lines + `snapshotInvListenerKeys` helper + `slog`/`sort` imports. Tree returns to pre-Stage-4 shape.
+4. `Revert "chore(debug): NAI-114 Stage 4 — opheldu reject-gate instrumentation"` ← `git revert 550840b`. Removes the 18 inline DEBUG lines + `snapshotInvListenerKeys` helper + `slog`/`sort` imports. Tree returns to pre-Stage-4 shape.
 5. `chore(memory): NAI-114 close — UID-vs-slot semantic-name collision` ← memory file additions only (no production code). Adds new memory entry; updates `cascade_theory_smoke_binding` and `investigation_subspec_cadence` with NAI-114 example.
 
 (NAI close commits also carry `Closes memory:` trailers per `close_commit_memory_trailer`.)

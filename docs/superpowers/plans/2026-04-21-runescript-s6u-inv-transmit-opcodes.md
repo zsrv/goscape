@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26, standard `testing`.
 
-**Spec:** `docs/superpowers/specs/2026-04-21-runescript-s6u-inv-transmit-opcodes-design.md` (commit `050c034`).
+**Spec:** `docs/superpowers/specs/2026-04-21-runescript-s6u-inv-transmit-opcodes-design.md` (commit `94e10f2`).
 
 ---
 

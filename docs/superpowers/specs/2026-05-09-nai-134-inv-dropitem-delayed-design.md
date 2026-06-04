@@ -1,7 +1,7 @@
 # NAI-134 — INV_DROPITEM_DELAYED + objDelayedQueue infra
 
 **Date:** 2026-05-09
-**Branch base:** `main` @ `c52644e`
+**Branch base:** `main` @ `54ff866`
 **Predecessor:** NAI-133 (BOTH_MOVEINV + Pointer-flag Protect refactor + FINDUID/P_FINDUID slot routing)
 **Tracker source:** `~/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` line 6416 — "**NAI-134+ candidate (NAI-132 deferred):** `INV_DROPITEM_DELAYED` opcode 4310."
 

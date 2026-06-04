@@ -8,8 +8,8 @@
 
 **Tech Stack:** Go 1.26+. Stdlib only (`os`, `bufio`, `strings`, `strconv`, `path/filepath`, `testing`).
 
-**Spec:** `docs/superpowers/specs/2026-05-14-nai-200-compilertypeinfo.md` (commit `604b3a7`).
-**HEAD at plan-write:** `604b3a7`.
+**Spec:** `docs/superpowers/specs/2026-05-14-nai-200-compilertypeinfo.md` (commit `44d4f33`).
+**HEAD at plan-write:** `44d4f33`.
 
 ---
 
@@ -25,7 +25,7 @@
 
 ## Pre-flight verification (controller, before dispatching tasks)
 
-Verified at plan-write against HEAD `604b3a7`:
+Verified at plan-write against HEAD `44d4f33`:
 
 | Premise | Verification |
 |---|---|
@@ -959,7 +959,7 @@ git commit --allow-empty --no-gpg-sign -m "$(cat <<'EOF'
 chore(close): NAI-200 — CompilerTypeInfo foundation (bytecode arc opener)
 
 Per spec docs/superpowers/specs/2026-05-14-nai-200-compilertypeinfo.md
-(604b3a7):
+(44d4f33):
 
 - TypeInfo struct + Add method (Compiler.ts:21-36, :100-106)
 - 5 constructors: Load, LoadArray, LoadRecords, LoadMap (Compiler.ts:38-98)

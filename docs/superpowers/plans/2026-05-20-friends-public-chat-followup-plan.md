@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.x, `modernc.org/sqlite`, `golang-migrate/migrate/v4`, `embed.FS` migrations, `database/sql`, `google.golang.org/grpc`, `pkg/friendspb`, `pkg/wordenc/wordpack`, `pkg/coordgrid`.
 
-**Predecessor:** slice 7 close commit `9dc8fae9`; spec commit `9cf3091f` at `docs/superpowers/specs/2026-05-20-friends-public-chat-followup-design.md`.
+**Predecessor:** slice 7 close commit `0c0709b8`; spec commit `f23ab975` at `docs/superpowers/specs/2026-05-20-friends-public-chat-followup-design.md`.
 
 **Gate (must hold post-task-9):** `-race` clean across all 56 packages; smoke-pack 12 OK / 0 ERR / 0 SKIP.
 
@@ -1192,7 +1192,7 @@ Expected: 12 OK / 0 ERR / 0 SKIP in ~8-10s. Matches slice 7 baseline. If any sta
 - [ ] **Step 3: Final `git log` sanity check**
 
 ```bash
-git log --oneline 9dc8fae9..HEAD
+git log --oneline 0c0709b8..HEAD
 ```
 
 Expected: 8 commits (T1..T8). T9 makes no commit.

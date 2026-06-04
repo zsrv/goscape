@@ -3,7 +3,7 @@
 **Date:** 2026-05-18
 **Tech stack:** Go 1.26+ per `[[go_version]]`. No new deps; `google.golang.org/grpc`, `google.golang.org/protobuf/types/known/timestamppb`, `google.golang.org/protobuf/types/known/emptypb` all already direct-required by `modules/login` + `modules/world/login_client.go`.
 **Cadence:** Light — single-package modification under `modules/world/`, ~120 LOC production (2 RPC adapters + 1 bridge type + 1 default-flip), ~6 new tests. No proto changes. No DB migrations. No new module.
-**Predecessor close memory:** `[[loginclient_interface_close]]` shipped the `LoginClient` interface refactor at ab607eac (2026-05-18); this spec extends that interface with two methods and adds a real `LoginBridgeMod` impl. The interface extension is the deferred bridge-mod half of `NAI-72-D-LOGIN-SERVER-BRIDGE-MOD`.
+**Predecessor close memory:** `[[loginclient_interface_close]]` shipped the `LoginClient` interface refactor at 103f53c9 (2026-05-18); this spec extends that interface with two methods and adds a real `LoginBridgeMod` impl. The interface extension is the deferred bridge-mod half of `NAI-72-D-LOGIN-SERVER-BRIDGE-MOD`.
 
 ---
 

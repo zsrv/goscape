@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+; `LostCityRS/Engine-TS` (TS canonical for non-`pkg/rsbuf`); `2004scape/rsbuf` branch 225 (Rust canonical for `pkg/rsbuf`); `LostCityRS/Client-Java` (binding wire spec).
 
-**Spec:** `docs/superpowers/specs/2026-04-26-nai-32-renderer-chat-port-design.md` (commit `4740fd9` after `writeNewPlayers` correction).
+**Spec:** `docs/superpowers/specs/2026-04-26-nai-32-renderer-chat-port-design.md` (commit `79dbdda` after `writeNewPlayers` correction).
 
 ---
 
@@ -808,7 +808,7 @@ git log --oneline -10
 git status
 ```
 
-Expected: 3 NAI-32 commits (one per Task 1, Task 2, Task 3) on top of `4740fd9` (spec correction); clean working tree.
+Expected: 3 NAI-32 commits (one per Task 1, Task 2, Task 3) on top of `79dbdda` (spec correction); clean working tree.
 
 ---
 
@@ -1037,7 +1037,7 @@ GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./... -count=1
 ```
 
 Expected:
-- 5 NAI-32 commits (Task 1, Task 2, Task 3, Task 5, close) on top of `4740fd9` (spec correction).
+- 5 NAI-32 commits (Task 1, Task 2, Task 3, Task 5, close) on top of `79dbdda` (spec correction).
 - Zero `rs-server-225` hits in production source.
 - Zero `NAI-30-D2` hits in production source.
 - All tests pass.

@@ -974,7 +974,7 @@ If Steps 1-5 surfaced no changes needed: skip the commit and proceed to close co
 ```bash
 git status
 # Verify working tree is clean apart from standing untracked noise (config.yaml drift, .claude/, etc.)
-git log --oneline 6f078e25..HEAD
+git log --oneline 4678a490..HEAD
 # Expected: 4-5 commits (T1, T2, T3, T4, optionally T5)
 
 git commit --no-gpg-sign --allow-empty -m "$(cat <<'EOF'
@@ -1004,7 +1004,7 @@ EOF
 - [ ] **Step 10: Verify board state**
 
 ```bash
-git log --oneline 6f078e25..HEAD
+git log --oneline 4678a490..HEAD
 git show --stat HEAD
 ```
 

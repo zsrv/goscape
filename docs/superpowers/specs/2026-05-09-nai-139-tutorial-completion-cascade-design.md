@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-09
 **Type:** Investigation sub-spec (per `investigation_subspec_cadence`)
-**Predecessor:** NAI-111 (closed PRIMARY 2026-05-09 at commits `3ee0213` + `d2adc2d`)
+**Predecessor:** NAI-111 (closed PRIMARY 2026-05-09 at commits `b96f22a` + `d0e88bd`)
 **Tech Stack:** Go 1.26+ (per `go_version` memory)
 **TS source canonical path:** `LostCityRS/Engine-TS` (engine) + `LostCityRS/Content` (scripts) (per `ts_source_canonical_path`)
 

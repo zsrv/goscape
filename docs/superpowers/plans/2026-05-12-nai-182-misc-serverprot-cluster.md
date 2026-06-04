@@ -36,7 +36,7 @@
 **Files:**
 - Modify: `pkg/io/protocol/game/server/prot.go`
 
-Pure data declarations — no test needed (existing pattern at NAI-181 close `2c00fae`).
+Pure data declarations — no test needed (existing pattern at NAI-181 close `3d9279c`).
 
 - [ ] **Step 1: Append 4 `Op` entries**
 

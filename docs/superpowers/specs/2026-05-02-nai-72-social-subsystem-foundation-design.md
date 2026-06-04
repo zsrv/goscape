@@ -1,14 +1,14 @@
 # NAI-72 — Social subsystem foundation (ChatSetMode + Friend/Ignore family + ReportAbuse)
 
 **Status:** Spec written 2026-05-02.
-**Predecessor:** NAI-71 (HEAD `0b31903`). Net deviation tally entering: 14.
+**Predecessor:** NAI-71 (HEAD `4c3cd07`). Net deviation tally entering: 14.
 **Opens:** 4 new deviations:
 - `NAI-72-D-FRIENDS-SERVER-BRIDGE`
 - `NAI-72-D-LOGIN-SERVER-BRIDGE-MOD`
 - `NAI-72-D-LOGGER-BRIDGE`
 - `NAI-72-D-INPUT-RECORDING-NOT-PORTED`
 
-**Erratum (2026-05-02, post-`9854ac5`):** Pre-flight grep before T1 dispatch surfaced that `Player.staffModLevel int32` already exists at `player.go:73` with a producer at `server.go:590` (`c.staffModLevel = resp.GetStaffModLevel()` from the login response, propagated into `Player` at `player.go:361`) and 6+ existing consumers including `handlers_game.go:222,233,267-276`, `tick.go:391`, `player_source.go:12`. The previously-listed `NAI-72-D-STAFFMODLEVEL-DEAD-WRITER` deviation was retracted: the §2.3 "no hits" claim was wrong (analogy reasoning, not grep-verified) and `NAI-72-D-` does not apply because the field has a producer. The handler reads `p.staffModLevel` directly (existing field). T1 Step 8 drops the staffModLevel field-add. Net tally projection corrected from 14 → 19 to 14 → 18 (4 opens). Pattern: `risk_register_premise_grep.md` — risk-register premises about cross-call-chain state need actual grep evidence.
+**Erratum (2026-05-02, post-`ba3fa3f`):** Pre-flight grep before T1 dispatch surfaced that `Player.staffModLevel int32` already exists at `player.go:73` with a producer at `server.go:590` (`c.staffModLevel = resp.GetStaffModLevel()` from the login response, propagated into `Player` at `player.go:361`) and 6+ existing consumers including `handlers_game.go:222,233,267-276`, `tick.go:391`, `player_source.go:12`. The previously-listed `NAI-72-D-STAFFMODLEVEL-DEAD-WRITER` deviation was retracted: the §2.3 "no hits" claim was wrong (analogy reasoning, not grep-verified) and `NAI-72-D-` does not apply because the field has a producer. The handler reads `p.staffModLevel` directly (existing field). T1 Step 8 drops the staffModLevel field-add. Net tally projection corrected from 14 → 19 to 14 → 18 (4 opens). Pattern: `risk_register_premise_grep.md` — risk-register premises about cross-call-chain state need actual grep evidence.
 
 Plus one tracker note (not a deviation): `NAI-72-N-RESETENTITY-PARTIAL` — partial port of `Player.resetEntity(false)`; rest of the body belongs to chat-mask / script-protect sub-specs and is already split across other tracker entries. Tracked as a doc-comment audit note, not a numbered deviation.
 
@@ -37,7 +37,7 @@ Together these form the engine's "social" cluster — they share three structura
 
 ## 2. Current state at HEAD
 
-### 2.1 Dependencies (verified present at `0b31903`)
+### 2.1 Dependencies (verified present at `4c3cd07`)
 
 | Dependency | goscape location | Notes |
 |---|---|---|

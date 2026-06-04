@@ -13,7 +13,7 @@ NAI-62-candidate block in `nai_followups.md` → `## NAI-61 — CLOSED 2026-05-0
 (memory line 3042). NAI-61 itself was a pure ordering fix (3 line-moves);
 this divergence is content-script keying — strictly out of NAI-61 scope.
 
-## §2. The divergence (verified at HEAD `326d959`)
+## §2. The divergence (verified at HEAD `6b2ffcc`)
 
 ### §2.1 TS reference
 

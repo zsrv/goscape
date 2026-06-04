@@ -35,7 +35,7 @@ Dev block (excluding debugproc): `reload`, `rebuild`, `speed`, `fly`, `naive`, `
 
 Super-mod block beyond getcoord/tele: `teleto`, `setvis`, `ban`, `mute`, `kick` = 5.
 
-**True unported cheat count at HEAD `a19effd` = 17 + 6 + 5 = 28.** NAI-182 D3 listed 25, missing `setvar`, `getvar`, `getvarother` (wait — D3 does include getvar and getvarother; let me recount the D3 list).
+**True unported cheat count at HEAD `1920a1d` = 17 + 6 + 5 = 28.** NAI-182 D3 listed 25, missing `setvar`, `getvar`, `getvarother` (wait — D3 does include getvar and getvarother; let me recount the D3 list).
 
 NAI-182 D3 list verbatim: "reload, rebuild, speed, fly, naive, random, setvarother, getvar, getvarother, give, giveother, givecrap, givemany, broadcast, teleother, setstat, advancestat, minme, locadd, npcadd, openmain, snapshot, teleto, setvis, ban, mute, kick" = 27 entries. Missing: `setvar`. **Actual unported = 28, D3 listed 27, omitted 1 (`setvar`).** NAI-184 closes 11. Remaining = 28 − 11 = **17 unported after NAI-184**.
 
@@ -65,7 +65,7 @@ Selected for "infra already wired in goscape" tractability:
 | `openmain` | admin | `Component.GetByName` + `openMainModal` |
 | `setvis`, `ban`, `mute`, `kick` | super-mod | `Player.SetVisibility` plumbing (rsbuf `Visibility` exists but not wired) + login-server moderation callbacks for ban/mute, `loggingOut`+conn-close orchestration for kick |
 
-### 2.5 Goscape state at HEAD `a19effd`
+### 2.5 Goscape state at HEAD `1920a1d`
 
 - `handleClientCheat` at `modules/world/handlers_game.go:336-467`. Three outer-guard blocks: sessionLog L371-373, dev L379-412 (contains reboot/slowreboot dead and serverdrop alive), super-mod L416-466 (contains getcoord and tele).
 - `pkg/objtype/playerstat.go` exports `PlayerStat<Name>` constants for the 21 slots, `PlayerStatCount=21`, `GetExpByLevel`, `GetLevelByExp`, `MaxXP`, `MaxSkillXP`. **No** `PlayerStatMap` or `PlayerStatEnabled` yet.
@@ -494,7 +494,7 @@ Per `controller_preflight`, `plan_sibling_site_guard_audit`, `plan_grep_helper_p
 - [ ] Confirm `Player.SetCurLevel` is NOT being repurposed (`SetStat` is a new method, not a rename).
 - [ ] Confirm `s.cfg.NodeProduction` access pattern matches sibling sites (`handler_reportabuse.go:59`, `server_varp.go:80`).
 - [ ] Confirm `parseIntOr` (`handlers_game.go` helper) is the right name and signature for parsing `::slowreboot` seconds.
-- [ ] Re-grep TS L52-617 at plan-write time to verify the §2.1 outer-block enumeration hasn't drifted (the TS pin at commit `a19effd`'s submodule head should be stable, but verify).
+- [ ] Re-grep TS L52-617 at plan-write time to verify the §2.1 outer-block enumeration hasn't drifted (the TS pin at commit `1920a1d`'s submodule head should be stable, but verify).
 - [ ] Mental-execute the §3.2 `::advancestat` body against AddXP's three branches (`un-buffed`, `buffed`, `drained`) — pre-state of `levels==baseLevels==1` after reset puts us in the un-buffed branch, so level-up advances both together.
 
 ## 9. Out of scope

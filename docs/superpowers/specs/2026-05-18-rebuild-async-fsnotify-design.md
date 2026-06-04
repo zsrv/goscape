@@ -4,7 +4,7 @@
 **Tech stack:** Go 1.26+ per `[[go_version]]`. New dep: `github.com/fsnotify/fsnotify`.
 **Cadence:** Standard — multi-file change with a new dep and new goroutines; warrants a full spec → plan → TDD execution cycle.
 **TS canonical source:** `Engine-TS/src/cache/DevThread.ts` (the entire file) + `Engine-TS/src/engine/World.ts:1745-1810` (DevThread parent-port wiring) + `ClientCheatHandler.ts:151-153`.
-**Predecessor spec:** `docs/superpowers/specs/2026-05-17-rebuild-cheat-design.md` (synchronous `::rebuild`, shipped at fa2b4fc6). This spec ports the two follow-ups deferred there.
+**Predecessor spec:** `docs/superpowers/specs/2026-05-17-rebuild-cheat-design.md` (synchronous `::rebuild`, shipped at 3d2a7b8a). This spec ports the two follow-ups deferred there.
 
 ---
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26 (stdlib only). Tests reuse S6j/S6k fixtures (`makeOpLocTriggerFixture`, `newNoopScriptFile`) and follow the `handleNpcHasOp` / `handleStatBoost` test patterns from `pkg/script/handlers_*_test.go`.
 
-**Spec reference:** `docs/superpowers/specs/2026-04-21-runescript-s6l-aploc-range-gating-design.md` (commit `3640ba7`).
+**Spec reference:** `docs/superpowers/specs/2026-04-21-runescript-s6l-aploc-range-gating-design.md` (commit `c032fae`).
 
 **Build commands (per CLAUDE.md):**
 - Build: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./...`

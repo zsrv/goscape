@@ -305,6 +305,6 @@ func (g *CodeGenerator) visitArith(ae *ast.ArithmeticExpression) {
 	// `this.instructionUnit(opcode)` with no source argument — the
 	// arithmetic opcode itself carries no line-number entry. Passing
 	// ae.Source() here inflates the LineNumberTable on every chained calc
-	// (same bug family as 9d747f10 / codegen_branch_unsourced_fix).
+	// (same bug family as 567b9035 / codegen_branch_unsourced_fix).
 	g.instructionUnit(op, lexer.NodeSourceLocation{})
 }

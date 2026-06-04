@@ -3,7 +3,7 @@
 **Status:** Design
 **Date:** 2026-05-21
 **Predecessor:** `docs/superpowers/specs/2026-05-21-loc-npc-obj-readside-validator-wiring-design.md` (memory: `loc_npc_obj_readside_validator_wiring_shape_a_close.md`)
-**HEAD at design:** `7a1fcd5b`
+**HEAD at design:** `712a407a`
 
 ## 1. Summary
 
@@ -42,7 +42,7 @@ Both handlers currently silently push a sentinel value (`"null"` / `-1`) when th
 
 ### 2.3 Divergence reachability
 
-After the predecessor Shape A slice (`7a1fcd5b`), all script-side entry points that set `ActiveNpc.NpcType()` validate the type id:
+After the predecessor Shape A slice (`712a407a`), all script-side entry points that set `ActiveNpc.NpcType()` validate the type id:
 
 - NPC_ADD (`handlers_npc.go:38`) ✓
 - NPC_TYPE setter (`:190`) ✓
@@ -243,7 +243,7 @@ Both small, mirror NPC_TYPE / NPC_CHANGETYPE precedent if it exists. If sibling 
 
 - **Shape:** XS refactor-shaped slice (pre-existing validator + intra-file sibling precedent).
 - **Dispatch:** sonnet-subagent implementer + sonnet 2-stage review (spec-conformance + code-quality) + opus whole-slice review.
-- **Pre-conditions:** branch clean at `7a1fcd5b`; no pending working-tree changes apart from standing untracked noise.
+- **Pre-conditions:** branch clean at `712a407a`; no pending working-tree changes apart from standing untracked noise.
 - **Commits:** spec (this doc) → plan → impl.
 
 ## 10. Carry-forward menu (post-slice)

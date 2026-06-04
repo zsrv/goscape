@@ -1,12 +1,12 @@
 # NAI-201: bytecode compiler arc — foundation registries
 
 **Date**: 2026-05-14
-**Predecessor**: NAI-200 (`CompilerTypeInfo` foundation; closed at `2563e5c`). NAI-200 §12 enumerated four "NAI-201 prerequisites" — this sub-spec lands those four as data registries with zero production consumers, deferring the `runServerCompiler` driver port that consumes them to NAI-202.
+**Predecessor**: NAI-200 (`CompilerTypeInfo` foundation; closed at `0dd1a22`). NAI-200 §12 enumerated four "NAI-201 prerequisites" — this sub-spec lands those four as data registries with zero production consumers, deferring the `runServerCompiler` driver port that consumes them to NAI-202.
 **Arc step**: Second sub-spec of the bytecode compiler arc. NAI-200 shipped the symbol-table data type; NAI-201 ships the input data the driver will feed into it.
 
 ## 0. Pre-context: scope-slice decision
 
-The original NAI-201 framing in `NAI-200 §12` and the dispatch prompt was "port `runServerCompiler` driver (TS `tools/pack/Compiler.ts:109-367`)". Pre-flight against HEAD `2563e5c`:
+The original NAI-201 framing in `NAI-200 §12` and the dispatch prompt was "port `runServerCompiler` driver (TS `tools/pack/Compiler.ts:109-367`)". Pre-flight against HEAD `0dd1a22`:
 
 | Prerequisite | Status | TS source | Size |
 |---|---|---|---|

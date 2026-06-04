@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+; `google.golang.org/grpc`; `google.golang.org/protobuf`; `log/slog`. Proto generation via `make proto` (wraps `buf generate`, config in `buf.yaml` + `buf.gen.yaml`). No new direct dependencies, no DB migrations.
 
-**Spec:** `docs/superpowers/specs/2026-05-18-friends-server-bridge-slice1-design.md` (commit `be460cdc`)
+**Spec:** `docs/superpowers/specs/2026-05-18-friends-server-bridge-slice1-design.md` (commit `b724ce37`)
 
 ---
 

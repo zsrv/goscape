@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go; `pkg/objtype` helpers; `modules/world/player_script.go` XP mutation.
 
-**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6g-xp-gain-design.md`](../specs/2026-04-21-runescript-s6g-xp-gain-design.md) (commit `743cb2d`)
+**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6g-xp-gain-design.md`](../specs/2026-04-21-runescript-s6g-xp-gain-design.md) (commit `80e71c0`)
 
 ---
 

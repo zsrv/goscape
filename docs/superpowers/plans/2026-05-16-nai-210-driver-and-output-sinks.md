@@ -10,9 +10,9 @@
 
 **Authoritative task numbering:** T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16. Per `[[plan_code_block_t_number_drift]]`, all in-file doc comments and commit subjects must use this numbering.
 
-**Spec:** `docs/superpowers/specs/2026-05-16-nai-210-driver-and-output-sinks-design.md` (commit `6d04e44`).
+**Spec:** `docs/superpowers/specs/2026-05-16-nai-210-driver-and-output-sinks-design.md` (commit `88286f4`).
 
-**Predecessor:** NAI-209 (`c5beea6`) — binary writer pipeline.
+**Predecessor:** NAI-209 (`f184492`) — binary writer pipeline.
 
 ---
 

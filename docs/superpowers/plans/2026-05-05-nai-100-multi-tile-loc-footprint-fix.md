@@ -628,7 +628,7 @@ EOF
 - [ ] **Step 5.4: Verify final tree state**
 
 Run: `git log --oneline -6`
-Expected: 4 NAI-100 commits (T1, T2, T3, close) above the NAI-99 close commit `b009ea9`.
+Expected: 4 NAI-100 commits (T1, T2, T3, close) above the NAI-99 close commit `b66e522`.
 
 Run: `git status`
 Expected: clean working tree.

@@ -733,7 +733,7 @@ Expected: working tree clean (memory lives outside the repo — no repo files sh
 
 Run: `git log --oneline -5`
 
-Expected: the top four commits are Tasks 1-4 (CheckHuntCondition, checkVars, SetMulti, combat guard + checkNotCombat), above the NAI-14 close commit `dfca173`.
+Expected: the top four commits are Tasks 1-4 (CheckHuntCondition, checkVars, SetMulti, combat guard + checkNotCombat), above the NAI-14 close commit `77e15ce`.
 
 - [ ] **Step 3: Full test sweep before close**
 

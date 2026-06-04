@@ -9,7 +9,7 @@
 
 ## 1. Context & motivation
 
-NAI-98 closed GroundDecor reach Stage 2 (sub-H8 dispatch fix) at `51b693b`. User-launched smoke (2026-05-05, post-NAI-98 close) surfaced a **new** anomaly:
+NAI-98 closed GroundDecor reach Stage 2 (sub-H8 dispatch fix) at `4ed5acc`. User-launched smoke (2026-05-05, post-NAI-98 close) surfaced a **new** anomaly:
 
 > "I walk partly into the fountain before getting stuck; the fountain is multiple tiles wide but it appears it's being treated like it's only one tile wide."
 

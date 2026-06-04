@@ -78,7 +78,7 @@ Token list confirmed: `tut_close` (1), `if_close` (1), `%tutorial = ^tutorial_co
 
 `(*Player).writeVarp` (player_varp.go:14–43) gates on `cfg.Transmit`; if transmit=true, emits `OpVarpSmall` (value in −128..127) or `OpVarpLarge` (otherwise) via `p.writeOut`.
 
-NAI-138 commit ee54c84 fixed varp configs loading both server+client streams. Varp 4 (`tutorial`) and varp 173 (`option_run`) are loaded from the same `VarPlayerType` config path. The `writeVarp` probe test (player_varp_probe_test.go:27,110,133,179) covers this path directly with varp 173; the same `writeVarp` call is used for all varp IDs including tutorial varp 4.
+NAI-138 commit 8fc06d5 fixed varp configs loading both server+client streams. Varp 4 (`tutorial`) and varp 173 (`option_run`) are loaded from the same `VarPlayerType` config path. The `writeVarp` probe test (player_varp_probe_test.go:27,110,133,179) covers this path directly with varp 173; the same `writeVarp` call is used for all varp IDs including tutorial varp 4.
 
 The wire-emit path is: `handlePopVarp` → `SetVarp` → `writeVarp` → `p.writeOut(OpVarpSmall/Large, payload)`. No gaps.
 

@@ -3,20 +3,20 @@
 - **Sub-spec**: NAI-22
 - **Date**: 2026-04-25
 - **Scope label**: B (logical-grouping follow-up bundle — `modules/world` (production + tests); ~30 LOC production + ~200 LOC tests across 3 bundles; closes 2 tracked deviations (NAI-19-D2 AI_SPAWN re-trigger, NAI-21-D1 appearanceInv ctor-binding); closes 1 open huntPlayers deferral (checkInv); introduces 0 new deviations; net deviation count 16 → 14)
-- **Predecessors**: NAI-21 (follow-up bundle) — last on `main` as `4a696c7`
+- **Predecessors**: NAI-21 (follow-up bundle) — last on `main` as `804da2e`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation
 
 Three actionable carry-forwards land in NAI-22:
 
-1. **NAI-19-D2 (AI_SPAWN re-trigger).** Tracked at `npc_registry.go:77` as "AI_SPAWN trigger queue omitted — `script.TriggerAiSpawn` (`pkg/script/trigger.go:171`) declared but no spawn-flow consumer wiring." Pre-flight at HEAD `4a696c7` confirms the producer is the **only** missing piece: the dispatch infrastructure is fully wired (event queue, type-agnostic processor, tick hook, script lookup, NpcEventSpawn reserved enum). Closing NAI-19-D2 is a textbook `consume_reserved_constant` memory case.
+1. **NAI-19-D2 (AI_SPAWN re-trigger).** Tracked at `npc_registry.go:77` as "AI_SPAWN trigger queue omitted — `script.TriggerAiSpawn` (`pkg/script/trigger.go:171`) declared but no spawn-flow consumer wiring." Pre-flight at HEAD `804da2e` confirms the producer is the **only** missing piece: the dispatch infrastructure is fully wired (event queue, type-agnostic processor, tick hook, script lookup, NpcEventSpawn reserved enum). Closing NAI-19-D2 is a textbook `consume_reserved_constant` memory case.
 
 2. **checkInv huntPlayers filter.** Currently deferred at `npc_hunt.go:102` ("checkInv (TS:959-969) — inventory queries"). Pre-flight confirms all required infrastructure is in place: `HuntType.CheckInv`/`CheckObj`/`CheckObjParam`/`CheckInvCondition`/`CheckInvVal` are decoded with TS defaults; `HuntType.CheckHuntCondition` is already used by the sister CheckVars filter at `npc_hunt.go:196`; `Inventory.GetItemCount(id)` exists at `pkg/inventory/inventory.go`; the `*Server` holds `objTypes` and `paramTypes` registries.
 
 3. **NAI-21-D1 (appearanceInv ctor-binding).** Tracked at `appearance.go:25`, `pkg/script/active.go:329`, `pkg/script/handlers_player.go:133` as "TS init binds `appearanceInv` to Worn at ctor; goscape uses `-1` sentinel + reader fallback." Closing this in production is a small post-construction setter call wired into the player-creation flow. The `-1` ctor sentinel is retained as test-only safety — the deviation's *production* concern dissolves.
 
-Pre-flight at HEAD `4a696c7` against the candidate framings surfaced two scope-shift findings:
+Pre-flight at HEAD `804da2e` against the candidate framings surfaced two scope-shift findings:
 
 - **AI_SPAWN dispatch is a producer wiring task, not a design exercise.** The NAI-19 spec deferred AI_SPAWN with the rationale "event queue vs immediate fire ordering needs design." That design is already settled: `Server.npcEventQueue` exists (`server.go:90`), `processNpcEventQueue` dispatches type-agnostically (`npc_event_queue.go:36-48`), the tick wires it at `tick.go:40` matching TS `World.ts:356`, and the AI_DESPAWN producer at `npc_ai.go:47-58` is the literal template. The "semantically invasive at boot" worry was about *missing dispatch wiring*; with the wiring already in place, TS fidelity (fire on both `firstSpawn=true` and `firstSpawn=false`) is the safe and correct port.
 
@@ -54,7 +54,7 @@ The 4 items cluster naturally into three bundles by content type (production beh
 
 #### Pre-flight verification (per `consume_reserved_constant` memory)
 
-The new consumer owns the full dispatch path. Verified at HEAD `4a696c7`:
+The new consumer owns the full dispatch path. Verified at HEAD `804da2e`:
 
 - **Reserved constant**: `NpcEventSpawn = 0` declared at `npc_event_queue.go:13`. Doc-comment at `:7-9` explicitly says "reserved for TS fidelity but has no producer in NAI-5."
 - **Event-request struct**: `NpcEventRequest{Type, Script, Npc}` declared at `npc_event_queue.go:22-26`.
@@ -448,7 +448,7 @@ Per `close_commit_memory_trailer` memory: NAI-22 close commit will carry a `Clos
 
 - `consume_reserved_constant.md` — Bundle 1 is the textbook case. Validates the memory's "new consumer owns the full dispatch path" guidance and the 5-element checklist (reserved constant, producer, processor, tick wiring, end-to-end test) end-to-end.
 - `controller_preflight.md` — NAI-22's pre-flight caught the (a) "design questions resolved" finding and the (d) "ctor-thread is too invasive" finding before plan-write.
-- `spec_followup_tracker_freshness.md` — pre-flight verified each candidate's tracker assertion (file paths, line numbers, infrastructure status) at HEAD `4a696c7`, not just at implementer dispatch.
+- `spec_followup_tracker_freshness.md` — pre-flight verified each candidate's tracker assertion (file paths, line numbers, infrastructure status) at HEAD `804da2e`, not just at implementer dispatch.
 - `compressed_cadence.md` — Bundle 3 is the canonical example: combined production change + test polish at ≤15 LOC of production delta uses the lighter review cadence.
 - `retire_deviation_grep_all_comments.md` — Bundle 3 explicitly invokes the grep enumeration at plan-time and Stage 1 review.
 - `plan_grep_helper_patterns.md` — Bundle 2's design-time grep for inventory primitives caught that `Inventory.GetItemCount` already exists, avoiding the inline-vs-Player-method false dichotomy.

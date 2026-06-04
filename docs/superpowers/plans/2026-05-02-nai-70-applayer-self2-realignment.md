@@ -12,7 +12,7 @@
 
 ## Pre-flight Verification
 
-Confirm at HEAD `b703a4a` (NAI-70 spec commit, parent `e43dfe8` NAI-69 close):
+Confirm at HEAD `94c6ed0` (NAI-70 spec commit, parent `a9b24b5` NAI-69 close):
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./... -count=1

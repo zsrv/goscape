@@ -25,7 +25,7 @@ shows the same divergence at all 12 Op*-handler sites — the audit pass
 must cover the whole family, not the single carve-out site, per
 `true_to_ts_gate.md` and `enumerate_all_sites.md`.
 
-## §2. The divergence (verified at HEAD `7859386`)
+## §2. The divergence (verified at HEAD `3f28c94`)
 
 TS source: every `Op*[T|U]?Handler.ts` calls `setInteraction(...)` THEN
 `opcalled = true`, immediately before `return true`. Reference:
@@ -48,7 +48,7 @@ TS source: every `Op*[T|U]?Handler.ts` calls `setInteraction(...)` THEN
 Goscape source: every Op*-handler does the inverse (`opcalled = true` →
 `SetInteraction(...)`):
 
-| Goscape site | Function | Lines (HEAD `7859386`) |
+| Goscape site | Function | Lines (HEAD `3f28c94`) |
 |---|---|---|
 | `handler_oploc.go` | `handleOpLoc` | 89-90 |
 | `handler_oploc.go` | `handleOpLocT` | 176-177 |
@@ -185,9 +185,9 @@ Total: 24-38 LOC.
 This is borderline against the `compressed_cadence.md` ≤~15 LOC heuristic
 but every line is a `git diff -U0 | wc -l`-trivial move; there is no
 test-design surface, no API surface, and no review surface beyond visual
-diff inspection. Compressed remains the right call. NAI-56 (`516383a`,
-~12 LOC + 4 doc-comment refreshes) and NAI-52 (`d0a72c1`, ~13 LOC + helper
-extraction) are the precedents; NAI-61 (`6a84a3d`) was a similar-shape
+diff inspection. Compressed remains the right call. NAI-56 (`6950942`,
+~12 LOC + 4 doc-comment refreshes) and NAI-52 (`07490ed`, ~13 LOC + helper
+extraction) are the precedents; NAI-61 (`f0a0217`) was a similar-shape
 ordering audit but ran full-cadence — the choice there was discretionary,
 not forced.
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26 (stdlib only). Tests reuse existing fixtures (`makeOpLocFixture`, `newNoopScriptFile`, `makeApTriggerFixture`) and follow S6j/S6l test patterns.
 
-**Spec reference:** `docs/superpowers/specs/2026-04-21-runescript-s6m-oploc-t-u-design.md` (commit `f01bef4`).
+**Spec reference:** `docs/superpowers/specs/2026-04-21-runescript-s6m-oploc-t-u-design.md` (commit `bb2169a`).
 
 **Build commands (per CLAUDE.md):**
 - Build: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./...`

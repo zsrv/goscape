@@ -8,11 +8,11 @@
 
 **Tech Stack:** Go 1.26+. No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-05-01-nai-54-execute-script-finished-tail-design.md` (commit `fda912b`).
+**Spec:** `docs/superpowers/specs/2026-05-01-nai-54-execute-script-finished-tail-design.md` (commit `0f369f0`).
 
 ---
 
-## Pre-flight context (verified at HEAD `fda912b`)
+## Pre-flight context (verified at HEAD `0f369f0`)
 
 **Production interface impls:**
 - `(*Player)` — `modules/world/player_script.go:137,143` (StoreActiveScript, ClearActiveScript).
@@ -36,7 +36,7 @@
 **Re-verify at HEAD before each implementer dispatch (per `controller_preflight.md`):**
 
 ```
-git rev-parse HEAD                        # confirm fda912b or descendant
+git rev-parse HEAD                        # confirm 0f369f0 or descendant
 rg -n 'StoreActiveScript|ClearActiveScript' pkg/script/active.go
 rg -n 'func \(m \*mockPlayer\) ClearActiveScript' pkg/script/runner_test.go
 rg -n 'func \(m \*mockActiveNpc\) ClearActiveScript' pkg/script/handlers_player_test.go

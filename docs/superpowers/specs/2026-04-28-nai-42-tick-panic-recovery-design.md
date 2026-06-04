@@ -2,7 +2,7 @@
 
 **Status:** open
 **Date:** 2026-04-28
-**HEAD at spec-write:** `ed85499` (post-NAI-41)
+**HEAD at spec-write:** `e87ba81` (post-NAI-41)
 **Tech Stack:** Go 1.26+
 
 ## 1. Purpose

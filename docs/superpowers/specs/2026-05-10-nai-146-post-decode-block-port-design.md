@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-10
 **Status:** spec — pending plan
-**Predecessors:** NAI-144 (`eacf892` — gate body wired, inert at HEAD), NAI-77 T3 (`processWalkTriggerFallbacks` — partial port at wrong slot)
+**Predecessors:** NAI-144 (`1ac9816` — gate body wired, inert at HEAD), NAI-77 T3 (`processWalkTriggerFallbacks` — partial port at wrong slot)
 **Tracker entries closed by this:** `NAI-144-D-MoveClickRequestSetter`, `NAI-77-D-WALKTRIGGER-FALLBACK-PHASE-CHOICE`
 
 ## 1. Scope
@@ -29,7 +29,7 @@ Port the per-tick post-decode player block at TS
 ### 2.1 Current state at HEAD
 
 - **Gate body wired** at `modules/world/movement.go:64` (NAI-144,
-  `eacf892`):
+  `1ac9816`):
   ```go
   if p.moveClickRequest && p.Busy() && (len(p.queue) > 0 || len(p.engineQueue) > 0) {
       p.walkDir = -1

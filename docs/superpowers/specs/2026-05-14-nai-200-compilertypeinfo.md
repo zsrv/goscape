@@ -1,7 +1,7 @@
 # NAI-200: bytecode compiler arc opener — `CompilerTypeInfo` foundation
 
 **Date**: 2026-05-14
-**Predecessor**: NAI-199 (`category.dat` + `frame_del.dat` writers; closed at `bc04edc`; PackShared per-config + specials layer 18/18 complete).
+**Predecessor**: NAI-199 (`category.dat` + `frame_del.dat` writers; closed at `93ede42`; PackShared per-config + specials layer 18/18 complete).
 **Arc opener**: First sub-spec of the bytecode arc that will eventually close `regenScriptPack` → `script.pack` → `script.dat` end-to-end. NAI-200 ports the **symbol-table data structure** that every downstream arc step writes into (NAI-201 populator) and reads from (NAI-202+ compiler).
 
 ## 0. Pre-context correction (scope-gate)

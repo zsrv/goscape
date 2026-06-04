@@ -4,7 +4,7 @@
 
 ## Goal
 
-Close the **RemoveObj half** of NAI-115-D2 (the AddObj half closed in NAI-177 at `4463df6`). Extend `(*Server).RemoveObj`, `script.WorldVars.RemoveObj`, and the adapter chain with a `duration int` parameter; port the full TS `World.removeObj` body (IsActive guard, scaleByPlayerCount, lifecycle-gated SetLifeCycle); wire OBJ_DEL/OBJ_TAKEITEM handlers to pass `ObjType.RespawnRate` per TS.
+Close the **RemoveObj half** of NAI-115-D2 (the AddObj half closed in NAI-177 at `20473cb`). Extend `(*Server).RemoveObj`, `script.WorldVars.RemoveObj`, and the adapter chain with a `duration int` parameter; port the full TS `World.removeObj` body (IsActive guard, scaleByPlayerCount, lifecycle-gated SetLifeCycle); wire OBJ_DEL/OBJ_TAKEITEM handlers to pass `ObjType.RespawnRate` per TS.
 
 Fold a drive-by stale-comment cleanup at `pkg/script/state.go:130-138` (EnqueueObjDelayed claims "discarded at drain" — NAI-177 B0 closed that gap; the comment lies at HEAD).
 
@@ -12,7 +12,7 @@ User-visible behavior unlocked: **RESPAWN-lifecycle drops re-spawn after pickup 
 
 ## Tech stack
 
-Go 1.26+ (per `go_version.md`). Sources of truth pinned at HEAD `9800d7e`:
+Go 1.26+ (per `go_version.md`). Sources of truth pinned at HEAD `49bfb09`:
 
 - TS canonical: `LostCityRS/Engine-TS/` (per `ts_source_canonical_path.md`).
 - Spec/plan combined per `compressed_cadence.md`.
@@ -88,7 +88,7 @@ Note TS branches `RESPAWN` and `DESPAWN` explicitly; `FOREVER`-lifecycle objs fa
 
 ---
 
-## §2. Existing goscape state (HEAD `9800d7e`)
+## §2. Existing goscape state (HEAD `49bfb09`)
 
 ### Already in place
 
@@ -129,7 +129,7 @@ modules/world/server_varp.go:130 → worldVarsView.RemoveObj header
 
 ### Stale doc-comment (NAI-177 cleanup miss, drive-by here)
 
-`pkg/script/state.go:130-138` says: *"duration is plumbed through but currently discarded at drain (NAI-115-D2 foundation gap; mirrors worldVarsView.AddObj's existing `_ = duration`)"*. NAI-177 B0 closed the drain at `4463df6`; the comment now misrepresents HEAD. Folded into B3 below.
+`pkg/script/state.go:130-138` says: *"duration is plumbed through but currently discarded at drain (NAI-115-D2 foundation gap; mirrors worldVarsView.AddObj's existing `_ = duration`)"*. NAI-177 B0 closed the drain at `20473cb`; the comment now misrepresents HEAD. Folded into B3 below.
 
 ---
 
@@ -297,7 +297,7 @@ s.World.RemoveObj(s.ActiveObj, duration)
 EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int)
 ```
 
-(4 lines deleted: the "duration is plumbed through but currently discarded at drain (NAI-115-D2 foundation gap...)" block. NAI-177 B0 closed the drain at `4463df6`.)
+(4 lines deleted: the "duration is plumbed through but currently discarded at drain (NAI-115-D2 foundation gap...)" block. NAI-177 B0 closed the drain at `20473cb`.)
 
 ### B4 — Test mock updates
 
@@ -399,7 +399,7 @@ Documented at §3 B1. Not a TS deviation (TS only branches on RESPAWN); a Go-sid
 
 Per `controller_preflight.md`, the controller should re-verify these at HEAD before each task dispatch:
 
-1. **`Server.RemoveObj` call-site enumeration** (T1.3): `rg "\\.RemoveObj\\(" modules/ pkg/ | rg -v "z\\.RemoveObj"` — the §2 enumeration is a HEAD `9800d7e` snapshot; mid-NAI-178 additions may exist. Exclude `z.RemoveObj` (zone-side, different sig).
+1. **`Server.RemoveObj` call-site enumeration** (T1.3): `rg "\\.RemoveObj\\(" modules/ pkg/ | rg -v "z\\.RemoveObj"` — the §2 enumeration is a HEAD `49bfb09` snapshot; mid-NAI-178 additions may exist. Exclude `z.RemoveObj` (zone-side, different sig).
 2. **`mockActiveObj` consumers** (T2.3): `rg "mockActiveObj\\{" pkg/script/` — every `&mockActiveObj{...}` literal must still compile after adding `respawnLifecycle` (zero-value `false` is the natural default for existing tests that don't care about lifecycle). Verify no struct uses unkeyed positional literals.
 3. **Test 3 (player-count scaling)**: easiest to assert via `s.scaleByPlayerCount(50)` as the expected value rather than re-deriving the arithmetic — keeps the test from rotting if the scaling formula ever changes. Sister-test precedent: `server_test.go:707 TestScaleByPlayerCountFormula`.
 4. **`s.Configs` nil-guard in OBJ_DEL** (T4.2): pkg/script tests routinely have `s.Configs == nil` (e.g., `TestHandleObjDelNilActive`). The body must guard; otherwise existing tests crash. Mirror OBJ_TAKEITEM's existing `if objCfg := s.Configs.ObjType(...); objCfg != nil` pattern from the wealth-event block at L268-281.
@@ -418,7 +418,7 @@ Run after writing this doc (per brainstorming skill §Spec Self-Review):
 ### Placeholder scan
 
 - [x] No "TBD"/"TODO"/"XXX" placeholders.
-- [x] All file paths exist at HEAD `9800d7e`.
+- [x] All file paths exist at HEAD `49bfb09`.
 - [x] All line numbers verified at HEAD via the exploration grep enumeration.
 
 ### Internal consistency

@@ -191,7 +191,7 @@ The smoke (§4) is the integration-level binding. No need for an integration tes
 
 ### §3.5 Pre-flight verification (controller pre-dispatch, per `controller_preflight.md`)
 
-Before plan-author dispatch, controller verifies at HEAD `2b8ff81` (NAI-140 close):
+Before plan-author dispatch, controller verifies at HEAD `fcec331` (NAI-140 close):
 - `rg -n "func \(p \*Player\) writeFullFollows" modules/world/player_zone.go` → confirm signature + line `:25`; confirm three-branch absence.
 - `rg -n "TODO\(beyond-4b\)" modules/world/player_zone.go` → confirm stale TODO at `:23-24` still present.
 - `Read pkg/entity/loc.go` body of `IsChanged()` and `Revert()` → confirm contract per R3.

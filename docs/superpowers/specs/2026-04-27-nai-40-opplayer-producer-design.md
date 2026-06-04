@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-27
 **Status:** Spec
-**Predecessor:** NAI-39 (HINT_PL/HINT_COORD/HINT_STOP + activePlayer2 substrate, HEAD `2875b05`)
+**Predecessor:** NAI-39 (HINT_PL/HINT_COORD/HINT_STOP + activePlayer2 substrate, HEAD `812f018`)
 **Tech stack:** Go 1.26+
 
 ## Summary
@@ -300,5 +300,5 @@ Total: **~490 LOC production + ~250 LOC tests = ~740 LOC across 7 tasks.**
   - `src/engine/script/ScriptState.ts:215-243` (activePlayer/activePlayer2 getters/setters)
   - `src/engine/script/ScriptRunner.ts:78-92` (target-binding switch)
   - `src/engine/entity/Player.ts:1100-1210` (interaction tick)
-- goscape predecessor: NAI-39 (`2875b05`)
+- goscape predecessor: NAI-39 (`812f018`)
 - NPC-side analog: `modules/world/npc_interaction_trigger.go`, `modules/world/handler_opnpc*.go`

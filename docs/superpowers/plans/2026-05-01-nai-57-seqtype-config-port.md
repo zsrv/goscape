@@ -825,7 +825,7 @@ Verify `objtype` is already imported in `player.go` (it is — `appearanceInv` d
 
 - [ ] **Step 3.4: Add the conditional seed** inside `newPlayer(c *client) *Player`.
 
-Pre-flight at HEAD `516383a` confirmed the function shape: `newPlayer` at `player.go:343` uses `p := &Player{...}` (struct literal at lines 344-430), then a `for i := 0; i < 21; i++` stats-init loop, then `p.afkZones[0] = packAfkCoord(...)`, then `return p` at line 440.
+Pre-flight at HEAD `6950942` confirmed the function shape: `newPlayer` at `player.go:343` uses `p := &Player{...}` (struct literal at lines 344-430), then a `for i := 0; i < 21; i++` stats-init loop, then `p.afkZones[0] = packAfkCoord(...)`, then `return p` at line 440.
 
 Insert the conditional seed immediately after the struct-literal closing `}` at line 430 and before the comment that introduces the stats-init loop ("Sentinel values so the first tick..." at line 431):
 

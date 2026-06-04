@@ -8,10 +8,10 @@
 
 **Tech Stack:** Go 1.26+ (per `go_version.md`).
 
-**Source-of-truth pinning at HEAD `c4648f8`:**
+**Source-of-truth pinning at HEAD `0027628`:**
 - TS canonical: `LostCityRS/Engine-TS/` (per `ts_source_canonical_path.md`).
 - Rust canonical (rsmod): `2004scape/rsmod-pathfinder` (per `rust_source_canonical_path.md`).
-- Spec: `docs/superpowers/specs/2026-05-11-nai-163-cascade-tail-zero-design.md` (committed at `50b3963`).
+- Spec: `docs/superpowers/specs/2026-05-11-nai-163-cascade-tail-zero-design.md` (committed at `bff2902`).
 
 **Test command prefix (per global CLAUDE.md):**
 
@@ -1640,7 +1640,7 @@ this is the roll-up.
 Tightened missing-handler audit (regex Op[A-Za-z][A-Za-z0-9]*) per
 missing_handler_audit_regex_flaw.md:
 
-  Pre-NAI-163 (at c4648f8): 4 opcodes (OpBusy, OpLineOfSight,
+  Pre-NAI-163 (at 0027628): 4 opcodes (OpBusy, OpLineOfSight,
                             OpNpcAdd, OpNpcHunt)
   Post-NAI-163:              0
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.x, `modernc.org/sqlite`, `golang-migrate/migrate/v4`, `embed.FS` for migrations, `database/sql`, `google.golang.org/grpc`, `pkg/friendspb`.
 
-**Predecessor:** slice 5b close commit `6e66742f`; spec commit `0a44fc1a` at `docs/superpowers/specs/2026-05-19-friends-server-bridge-slice6-design.md`.
+**Predecessor:** slice 5b close commit `d6cbfe0e`; spec commit `ade5a007` at `docs/superpowers/specs/2026-05-19-friends-server-bridge-slice6-design.md`.
 
 **Gate (must hold post-slice):** `-race` clean across all 30 packages; smoke-pack 12 OK / 0 ERR / 0 SKIP.
 

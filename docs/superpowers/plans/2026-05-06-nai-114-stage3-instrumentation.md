@@ -26,7 +26,7 @@ No file deletions. No restructuring of existing code blocks. No changes to TS-fa
 
 ## Reference Material
 
-### `handler_opheld.go` current state (verified at HEAD `07e42bf`)
+### `handler_opheld.go` current state (verified at HEAD `1e178cb`)
 
 The 4-arm fallback at lines 370-396 (excerpted; verbatim):
 
@@ -63,15 +63,15 @@ s.runScript(sf, p, nil, true, nil, nil)
 return nil
 ```
 
-### `script.Provider` (verified at HEAD `07e42bf`)
+### `script.Provider` (verified at HEAD `1e178cb`)
 
 `pkg/script/provider.go` exposes `byName map[string]*ScriptFile` (unexported, L19), `Register(*ScriptFile)` (L182), `Count() int` (L210). The new accessor goes after `Count()`.
 
-### `Server.log` (verified at HEAD `07e42bf`)
+### `Server.log` (verified at HEAD `1e178cb`)
 
 `modules/world/server.go:49` declares `log *slog.Logger`. Reachable from `handleOpHeldU` via `s := p.client.server` then `s.log` (already done at line 275).
 
-### `objType.ConfigType` (verified at HEAD `07e42bf`)
+### `objType.ConfigType` (verified at HEAD `1e178cb`)
 
 `pkg/objtype/configtype.go:11-15` — `ConfigType{ID int, DebugName string}`. `objType.ConfigType.ID` and `objType.ConfigType.DebugName` are the loggable identifiers. `objType.Category` is `int` at `pkg/objtype/objtype.go:132`.
 

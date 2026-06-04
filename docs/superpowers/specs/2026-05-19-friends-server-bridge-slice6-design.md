@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-19
 **Slice:** 6 of 7 (friends-server bridge arc)
-**Predecessor:** slice 5b (close commit `6e66742f`, retired `NAI-S5A-D-DISPATCHER-NO-ACTION`; see `[[friends-server-slice5b-close]]`)
+**Predecessor:** slice 5b (close commit `d6cbfe0e`, retired `NAI-S5A-D-DISPATCHER-NO-ACTION`; see `[[friends-server-slice5b-close]]`)
 **Closes:** `NAI-S1-D-PM-NO-PERSISTENCE`
 **Opens:** `NAI-S6-D-NO-READ-RPC` (permanent), `NAI-S6-D-NO-RETENTION` (permanent), `NAI-S6-D-PUBLIC-CHAT-DEFERRED` (retires post-slice-7)
 

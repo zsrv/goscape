@@ -1,7 +1,7 @@
 # NAI-128 Stage 2 — Cascade-fix design
 
-**Predecessor:** Stage 1 binding probe at `2026-05-08-nai-128-rat-loot-cascade-investigation-design.md` (`6c1c6be`); findings at `docs/superpowers/findings/2026-05-08-nai-128-stage1-findings.md`.
-**HEAD at brainstorm:** `565db9a`.
+**Predecessor:** Stage 1 binding probe at `2026-05-08-nai-128-rat-loot-cascade-investigation-design.md` (`6f59550`); findings at `docs/superpowers/findings/2026-05-08-nai-128-stage1-findings.md`.
+**HEAD at brainstorm:** `e61b5f8`.
 **Tech stack:** Go 1.26+, no new deps.
 
 ## §1 Goal

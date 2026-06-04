@@ -697,7 +697,7 @@ func TestInvLookupNilReturnsError(t *testing.T) {
 // InvListenOnCom(invType, com, activePlayer.uid). Matches TS InvOps.ts
 // INV_TRANSMIT (`const [inv, com] = state.popInts(2)` — inv pushed first,
 // com second). Pins post-NAI-24-Bundle-2 behavior; pre-fix this test
-// asserted Source: -1 (S6u porting bug at commit 947540b). Push order
+// asserted Source: -1 (S6u porting bug at commit 5b67653). Push order
 // migrated by NAI-113 T9 to match runescript-compiler convention; the
 // previous (com, inv) order was hand-tuned to a buggy handler pop order
 // that masked a side-panel emission bug in production.

@@ -3,7 +3,7 @@
 - **Sub-spec**: NAI-31
 - **Date**: 2026-04-26
 - **Scope label**: Investigation-and-fix sub-spec — risk-weighted short-circuit static audit (Stage 1) of the five-layer NPC pipeline (gamemap loader → server spawn loop → addNpc registration → per-tick encoder → OpNpcInfo wire), targeted fix(es) for whatever layer Stage 1 surfaces (Stage 2), retirement of NAI-30-D2 (local-player CHAT mask suppression in `pkg/rsbuf/playerinfo.go::writeLocalPlayer`), opportunistic doc-cleanup of NAI-30-D1 stale comments without retiring the underlying deviation, replacement of the unauthorized `rs-server-225/engine/gamemap.go` citation in `pkg/gamemap/load.go:138` with a TS-canonical-path citation, user-mediated smoke handoff (Java client launch by user) as the binding feature-correctness gate, and an explicit Stage 3 fallback (gated runtime instrumentation, second smoke iteration) only if Stage 2's fix doesn't render NPCs in the client. Touches `pkg/gamemap/`, `pkg/rsbuf/`, `modules/world/` (Stage-1-conditional surfaces; concrete file list resolved at plan-author time after audit verdicts). Produces zero new deviations in the most-likely outcome (parser was authored against unauthorized sibling repo, port to TS-canonical fixes it). Net deviation count target: 14 → 13 (D2 retired).
-- **Predecessors**: NAI-30 (encoder loops port + production read-flip) — last on `main` as `b03e4b7`
+- **Predecessors**: NAI-30 (encoder loops port + production read-flip) — last on `main` as `76b55fb`
 - **Source root**:
   - `LostCityRS/Engine-TS` (TS canonical for `pkg/gamemap` per `ts_source_canonical_path.md`)
   - `LostCityRS/Client-Java` (binding wire spec for OpNpcInfo + NpcInfo packet handler)
@@ -11,7 +11,7 @@
 
 ## Motivation
 
-NAI-30 closed cleanly with `(*PlayerInfo).Encode` + `(*NpcInfo).Encode` wired into production via T4.2/T4.3. The user's smoke test on 2026-04-26 confirms world-map render works (REBUILD_GETMAPS arrives post-`e5c6d8f` first-build sentinel restore), players are visible, login flows cleanly. **NPCs do not render in the Java client.** The user reports this predates NAI-30 — the bug existed even before the encoder swap, but was previously masked by other smoke-blocking issues that NAI-30 resolved.
+NAI-30 closed cleanly with `(*PlayerInfo).Encode` + `(*NpcInfo).Encode` wired into production via T4.2/T4.3. The user's smoke test on 2026-04-26 confirms world-map render works (REBUILD_GETMAPS arrives post-`57234f8` first-build sentinel restore), players are visible, login flows cleanly. **NPCs do not render in the Java client.** The user reports this predates NAI-30 — the bug existed even before the encoder swap, but was previously masked by other smoke-blocking issues that NAI-30 resolved.
 
 `pkg/rsbuf/npcinfo_test.go::TestPlayerSeesNearbyNpc` exercises spawn → tick → encoder side-effect (`HasNpc` → true) and passes at HEAD. So the bug is at a layer the encoder unit test doesn't exercise: the gamemap NPC-spawn loader (parses `n{X}_{Z}` files into `gm.npcSpawns`), the production startup spawn loop (`server.go:229-242`), the per-tick `npcSources` build (`tick.go:330-...`), the OpNpcInfo wire framing (opcode + dynamic length prefix), or a first-tick edge case in the encoder that the spawn-then-tick test doesn't capture (e.g., `Build.GetNearbyNpcs` zoneMap subscription state on a fresh-login player).
 

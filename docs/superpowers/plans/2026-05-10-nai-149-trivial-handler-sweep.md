@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+ (`go_version.md`). No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-05-10-nai-149-trivial-handler-sweep-design.md` (commit `4023236`).
+**Spec:** `docs/superpowers/specs/2026-05-10-nai-149-trivial-handler-sweep-design.md` (commit `a1ff79c`).
 
 **Cadence:** 100-300 LOC band per `runescript_cadence.md` — separate spec + plan docs, single combined Sonnet reviewer at end-of-impl. Subagent-driven-development per `execution_mode_default.md`. Per-task two-stage review (rubric-light: implementer commit + controller pre-flight, defer Sonnet review to end).
 
@@ -36,7 +36,7 @@ Total estimated delta: ~340 LOC production + ~520 LOC test.
 
 ## Pre-flight verification (controller, not implementer)
 
-Before dispatching T1, the controller (parent) verifies these premises against HEAD `4023236` (per `controller_preflight.md`):
+Before dispatching T1, the controller (parent) verifies these premises against HEAD `a1ff79c` (per `controller_preflight.md`):
 
 - `pkg/script/active.go:415-420` declares `StaffModLevel() int32` (cohort baseline for new methods).
 - `pkg/script/active.go` does NOT declare any of: `Members()`, `RunWeight()`, `AfkEventReady()`, `SetAfkEventReady`, `SetRunEnergy`.
@@ -1387,7 +1387,7 @@ awk '/^var handlers = map\[Opcode\]/,/^}/' pkg/script/handlers.go | grep -oE 'Op
 awk '/^const \(/,/^\)/' pkg/script/opcode.go | grep -oE 'Op[A-Za-z_]+\b' | sort -u > /tmp/claude/declared.txt
 comm -23 /tmp/claude/declared.txt /tmp/claude/handled.txt | wc -l
 ```
-Expected: 39 (down from 47 at HEAD `0a5085c`).
+Expected: 39 (down from 47 at HEAD `8aa61b1`).
 
 - [ ] **Smoke-handoff prep:** update the user with the 4 originally-flagged WARN classes' status: PLAYERMEMBER ✓, AFK_EVENT ✓, INV_STOCKBASE ✓, PROJANIM_NPC deferred to NAI-150.
 

@@ -9,7 +9,7 @@
 **Tech Stack:** Go 1.26+
 
 **Spec:** `docs/superpowers/specs/2026-05-13-nai-189-debugproc-cheat-design.md`
-**HEAD at plan-write:** `a4172a5`
+**HEAD at plan-write:** `46fdd27`
 **TS source:** `LostCityRS/Engine-TS/src/network/game/client/handler/ClientCheatHandler.ts:59-148`
 
 ---
@@ -33,7 +33,7 @@ No new files.
 
 ---
 
-## Plan-author pre-flight (recorded at plan-write, HEAD `a4172a5`)
+## Plan-author pre-flight (recorded at plan-write, HEAD `46fdd27`)
 
 Re-verified spec premises against current `main`:
 
@@ -1644,7 +1644,7 @@ Expected: 8-10 files modified, no spurious changes:
 - `pkg/objtype/{seqtype,spotanimtype,idktype,invtype}_test.go` (4 tests)
 - `modules/world/handlers_game.go` (production)
 - `modules/world/handlers_game_test.go` (tests)
-- `docs/superpowers/specs/2026-05-13-nai-189-debugproc-cheat-design.md` (already committed in a4172a5)
+- `docs/superpowers/specs/2026-05-13-nai-189-debugproc-cheat-design.md` (already committed in 46fdd27)
 - `docs/superpowers/plans/2026-05-13-nai-189-debugproc-cheat.md` (already committed pre-T1)
 
 Per memory `implementer_commit_content_verify`: confirm `git log --oneline main..HEAD` shows the expected T1-T9 commit train and no surprises.

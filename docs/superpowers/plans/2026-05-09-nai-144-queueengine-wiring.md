@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+. Standard `net/http`, `testing`. No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-05-09-nai-144-queueengine-wiring-design.md` (committed at `cbed772`).
+**Spec:** `docs/superpowers/specs/2026-05-09-nai-144-queueengine-wiring-design.md` (committed at `5b18b14`).
 
 **Audits resolved during plan-write:**
 - **R3 (moveClickRequest setter)** — zero `=true` sites exist in goscape. TS sets it in `World.ts:611-628` per-tick post-decode pathfinding pass. Goscape's structural equivalent (`moveClickInner` at `handlers_game.go:235`) is decode-time, not per-tick. Setter port is **out of scope** for NAI-144. Gate is **inert at HEAD**. Plan documents this in the gate's doc-comment and adds tracker entry `NAI-144-D-MoveClickRequestSetter` for follow-up.
@@ -44,7 +44,7 @@
 - [ ] **Step 1.1: Run baseline tests to confirm green starting point**
 
 Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/... ./pkg/script/...`
-Expected: PASS (all existing tests green at HEAD `cbed772`).
+Expected: PASS (all existing tests green at HEAD `5b18b14`).
 
 - [ ] **Step 1.2: Remove `// reserved` from `QueueEngine` enum**
 
@@ -726,7 +726,7 @@ Insert immediately after the `p.stepsTaken = 0` line:
 	// for this tick.
 	//
 	// INERT AT HEAD: goscape currently has zero `moveClickRequest = true`
-	// assignment sites (verified at HEAD `cbed772`). TS sets it in
+	// assignment sites (verified at HEAD `5b18b14`). TS sets it in
 	// World.ts:611-628 (per-tick post-decode pathfinding pass); goscape's
 	// structural equivalent lives in moveClickInner (handlers_game.go:235),
 	// which runs at decode-time, not per-tick. The gate is wired
@@ -1156,7 +1156,7 @@ Expected: clean working tree (apart from any pre-existing untracked files unrela
 - [ ] **Step 5.2: Confirm 4 commits on the branch**
 
 Run: `git log --oneline -5`
-Expected: 4 NAI-144 commits + earlier `cbed772` spec commit.
+Expected: 4 NAI-144 commits + earlier `5b18b14` spec commit.
 
 - [ ] **Step 5.3: Final full test suite + race detector**
 

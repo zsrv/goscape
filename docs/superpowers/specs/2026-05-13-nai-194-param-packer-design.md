@@ -5,7 +5,7 @@
 **Tech stack:** Go 1.26+
 **TS source:** `LostCityRS/Engine-TS/tools/pack/config/ParamConfig.ts` (~190 LOC body); `tools/pack/PackShared.ts` `packConfigs` param branch (continuation of varp/varn/vars pattern); `src/cache/config/ParamType.ts:64` (`autodisable=true` default).
 **Predecessors:** NAI-191 (pack-pipeline foundation), NAI-192 (varn + vars), NAI-193 (.varp packer + jagfile writer fix + var-domain uniqueness check).
-**HEAD at spec-write:** `3ef7c90`.
+**HEAD at spec-write:** `2df5078`.
 
 ## §1 Goal
 
@@ -30,7 +30,7 @@ Same slice fixes a pre-existing loader-side default-value bug in `pkg/objtype/pa
 
 ## §3 Pre-flight audit
 
-Per `controller_preflight` + `risk_register_premise_grep`, every premise below was re-verified against HEAD `3ef7c90`.
+Per `controller_preflight` + `risk_register_premise_grep`, every premise below was re-verified against HEAD `2df5078`.
 
 ### §3.1 TS schema (`ParamConfig.ts`)
 

@@ -29,7 +29,7 @@ Stage 1 audit ELIMINATES the routefinder algorithm itself as the source of the N
 **Evidence:**
 - `pkg/pathfinder/routefinder/nai94_repro_test.go::TestNAI94_AllocatedZones_PathfinderWorks/HansCheb2` PASSES: src=(3219,3224)→dst=(3219,3222) with `internal.BuildCollisionMap(3216,3220,3222,3226)` returns `{Waypoints:[(3219,3222,0)] Alternative:false Success:true}`.
 - The empty-FlagMap reproducer fails for a DEGENERATE reason: `pkg/pathfinder/collision/flag.go:4` `FlagNull = -1`; `pkg/pathfinder/collision/flagmap.go:30-48` returns `FlagNull` for unallocated zones; `pkg/pathfinder/collision/strategies.go:25-26` `TypeNormal` returns `tileFlag & blockFlag == 0`. With `tileFlag = -1` (all bits set in two's complement), the AND with any non-zero `blockFlag` yields a non-zero result, so `CanMove` returns false for every direction expansion. Source's BFS expansion at `routefinder.go:184-274` therefore appends zero neighbors. Loop exits, `routeFindSize1` returns false, `pathFound=false`, moveNear branch fires `findClosestApproachPoint` which selects the source itself as the only tile with finite distance → reconstruction breaks immediately on the first iteration's `currLocalX==localSrcX` check → empty Waypoints, `Alternative=true`.
-- T1 implementer's original skip pin claimed `Alternative:false`. Verification probe (`TestNAI94_ProbeFullRoute`, ephemeral) showed actual `Alternative:true`. Pin corrected at commit `292f072`.
+- T1 implementer's original skip pin claimed `Alternative:false`. Verification probe (`TestNAI94_ProbeFullRoute`, ephemeral) showed actual `Alternative:true`. Pin corrected at commit `6c20a8b`.
 
 ### H2 — `useRouteBlockerFlags` declared but unconsulted
 

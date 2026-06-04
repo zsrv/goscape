@@ -1,6 +1,6 @@
 # NAI-133 — BOTH_MOVEINV (4301) + per-pointer-slot Protect refactor + FINDUID/P_FINDUID slot routing
 
-**Predecessor:** NAI-132 close (`cdfe4e8`) §2 deferred set. NAI-132 punted `BOTH_MOVEINV` because TS InvOps.ts:373-495 indexes `ProtectedActivePlayer[secondary?1:0]` / `[secondary?0:1]`, and goscape's `s.Protect bool` was a single slot-0 flag. NAI-133 ports the prerequisite per-pointer-slot Protect tracking, the FINDUID/P_FINDUID slot routing that produces the slot-1 protect flag, and the BOTH_MOVEINV handler itself.
+**Predecessor:** NAI-132 close (`31ed804`) §2 deferred set. NAI-132 punted `BOTH_MOVEINV` because TS InvOps.ts:373-495 indexes `ProtectedActivePlayer[secondary?1:0]` / `[secondary?0:1]`, and goscape's `s.Protect bool` was a single slot-0 flag. NAI-133 ports the prerequisite per-pointer-slot Protect tracking, the FINDUID/P_FINDUID slot routing that produces the slot-1 protect flag, and the BOTH_MOVEINV handler itself.
 
 **Tech stack:** Go 1.26+. No new dependencies.
 

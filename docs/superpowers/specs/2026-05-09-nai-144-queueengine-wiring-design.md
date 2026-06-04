@@ -64,7 +64,7 @@
 - **`Engine-TS/src/engine/World.ts:725`** — `player.processEngineQueue()` per-player tick-loop call site (between `processTimers` and `processInteraction`).
 - **`Engine-TS/src/engine/World.ts:788`** — `player.canAccess() && player.engineQueue.head() === null && queueDiscardable` — engineQueue head is part of "queue is discardable" composite check (out of scope unless an existing goscape consumer needs it; flag during plan-write if discovered).
 
-Per memory `spec_followup_tracker_freshness`: every "TS does X" assertion above re-grep+Read at HEAD `cba768c` 2026-05-09. All confirmed at the cited line numbers.
+Per memory `spec_followup_tracker_freshness`: every "TS does X" assertion above re-grep+Read at HEAD `dfb1608` 2026-05-09. All confirmed at the cited line numbers.
 
 ---
 
@@ -283,7 +283,7 @@ NAI-145 (NAI-142-D-R-D2 + NAI-142-D-R-D3) brainstorm/spec begins fresh-session A
 
 ## §10 Memories applied
 
-- `spec_followup_tracker_freshness` — every cross-reference re-grep+Read at HEAD `cba768c` 2026-05-09; flagged stale claims (D3 `isMulti API needs porting`, D2 `[mapzone_exit,...]` underscore).
+- `spec_followup_tracker_freshness` — every cross-reference re-grep+Read at HEAD `dfb1608` 2026-05-09; flagged stale claims (D3 `isMulti API needs porting`, D2 `[mapzone_exit,...]` underscore).
 - `scope_gate_prerequisite_chain` — QueueEngine carved out as predecessor sub-spec instead of folded into D2/D3 mega-bundle.
 - `consume_reserved_constant` — `QueueEngine // reserved` is exactly the placeholder this sub-spec activates.
 - `runescript_cadence`, `compressed_cadence` — full cadence (not compressed) given moderate surface (~150 production LOC + ~200 test LOC + 4 task split).

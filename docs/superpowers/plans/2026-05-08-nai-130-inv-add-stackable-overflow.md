@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+
 
-**Spec:** `docs/superpowers/specs/2026-05-08-nai-130-inv-add-stackable-overflow-design.md` (commit `dd5acaf`).
+**Spec:** `docs/superpowers/specs/2026-05-08-nai-130-inv-add-stackable-overflow-design.md` (commit `da0a8aa`).
 
 **TS sources (canonical only — `Engine-TS` per `ts_source_canonical_path`):**
 - `Engine-TS/src/engine/Inventory.ts:158-225` (`Inventory.add`)
@@ -1078,7 +1078,7 @@ EOF
 **Step 1 — Final whole-impl Sonnet code review per `superpowers_code_reviewer_model`:**
 
 - [ ] Dispatch a Sonnet code-reviewer subagent with the spec, plan, and Task 1-5 commit SHAs in scope. Ask for: TS-fidelity verification (line-by-line vs `Engine-TS/src/engine/Inventory.ts:158-225` and `Engine-TS/src/engine/script/handlers/InvOps.ts:57-83`), DEVIATION label correctness per `defensive_gate_doc_comment_label`, no YAGNI, mockPlayer satisfies all needed methods, no stale comments.
-- [ ] If the reviewer flags critical issues, address inline as a reviewer-fix sub-commit before the close commit. Path matches NAI-123 reviewer-fix pattern (`ac966db`).
+- [ ] If the reviewer flags critical issues, address inline as a reviewer-fix sub-commit before the close commit. Path matches NAI-123 reviewer-fix pattern (`450d56c`).
 
 **Step 2 — Verification battery (per `verify_implementer_claims`):**
 

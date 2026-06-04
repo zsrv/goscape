@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+. Files in `modules/world/`. No interface changes; no external library deps.
 
-**Spec:** `docs/superpowers/specs/2026-05-09-nai-135-run-mode-visible-effect-design.md` (committed at `7aaa4c7`).
+**Spec:** `docs/superpowers/specs/2026-05-09-nai-135-run-mode-visible-effect-design.md` (committed at `f9aa01e`).
 
 ---
 
@@ -889,7 +889,7 @@ Ports TS Player.ts:655-712 (updateMovement bridge + defaultMoveSpeed
 set by NAI-117 P_RUN handler but never read in production. Toggling
 run-mode now produces a visible movement-speed change.
 
-T1 (7aaa4c7 → next): defaultMoveSpeed helper.
+T1 (f9aa01e → next): defaultMoveSpeed helper.
 T2: resolveMovement bridge block + tempRun idle reset; 7 tests +
     2 existing fixture updates (p.run/runanim instead of moveSpeed).
 T3: (*Player).updateEnergy ported line-for-line from

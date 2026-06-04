@@ -1,7 +1,7 @@
 # NAI-73 — EventTracking handler + InputTracking subsystem + LoggerBridge realisation
 
 **Status:** Spec written 2026-05-02.
-**Predecessor:** NAI-72 (HEAD `c33a2c2`). Net deviation tally entering: 18.
+**Predecessor:** NAI-72 (HEAD `74925f7`). Net deviation tally entering: 18.
 **Closes:** 2 deviations:
 - `NAI-72-D-LOGGER-BRIDGE` — interface gains its second method and a real default impl (`slogLoggerBridge`) replaces the `noopBridges` binding for the `LoggerBridge` field.
 - `NAI-72-D-INPUT-RECORDING-NOT-PORTED` — `Player.input` (`*InputTracking`) and `Player.submitInput` ship; the EVENT_TRACKING handler (op 81) wires up; the per-tick `OnCycle` scheduler runs.
@@ -43,7 +43,7 @@ Submission gate (`shouldSubmitTrackingDetails`, line 126-128): `player.submitInp
 
 Idle-logout gate (line 146-152): if no report was seen and `!Environment.NODE_DEBUG`, set `requestIdleLogout = true` and emit a session log. Goscape has `cfg.NodeDebug` (`config.go:41`) and `Player.requestIdleLogout` (`player.go:213`); only the session-log call is deferred.
 
-## 2. Current state at HEAD (`c33a2c2`)
+## 2. Current state at HEAD (`74925f7`)
 
 ### 2.1 Dependencies (verified present)
 
@@ -427,7 +427,7 @@ $ rg -n "packCoord\b|PackCoord\b" pkg/ modules/                # T2: confirm hel
 $ rg -n "math/rand/v2\b|rand\.New" modules/world/              # T6: confirm RNG conventions
 ```
 
-Per `controller_preflight.md`: any premise that surfaces wrong gets fixed in the spec via inline erratum (matches NAI-72's `9854ac5` STAFFMODLEVEL retraction pattern) before plan-author dispatch.
+Per `controller_preflight.md`: any premise that surfaces wrong gets fixed in the spec via inline erratum (matches NAI-72's `ba3fa3f` STAFFMODLEVEL retraction pattern) before plan-author dispatch.
 
 ## 10. Out-of-scope follow-ups
 

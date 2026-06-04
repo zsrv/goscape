@@ -59,7 +59,7 @@ External:
 
 ## Task 1: Bundle 0 — controller pre-flight at HEAD (no commits)
 
-**Purpose:** Re-verify spec §9 premises against current HEAD before dispatching audit work. The spec was committed at `c2b8259`; pre-flight observations were captured at `a7926f1`. HEAD has moved one commit. Stale citations cause wasted audit cycles (`controller_preflight`, `spec_followup_tracker_freshness`).
+**Purpose:** Re-verify spec §9 premises against current HEAD before dispatching audit work. The spec was committed at `a4e21ce`; pre-flight observations were captured at `7797185`. HEAD has moved one commit. Stale citations cause wasted audit cycles (`controller_preflight`, `spec_followup_tracker_freshness`).
 
 **Files:** read-only.
 
@@ -67,7 +67,7 @@ External:
 
 Run: `git log --oneline -3`
 
-Expected: `c2b8259 docs(spec): NAI-112 …` at HEAD; `a7926f1 chore(close): NAI-110 …` at HEAD~1; `8f4ed34 feat(script): NAI-110 T2 …` at HEAD~2. If unexpected commits appear, halt and reconcile.
+Expected: `a4e21ce docs(spec): NAI-112 …` at HEAD; `7797185 chore(close): NAI-110 …` at HEAD~1; `81f9c53 feat(script): NAI-110 T2 …` at HEAD~2. If unexpected commits appear, halt and reconcile.
 
 - [ ] **Step 1.2: Verify `handleTutClickSide` shape**
 
@@ -133,7 +133,7 @@ You are the Stage 1 audit subagent for goscape investigation sub-spec NAI-112.
 
 CONTEXT:
 - Goscape is a Go port of LostCityRS/Engine-TS, communicating with LostCityRS/Client-Java rev-225.
-- After the NAI-110 close (commit a7926f1), user-launched smoke (2026-05-06) reported: clicking the inventory tab on Tutorial Island (post `tut_flash(^tab_inventory)`) advances neither the chatbox nor displays the inventory side panel. No warn log was reported.
+- After the NAI-110 close (commit 7797185), user-launched smoke (2026-05-06) reported: clicking the inventory tab on Tutorial Island (post `tut_flash(^tab_inventory)`) advances neither the chatbox nor displays the inventory side panel. No warn log was reported.
 - Goscape's inbound packet handler `handleTutClickSide` (modules/world/handler_interface.go:138-149) reads opcode 175, gates 0≤tab≤13, calls `s.scriptProvider.GetByTriggerSpecific(script.TriggerTutorial=159, -1, -1)` (returns `byKey[uint32(159)]` directly — no fallback), and calls `s.runScript(sf, p, nil, true, nil, nil)` — no script args.
 - Unit tests at modules/world/handler_interface_test.go:71-128 pass via `Provider.Register(...)` fixture, which bypasses `Provider.Load` cache-load path.
 - Spec at: docs/superpowers/specs/2026-05-06-nai-112-tutorial-tab-click-investigation-design.md (read this first for full context).
@@ -219,7 +219,7 @@ Read the audit subagent's summary. Cross-check that `docs/superpowers/investigat
 
 ## Task 3: Bundle 1 — controller HEAD-verification of audit claims
 
-**Purpose:** Verify every "Verified at HEAD" claim from the audit report against current HEAD (`c2b8259` or later). Per `audit_subagent_fabrication`, any unverifiable claim disqualifies that hypothesis from binding.
+**Purpose:** Verify every "Verified at HEAD" claim from the audit report against current HEAD (`a4e21ce` or later). Per `audit_subagent_fabrication`, any unverifiable claim disqualifies that hypothesis from binding.
 
 **Files:** read-only. Audit report is `docs/superpowers/investigations/2026-05-06-nai-112-stage1-audit.md`.
 
@@ -327,7 +327,7 @@ EOF
 
 Run: `git log --oneline -2`
 
-Expected: `<new-sha> docs(investigation): NAI-112 Stage 1 …` at HEAD; `c2b8259 docs(spec): NAI-112 …` at HEAD~1.
+Expected: `<new-sha> docs(investigation): NAI-112 Stage 1 …` at HEAD; `a4e21ce docs(spec): NAI-112 …` at HEAD~1.
 
 - [ ] **Step 4.4: Emit Stage-2 resume prompt for user**
 
@@ -487,7 +487,7 @@ Edit `pkg/script/provider.go:103-105` back to its pre-Bundle-1b shape (4-line in
 - [ ] **Step 5.9: Verify revert is byte-identical to pre-Bundle-1b shape**
 
 ```bash
-git diff c2b8259 -- modules/world/handler_interface.go pkg/script/provider.go
+git diff a4e21ce -- modules/world/handler_interface.go pkg/script/provider.go
 ```
 
 Expected: empty output. Iff non-empty, fix the revert until it matches.
@@ -512,7 +512,7 @@ chore(close): NAI-112 Bundle 1b — runtime-bound H<N>; revert instrumentation
 
 User-launched smoke produced logs that bind H<N> (<one-line description>).
 Audit report appended with §Bundle 1b runtime evidence section.
-Instrumentation reverted to pre-Bundle-1b state (byte-diff vs c2b8259 = empty).
+Instrumentation reverted to pre-Bundle-1b state (byte-diff vs a4e21ce = empty).
 
 Closes memory: investigation_subspec_cadence (Bundle 1b instrument-and-smoke
 fallback instance) · cascade_theory_smoke_binding (runtime evidence binds
@@ -575,4 +575,4 @@ Verified before declaring this plan complete:
 
 3. **Type/signature consistency:** `handleTutClickSide` signature matches spec §1 + Task 1.2 + Task 5.1 (parameters: `p *Player, payload []byte; return error`). `GetByTriggerSpecific` signature matches spec §1 + Task 1.3 + audit-prompt step 5c. `Provider.Load` line range 42-106 consistent across all citations.
 
-4. **No invented symbols:** all referenced functions / files exist at HEAD `c2b8259` per Bundle 0 pre-flight.
+4. **No invented symbols:** all referenced functions / files exist at HEAD `a4e21ce` per Bundle 0 pre-flight.

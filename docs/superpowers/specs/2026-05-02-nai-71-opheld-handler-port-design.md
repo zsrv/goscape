@@ -1,7 +1,7 @@
 # NAI-71 — OPHELD handler family port (OPHELD1-5, OPHELDT, OPHELDU)
 
 **Status:** Spec written 2026-05-02.
-**Predecessor:** NAI-70 (HEAD `53bc249`). Net deviation tally entering: 12.
+**Predecessor:** NAI-70 (HEAD `6976188`). Net deviation tally entering: 12.
 **Opens:** `NAI-71-D-OPHELD-NO-SESSION-LOG` (one new deviation).
 **Closes:** none.
 **Tech stack:** Go 1.26+. TS source canonical path: `LostCityRS/Engine-TS`.

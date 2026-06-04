@@ -12,7 +12,7 @@
 
 ## Spec source
 
-`docs/superpowers/specs/2026-05-20-handlepwalk-pathfinder-port-design.md` (commit `f2b2aeef`).
+`docs/superpowers/specs/2026-05-20-handlepwalk-pathfinder-port-design.md` (commit `f3fdd3e6`).
 
 ## Spec → plan deviations
 
@@ -541,7 +541,7 @@ GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... 2>&1 | grep -cE '
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
 ```
 
-Expected: 12 OK / 0 ERR / 0 SKIP (matches baseline at HEAD `d4598782`).
+Expected: 12 OK / 0 ERR / 0 SKIP (matches baseline at HEAD `18a3560a`).
 
 - [ ] **Step 3: Targeted reruns**
 

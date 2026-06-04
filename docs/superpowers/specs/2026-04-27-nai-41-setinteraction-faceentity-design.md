@@ -1,15 +1,15 @@
 # NAI-41 — `Player.SetInteraction` face-entity TS-fidelity
 
-**Status:** closed (commit `11d3d3c`, 2026-04-27)
+**Status:** closed (commit `1b1c57e`, 2026-04-27)
 **Date:** 2026-04-27
-**HEAD at spec-write:** `bb20c51` (post-NAI-40)
+**HEAD at spec-write:** `4f64d76` (post-NAI-40)
 **Tech Stack:** Go 1.26+
 
 ## 1. Purpose
 
 Port the face-entity dispatch of TS `PathingEntity.setInteraction` (`PathingEntity.ts:530-541`) into `Player.SetInteraction`. Closes two divergences in one sub-spec:
 
-- `NAI-40-D-PLAYER-NO-FACEENTITY-ON-OPCLICK` — `Player.faceEntity` never updated when target is `*Player`. Tagged at `modules/world/interaction.go:101-112` by NAI-40 polish commit `bb20c51`.
+- `NAI-40-D-PLAYER-NO-FACEENTITY-ON-OPCLICK` — `Player.faceEntity` never updated when target is `*Player`. Tagged at `modules/world/interaction.go:101-112` by NAI-40 polish commit `4f64d76`.
 - Pre-existing *Player→*Npc timing divergence — `Player.faceEntity` updated at *contact distance* (`processInteraction`, `interaction.go:99`) instead of at *anchor time* (`SetInteraction`). Pre-NAI-40 convention; never numbered before this sub-spec.
 
 The closure is a structural copy of the same dispatch already present in `Npc.SetInteraction` (`modules/world/npc_interaction.go:651-666`) — the in-codebase TS-faithful template.

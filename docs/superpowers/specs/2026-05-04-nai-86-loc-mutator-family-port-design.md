@@ -4,10 +4,10 @@
 **Cadence**: full sub-spec, 4 bundles, per-bundle Sonnet review (per
 `runescript_cadence.md`; estimated ~250 production LOC + ~300 test LOC,
 above the `compressed_cadence.md` ≤15 LOC band).
-**Predecessor**: NAI-85 (HEAD `4df135a` — LOC_PARAM/NAME/TYPE/SHAPE
+**Predecessor**: NAI-85 (HEAD `52e3d06` — LOC_PARAM/NAME/TYPE/SHAPE
 active-loc readers ported; door-click LOC_PARAM cascade-blocker
 silenced).
-**Smoke binding (post-NAI-85)**: door-click smoke at HEAD `4df135a`
+**Smoke binding (post-NAI-85)**: door-click smoke at HEAD `52e3d06`
 confirmed LOC_PARAM silenced; new cascade-blocker surfaced at the same
 site as `no handler for LOC_CHANGE (opcode 3004) at pc=50` inside
 `[proc,open_and_close_door]`.
@@ -15,7 +15,7 @@ site as `no handler for LOC_CHANGE (opcode 3004) at pc=50` inside
 
 ## 1. Problem
 
-Tutorial Island door-click smoke at HEAD `4df135a` reveals
+Tutorial Island door-click smoke at HEAD `52e3d06` reveals
 `[proc,open_and_close_door]` aborts at pc=50:
 
 ```
