@@ -452,7 +452,11 @@ func TestHandleOpObjTShortPayloadRejected(t *testing.T) {
 }
 
 func TestHandleOpObjTOutOfViewportRejected(t *testing.T) {
-	_, p, _, cc := makeOpObjFixture(t)
+	s, p, _, cc := makeOpObjFixture(t)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7777: {RootLayer: 7777, ActionTarget: objtype.ComActionTargetObj},
+	})
+	p.tabs[0] = 7777
 
 	received := drainConn(t, cc)
 	_ = handleOpObjT(p, p2x4ObjPayload(250, 100, 42, 7777)) // dx = 150
@@ -468,7 +472,11 @@ func TestHandleOpObjTOutOfViewportRejected(t *testing.T) {
 }
 
 func TestHandleOpObjTMissingObjRejected(t *testing.T) {
-	_, p, _, cc := makeOpObjFixture(t)
+	s, p, _, cc := makeOpObjFixture(t)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7777: {RootLayer: 7777, ActionTarget: objtype.ComActionTargetObj},
+	})
+	p.tabs[0] = 7777
 
 	received := drainConn(t, cc)
 	_ = handleOpObjT(p, p2x4ObjPayload(100, 100, 999, 7777))

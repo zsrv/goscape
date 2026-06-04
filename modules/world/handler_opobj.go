@@ -112,7 +112,7 @@ func handleOpObj3(p *Player, payload []byte) error { return handleOpObj(p, paylo
 func handleOpObj4(p *Player, payload []byte) error { return handleOpObj(p, payload, 4) }
 func handleOpObj5(p *Player, payload []byte) error { return handleOpObj(p, payload, 5) }
 
-// handleOpObjT is the handler for OPOBJT (opcode 138, 8-byte payload).
+// handleOpObjT is the handler for OPOBJT (opcode 25, 8-byte payload).
 // Spell-on-obj: player casts a spell onto a ground item.
 // Payload = (x:G2, z:G2, objId:G2, spellComponent:G2).
 //
@@ -200,7 +200,7 @@ func handleOpObjT(p *Player, payload []byte) error {
 	return nil
 }
 
-// handleOpObjU is the handler for OPOBJU (opcode 239, 12-byte payload).
+// handleOpObjU is the handler for OPOBJU (opcode 111, 12-byte payload).
 // Item-on-obj: player drags an inventory item onto a ground item.
 // Payload = (x:G2, z:G2, objId:G2, useObj:G2, useSlot:G2, useComponent:G2).
 //
