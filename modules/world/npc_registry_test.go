@@ -971,7 +971,10 @@ func TestSpawnLoopNidGap(t *testing.T) {
 	// test therefore fails until the hoist is applied.
 	var registered []*Npc
 	for _, typ := range spawns {
-		n := s.spawnBootNpc(typ, int(typ.ConfigType.ID), 100, 100, 0, worldMembers)
+		n, err := s.spawnBootNpc(typ, int(typ.ConfigType.ID), 100, 100, 0, worldMembers)
+		if err != nil {
+			t.Fatalf("registry full during test setup: %v", err)
+		}
 		if n != nil {
 			registered = append(registered, n)
 		}

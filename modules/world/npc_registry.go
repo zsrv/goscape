@@ -24,30 +24,31 @@ var errNpcsFull = errors.New("npc registry full")
 //   - allocNpcSlot() is called unconditionally — nid consumed even if the
 //     members gate rejects the NPC (matching TS: Npc constructed with
 //     getNextNid() then not passed to addNpc).
-//   - Returns nil when the members gate rejects the NPC (nid burned, no
-//     Npc registered).
-//   - Returns a sentinel *Npc with nid=-1 when the registry is full;
-//     callers must check n.nid < 0 to detect and break the spawn loop.
+//   - Returns (nil, errNpcsFull) when the registry is full; callers must
+//     break the spawn loop on a non-nil error.
+//   - Returns (nil, nil) when the members gate rejects the NPC (nid burned,
+//     no Npc registered); callers should continue.
+//   - Returns (n, nil) on success: NPC is registered and ready.
 //
 // [gamemap-2]
-func (s *Server) spawnBootNpc(typ *objtype.NpcType, typeID, x, z, level int, worldMembers bool) *Npc {
+func (s *Server) spawnBootNpc(typ *objtype.NpcType, typeID, x, z, level int, worldMembers bool) (*Npc, error) {
 	// 244 hoist: allocate nid BEFORE the members gate (TS GameMap.ts:131
 	// at pin 9aadcec4 — `new Npc(..., World.getNextNid(), ...)` above the
 	// `if ((npcType.members && this.members) || !npcType.members)` check).
 	nid := s.allocNpcSlot()
 	if nid < 0 {
-		return &Npc{nid: -1} // registry full sentinel; caller checks nid < 0
+		return nil, errNpcsFull
 	}
 	if !shouldSpawnNpc(typ, worldMembers) {
 		// Nid consumed but NPC discarded — F2P worlds burn a nid per skipped
 		// members NPC, keeping nid sequences identical across world types.
-		return nil
+		return nil, nil
 	}
 	n := NewNpc(nid, typeID, x, z, level, typ)
-	// Complete firstSpawn registration: mirror the addNpc(firstSpawn=true)
-	// branch for the slot-assignment fields (allocation already done above).
-	n.nid = nid
-	n.uid = (n.typeId << 16) | nid
+	// NewNpc(nid, ...) already set n.nid and n.uid correctly — unlike the
+	// addNpc production callers which construct NewNpc(0, ...) and rely on
+	// addNpc to overwrite nid/uid after slot allocation (NAI-150). No
+	// overwrite needed here.
 	n.server = s
 	s.npcs[nid] = n
 	s.npcLoop = append(s.npcLoop, n)
@@ -59,7 +60,7 @@ func (s *Server) spawnBootNpc(typ *objtype.NpcType, typeID, x, z, level int, wor
 	// firstSpawn=false — which applies all shared tail logic without
 	// re-allocating a slot.
 	_ = s.addNpc(n, -1, false)
-	return n
+	return n, nil
 }
 
 // allocNpcSlot returns a free nid (1..8191). Returns -1 if full.

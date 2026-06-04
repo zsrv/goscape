@@ -612,9 +612,9 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		// (TS GameMap.ts:131-134 at pin 9aadcec4). On F2P worlds, members-
 		// only NPCs are gated out but their nid is still consumed, keeping
 		// the nid sequence identical to a members world. [gamemap-2]
-		n := s.spawnBootNpc(typ, spawn.TypeID, spawn.X, spawn.Z, spawn.Level, cfg.NodeMembers)
-		if n != nil && n.nid < 0 {
-			s.log.Warn("npc registry full; dropping remaining spawns")
+		_, err := s.spawnBootNpc(typ, spawn.TypeID, spawn.X, spawn.Z, spawn.Level, cfg.NodeMembers)
+		if err != nil {
+			s.log.Warn("npc registry full; dropping remaining spawns", "err", err)
 			break
 		}
 	}
