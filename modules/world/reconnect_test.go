@@ -147,48 +147,55 @@ func TestOnReconnect_ResetsMoveSpeedToInstant(t *testing.T) {
 	}
 }
 
-// TestOnReconnect_OrsEntityMaskIntoMasks verifies that onReconnect ORs
-// p.entitymask into p.masks so face_entity resync is triggered on the next
-// mask block. Mirrors TS Player.onReconnect (Player.ts:574). NAI-182 B4.
-func TestOnReconnect_OrsEntityMaskIntoMasks(t *testing.T) {
+// TestOnReconnect_DoesNotOrEntityMaskIntoMasks pins TS 244 behaviour:
+// onReconnect must NOT set the entitymask bit in p.masks. At 225,
+// Player.onReconnect (Player.ts:554) did `this.masks |= this.entitymask`
+// for face_entity resync; that line was deleted at 244. The caller
+// (processLogins in tick.go) already sets p.masks |= MaskAppearance
+// unconditionally before branching, so onReconnect itself leaves masks
+// untouched. [rev-244 B3]
+func TestOnReconnect_DoesNotOrEntityMaskIntoMasks(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	go io.Copy(io.Discard, cc)
 
+	// Use a distinctive entitymask bit that onReconnect must not touch.
 	p.entitymask = 0x80
-	p.masks = 0x01
+	p.masks = 0x01 // pre-existing bit; must not gain the entitymask bit
 
 	onReconnect(s, p)
 
-	if p.masks&0x80 == 0 {
-		t.Errorf("p.masks: entitymask bit 0x80 not set; got 0x%x", p.masks)
+	if p.masks&0x80 != 0 {
+		t.Errorf("p.masks: entitymask bit 0x80 must NOT be set by onReconnect at 244; got 0x%x", p.masks)
 	}
 }
 
-// TestOnReconnect_OrsAppearanceMaskIntoMasks pins TS-faithful
-// Player.onReconnect (Player.ts:555 — `this.masks |=
-// PlayerInfoProt.APPEARANCE; // resync appearance`). After a resync the
-// next mask-block emit must carry the appearance payload so newly-visible
-// observers see the up-to-date appearance. player-net-3.
-func TestOnReconnect_OrsAppearanceMaskIntoMasks(t *testing.T) {
+// TestOnReconnect_DoesNotOrAppearanceMaskIntoMasks pins TS 244 behaviour:
+// onReconnect must NOT set MaskAppearance in p.masks. At 225,
+// Player.onReconnect (Player.ts:555) did `this.masks |=
+// PlayerInfoProt.APPEARANCE`; that line was deleted at 244.
+// The appearance resync is handled by the unconditional
+// `p.masks |= MaskAppearance` in processLogins (tick.go) before the
+// reconnect/fresh-login branch, so onReconnect itself must not touch it.
+// [rev-244 B3]
+func TestOnReconnect_DoesNotOrAppearanceMaskIntoMasks(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	go io.Copy(io.Discard, cc)
 
-	// Pin entitymask to MaskFaceEntity (0x4) so a passing assertion on
-	// MaskAppearance (0x1) cannot be satisfied by the existing entitymask
-	// OR at block (k).
-	p.entitymask = rsbuf.MaskFaceEntity
+	// Start with masks=0 and entitymask=0 so onReconnect has no bits to
+	// set; any appearance bit would come solely from the (k) block.
+	p.entitymask = 0
 	p.masks = 0
 
 	onReconnect(s, p)
 
-	if p.masks&rsbuf.MaskAppearance == 0 {
-		t.Errorf("p.masks: MaskAppearance bit (0x%x) not set after onReconnect; got 0x%x", rsbuf.MaskAppearance, p.masks)
+	if p.masks&rsbuf.MaskAppearance != 0 {
+		t.Errorf("p.masks: MaskAppearance bit (0x%x) must NOT be set by onReconnect at 244; got 0x%x", rsbuf.MaskAppearance, p.masks)
 	}
 }
 
