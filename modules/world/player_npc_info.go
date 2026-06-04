@@ -12,6 +12,6 @@ func (p *Player) updateNpcs() {
 	if s == nil || s.rsbuf == nil || s.renderer == nil {
 		return
 	}
-	payload := s.rsbuf.NpcInfo.Encode(s.rsbuf, int32(p.slot), s.renderer)
+	payload := s.rsbuf.NpcInfo.Encode(s.rsbuf, int32(p.pid), s.renderer)
 	p.writeOut(gameserver.OpNpcInfo, payload)
 }

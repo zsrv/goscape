@@ -81,7 +81,7 @@ func handleOpNpc(p *Player, payload []byte, op int) error {
 		return nil
 	}
 	// Gate 4: rsbuf visibility — clearPendingAction. TS OpNpcHandler.ts:28-32 (244).
-	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
+	if !s.rsbuf.HasNpc(int32(p.pid), int32(npc.nid)) {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
 		return nil
@@ -167,7 +167,7 @@ func handleOpNpcT(p *Player, payload []byte) error {
 		return nil
 	}
 	// Gate 5: rsbuf visibility — clearPendingAction. TS OpNpcTHandler.ts:35-39 (244).
-	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
+	if !s.rsbuf.HasNpc(int32(p.pid), int32(npc.nid)) {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
 		return nil
@@ -261,7 +261,7 @@ func handleOpNpcU(p *Player, payload []byte) error {
 		return nil
 	}
 	// Gate 7: rsbuf visibility — clearPendingAction. TS OpNpcUHandler.ts:51-55 (244).
-	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
+	if !s.rsbuf.HasNpc(int32(p.pid), int32(npc.nid)) {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
 		return nil

@@ -87,10 +87,10 @@ type playerTimer struct {
 }
 
 // Player is the game-side representation of a connected player.
-// All fields except client and slot are owned exclusively by the tick goroutine.
+// All fields except client and pid are owned exclusively by the tick goroutine.
 type Player struct {
 	// === network (from sub-spec 1) ===
-	slot   int
+	pid    int
 	client *client
 
 	// === identity ===
@@ -103,7 +103,7 @@ type Player struct {
 	staffModLevel int32
 	// accountID is the persistent DB account.id from PlayerLogin RPC,
 	// copied off client.accountID in newPlayer. Distinct from uid (which
-	// is composeUID(username37, slot), a per-session identity used by
+	// is composeUID(username37, pid), a per-session identity used by
 	// scripts). Used as the partition key on every telemetry envelope.
 	// Zero for connections that bypass the login bridge. NAI-Phase2.
 	accountID int64
@@ -608,7 +608,7 @@ func newPlayer(c *client) *Player {
 		staffModLevel:  c.staffModLevel,
 		session:        c.sessionUUID,
 		accountID:      c.accountID,
-		slot:           -1,
+		pid:            -1,
 		uid:            -1,
 		x:              3094,
 		z:              3106,
@@ -714,8 +714,15 @@ func newPlayer(c *client) *Player {
 	return p
 }
 
-// Slot returns the RS2 slot of this player.
-func (p *Player) Slot() int { return p.slot }
+// Slot returns the player's pid. Satisfies the shared entity interface used
+// by Npc (which returns nid), Obj, and Loc — all of which implement Slot() int
+// for polymorphic zone / rsbuf dispatch. Player impl returns pid; Npc impl
+// returns nid. TS 244 naming: Player.pid (Player.ts:309).
+func (p *Player) Slot() int { return p.pid }
+
+// Pid returns the player's pid (protocol identity). Mirrors TS Player.ts:309
+// `this.pid` at rev-244.
+func (p *Player) Pid() int { return p.pid }
 
 // Coords returns the player's current absolute coordinates.
 func (p *Player) Coords() (x, z, level int) { return p.x, p.z, p.level }

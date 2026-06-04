@@ -85,8 +85,8 @@ func BenchmarkHuntPlayers(b *testing.B) {
 			n.huntRange = 10
 			s.zoneMap = zone.NewZoneMap()
 			for i := range count {
-				p := &Player{slot: 1 + i, x: n.x - 4 + i%9, z: n.z - 2 + i/9, level: n.level, active: true}
-				s.players.set(p.slot, p)
+				p := &Player{pid: 1 + i, x: n.x - 4 + i%9, z: n.z - 2 + i/9, level: n.level, active: true}
+				s.players.set(p.pid, p)
 				p.zoneListElement = s.zoneMap.Get(p.level, p.x, p.z).EnterPlayer(p, nil)
 			}
 			hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckInv: -1}

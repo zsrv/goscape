@@ -715,7 +715,7 @@ func TestProcessInteraction_NpcInRange_FiresApBranch(t *testing.T) {
 // the in-codebase Npc.SetInteraction template (npc_interaction.go:651-666).
 
 // TestSetInteractionPlayerTargetSetsFaceEntity pins the *Player branch:
-// faceEntity = target.slot + 32768, MaskFaceEntity bit set. The +32768
+// faceEntity = target.pid + 32768, MaskFaceEntity bit set. The +32768
 // magic encodes "this is a player slot" on the client wire.
 func TestSetInteractionPlayerTargetSetsFaceEntity(t *testing.T) {
 	s := newTestServer(t)
@@ -726,13 +726,13 @@ func TestSetInteractionPlayerTargetSetsFaceEntity(t *testing.T) {
 	// faceEntity=32767 — pick a non-default slot so the formula assertion
 	// catches accidental sign drops or off-by-one errors.
 	other, _ := newTestPlayer(t)
-	other.slot = 5
+	other.pid = 5
 
 	p.SetInteraction(InteractionEngine, other, 1, -1)
 
-	wantFE := other.slot + 32768 // 32773
+	wantFE := other.pid + 32768 // 32773
 	if p.faceEntity != wantFE {
-		t.Errorf("faceEntity: got %d, want %d (slot+32768)", p.faceEntity, wantFE)
+		t.Errorf("faceEntity: got %d, want %d (pid+32768)", p.faceEntity, wantFE)
 	}
 	if p.masks&MaskFaceEntity == 0 {
 		t.Error("MaskFaceEntity bit should be set after SetInteraction with *Player target")
@@ -1028,7 +1028,7 @@ func newTestPlayerAt(t *testing.T, s *Server, slot, x, z, level int) *Player {
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.x, p.z, p.level = x, z, level
-	p.slot = slot
+	p.pid = slot
 	// Drain connection in background so wire writes don't block.
 	go func() {
 		buf := make([]byte, 4096)

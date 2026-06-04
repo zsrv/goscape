@@ -379,10 +379,10 @@ func TestAddPlayerAssignsSlot(t *testing.T) {
 	if err := s.addPlayer(p); err != nil {
 		t.Fatalf("addPlayer: %v", err)
 	}
-	if p.slot < 1 || p.slot > 2047 {
-		t.Errorf("slot out of range: %d", p.slot)
+	if p.pid < 1 || p.pid > 2047 {
+		t.Errorf("slot out of range: %d", p.pid)
 	}
-	if s.players.get(p.slot) != p {
+	if s.players.get(p.pid) != p {
 		t.Error("players[slot] should point to p")
 	}
 	if s.players.count != 1 {
@@ -396,7 +396,7 @@ func TestRemovePlayerClearsSlot(t *testing.T) {
 	p := newPlayer(c)
 
 	_ = s.addPlayer(p)
-	slot := p.slot
+	slot := p.pid
 
 	s.removePlayerInternal(p)
 
@@ -440,7 +440,7 @@ func TestAddPlayerWorldFull(t *testing.T) {
 	s := newTestServer(t)
 
 	for i := 1; i <= 2047; i++ {
-		s.players.set(i, &Player{slot: i})
+		s.players.set(i, &Player{pid: i})
 	}
 
 	c, _ := newTestClient(t)
@@ -523,8 +523,8 @@ func TestProcessLoginsDrainsNewPlayers(t *testing.T) {
 	if inPlayers != 1 {
 		t.Errorf("players.count: got %d, want 1", inPlayers)
 	}
-	if p.slot < 1 {
-		t.Errorf("slot: got %d, want >= 1", p.slot)
+	if p.pid < 1 {
+		t.Errorf("pid: got %d, want >= 1", p.pid)
 	}
 }
 
@@ -532,7 +532,7 @@ func TestProcessLoginsWorldFullRejectsCleanly(t *testing.T) {
 	s := newTestServer(t)
 
 	for i := 1; i < len(s.players.entities); i++ {
-		s.players.set(i, &Player{slot: i})
+		s.players.set(i, &Player{pid: i})
 	}
 
 	c, clientConn := newTestClient(t)
@@ -643,8 +643,8 @@ func TestTickIterationPidOrder(t *testing.T) {
 
 	// p4 should have been inserted after p3 (pids 2 and 3 are occupied;
 	// the round-robin resumes from lastUsedIndex+1 which is > 3).
-	if p4.slot <= p2.slot || p4.slot <= p3.slot {
-		t.Fatalf("insertion order != pid order: p2.slot=%d p3.slot=%d p4.slot=%d — want p4 > p2 and p4 > p3", p2.slot, p3.slot, p4.slot)
+	if p4.pid <= p2.pid || p4.pid <= p3.pid {
+		t.Fatalf("insertion order != pid order: p2.pid=%d p3.pid=%d p4.pid=%d — want p4 > p2 and p4 > p3", p2.pid, p3.pid, p4.pid)
 	}
 
 	// s.players.all() must yield in ascending pid order: p2, p3, p4.
@@ -658,13 +658,13 @@ func TestTickIterationPidOrder(t *testing.T) {
 	}
 	for i, p := range got {
 		if p != want[i] {
-			t.Errorf("all()[%d]: got slot %d, want slot %d", i, p.slot, want[i].slot)
+			t.Errorf("all()[%d]: got pid %d, want pid %d", i, p.pid, want[i].pid)
 		}
 	}
 	// Verify strictly ascending pid order.
 	for i := 1; i < len(got); i++ {
-		if got[i].slot <= got[i-1].slot {
-			t.Errorf("pid order violated at index %d: slot %d <= slot %d", i, got[i].slot, got[i-1].slot)
+		if got[i].pid <= got[i-1].pid {
+			t.Errorf("pid order violated at index %d: pid %d <= pid %d", i, got[i].pid, got[i-1].pid)
 		}
 	}
 }
@@ -758,7 +758,7 @@ func TestLookupPlayerByUIDFound(t *testing.T) {
 		t.Fatalf("addPlayer: %v", err)
 	}
 
-	// After addPlayer, p.uid is composed from (p.username37=0, p.slot).
+	// After addPlayer, p.uid is composed from (p.username37=0, p.pid).
 	// Use p.uid as the lookup arg.
 	got := s.LookupPlayerByUID(p.uid)
 	if got != p {
@@ -773,7 +773,7 @@ func TestLookupPlayerByUIDNotFound(t *testing.T) {
 	p := newPlayer(c)
 	_ = s.addPlayer(p)
 
-	// After addPlayer, p.uid is composed from (p.username37=0, p.slot).
+	// After addPlayer, p.uid is composed from (p.username37=0, p.pid).
 	// Use a uid that won't collide.
 	notFoundUID := p.uid + 1000
 	got := s.LookupPlayerByUID(notFoundUID)
@@ -794,7 +794,7 @@ func TestLookupPlayerByUIDSkipsInactive(t *testing.T) {
 	_ = s.addPlayer(p)
 	p.active = false
 
-	// After addPlayer, p.uid is composed from (p.username37=0, p.slot).
+	// After addPlayer, p.uid is composed from (p.username37=0, p.pid).
 	// Lookup arg matches p.uid, but active=false, so should return nil.
 	got := s.LookupPlayerByUID(p.uid)
 	if got != nil {
@@ -815,7 +815,7 @@ func setPlayerCountForTest(t *testing.T, s *Server, playerCount int) {
 	}
 	// Fill slots 1..playerCount with placeholder entries.
 	for i := 1; i <= playerCount && i < len(s.players.entities); i++ {
-		s.players.set(i, &Player{slot: i})
+		s.players.set(i, &Player{pid: i})
 	}
 }
 

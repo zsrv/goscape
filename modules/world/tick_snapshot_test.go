@@ -12,7 +12,7 @@ import (
 func TestSnapshotPlayersZeroAllocSteadyState(t *testing.T) {
 	s := &Server{players: newPlayerList(2048)}
 	for i := range 128 {
-		s.players.set(i+1, &Player{slot: i + 1})
+		s.players.set(i+1, &Player{pid: i + 1})
 	}
 
 	// Warm the scratch to steady state.
@@ -34,7 +34,7 @@ func TestSnapshotPlayersZeroAllocSteadyState(t *testing.T) {
 // the live registry mutates mid-iteration (processLogouts removes players
 // from the live playerList while ranging the snapshot).
 func TestSnapshotPlayersCopiesAndDecouples(t *testing.T) {
-	a, b, c := &Player{slot: 1}, &Player{slot: 2}, &Player{slot: 3}
+	a, b, c := &Player{pid: 1}, &Player{pid: 2}, &Player{pid: 3}
 	s := &Server{players: newPlayerList(2048)}
 	s.players.set(1, a)
 	s.players.set(2, b)
@@ -65,7 +65,7 @@ func TestSnapshotPlayersCopiesAndDecouples(t *testing.T) {
 func TestSnapshotPlayersClearsStaleTail(t *testing.T) {
 	s := &Server{players: newPlayerList(2048)}
 	for i := range 8 {
-		s.players.set(i+1, &Player{slot: i + 1})
+		s.players.set(i+1, &Player{pid: i + 1})
 	}
 	s.snapshotPlayers() // scratch now holds 8 player pointers
 
@@ -90,7 +90,7 @@ func BenchmarkSnapshotPlayers(b *testing.B) {
 		b.Run(map[int]string{50: "players50", 500: "players500"}[n], func(b *testing.B) {
 			s := &Server{players: newPlayerList(2048)}
 			for i := range n {
-				s.players.set(i+1, &Player{slot: i + 1})
+				s.players.set(i+1, &Player{pid: i + 1})
 			}
 			b.ReportAllocs()
 			for b.Loop() {

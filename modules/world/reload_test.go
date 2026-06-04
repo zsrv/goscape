@@ -330,7 +330,7 @@ func TestReload_ClearInvsTrue_DeletesTempScopeFromPlayer(t *testing.T) {
 	if tempID < 0 {
 		t.Skip("no SCOPE_TEMP inv in real cache")
 	}
-	p := &Player{slot: 1, invs: map[int]*inventory.Inventory{tempID: {}}}
+	p := &Player{pid: 1, invs: map[int]*inventory.Inventory{tempID: {}}}
 	s.players.set(1, p)
 	if err := s.Reload(true); err != nil {
 		t.Fatalf("Reload: %v", err)

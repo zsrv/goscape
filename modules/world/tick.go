@@ -348,7 +348,7 @@ func (s *Server) processLogins() {
 			// TS UpdatePidEncoder (244): p2(uid) pbool(members).
 			// TS Player.ts:501 `new UpdatePid(this.pid, this.members)` —
 			// members is the player's own membership flag.
-			sendUpdatePid(p, p.slot, p.members)
+			sendUpdatePid(p, p.pid, p.members)
 			sendResetClientVarCache(p)
 			if s.varpTypes != nil {
 				for i, vt := range s.varpTypes.Configs {
@@ -917,7 +917,7 @@ func (s *Server) processInfo() {
 			// (faceAngle, south on login) so the always-forced FACE_COORD
 			// low-def orients a fresh player south, not north-east.
 			pFaceX, pFaceZ := p.effectiveFaceCoord()
-			s.rsbuf.ComputePlayer(int32(p.slot),
+			s.rsbuf.ComputePlayer(int32(p.pid),
 				p.x, p.level, p.z,
 				p.originX, p.originZ,
 				p.tele, p.jump,

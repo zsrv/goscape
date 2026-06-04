@@ -23,15 +23,15 @@ func makeOpPlayerFixture(t *testing.T) (*Server, *Player, *Player, net.Conn) {
 	clicker, cc := newTestPlayer(t)
 	clicker.client.server = s
 	clicker.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	clicker.slot = 1
+	clicker.pid = 1
 	s.players.set(1, clicker)
-	s.rsbuf.AddPlayer(int32(clicker.slot))
+	s.rsbuf.AddPlayer(int32(clicker.pid))
 
 	other, _ := newTestPlayer(t)
 	other.client.server = s
-	other.slot = 2
+	other.pid = 2
 	s.players.set(2, other)
-	s.rsbuf.AddPlayer(int32(other.slot))
+	s.rsbuf.AddPlayer(int32(other.pid))
 
 	return s, clicker, other, cc
 }
@@ -46,16 +46,16 @@ func makeOpPlayerFixtureWithBothConns(t *testing.T) (*Server, *Player, *Player, 
 	clicker, cc := newTestPlayer(t)
 	clicker.client.server = s
 	clicker.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	clicker.slot = 1
+	clicker.pid = 1
 	s.players.set(1, clicker)
-	s.rsbuf.AddPlayer(int32(clicker.slot))
+	s.rsbuf.AddPlayer(int32(clicker.pid))
 
 	other, cc2 := newTestPlayer(t)
 	other.client.server = s
 	other.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	other.slot = 2
+	other.pid = 2
 	s.players.set(2, other)
-	s.rsbuf.AddPlayer(int32(other.slot))
+	s.rsbuf.AddPlayer(int32(other.pid))
 
 	return s, clicker, other, cc, cc2
 }
@@ -79,9 +79,9 @@ func TestHandleOpPlayer_HappyPath_AllOps(t *testing.T) {
 	for op := 1; op <= 4; op++ {
 		t.Run(fmt.Sprintf("op=%d", op), func(t *testing.T) {
 			s, clicker, other, _ := makeOpPlayerFixture(t)
-			rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+			rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 
-			if err := handleOpPlayer(clicker, p2Payload(other.slot), op); err != nil {
+			if err := handleOpPlayer(clicker, p2Payload(other.pid), op); err != nil {
 				t.Fatalf("handleOpPlayer: %v", err)
 			}
 
@@ -106,14 +106,14 @@ func TestHandleOpPlayer_HappyPath_AllOps(t *testing.T) {
 // 244: delayed reject must NOT call clearPendingAction (TS OpPlayerHandler.ts:16-19).
 func TestHandleOpPlayer_DelayedSendsUnsetMapFlag(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 	clicker.delayed = true
 	clicker.delayedUntil = 999
 	s.currentTick = 0
 	clicker.target = clicker // sentinel: clearPendingAction would nil this; must survive
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayer(clicker, p2Payload(other.slot), 1)
+	_ = handleOpPlayer(clicker, p2Payload(other.pid), 1)
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -162,7 +162,7 @@ func TestHandleOpPlayer_NotVisibleViaRsbuf(t *testing.T) {
 	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayer(clicker, p2Payload(other.slot), 1)
+	_ = handleOpPlayer(clicker, p2Payload(other.pid), 1)
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -208,7 +208,7 @@ func opPlayerTPayload(slot, spellCom int) []byte {
 // targetOp = targetOpPlayerT, targetSubject.com = spellCom, kind = Engine.
 func TestHandleOpPlayerT_HappyPath(t *testing.T) {
 	s, clicker, other, _ := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 
 	const spellCom = 7777
 
@@ -218,7 +218,7 @@ func TestHandleOpPlayerT_HappyPath(t *testing.T) {
 	})
 	clicker.tabs[0] = spellCom
 
-	if err := handleOpPlayerT(clicker, opPlayerTPayload(other.slot, spellCom)); err != nil {
+	if err := handleOpPlayerT(clicker, opPlayerTPayload(other.pid, spellCom)); err != nil {
 		t.Fatalf("handleOpPlayerT: %v", err)
 	}
 
@@ -241,14 +241,14 @@ func TestHandleOpPlayerT_HappyPath(t *testing.T) {
 // 244: delayed reject must NOT call clearPendingAction (TS OpPlayerTHandler.ts:16-19).
 func TestHandleOpPlayerT_DelayedSendsUnsetMapFlag(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 	clicker.delayed = true
 	clicker.delayedUntil = 999
 	s.currentTick = 0
 	clicker.target = clicker // sentinel: clearPendingAction would nil this; must survive
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerT(clicker, opPlayerTPayload(other.slot, 7777))
+	_ = handleOpPlayerT(clicker, opPlayerTPayload(other.pid, 7777))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -314,7 +314,7 @@ func TestHandleOpPlayerT_TargetNotVisible(t *testing.T) {
 	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerT(clicker, opPlayerTPayload(other.slot, spellCom))
+	_ = handleOpPlayerT(clicker, opPlayerTPayload(other.pid, spellCom))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -356,7 +356,7 @@ func TestHandleOpPlayerT_ComponentGate_ClearsPendingAction(t *testing.T) {
 	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerT(clicker, opPlayerTPayload(other.slot, 8888))
+	_ = handleOpPlayerT(clicker, opPlayerTPayload(other.pid, 8888))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -405,7 +405,7 @@ func seedOpPlayerUInv(t *testing.T, s *Server, p *Player, invType, useCom, useOb
 // lastUseSlot = useSlot, kind = Engine.
 func TestHandleOpPlayerU_HappyPath(t *testing.T) {
 	s, clicker, other, _ := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 
 	const (
 		invType = 93
@@ -422,7 +422,7 @@ func TestHandleOpPlayerU_HappyPath(t *testing.T) {
 
 	seedOpPlayerUInv(t, s, clicker, invType, useCom, useObj, useSlot)
 
-	if err := handleOpPlayerU(clicker, opPlayerUPayload(other.slot, useObj, useSlot, useCom)); err != nil {
+	if err := handleOpPlayerU(clicker, opPlayerUPayload(other.pid, useObj, useSlot, useCom)); err != nil {
 		t.Fatalf("handleOpPlayerU: %v", err)
 	}
 
@@ -452,7 +452,7 @@ func TestHandleOpPlayerU_HappyPath(t *testing.T) {
 // NAI-62 — verifies §3.1 + §3.2 compose correctly.
 func TestHandleOpPlayerU_UseObjZeroCanonicalisation(t *testing.T) {
 	s, clicker, other, _ := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 
 	const (
 		invType = 93
@@ -468,7 +468,7 @@ func TestHandleOpPlayerU_UseObjZeroCanonicalisation(t *testing.T) {
 
 	seedOpPlayerUInv(t, s, clicker, invType, useCom, useObj, useSlot)
 
-	if err := handleOpPlayerU(clicker, opPlayerUPayload(other.slot, useObj, useSlot, useCom)); err != nil {
+	if err := handleOpPlayerU(clicker, opPlayerUPayload(other.pid, useObj, useSlot, useCom)); err != nil {
 		t.Fatalf("handleOpPlayerU: %v", err)
 	}
 
@@ -488,7 +488,7 @@ func TestHandleOpPlayerU_UseObjZeroCanonicalisation(t *testing.T) {
 // 244: delayed reject must NOT call clearPendingAction (TS OpPlayerUHandler.ts:18-20).
 func TestHandleOpPlayerU_DelayedSendsUnsetMapFlag(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 	seedOpPlayerUInv(t, s, clicker, 93, 149, 1511, 3)
 	clicker.delayed = true
 	clicker.delayedUntil = 999
@@ -497,7 +497,7 @@ func TestHandleOpPlayerU_DelayedSendsUnsetMapFlag(t *testing.T) {
 	clicker.target = clicker // sentinel: clearPendingAction would nil this; must survive
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.pid, 1511, 3, 149))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -552,7 +552,7 @@ func TestHandleOpPlayerU_TargetNotVisible(t *testing.T) {
 	seedOpPlayerUInv(t, s, clicker, 93, 149, 1511, 3)
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.pid, 1511, 3, 149))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -585,7 +585,7 @@ func TestHandleOpPlayerU_TruncatedPayload(t *testing.T) {
 // useCom → UnsetMapFlag, lastUseItem unmodified.
 func TestHandleOpPlayerU_InvListenerMissing(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 	// Seed component so the component gate passes; listener-missing gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
 		149: {RootLayer: 149, Interactable: true},
@@ -599,7 +599,7 @@ func TestHandleOpPlayerU_InvListenerMissing(t *testing.T) {
 	clicker.lastUseItem = 77 // sentinel
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.pid, 1511, 3, 149))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -619,7 +619,7 @@ func TestHandleOpPlayerU_InvListenerMissing(t *testing.T) {
 // UnsetMapFlag, lastUseItem unmodified.
 func TestHandleOpPlayerU_ItemNotInSlot(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 	// Seed component so the component gate passes; item-mismatch gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
 		149: {RootLayer: 149, Interactable: true},
@@ -635,7 +635,7 @@ func TestHandleOpPlayerU_ItemNotInSlot(t *testing.T) {
 	clicker.lastUseItem = 77 // sentinel
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.pid, 1511, 3, 149))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -655,12 +655,12 @@ func TestHandleOpPlayerU_ItemNotInSlot(t *testing.T) {
 // 244: TS OpPlayerUHandler.ts:23-27 combined check now calls clearPendingAction.
 func TestHandleOpPlayerU_ComponentGate_ClearsPendingAction(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 	// useCom=9876 is NOT registered → nil component → component gate fires.
 	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 9876))
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.pid, 1511, 3, 9876))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -681,7 +681,7 @@ func TestHandleOpPlayerU_ComponentGate_ClearsPendingAction(t *testing.T) {
 // 244: TS OpPlayerUHandler.ts:31-35 listener check now calls clearPendingAction.
 func TestHandleOpPlayerU_InvListenerMissing_ClearsPendingAction(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
 		149: {RootLayer: 149, Interactable: true},
 	})
@@ -690,7 +690,7 @@ func TestHandleOpPlayerU_InvListenerMissing_ClearsPendingAction(t *testing.T) {
 	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.pid, 1511, 3, 149))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -711,7 +711,7 @@ func TestHandleOpPlayerU_InvListenerMissing_ClearsPendingAction(t *testing.T) {
 // 244: TS OpPlayerUHandler.ts:37-42 combined inv check now calls clearPendingAction.
 func TestHandleOpPlayerU_ItemNotInSlot_ClearsPendingAction(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
 		149: {RootLayer: 149, Interactable: true},
 	})
@@ -728,7 +728,7 @@ func TestHandleOpPlayerU_ItemNotInSlot_ClearsPendingAction(t *testing.T) {
 	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.pid, 1511, 3, 149))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -789,7 +789,7 @@ func TestHandleOpPlayerU_TargetNotVisible_ClearsPendingAction(t *testing.T) {
 	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.pid, 1511, 3, 149))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -808,9 +808,9 @@ func TestHandleOpPlayerU_TargetNotVisible_ClearsPendingAction(t *testing.T) {
 // TestHandleOpPlayer1SetsOpcalled verifies success path sets p.opcalled=true.
 func TestHandleOpPlayer1SetsOpcalled(t *testing.T) {
 	s, clicker, other, _ := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 
-	if err := handleOpPlayer1(clicker, p2Payload(other.slot)); err != nil {
+	if err := handleOpPlayer1(clicker, p2Payload(other.pid)); err != nil {
 		t.Fatalf("handleOpPlayer1: %v", err)
 	}
 
@@ -824,7 +824,7 @@ func TestHandleOpPlayer1SetsOpcalled(t *testing.T) {
 // Mirrors TestHandleOpNpcUMembersOnFreeWorldRejected fixture.
 func TestHandleOpPlayerU_MembersOnNonMembersServer(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 	// Seed component so the component gate passes; members-free-world gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
 		149: {RootLayer: 149, Interactable: true},
@@ -841,7 +841,7 @@ func TestHandleOpPlayerU_MembersOnNonMembersServer(t *testing.T) {
 	seedOpPlayerUInv(t, s, clicker, 93, 149, 1511, 3)
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.pid, 1511, 3, 149))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -859,7 +859,7 @@ func TestHandleOpPlayerU_MembersOnNonMembersServer(t *testing.T) {
 // Matches TS OpPlayerUHandler.ts:66 (clearPendingAction before members check).
 func TestHandleOpPlayerU_MembersOnNonMembersServerClearsPendingAction(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
-	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
 	// Seed component so the component gate passes; members-free-world gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
 		149: {RootLayer: 149, Interactable: true},
@@ -880,7 +880,7 @@ func TestHandleOpPlayerU_MembersOnNonMembersServerClearsPendingAction(t *testing
 	clicker.target = other
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.pid, 1511, 3, 149))
 	clicker.client.flushWrite()
 	got := <-received
 

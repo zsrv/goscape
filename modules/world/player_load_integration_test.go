@@ -48,10 +48,10 @@ func TestProcessLogins_NilSavePayload_BootstrapsFresh(t *testing.T) {
 	_, invTypes := newTestPlayerForLoadSave(t)
 	s, p := runProcessLogins(t, nil, invTypes)
 
-	if p.slot < 1 || p.slot > 2047 {
-		t.Errorf("player not added: slot=%d", p.slot)
+	if p.pid < 1 || p.pid > 2047 {
+		t.Errorf("player not added: slot=%d", p.pid)
 	}
-	if s.players.get(p.slot) != p {
+	if s.players.get(p.pid) != p {
 		t.Error("players[slot] not set")
 	}
 	if p.invs == nil {
@@ -71,10 +71,10 @@ func TestProcessLogins_ValidSavePayload_LoadsSuccessfully(t *testing.T) {
 
 	s, p := runProcessLogins(t, sav, invTypes)
 
-	if p.slot < 1 || p.slot > 2047 {
-		t.Errorf("player not added: slot=%d", p.slot)
+	if p.pid < 1 || p.pid > 2047 {
+		t.Errorf("player not added: slot=%d", p.pid)
 	}
-	if s.players.get(p.slot) != p {
+	if s.players.get(p.pid) != p {
 		t.Error("players[slot] not set")
 	}
 	if p.invs == nil {
@@ -99,10 +99,10 @@ func TestProcessLogins_CorruptSavePayload_FallsBackToBootstrap(t *testing.T) {
 	// NAI-PLAYERLOADING-D-DECODE-ERR-FALLS-BACK-TO-BOOTSTRAP at tick.go:174).
 	s, p := runProcessLogins(t, corrupt, invTypes)
 
-	if p.slot < 1 || p.slot > 2047 {
-		t.Errorf("player must still be added on corrupt SAV: slot=%d", p.slot)
+	if p.pid < 1 || p.pid > 2047 {
+		t.Errorf("player must still be added on corrupt SAV: slot=%d", p.pid)
 	}
-	if s.players.get(p.slot) != p {
+	if s.players.get(p.pid) != p {
 		t.Error("players[slot] not set")
 	}
 	if p.invs == nil {
@@ -193,9 +193,9 @@ func TestLoadSave_CombatLevelFlowsToHuntTooStrongGate(t *testing.T) {
 	// Register the loaded player into a Server's zone map so huntPlayers
 	// can find it via Zone subscription (post-NAI-28).
 	s := newTestServer(t)
-	dst.slot = 1
+	dst.pid = 1
 	dst.active = true
-	s.players.set(dst.slot, dst)
+	s.players.set(dst.pid, dst)
 	zn := s.zoneMap.Get(dst.level, dst.x, dst.z)
 	dst.zoneListElement = zn.EnterPlayer(dst, nil)
 

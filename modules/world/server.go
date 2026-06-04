@@ -1248,8 +1248,8 @@ func (s *Server) addPlayer(p *Player) error {
 	if pid == -1 {
 		return errWorldFull
 	}
-	p.slot = pid
-	p.uid = composeUID(p.username37, p.slot) // NAI-113: TS World.ts:956
+	p.pid = pid
+	p.uid = composeUID(p.username37, p.pid) // NAI-113: TS World.ts:956
 	s.players.set(pid, p)
 	p.active = true
 	// Seed the default-south orientation now that p.x/p.z are set, so
@@ -1261,7 +1261,7 @@ func (s *Server) addPlayer(p *Player) error {
 		p.zoneListElement = z.EnterPlayer(p, s.zoneMap.Grid(p.level))
 	}
 	if s.rsbuf != nil {
-		s.rsbuf.AddPlayer(int32(p.slot))
+		s.rsbuf.AddPlayer(int32(p.pid))
 	}
 	return nil
 }
@@ -1373,7 +1373,7 @@ func (s *Server) removePlayerInternal(p *Player) {
 	s.playersMu.Lock()
 	defer s.playersMu.Unlock()
 
-	if p.slot < 1 || p.slot >= len(s.players.entities) || s.players.get(p.slot) != p {
+	if p.pid < 1 || p.pid >= len(s.players.entities) || s.players.get(p.pid) != p {
 		return
 	}
 	if s.zoneMap != nil && p.zoneListElement != nil {
@@ -1387,10 +1387,10 @@ func (s *Server) removePlayerInternal(p *Player) {
 		// Build.Cleanup. Order matters; running cleanup first would
 		// clear Npcs before the iteration and silently skip the
 		// observer decrement.
-		s.rsbuf.RemovePlayer(int32(p.slot))
+		s.rsbuf.RemovePlayer(int32(p.pid))
 	}
 	// TS World.ts:1641: this.players.remove(player.pid). TS EntityList.ts:70-77.
-	s.players.remove(p.slot)
+	s.players.remove(p.pid)
 
 	// world-ops-2: TS World.removePlayer (World.ts:1642) calls
 	// changeNpcCollision(player.width, player.x, player.z, player.level,

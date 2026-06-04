@@ -105,7 +105,7 @@ func registerActivePlayer(t *testing.T, s *Server, username string, slot int) *P
 	p.client.server = s
 	p.username = username
 	p.username37 = jstring.ToBase37(username)
-	p.slot = slot
+	p.pid = slot
 	s.players.set(slot, p)
 	p.active = true
 	return p

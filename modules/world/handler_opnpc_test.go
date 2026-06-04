@@ -30,7 +30,7 @@ func makeOpNpcFixture(t *testing.T) (*Server, *Player, *Npc) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.x, p.z, p.level = 99, 100, 0
 
-	p.slot = 1
+	p.pid = 1
 	s.players.set(1, p)
 	s.rsbuf.AddPlayer(1)
 	s.rsbuf.SubscribeNpcForTest(1, int32(npc.nid)) // nid=1
@@ -119,7 +119,7 @@ func TestHandleOpNpc1HiddenOpAccepted244(t *testing.T) {
 	p2, _ := newTestPlayer(t)
 	p2.client.server = s
 	p2.client.encryptor = io2.New([4]uint32{4, 5, 6, 7})
-	p2.slot = 2
+	p2.pid = 2
 	rsbufSeesNpc(t, s, 2, 1)
 
 	if err := handleOpNpc1(p2, p2Payload(1)); err != nil {
@@ -140,7 +140,7 @@ func TestHandleOpNpc1EmptyOpClearsPendingAction(t *testing.T) {
 	p2, _ := newTestPlayer(t)
 	p2.client.server = s
 	p2.client.encryptor = io2.New([4]uint32{4, 5, 6, 7})
-	p2.slot = 2
+	p2.pid = 2
 	rsbufSeesNpc(t, s, 2, 1)
 	p2.target = p2 // sentinel: clearPendingAction will nil this
 
@@ -258,7 +258,7 @@ func TestHandleOpNpc1NotVisibleClearsPendingAction(t *testing.T) {
 	p2, _ := newTestPlayer(t)
 	p2.client.server = s
 	p2.client.encryptor = io2.New([4]uint32{10, 11, 12, 13})
-	p2.slot = 2
+	p2.pid = 2
 	s.players.set(2, p2)
 	s.rsbuf.AddPlayer(2) // registered but NOT subscribed to npc nid=1
 	p2.target = p2       // sentinel
@@ -680,14 +680,14 @@ func TestHandleOpNpcUHappyPathWithOtherPlayerInv(t *testing.T) {
 	p.tabs[0] = 149
 
 	other, _ := newTestPlayer(t)
-	other.slot = 2
+	other.pid = 2
 	other.uid = 0xDEADBEEF // arbitrary UID; must use UID not slot in invListenOnCom
 	other.active = true
 	other.invs = map[int]*inventory.Inventory{}
 	inv := inventory.New(93, 28, inventory.StackNormal)
 	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
 	other.invs[93] = inv
-	other.slot = 2
+	other.pid = 2
 	s.players.set(2, other)
 
 	p.invListenOnCom(93, 149, 0xDEADBEEF)
@@ -841,7 +841,7 @@ func TestHandleOpNpcNpcNotVisibleRejected(t *testing.T) {
 	p2, cc2 := newTestPlayer(t)
 	p2.client.server = s
 	p2.client.encryptor = io2.New([4]uint32{10, 11, 12, 13})
-	p2.slot = 2
+	p2.pid = 2
 	s.players.set(2, p2)
 	s.rsbuf.AddPlayer(2) // registered but NOT subscribed to npc nid=1
 
@@ -865,7 +865,7 @@ func TestHandleOpNpcTNpcNotVisibleRejected(t *testing.T) {
 	p2, _ := newTestPlayer(t)
 	p2.client.server = s
 	p2.client.encryptor = io2.New([4]uint32{14, 15, 16, 17})
-	p2.slot = 2
+	p2.pid = 2
 	s.players.set(2, p2)
 	s.rsbuf.AddPlayer(2)
 
@@ -883,7 +883,7 @@ func TestHandleOpNpcUNpcNotVisibleRejected(t *testing.T) {
 	p2, _ := newTestPlayer(t)
 	p2.client.server = s
 	p2.client.encryptor = io2.New([4]uint32{18, 19, 20, 21})
-	p2.slot = 2
+	p2.pid = 2
 	s.players.set(2, p2)
 	s.rsbuf.AddPlayer(2)
 	// Seed component so the component gate passes; rsbuf-visibility gate fires next.
@@ -965,7 +965,7 @@ func TestHandleOpNpcOpIndexOutOfRange(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 1, 1, 1})
-	p.slot = 1
+	p.pid = 1
 	rsbufSeesNpc(t, s, 1, 1)
 
 	received := drainConn(t, cc)

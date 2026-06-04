@@ -8,13 +8,13 @@ import (
 )
 
 // sendUpdatePid writes one UPDATE_PID packet. TS UpdatePidEncoder (244):
-// p2(uid) pbool(members). TS passes p.slot and p.members at
-// Player.ts:501 via `new UpdatePid(this.pid, this.members)` — slot is
-// the int field, not the composed uid; members is the player's own
+// p2(pid) pbool(members). TS passes p.pid and p.members at
+// Player.ts:501 via `new UpdatePid(this.pid, this.members)` — pid is
+// the player's slot/protocol-identity field; members is the player's own
 // membership flag. NAI-182; extended in rev-244 B2 Task 3.
-func sendUpdatePid(p *Player, slot int, members bool) {
+func sendUpdatePid(p *Player, pid int, members bool) {
 	buf := packet.NewPacket(nil)
-	buf.P2(uint16(slot))
+	buf.P2(uint16(pid))
 	if members {
 		buf.P1(1)
 	} else {

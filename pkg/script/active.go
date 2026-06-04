@@ -517,10 +517,10 @@ type ActivePlayer interface {
 	HintCoord(offset, x, z, height int)
 
 	// HintPlayer directs the client to render a hint arrow pointing at the
-	// player in slot `slot`. Mirrors TS Player.hintPlayer at
-	// Player.ts:2182-2184; called by the HINT_PL (opcode 2029) handler.
+	// player with the given pid. Mirrors TS Player.hintPlayer at
+	// Player.ts:2181-2183 (244); called by the HINT_PL (opcode 2029) handler.
 	// NAI-39.
-	HintPlayer(slot int)
+	HintPlayer(pid int)
 
 	// HintStop directs the client to clear any active hint arrow. Mirrors
 	// TS Player.stopHint at Player.ts:2186-2188; called by the HINT_STOP

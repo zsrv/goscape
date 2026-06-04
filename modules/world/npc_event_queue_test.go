@@ -533,13 +533,12 @@ func addPlayerToServer(t *testing.T, s *Server, slot, x, z, level int) *Player {
 		s.zoneMap = zone.NewZoneMap()
 	}
 	p := &Player{
-		slot:   slot,
+		pid:    slot,
 		x:      x,
 		z:      z,
 		level:  level,
 		active: true,
 	}
-	p.slot = slot
 	s.players.set(slot, p)
 	zn := s.zoneMap.Get(level, x, z)
 	p.zoneListElement = zn.EnterPlayer(p, nil)
@@ -562,8 +561,8 @@ func TestHuntPlayersInRange(t *testing.T) {
 	if len(hunted) != 1 {
 		t.Fatalf("hunted: got %d players, want 1 (in-range only)", len(hunted))
 	}
-	if hunted[0].Slot() != pInRange.slot {
-		t.Errorf("hunted[0]: got slot %d, want slot %d", hunted[0].Slot(), pInRange.slot)
+	if hunted[0].Slot() != pInRange.pid {
+		t.Errorf("hunted[0]: got slot %d, want slot %d", hunted[0].Slot(), pInRange.pid)
 	}
 }
 
@@ -583,8 +582,8 @@ func TestHuntPlayersFiltersByLevel(t *testing.T) {
 	if len(hunted) != 1 {
 		t.Fatalf("hunted: got %d, want 1 (same-level only)", len(hunted))
 	}
-	if hunted[0].Slot() != pSameLevel.slot {
-		t.Errorf("hunted[0]: got slot %d, want slot %d", hunted[0].Slot(), pSameLevel.slot)
+	if hunted[0].Slot() != pSameLevel.pid {
+		t.Errorf("hunted[0]: got slot %d, want slot %d", hunted[0].Slot(), pSameLevel.pid)
 	}
 }
 
@@ -605,8 +604,8 @@ func TestHuntPlayersSkipsAfkZonedPlayers(t *testing.T) {
 	if len(hunted) != 1 {
 		t.Fatalf("CheckAfk=true: got %d, want 1 (AFK filtered)", len(hunted))
 	}
-	if hunted[0].Slot() != pActive.slot {
-		t.Errorf("CheckAfk=true: got slot %d, want slot %d (active)", hunted[0].Slot(), pActive.slot)
+	if hunted[0].Slot() != pActive.pid {
+		t.Errorf("CheckAfk=true: got slot %d, want slot %d (active)", hunted[0].Slot(), pActive.pid)
 	}
 
 	// With CheckAfk=false, both players returned.
@@ -662,8 +661,8 @@ func TestProcessLogoutsDecrementsSubscribedNpcObservers(t *testing.T) {
 	}
 
 	// Subscribe the player's BuildArea to two NPCs and set observer counts to 1.
-	s.rsbuf.SubscribeNpcForTest(int32(p.slot), 101)
-	s.rsbuf.SubscribeNpcForTest(int32(p.slot), 102)
+	s.rsbuf.SubscribeNpcForTest(int32(p.pid), 101)
+	s.rsbuf.SubscribeNpcForTest(int32(p.pid), 102)
 	s.rsbuf.SetObserverForTest(101, 1)
 	s.rsbuf.SetObserverForTest(102, 1)
 

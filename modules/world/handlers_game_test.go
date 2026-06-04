@@ -386,7 +386,7 @@ func teleTestPlayer(t *testing.T) (*Player, net.Conn, *Server) {
 	p.x, p.z, p.level = 3094, 3106, 0
 	p.originX, p.originZ = 3094, 3106
 	p.lastTickX, p.lastTickZ, p.lastLevel = 3094, 3106, 0
-	p.slot = 1
+	p.pid = 1
 	s.players.set(1, p)
 	p.active = true
 	if s.rsbuf != nil {
@@ -832,7 +832,7 @@ func TestHandleClientCheat_SlowReboot_WithArgUnderProductionSchedulesReboot(t *t
 func TestHandleClientCheat_ServerDrop_ClosesConn(t *testing.T) {
 	p, cc, s := teleTestPlayer(t)
 	p.staffModLevel = 3
-	slotBefore := p.slot
+	slotBefore := p.pid
 	_ = cc
 
 	dispatchTeleCheat(t, p, "serverdrop")
@@ -1199,7 +1199,7 @@ func addOtherTestPlayer(t *testing.T, s *Server, username string, x, z, level in
 	if slot >= len(s.players.entities) {
 		t.Fatalf("addOtherTestPlayer: no free player slot")
 	}
-	other.slot = slot
+	other.pid = slot
 	s.players.set(slot, other)
 	other.active = true
 	if s.rsbuf != nil {

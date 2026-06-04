@@ -9,7 +9,7 @@ import (
 // (real client only sends ops 1..4 — no OPPLAYER5 wire packet).
 //
 // Opcodes: OPPLAYER1=211, OPPLAYER2=219, OPPLAYER3=64, OPPLAYER4=43.
-// Op is 1..4. Payload = u2 pid (goscape: slot — see identity-rule note below).
+// Op is 1..4. Payload = u2 pid.
 //
 // Gates per TS OpPlayerHandler.ts (244):
 //  1. delayed player → UnsetMapFlag (no clearPendingAction). TS:15-18.
@@ -21,11 +21,6 @@ import (
 //
 // On success: clearPendingAction → SetInteraction(Engine, other, op, -1) →
 // opcalled=true.
-//
-// Identity note: TS 244 decoder renames `playerSlot` to `pid`; goscape
-// network layer identifies players by slot throughout. The field is the
-// same wire u16; naming stays `slot` in Go per the established identity-rule
-// convention (see T7 handler for precedent).
 //
 // The trigger arithmetic (TriggerApPlayer<N>, +7 → TriggerOpPlayer<N>)
 // happens later in the trigger-fire path (player_interaction_trigger.go,
@@ -52,10 +47,10 @@ func handleOpPlayer(p *Player, payload []byte, op int) error {
 	}
 
 	r := packet.NewPacket(payload)
-	slot := int(r.G2())
+	pid := int(r.G2())
 
 	// Gate 3: target not found — clearPendingAction. TS OpPlayerHandler.ts:20-25 (244).
-	other := s.LookupPlayerBySlot(slot)
+	other := s.LookupPlayerBySlot(pid)
 	if other == nil {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
@@ -63,7 +58,7 @@ func handleOpPlayer(p *Player, payload []byte, op int) error {
 	}
 
 	// Gate 4: rsbuf visibility — clearPendingAction. TS OpPlayerHandler.ts:27-31 (244).
-	if !s.rsbuf.HasPlayer(int32(p.slot), int32(other.slot)) {
+	if !s.rsbuf.HasPlayer(int32(p.pid), int32(other.pid)) {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
 		return nil
@@ -96,9 +91,6 @@ func handleOpPlayer4(p *Player, payload []byte) error { return handleOpPlayer(p,
 //
 // On success: clearPendingAction → SetInteraction(Engine, other,
 // targetOpPlayerT, spellCom) → opcalled=true.
-//
-// Identity note: TS 244 renames `playerSlot` → `pid` in decoder; goscape
-// keeps slot terminology (same wire value, established convention).
 func handleOpPlayerT(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -117,7 +109,7 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 	}
 
 	r := packet.NewPacket(payload)
-	slot := int(r.G2())
+	pid := int(r.G2())
 	spellCom := int(r.G2())
 
 	// Gate 3: combined component check — clearPendingAction. TS OpPlayerTHandler.ts:21-26 (244).
@@ -130,7 +122,7 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 	}
 
 	// Gate 4: target not found — clearPendingAction. TS OpPlayerTHandler.ts:28-33 (244).
-	other := s.LookupPlayerBySlot(slot)
+	other := s.LookupPlayerBySlot(pid)
 	if other == nil {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
@@ -138,7 +130,7 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 	}
 
 	// Gate 5: rsbuf visibility — clearPendingAction. TS OpPlayerTHandler.ts:35-39 (244).
-	if !s.rsbuf.HasPlayer(int32(p.slot), int32(other.slot)) {
+	if !s.rsbuf.HasPlayer(int32(p.pid), int32(other.pid)) {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
 		return nil
@@ -173,9 +165,6 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 // (NAI-62: useObj threaded for trigger-lookup override per TS
 // OpPlayerUHandler.ts:67 + Player.ts:993-995; useObj=0 canonicalised to
 // com=-1 by SetInteraction per TS PathingEntity.ts:520) → opcalled=true.
-//
-// Identity note: TS 244 renames `playerSlot` → `pid` in decoder; goscape
-// keeps slot terminology (same wire value, established convention).
 func handleOpPlayerU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -194,7 +183,7 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 	}
 
 	r := packet.NewPacket(payload)
-	slot := int(r.G2())
+	pid := int(r.G2())
 	useObj := int(r.G2())
 	useSlot := int(r.G2())
 	useCom := int(r.G2())
@@ -228,7 +217,7 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 	}
 
 	// Gate 6: target not found — clearPendingAction. TS OpPlayerUHandler.ts:44-48 (244).
-	other := s.LookupPlayerBySlot(slot)
+	other := s.LookupPlayerBySlot(pid)
 	if other == nil {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
@@ -236,7 +225,7 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 	}
 
 	// Gate 7: rsbuf visibility — clearPendingAction. TS OpPlayerUHandler.ts:50-54 (244).
-	if !s.rsbuf.HasPlayer(int32(p.slot), int32(other.slot)) {
+	if !s.rsbuf.HasPlayer(int32(p.pid), int32(other.pid)) {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
 		return nil

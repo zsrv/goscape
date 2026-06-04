@@ -145,9 +145,9 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 
 	switch t := target.(type) {
 	case *Player:
-		slot := t.slot + 32768
-		if p.faceEntity != slot {
-			p.faceEntity = slot
+		pid := t.pid + 32768
+		if p.faceEntity != pid {
+			p.faceEntity = pid
 			p.masks |= p.entitymask
 		}
 	case *Npc:

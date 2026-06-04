@@ -17,7 +17,7 @@ func newZoneTestPlayer(t *testing.T, s *Server, slot, x, z, level int) (*Player,
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{uint32(slot), 2, 3, 4})
-	p.slot = slot
+	p.pid = slot
 	p.x, p.z, p.level = x, z, level
 	p.originX, p.originZ = x, z
 	// rebuildScenery resets state and records the origin mapsquares (13×13

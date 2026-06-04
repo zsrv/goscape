@@ -337,13 +337,13 @@ func (p *Player) HintCoord(offset, x, z, height int) {
 
 // HintPlayer sends a HINT_ARROW (type=10, PL variant) wire packet to
 // the client. Encodes 6 bytes matching TS HintArrowEncoder type=10
-// branch (HintArrowEncoder.ts:28-32): p1(10), p2(slot), p2(0), p1(0).
+// branch (HintArrowEncoder.ts:28-32): p1(10), p2(pid), p2(0), p1(0).
 // Called by the HINT_PL (opcode 2029) script handler. Mirrors TS
-// Player.hintPlayer at Player.ts:2182-2184.
-func (p *Player) HintPlayer(slot int) {
+// Player.hintPlayer at Player.ts:2181-2183 (244).
+func (p *Player) HintPlayer(pid int) {
 	payload := []byte{
-		0x0A,                        // p1: type = 10 (player hint)
-		byte(slot >> 8), byte(slot), // p2: slot (big-endian)
+		0x0A,                      // p1: type = 10 (player hint)
+		byte(pid >> 8), byte(pid), // p2: pid (big-endian)
 		0x00, 0x00, // p2: 0
 		0x00, // p1: 0
 	}

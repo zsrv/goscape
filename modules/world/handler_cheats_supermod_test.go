@@ -384,7 +384,7 @@ func kickAttachTarget(t *testing.T, s *Server, targetName string) *Player {
 	if slot == -1 {
 		t.Fatal("kickAttachTarget: world full")
 	}
-	target.slot = slot
+	target.pid = slot
 	s.players.set(slot, target)
 	return target
 }

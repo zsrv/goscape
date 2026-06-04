@@ -17,8 +17,8 @@ func targetTypeID(t entity) int {
 		return v.typeId
 	case *Player:
 		// Player trigger lookup uses typeId=-1 (no config-layer Player
-		// type). Return -1 rather than v.slot so log readers don't
-		// confuse a session-local slot with a config ID; matches H2
+		// type). Return -1 rather than v.pid so log readers don't
+		// confuse a session-local pid with a config ID; matches H2
 		// routing rule's "target_type_id == loc_id" semantic.
 		_ = v
 		return -1
