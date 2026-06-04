@@ -360,6 +360,21 @@ Every line of the cross-pin diff maps to a commit or decision above — no unmap
 
 **Gates (2026-06-04):** full `go test ./... -count=1` exit 0; `CGO_ENABLED=0 go build -trimpath ./...` clean; `go vet ./...` clean except the pre-existing `pkg/util/build` self-assignment placeholders.
 
+### B5 early deliverable — worker/multiworld evaluation (2026-06-04)
+
+The umbrella spec's "written worker/multiworld evaluation" (a B5 deliverable,
+executed before B2 per the ordering rationale) is complete:
+[`docs/superpowers/specs/2026-06-04-rev244-worker-multiworld-eval.md`](docs/superpowers/specs/2026-06-04-rev244-worker-multiworld-eval.md).
+**Verdict: the 244 worker architecture is transport-only (browser-bundle mode);
+no game-client wire impact — B2 may freeze handler shapes.** Internal
+login/friends/logger wire deltas map to goscape's gRPC protos as **B5** work
+(itemized in the eval §2-4, §7); the worker files themselves are NOT-PORTED
+(architecture-mapped to dskit modules — formal rows land with B5). Flags:
+world-side `NODE_RATELIMIT_*` login limiting was removed upstream (B3 removes
+`modules/world/login_ratelimit*.go`, B5 lands the login-server replacement —
+B3's plan must carry the tracker row); the login handshake re-shape
+(seed moved into the opcode-14 reply) stays in B3.
+
 ---
 
 ## Recent audit history (full log in `docs/PORTING-CLOSED.md`)
