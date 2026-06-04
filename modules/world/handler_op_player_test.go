@@ -103,12 +103,14 @@ func TestHandleOpPlayer_HappyPath_AllOps(t *testing.T) {
 
 // TestHandleOpPlayer_DelayedSendsUnsetMapFlag — when the player is
 // delayed, handler skips interaction setup and writes UnsetMapFlag.
+// 244: delayed reject must NOT call clearPendingAction (TS OpPlayerHandler.ts:16-19).
 func TestHandleOpPlayer_DelayedSendsUnsetMapFlag(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
 	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
 	clicker.delayed = true
 	clicker.delayedUntil = 999
 	s.currentTick = 0
+	clicker.target = clicker // sentinel: clearPendingAction would nil this; must survive
 
 	received := drainConn(t, cc)
 	_ = handleOpPlayer(clicker, p2Payload(other.slot), 1)
@@ -118,8 +120,9 @@ func TestHandleOpPlayer_DelayedSendsUnsetMapFlag(t *testing.T) {
 	if len(got) == 0 {
 		t.Fatal("expected UnsetMapFlag for delayed player, got nothing")
 	}
-	if clicker.target != nil {
-		t.Errorf("target should remain nil; got %v", clicker.target)
+	// 244: delayed-player reject must NOT call clearPendingAction.
+	if clicker.target != clicker {
+		t.Error("244: delayed-player reject must NOT call clearPendingAction (target sentinel cleared)")
 	}
 }
 
@@ -235,12 +238,14 @@ func TestHandleOpPlayerT_HappyPath(t *testing.T) {
 
 // TestHandleOpPlayerT_DelayedSendsUnsetMapFlag — delayed clicker →
 // UnsetMapFlag, no interaction set.
+// 244: delayed reject must NOT call clearPendingAction (TS OpPlayerTHandler.ts:16-19).
 func TestHandleOpPlayerT_DelayedSendsUnsetMapFlag(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
 	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
 	clicker.delayed = true
 	clicker.delayedUntil = 999
 	s.currentTick = 0
+	clicker.target = clicker // sentinel: clearPendingAction would nil this; must survive
 
 	received := drainConn(t, cc)
 	_ = handleOpPlayerT(clicker, opPlayerTPayload(other.slot, 7777))
@@ -250,8 +255,9 @@ func TestHandleOpPlayerT_DelayedSendsUnsetMapFlag(t *testing.T) {
 	if len(got) == 0 {
 		t.Fatal("expected UnsetMapFlag for delayed player, got nothing")
 	}
-	if clicker.target != nil {
-		t.Errorf("target should remain nil; got %v", clicker.target)
+	// 244: delayed-player reject must NOT call clearPendingAction.
+	if clicker.target != clicker {
+		t.Error("244: delayed-player reject must NOT call clearPendingAction (target sentinel cleared)")
 	}
 }
 
@@ -427,7 +433,7 @@ func TestHandleOpPlayerU_HappyPath(t *testing.T) {
 		t.Errorf("targetOp: got %d, want targetOpPlayerU (%d)", clicker.targetOp, targetOpPlayerU)
 	}
 	if clicker.targetSubject.com != useObj {
-		t.Errorf("targetSubject.com: got %d, want %d (useObj — NAI-62 producer fix per TS OpPlayerUHandler.ts:77)", clicker.targetSubject.com, useObj)
+		t.Errorf("targetSubject.com: got %d, want %d (useObj — NAI-62 producer fix per TS OpPlayerUHandler.ts:67)", clicker.targetSubject.com, useObj)
 	}
 	if clicker.lastUseItem != useObj {
 		t.Errorf("lastUseItem: got %d, want %d (useObj)", clicker.lastUseItem, useObj)
@@ -479,6 +485,7 @@ func TestHandleOpPlayerU_UseObjZeroCanonicalisation(t *testing.T) {
 
 // TestHandleOpPlayerU_DelayedSendsUnsetMapFlag — delayed clicker →
 // UnsetMapFlag, no interaction set, lastUseItem unmodified.
+// 244: delayed reject must NOT call clearPendingAction (TS OpPlayerUHandler.ts:18-20).
 func TestHandleOpPlayerU_DelayedSendsUnsetMapFlag(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
 	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
@@ -487,6 +494,7 @@ func TestHandleOpPlayerU_DelayedSendsUnsetMapFlag(t *testing.T) {
 	clicker.delayedUntil = 999
 	s.currentTick = 0
 	clicker.lastUseItem = 42 // sentinel: must stay unchanged on rejection
+	clicker.target = clicker // sentinel: clearPendingAction would nil this; must survive
 
 	received := drainConn(t, cc)
 	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
@@ -496,8 +504,9 @@ func TestHandleOpPlayerU_DelayedSendsUnsetMapFlag(t *testing.T) {
 	if len(got) == 0 {
 		t.Fatal("expected UnsetMapFlag for delayed player, got nothing")
 	}
-	if clicker.target != nil {
-		t.Errorf("target should remain nil; got %v", clicker.target)
+	// 244: delayed-player reject must NOT call clearPendingAction.
+	if clicker.target != clicker {
+		t.Error("244: delayed-player reject must NOT call clearPendingAction (target sentinel cleared)")
 	}
 	if clicker.lastUseItem != 42 {
 		t.Errorf("lastUseItem leaked through rejected handler: got %d, want 42", clicker.lastUseItem)
