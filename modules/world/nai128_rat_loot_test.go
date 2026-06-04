@@ -100,7 +100,7 @@ func nai128CacheFixture(t *testing.T) (*Server, string) {
 	// NewServer at server.go:238, 250-252. Without these, ScriptState.World
 	// is worldVarsView{s: nil} and LookupPlayerByUID short-circuits to nil
 	// at server_varp.go:178-180 — silently breaks NPC_FINDHERO even though
-	// playerLoop is populated.
+	// s.players is populated.
 	s.worldVars = worldVarsView{s: s}
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
@@ -174,7 +174,7 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 
 	// Register the player with the server before crediting heroPoints.
 	// addPlayer assigns p.slot, p.uid=composeUID(username37, slot), and
-	// adds to s.players + s.playerLoop with active=true. Required so
+	// adds to s.players with active=true. Required so
 	// downstream NPC_FINDHERO -> LookupPlayerByUID(uid) resolves the
 	// player at T5 (controller pre-flight: tut_giant_rat.rs2:6 gates
 	// obj_add behind npc_findhero=^true).

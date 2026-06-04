@@ -1063,11 +1063,11 @@ func TestProcessPlayerTimers_NormalFiresBeforeSoftWithinTick(t *testing.T) {
 // TestProcessPlayerTimers_NormalAcrossAllPlayersBeforeSoftOnAny pins
 // the across-player aspect of the player-script-3 split: ALL players'
 // NORMAL timers fire in pass 1 before ANY player's SOFT timer fires
-// in pass 2. TS World.ts:718-723 iterates the whole playerLoop twice
+// in pass 2. TS World.ts:718-723 iterates the whole players list twice
 // (processNormalTimers per player, then processSoftTimers per
 // player); the pre-fix implementation iterated each player's timers
 // in a single mixed pass so a soft on player A could fire before a
-// normal on player B if A came first in playerLoop.
+// normal on player B if A came first in the players list.
 func TestProcessPlayerTimers_NormalAcrossAllPlayersBeforeSoftOnAny(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
@@ -1107,7 +1107,7 @@ func TestProcessPlayerTimers_NormalAcrossAllPlayersBeforeSoftOnAny(t *testing.T)
 		t.Fatalf("fire count: got %d, want 2 (fireLog=%v)", len(fireLog), fireLog)
 	}
 	// pb's NORMAL (id=40) must fire before pa's SOFT (id=30), even
-	// though pa precedes pb in the playerLoop.
+	// though pa precedes pb in the players list.
 	if fireLog[0].id != 40 || fireLog[1].id != 30 {
 		t.Errorf("cross-player fire order: got [%d, %d], want [40, 30] — NORMAL across all players must fire before SOFT on any player",
 			fireLog[0].id, fireLog[1].id)

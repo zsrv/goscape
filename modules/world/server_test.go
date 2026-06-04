@@ -782,7 +782,7 @@ func TestLookupPlayerByUIDNotFound(t *testing.T) {
 	}
 }
 
-// TestLookupPlayerByUIDSkipsInactive: an entry in playerLoop whose
+// TestLookupPlayerByUIDSkipsInactive: an entry in s.players whose
 // active flag is false is not returned even on uid match. This defends
 // against stale references during the add/remove race window — the
 // tick loop drains newPlayers and addPlayer flips active=true; removal

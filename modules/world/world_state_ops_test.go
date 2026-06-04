@@ -84,7 +84,7 @@ func TestRelayActionQueue_DropsOnFull(t *testing.T) {
 	t.Fatal("over-cap enqueue was NOT dropped — drainRelayActions executed the over-cap closure")
 }
 
-// registerActivePlayer wires a Player into s.players + s.playerLoop
+// registerActivePlayer wires a Player into s.players
 // with active=true, mirroring teleTestPlayer/addOtherTestPlayer minus
 // the gamemap/zoneMap setup that WorldStateOps tests don't need. The
 // returned *Player has username, username37, and a working encryptor
@@ -95,7 +95,7 @@ func TestRelayActionQueue_DropsOnFull(t *testing.T) {
 // p.username37 to be set up correctly AND drives zoneMap.EnterPlayer.
 // We bypass it to keep tests focused — the registration shape matches
 // the slice-5b T3/T4 contract: lookupPlayerByUsername37 iterates
-// playerLoop and matches on jstring.ToBase37(p.username).
+// s.players and matches on jstring.ToBase37(p.username).
 func registerActivePlayer(t *testing.T, s *Server, username string, slot int) *Player {
 	t.Helper()
 	c, conn := newTestClient(t)
@@ -344,7 +344,7 @@ func TestWorldStateOps_QueueScript_EnqueuesNormalQueueOnLookedUpPlayer(t *testin
 
 // TestWorldStateOps_QueueScript_LookupMissIsHarmless mirrors
 // TestWorldStateOps_SetPlayerMute_LookupMissIsHarmless. Username37
-// not in playerLoop → no enqueue, no panic.
+// not in s.players → no enqueue, no panic.
 func TestWorldStateOps_QueueScript_LookupMissIsHarmless(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()

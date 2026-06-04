@@ -33,7 +33,7 @@ func TestProcessZonesComputesShared(t *testing.T) {
 
 func TestProcessCleanupResetsAndClearsTracking(t *testing.T) {
 	s := newZoneTestServer(t)
-	// need valid playersMu and playerLoop for processCleanup's existing code path.
+	// need valid playersMu and s.players for processCleanup's existing code path.
 	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)
 	s.AddLoc(loc, 0)
 	s.processZones()

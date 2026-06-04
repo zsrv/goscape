@@ -756,7 +756,7 @@ func (s *Server) processPlayerEngineQueues() {
 // NORMAL timers first (gated by CanAccess), then SOFT timers (no
 // CanAccess gate). Mirrors TS World.processPlayers (World.ts:718-723)
 // which calls processNormalTimers then processSoftTimers in sequence
-// across the whole playerLoop, not interleaved per-player.
+// across the whole players list, not interleaved per-player.
 //
 // The pre-closure implementation iterated each player's timers in
 // id-sorted order with NORMAL and SOFT mixed by id; an
@@ -774,10 +774,10 @@ func (s *Server) processPlayerTimers() {
 }
 
 // processPlayerTimersForType is the per-pass helper. Iterates a fresh
-// playerLoop snapshot and fires only timers whose Type matches
+// players-list snapshot and fires only timers whose Type matches
 // filterType, in id-sorted order. Independent snapshots per pass match
 // the conventional pattern (cf. processPlayerEngineQueues,
-// processClientsOut); within a single tick the playerLoop is only
+// processClientsOut); within a single tick the players list is only
 // mutated on the tick goroutine itself, so the two snapshots are
 // identical in practice.
 func (s *Server) processPlayerTimersForType(filterType script.PlayerTimerType) {
@@ -946,7 +946,7 @@ func (s *Server) processInfo() {
 
 		// NAI-29 Bundle 4 Task 4.5 — parallel-write npc state push.
 		// Iterates s.npcLoop (active list, parallel to T4.4's per-player
-		// iteration over playerLoop); skips slots where n is nil or
+		// iteration over s.players.all()); skips slots where n is nil or
 		// n.dead is true (goscape "dead-bool divergence" — dead npcs
 		// remain in npcLoop until the existing dead-cleanup pass prunes
 		// them; we don't push their state to rsbuf).

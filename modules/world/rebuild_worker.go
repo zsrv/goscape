@@ -117,7 +117,7 @@ func (s *Server) handleRebuildResult(r rebuildResult) {
 // PackAll.ts:18-22 + World.ts:1759-1766, plus the `dev_failure` and
 // `dev_thread exit` paths at World.ts:1750-1758, 1803-1811 — all
 // funnel into World.broadcastMes (World.ts:1808-1816), which iterates
-// the FULL playerLoop. Every connected player receives every
+// the FULL players list. Every connected player receives every
 // "Packing…", "Reloading…", "Rebuilt: Ns.", and "Rebuild failed: …"
 // line, mid-rebuild and at completion.
 //

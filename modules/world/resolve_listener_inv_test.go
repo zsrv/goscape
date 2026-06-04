@@ -53,7 +53,7 @@ func TestResolveListenerInvPlayerSourceMatch(t *testing.T) {
 // active player> → returns nil cleanly (no panic, no slot OOB).
 func TestResolveListenerInvPlayerSourceOffline(t *testing.T) {
 	s := newTestServer(t)
-	// No player with uid=999999 wired into s.playerLoop.
+	// No player with uid=999999 wired into s.players.
 
 	got := resolveListenerInv(s, InventoryListener{Type: 42, Source: 999999})
 

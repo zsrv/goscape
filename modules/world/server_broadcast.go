@@ -9,7 +9,7 @@ import (
 // BroadcastMes sends a MESSAGE_GAME packet to every logged-in player, mirroring
 // TS World.broadcastMes (World.ts:1803-1811):
 //
-//	for (const player of this.playerLoop.all()) {
+//	for (const player of this.players) {
 //	    if (message.includes('\n')) {
 //	        message.split('\n').forEach(wrap => player.wrappedMessageGame(wrap));
 //	    } else {

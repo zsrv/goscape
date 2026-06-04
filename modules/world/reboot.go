@@ -81,7 +81,7 @@ func (s *Server) processShutdown() {
 	// (b) After 1024 ticks (~10 minutes at 600ms/tick), force-remove EVERY
 	// remaining player by calling removePlayer directly and unconditionally.
 	// Mirrors TS World.processShutdown (World.ts:1207-1213), which loops over
-	// playerLoop.all() and calls this.removePlayer(player) inline — no
+	// players list and calls this.removePlayer(player) inline — no
 	// canAccess / queue / engineQueue gate.
 	//
 	// We deliberately bypass the normal processLogouts drain (block (a)'s

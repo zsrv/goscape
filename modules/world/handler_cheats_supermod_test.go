@@ -414,7 +414,7 @@ func TestKickDispatchHappy(t *testing.T) {
 // not exist or is not logged in" message; no state mutation elsewhere.
 func TestKickDispatchLookupMiss(t *testing.T) {
 	p, cc, _, _ := supermodSetup(t)
-	// Do NOT call kickAttachTarget — playerLoop has only the caller.
+	// Do NOT call kickAttachTarget — s.players has only the caller.
 
 	received := drainConn(t, cc)
 	dispatchCheat(t, p, "kick ghost")

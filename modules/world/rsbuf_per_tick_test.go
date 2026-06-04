@@ -161,7 +161,7 @@ func TestProcessInfoInvokesReorient(t *testing.T) {
 	s.renderer = rsbuf.NewRenderer()
 
 	// setupInfoPlayer wires slot=1, active=true, adds to s.rsbuf and
-	// s.playerLoop — ComputePlayers will execute for this slot.
+	// s.players — ComputePlayers will execute for this slot.
 	p := setupInfoPlayer(t, s, 1, 100, 100, 0)
 
 	loc := entitypkg.NewLoc(0, 105, 108, 1, 1, entitypkg.LifecycleForever, 0, 10, 0)

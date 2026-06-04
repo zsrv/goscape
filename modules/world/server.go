@@ -101,7 +101,7 @@ type Server struct {
 	// allocation. Replaces the 225-era flat players [2048]*Player array
 	// and playerLoop []*Player insertion-order slice.
 	// TS World.ts:244 uses a single EntityList/PlayerList for both slot
-	// lookup (getPlayer) and ordered iteration (playerLoop.all() → pid order).
+	// lookup (getPlayer) and ordered iteration (players.all() → pid order).
 	// Closes PORTING-EXCEPTION (gap-db-datastruct-4).
 	// TS refs: login insert World.ts:940-961, removePlayer World.ts:1643-1648,
 	// getNextPid World.ts:1758-1773, getTotalPlayers World.ts:1730-1732.
@@ -749,7 +749,7 @@ func (s *Server) Shutdown() {
 	s.log.Debug("all tcp connections closed")
 	// Arc 18 R2 — wait for the tick goroutine to observe s.quit and exit
 	// before returning from Shutdown. Without this, tick-phase code could
-	// still be running (touching s.sessionLogs / s.playerLoop / etc.)
+	// still be running (touching s.sessionLogs / s.players / etc.)
 	// after Shutdown returned. The tickWg is no-op for graceful-exit
 	// paths (processShutdown returns from runTickLoop without taking the
 	// quit branch, but Done still fires via the defer).

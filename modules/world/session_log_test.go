@@ -162,7 +162,7 @@ func TestProcessSessionLogsEmptyNoFlush(t *testing.T) {
 }
 
 // TestProcessSessionLogsCoordLog pins the periodic MODERATOR push:
-// at tick == PlayerCoordLogRate, every player in playerLoop gets a
+// at tick == PlayerCoordLogRate, every player in s.players gets a
 // "Server check in" record with their packed coord.
 func TestProcessSessionLogsCoordLog(t *testing.T) {
 	s := newTestServer(t)

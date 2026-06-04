@@ -99,14 +99,15 @@ func (l *playerList) all() iter.Seq[*Player] {
 }
 
 // splitHostPort wraps net.SplitHostPort and tolerates a missing port by
-// returning the input as the host unchanged.
-func splitHostPort(addr string) (host, port string, err error) {
-	host, port, err = net.SplitHostPort(addr)
+// returning the input as the host unchanged. Parse problems are absorbed
+// (never surfaced) — getNextPid treats any unparseable address as the
+// plain round-robin path, so there is nothing to signal.
+func splitHostPort(addr string) (host, port string) {
+	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		host = addr
-		err = nil
+		return addr, ""
 	}
-	return host, port, err
+	return host, port
 }
 
 // getNextPid ports TS World.getNextPid (World.ts:1758-1773): derive the
@@ -115,7 +116,7 @@ func splitHostPort(addr string) (host, port string, err error) {
 // using net.IP; any parse failure falls back to the plain round-robin.
 // remoteAddr may be "host:port", a bare host, or "" (no client).
 func getNextPid(l *playerList, remoteAddr string) int {
-	host, _, _ := splitHostPort(remoteAddr)
+	host, _ := splitHostPort(remoteAddr)
 	if strings.Contains(host, ".") {
 		// IPv4 — first available pid starting from (low ip octet % 20) * 100.
 		octets := strings.Split(host, ".")

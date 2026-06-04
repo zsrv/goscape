@@ -32,7 +32,7 @@ type SessionLog struct {
 // before currentTick++). Mirrors TS World.cycle() session-log block at
 // World.ts:428-442:
 //  1. If currentTick > 0 && currentTick % PlayerCoordLogRate == 0,
-//     push MODERATOR "Server check in" for every player in playerLoop.
+//     push MODERATOR "Server check in" for every player in the players list.
 //  2. If sessionLogs is non-empty, dispatch via loggerBridge then clear.
 //
 // Empty-buffer skip matches TS (World.ts:435 `if (sessionLogs.length > 0)`).

@@ -51,7 +51,7 @@ func TestEmitFriendsDispatcher_OnFriendlistUpdate_EnqueuesOnePacketPerEntry(t *t
 }
 
 // TestEmitFriendsDispatcher_OnFriendlistUpdate_MissingPlayerNoEmit pins
-// that the dispatcher silently drops events for a viewer not in s.playerLoop.
+// that the dispatcher silently drops events for a viewer not in s.players.
 func TestEmitFriendsDispatcher_OnFriendlistUpdate_MissingPlayerNoEmit(t *testing.T) {
 	s := newTestServer(t)
 	d := newEmitFriendsDispatcher(s, s.log)
@@ -169,7 +169,7 @@ func TestEmitFriendsDispatcher_OnPrivateMessage_EmitsPacket(t *testing.T) {
 }
 
 // TestEmitFriendsDispatcher_OnPrivateMessage_MissingTargetNoEmit pins
-// that the dispatcher silently drops PMs for a target not in s.playerLoop
+// that the dispatcher silently drops PMs for a target not in s.players
 // (e.g., player logged out between sender's send and recipient's tick).
 func TestEmitFriendsDispatcher_OnPrivateMessage_MissingTargetNoEmit(t *testing.T) {
 	s := newTestServer(t)
