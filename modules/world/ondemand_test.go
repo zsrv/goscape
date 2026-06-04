@@ -5,18 +5,18 @@ import (
 	"testing"
 )
 
-// testODClient is a fake odClient for testing: records sent data and tracks close calls.
-type testODClientImpl struct {
+// testODClient is a fake odClient: records sent data and tracks close calls.
+type testODClient struct {
 	mu     sync.Mutex
 	closed *bool
 	sent   [][]byte
 }
 
-func testODClient(closed *bool) odClient {
-	return &testODClientImpl{closed: closed}
+func newTestODClient(closed *bool) *testODClient {
+	return &testODClient{closed: closed}
 }
 
-func (c *testODClientImpl) send(data []byte) error {
+func (c *testODClient) send(data []byte) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	cp := make([]byte, len(data))
@@ -25,7 +25,7 @@ func (c *testODClientImpl) send(data []byte) error {
 	return nil
 }
 
-func (c *testODClientImpl) close() {
+func (c *testODClient) close() {
 	*c.closed = true
 }
 
@@ -34,7 +34,7 @@ func TestOnDemandRequestParsing(t *testing.T) {
 	closed := false
 	// two whole requests + a partial third: urgent(archive=0,file=1,priority=2) + ingame(archive=3,file=5,priority=0) + 1 trailing byte
 	buf := []byte{0, 0, 1, 2, 3, 0, 5, 0, 1}
-	consumed := od.onClientData(testODClient(&closed), buf)
+	consumed := od.onClientData(newTestODClient(&closed), buf)
 	if consumed != 8 {
 		t.Fatalf("consumed = %d, want 8 (partial frame stays buffered at caller)", consumed)
 	}
@@ -63,7 +63,7 @@ func TestOnDemandRejectsBadRequest(t *testing.T) {
 	} {
 		closed := false
 		od := newOnDemand(nil)
-		od.onClientData(testODClient(&closed), bad)
+		od.onClientData(newTestODClient(&closed), bad)
 		if !closed {
 			t.Errorf("bad request %v did not close the connection", bad)
 		}
@@ -76,7 +76,7 @@ func TestOnDemandExtraPriority(t *testing.T) {
 	closed := false
 	// archive=1, file=0x0002 (big-endian: 0x00, 0x02), priority=1 → extra
 	buf := []byte{1, 0, 2, 1}
-	consumed := od.onClientData(testODClient(&closed), buf)
+	consumed := od.onClientData(newTestODClient(&closed), buf)
 	if consumed != 4 {
 		t.Fatalf("consumed = %d, want 4", consumed)
 	}
@@ -105,7 +105,7 @@ func TestOnDemandRejectMidBufferAbandons(t *testing.T) {
 		4, 0, 0, 0, // invalid archive=4 → close + return
 		0, 0, 2, 0, // valid ingame (must NOT be enqueued)
 	}
-	od.onClientData(testODClient(&closed), buf)
+	od.onClientData(newTestODClient(&closed), buf)
 	if !closed {
 		t.Fatal("mid-buffer bad frame must close the connection")
 	}
@@ -133,7 +133,7 @@ func TestOnDemandConcurrentEnqueue(t *testing.T) {
 			// alternate priorities 0/1/2 across goroutines
 			priority := byte(n % 3)
 			buf := []byte{byte(n % 4), 0, byte(n), priority}
-			od.onClientData(testODClient(&closed), buf)
+			od.onClientData(newTestODClient(&closed), buf)
 		}(i)
 	}
 	wg.Wait()

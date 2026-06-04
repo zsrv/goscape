@@ -32,7 +32,10 @@ import (
 )
 
 // odClient is the writer/closer seam OnDemand needs from a connection.
-// The production adapter wraps *client (wired in the next task); tests use fakes.
+// The production adapter wraps *client (wired in the next task); tests use
+// fakes. The methods are deliberately unexported and narrower than
+// io.Closer: close() is fire-and-forget (mirroring TS client.close(),
+// which returns nothing — OnDemand has no error path for a failed close).
 type odClient interface {
 	send(data []byte) error
 	close()
@@ -48,12 +51,16 @@ type odRequest struct {
 // onDemand holds the three priority queues and the cache handle.
 // It mirrors the OnDemand class fields at OnDemand.ts:11-16.
 type onDemand struct {
-	mu     sync.Mutex // guards urgent/extra/ingame (conn goroutines enqueue; cycle goroutine drains)
+	mu     sync.Mutex  // guards urgent/extra/ingame (conn goroutines enqueue; cycle goroutine drains)
 	urgent []odRequest // priority 2 — needed ASAP (OnDemand.ts:14)
 	extra  []odRequest // priority 1 — not logged in, preloading extras (OnDemand.ts:15)
 	ingame []odRequest // priority 0/else — logged in, preloading extras (OnDemand.ts:16)
 
-	cacheMu sync.Mutex          // FileStream is not concurrency-safe (B1 port doc)
+	// cacheMu guards every cache access — FileStream is not
+	// concurrency-safe (B1 port doc). Acquired by the cycle goroutine's
+	// send path (next task) and by any reload-time CRC rebuild; nothing
+	// in the parse/enqueue half touches the cache.
+	cacheMu sync.Mutex
 	cache   *filestream.FileStream // nil-able in parse-only / unit tests
 }
 
