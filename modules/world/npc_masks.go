@@ -7,22 +7,23 @@ import (
 
 // Animate schedules sequence id with the given client-side delay on the
 // NPC's primary animation slot. id=-1 clears. Mirrors TS Npc.playAnimation
-// (Npc.ts:451-462): bounds-reject on id >= SeqType.count and
-// priority-comparison overwrite gate. NPCs have no animProtect equivalent
-// (TS-faithful — Player-only field). The n.server == nil guard is a
-// goscape-only nil-safe concession for test fixtures that construct a
-// bare *Npc without registering through addNpc; TS has no analogue
-// (its registry is a static class). Closes deviation NAI-56-D1.
+// (Npc.ts:456-466) at Engine-TS pin 9aadcec4: bounds-reject on
+// id >= SeqType.count and priority >= overwrite gate. NPCs have no
+// animProtect equivalent (TS-faithful — Player-only field). The
+// n.server == nil guard is a goscape-only nil-safe concession for test
+// fixtures that construct a bare *Npc without registering through addNpc;
+// TS has no analogue (its registry is a static class). 244 changed strict
+// `>` to `>=`, meaning equal nonzero priority now overwrites.
+// Closes deviation NAI-56-D1.
 func (n *Npc) Animate(id, delay int) {
 	if n.server == nil {
 		return // goscape-only nil-guard for test fixtures
 	}
 	if id >= n.server.seqTypes.Count() {
-		return // TS Npc.ts:452
+		return // TS Npc.ts:457
 	}
 	if id == -1 || n.animID == -1 ||
-		n.server.seqTypes.Configs[id].Priority > n.server.seqTypes.Configs[n.animID].Priority ||
-		n.server.seqTypes.Configs[n.animID].Priority == 0 {
+		n.server.seqTypes.Configs[id].Priority >= n.server.seqTypes.Configs[n.animID].Priority {
 		n.animID = id
 		n.animDelay = delay
 		n.masks |= rsbuf.NpcMaskAnim

@@ -894,13 +894,22 @@ func TestNpcAnimate_PriorityLowerRejected(t *testing.T) {
 	}
 }
 
-func TestNpcAnimate_PriorityEqualRejected(t *testing.T) {
+func TestNpcAnimate_PriorityEqualOverwrites(t *testing.T) {
+	// 244 changed strict `>` to `>=` (Npc.ts:461 at 9aadcec4). Equal nonzero
+	// priority now overwrites. Both Priority=5 (default).
 	s := newTestServer(t)
-	s.seqTypes = buildSeqTypes(20) // all default Priority=5
-	n := &Npc{server: s, animID: 5}
+	s.seqTypes = buildSeqTypes(20)
+	n := &Npc{server: s, animID: 5, animDelay: 99}
+	n.masks = 0
 	n.Animate(10, 3)
-	if n.animID != 5 {
-		t.Errorf("animID: got %d, want 5 (equal priority rejected)", n.animID)
+	if n.animID != 10 {
+		t.Errorf("animID: got %d, want 10 (equal priority overwrites under 244 >=)", n.animID)
+	}
+	if n.animDelay != 3 {
+		t.Errorf("animDelay: got %d, want 3", n.animDelay)
+	}
+	if n.masks&rsbuf.NpcMaskAnim == 0 {
+		t.Error("NpcMaskAnim must be set on equal-priority overwrite")
 	}
 }
 
@@ -937,6 +946,33 @@ func TestNpcAnimate_ClearWithMinusOneSucceeds(t *testing.T) {
 	}
 	if n.masks&rsbuf.NpcMaskAnim == 0 {
 		t.Error("NpcMaskAnim should be set on clear")
+	}
+}
+
+// TestSetAnimEqualPriorityOverwrites_Npc pins the 244 gate change: when a
+// new anim has the SAME nonzero priority as the current anim, the 244 rule
+// (>=) overwrites, whereas the 225 rule (>) rejected. TS ref:
+// Npc.ts:461 — `SeqType.get(anim).priority >= SeqType.get(this.animId).priority`
+// at Engine-TS pin 9aadcec4. The discriminating case is equal nonzero priority.
+func TestSetAnimEqualPriorityOverwrites_Npc(t *testing.T) {
+	s := newTestServer(t)
+	cfg := buildSeqTypes(20)
+	// Both seq 5 and seq 10 have the default Priority=5. Seed with seq 5 active.
+	s.seqTypes = cfg
+	n := &Npc{server: s, animID: 5, animDelay: 99}
+	n.masks = 0
+
+	// Play seq 10 at equal priority (5 == 5). 244 gate must overwrite.
+	n.Animate(10, 7)
+
+	if n.animID != 10 {
+		t.Errorf("animID: got %d, want 10 (equal priority must overwrite under 244 >=)", n.animID)
+	}
+	if n.animDelay != 7 {
+		t.Errorf("animDelay: got %d, want 7", n.animDelay)
+	}
+	if n.masks&rsbuf.NpcMaskAnim == 0 {
+		t.Error("NpcMaskAnim must be set on equal-priority overwrite")
 	}
 }
 

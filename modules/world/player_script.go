@@ -981,17 +981,17 @@ func (p *Player) AddXP(id int, xp int, allowMulti bool) {
 
 // PlayAnim schedules sequence seqID with the given client-side delay on
 // the player's primary animation slot. seqID=-1 clears. Mirrors TS
-// Player.playAnimation (Player.ts:1840-1851): bounds-reject on
-// seqID >= SeqType.count, animProtect early-return, and priority-comparison
-// overwrite gate. The seqID==-1 / animID==-1 short-circuits in the priority
-// arm guard the slice dereferences. Closes deviation NAI-56-D1.
+// Player.playAnimation (Player.ts:1852-1862) at Engine-TS pin 9aadcec4:
+// bounds-reject on seqID >= SeqType.count, animProtect early-return, and
+// priority >= overwrite gate. The seqID==-1 / animID==-1 short-circuits
+// guard the slice dereferences. 244 changed strict `>` to `>=`, meaning
+// equal nonzero priority now overwrites. Closes deviation NAI-56-D1.
 func (p *Player) PlayAnim(seqID, delay int) {
 	if seqID >= p.seqTypes.Count() || p.animProtect != 0 {
-		return // TS Player.ts:1841
+		return // TS Player.ts:1853
 	}
 	if seqID == -1 || p.animID == -1 ||
-		p.seqTypes.Configs[seqID].Priority > p.seqTypes.Configs[p.animID].Priority ||
-		p.seqTypes.Configs[p.animID].Priority == 0 {
+		p.seqTypes.Configs[seqID].Priority >= p.seqTypes.Configs[p.animID].Priority {
 		p.animID = seqID
 		p.animDelay = delay
 		p.masks |= rsbuf.MaskAnim

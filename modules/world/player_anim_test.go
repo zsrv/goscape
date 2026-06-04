@@ -166,18 +166,23 @@ func TestPlayAnim_PriorityLowerRejected(t *testing.T) {
 	}
 }
 
-func TestPlayAnim_PriorityEqualRejected(t *testing.T) {
-	// Both Priority=5 (default). TS uses strict `>` so equal is rejected.
+func TestPlayAnim_PriorityEqualOverwrites(t *testing.T) {
+	// 244 changed strict `>` to `>=` (Player.ts:1857 at 9aadcec4). Equal
+	// nonzero priority now overwrites. Both Priority=5 (default).
 	p, _ := newTestPlayer(t)
 	p.seqTypes = buildSeqTypes(20)
 	p.animID = 5
+	p.animDelay = 99
 	p.masks = 0
 	p.PlayAnim(10, 3)
-	if p.animID != 5 {
-		t.Errorf("animID: got %d, want 5 (equal priority rejected)", p.animID)
+	if p.animID != 10 {
+		t.Errorf("animID: got %d, want 10 (equal priority overwrites under 244 >=)", p.animID)
 	}
-	if p.masks&rsbuf.MaskAnim != 0 {
-		t.Error("MaskAnim should not be set")
+	if p.animDelay != 3 {
+		t.Errorf("animDelay: got %d, want 3", p.animDelay)
+	}
+	if p.masks&rsbuf.MaskAnim == 0 {
+		t.Error("MaskAnim must be set on equal-priority overwrite")
 	}
 }
 
@@ -205,6 +210,34 @@ func TestPlayAnim_FreshAnimIDMinusOneAlwaysOverwrites(t *testing.T) {
 	p.PlayAnim(10, 3)
 	if p.animID != 10 {
 		t.Errorf("animID: got %d, want 10 (fresh animID=-1 short-circuit)", p.animID)
+	}
+}
+
+// TestSetAnimEqualPriorityOverwrites_Player pins the 244 gate change: when a
+// new anim has the SAME nonzero priority as the current anim, the 244 rule
+// (>=) overwrites, whereas the 225 rule (>) rejected. TS ref:
+// Player.ts:1857 — `SeqType.get(anim).priority >= SeqType.get(this.animId).priority`
+// at Engine-TS pin 9aadcec4. The discriminating case is equal nonzero priority.
+func TestSetAnimEqualPriorityOverwrites_Player(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	cfg := buildSeqTypes(20)
+	// Both seq 5 and seq 10 have the default Priority=5. Seed with seq 5 active.
+	p.seqTypes = cfg
+	p.animID = 5
+	p.animDelay = 99
+	p.masks = 0
+
+	// Play seq 10 at equal priority (5 == 5). 244 gate must overwrite.
+	p.PlayAnim(10, 7)
+
+	if p.animID != 10 {
+		t.Errorf("animID: got %d, want 10 (equal priority must overwrite under 244 >=)", p.animID)
+	}
+	if p.animDelay != 7 {
+		t.Errorf("animDelay: got %d, want 7", p.animDelay)
+	}
+	if p.masks&rsbuf.MaskAnim == 0 {
+		t.Error("MaskAnim must be set on equal-priority overwrite")
 	}
 }
 
