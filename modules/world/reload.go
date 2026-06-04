@@ -143,11 +143,11 @@ func (s *Server) Reload(clearInvs bool) error {
 	if err != nil {
 		return fmt.Errorf("reload: idk types: %w", err)
 	}
-	seqFrames_, err := objtype.LoadSeqFrames(cachePath)
+	animFrames_, err := objtype.LoadAnimFrames(cachePath)
 	if err != nil {
-		return fmt.Errorf("reload: seq frames: %w", err)
+		return fmt.Errorf("reload: anim frames: %w", err)
 	}
-	seqTypes_, err := objtype.LoadSeqTypes(cachePath, seqFrames_)
+	seqTypes_, err := objtype.LoadSeqTypes(cachePath, animFrames_)
 	if err != nil {
 		return fmt.Errorf("reload: seq types: %w", err)
 	}

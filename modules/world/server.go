@@ -560,12 +560,12 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	}
 	s.fontTypes = fontTypes
 
-	seqFrames, err := objtype.LoadSeqFrames(cfg.CachePath)
+	animFrames, err := objtype.LoadAnimFrames(cfg.CachePath)
 	if err != nil {
-		return nil, fmt.Errorf("load seq frames: %w", err)
+		return nil, fmt.Errorf("load anim frames: %w", err)
 	}
 
-	seqTypes, err := objtype.LoadSeqTypes(cfg.CachePath, seqFrames)
+	seqTypes, err := objtype.LoadSeqTypes(cfg.CachePath, animFrames)
 	if err != nil {
 		return nil, fmt.Errorf("load seq types: %w", err)
 	}
