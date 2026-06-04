@@ -8,7 +8,7 @@ import (
 	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
-// handleEventTracking handles client opcode 81 (EVENT_TRACKING),
+// handleEventTracking handles client opcode 217 (EVENT_TRACKING),
 // payload size -2 (2-byte length prefix), category RESTRICTED_EVENT.
 //
 // Mirrors TS EventTrackingHandler.handle (EventTrackingHandler.ts:7-28).

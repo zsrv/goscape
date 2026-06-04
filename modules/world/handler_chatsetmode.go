@@ -2,7 +2,7 @@ package world
 
 import "github.com/zsrv/goscape/pkg/io/packet"
 
-// handleChatSetMode handles client opcode 244 (CHAT_SETMODE), payload
+// handleChatSetMode handles client opcode 98 (CHAT_SETMODE), payload
 // 3 bytes: g1 publicChat, g1 privateChat, g1 tradeDuel.
 //
 // Mirrors TS ChatSetModeHandler.ts:7-13. No socialProtect gate (TS

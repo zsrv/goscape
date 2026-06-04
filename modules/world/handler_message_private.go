@@ -9,7 +9,7 @@ import (
 	"github.com/zsrv/goscape/pkg/wordenc/wordpack"
 )
 
-// handleMessagePrivate handles client opcode 148 (MESSAGE_PRIVATE),
+// handleMessagePrivate handles client opcode 170 (MESSAGE_PRIVATE),
 // dynamic 1-byte length. Wire: G8 target(base37) + word-packed input
 // bytes (variable length, payload tail). NAI-158.
 //

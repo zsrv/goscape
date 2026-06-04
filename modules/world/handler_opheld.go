@@ -164,7 +164,7 @@ func handleOpHeld3(p *Player, payload []byte) error { return handleOpHeld(p, pay
 func handleOpHeld4(p *Player, payload []byte) error { return handleOpHeld(p, payload, 4) }
 func handleOpHeld5(p *Player, payload []byte) error { return handleOpHeld(p, payload, 5) }
 
-// handleOpHeldT is the handler for OPHELDT (opcode 48, 8-byte payload).
+// handleOpHeldT is the handler for OPHELDT (opcode 143, 8-byte payload).
 // Spell-on-held-item: player drags a spell from the magic-book interface
 // onto an inventory item.
 // Wire format: obj:G2 | slot:G2 | component:G2 | spellComponent:G2.
@@ -270,7 +270,7 @@ func handleOpHeldT(p *Player, payload []byte) error {
 	return nil
 }
 
-// handleOpHeldU is the handler for OPHELDU (opcode 130, 12-byte payload).
+// handleOpHeldU is the handler for OPHELDU (opcode 58, 12-byte payload).
 // Item-on-held-item: player drags one inventory item onto another.
 // Wire format: obj:G2 | slot:G2 | component:G2 | useObj:G2 | useSlot:G2 | useComponent:G2.
 //

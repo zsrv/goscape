@@ -24,7 +24,7 @@ func commonMessagePublicSetup(t *testing.T) (*Player, *recordingBridges) {
 	return p, rec
 }
 
-// packPublicChatPayload returns an opcode-158 MESSAGE_PUBLIC payload:
+// packPublicChatPayload returns an opcode-171 MESSAGE_PUBLIC payload:
 // [color, effect, word-packed(message)].
 func packPublicChatPayload(color, effect byte, message string) []byte {
 	out := []byte{color, effect}

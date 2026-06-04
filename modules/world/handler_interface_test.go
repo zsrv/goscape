@@ -69,16 +69,16 @@ func TestProcessPlayerQueueStrongQueueClosesModal(t *testing.T) {
 	}
 }
 
-// TestHandleTutClickSideOutOfRange pins that tab values outside [0,13]
-// are silently dropped (TS TutClickSideHandler.ts:13-15).
-func TestHandleTutClickSideOutOfRange(t *testing.T) {
+// TestHandleTutorialClickSideOutOfRange pins that tab values outside [0,13]
+// are silently dropped (TS TutorialClickSideHandler.ts:12-14).
+func TestHandleTutorialClickSideOutOfRange(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 
 	for _, tab := range []int{14, 255} {
-		if err := s.handleTutClickSide(p, []byte{byte(tab)}); err != nil {
+		if err := s.handleTutorialClickSide(p, []byte{byte(tab)}); err != nil {
 			t.Errorf("tab %d: unexpected error: %v", tab, err)
 		}
 		if p.activeScript != nil {
@@ -87,9 +87,9 @@ func TestHandleTutClickSideOutOfRange(t *testing.T) {
 	}
 }
 
-// TestHandleTutClickSideFiresTutorialScript pins that a valid tab fires
-// the global [tutorial] script (TS TutClickSideHandler.ts:17-20).
-func TestHandleTutClickSideFiresTutorialScript(t *testing.T) {
+// TestHandleTutorialClickSideFiresTutorialScript pins that a valid tab fires
+// the global [tutorial] script (TS TutorialClickSideHandler.ts:16-18).
+func TestHandleTutorialClickSideFiresTutorialScript(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	tutScript := &script.ScriptFile{
@@ -105,7 +105,7 @@ func TestHandleTutClickSideFiresTutorialScript(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 
-	if err := s.handleTutClickSide(p, []byte{7}); err != nil {
+	if err := s.handleTutorialClickSide(p, []byte{7}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	// Script returns immediately; activeScript is nil after finish.
@@ -114,15 +114,15 @@ func TestHandleTutClickSideFiresTutorialScript(t *testing.T) {
 	}
 }
 
-// TestHandleTutClickSideNoScriptNoOp pins that missing [tutorial] script
+// TestHandleTutorialClickSideNoScriptNoOp pins that missing [tutorial] script
 // is a silent no-op (no panic, no error).
-func TestHandleTutClickSideNoScriptNoOp(t *testing.T) {
+func TestHandleTutorialClickSideNoScriptNoOp(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 
-	if err := s.handleTutClickSide(p, []byte{0}); err != nil {
+	if err := s.handleTutorialClickSide(p, []byte{0}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -295,9 +295,11 @@ func TestHandleIfButton_NilComponentRejects(t *testing.T) {
 	}
 }
 
-// TestHandleIfButton_NoButtonTypeRejects: component has ButtonType=NoButton
-// → handler rejects before setting lastCom.
-func TestHandleIfButton_NoButtonTypeRejects(t *testing.T) {
+// TestHandleIfButton_NoButtonTypePassesSince244: at rev-244 TS removed the
+// com.buttonType === NO_BUTTON rejection gate (IfButtonHandler.ts diff
+// e1dea19f..9aadcec4). A ButtonNone component that IS visible must now
+// proceed to set lastCom (previously rejected before lastCom was written).
+func TestHandleIfButton_NoButtonTypePassesSince244(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	p, _ := newTestPlayer(t)
@@ -305,13 +307,13 @@ func TestHandleIfButton_NoButtonTypeRejects(t *testing.T) {
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
 		42: {RootLayer: 100, ButtonType: objtype.ButtonNone},
 	})
-	p.tabs[0] = 100
+	p.tabs[0] = 100 // rootLayer=100 is visible via tab slot
 
 	if err := s.handleIfButton(p, []byte{0, 42}); err != nil {
 		t.Fatalf("handleIfButton: %v", err)
 	}
-	if p.lastCom != -1 {
-		t.Errorf("lastCom: got %d, want -1 (ButtonNone should reject)", p.lastCom)
+	if p.lastCom != 42 {
+		t.Errorf("lastCom: got %d, want 42 (ButtonNone gate removed at 244; visible component must pass)", p.lastCom)
 	}
 }
 
@@ -409,7 +411,7 @@ func TestHandleIfButton_NilRootSetsProtectTrue(t *testing.T) {
 	}
 }
 
-// idkPayload builds a 13-byte IDK_SAVEDESIGN payload.
+// idkPayload builds a 13-byte IF_PLAYERDESIGN payload.
 func idkPayload(gender byte, idkit [7]byte, color [5]byte) []byte {
 	p := make([]byte, 13)
 	p[0] = gender
@@ -422,38 +424,38 @@ func idkPayload(gender byte, idkit [7]byte, color [5]byte) []byte {
 	return p
 }
 
-// TestHandleIdkSaveDesignAllowDesignFalse pins that the packet is dropped
+// TestHandleIfPlayerDesignAllowDesignFalse pins that the packet is dropped
 // when allowDesign is false.
-func TestHandleIdkSaveDesignAllowDesignFalse(t *testing.T) {
+func TestHandleIfPlayerDesignAllowDesignFalse(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.allowDesign = false
 
-	_ = s.handleIdkSaveDesign(p, idkPayload(0, [7]byte{0, 1, 2, 3, 4, 5, 6}, [5]byte{0, 0, 0, 0, 0}))
+	_ = s.handleIfPlayerDesign(p, idkPayload(0, [7]byte{0, 1, 2, 3, 4, 5, 6}, [5]byte{0, 0, 0, 0, 0}))
 
 	if p.gender != 0 || p.body != [7]int{0, 10, 18, 26, 33, 36, 42} {
 		t.Error("player state changed despite allowDesign=false")
 	}
 }
 
-// TestHandleIdkSaveDesignInvalidGender pins that gender > 1 is rejected.
-func TestHandleIdkSaveDesignInvalidGender(t *testing.T) {
+// TestHandleIfPlayerDesignInvalidGender pins that gender > 1 is rejected.
+func TestHandleIfPlayerDesignInvalidGender(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.allowDesign = true
 
-	_ = s.handleIdkSaveDesign(p, idkPayload(2, [7]byte{}, [5]byte{}))
+	_ = s.handleIfPlayerDesign(p, idkPayload(2, [7]byte{}, [5]byte{}))
 
 	if p.gender != 0 {
 		t.Errorf("gender changed: got %d, want 0", p.gender)
 	}
 }
 
-// TestHandleIdkSaveDesignColorOutOfBounds pins that a color value >=
+// TestHandleIfPlayerDesignColorOutOfBounds pins that a color value >=
 // designBodyColorCount[i] is rejected.
-func TestHandleIdkSaveDesignColorOutOfBounds(t *testing.T) {
+func TestHandleIfPlayerDesignColorOutOfBounds(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
@@ -468,20 +470,20 @@ func TestHandleIdkSaveDesignColorOutOfBounds(t *testing.T) {
 	s.idkTypes = buildIdkTypes(7)
 
 	// color[0] max is 11 (count=12); send 12 → out of bounds.
-	_ = s.handleIdkSaveDesign(p, idkPayload(0, [7]byte{}, [5]byte{12, 0, 0, 0, 0}))
+	_ = s.handleIfPlayerDesign(p, idkPayload(0, [7]byte{}, [5]byte{12, 0, 0, 0, 0}))
 
 	if p.gender != 0 {
 		t.Errorf("state changed despite invalid color: gender=%d", p.gender)
 	}
 }
 
-// TestHandleIdkSaveDesignRejectsWhenIdkTypesNil pins net-client-h-social-5.
+// TestHandleIfPlayerDesignRejectsWhenIdkTypesNil pins net-client-h-social-5.
 // TS IdkSaveDesignHandler.ts:18-35 calls IdkType.get(idkit[i]) which
 // returns falsy when the registry has no entry; the `!idk` arm fails
 // validation and drops the design. goscape pre-fix wrapped the idk
 // loop in `if s.idkTypes != nil`, silently accepting any otherwise-
 // well-formed design when the registry hadn't been loaded.
-func TestHandleIdkSaveDesignRejectsWhenIdkTypesNil(t *testing.T) {
+func TestHandleIfPlayerDesignRejectsWhenIdkTypesNil(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
@@ -489,7 +491,7 @@ func TestHandleIdkSaveDesignRejectsWhenIdkTypesNil(t *testing.T) {
 	p.appearanceInv = 0
 	// s.idkTypes deliberately left nil.
 
-	_ = s.handleIdkSaveDesign(p, idkPayload(0, [7]byte{0, 1, 2, 3, 4, 5, 6}, [5]byte{0, 0, 0, 0, 0}))
+	_ = s.handleIfPlayerDesign(p, idkPayload(0, [7]byte{0, 1, 2, 3, 4, 5, 6}, [5]byte{0, 0, 0, 0, 0}))
 
 	if p.gender != 0 || p.body != [7]int{0, 10, 18, 26, 33, 36, 42} {
 		t.Errorf("TS IdkSaveDesignHandler.ts:30-34 rejects design when IdkType.get returns falsy; nil registry must reject (no state change), but got gender=%d body=%v", p.gender, p.body)
@@ -513,9 +515,9 @@ func buildIdkTypes(count int) *objtype.IdkTypeConfigs {
 	}
 }
 
-// TestHandleIdkSaveDesignSuccess pins the happy path: valid inputs update
+// TestHandleIfPlayerDesignSuccess pins the happy path: valid inputs update
 // gender/body/colors and flag MaskAppearance.
-func TestHandleIdkSaveDesignSuccess(t *testing.T) {
+func TestHandleIfPlayerDesignSuccess(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
@@ -529,7 +531,7 @@ func TestHandleIdkSaveDesignSuccess(t *testing.T) {
 	// idkit values must match registry IDs whose Type == i+7.
 	body := [7]byte{7, 8, 9, 10, 11, 12, 13}
 	colors := [5]byte{0, 1, 2, 0, 0}
-	_ = s.handleIdkSaveDesign(p, idkPayload(1, body, colors))
+	_ = s.handleIfPlayerDesign(p, idkPayload(1, body, colors))
 
 	if p.gender != 1 {
 		t.Errorf("gender: got %d, want 1", p.gender)
@@ -549,10 +551,10 @@ func TestHandleIdkSaveDesignSuccess(t *testing.T) {
 	}
 }
 
-// TestHandleIdkSaveDesignFemaleJaw255Accepted pins that wire value 255 is
+// TestHandleIfPlayerDesignFemaleJaw255Accepted pins that wire value 255 is
 // decoded to -1 AND accepted for the female jaw slot (gender=1, i=1, type=8).
 // With idk validation active, idkit=-1 is only allowed at this slot.
-func TestHandleIdkSaveDesignFemaleJaw255Accepted(t *testing.T) {
+func TestHandleIfPlayerDesignFemaleJaw255Accepted(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
@@ -565,7 +567,7 @@ func TestHandleIdkSaveDesignFemaleJaw255Accepted(t *testing.T) {
 	// Other slots use valid female IDs (type = i+7).
 	body := [7]byte{7, 255, 9, 10, 11, 12, 13} // slot 1 = 255 → -1
 	colors := [5]byte{0, 0, 0, 0, 0}
-	_ = s.handleIdkSaveDesign(p, idkPayload(1, body, colors))
+	_ = s.handleIfPlayerDesign(p, idkPayload(1, body, colors))
 
 	if p.body[1] != -1 {
 		t.Errorf("body[1]: got %d, want -1 (female jaw 255→-1)", p.body[1])
@@ -575,8 +577,8 @@ func TestHandleIdkSaveDesignFemaleJaw255Accepted(t *testing.T) {
 	}
 }
 
-// TestHandleIdkSaveDesignValidMale pins the male happy path with a seeded registry.
-func TestHandleIdkSaveDesignValidMale(t *testing.T) {
+// TestHandleIfPlayerDesignValidMale pins the male happy path with a seeded registry.
+func TestHandleIfPlayerDesignValidMale(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
@@ -586,7 +588,7 @@ func TestHandleIdkSaveDesignValidMale(t *testing.T) {
 	// gender=0: types 0..6, use registry IDs 0..6.
 	body := [7]byte{0, 1, 2, 3, 4, 5, 6}
 	colors := [5]byte{0, 1, 2, 0, 0}
-	_ = s.handleIdkSaveDesign(p, idkPayload(0, body, colors))
+	_ = s.handleIfPlayerDesign(p, idkPayload(0, body, colors))
 
 	if p.gender != 0 {
 		t.Errorf("gender: got %d, want 0", p.gender)
@@ -601,9 +603,9 @@ func TestHandleIdkSaveDesignValidMale(t *testing.T) {
 	}
 }
 
-// TestHandleIdkSaveDesignValidFemaleWithJaw pins the female happy path
+// TestHandleIfPlayerDesignValidFemaleWithJaw pins the female happy path
 // where all 7 slots including jaw are valid IDs.
-func TestHandleIdkSaveDesignValidFemaleWithJaw(t *testing.T) {
+func TestHandleIfPlayerDesignValidFemaleWithJaw(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
@@ -613,7 +615,7 @@ func TestHandleIdkSaveDesignValidFemaleWithJaw(t *testing.T) {
 	// gender=1: types 7..13, use registry IDs 7..13.
 	body := [7]byte{7, 8, 9, 10, 11, 12, 13}
 	colors := [5]byte{0, 0, 0, 0, 0}
-	_ = s.handleIdkSaveDesign(p, idkPayload(1, body, colors))
+	_ = s.handleIfPlayerDesign(p, idkPayload(1, body, colors))
 
 	if p.gender != 1 {
 		t.Errorf("gender: got %d, want 1", p.gender)
@@ -628,9 +630,9 @@ func TestHandleIdkSaveDesignValidFemaleWithJaw(t *testing.T) {
 	}
 }
 
-// TestHandleIdkSaveDesignDisabledIdk pins that a disabled IdkType rejects
+// TestHandleIfPlayerDesignDisabledIdk pins that a disabled IdkType rejects
 // the whole packet (TS IdkSaveDesignHandler.ts:30: idk.disable check).
-func TestHandleIdkSaveDesignDisabledIdk(t *testing.T) {
+func TestHandleIfPlayerDesignDisabledIdk(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
@@ -640,16 +642,16 @@ func TestHandleIdkSaveDesignDisabledIdk(t *testing.T) {
 
 	// gender=0, idkit[0]=0 → disabled → rejected.
 	body := [7]byte{0, 1, 2, 3, 4, 5, 6}
-	_ = s.handleIdkSaveDesign(p, idkPayload(0, body, [5]byte{}))
+	_ = s.handleIfPlayerDesign(p, idkPayload(0, body, [5]byte{}))
 
 	if p.gender != 0 || p.masks&rsbuf.MaskAppearance != 0 {
 		t.Error("state changed despite disabled idk: expected rejection")
 	}
 }
 
-// TestHandleIdkSaveDesignWrongType pins that a type mismatch rejects the packet
+// TestHandleIfPlayerDesignWrongType pins that a type mismatch rejects the packet
 // (TS IdkSaveDesignHandler.ts:30: idk.type != type check).
-func TestHandleIdkSaveDesignWrongType(t *testing.T) {
+func TestHandleIfPlayerDesignWrongType(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
@@ -658,16 +660,16 @@ func TestHandleIdkSaveDesignWrongType(t *testing.T) {
 	s.idkTypes.Configs[0].Type = 99 // wrong type for slot 0 (expected 0)
 
 	body := [7]byte{0, 1, 2, 3, 4, 5, 6}
-	_ = s.handleIdkSaveDesign(p, idkPayload(0, body, [5]byte{}))
+	_ = s.handleIfPlayerDesign(p, idkPayload(0, body, [5]byte{}))
 
 	if p.gender != 0 || p.masks&rsbuf.MaskAppearance != 0 {
 		t.Error("state changed despite wrong idk type: expected rejection")
 	}
 }
 
-// TestHandleIdkSaveDesignOutOfRangeIdkit pins that an idkit value >= registry
+// TestHandleIfPlayerDesignOutOfRangeIdkit pins that an idkit value >= registry
 // length is rejected (bounds check before Configs[idkit[i]] dereference).
-func TestHandleIdkSaveDesignOutOfRangeIdkit(t *testing.T) {
+func TestHandleIfPlayerDesignOutOfRangeIdkit(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
@@ -676,7 +678,7 @@ func TestHandleIdkSaveDesignOutOfRangeIdkit(t *testing.T) {
 
 	// idkit[0] = 14 → out of range (len=14).
 	body := [7]byte{14, 1, 2, 3, 4, 5, 6}
-	_ = s.handleIdkSaveDesign(p, idkPayload(0, body, [5]byte{}))
+	_ = s.handleIfPlayerDesign(p, idkPayload(0, body, [5]byte{}))
 
 	if p.gender != 0 || p.masks&rsbuf.MaskAppearance != 0 {
 		t.Error("state changed despite out-of-range idkit: expected rejection")

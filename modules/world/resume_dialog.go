@@ -5,7 +5,7 @@ import (
 	"github.com/zsrv/goscape/pkg/script"
 )
 
-// handleResumePauseButton handles client opcode 235 (RESUME_PAUSEBUTTON).
+// handleResumePauseButton handles client opcode 11 (RESUME_PAUSEBUTTON).
 // Body: 2 bytes (component-id echoed by Java client) — IGNORED per TS
 // ResumePauseButtonHandler.ts:7-14 (the TS decoder reads no body and the
 // handler never inspects payload, lastCom, or resumeButtons). Resumes
@@ -26,7 +26,7 @@ func (s *Server) handleResumePauseButton(p *Player, buf *packet.Packet) error {
 	return nil
 }
 
-// handleResumeCountDialog handles client opcode 237 (RESUME_P_COUNTDIALOG).
+// handleResumeCountDialog handles client opcode 190 (RESUME_P_COUNTDIALOG).
 // Body: i32 count (signed). The count is stored as state.LastInt so the
 // next LAST_INT opcode can read it, then execution resumes (S5m: matches
 // TS semantics where RESUME_P_COUNTDIALOG writes state.lastInt).

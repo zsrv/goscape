@@ -7,7 +7,7 @@ import (
 	util "github.com/zsrv/goscape/pkg/util/jstring"
 )
 
-// handleReportAbuse handles client opcode 190 (REPORT_ABUSE), payload
+// handleReportAbuse handles client opcode 251 (REPORT_ABUSE), payload
 // 10 bytes: g8 offender, g1 reason, g1 moderatorMute(bool).
 //
 // Mirrors TS ReportAbuseHandler.ts:9-26. Branch order:

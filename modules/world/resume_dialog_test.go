@@ -10,7 +10,7 @@ import (
 )
 
 // TestResumeCountDialogSetsLastIntAndResumes pins the happy path for
-// opcode 237 (RESUME_P_COUNTDIALOG): a P_COUNTDIALOG-suspended script
+// opcode 190 (RESUME_P_COUNTDIALOG): a P_COUNTDIALOG-suspended script
 // receives the i32 count via state.LastInt, Execution flips to Running,
 // and resumeOrFinish drives the script to completion. Mirrors TS
 // ResumePCountDialogHandler.ts semantics.

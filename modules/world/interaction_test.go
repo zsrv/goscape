@@ -202,7 +202,7 @@ func TestProcessInteractionDifferentLevelClears(t *testing.T) {
 	p.client.flushWrite()
 	got := <-received
 
-	// Expect UnsetMapFlag (opcode 19, 0 payload = just the encrypted opcode byte).
+	// Expect UnsetMapFlag (opcode 62, 0 payload = just the encrypted opcode byte).
 	want := byte((int(gameserver.OpUnsetMapFlag.Opcode) + int(refEnc.GetNext())) & 0xff)
 	if len(got) == 0 {
 		t.Fatal("expected UnsetMapFlag byte on wire, got nothing")

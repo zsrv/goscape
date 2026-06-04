@@ -21,12 +21,15 @@ func (s *Server) lookupComponent(id int) *objtype.ComponentType {
 	return s.componentTypes.Configs[id]
 }
 
-// handleIfButton handles client opcode 155 (IF_BUTTON).
+// handleIfButton handles client opcode 39 (IF_BUTTON).
 // Body: u16 component-id.
 //
-// Gates per TS IfButtonHandler.ts:14-22:
-//   - Component must be registered AND have buttonType != NO_BUTTON
+// Gates per TS IfButtonHandler.ts (9aadcec4):
+//   - Component must be registered
 //   - Component must be IsComponentVisible to the player
+//
+// Note: the buttonType != NO_BUTTON check was present in e1dea19f but
+// removed at 9aadcec4 — any registered, visible component passes now.
 //
 // On pass, sets lastCom and either resumes a PauseButton-suspended script
 // or fires [if_button,<comId>]. The trigger fires with protect = !root.Overlay
@@ -38,10 +41,7 @@ func (s *Server) handleIfButton(p *Player, payload []byte) error {
 	comId := int(uint16(payload[0])<<8 | uint16(payload[1]))
 
 	com := s.lookupComponent(comId)
-	if com == nil || com.ButtonType == objtype.ButtonNone {
-		return nil
-	}
-	if !p.IsComponentVisible(com) {
+	if com == nil || !p.IsComponentVisible(com) {
 		return nil
 	}
 
@@ -67,14 +67,14 @@ func (s *Server) handleIfButton(p *Player, payload []byte) error {
 	return nil
 }
 
-// handleIdkSaveDesign handles client opcode 52 (IDK_SAVEDESIGN).
+// handleIfPlayerDesign handles client opcode 8 (IF_PLAYERDESIGN).
 // Body: u8 gender | u8[7] idkit (255 → -1) | u8[5] color.
 //
 // Validates allowDesign, gender ≤ 1, idk disable+type (via IdkType registry),
 // and color ranges. On pass: updates p.gender/body/colors and calls
-// SetAppearanceInv to flag MaskAppearance.
-// Mirrors TS IdkSaveDesignHandler.ts:7-38.
-func (s *Server) handleIdkSaveDesign(p *Player, payload []byte) error {
+// SetAppearanceInv with the Worn inv id to flag MaskAppearance.
+// Mirrors TS IfPlayerDesignHandler.ts:8-57 (9aadcec4).
+func (s *Server) handleIfPlayerDesign(p *Player, payload []byte) error {
 	if len(payload) < 13 {
 		return nil
 	}
@@ -137,14 +137,21 @@ func (s *Server) handleIdkSaveDesign(p *Player, payload []byte) error {
 	p.gender = gender
 	p.body = idkit
 	p.colors = color
-	p.SetAppearanceInv(p.appearanceInv)
+	// TS IfPlayerDesignHandler.ts:56: buildAppearance(InvType.WORN).
+	// Use s.invTypes.Worn when populated; fall back to p.appearanceInv
+	// (already set to Worn at login) when invTypes is nil (test paths).
+	wornId := p.appearanceInv
+	if s.invTypes != nil {
+		wornId = s.invTypes.Worn
+	}
+	p.SetAppearanceInv(wornId)
 	return nil
 }
 
-// handleTutClickSide handles client opcode 175 (TUT_CLICKSIDE).
+// handleTutorialClickSide handles client opcode 233 (TUTORIAL_CLICKSIDE).
 // Body: u8 sidebar tab index. Fires [tutorial] if tab is in [0,13].
-// Mirrors TS TutClickSideHandler.ts.
-func (s *Server) handleTutClickSide(p *Player, payload []byte) error {
+// Mirrors TS TutorialClickSideHandler.ts (9aadcec4).
+func (s *Server) handleTutorialClickSide(p *Player, payload []byte) error {
 	if len(payload) < 1 {
 		return nil
 	}

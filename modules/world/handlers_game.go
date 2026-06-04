@@ -98,17 +98,17 @@ func init() {
 	gameHandlers[gameclient.OpcResumePauseButton] = handleResumePauseButton  // RESUME_PAUSEBUTTON
 	gameHandlers[gameclient.OpcResumePCountdialog] = handleResumeCountDialog // RESUME_P_COUNTDIALOG
 
-	gameHandlers[gameclient.OpcCloseModal] = handleCloseModal          // CLOSE_MODAL
-	gameHandlers[gameclient.OpcTutorialClickSide] = handleTutClickSide // TUTORIAL_CLICKSIDE
+	gameHandlers[gameclient.OpcCloseModal] = handleCloseModal               // CLOSE_MODAL
+	gameHandlers[gameclient.OpcTutorialClickSide] = handleTutorialClickSide // TUTORIAL_CLICKSIDE
 
-	gameHandlers[gameclient.OpcIfButton] = handleIfButton                // IF_BUTTON
-	gameHandlers[gameclient.OpcInvButton1] = handleInvButton1            // INV_BUTTON1
-	gameHandlers[gameclient.OpcInvButton2] = handleInvButton2            // INV_BUTTON2
-	gameHandlers[gameclient.OpcInvButton3] = handleInvButton3            // INV_BUTTON3
-	gameHandlers[gameclient.OpcInvButton4] = handleInvButton4            // INV_BUTTON4
-	gameHandlers[gameclient.OpcInvButton5] = handleInvButton5            // INV_BUTTON5
-	gameHandlers[gameclient.OpcInvButtonD] = handleInvButtonD            // INV_BUTTOND
-	gameHandlers[gameclient.OpcIfPlayerDesign] = handleIdkSaveDesignGame // IF_PLAYERDESIGN
+	gameHandlers[gameclient.OpcIfButton] = handleIfButton                 // IF_BUTTON
+	gameHandlers[gameclient.OpcInvButton1] = handleInvButton1             // INV_BUTTON1
+	gameHandlers[gameclient.OpcInvButton2] = handleInvButton2             // INV_BUTTON2
+	gameHandlers[gameclient.OpcInvButton3] = handleInvButton3             // INV_BUTTON3
+	gameHandlers[gameclient.OpcInvButton4] = handleInvButton4             // INV_BUTTON4
+	gameHandlers[gameclient.OpcInvButton5] = handleInvButton5             // INV_BUTTON5
+	gameHandlers[gameclient.OpcInvButtonD] = handleInvButtonD             // INV_BUTTOND
+	gameHandlers[gameclient.OpcIfPlayerDesign] = handleIfPlayerDesignGame // IF_PLAYERDESIGN
 }
 
 // handleResumePauseButton is the package-level adapter that wires the
@@ -138,11 +138,11 @@ func handleCloseModal(p *Player, _ []byte) error {
 	return nil
 }
 
-func handleTutClickSide(p *Player, payload []byte) error {
+func handleTutorialClickSide(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
 	}
-	return p.client.server.handleTutClickSide(p, payload)
+	return p.client.server.handleTutorialClickSide(p, payload)
 }
 
 // handleIfButton is the package-level adapter that wires the []byte-payload
@@ -197,11 +197,11 @@ func handleInvButtonD(p *Player, payload []byte) error {
 	return p.client.server.handleInvButtonD(p, payload)
 }
 
-func handleIdkSaveDesignGame(p *Player, payload []byte) error {
+func handleIfPlayerDesignGame(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
 	}
-	return p.client.server.handleIdkSaveDesign(p, payload)
+	return p.client.server.handleIfPlayerDesign(p, payload)
 }
 
 func handleNoTimeout(_ *Player, _ []byte) error {

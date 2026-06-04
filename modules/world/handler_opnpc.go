@@ -107,7 +107,7 @@ func handleOpNpc3(p *Player, payload []byte) error { return handleOpNpc(p, paylo
 func handleOpNpc4(p *Player, payload []byte) error { return handleOpNpc(p, payload, 4) }
 func handleOpNpc5(p *Player, payload []byte) error { return handleOpNpc(p, payload, 5) }
 
-// handleOpNpcT is the handler for OPNPCT (opcode 134, 4-byte payload).
+// handleOpNpcT is the handler for OPNPCT (opcode 101, 4-byte payload).
 // Spell-on-NPC: player drags a spell icon onto an NPC.
 // Payload = (nid:G2, spellCom:G2).
 //
@@ -179,7 +179,7 @@ func handleOpNpcT(p *Player, payload []byte) error {
 	return nil
 }
 
-// handleOpNpcU is the handler for OPNPCU (opcode 202, 8-byte payload).
+// handleOpNpcU is the handler for OPNPCU (opcode 52, 8-byte payload).
 // Item-on-NPC: player drags an inventory item onto an NPC (e.g., feed
 // pet, give gift, sacrifice item).
 // Payload = (nid:G2, useObj:G2, useSlot:G2, useCom:G2).
