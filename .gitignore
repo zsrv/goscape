@@ -13,6 +13,9 @@ dist/
 data/
 dataplayers/
 
+# Runtime assets (soundfonts etc.) — not source
+public/
+
 .cache/
 .serena/
 
@@ -20,3 +23,12 @@ dataplayers/
 .worktrees/
 .claude/worktrees/
 
+# Claude Code: per-user local settings + personal session state. To SHARE
+# team config, un-ignore specific paths, e.g.:
+#   !.claude/settings.json
+#   !.claude/commands/
+.claude/
+# Project MCP config can carry server URLs / tokens — ignore by default.
+.mcp.json
+# Private per its own header (CLAUDE.md, by contrast, stays committed).
+CLAUDE.local.md
