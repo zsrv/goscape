@@ -1401,6 +1401,11 @@ func (s *Server) removePlayerInternal(p *Player) {
 	if s.gamemap != nil {
 		s.gamemap.ChangeNPCCollision(1, p.x, p.z, p.level, false)
 	}
+
+	// 244 delta: TS Player.cleanup (Player.ts:453) resets appearanceInv to -1
+	// as part of transient-state teardown, so a re-logged-in player always
+	// starts fresh from the login wiring (SetAppearanceInv(invTypes.Worn)).
+	p.appearanceInv = -1
 }
 
 // removePlayerOnTick handles graceful logout from the tick goroutine.

@@ -145,11 +145,12 @@ func TestUpdateEnergy_RecoverBranchAgilityZero(t *testing.T) {
 	p.updateEnergy()
 
 	if p.runenergy != 5008 {
-		t.Errorf("runenergy: got %d, want 5008 (5000 + 0/9 + 8)", p.runenergy)
+		t.Errorf("runenergy: got %d, want 5008 (5000 + 0/6 + 8; agility=0 is unchanged by /6 vs /9)", p.runenergy)
 	}
 }
 
-// updateEnergy: recover branch — agility=99, +19/tick (99/9=11; +8)
+// updateEnergy: recover branch — agility=99, +24/tick (99/6=16; +8).
+// 225 was /9: 99/9=11, +8=19. 244 formula: TS Player.ts:692.
 func TestUpdateEnergy_RecoverBranchAgilityNinetyNine(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.varps = make([]int32, 1)
@@ -159,8 +160,8 @@ func TestUpdateEnergy_RecoverBranchAgilityNinetyNine(t *testing.T) {
 
 	p.updateEnergy()
 
-	if p.runenergy != 19 {
-		t.Errorf("runenergy: got %d, want 19 (99/9=11, +8)", p.runenergy)
+	if p.runenergy != 24 {
+		t.Errorf("runenergy: got %d, want 24 (99/6=16, +8; 244 formula)", p.runenergy)
 	}
 }
 
@@ -357,6 +358,22 @@ func TestUpdateEnergy_EnergyBelow100ResetsTempRun(t *testing.T) {
 	}
 	if p.tempRun != 0 {
 		t.Errorf("tempRun: got %d, want 0 (reset when energy<100)", p.tempRun)
+	}
+}
+
+// updateEnergy: recover branch — agility=60, +18/tick per 244 contract (60/6=10; +8).
+// 225 formula was /9: 60/9=6, +8=14. Pins TS Player.ts:692 rev-244 change.
+func TestUpdateEnergy_RecoverBranchAgility60_244Formula(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.varps = make([]int32, 1)
+	p.stepsTaken = 0
+	p.baseLevels[objtype.PlayerStatAgility] = 60
+	p.runenergy = 0
+
+	p.updateEnergy()
+
+	if p.runenergy != 18 {
+		t.Errorf("runenergy: got %d, want 18 (60/6=10, +8; 244 formula /6, was /9=14)", p.runenergy)
 	}
 }
 

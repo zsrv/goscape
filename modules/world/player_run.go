@@ -15,6 +15,9 @@ import (
 // stepsTaken >= 2 is the running-this-tick drain branch (a clean
 // run-step emits walk + run for stepsTaken==2).
 //
+// Recovery formula (TS Player.ts:692 rev-244): floor(agility/6) + 8.
+// 225 used /9; 244 changed to /6 for faster regeneration.
+//
 // runweight is in grams; TS divides by 1000 to convert to kg, then
 // clamps to [0, 64]. Loss formula = floor(67 + 67*kg/64).
 //
@@ -32,7 +35,7 @@ func (p *Player) updateEnergy() {
 	}
 	if p.stepsTaken < 2 {
 		agility := int(p.baseLevels[objtype.PlayerStatAgility])
-		recovered := agility/9 + 8
+		recovered := agility/6 + 8
 		p.runenergy = min(p.runenergy+recovered, 10000)
 	} else {
 		// player-core-2: TS Player.ts:690-693 keeps weightKg as float

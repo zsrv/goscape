@@ -209,3 +209,27 @@ func TestRemovePlayerOnDisconnect_NoLoginClient_NoRPC(t *testing.T) {
 		t.Error("removePlayerInternal must run (via the relayed tick logout) when loginClient is nil")
 	}
 }
+
+// TestRemovePlayerInternal_ResetsAppearanceInv pins TS Player.ts:453
+// (rev-244 cleanup): cleanup() sets this.appearanceInv = -1 to clear the
+// transient inv binding so a re-logged-in player always starts fresh.
+// Go analog: removePlayerInternal (the cleanup counterpart in server.go).
+func TestRemovePlayerInternal_ResetsAppearanceInv(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	c.server = s
+	p := newPlayer(c)
+	p.username = "alice"
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	// Bind appearanceInv to a non-sentinel value to prove it is reset.
+	p.appearanceInv = 7
+
+	s.removePlayerInternal(p)
+
+	if p.appearanceInv != -1 {
+		t.Errorf("appearanceInv: got %d, want -1 (cleanup must reset to sentinel per TS Player.ts:453)",
+			p.appearanceInv)
+	}
+}

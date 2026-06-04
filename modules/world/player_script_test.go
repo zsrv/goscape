@@ -2535,3 +2535,48 @@ func TestAddXP_NoLevelUp_NoRecompute(t *testing.T) {
 		t.Errorf("masks: MaskAppearance unexpectedly set without level-up")
 	}
 }
+
+// TestRecomputeCombatLevel_Change_RebuildTrue_UsesWornInv pins TS Player.ts:1821-1824
+// and 1841-1843 (rev-244): on combat-level change with triggerRebuild=true,
+// buildAppearance must use InvType.WORN (not the current p.appearanceInv).
+// 225 called buildAppearance(this.appearanceInv); 244 calls buildAppearance(InvType.WORN).
+// Observable: after the rebuild, p.appearanceInv must equal invTypes.Worn,
+// even when the player had appearanceInv bound to a different inv id beforehand.
+func TestRecomputeCombatLevel_Change_RebuildTrue_UsesWornInv(t *testing.T) {
+	const wornId = 0
+	const customInvId = 5 // arbitrary non-Worn inv bound before the stat change
+
+	p, _ := newTestPlayer(t)
+	s := newTestServer(t)
+	s.invTypes = &objtype.InvTypeConfigs{
+		Configs: make([]*objtype.InvType, customInvId+1),
+		Worn:    wornId,
+	}
+	p.client.server = s
+
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatHitpoints] = 10
+	p.baseLevels[objtype.PlayerStatAttack] = 99   // att=str=99 → CL 67
+	p.baseLevels[objtype.PlayerStatStrength] = 99
+	p.combatLevel = 3  // stale, differs from calcCombatLevel()
+	p.appearanceInv = customInvId // bound to non-Worn inv before the change
+	p.masks = 0
+
+	p.recomputeCombatLevel(true)
+
+	// Combat level must update.
+	if p.combatLevel != 67 {
+		t.Errorf("combatLevel: got %d, want 67", p.combatLevel)
+	}
+	// MaskAppearance must be set.
+	if p.masks&rsbuf.MaskAppearance == 0 {
+		t.Errorf("masks: MaskAppearance not set after CL change")
+	}
+	// 244 delta: appearanceInv must be updated to invTypes.Worn, not kept at customInvId.
+	if p.appearanceInv != wornId {
+		t.Errorf("appearanceInv: got %d, want %d (244 must use InvType.WORN on rebuild, was customInvId=%d)",
+			p.appearanceInv, wornId, customInvId)
+	}
+}

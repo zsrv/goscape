@@ -790,8 +790,14 @@ func (p *Player) calcCombatLevel() int {
 // field — used at LoadSave time, before the client has any appearance.
 //
 // SetStat and AddXP pass true; LoadSave passes false. Mirrors the
-// guarded-rebuild blocks at TS Player.ts:1810-1813 and 1830-1833;
-// the false-variant matches PlayerLoading.ts:156.
+// guarded-rebuild blocks at TS Player.ts:1821-1824 (giveExp/advanceStat
+// path) and TS Player.ts:1841-1843 (setLevel/SetStat path).
+//
+// 244 delta (TS Player.ts:1823 + 1843): both rebuild sites call
+// buildAppearance(InvType.WORN) rather than buildAppearance(this.appearanceInv).
+// Use p.client.server.invTypes.Worn when available; fall back to
+// p.appearanceInv when invTypes is nil (test paths that don't wire a
+// server — matches the pattern in handleIfPlayerDesign).
 //
 // NAI-184.
 func (p *Player) recomputeCombatLevel(triggerRebuild bool) {
@@ -801,7 +807,13 @@ func (p *Player) recomputeCombatLevel(triggerRebuild bool) {
 	}
 	p.combatLevel = newCL
 	if triggerRebuild {
-		p.SetAppearanceInv(p.appearanceInv)
+		// 244: buildAppearance(InvType.WORN), not buildAppearance(appearanceInv).
+		// Fall back to p.appearanceInv when invTypes is unavailable (no-server test paths).
+		wornId := p.appearanceInv
+		if p.client != nil && p.client.server != nil && p.client.server.invTypes != nil {
+			wornId = p.client.server.invTypes.Worn
+		}
+		p.SetAppearanceInv(wornId)
 	}
 }
 
