@@ -1,8 +1,12 @@
 package world
 
 import (
+	"bytes"
 	"sync"
 	"testing"
+	"time"
+
+	"github.com/zsrv/goscape/pkg/io/filestream"
 )
 
 // testODClient is a fake odClient: records sent data and tracks close calls.
@@ -142,5 +146,297 @@ func TestOnDemandConcurrentEnqueue(t *testing.T) {
 	total := len(od.urgent) + len(od.extra) + len(od.ingame)
 	if total != goroutines {
 		t.Fatalf("total enqueued = %d, want %d", total, goroutines)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Send + cycle tests (Task 17: OnDemand.ts:18-40 cycle, :87-120 send)
+// ---------------------------------------------------------------------------
+
+// makeODFS returns a filestream written to a temp dir with createNew=true.
+// archive in TS terms is 0-based; filestream.Write uses the raw archive
+// index, so TS archive 0 → Write(1, file, …) because TS send calls
+// cache.read(archive+1, file).
+func makeODFS(t *testing.T) *filestream.FileStream {
+	t.Helper()
+	return filestream.New(t.TempDir(), true, false)
+}
+
+// header6 builds the 6-byte OnDemand frame header:
+//
+//	p1(archive), p2(file), p2(totalLen), p1(part)
+//
+// Mirrors OnDemand.ts:100-104.
+func header6(archive, file, totalLen, part int) []byte {
+	return []byte{
+		byte(archive),
+		byte(file >> 8), byte(file),
+		byte(totalLen >> 8), byte(totalLen),
+		byte(part),
+	}
+}
+
+// TestOnDemandSendRejection pins the size=0 rejection frame for a missing file.
+// TS OnDemand.ts:112-118: if !req → send 6 zero-payload bytes.
+func TestOnDemandSendRejection(t *testing.T) {
+	fs := makeODFS(t)
+	od := newOnDemand(fs)
+	closed := false
+	c := newTestODClient(&closed)
+
+	// Enqueue archive=0, file=99 (not written → cache.Read returns nil).
+	od.mu.Lock()
+	od.urgent = append(od.urgent, odRequest{client: c, archive: 0, file: 99})
+	od.mu.Unlock()
+
+	od.cycle()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.sent) != 1 {
+		t.Fatalf("rejection: want 1 frame sent, got %d", len(c.sent))
+	}
+	want := header6(0, 99, 0, 0)
+	if !bytes.Equal(c.sent[0], want) {
+		t.Fatalf("rejection frame = %v, want %v", c.sent[0], want)
+	}
+}
+
+// TestOnDemandSendSingleFrame pins a payload ≤500 bytes → exactly 1 frame.
+// TS OnDemand.ts:94-110: while pos < req.length loop, 500-byte cap.
+func TestOnDemandSendSingleFrame(t *testing.T) {
+	fs := makeODFS(t)
+	payload := bytes.Repeat([]byte{0xAB}, 1) // 1 byte → 1 frame
+	fs.Write(1, 7, payload, 0)               // TS archive 0 → fs index 1
+	od := newOnDemand(fs)
+	closed := false
+	c := newTestODClient(&closed)
+
+	od.mu.Lock()
+	od.urgent = append(od.urgent, odRequest{client: c, archive: 0, file: 7})
+	od.mu.Unlock()
+	od.cycle()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.sent) != 1 {
+		t.Fatalf("1-byte payload: want 1 frame, got %d", len(c.sent))
+	}
+	want := append(header6(0, 7, 1, 0), 0xAB)
+	if !bytes.Equal(c.sent[0], want) {
+		t.Fatalf("1-byte frame = %v, want %v", c.sent[0], want)
+	}
+}
+
+// TestOnDemandSendExactlyFiveHundred pins 500 bytes → 1 frame (boundary).
+func TestOnDemandSendExactlyFiveHundred(t *testing.T) {
+	fs := makeODFS(t)
+	payload := bytes.Repeat([]byte{0xCC}, 500)
+	fs.Write(1, 3, payload, 0)
+	od := newOnDemand(fs)
+	closed := false
+	c := newTestODClient(&closed)
+
+	od.mu.Lock()
+	od.urgent = append(od.urgent, odRequest{client: c, archive: 0, file: 3})
+	od.mu.Unlock()
+	od.cycle()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.sent) != 1 {
+		t.Fatalf("500-byte payload: want 1 frame, got %d", len(c.sent))
+	}
+	wantHdr := header6(0, 3, 500, 0)
+	if !bytes.Equal(c.sent[0][:6], wantHdr) {
+		t.Fatalf("500-byte frame header = %v, want %v", c.sent[0][:6], wantHdr)
+	}
+	if len(c.sent[0]) != 506 {
+		t.Fatalf("500-byte frame total len = %d, want 506", len(c.sent[0]))
+	}
+}
+
+// TestOnDemandSendFiveOhOneSplitsTwo pins 501 bytes → 2 frames (500 + 1).
+// TS OnDemand.ts:96-98: if remaining > 500 { remaining = 500 }.
+func TestOnDemandSendFiveOhOneSplitsTwo(t *testing.T) {
+	fs := makeODFS(t)
+	payload := bytes.Repeat([]byte{0xAB}, 501)
+	fs.Write(1, 7, payload, 0) // TS archive 0 → fs index 1
+	od := newOnDemand(fs)
+	closed := false
+	c := newTestODClient(&closed)
+
+	od.mu.Lock()
+	od.urgent = append(od.urgent, odRequest{client: c, archive: 0, file: 7})
+	od.mu.Unlock()
+	od.cycle()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.sent) != 2 {
+		t.Fatalf("501-byte payload: want 2 frames, got %d", len(c.sent))
+	}
+	// Frame 0: hdr(archive=0,file=7,totalLen=501,part=0) + 500 bytes
+	// p2(501) = 0x01 0xF5
+	wantHdr0 := header6(0, 7, 501, 0)
+	if !bytes.Equal(c.sent[0][:6], wantHdr0) {
+		t.Fatalf("frame0 header = %v, want %v", c.sent[0][:6], wantHdr0)
+	}
+	if len(c.sent[0]) != 506 {
+		t.Fatalf("frame0 len = %d, want 506", len(c.sent[0]))
+	}
+	// Frame 1: hdr(archive=0,file=7,totalLen=501,part=1) + 1 byte
+	wantHdr1 := header6(0, 7, 501, 1)
+	if !bytes.Equal(c.sent[1][:6], wantHdr1) {
+		t.Fatalf("frame1 header = %v, want %v", c.sent[1][:6], wantHdr1)
+	}
+	if len(c.sent[1]) != 7 {
+		t.Fatalf("frame1 len = %d, want 7", len(c.sent[1]))
+	}
+}
+
+// TestOnDemandSendThousandBytesTwoFrames pins 1000 bytes → 2 frames of 500.
+func TestOnDemandSendThousandBytesTwoFrames(t *testing.T) {
+	fs := makeODFS(t)
+	payload := bytes.Repeat([]byte{0xDD}, 1000)
+	fs.Write(1, 2, payload, 0)
+	od := newOnDemand(fs)
+	closed := false
+	c := newTestODClient(&closed)
+
+	od.mu.Lock()
+	od.urgent = append(od.urgent, odRequest{client: c, archive: 0, file: 2})
+	od.mu.Unlock()
+	od.cycle()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.sent) != 2 {
+		t.Fatalf("1000-byte payload: want 2 frames, got %d", len(c.sent))
+	}
+	if len(c.sent[0]) != 506 || len(c.sent[1]) != 506 {
+		t.Fatalf("1000-byte frames: got lens %d,%d, want 506,506",
+			len(c.sent[0]), len(c.sent[1]))
+	}
+	// part numbers
+	if c.sent[0][5] != 0 {
+		t.Fatalf("frame0 part = %d, want 0", c.sent[0][5])
+	}
+	if c.sent[1][5] != 1 {
+		t.Fatalf("frame1 part = %d, want 1", c.sent[1][5])
+	}
+}
+
+// TestOnDemandCycleDrainOrder pins the urgent → extra → ingame FIFO drain
+// order from OnDemand.ts:18-37. All requests are for missing files (→ each
+// triggers a single 6-byte rejection frame), so we can assert send order by
+// inspecting the archive field of each sent frame.
+func TestOnDemandCycleDrainOrder(t *testing.T) {
+	fs := makeODFS(t)
+	od := newOnDemand(fs)
+
+	closed := false
+	c := newTestODClient(&closed)
+
+	// Enqueue in reverse order: ingame first, then extra, then urgent.
+	// After cycle() drains urgent→extra→ingame, the send order must be
+	// archive 2 (urgent), 1 (extra), 0 (ingame).
+	od.mu.Lock()
+	od.ingame = append(od.ingame, odRequest{client: c, archive: 0, file: 99})
+	od.extra = append(od.extra, odRequest{client: c, archive: 1, file: 99})
+	od.urgent = append(od.urgent, odRequest{client: c, archive: 2, file: 99})
+	od.mu.Unlock()
+
+	od.cycle()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.sent) != 3 {
+		t.Fatalf("drain order: want 3 frames, got %d", len(c.sent))
+	}
+	// Each frame is a 6-byte rejection; byte 0 is archive.
+	wantOrder := []byte{2, 1, 0} // urgent, extra, ingame
+	for i, want := range wantOrder {
+		if c.sent[i][0] != want {
+			t.Errorf("frame[%d] archive = %d, want %d (drain order wrong)", i, c.sent[i][0], want)
+		}
+	}
+}
+
+// TestOnDemandCycleClearsQueues pins that after cycle() all three queues are empty.
+func TestOnDemandCycleClearsQueues(t *testing.T) {
+	fs := makeODFS(t)
+	od := newOnDemand(fs)
+	closed := false
+	c := newTestODClient(&closed)
+
+	od.mu.Lock()
+	od.urgent = append(od.urgent, odRequest{client: c, archive: 0, file: 99})
+	od.extra = append(od.extra, odRequest{client: c, archive: 1, file: 99})
+	od.ingame = append(od.ingame, odRequest{client: c, archive: 2, file: 99})
+	od.mu.Unlock()
+
+	od.cycle()
+
+	od.mu.Lock()
+	defer od.mu.Unlock()
+	if len(od.urgent)+len(od.extra)+len(od.ingame) != 0 {
+		t.Fatalf("queues not drained after cycle: urgent=%d extra=%d ingame=%d",
+			len(od.urgent), len(od.extra), len(od.ingame))
+	}
+}
+
+// TestOnDemandRunLoopLifecycle verifies that run() drains a pending request
+// within a few 50ms cycles, then stops cleanly when the stop channel is
+// closed. No goroutine leak (verified by the race detector + test timeout).
+func TestOnDemandRunLoopLifecycle(t *testing.T) {
+	if testing.Short() {
+		t.Skip("lifecycle test sleeps ~150ms")
+	}
+	fs := makeODFS(t)
+	od := newOnDemand(fs)
+	closed := false
+	c := newTestODClient(&closed)
+
+	stop := make(chan interface{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		od.run(stop)
+	}()
+
+	// Enqueue a request (missing file → rejection frame).
+	od.mu.Lock()
+	od.urgent = append(od.urgent, odRequest{client: c, archive: 0, file: 99})
+	od.mu.Unlock()
+
+	// Wait up to 500ms for the cycle to pick it up (50ms cadence).
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		c.mu.Lock()
+		n := len(c.sent)
+		c.mu.Unlock()
+		if n > 0 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	c.mu.Lock()
+	got := len(c.sent)
+	c.mu.Unlock()
+	if got == 0 {
+		t.Fatal("run loop never drained the request within 500ms")
+	}
+
+	// Stop the loop and verify it exits.
+	close(stop)
+	done := make(chan struct{})
+	go func() { wg.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("run loop did not exit within 500ms after stop")
 	}
 }

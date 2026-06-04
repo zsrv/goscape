@@ -28,6 +28,7 @@ import (
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/io/filestream"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/io/protocol"
 	loginreq "github.com/zsrv/goscape/pkg/io/protocol/login/req"
@@ -76,6 +77,15 @@ type Server struct {
 	// Shutdown could return while runTickLoop was still executing tick
 	// phases (processSessionLogs / processCleanup / etc.).
 	tickWg sync.WaitGroup
+
+	// onDemand is the 50ms OnDemand cycle that services client cache
+	// requests (OnDemand.ts:11-120 at pin 9aadcec4). Initialized in
+	// NewServer; run loop started in Run() alongside the tick goroutine
+	// and stopped by the same s.quit signal in Shutdown().
+	// odWg lets Shutdown() wait for the run goroutine to exit before
+	// returning, keeping teardown ordering consistent with tickWg.
+	onDemand *onDemand
+	odWg     sync.WaitGroup
 
 	// saveWg tracks in-flight player-save RPC goroutines (PlayerLogout /
 	// PlayerAutosave, which carry the Save() blob). Shutdown waits on it
@@ -607,6 +617,15 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// fields have been populated. DEVIATION-NAI-C-CONFIGS-ATOMIC-SWAP.
 	s.storeConfigsSnapshot()
 
+	// OnDemand cache (OnDemand.ts:12: new FileStream('data/pack')).
+	// createNew=false, readOnly=true — we only serve reads; the packer
+	// owns writes. New() creates empty cache files if they are absent
+	// (MkdirAll + WriteFile on first open), which is acceptable: every
+	// request will be rejected with a size=0 frame until a real pack
+	// populates the files (B6-deferred-cache posture).
+	odFS := filestream.New(cfg.CachePath, false, true)
+	s.onDemand = newOnDemand(odFS)
+
 	return s, nil
 }
 
@@ -711,6 +730,15 @@ func (s *Server) Run() error {
 		s.runTickLoop()
 	}()
 
+	// OnDemand.ts:357 (World.ts): OnDemand.cycle() is started once when the
+	// world is ready, alongside the tick loop. Go uses a dedicated goroutine
+	// running a 50ms ticker (onDemand.run) stopped by the same s.quit signal.
+	s.odWg.Add(1)
+	go func() {
+		defer s.odWg.Done()
+		s.onDemand.run(s.quit)
+	}()
+
 	select {
 	case err := <-errChan:
 		return err
@@ -751,6 +779,11 @@ func (s *Server) Shutdown() {
 	// quit branch, but Done still fires via the defer).
 	s.tickWg.Wait()
 	s.log.Debug("tick goroutine exited")
+
+	// Wait for the OnDemand run goroutine to exit. It observes the same
+	// s.quit channel as the tick loop, so it will exit promptly.
+	s.odWg.Wait()
+	s.log.Debug("ondemand goroutine exited")
 
 	// The tick's final save-all (saveAllOnShutdown) and any just-fired logout
 	// save are in-flight save RPCs parented to bridgesCtx. Wait (bounded) for

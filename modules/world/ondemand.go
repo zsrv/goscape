@@ -1,7 +1,7 @@
 package world
 
-// ondemand.go ports OnDemand.ts:11-16 (struct + queues) and :42-85 (onClientData)
-// from Engine-TS at commit 9aadcec4.
+// ondemand.go ports OnDemand.ts:11-16 (struct + queues), :18-40 (cycle),
+// :42-85 (onClientData), and :87-120 (send) from Engine-TS at commit 9aadcec4.
 //
 // Go adaptations (documented vs TS behaviour):
 //
@@ -22,11 +22,42 @@ package world
 //
 //  3. Queue mutex for goroutine safety:
 //     TS runs in a single-threaded event loop. Go uses per-connection goroutines
-//     that enqueue concurrently while the cycle goroutine (next task) drains.
+//     that enqueue concurrently while the cycle goroutine drains.
 //     mu guards all three queues.
+//
+//  4. cycle() pop-all-then-send pattern (vs TS in-place splice):
+//     TS OnDemand.ts:21-25 splices each element as it processes (i-- after
+//     splice), draining the array while iterating. Go pops all entries under mu
+//     in one shot, then sends outside the lock. This keeps enqueue latency flat
+//     (conn goroutines never block waiting for the cycle lock during a long send)
+//     and is behaviourally equivalent: any requests arriving while sends are in
+//     progress accumulate in the queue for the next cycle.
+//
+//  5. 50ms run loop via time.Ticker (vs TS setTimeout re-arm):
+//     TS OnDemand.ts:39: setTimeout(this.cycle.bind(this), 50) re-arms each
+//     cycle. Go's run() uses a time.Ticker(50ms) which fires independently of
+//     send duration — a long send can overlap the next tick, but since cycle()
+//     is only called from the single run() goroutine there is no concurrent
+//     cycle execution.
+//
+//  6. send error handling:
+//     TS OnDemand.ts:109 calls client.send(…) with no error path (fire-and-
+//     forget, matches the TS event-loop model). Go's odClient.send() returns
+//     an error; on the first error we stop sending further chunks to that
+//     client but do NOT close the connection — the connection's own read
+//     goroutine will detect the dead socket and close it independently. This
+//     avoids a race between the cycle goroutine and the conn goroutine on
+//     connection teardown, and matches the least-surprise local convention
+//     (connection lifecycle is conn-goroutine-owned).
+//
+//  7. FileStream decompress=false (matches TS default):
+//     TS FileStream.ts:43: read(archive, file, decompress = false). The TS
+//     OnDemand.ts:88 call site passes only two arguments, so decompress=false.
+//     Go's Read(archive, file, false) matches this exactly.
 
 import (
 	"sync"
+	"time"
 
 	"github.com/zsrv/goscape/pkg/io/filestream"
 )
@@ -68,6 +99,125 @@ type onDemand struct {
 // only exercise parsing/enqueueing, not the send path).
 func newOnDemand(cache *filestream.FileStream) *onDemand {
 	return &onDemand{cache: cache}
+}
+
+// cycle drains all three queues — urgent, then extra, then ingame — in FIFO
+// order within each queue, mirroring OnDemand.ts:18-37. The TS comment
+// "todo: limit requests per client per cycle" is preserved as-is; the limit
+// is not implemented (matching TS state at pin 9aadcec4).
+//
+// All pending entries are popped under mu in a single batch per queue, then
+// sent outside the lock — see adaptation note (4) above.
+func (od *onDemand) cycle() {
+	// Pop urgent.
+	od.mu.Lock()
+	urgentSnap := od.urgent
+	od.urgent = nil
+	od.mu.Unlock()
+	for _, req := range urgentSnap {
+		od.send(req.client, req.archive, req.file)
+	}
+
+	// Pop extra.
+	od.mu.Lock()
+	extraSnap := od.extra
+	od.extra = nil
+	od.mu.Unlock()
+	for _, req := range extraSnap {
+		od.send(req.client, req.archive, req.file)
+	}
+
+	// Pop ingame.
+	od.mu.Lock()
+	ingameSnap := od.ingame
+	od.ingame = nil
+	od.mu.Unlock()
+	for _, req := range ingameSnap {
+		od.send(req.client, req.archive, req.file)
+	}
+}
+
+// run executes the 50ms OnDemand cycle loop, mirroring the re-arm chain
+// begun by OnDemand.ts:39 (setTimeout(this.cycle.bind(this), 50)).
+// It blocks until stop is closed (called by the world service shutdown).
+//
+// stop is chan interface{} to match the Server.quit field type used
+// throughout the world module for shutdown signalling.
+func (od *onDemand) run(stop <-chan interface{}) {
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			od.cycle()
+		}
+	}
+}
+
+// send reads archive+1, file from the cache and streams it to the client in
+// ≤500-byte chunks, each prefixed by a 6-byte header. If the file is absent
+// (cache.Read returns nil) a single 6-byte rejection frame is sent instead.
+//
+// Mirrors OnDemand.ts:87-120. Decompress=false matches the TS default
+// (FileStream.ts:43) — see adaptation note (7) above.
+//
+// Header layout per chunk (OnDemand.ts:100-104, mirroring Packet p1/p2/p2/p1):
+//
+//	byte 0:    archive  (p1)
+//	bytes 1-2: file     (p2, big-endian)
+//	bytes 3-4: totalLen (p2, big-endian) — always the full file length
+//	byte 5:    part     (p1, 0-based chunk index)
+//
+// On send error: further chunks for this request are skipped; the connection
+// is NOT closed here (see adaptation note (6) above).
+func (od *onDemand) send(c odClient, archive, file int) {
+	od.cacheMu.Lock()
+	var data []byte
+	if od.cache != nil {
+		// TS OnDemand.ts:88: this.cache.read(archive + 1, file)
+		// decompress=false mirrors TS FileStream.ts:43 default.
+		data = od.cache.Read(archive+1, file, false)
+	}
+	od.cacheMu.Unlock()
+
+	if data != nil {
+		// TS OnDemand.ts:91-110: chunked send loop.
+		totalLen := len(data)
+		pos := 0
+		part := 0
+		for pos < totalLen {
+			remaining := totalLen - pos
+			if remaining > 500 {
+				remaining = 500
+			}
+			frame := make([]byte, 6+remaining)
+			frame[0] = byte(archive)
+			frame[1] = byte(file >> 8)
+			frame[2] = byte(file)
+			frame[3] = byte(totalLen >> 8)
+			frame[4] = byte(totalLen)
+			frame[5] = byte(part)
+			copy(frame[6:], data[pos:pos+remaining])
+			if err := c.send(frame); err != nil {
+				// Stop sending further chunks to this client on error;
+				// do not close — see adaptation note (6).
+				return
+			}
+			pos += remaining
+			part++
+		}
+	} else {
+		// TS OnDemand.ts:112-118: "rejected if size=0" — single 6-byte frame.
+		frame := []byte{
+			byte(archive),
+			byte(file >> 8), byte(file),
+			0, 0, // p2(0) — totalLen=0 signals rejection to the client
+			0,    // p1(0) — part=0
+		}
+		c.send(frame) //nolint:errcheck // fire-and-forget, mirrors TS
+	}
 }
 
 // onClientData parses whole 4-byte OnDemand request frames from data and enqueues
