@@ -124,3 +124,13 @@ Resulting invariants:
   Pre-rewrite tips are kept at `refs/backup/pre-empty-root-rev-225`
   (`0669177e`) and `refs/backup/pre-empty-root-main` (`bd227722`); delete
   those refs + `git gc` to drop the old history entirely.
+
+Post-addendum follow-ups (same day): the backup refs above were deleted and
+the old history purged (`reflog expire` + `gc --prune=now`); in-repo doc
+SHA citations were remapped to current history (resolved via the pre-split
+monorepo / prescrub bundles in `/home/owner`, matched by author-date +
+subject); and the second commit — the rewritten original "Initial commit"
+(5-file skeleton) — was reworded to **"Bootstrap server skeleton"** so only
+the empty shared root bears the name "Initial commit" (one more re-parent
+of all descendants, timestamps preserved, `main` and the root unchanged;
+citations positionally re-remapped).
