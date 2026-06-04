@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/inventory"
@@ -998,36 +997,6 @@ func TestNormalizeSongNameEmptyReturnsEmpty(t *testing.T) {
 	if got := normalizeSongName(""); got != "" {
 		t.Errorf("normalizeSongName(\"\") = %q, want \"\"", got)
 	}
-}
-
-// seedCachedMidi seeds both Data and CRC entries on the preload
-// snapshot under `name` and registers a t.Cleanup to clear the
-// snapshot after the test. Mirrors the production PreloadClient write
-// shape without touching the filesystem. Usable for both song and
-// jingle test paths (PlayJingle ignores the CRC entry; the wasted
-// write is harmless).
-//
-// Uses build-then-swap (read-copy-update) to add the entry to the
-// atomic.Pointer snapshot. Test-only; not safe for concurrent use.
-func seedCachedMidi(t *testing.T, name string, data []byte, crc uint32) {
-	t.Helper()
-	prior := cache.Preload()
-	next := &cache.PreloadSnapshot{
-		Data: map[string][]byte{},
-		CRC:  map[string]uint32{},
-	}
-	for k, v := range prior.Data {
-		next.Data[k] = v
-	}
-	for k, v := range prior.CRC {
-		next.CRC[k] = v
-	}
-	next.Data[name] = data
-	next.CRC[name] = crc
-	cache.SetPreloadForTest(next)
-	t.Cleanup(func() {
-		cache.ResetPreloadForTest()
-	})
 }
 
 // TestPlaySong244SilentNoOp_EmptyName pins that PlaySong("") is a no-op

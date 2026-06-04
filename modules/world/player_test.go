@@ -741,6 +741,38 @@ func TestNewPlayer_WalkTrigger_DefaultMinusOne(t *testing.T) {
 	}
 }
 
+// TestNewPlayerCopiesMembersFromClient pins that newPlayer copies c.members
+// to p.members. p.members is wire-load-bearing in rev-244: it feeds the third
+// byte of UPDATE_PID (Player.ts:501) and the warnMembersInNonMembers derivation
+// in LastLoginInfo (World.ts:1937 sets player.members = members after login).
+func TestNewPlayerCopiesMembersFromClient(t *testing.T) {
+	// members=true case
+	serverConn, clientConn := net.Pipe()
+	defer serverConn.Close()
+	defer clientConn.Close()
+	c := newClient(serverConn, time.Second, discardLogger())
+	defer c.in.Release()
+	c.state = ClientStateGame
+	c.members = true
+	p := newPlayer(c)
+	if !p.members {
+		t.Errorf("members=true on client: want p.members=true, got false")
+	}
+
+	// members=false (default) case
+	serverConn2, clientConn2 := net.Pipe()
+	defer serverConn2.Close()
+	defer clientConn2.Close()
+	c2 := newClient(serverConn2, time.Second, discardLogger())
+	defer c2.in.Release()
+	c2.state = ClientStateGame
+	// c2.members defaults to false
+	p2 := newPlayer(c2)
+	if p2.members {
+		t.Errorf("members=false on client: want p.members=false, got true")
+	}
+}
+
 func TestPlayerIsValid(t *testing.T) {
 	base := func() *Player {
 		return &Player{

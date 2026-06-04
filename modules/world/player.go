@@ -592,9 +592,14 @@ func (p *Player) WriteFinishTracking() {
 
 func newPlayer(c *client) *Player {
 	p := &Player{
-		client:         c,
-		reconnecting:   c.reconnecting,
-		lowMemory:      c.lowMemory,
+		client:       c,
+		reconnecting: c.reconnecting,
+		lowMemory:    c.lowMemory,
+		// members mirrors TS World.ts:1937 `player.members = members` (set
+		// from the login response after PlayerLoading.load). Feeds the third
+		// byte of UPDATE_PID (Player.ts:501) and the warnMembersInNonMembers
+		// derivation in the LastLoginInfo handler (Player.ts:2196).
+		members:        c.members,
 		username:       c.username,
 		displayName:    util.ToDisplayName(c.username),
 		username37:     util.ToBase37(c.username),
