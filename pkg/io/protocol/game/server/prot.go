@@ -120,12 +120,9 @@ var (
 	OpObjDel       = Op{Opcode: 39, PayloadSize: 3}
 	OpObjReveal    = Op{Opcode: 69, PayloadSize: 7}
 
-	// Map-data streaming (sub-spec 5b). 991-byte chunk size per DATA_LAND/LOC.
-	// DATA_* removed at 244 — a later task deletes their vars + senders; left untouched here.
-	OpDataLand     = Op{Opcode: 132, PayloadSize: -2}
-	OpDataLoc      = Op{Opcode: 220, PayloadSize: -2}
-	OpDataLandDone = Op{Opcode: 80, PayloadSize: 2}
-	OpDataLocDone  = Op{Opcode: 20, PayloadSize: 2}
+	// DATA_LAND/DATA_LOC/DATA_LAND_DONE/DATA_LOC_DONE were removed at 244:
+	// the client fetches maps via OnDemand (engine OnDemand.ts, Bundle 3)
+	// instead of REBUILD_GETMAPS-driven streaming.
 
 	// Interaction (sub-spec 6a). TS ServerGameProt.ts (244): UNSET_MAP_FLAG=62/0.
 	OpUnsetMapFlag = Op{Opcode: 62, PayloadSize: 0}
@@ -288,11 +285,6 @@ func AllOps() []OpEntry {
 		{"OBJ_COUNT", OpObjCount},
 		{"OBJ_DEL", OpObjDel},
 		{"OBJ_REVEAL", OpObjReveal},
-		// map data streaming
-		{"DATA_LAND", OpDataLand},
-		{"DATA_LOC", OpDataLoc},
-		{"DATA_LAND_DONE", OpDataLandDone},
-		{"DATA_LOC_DONE", OpDataLocDone},
 		// interaction
 		{"UNSET_MAP_FLAG", OpUnsetMapFlag},
 		// chat

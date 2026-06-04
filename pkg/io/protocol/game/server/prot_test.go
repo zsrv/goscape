@@ -5,13 +5,8 @@ import "testing"
 // TestServerProt244Table pins every server opcode/size against the 244 TS
 // contract (Engine-TS@9aadcec4 ServerGameProt.ts + ServerGameZoneProt.ts).
 //
-// Five deferred rows keep their 225 values until their emitters are updated
-// in the same commit (Task 3): UPDATE_PID, LAST_LOGIN_INFO, REBUILD_NORMAL,
-// MIDI_SONG, MIDI_JINGLE.
-//
-// Four DATA_* rows are removed at 244 but their vars still exist pending a
-// later task that deletes them together with their senders; they are left
-// untouched here.
+// The four DATA_* packets were removed at 244 (maps move to engine
+// OnDemand in Bundle 3); their vars and senders are deleted.
 func TestServerProt244Table(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -107,12 +102,6 @@ func TestServerProt244Table(t *testing.T) {
 		{"MIDI_SONG", OpMidiSong, 240, 2},
 		// TS ServerGameProt.ts (244): MIDI_JINGLE=173/4
 		{"MIDI_JINGLE", OpMidiJingle, 173, 4},
-
-		// --- DATA_* rows: removed at 244 but vars exist pending later cleanup task ---
-		{"DATA_LAND (removed@244)", OpDataLand, 132, -2},
-		{"DATA_LAND_DONE (removed@244)", OpDataLandDone, 80, 2},
-		{"DATA_LOC (removed@244)", OpDataLoc, 220, -2},
-		{"DATA_LOC_DONE (removed@244)", OpDataLocDone, 20, 2},
 	}
 	for _, tc := range cases {
 		if tc.op.Opcode != tc.opcode {

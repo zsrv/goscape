@@ -70,17 +70,12 @@ func (b *buildArea) clear(reconnecting bool) {
 // current zone, intersected with the 13×13-zone build-area window
 // centered on origin.
 //
-// Called from two sites:
-//
-//  1. handleRebuildGetMaps (data_map.go:153) — after client confirms
-//     maps loaded post-REBUILD_NORMAL.
-//  2. updateBuildArea (player.go, top of processOut) — per-tick zone
-//     transition (NAI-142, mirroring TS NetworkPlayer.ts:269-271).
-//
-// Both sites fire on the same tick on a REBUILD path; rebuildZones
-// resets activeZones at its top, so the duplication is idempotent.
-// Matches TS ordering (TS World.ts:1097 → NetworkPlayer.updateMap also
-// calls rebuildZones unconditionally on lastZone change).
+// Called from updateBuildArea (player.go, top of processOut) — per-tick
+// zone transition (NAI-142, mirroring TS NetworkPlayer.ts:269-271).
+// The second 225-era call site, handleRebuildGetMaps, was removed at 244
+// together with the REBUILD_GETMAPS packet (maps move to engine OnDemand
+// in Bundle 3); rebuildZones resets activeZones at its top, so the
+// remaining site stays idempotent.
 func (b *buildArea) rebuildZones() {
 	p := b.player
 	b.activeZones = map[int]bool{}
