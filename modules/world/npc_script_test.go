@@ -745,7 +745,7 @@ func TestNpcBaseStatOutOfRange(t *testing.T) {
 
 // TestNpcRegenIteratesAllSixStats verifies that the regen loop
 // converges levels[i] toward baseLevels[i] for ALL 6 stats, not
-// just HP. Mirrors TS Npc.ts:515-523.
+// just HP. Mirrors TS Npc.ts:522-529 @ 9aadcec4 (body unchanged from 225).
 func TestNpcRegenIteratesAllSixStats(t *testing.T) {
 	t.Run("drain-converges-up", func(t *testing.T) {
 		s := newServerForScriptTest(t)
@@ -756,12 +756,11 @@ func TestNpcRegenIteratesAllSixStats(t *testing.T) {
 		}
 		n := NewNpc(1, 0, 3094, 3106, 0, typ)
 		n.server = s
-		n.regenInterval = 1
-		n.regenClock = 1 // will tick to 2 >= 1 → fires
+		n.regenClock = 1 // countdown: 1-1=0 <=0 → fires on next call
 		// Direct writes to non-HP slots: no production opcode currently
 		// mutates levels[0..2,4,5]. This simulates what a future stat-boost
 		// or stat-drain opcode would do, so we can assert the regen loop
-		// iterates beyond HP per TS Npc.ts:515-523.
+		// iterates beyond HP per TS Npc.ts:522-529.
 		// Seed drains on non-HP slots.
 		n.levels[objtype.NpcStatStrength] = 5
 		n.levels[objtype.NpcStatMagic] = 8
@@ -785,8 +784,7 @@ func TestNpcRegenIteratesAllSixStats(t *testing.T) {
 		}
 		n := NewNpc(1, 0, 3094, 3106, 0, typ)
 		n.server = s
-		n.regenInterval = 1
-		n.regenClock = 1
+		n.regenClock = 1 // countdown: 1-1=0 <=0 → fires on next call
 		// Seed boosts on non-HP slots.
 		n.levels[objtype.NpcStatRanged] = 12
 		n.levels[objtype.NpcStatDefence] = 15

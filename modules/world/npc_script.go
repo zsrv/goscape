@@ -485,30 +485,31 @@ func (s *Server) processNpcTimer(n *Npc) {
 	n.timerClock = 0
 }
 
-// processNpcRegen ticks the regen clock and, on interval elapse,
-// reloads the interval from NpcType.RegenRate and converges every
-// levels[i] one step toward baseLevels[i]. Matches TS Npc.processRegen
-// at Engine-TS/.../Npc.ts:505-525.
+// processNpcRegen ticks the regen countdown clock and, when it reaches zero,
+// converges every levels[i] one step toward baseLevels[i]. Matches TS
+// Npc.processRegen at Engine-TS/src/engine/entity/Npc.ts:514-531 @ 9aadcec4.
 //
-// Behaviour:
-//   - regenClock increments unconditionally when called (TS has no
-//     internal delayed gate; the caller's isValid check handles it).
-//   - When regenClock hits regenInterval: reload regenInterval from
-//     n.typ.RegenRate (Vorkath-changetype quirk: new rate takes
-//     effect on fire, not on changetype), reset clock to 0, and
-//     iterate all 6 stat slots, moving each one step toward its base
-//     (TS Npc.ts:515-523).
+// 244 contract (Npc.ts:520-521):
+//   - regenrate 0 disables regen entirely — the decrement is skipped
+//     (TS short-circuit: `type.regenrate !== 0 && --this.regenClock <= 0`).
+//   - Clock is a countdown: pre-decremented then checked against <= 0.
+//   - Clock init 0 → first-turn-alive proc (0-1=-1, -1<=0 true).
+//   - On proc: regenClock resets to n.typ.RegenRate (live read — no
+//     snapshot field; changeType replaces n.typ so the new rate takes
+//     effect at the next proc naturally, matching TS NpcType.get(this.type)).
 func (s *Server) processNpcRegen(n *Npc) {
-	n.regenClock++
-	if n.regenClock < n.regenInterval {
+	// TS Npc.ts:520 — `if (type.regenrate !== 0 && --this.regenClock <= 0)`
+	// Decrement only happens inside the regenrate!=0 branch (short-circuit).
+	if n.typ == nil || n.typ.RegenRate == 0 {
 		return
 	}
-	if n.typ != nil {
-		n.regenInterval = int(n.typ.RegenRate)
+	n.regenClock--
+	if n.regenClock > 0 {
+		return
 	}
-	n.regenClock = 0
+	n.regenClock = n.typ.RegenRate
 	// NAI-17: iterate all 6 stats, converging levels[i] toward
-	// baseLevels[i]. Mirrors TS Npc.ts:515-523.
+	// baseLevels[i]. Mirrors TS Npc.ts:522-529 (unchanged from 225).
 	for i := range objtype.NpcStatCount {
 		switch {
 		case n.levels[i] < n.baseLevels[i]:
