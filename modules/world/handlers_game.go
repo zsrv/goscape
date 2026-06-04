@@ -129,7 +129,7 @@ func handleResumeCountDialog(p *Player, payload []byte) error {
 	return p.client.server.handleResumeCountDialog(p, packet.NewPacket(payload))
 }
 
-// handleCloseModal handles client opcode 231 (CLOSE_MODAL). Zero-byte
+// handleCloseModal handles client opcode 187 (CLOSE_MODAL). Zero-byte
 // payload. Sets requestModalClose so processPlayerQueue closes the modal
 // before queue scripts run this tick.
 // Mirrors TS CloseModalHandler.ts — the modal is NOT closed directly here.
@@ -208,7 +208,7 @@ func handleNoTimeout(_ *Player, _ []byte) error {
 	return nil
 }
 
-// handleIdleTimer is IDLE_TIMER (opcode 70). The Java client sends it after
+// handleIdleTimer is IDLE_TIMER (opcode 146). The Java client sends it after
 // 4500 idle input-cycles; TS IdleTimerHandler sets requestIdleLogout=true so
 // the next processLogouts pass tears the player down (unless NODE_DEBUG, which
 // keeps developers logged in). Mirrors Engine-TS IdleTimerHandler.ts:8-12.
@@ -226,14 +226,14 @@ func handleIdleTimer(p *Player, _ []byte) error {
 	return nil
 }
 
-// handleMoveGameClick is the dispatch entry for MOVE_GAMECLICK (opcode 181).
+// handleMoveGameClick is the dispatch entry for MOVE_GAMECLICK (opcode 63).
 // Routes to the shared inner handler with opClick=false, which causes the
 // !opClick body to fire (clearPendingAction + tempRun + walktrigger).
 func handleMoveGameClick(p *Player, payload []byte) error {
 	return moveClickInner(p, payload, false, 0)
 }
 
-// handleMoveOpClick is the dispatch entry for MOVE_OPCLICK (opcode 93).
+// handleMoveOpClick is the dispatch entry for MOVE_OPCLICK (opcode 167).
 // Routes to the shared inner handler with opClick=true, which skips the
 // !opClick body (the move was triggered by an op click, not a plain
 // ground click — the op click already handled modal/interaction state).
@@ -242,8 +242,8 @@ func handleMoveOpClick(p *Player, payload []byte) error {
 }
 
 // moveClickInner is the shared move-click implementation for all three
-// move opcodes — MOVE_GAMECLICK (181), MOVE_OPCLICK (93), and
-// MOVE_MINIMAPCLICK (165) — mirroring TS, which binds all three to a
+// move opcodes — MOVE_GAMECLICK (63), MOVE_OPCLICK (167), and
+// MOVE_MINIMAPCLICK (56) — mirroring TS, which binds all three to a
 // single MoveClickHandler (ClientGameProtRepository.ts:121-123).
 // Mirrors TS MoveClickHandler.ts:10-58.
 //
@@ -350,7 +350,7 @@ func moveClickInner(p *Player, payload []byte, opClick bool, trailingBytes int) 
 	return nil
 }
 
-// handleMessagePublic decodes a MESSAGE_PUBLIC packet (opcode 158) and sets
+// handleMessagePublic decodes a MESSAGE_PUBLIC packet (opcode 171) and sets
 // MaskChat on the sender so the per-tick encoder propagates chat to tracked
 // observers via HighDefWithChatOf (NAI-32 Task 3 swap surface).
 //
@@ -396,7 +396,7 @@ func handleMessagePublic(p *Player, payload []byte) error {
 	wordpack.Pack(out, filtered)
 
 	// NAI-Phase2: emit ChatMessageEvent (public-channel only — this handler
-	// only services MESSAGE_PUBLIC opcode 158; clan-chat has its own handler).
+	// only services MESSAGE_PUBLIC opcode 171; clan-chat has its own handler).
 	telemetry.Get().EmitWorld(&eventspb.WorldEnvelope{
 		SchemaVersion: 1,
 		EventId:       uuid.NewString(),
@@ -1416,7 +1416,7 @@ func isHexDigit(b byte) bool {
 }
 
 // handleMoveMinimapClick is the dispatch entry for MOVE_MINIMAPCLICK
-// (opcode 165). It routes to the shared inner handler with opClick=false
+// (opcode 56). It routes to the shared inner handler with opClick=false
 // — so the !opClick body fires (ClearPendingAction closes any open modal,
 // e.g. the bank, when the player walks away via the minimap) — and a
 // 14-byte trailer offset for the camera/compass bytes the client appends
