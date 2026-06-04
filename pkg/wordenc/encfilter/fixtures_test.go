@@ -13,17 +13,19 @@ type fixturePair struct {
 }
 
 // TestFilter_AgainstTSFixtures loads the JSON file produced by
-// tools/wordenc/gen-fixtures.ts, loads the real client/wordenc jagfile from
-// the canonical Engine-TS data path, runs goscape's Filter.Filter on each
-// input, and asserts byte-identical match against the TS output.
+// tools/wordenc/gen-fixtures.ts, loads the real data/raw/wordenc jagfile from
+// the canonical Engine-TS path (rev-244: TS loads from data/raw/wordenc, not
+// data/pack/client/wordenc), runs goscape's Filter.Filter on each input, and
+// asserts byte-identical match against the TS output.
 //
 // Skips if either the jagfile or the fixtures JSON is absent (matches the
 // real-cache test convention; see modules/world/loctype_realcache_test.go).
 func TestFilter_AgainstTSFixtures(t *testing.T) {
-	const tsCache = "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/pack"
-	jagPath := filepath.Join(tsCache, "client", "wordenc")
+	// Rev-244: load from data/raw/wordenc, mirroring TS WordEnc.ts:35-37.
+	const tsRaw = "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/raw"
+	jagPath := filepath.Join(tsRaw, "wordenc")
 	if _, err := os.Stat(jagPath); err != nil {
-		t.Skipf("wordenc jagfile not present at %s; skipping (rebuild Engine-TS with 'bun run tools/pack/Build.ts')", jagPath)
+		t.Skipf("wordenc jagfile not present at %s; skipping (ensure Engine-TS data/raw/wordenc exists)", jagPath)
 	}
 
 	fixturesPath := filepath.Join("testdata", "wordenc-fixtures.json")
@@ -39,9 +41,9 @@ func TestFilter_AgainstTSFixtures(t *testing.T) {
 		t.Skip("fixtures file empty; regenerate via tools/wordenc/gen-fixtures.ts")
 	}
 
-	f, err := Load(tsCache)
+	f, err := loadFromFile(jagPath)
 	if err != nil {
-		t.Fatalf("Load(%q): %v", tsCache, err)
+		t.Fatalf("loadFromFile(%q): %v", jagPath, err)
 	}
 
 	for _, p := range pairs {

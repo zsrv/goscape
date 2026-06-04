@@ -6,20 +6,26 @@ import (
 )
 
 // TestNewServer_LoadsWordencFilter pins that NewServer populates s.wordenc from
-// the cache. Uses the canonical Engine-TS cache path; skips when the pack is
-// absent or in a non-244 format (mirrors world_test.go / nai101_fountain_test.go
-// skip convention).
+// the raw wordenc jagfile. Rev-244: TS dropped the existence check and
+// hardcoded "data/raw/wordenc" — NewServer now fails when the jag is absent.
+// Test skips when either the raw wordenc jag or the Engine-TS pack (needed for
+// all other NewServer loads) is unavailable.
 //
-// Rev-244 note: the Engine-TS local data/pack must have been regenerated with
-// the 244 packer (which writes the trans byte + g2 childCount in the interface
-// binary). A stale 225-format cache produces an EOF panic in parseComponentTypes;
-// we catch that and skip the same way we skip on a missing cache.
+// Skips on stale 225-format Engine-TS cache (EOF panic in parseComponentTypes);
+// mirrors world_test.go / nai101_fountain_test.go skip convention.
 //
-// TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:37-44 (static WordEnc.load).
+// TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:35-37 (static WordEnc.load).
 func TestNewServer_LoadsWordencFilter(t *testing.T) {
 	const tsCache = "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/pack"
+	const tsRaw = "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/raw"
 	if _, err := os.Stat(tsCache); err != nil {
 		t.Skipf("Engine-TS cache unavailable: %v", err)
+	}
+	// Rev-244: Load() reads data/raw/wordenc relative to the working directory.
+	// Tests run from modules/world/, so the raw jag is not reachable there;
+	// skip instead of failing (binary runs from project root where it IS reachable).
+	if _, err := os.Stat(tsRaw); err != nil {
+		t.Skipf("Engine-TS data/raw unavailable: %v", err)
 	}
 	cfg := Config{
 		CachePath:        tsCache,

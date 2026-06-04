@@ -1,10 +1,10 @@
 // Package encfilter ports the TS WordEnc + WordEncBadWords + WordEncFragments
 // + WordEncDomains + WordEncTlds classes from Engine-TS/src/cache/wordenc/ to Go.
 //
-// One *Filter per Server; constructed via Load (reads cachePath/client/wordenc
-// jagfile) or LoadFromJag (reads an already-parsed Jagfile). After
-// construction, *Filter is read-only and Filter.Filter is safe for concurrent
-// calls.
+// One *Filter per Server; constructed via Load (reads data/raw/wordenc jagfile,
+// per TS WordEnc.ts rev-244 hardcode) or LoadFromJag (reads an already-parsed
+// Jagfile). After construction, *Filter is read-only and Filter.Filter is safe
+// for concurrent calls.
 package encfilter
 
 import (
@@ -50,10 +50,21 @@ type Filter struct {
 	tldTypes []int
 }
 
-// Load reads <cachePath>/client/wordenc and returns a populated *Filter.
-// Mirrors TS WordEnc.load (Engine-TS/src/cache/wordenc/WordEnc.ts:37-44).
-func Load(cachePath string) (*Filter, error) {
-	jagPath := filepath.Join(cachePath, "client", "wordenc")
+// Load reads the word-encoding Jagfile and returns a populated *Filter.
+//
+// Rev-244 port: TS WordEnc.load ignores its dir argument and loads from the
+// hardcoded relative path "data/raw/wordenc" (TS WordEnc.ts:35-37,
+// Engine-TS@9aadcec4). Missing file → error (TS Jagfile.load throws; no
+// silent-return). Path is relative to the process working directory, matching
+// the TS hardcode convention.
+func Load() (*Filter, error) {
+	// TS WordEnc.ts:35-37: load(_dir) { const wordenc = Jagfile.load('data/raw/wordenc'); … }
+	return loadFromFile(filepath.Join("data", "raw", "wordenc"))
+}
+
+// loadFromFile reads jagPath and returns a populated *Filter. Used by Load and
+// by tests that supply a synthetic fixture directory.
+func loadFromFile(jagPath string) (*Filter, error) {
 	raw, err := os.ReadFile(jagPath)
 	if err != nil {
 		return nil, fmt.Errorf("encfilter: read %q: %w", jagPath, err)

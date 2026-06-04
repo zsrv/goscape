@@ -2,6 +2,7 @@ package encfilter
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/io/jagfile"
@@ -180,5 +181,46 @@ func TestFilter_EmptyInput(t *testing.T) {
 	f := Empty()
 	if got := f.Filter(""); got != "" {
 		t.Errorf("Filter(\"\"): got %q, want \"\"", got)
+	}
+}
+
+// TestLoadFromFile_SyntheticRawDir pins the rev-244 path behavior: loadFromFile
+// reads the jagfile at the supplied path (no subdir added) and returns a
+// populated *Filter. Mirrors the TS WordEnc.ts:35-37 contract where
+// Load() hardcodes "data/raw/wordenc" and passes it as a full path to
+// Jagfile.load.
+func TestLoadFromFile_SyntheticRawDir(t *testing.T) {
+	// Build a synthetic jagfile and save it to a temp location named "wordenc"
+	// to mirror the TS "data/raw/wordenc" layout.
+	jf := makeSyntheticJag(t)
+	rawDir := t.TempDir()
+	jagPath := filepath.Join(rawDir, "wordenc")
+
+	// Round-trip: save via jagfile.Save, then load via loadFromFile.
+	if err := jf.Save(jagPath); err != nil {
+		t.Fatalf("Save synthetic jag to %q: %v", jagPath, err)
+	}
+
+	f, err := loadFromFile(jagPath)
+	if err != nil {
+		t.Fatalf("loadFromFile(%q): %v", jagPath, err)
+	}
+	// Sanity: synthetic jag has one bad-word entry "anal" (from makeSyntheticJag).
+	if got := len(f.bads); got != 1 {
+		t.Errorf("bads count: got %d, want 1", got)
+	}
+	if got := string(f.bads[0]); got != "anal" {
+		t.Errorf("bads[0]: got %q, want %q", got, "anal")
+	}
+}
+
+// TestLoadFromFile_MissingFile pins that loadFromFile returns a non-nil error
+// when the jagfile is absent. Rev-244: TS Jagfile.load throws on missing file;
+// the silent-return-on-missing from rev-225 is gone.
+func TestLoadFromFile_MissingFile(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "wordenc")
+	_, err := loadFromFile(missing)
+	if err == nil {
+		t.Fatalf("loadFromFile on missing path: want error, got nil")
 	}
 }
