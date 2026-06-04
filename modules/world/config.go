@@ -36,17 +36,7 @@ type Config struct {
 	TCPListenPort                    int                `yaml:"tcp_listen_port"`
 	NodeLimitBytesPerTrackingSession int                `yaml:"node_limit_bytes_per_tracking_session"`
 	NodeMinimumWealthValueEvent      int                `yaml:"node_minimum_wealth_value_event"`
-	// NodeRateLimitAddressLogin caps login attempts per remote IP per
-	// 60-second window. 0 disables the gate. Only enforced when
-	// NodeProduction=true. Mirrors TS Environment.NODE_RATELIMIT_ADDRESS_LOGIN
-	// (default 30) at Engine-TS/src/util/Environment.ts:62.
-	NodeRateLimitAddressLogin int `yaml:"node_rate_limit_address_login"`
-	// NodeRateLimitDeviceLogin caps login attempts per (uid@address)
-	// per 15-second window. 0 disables the gate. Only enforced when
-	// NodeProduction=true. Mirrors TS Environment.NODE_RATELIMIT_DEVICE_LOGIN
-	// (default 5) at Engine-TS/src/util/Environment.ts:63.
-	NodeRateLimitDeviceLogin int  `yaml:"node_rate_limit_device_login"`
-	NodeMembers              bool `yaml:"node_members"`
+	NodeMembers bool `yaml:"node_members"`
 	LoginServerEnabled       bool `yaml:"login_server_enabled"`
 	FriendsServerEnabled     bool `yaml:"friends_server_enabled"`
 	NodeDebugProfile         bool `yaml:"node_debug_profile"`
@@ -94,8 +84,6 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.BoolVar(&c.NodeSubmitInput, "world.node-submit-input", false, "Whether clients should be instructed to submit detailed tracking events to the server")
 	f.IntVar(&c.NodeLimitBytesPerTrackingSession, "world.node-limit-bytes-per-tracking-session", 50_000, "Maximum approximate number of bytes allowed per single input tracking session")
 	f.IntVar(&c.NodeMinimumWealthValueEvent, "world.node-minimum-wealth-value-event", 10, "")
-	f.IntVar(&c.NodeRateLimitAddressLogin, "world.node-rate-limit-address-login", 30, "Max login attempts per remote IP per 60s window when node-production=true. 0 disables.")
-	f.IntVar(&c.NodeRateLimitDeviceLogin, "world.node-rate-limit-device-login", 5, "Max login attempts per (uid@address) per 15s window when node-production=true. 0 disables.")
 	f.BoolVar(&c.NodeDebug, "world.node-debug", true, "Extra debug info, e.g. missing triggers")
 	f.BoolVar(&c.NodeDebugProfile, "world.node-debug-profile", false, "")
 	f.BoolVar(&c.NodeDebugSocket, "world.node-debug-socket", false, "")
@@ -117,12 +105,6 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 }
 
 func (c *Config) Validate() error {
-	if c.NodeRateLimitAddressLogin < 0 {
-		return fmt.Errorf("world.node-rate-limit-address-login must be >= 0, got %d", c.NodeRateLimitAddressLogin)
-	}
-	if c.NodeRateLimitDeviceLogin < 0 {
-		return fmt.Errorf("world.node-rate-limit-device-login must be >= 0, got %d", c.NodeRateLimitDeviceLogin)
-	}
 	// CFG-2 (Arc 18): only enforce range/required checks when the world
 	// module is enabled — Validate runs as part of the cross-module
 	// config-merge whether target=world or not, and ondemand-only deployments
