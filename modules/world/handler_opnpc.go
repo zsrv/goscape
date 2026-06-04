@@ -70,8 +70,10 @@ func handleOpNpc(p *Player, payload []byte, op int) error {
 		p.ClearPendingAction()
 		return nil
 	}
-	// Gate 3: merged !npc || npc.delayed — clearPendingAction on any branch.
+	// Gate 3: merged !npc || npc.dead || npc.delayed — clearPendingAction on any branch.
 	// TS OpNpcHandler.ts:21-26 (244).
+	// npc.dead = goscape analog of TS getNpc returning undefined for despawned npcs
+	// (dead npcs linger in s.npcs until cleanup); npc.dead predates 244 B2.
 	npc := s.npcs[nid]
 	if npc == nil || npc.dead || (npc.delayed && s.currentTick < npc.delayedUntil) {
 		sendUnsetMapFlag(p)
@@ -154,7 +156,10 @@ func handleOpNpcT(p *Player, payload []byte) error {
 		p.ClearPendingAction()
 		return nil
 	}
-	// Gate 4: merged !npc || npc.delayed — clearPendingAction. TS OpNpcTHandler.ts:28-33 (244).
+	// Gate 4: merged !npc || npc.dead || npc.delayed — clearPendingAction on any branch.
+	// TS OpNpcTHandler.ts:28-33 (244).
+	// npc.dead = goscape analog of TS getNpc returning undefined for despawned npcs
+	// (dead npcs linger in s.npcs until cleanup); npc.dead predates 244 B2.
 	npc := s.npcs[nid]
 	if npc == nil || npc.dead || (npc.delayed && s.currentTick < npc.delayedUntil) {
 		sendUnsetMapFlag(p)
@@ -190,8 +195,8 @@ func handleOpNpcT(p *Player, payload []byte) error {
 //  7. !hasNpc(player.pid, npc.nid) → UnsetMapFlag + clearPendingAction. TS:51-55.
 //  8. members-only item on free world → MessageGame + UnsetMapFlag. TS:58-61.
 //
-// On success: clearPendingAction → lastUseItem/lastUseSlot → setInteraction(ENGINE,
-// npc, targetOpNpcU, -1) → opcalled=true. TS:57-69.
+// On success: clearPendingAction → (gate 8 members check) → lastUseItem/lastUseSlot →
+// setInteraction(ENGINE, npc, targetOpNpcU, -1) → opcalled=true. TS:57-69.
 func handleOpNpcU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -245,7 +250,10 @@ func handleOpNpcU(p *Player, payload []byte) error {
 		p.ClearPendingAction()
 		return nil
 	}
-	// Gate 6: merged !npc || npc.delayed — clearPendingAction. TS OpNpcUHandler.ts:44-49 (244).
+	// Gate 6: merged !npc || npc.dead || npc.delayed — clearPendingAction on any branch.
+	// TS OpNpcUHandler.ts:44-49 (244).
+	// npc.dead = goscape analog of TS getNpc returning undefined for despawned npcs
+	// (dead npcs linger in s.npcs until cleanup); npc.dead predates 244 B2.
 	npc := s.npcs[nid]
 	if npc == nil || npc.dead || (npc.delayed && s.currentTick < npc.delayedUntil) {
 		sendUnsetMapFlag(p)

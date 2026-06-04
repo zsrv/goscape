@@ -372,6 +372,12 @@ func TestHandleOpNpcTInvalidSlotRejected(t *testing.T) {
 // TS OpNpcTHandler.ts:28-32 (244).
 func TestHandleOpNpcTDeadNpcRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
+	// Register a component so the component gate (gate 3) passes and the
+	// dead-npc gate (gate 4) is actually reached.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7777: {RootLayer: 7777, ActionTarget: objtype.ComActionTargetNpc},
+	})
+	p.tabs[0] = 7777
 	s.npcs[1].dead = true
 	p.target = p // sentinel
 
@@ -778,17 +784,25 @@ func TestHandleOpNpcDelayedNpcRejected(t *testing.T) {
 	}
 }
 
-// TestHandleOpNpcTDelayedNpcRejected verifies delayed NPC in handleOpNpcT sends UnsetMapFlag.
+// TestHandleOpNpcTDelayedNpcRejected verifies delayed NPC in handleOpNpcT sends UnsetMapFlag
+// and calls clearPendingAction. TS OpNpcTHandler.ts:28-33 (244).
 func TestHandleOpNpcTDelayedNpcRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
+	// Register a component so the component gate (gate 3) passes and the
+	// delayed-npc gate (gate 4) is actually reached.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7777: {RootLayer: 7777, ActionTarget: objtype.ComActionTargetNpc},
+	})
+	p.tabs[0] = 7777
 	s.npcs[1].delayed = true
 	s.npcs[1].delayedUntil = 999
 	s.currentTick = 0
+	p.target = p // sentinel: clearPendingAction will nil this
 
 	_ = handleOpNpcT(p, p2x2Payload(1, 7777))
 
 	if p.target != nil {
-		t.Error("target should remain nil for delayed NPC")
+		t.Error("244: delayed-npc reject must call clearPendingAction (target sentinel should be nil)")
 	}
 }
 
