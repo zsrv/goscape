@@ -408,7 +408,8 @@ func TestProcessNpcHuntPlayers_SkipsUnobservedNpc(t *testing.T) {
 }
 
 // TestProcessNpcHuntPlayers_SkipsDeadNpc guards the isActive gate
-// (TS World.ts:579 npc.isActive → goscape n.IsValid()).
+// (TS World.ts:607 npc.isActive → goscape `!n.dead`; n.IsValid() is
+// intentionally NOT used here — see the processNpcHuntPlayers docstring).
 func TestProcessNpcHuntPlayers_SkipsDeadNpc(t *testing.T) {
 	s, n := playerHuntFixture(t)
 	s.rsbuf.SetObserverForTest(int32(n.nid), 1)

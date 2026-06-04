@@ -63,7 +63,7 @@ func (s *Server) processNpcHunt(n *Npc) {
 
 // processNpcHuntPlayers is the world-level player-hunt pass: every alive,
 // observed NPC whose hunt config is HuntModePlayer acquires a player
-// huntTarget this tick. Mirrors TS World.processWorld (World.ts:577-589).
+// huntTarget this tick. Mirrors TS World.processWorld (World.ts:603-617).
 //
 // This must run BEFORE processNpcs so the huntTarget set here is converted
 // into a real interaction by the same tick's consumeHuntTarget (TS order:
@@ -72,10 +72,10 @@ func (s *Server) processNpcHunt(n *Npc) {
 // attacked, because the per-NPC turn() hunt (processNpcHunt) deliberately
 // skips HuntModePlayer.
 //
-// Gate (TS World.ts:579-584): isActive (the base Entity flag, i.e. !dead)
+// Gate (TS World.ts:607-612): isActive (the base Entity flag, i.e. !dead)
 // AND huntMode != -1 AND observers > 0 AND hunt.Type == HuntModePlayer.
 // TS does NOT skip delayed NPCs here ("Hunts will process even if the
-// npc is delayed during this portion", World.ts:580) — so this site
+// npc is delayed during this portion", World.ts:608) — so this site
 // must gate on the base `!n.dead` directly rather than calling
 // Npc.IsValid (which mirrors the stricter TS Npc.isValid override that
 // excludes delayed; see npc.go:453).
