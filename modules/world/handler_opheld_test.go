@@ -58,18 +58,183 @@ func setupOpHeldServer(t *testing.T) (*Server, *Player) {
 	return s, p
 }
 
-// TestHandleOpHeld_Delayed pins that a delayed player drops the packet.
-// Mirrors TS OpHeldHandler.ts:16-19.
+// TestHandleOpHeld_Delayed pins that a delayed player drops the packet AFTER
+// validation passes. In 244, delayed check moves to after all validation gates,
+// and its reject does NOT call clearPendingAction.
+// Mirrors TS OpHeldHandler.ts (244): delayed check after inv validation, returns
+// false without calling clearPendingAction.
 func TestHandleOpHeld_Delayed(t *testing.T) {
 	s, p := setupOpHeldServer(t)
 	s.currentTick = 5
 	p.delayed = true
 	p.delayedUntil = 10
 
+	// Arm a sentinel target to detect whether ClearPendingAction is called.
+	p.target = p
+	p.opcalled = true
+
 	_ = handleOpHeld1(p, opHeldPayload(555, 3, 149))
 
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (delayed must reject)", p.lastItem)
+	}
+	// 244: delayed reject must NOT call clearPendingAction (target survives).
+	if p.target == nil {
+		t.Error("244: delayed-only reject must NOT call clearPendingAction (target was cleared)")
+	}
+}
+
+// TestHandleOpHeld_InvalidCom_WithDelayed_ClearsPending pins that invalid
+// component validation rejects even when p.delayed=true AND calls
+// clearPendingAction. In 244, validation runs before the delayed check.
+// Mirrors TS OpHeldHandler.ts (244): com validation first, clearPendingAction on reject.
+func TestHandleOpHeld_InvalidCom_WithDelayed_ClearsPending(t *testing.T) {
+	s, p := setupOpHeldServer(t)
+	s.currentTick = 5
+	p.delayed = true
+	p.delayedUntil = 10
+
+	// Seed a non-interactable component.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: false},
+	})
+
+	p.target = p
+	p.opcalled = true
+
+	_ = handleOpHeld1(p, opHeldPayload(555, 3, 149))
+
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (invalid com must reject)", p.lastItem)
+	}
+	// 244: validation rejects call clearPendingAction even when delayed.
+	if p.target != nil {
+		t.Error("244: invalid com reject must call clearPendingAction (target should be nil)")
+	}
+}
+
+// TestHandleOpHeld_NoListener_ClearsPendingAction pins that the listener-not-found
+// reject calls clearPendingAction. In 244 this is explicit.
+// Mirrors TS OpHeldHandler.ts (244): listener check calls clearPendingAction on reject.
+func TestHandleOpHeld_NoListener_ClearsPendingAction(t *testing.T) {
+	_, p := setupOpHeldServer(t)
+	delete(p.invListeners, 149)
+
+	p.target = p
+	p.opcalled = true
+
+	_ = handleOpHeld1(p, opHeldPayload(555, 3, 149))
+
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (no listener must reject)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: no-listener reject must call clearPendingAction (target should be nil)")
+	}
+}
+
+// TestHandleOpHeld_NilInv_ClearsPendingAction pins that inv-unresolved reject
+// calls clearPendingAction (244 change from 225).
+func TestHandleOpHeld_NilInv_ClearsPendingAction(t *testing.T) {
+	s, p := setupOpHeldServer(t)
+	delete(s.invs, 93)
+
+	p.target = p
+	p.opcalled = true
+
+	_ = handleOpHeld1(p, opHeldPayload(555, 3, 149))
+
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (nil inv must reject)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: nil-inv reject must call clearPendingAction (target should be nil)")
+	}
+}
+
+// TestHandleOpHeld_HasAtFalse_ClearsPendingAction pins that HasAt-false reject
+// calls clearPendingAction (244 change from 225).
+func TestHandleOpHeld_HasAtFalse_ClearsPendingAction(t *testing.T) {
+	_, p := setupOpHeldServer(t)
+
+	p.target = p
+	p.opcalled = true
+
+	// Wrong slot — slot 3 has 555, slot 4 is empty.
+	_ = handleOpHeld1(p, opHeldPayload(555, 4, 149))
+
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (HasAt false must reject)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: HasAt-false reject must call clearPendingAction (target should be nil)")
+	}
+}
+
+// TestHandleOpHeld_Op5_SkipsIopValidation pins that op=5 bypasses the iop check.
+// In 244, iop validation is skipped for op=5 (TS OpHeldHandler.ts: "message.op !== 5").
+// IOp[4]="" but op=5 should still reach state mutation.
+func TestHandleOpHeld_Op5_SkipsIopValidation(t *testing.T) {
+	s, p := setupOpHeldServer(t)
+	// IOp has all slots empty except slot 0; op=5 maps to IOp[4]="" but must NOT reject.
+	s.objTypes.Configs[555].IOp = []string{"op1", "", "", "", ""}
+
+	_ = handleOpHeld5(p, opHeldPayload(555, 3, 149))
+
+	if p.lastItem != 555 {
+		t.Errorf("lastItem: got %d, want 555 (op=5 must skip iop validation)", p.lastItem)
+	}
+}
+
+// TestHandleOpHeld_Op5_NilIop_SkipsValidation pins that op=5 also skips when iop is nil.
+// Mirrors TS: "message.op !== 5" entirely bypasses the iop gate.
+func TestHandleOpHeld_Op5_NilIop_SkipsValidation(t *testing.T) {
+	s, p := setupOpHeldServer(t)
+	s.objTypes.Configs[555].IOp = nil // nil iop
+
+	_ = handleOpHeld5(p, opHeldPayload(555, 3, 149))
+
+	if p.lastItem != 555 {
+		t.Errorf("lastItem: got %d, want 555 (op=5 must skip nil iop validation)", p.lastItem)
+	}
+}
+
+// TestHandleOpHeld_IopNil_Rejects_WithClearPendingAction pins that for op≠5,
+// nil IOp rejects and calls clearPendingAction (244 iop condition change).
+// TS: "(type.iop && !type.iop[message.op - 1]) || !type.iop"
+func TestHandleOpHeld_IopNil_Rejects_WithClearPendingAction(t *testing.T) {
+	s, p := setupOpHeldServer(t)
+	s.objTypes.Configs[555].IOp = nil
+
+	p.target = p
+	p.opcalled = true
+
+	_ = handleOpHeld1(p, opHeldPayload(555, 3, 149))
+
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (nil IOp op≠5 must reject)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: nil-IOp reject must call clearPendingAction")
+	}
+}
+
+// TestHandleOpHeld_IopEmpty_ClearsPendingAction pins that op≠5 with empty iop entry
+// rejects AND calls clearPendingAction (244 change — 225 did not call it here).
+func TestHandleOpHeld_IopEmpty_ClearsPendingAction(t *testing.T) {
+	_, p := setupOpHeldServer(t)
+
+	p.target = p
+	p.opcalled = true
+
+	// op=2 → IOp[1] is "" in the fixture.
+	_ = handleOpHeld2(p, opHeldPayload(555, 3, 149))
+
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (IOp[op-1]=='' must reject)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: empty-IOp reject must call clearPendingAction")
 	}
 }
 
@@ -332,14 +497,49 @@ func setupOpHeldTServer(t *testing.T) (*Server, *Player) {
 	return s, p
 }
 
+// TestHandleOpHeldT_Delayed pins that delayed-only reject (all validation passes)
+// does NOT call clearPendingAction. In 244, delayed check moves to after all
+// validation gates. Mirrors TS OpHeldTHandler.ts (244).
 func TestHandleOpHeldT_Delayed(t *testing.T) {
 	s, p := setupOpHeldTServer(t)
 	s.currentTick = 5
 	p.delayed = true
 	p.delayedUntil = 10
+
+	// Sentinel: detect clearPendingAction.
+	p.target = p
+	p.opcalled = true
+
 	_ = handleOpHeldT(p, opHeldTPayload(555, 3, 149, 200))
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (delayed reject)", p.lastItem)
+	}
+	// 244: delayed-only reject must NOT call clearPendingAction.
+	if p.target == nil {
+		t.Error("244: delayed-only reject must NOT call clearPendingAction")
+	}
+}
+
+// TestHandleOpHeldT_InvalidCom_WithDelayed_ClearsPending pins that invalid com
+// validation rejects even when delayed, AND calls clearPendingAction (244 change).
+func TestHandleOpHeldT_InvalidCom_WithDelayed_ClearsPending(t *testing.T) {
+	s, p := setupOpHeldTServer(t)
+	s.currentTick = 5
+	p.delayed = true
+	p.delayedUntil = 10
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: false}, // not interactable
+		200: {RootLayer: 200, ActionTarget: objtype.ComActionTargetHeld},
+	})
+	p.target = p
+	p.opcalled = true
+
+	_ = handleOpHeldT(p, opHeldTPayload(555, 3, 149, 200))
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (invalid com must reject even when delayed)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: invalid com reject must call clearPendingAction")
 	}
 }
 
@@ -351,7 +551,8 @@ func TestHandleOpHeldT_ShortPayload(t *testing.T) {
 	}
 }
 
-// TS OpHeldTHandler.ts:21-23 — spellCom: nil or actionTarget&HELD == 0.
+// TS OpHeldTHandler.ts (244): com checked first with interactable, then spellCom.
+// Mirrors the 244 gate order change: com.interactable before spellCom check.
 func TestHandleOpHeldT_SpellComMissingHeldFlag(t *testing.T) {
 	s, p := setupOpHeldTServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
@@ -365,17 +566,72 @@ func TestHandleOpHeldT_SpellComMissingHeldFlag(t *testing.T) {
 	}
 }
 
-// TS OpHeldTHandler.ts:30-32 — com: nil or !Usable.
-func TestHandleOpHeldT_ComNotUsable(t *testing.T) {
+// TestHandleOpHeldT_SpellComMissingHeldFlag_ClearsPending pins that the spellCom
+// validation reject calls clearPendingAction (244 change).
+func TestHandleOpHeldT_SpellComMissingHeldFlag_ClearsPending(t *testing.T) {
 	s, p := setupOpHeldTServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Interactable: true, Usable: false}, // Usable cleared
+		149: {RootLayer: 149, Interactable: true, Usable: true},
+		200: {RootLayer: 200, ActionTarget: 0}, // HELD flag clear
+	})
+	p.tabs[1] = 200
+	p.target = p
+	p.opcalled = true
+	_ = handleOpHeldT(p, opHeldTPayload(555, 3, 149, 200))
+	if p.target != nil {
+		t.Error("244: spellCom HELD-flag reject must call clearPendingAction")
+	}
+}
+
+// TestHandleOpHeldT_ComNotInteractable pins that com.Interactable=false rejects.
+// In 244, com is checked first (before spellCom) for Interactable (not Usable).
+// TS OpHeldTHandler.ts (244): "!com.interactable" replaces "!com.usable".
+func TestHandleOpHeldT_ComNotInteractable(t *testing.T) {
+	s, p := setupOpHeldTServer(t)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: false, Usable: true}, // Interactable cleared
 		200: {RootLayer: 200, ActionTarget: objtype.ComActionTargetHeld},
 	})
 	p.tabs[1] = 200
+	p.target = p
+	p.opcalled = true
 	_ = handleOpHeldT(p, opHeldTPayload(555, 3, 149, 200))
 	if p.lastItem != -1 {
-		t.Errorf("lastItem: got %d, want -1 (com not Usable)", p.lastItem)
+		t.Errorf("lastItem: got %d, want -1 (com not Interactable)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: com not-Interactable reject must call clearPendingAction")
+	}
+}
+
+// TestHandleOpHeldT_NoListener_ClearsPending pins that listener-not-found
+// calls clearPendingAction (244 change).
+func TestHandleOpHeldT_NoListener_ClearsPending(t *testing.T) {
+	_, p := setupOpHeldTServer(t)
+	delete(p.invListeners, 149)
+	p.target = p
+	p.opcalled = true
+	_ = handleOpHeldT(p, opHeldTPayload(555, 3, 149, 200))
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (no listener must reject)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: no-listener reject must call clearPendingAction")
+	}
+}
+
+// TestHandleOpHeldT_NilInv_ClearsPending pins that inv-unresolved calls clearPendingAction (244).
+func TestHandleOpHeldT_NilInv_ClearsPending(t *testing.T) {
+	s, p := setupOpHeldTServer(t)
+	delete(s.invs, 93)
+	p.target = p
+	p.opcalled = true
+	_ = handleOpHeldT(p, opHeldTPayload(555, 3, 149, 200))
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (nil inv must reject)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: nil-inv reject must call clearPendingAction")
 	}
 }
 
@@ -509,13 +765,112 @@ func TestHandleOpHeldU_ShortPayload(t *testing.T) {
 	}
 }
 
-// TS OpHeldUHandler.ts:21-24 — comId !== useComId reject.
-// Goscape uses != since both are int.
-func TestHandleOpHeldU_ComMismatch(t *testing.T) {
-	_, p := setupOpHeldUServer(t)
+// TestHandleOpHeldU_ComMismatch_244_Allowed pins that 244 REMOVED the comId==useComId
+// check. In 225 this was a hard reject; in 244 (TS OpHeldUHandler.ts 9aadcec4)
+// the check is gone entirely — different components are now valid.
+// We verify the packet proceeds past this former gate (com=149, useCom=200;
+// both must be seeded and visible for progress — the test verifies no early reject
+// from the mismatch check, though later gates may still reject on visibility).
+func TestHandleOpHeldU_ComMismatch_244_Allowed(t *testing.T) {
+	s, p := setupOpHeldUServer(t)
+	// Seed useCom=200 as interactable and visible so the packet can proceed past
+	// the com/useCom gates and reach later validation.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: true, Usable: true},
+		200: {RootLayer: 200, Interactable: true, Usable: true},
+	})
+	p.invListenOnCom(93, 200, -1) // listener for useCom=200
+	p.tabs[1] = 200               // make com=200 visible
+
+	// com=149, useCom=200 — different components. In 244 this must NOT be rejected by a mismatch check.
+	// (The packet may still fail at later gates; we just assert the mismatch gate is gone
+	// by checking that at minimum no immediate drop happens on the mismatch itself.)
+	// Since both items are in the same inv and both comIds have listeners + items,
+	// the packet should reach state mutation.
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 200))
+	// Both comId and useComId are valid interactable components with listeners and items;
+	// 244 removes comId==useComId gate so state mutation must occur.
+	if p.lastItem != 555 && p.lastItem != 777 {
+		t.Errorf("244: comId!=useComId must NOT be rejected (lastItem=%d, want 555 or 777)", p.lastItem)
+	}
+}
+
+// TestHandleOpHeldU_ComNotInteractable_ClearsPending pins that com.Interactable=false
+// rejects and calls clearPendingAction. In 244, Interactable replaces Usable.
+// Mirrors TS OpHeldUHandler.ts (244): "!com.interactable".
+func TestHandleOpHeldU_ComNotInteractable_ClearsPending(t *testing.T) {
+	s, p := setupOpHeldUServer(t)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: false, Usable: true}, // Interactable cleared
+	})
+	p.target = p
+	p.opcalled = true
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (com not Interactable must reject)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: com not-Interactable reject must call clearPendingAction")
+	}
+}
+
+// TestHandleOpHeldU_UseComNotInteractable_ClearsPending pins that useCom.Interactable=false
+// rejects and calls clearPendingAction (244 change).
+func TestHandleOpHeldU_UseComNotInteractable_ClearsPending(t *testing.T) {
+	s, p := setupOpHeldUServer(t)
+	// We need a second component for useCom. Seed useCom=200 as non-interactable.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: true, Usable: true},
+		200: {RootLayer: 200, Interactable: false, Usable: true}, // not interactable
+	})
+	p.invListenOnCom(93, 200, -1)
+	p.tabs[1] = 200
+	p.target = p
+	p.opcalled = true
 	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 200))
 	if p.lastItem != -1 {
-		t.Errorf("lastItem: got %d, want -1 (comId != useComId reject)", p.lastItem)
+		t.Errorf("lastItem: got %d, want -1 (useCom not Interactable must reject)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: useCom not-Interactable reject must call clearPendingAction")
+	}
+}
+
+// TestHandleOpHeldU_NoListener_ClearsPending pins that listener-not-found for com
+// calls clearPendingAction in 244 (change from 225 which just returned nil).
+func TestHandleOpHeldU_NoListener_ClearsPending(t *testing.T) {
+	_, p := setupOpHeldUServer(t)
+	delete(p.invListeners, 149)
+	p.target = p
+	p.opcalled = true
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (no com listener must reject)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: no-listener reject must call clearPendingAction")
+	}
+}
+
+// TestHandleOpHeldU_NoUseListener_ClearsPending pins that listener-not-found for useCom
+// calls clearPendingAction (244 change).
+func TestHandleOpHeldU_NoUseListener_ClearsPending(t *testing.T) {
+	s, p := setupOpHeldUServer(t)
+	// useCom=200 with no listener.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: true, Usable: true},
+		200: {RootLayer: 200, Interactable: true, Usable: true},
+	})
+	p.tabs[1] = 200
+	// No listener for useCom=200 — leave p.invListeners only having 149.
+	p.target = p
+	p.opcalled = true
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 200))
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (no useCom listener must reject)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: no-useListener reject must call clearPendingAction")
 	}
 }
 

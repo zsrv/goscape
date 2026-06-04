@@ -9,26 +9,26 @@ import (
 )
 
 // handleOpHeld is the shared implementation for OPHELD1..OPHELD5.
-// op is 1..5. Wire format: obj:G2 | slot:G2 | com:G2 (6 bytes).
+// op is 1..5. Wire format: obj:G2 | slot:G2 | component:G2 (6 bytes).
 //
-// Gates per TS OpHeldHandler.ts:
-//  1. p.delayed → drop
-//  2. payload < 6 → drop
-//  3. nil component or !Interactable → drop
-//  4. !IsComponentVisible → drop
-//  5. comId not in invListeners → drop
-//  6. listener's inventory unresolved → drop
-//  7. inv.HasAt(slot, obj) false → drop
-//  8. ObjType not registered (goscape defensive; TS throws here) → drop
-//  9. objType.IOp[op-1] == "" → drop
+// Gates per TS OpHeldHandler.ts (244 pin, 9aadcec4):
+//  1. payload < 6 → drop
+//  2. nil component or !Interactable or !IsComponentVisible → clearPendingAction + drop
+//  3. for op≠5: nil IOp or IOp[op-1]=="" → clearPendingAction + drop
+//     (op=5 skips this gate entirely; wealth-logged in content)
+//  4. comId not in invListeners → clearPendingAction + drop
+//  5. inv unresolved or !validSlot(slot) or !HasAt(slot, item) → clearPendingAction + drop
+//  6. p.delayed → drop (no clearPendingAction)
 //
-// On pass: p.lastItem/lastSlot snapshot → ClearPendingAction iff
+// On pass: lastItem/lastSlot snapshot → ClearPendingAction iff
 // com.RootLayer != p.modalMain → moveClickRequest=false →
-// faceEntity=-1 + emit entitymask (unconditional, matches TS) →
+// faceEntity=-1 + emit entitymask (unconditional) →
+// explicit per-op trigger dispatch (OPHELD1..OPHELD5) →
+// sessionlog (MODERATOR, "<iop> <debugname>") for ops 1-4 only →
 // fire [opheld<op>,<objId>] via GetByTrigger keyed on
 // (objType.id, objType.Category) and runScript with protect=true.
 //
-// Per TS OpHeldHandler.ts:62-65: op != 5 emits a MODERATOR session
+// TS OpHeldHandler.ts:62-65 (244): op != 5 emits a MODERATOR session
 // log "<iop> <debugname>". (op == 5 is wealth-logged in content
 // scripts, not here.) NAI-74 activates this; the prior
 // NAI-71-D-OPHELD-NO-SESSION-LOG deviation is closed.
@@ -38,52 +38,70 @@ func handleOpHeld(p *Player, payload []byte, op int) error {
 	}
 	s := p.client.server
 
-	if p.delayed && s.currentTick < p.delayedUntil {
-		return nil
-	}
 	if len(payload) < 6 {
 		return nil
 	}
 
 	r := packet.NewPacket(payload)
-	obj := int(r.G2())
+	item := int(r.G2())
 	slot := int(r.G2())
 	comId := int(r.G2())
 
+	// Gate 2: component must exist, be visible, and be interactable.
+	// TS OpHeldHandler.ts:17-20 (244).
 	com := s.lookupComponent(comId)
-	if com == nil || !com.Interactable {
-		return nil
-	}
-	if !p.IsComponentVisible(com) {
+	if com == nil || !com.Interactable || !p.IsComponentVisible(com) {
+		p.ClearPendingAction()
 		return nil
 	}
 
+	// Gate 3: iop validation for op≠5. TS OpHeldHandler.ts:22-25 (244).
+	// Condition: (type.iop && !type.iop[op-1]) || !type.iop
+	// op=5 bypasses entirely ("wealth logged in content").
+	if op != 5 {
+		var objType *objtype.ObjType
+		if s.objTypes != nil && item >= 0 && item < len(s.objTypes.Configs) {
+			objType = s.objTypes.Configs[item]
+		}
+		if objType == nil || len(objType.IOp) == 0 || objType.IOp[op-1] == "" {
+			p.ClearPendingAction()
+			return nil
+		}
+	}
+
+	// Gate 4: invListeners must contain comId. TS OpHeldHandler.ts:27-30 (244).
 	listener, ok := p.invListeners[comId]
 	if !ok {
+		p.ClearPendingAction()
 		return nil
 	}
+
+	// Gate 5: inv resolved + HasAt (encompasses slot bounds check).
+	// TS OpHeldHandler.ts:32-35 (244); HasAt returns false for out-of-bounds slots.
 	inv := resolveListenerInv(s, listener)
-	if inv == nil {
-		return nil
-	}
-	if !inv.HasAt(slot, obj) {
-		return nil
-	}
-
-	if s.objTypes == nil || obj < 0 || obj >= len(s.objTypes.Configs) {
-		return nil
-	}
-	objType := s.objTypes.Configs[obj]
-	if objType == nil { // goscape defensive; TS throws here
-		return nil
-	}
-	if len(objType.IOp) < op || objType.IOp[op-1] == "" {
+	if inv == nil || !inv.HasAt(slot, item) {
+		p.ClearPendingAction()
 		return nil
 	}
 
-	p.lastItem = obj
+	// Gate 6: delayed check AFTER all validation. TS OpHeldHandler.ts:37-39 (244).
+	// Rejected without calling clearPendingAction.
+	if p.delayed && s.currentTick < p.delayedUntil {
+		return nil
+	}
+
+	// ObjType resolution for session-log and trigger dispatch.
+	// goscape defensive: TS throws on missing type; we skip session-log but continue.
+	var objType *objtype.ObjType
+	if s.objTypes != nil && item >= 0 && item < len(s.objTypes.Configs) {
+		objType = s.objTypes.Configs[item]
+	}
+
+	p.lastItem = item
 	p.lastSlot = slot
 
+	// Conditional clearPendingAction: only when rootLayer differs from modalMain.
+	// TS OpHeldHandler.ts:41-43 (244).
 	if com.RootLayer != p.modalMain {
 		p.ClearPendingAction()
 	}
@@ -94,15 +112,48 @@ func handleOpHeld(p *Player, payload []byte, op int) error {
 	}
 	p.masks |= p.entitymask
 
-	// NAI-74: NAI-71-D close. TS OpHeldHandler.ts:62-65 — unconditional
-	// at this point in the pipeline (before script lookup).
-	if op != 5 {
-		p.AddSessionLog(LoggerEventTypeModerator,
-			fmt.Sprintf("%s %s", objType.IOp[op-1], objType.DebugName))
+	// Explicit per-op trigger dispatch (TS OpHeldHandler.ts:46-67, 244).
+	// Sessionlog emitted for ops 1-4; op=5 wealth-logged in content.
+	var trigger script.ServerTriggerType
+	switch op {
+	case 1:
+		if objType != nil && len(objType.IOp) >= 1 {
+			p.AddSessionLog(LoggerEventTypeModerator,
+				fmt.Sprintf("%s %s", objType.IOp[0], objType.DebugName))
+		}
+		trigger = script.TriggerOpHeld1
+	case 2:
+		if objType != nil && len(objType.IOp) >= 2 {
+			p.AddSessionLog(LoggerEventTypeModerator,
+				fmt.Sprintf("%s %s", objType.IOp[1], objType.DebugName))
+		}
+		trigger = script.TriggerOpHeld2
+	case 3:
+		if objType != nil && len(objType.IOp) >= 3 {
+			p.AddSessionLog(LoggerEventTypeModerator,
+				fmt.Sprintf("%s %s", objType.IOp[2], objType.DebugName))
+		}
+		trigger = script.TriggerOpHeld3
+	case 4:
+		if objType != nil && len(objType.IOp) >= 4 {
+			p.AddSessionLog(LoggerEventTypeModerator,
+				fmt.Sprintf("%s %s", objType.IOp[3], objType.DebugName))
+		}
+		trigger = script.TriggerOpHeld4
+	default: // op == 5
+		// wealth logged in content (it may not execute!)
+		trigger = script.TriggerOpHeld5
 	}
 
-	trigger := script.TriggerOpHeld1 + script.ServerTriggerType(op-1)
-	sf := s.scriptProvider.GetByTrigger(trigger, obj, objType.Category)
+	var typeID, typeCat int
+	if objType != nil {
+		typeID = objType.ConfigType.ID
+		typeCat = objType.Category
+	} else {
+		typeID = item
+		typeCat = -1
+	}
+	sf := s.scriptProvider.GetByTrigger(trigger, typeID, typeCat)
 	s.runScript(sf, p, nil, trigger, true, nil, nil)
 	return nil
 }
@@ -116,18 +167,15 @@ func handleOpHeld5(p *Player, payload []byte) error { return handleOpHeld(p, pay
 // handleOpHeldT is the handler for OPHELDT (opcode 48, 8-byte payload).
 // Spell-on-held-item: player drags a spell from the magic-book interface
 // onto an inventory item.
-// Wire format: obj:G2 | slot:G2 | com:G2 | spellCom:G2.
+// Wire format: obj:G2 | slot:G2 | component:G2 | spellComponent:G2.
 //
-// Gates per TS OpHeldTHandler.ts:
-//  1. p.delayed → drop
-//  2. payload < 8 → drop
-//  3. spellCom: nil or (ActionTarget & HELD) == 0 → drop
-//  4. spellCom: !IsComponentVisible → drop
-//  5. com: nil or !Usable → drop
-//  6. com: !IsComponentVisible → drop
-//  7. comId not in invListeners → drop
-//  8. listener's inventory unresolved → drop
-//  9. inv.HasAt(slot, obj) false → drop
+// Gates per TS OpHeldTHandler.ts (244 pin, 9aadcec4):
+//  1. payload < 8 → drop
+//  2. com: nil or !Interactable or !IsComponentVisible → clearPendingAction + drop
+//  3. spellCom: nil or !IsComponentVisible or (ActionTarget&HELD)==0 → clearPendingAction + drop
+//  4. comId not in invListeners → clearPendingAction + drop
+//  5. inv unresolved or !validSlot or !HasAt(slot, item) → clearPendingAction + drop
+//  6. p.delayed → drop (no clearPendingAction)
 //
 // On pass: lastItem/lastSlot snapshot → ClearPendingAction
 // (unconditional, contrast OPHELD1-5 conditional) → faceEntity=-1 +
@@ -135,7 +183,7 @@ func handleOpHeld5(p *Player, payload []byte) error { return handleOpHeld(p, pay
 // GetByTrigger(typeID=spellComId, cat=-1). On no-script: emit
 // "Nothing interesting happens.".
 //
-// Per TS OpHeldTHandler.ts:61: emits a MODERATOR session log
+// Per TS OpHeldTHandler.ts:61 (244): emits a MODERATOR session log
 // "Cast <comName> on <debugname>" before script dispatch. NAI-74
 // activates this; the prior NAI-71-D-OPHELD-NO-SESSION-LOG
 // deviation is closed.
@@ -145,63 +193,69 @@ func handleOpHeldT(p *Player, payload []byte) error {
 	}
 	s := p.client.server
 
-	if p.delayed && s.currentTick < p.delayedUntil {
-		return nil
-	}
 	if len(payload) < 8 {
 		return nil
 	}
 
 	r := packet.NewPacket(payload)
-	obj := int(r.G2())
+	item := int(r.G2())
 	slot := int(r.G2())
 	comId := int(r.G2())
 	spellComId := int(r.G2())
 
-	spellCom := s.lookupComponent(spellComId)
-	if spellCom == nil || (spellCom.ActionTarget&objtype.ComActionTargetHeld) == 0 {
-		return nil
-	}
-	if !p.IsComponentVisible(spellCom) {
-		return nil
-	}
-
+	// Gate 2: com must exist, be visible, and be interactable.
+	// TS OpHeldTHandler.ts:15-18 (244); com checked FIRST in 244.
 	com := s.lookupComponent(comId)
-	if com == nil || !com.Usable {
-		return nil
-	}
-	if !p.IsComponentVisible(com) {
+	if com == nil || !com.Interactable || !p.IsComponentVisible(com) {
+		p.ClearPendingAction()
 		return nil
 	}
 
+	// Gate 3: spellCom must exist, be visible, and have ActionTarget&HELD set.
+	// TS OpHeldTHandler.ts:20-23 (244); merged from separate 225 checks.
+	spellCom := s.lookupComponent(spellComId)
+	if spellCom == nil || !p.IsComponentVisible(spellCom) || (spellCom.ActionTarget&objtype.ComActionTargetHeld) == 0 {
+		p.ClearPendingAction()
+		return nil
+	}
+
+	// Gate 4: invListeners must contain comId. TS OpHeldTHandler.ts:25-28 (244).
 	listener, ok := p.invListeners[comId]
 	if !ok {
-		return nil
-	}
-	inv := resolveListenerInv(s, listener)
-	if inv == nil {
-		return nil
-	}
-	if !inv.HasAt(slot, obj) {
+		p.ClearPendingAction()
 		return nil
 	}
 
-	p.lastItem = obj
+	// Gate 5: inv resolved + HasAt (encompasses slot bounds check).
+	// TS OpHeldTHandler.ts:30-33 (244).
+	inv := resolveListenerInv(s, listener)
+	if inv == nil || !inv.HasAt(slot, item) {
+		p.ClearPendingAction()
+		return nil
+	}
+
+	// Gate 6: delayed check AFTER all validation. TS OpHeldTHandler.ts:35-37 (244).
+	if p.delayed && s.currentTick < p.delayedUntil {
+		return nil
+	}
+
+	p.lastItem = item
 	p.lastSlot = slot
 
+	// Unconditional ClearPendingAction (contrast OPHELD1-5 conditional).
+	// TS OpHeldTHandler.ts:39 (244).
 	p.ClearPendingAction()
 	if p.faceEntity != -1 {
 		p.faceEntity = -1
 	}
 	p.masks |= p.entitymask
 
-	// NAI-74: NAI-71-D close. TS OpHeldTHandler.ts:61 — unconditional at
-	// this point in the pipeline. Inline ObjType lookup is goscape-only
-	// (TS uses ObjType.get(obj).debugname which would throw on missing
-	// config; goscape skips the session-log on missing — defensive,
-	// goscape behaviour-preserving since TS would have thrown).
-	if s.objTypes != nil && obj >= 0 && obj < len(s.objTypes.Configs) {
-		if objType := s.objTypes.Configs[obj]; objType != nil {
+	// NAI-74: NAI-71-D close. TS OpHeldTHandler.ts:61 (244) — unconditional.
+	// Inline ObjType lookup is goscape-only (TS uses ObjType.get(obj).debugname which
+	// would throw on missing config; goscape skips the session-log on missing —
+	// defensive, goscape behaviour-preserving since TS would have thrown).
+	if s.objTypes != nil && item >= 0 && item < len(s.objTypes.Configs) {
+		if objType := s.objTypes.Configs[item]; objType != nil {
 			p.AddSessionLog(LoggerEventTypeModerator,
 				fmt.Sprintf("Cast %s on %s", spellCom.ComName, objType.DebugName))
 		}
@@ -218,30 +272,26 @@ func handleOpHeldT(p *Player, payload []byte) error {
 
 // handleOpHeldU is the handler for OPHELDU (opcode 130, 12-byte payload).
 // Item-on-held-item: player drags one inventory item onto another.
-// Wire format: obj:G2 | slot:G2 | com:G2 | useObj:G2 | useSlot:G2 | useCom:G2.
+// Wire format: obj:G2 | slot:G2 | component:G2 | useObj:G2 | useSlot:G2 | useComponent:G2.
 //
-// Gates per TS OpHeldUHandler.ts:
-//  1. p.delayed → drop
-//  2. payload < 12 → drop
-//  3. comId != useComId → drop
-//  4. com: nil or !Usable → drop
-//  5. com: !IsComponentVisible → drop
-//  6. useCom: nil or !Usable → drop
-//  7. useCom: !IsComponentVisible → drop
-//  8. comId not in invListeners → drop
-//  9. listener's inventory unresolved → drop
-//  10. inv.HasAt(slot, obj) false → moveClickRequest=false +
-//     ClearPendingAction + drop (TS OpHeldUHandler.ts:54-58)
-//  11. useComId not in invListeners → drop
-//  12. useInv unresolved → drop
-//  13. useInv.HasAt(useSlot, useObj) false → moveClickRequest=false +
-//     ClearPendingAction + drop (TS OpHeldUHandler.ts:71-75)
+// Gates per TS OpHeldUHandler.ts (244 pin, 9aadcec4):
+//  1. payload < 12 → drop
+//  2. p.delayed → drop (NO clearPendingAction; first check in 244)
+//  3. com: nil or !Interactable or !IsComponentVisible → clearPendingAction + drop
+//  4. useCom: nil or !Interactable or !IsComponentVisible → clearPendingAction + drop
+//  5. comId not in invListeners → clearPendingAction + drop
+//  6. inv unresolved or !validSlot(slot) or !HasAt(slot, item) → moveClickRequest=false +
+//     clearPendingAction + drop (TS OpHeldUHandler.ts — "removed early osrs")
+//  7. useComId not in invListeners → clearPendingAction + drop
+//  8. useInv unresolved or !validSlot(useSlot) or !HasAt(useSlot, useItem) →
+//     moveClickRequest=false + clearPendingAction + drop
+//
+// Note: 244 REMOVES the 225 comId==useComId gate entirely.
 //
 // On pass: lastItem/lastSlot/lastUseItem/lastUseSlot snapshot →
-// ClearPendingAction (unconditional, contrast OPHELD1-5 conditional) →
-// faceEntity=-1 + emit entitymask → members-only gate: free world +
-// (objType.Members || useObjType.Members) ⇒ MessageGame "To use this
-// item please login..." + drop.
+// ClearPendingAction (unconditional) → faceEntity=-1 + emit entitymask →
+// members-only gate: free world + (objType.Members || useObjType.Members) ⇒
+// MessageGame "To use this item please login..." + drop.
 //
 // Trigger fallback (4 arms; first hit wins):
 //
@@ -274,106 +324,113 @@ func handleOpHeldU(p *Player, payload []byte) error {
 	}
 	s := p.client.server
 
-	if p.delayed && s.currentTick < p.delayedUntil {
-		return nil
-	}
 	if len(payload) < 12 {
 		return nil
 	}
 
 	r := packet.NewPacket(payload)
-	obj := int(r.G2())
+	item := int(r.G2())
 	slot := int(r.G2())
 	comId := int(r.G2())
-	useObj := int(r.G2())
+	useItem := int(r.G2())
 	useSlot := int(r.G2())
 	useComId := int(r.G2())
 
-	if comId != useComId {
+	// Gate 2: delayed is checked FIRST in 244, before component validation.
+	// TS OpHeldUHandler.ts:14-16 (244). No clearPendingAction.
+	if p.delayed && s.currentTick < p.delayedUntil {
 		return nil
 	}
 
+	// Note: the 225 comId==useComId gate is REMOVED in 244.
+	// TS OpHeldUHandler.ts (244) has no such check.
+
+	// Gate 3: com must exist, be visible, and be interactable.
+	// TS OpHeldUHandler.ts:18-21 (244); Interactable replaces Usable.
 	com := s.lookupComponent(comId)
-	if com == nil || !com.Usable {
-		return nil
-	}
-	if !p.IsComponentVisible(com) {
+	if com == nil || !com.Interactable || !p.IsComponentVisible(com) {
+		p.ClearPendingAction()
 		return nil
 	}
 
+	// Gate 4: useCom must exist, be visible, and be interactable.
+	// TS OpHeldUHandler.ts:23-26 (244).
 	useCom := s.lookupComponent(useComId)
-	if useCom == nil || !useCom.Usable {
-		return nil
-	}
-	if !p.IsComponentVisible(useCom) {
-		return nil
-	}
-
-	listener, ok := p.invListeners[comId]
-	if !ok {
-		return nil
-	}
-	inv := resolveListenerInv(s, listener)
-	if inv == nil {
-		return nil
-	}
-	if !inv.HasAt(slot, obj) {
-		// TS OpHeldUHandler.ts:54-58 — extra cleanup on this specific reject.
-		p.moveClickRequest = false
+	if useCom == nil || !useCom.Interactable || !p.IsComponentVisible(useCom) {
 		p.ClearPendingAction()
 		return nil
 	}
 
-	useListener, ok := p.invListeners[useComId]
-	if !ok {
-		return nil
-	}
-	useInv := resolveListenerInv(s, useListener)
-	if useInv == nil {
-		return nil
-	}
-	if !useInv.HasAt(useSlot, useObj) {
-		// TS OpHeldUHandler.ts:71-75.
-		p.moveClickRequest = false
-		p.ClearPendingAction()
-		return nil
+	// Gate 5+6: comId listener + inv validation.
+	// TS OpHeldUHandler.ts:28-36 (244); scoped to a block.
+	{
+		listener, ok := p.invListeners[comId]
+		if !ok {
+			p.ClearPendingAction()
+			return nil
+		}
+		inv := resolveListenerInv(s, listener)
+		if inv == nil || !inv.HasAt(slot, item) {
+			// TS OpHeldUHandler.ts:33-35 — extra cleanup on this specific reject.
+			p.moveClickRequest = false
+			p.ClearPendingAction()
+			return nil
+		}
 	}
 
-	// State snapshot BEFORE members gate (matches TS OpHeldUHandler.ts:78-81 ordering).
-	p.lastItem = obj
+	// Gate 7+8: useComId listener + useInv validation.
+	// TS OpHeldUHandler.ts:38-46 (244); scoped to a block.
+	{
+		useListener, ok := p.invListeners[useComId]
+		if !ok {
+			p.ClearPendingAction()
+			return nil
+		}
+		useInv := resolveListenerInv(s, useListener)
+		if useInv == nil || !useInv.HasAt(useSlot, useItem) {
+			// TS OpHeldUHandler.ts:44-46.
+			p.moveClickRequest = false
+			p.ClearPendingAction()
+			return nil
+		}
+	}
+
+	// State snapshot BEFORE members gate (matches TS OpHeldUHandler.ts:48-51 ordering).
+	p.lastItem = item
 	p.lastSlot = slot
-	p.lastUseItem = useObj
+	p.lastUseItem = useItem
 	p.lastUseSlot = useSlot
 
 	// ObjType resolution for both objects (goscape defensive; TS throws here).
-	if s.objTypes == nil || obj < 0 || obj >= len(s.objTypes.Configs) || s.objTypes.Configs[obj] == nil {
-		return nil // goscape defensive; TS throws here
+	if s.objTypes == nil || item < 0 || item >= len(s.objTypes.Configs) || s.objTypes.Configs[item] == nil {
+		return nil
 	}
-	if useObj < 0 || useObj >= len(s.objTypes.Configs) || s.objTypes.Configs[useObj] == nil {
-		return nil // goscape defensive; TS throws here
+	if useItem < 0 || useItem >= len(s.objTypes.Configs) || s.objTypes.Configs[useItem] == nil {
+		return nil
 	}
-	objType := s.objTypes.Configs[obj]
-	useObjType := s.objTypes.Configs[useObj]
+	objType := s.objTypes.Configs[item]
+	useObjType := s.objTypes.Configs[useItem]
 
+	// Unconditional ClearPendingAction (TS OpHeldUHandler.ts:54).
 	p.ClearPendingAction()
 	if p.faceEntity != -1 {
 		p.faceEntity = -1
 	}
 	p.masks |= p.entitymask
 
-	// Members-only gate (TS OpHeldUHandler.ts:90-93).
+	// Members-only gate (TS OpHeldUHandler.ts:56-59).
 	if (objType.Members || useObjType.Members) && !s.cfg.NodeMembers {
 		p.MessageGame("To use this item please login to a members' server.")
 		return nil
 	}
 
-	// 4-arm trigger fallback (TS OpHeldUHandler.ts:96-117); first hit wins.
+	// 4-arm trigger fallback (TS OpHeldUHandler.ts:62-83); first hit wins.
 	sf := s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, objType.ConfigType.ID, -1)
 
 	if sf == nil {
 		sf = s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, useObjType.ConfigType.ID, -1)
 		// Arm (b): UNCONDITIONAL swap whenever (a) misses, regardless of
-		// whether (b)'s lookup succeeded (TS OpHeldUHandler.ts:101-102).
+		// whether (b)'s lookup succeeded (TS OpHeldUHandler.ts:67-68).
 		p.lastItem, p.lastUseItem = p.lastUseItem, p.lastItem
 		p.lastSlot, p.lastUseSlot = p.lastUseSlot, p.lastSlot
 	}
@@ -385,7 +442,7 @@ func handleOpHeldU(p *Player, payload []byte) error {
 	if sf == nil && useObjType.Category != -1 {
 		sf = s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, -1, useObjType.Category)
 		// Arm (d): UNCONDITIONAL swap whenever (c) misses or is skipped,
-		// regardless of whether (d)'s lookup succeeded (TS OpHeldUHandler.ts:115-116).
+		// regardless of whether (d)'s lookup succeeded (TS OpHeldUHandler.ts:81-82).
 		p.lastItem, p.lastUseItem = p.lastUseItem, p.lastItem
 		p.lastSlot, p.lastUseSlot = p.lastUseSlot, p.lastSlot
 	}
