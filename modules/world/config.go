@@ -36,19 +36,19 @@ type Config struct {
 	TCPListenPort                    int                `yaml:"tcp_listen_port"`
 	NodeLimitBytesPerTrackingSession int                `yaml:"node_limit_bytes_per_tracking_session"`
 	NodeMinimumWealthValueEvent      int                `yaml:"node_minimum_wealth_value_event"`
-	NodeMembers bool `yaml:"node_members"`
-	LoginServerEnabled       bool `yaml:"login_server_enabled"`
-	FriendsServerEnabled     bool `yaml:"friends_server_enabled"`
-	NodeDebugProfile         bool `yaml:"node_debug_profile"`
-	NodeDebugSocket          bool `yaml:"node_debug_socket"`
-	NodeClientRoutefinder    bool `yaml:"node_client_routefinder"`
-	NodeDebug                bool `yaml:"node_debug"`
-	NodeSubmitInput          bool `yaml:"node_submit_input"`
-	NodeProduction           bool `yaml:"node_production"`
-	NodeAutoSubscribeMembers bool `yaml:"node_auto_subscribe_members"`
-	ContentWatch             bool `yaml:"content_watch"`
-	Enable                   bool `yaml:"enable"`
-	EnableTCPServer          bool `yaml:"enable_tcp_server"`
+	NodeMembers                      bool               `yaml:"node_members"`
+	LoginServerEnabled               bool               `yaml:"login_server_enabled"`
+	FriendsServerEnabled             bool               `yaml:"friends_server_enabled"`
+	NodeDebugProfile                 bool               `yaml:"node_debug_profile"`
+	NodeDebugSocket                  bool               `yaml:"node_debug_socket"`
+	NodeClientRoutefinder            bool               `yaml:"node_client_routefinder"`
+	NodeDebug                        bool               `yaml:"node_debug"`
+	NodeSubmitInput                  bool               `yaml:"node_submit_input"`
+	NodeProduction                   bool               `yaml:"node_production"`
+	NodeAutoSubscribeMembers         bool               `yaml:"node_auto_subscribe_members"`
+	ContentWatch                     bool               `yaml:"content_watch"`
+	Enable                           bool               `yaml:"enable"`
+	EnableTCPServer                  bool               `yaml:"enable_tcp_server"`
 }
 
 // RegisterFlagsAndApplyDefaults registers flags and applies defaults.

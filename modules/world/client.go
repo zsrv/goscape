@@ -29,9 +29,9 @@ const maxClientInBufSize = 65535
 type ClientState int
 
 const (
-	ClientStateClosed   ClientState = -1
-	ClientStateLogin    ClientState = 0
-	ClientStateGame     ClientState = 1
+	ClientStateClosed ClientState = -1
+	ClientStateLogin  ClientState = 0
+	ClientStateGame   ClientState = 1
 	// ClientStateOndemand marks a connection that has completed the op-15
 	// handshake and is now serving OnDemand cache requests.
 	// TS uses literal 2 for this state (TcpServer.ts:35-37, client.state===2

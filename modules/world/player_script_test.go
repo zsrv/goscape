@@ -2615,9 +2615,9 @@ func TestRecomputeCombatLevel_Change_RebuildTrue_UsesWornInv(t *testing.T) {
 		p.baseLevels[i] = 1
 	}
 	p.baseLevels[objtype.PlayerStatHitpoints] = 10
-	p.baseLevels[objtype.PlayerStatAttack] = 99   // att=str=99 → CL 67
+	p.baseLevels[objtype.PlayerStatAttack] = 99 // att=str=99 → CL 67
 	p.baseLevels[objtype.PlayerStatStrength] = 99
-	p.combatLevel = 3  // stale, differs from calcCombatLevel()
+	p.combatLevel = 3             // stale, differs from calcCombatLevel()
 	p.appearanceInv = customInvId // bound to non-Worn inv before the change
 	p.masks = 0
 

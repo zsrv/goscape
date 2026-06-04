@@ -214,7 +214,7 @@ func (od *onDemand) send(c odClient, archive, file int) {
 			byte(archive),
 			byte(file >> 8), byte(file),
 			0, 0, // p2(0) — totalLen=0 signals rejection to the client
-			0,    // p1(0) — part=0
+			0, // p1(0) — part=0
 		}
 		c.send(frame) //nolint:errcheck // fire-and-forget, mirrors TS
 	}
