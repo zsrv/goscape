@@ -40,12 +40,16 @@ const (
 	restrictedEventLimit = 2
 	afkEventRate         = 500
 
-	// afkChance1 / afkChance2 mirror TS World.ts:128-129:
-	//   AFK_CHANCE1 = 1/(120/5) = 1/24 (~4.17% per AFK_EVENTRATE)
-	//   AFK_CHANCE2 = 1/(60/5)  = 1/12 (~8.33% per AFK_EVENTRATE, used
-	//                                   while the player is "zonesAfk").
-	afkChance1 = 1.0 / 24.0
-	afkChance2 = 1.0 / 12.0
+	// afkChance1 / afkChance2 are the 244 inline decimal literals from
+	// TS World.ts:638 (pin `9aadcec4`):
+	//
+	//   player.afkEventReady = Math.random() < (player.zonesAfk() ? 0.1666 : 0.0833);
+	//
+	// 225 expressed these as fractions (1/24 ≈ 0.04167, 1/12 ≈ 0.08333);
+	// 244 doubled both and wrote inline decimal literals. We use the exact
+	// literals — not fractions — so the float64 representation matches TS.
+	afkChance1 = 0.0833
+	afkChance2 = 0.1666
 
 	modalStateNone = 0x0
 	modalStateMain = 0x1
@@ -1104,9 +1108,9 @@ func (p *Player) processIn(currentTick int) {
 	p.playtime++
 
 	if currentTick%afkEventRate == 0 {
-		// TS World.ts:608 — players whose afk-zone tracker has saturated
-		// (zonesAfk()) roll against the higher AFK_CHANCE2 (1/12); everyone
-		// else rolls against AFK_CHANCE1 (1/24).
+		// TS World.ts:638 (pin 9aadcec4) — players whose afk-zone tracker has
+		// saturated (zonesAfk()) roll against afkChance2 (0.1666); everyone
+		// else rolls against afkChance1 (0.0833). Both are 244 inline literals.
 		chance := afkChance1
 		if p.IsZonesAfk() {
 			chance = afkChance2

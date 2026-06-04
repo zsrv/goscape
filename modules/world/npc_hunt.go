@@ -53,8 +53,10 @@ func (s *Server) processNpcHunt(n *Npc) {
 	// World.ts:577-589), which runs before processNpcs each tick. huntClock
 	// is still advanced here for player hunts (TS Npc.ts:169 is outside the
 	// non-player guard), so the world pass's huntAll sees a current clock.
+	// hunt is resolved here for the gate check; huntAll re-derives it
+	// internally — matches TS Npc.ts:160+165 (resolve then call no-arg).
 	if hunt.Type != objtype.HuntModePlayer {
-		n.huntAll(s, hunt)
+		n.huntAll(s)
 	}
 	n.huntClock++
 }
@@ -93,16 +95,40 @@ func (s *Server) processNpcHuntPlayers() {
 		}
 		hunt := s.huntTypes.Configs[n.huntMode]
 		if hunt != nil && hunt.Type == objtype.HuntModePlayer {
-			n.huntAll(s, hunt)
+			// hunt is resolved here for the gate check; huntAll re-derives it
+			// internally — matches TS World.ts:610+613 (resolve then call no-arg).
+			n.huntAll(s)
 		}
 	}
 }
 
 // huntAll dispatches to a hunted-type variant and sets huntTarget.
-// Matches TS Npc.ts:249-277. Variants are stubs at NAI-7; NAI-8
-// fills huntPlayers; NAI-9 fills huntNpcs/huntObjs/huntLocs.
-func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
+// Matches TS Npc.ts:249-277 (pin 9aadcec4). Variants are stubs at NAI-7;
+// NAI-8 fills huntPlayers; NAI-9 fills huntNpcs/huntObjs/huntLocs.
+//
+// 244: hunt is no longer passed as an arg; it is derived internally from
+// n.huntMode (TS Npc.ts:252 "const hunt: HuntType = HuntType.get(this.huntMode)").
+// Both callers (processNpcHunt and processNpcHuntPlayers) still resolve
+// hunt locally for their gate checks, then call huntAll() without it — the
+// redundant resolution matches TS exactly.
+//
+// Go-defensive guard: if s.huntTypes is nil or huntMode is out of bounds,
+// huntAll silently no-ops. TS HuntType.get() would throw on invalid id; we
+// keep the guard as a pre-existing Go-defensive extension.
+func (n *Npc) huntAll(s *Server) {
 	n.huntTarget = nil
+
+	// Derive hunt from huntMode — TS Npc.ts:252.
+	if s.huntTypes == nil ||
+		n.huntMode < 0 ||
+		n.huntMode >= len(s.huntTypes.Configs) {
+		return
+	}
+	hunt := s.huntTypes.Configs[n.huntMode]
+	if hunt == nil {
+		return
+	}
+
 	if n.huntClock < hunt.Rate-1 {
 		return
 	}

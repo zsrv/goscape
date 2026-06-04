@@ -1,20 +1,23 @@
 package world
 
 import (
-	"math"
 	"testing"
 )
 
-// TestAfkChanceConstants pins the AFK roll constants to the values defined in
-// TS World.ts:128-129. AFK_CHANCE1 = 1/24, AFK_CHANCE2 = 1/12. A prior bug
-// used a hand-rounded 0.0167 (~2.5× too low) instead of the correct ~0.04167.
+// TestAfkChanceConstants pins the AFK roll constants to the 244 inline
+// literals from TS World.ts:638:
+//
+//	player.afkEventReady = Math.random() < (player.zonesAfk() ? 0.1666 : 0.0833);
+//
+// 225 used the fractions 1/24 (~0.04167) and 1/12 (~0.08333); 244 doubled
+// them to the inline decimal literals 0.0833 and 0.1666. We pin the exact
+// float64 literal values, not fractions, to ensure we use the 244 values.
 func TestAfkChanceConstants(t *testing.T) {
-	const eps = 1e-12
-	if math.Abs(afkChance1-1.0/24.0) > eps {
-		t.Errorf("afkChance1: got %v, want %v (1/24)", afkChance1, 1.0/24.0)
+	if afkChance1 != 0.0833 {
+		t.Errorf("afkChance1: got %v, want 0.0833 (244 inline literal)", afkChance1)
 	}
-	if math.Abs(afkChance2-1.0/12.0) > eps {
-		t.Errorf("afkChance2: got %v, want %v (1/12)", afkChance2, 1.0/12.0)
+	if afkChance2 != 0.1666 {
+		t.Errorf("afkChance2: got %v, want 0.1666 (244 inline literal)", afkChance2)
 	}
 	if afkChance2 <= afkChance1 {
 		t.Errorf("afkChance2 (%v) must be strictly greater than afkChance1 (%v)", afkChance2, afkChance1)

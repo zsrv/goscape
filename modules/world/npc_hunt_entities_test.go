@@ -578,6 +578,10 @@ func TestHuntLocsCheckCategoryNegativeOneAllowsAll(t *testing.T) {
 // TestHuntAllPicksFromVariantResult is the cross-variant integration
 // test from the NAI-9 spec: when huntAll dispatches to a variant
 // that returns candidates, n.huntTarget is set to one of them.
+//
+// 244: huntAll() no longer accepts a hunt arg; it derives the HuntType
+// internally from n.huntMode (Npc.ts:252). We install the config into
+// s.huntTypes.Configs at index n.huntMode so the derivation succeeds.
 func TestHuntAllPicksFromVariantResult(t *testing.T) {
 	s := newServerForScriptTest(t)
 	n := newNpcForLifecycleTest(t)
@@ -590,13 +594,24 @@ func TestHuntAllPicksFromVariantResult(t *testing.T) {
 	// is deterministic — it must be the only candidate.
 	candidate := addNpcToServerAt(t, s, 90, 1, -1, n.x+3, n.z+3, n.level)
 
+	// Install the hunt config at huntMode index so huntAll can derive it.
 	hunt := &objtype.HuntType{
 		Type:          objtype.HuntModeNpc,
 		Rate:          1,
 		CheckNpc:      -1,
 		CheckCategory: -1,
 	}
-	n.huntAll(s, hunt)
+	const huntModeIdx = 0
+	n.huntMode = huntModeIdx
+	if s.huntTypes == nil {
+		s.huntTypes = &objtype.HuntTypeConfigs{}
+	}
+	if len(s.huntTypes.Configs) <= huntModeIdx {
+		s.huntTypes.Configs = make([]*objtype.HuntType, huntModeIdx+1)
+	}
+	s.huntTypes.Configs[huntModeIdx] = hunt
+
+	n.huntAll(s)
 
 	if n.huntTarget == nil {
 		t.Fatalf("huntTarget: got nil, want candidate NPC")
