@@ -6,116 +6,135 @@ type Op struct {
 	PayloadSize int // 0=fixed-zero, 2=fixed-2, 4=fixed-4, -1=1-byte-len, -2=2-byte-len
 }
 
-// Modal interface opcodes and logout — sub-spec 1 only.
-// Remaining ~40 server opcodes added in sub-specs 2–4.
+// Modal interface opcodes and logout.
+// TS ServerGameProt.ts (244): IF_CLOSE=214/0, IF_OPENMAIN=10/2, IF_OPENCHAT=189/2,
+// IF_OPENSIDE=176/2, IF_OPENMAIN_SIDE=207/4, IF_OPENOVERLAY=158/2, LOGOUT=17/0.
 var (
-	OpIfClose        = Op{Opcode: 129, PayloadSize: 0}
-	OpIfOpenMain     = Op{Opcode: 168, PayloadSize: 2}
-	OpIfOpenChat     = Op{Opcode: 14, PayloadSize: 2}
-	OpIfOpenSide     = Op{Opcode: 195, PayloadSize: 2}
-	OpIfOpenMainSide = Op{Opcode: 28, PayloadSize: 4}
-	OpTutOpen        = Op{Opcode: 185, PayloadSize: 2}
-	OpTutFlash       = Op{Opcode: 126, PayloadSize: 1}
-	OpLogout         = Op{Opcode: 142, PayloadSize: 0}
+	OpIfClose        = Op{Opcode: 214, PayloadSize: 0}
+	OpIfOpenMain     = Op{Opcode: 10, PayloadSize: 2}
+	OpIfOpenChat     = Op{Opcode: 189, PayloadSize: 2}
+	OpIfOpenSide     = Op{Opcode: 176, PayloadSize: 2}
+	OpIfOpenMainSide = Op{Opcode: 207, PayloadSize: 4}
+	// OpIfOpenOverlay opens a full-screen overlay interface. TS ServerGameProt.ts (244): IF_OPENOVERLAY.
+	// Call site lands with B4's IF_OPENOVERLAY script op.
+	OpIfOpenOverlay = Op{Opcode: 158, PayloadSize: 2}
+	OpTutOpen       = Op{Opcode: 174, PayloadSize: 2}
+	OpTutFlash      = Op{Opcode: 168, PayloadSize: 1}
+	OpLogout        = Op{Opcode: 17, PayloadSize: 0}
 
 	// S5f: per-component setters (fire-and-forget wire ops used by IF_SET* opcodes).
-	OpIfSetText       = Op{Opcode: 201, PayloadSize: -2}
-	OpIfSetModel      = Op{Opcode: 87, PayloadSize: 4}
-	OpIfSetNpcHead    = Op{Opcode: 204, PayloadSize: 4}
-	OpIfSetPlayerHead = Op{Opcode: 197, PayloadSize: 2}
-	OpIfSetAnim       = Op{Opcode: 146, PayloadSize: 4}
-	OpIfSetHide       = Op{Opcode: 26, PayloadSize: 3}
-	OpIfSetObject     = Op{Opcode: 46, PayloadSize: 6}
-	OpIfSetColour     = Op{Opcode: 2, PayloadSize: 4}
-	OpIfSetPosition   = Op{Opcode: 209, PayloadSize: 6}
+	// TS ServerGameProt.ts (244): IF_SETTEXT=154/-2, IF_SETMODEL=245/4,
+	// IF_SETNPCHEAD=129/4, IF_SETPLAYERHEAD=108/2, IF_SETANIM=219/4,
+	// IF_SETHIDE=123/3, IF_SETOBJECT=164/6, IF_SETCOLOUR=78/4,
+	// IF_SETPOSITION=241/6, IF_SETRECOL=103/6, IF_SETTAB=200/3, IF_SETTAB_ACTIVE=56/1.
+	OpIfSetText       = Op{Opcode: 154, PayloadSize: -2}
+	OpIfSetModel      = Op{Opcode: 245, PayloadSize: 4}
+	OpIfSetNpcHead    = Op{Opcode: 129, PayloadSize: 4}
+	OpIfSetPlayerHead = Op{Opcode: 108, PayloadSize: 2}
+	OpIfSetAnim       = Op{Opcode: 219, PayloadSize: 4}
+	OpIfSetHide       = Op{Opcode: 123, PayloadSize: 3}
+	OpIfSetObject     = Op{Opcode: 164, PayloadSize: 6}
+	OpIfSetColour     = Op{Opcode: 78, PayloadSize: 4}
+	OpIfSetPosition   = Op{Opcode: 241, PayloadSize: 6}
 	OpIfSetRecol      = Op{Opcode: 103, PayloadSize: 6}
-	OpIfSetTab        = Op{Opcode: 167, PayloadSize: 3}
-	OpIfSetTabActive  = Op{Opcode: 84, PayloadSize: 1}
+	OpIfSetTab        = Op{Opcode: 200, PayloadSize: 3}
+	OpIfSetTabActive  = Op{Opcode: 56, PayloadSize: 1}
 
 	// S5g: dialog suspension. Server sends only the opcode byte to
 	// prompt the client to open an "enter a number" count dialog.
-	OpPCountDialog = Op{Opcode: 243, PayloadSize: 0}
+	// TS ServerGameProt.ts (244): P_COUNTDIALOG=152/0.
+	OpPCountDialog = Op{Opcode: 152, PayloadSize: 0}
 
-	// Camera control. TS ServerGameProt.CAM_RESET = 239, payload 0.
+	// Camera control. TS ServerGameProt.ts (244): CAM_RESET=53/0.
 	// Sent by the CAM_RESET script opcode to reset the client's camera.
-	OpCamReset = Op{Opcode: 239, PayloadSize: 0}
-	// Camera control. TS ServerGameProt.CAM_SHAKE = (13, 4), payload p1×4.
+	OpCamReset = Op{Opcode: 53, PayloadSize: 0}
+	// Camera control. TS ServerGameProt.ts (244): CAM_SHAKE=50/4, payload p1×4.
 	// Sent by the CAM_SHAKE script opcode for cutscene camera shake.
-	OpCamShake = Op{Opcode: 13, PayloadSize: 4}
-	// Camera control. TS ServerGameProt.CAM_MOVETO = (3, 6), payload
+	OpCamShake = Op{Opcode: 50, PayloadSize: 4}
+	// Camera control. TS ServerGameProt.ts (244): CAM_MOVETO=12/6, payload
 	// p1(localX) p1(localZ) p2(height) p1(rotationSpeed) p1(rotationMultiplier).
 	// Coords are zone-relative against player.originX/originZ at drain-time
 	// (TS NetworkPlayer.ts:245-246). Sent by the CAM_MOVETO script opcode.
-	OpCamMoveTo = Op{Opcode: 3, PayloadSize: 6}
-	// Camera control. TS ServerGameProt.CAM_LOOKAT = (74, 6); same payload
+	OpCamMoveTo = Op{Opcode: 12, PayloadSize: 6}
+	// Camera control. TS ServerGameProt.ts (244): CAM_LOOKAT=222/6; same payload
 	// shape as OpCamMoveTo. Sent by the CAM_LOOKAT script opcode.
-	OpCamLookAt = Op{Opcode: 74, PayloadSize: 6}
+	OpCamLookAt = Op{Opcode: 222, PayloadSize: 6}
 
 	// HINT_ARROW — directs the client to render a hint indicator pointing
 	// at an NPC, player, tile, or to clear. All 5 TS HintArrowEncoder
 	// type variants are wired: type=1 NPC (NAI-37), type=2..6 TILE (NAI-39),
 	// type=10 PL (NAI-39), type=-1 STOP (NAI-39).
-	// TS ServerGameProt.HINT_ARROW = (25, 6).
-	OpHintArrow = Op{Opcode: 25, PayloadSize: 6}
+	// TS ServerGameProt.ts (244): HINT_ARROW=49/6.
+	OpHintArrow = Op{Opcode: 49, PayloadSize: 6}
 
+	// REBUILD_NORMAL: deferred to B2 Task 3 — size changes from -2 to 4 and
+	// the emitter must change in the same commit. Keeps its 225 value (237, -2)
+	// until then. TS ServerGameProt.ts (244): REBUILD_NORMAL=165/4.
 	OpRebuildNormal    = Op{Opcode: 237, PayloadSize: -2}
-	OpUpdateInvFull    = Op{Opcode: 98, PayloadSize: -2}
-	OpUpdateInvPartial = Op{Opcode: 213, PayloadSize: -2}
-	OpPlayerInfo       = Op{Opcode: 184, PayloadSize: -2}
-	OpNpcInfo          = Op{Opcode: 1, PayloadSize: -2}
+	OpUpdateInvFull    = Op{Opcode: 72, PayloadSize: -2}
+	OpUpdateInvPartial = Op{Opcode: 132, PayloadSize: -2}
+	OpPlayerInfo       = Op{Opcode: 86, PayloadSize: -2}
+	OpNpcInfo          = Op{Opcode: 244, PayloadSize: -2}
 
-	OpUpdateStat      = Op{Opcode: 44, PayloadSize: 6}
-	OpUpdateRunEnergy = Op{Opcode: 68, PayloadSize: 1}
+	OpUpdateStat      = Op{Opcode: 24, PayloadSize: 6}
+	OpUpdateRunEnergy = Op{Opcode: 177, PayloadSize: 1}
 	// Per-player run-weight (kg). Emitted from NetworkPlayer.updateInvs when an
 	// inv with RunWeight=true is dirtied or first-seen. Mirrors TS
-	// ServerGameProt.UPDATE_RUNWEIGHT (opcode 22, 2-byte payload).
-	OpUpdateRunWeight = Op{Opcode: 22, PayloadSize: 2}
+	// ServerGameProt.ts (244): UPDATE_RUNWEIGHT=160/2.
+	OpUpdateRunWeight = Op{Opcode: 160, PayloadSize: 2}
 	// OpSetMultiway tells the client to show or hide the multi-combat
 	// overlay icon (top-right of the chatbox). Sent on transitions across
 	// multi-combat zone boundaries from updateBuildArea. 1-byte payload
 	// (pbool): 0 to hide overlay (left a multi zone), 1 to show overlay
-	// (entered a multi zone). Mirrors TS ServerGameProt.SET_MULTIWAY
-	// (opcode 254, size 1) and SetMultiwayEncoder (`buf.pbool(message.hidden)`)
-	// at Engine-TS/src/network/game/server/codec/SetMultiwayEncoder.ts.
-	OpSetMultiway           = Op{Opcode: 254, PayloadSize: 1}
-	OpUpdateInvStopTransmit = Op{Opcode: 15, PayloadSize: 2}
+	// (entered a multi zone). Mirrors TS ServerGameProt.ts (244): SET_MULTIWAY=97/1.
+	OpSetMultiway           = Op{Opcode: 97, PayloadSize: 1}
+	OpUpdateInvStopTransmit = Op{Opcode: 162, PayloadSize: 2}
 
 	// Per-player VARP sync. VARP_SMALL fits values in [-128, 127];
 	// VARP_LARGE carries full int32 range.
-	OpVarpSmall = Op{Opcode: 150, PayloadSize: 3}
-	OpVarpLarge = Op{Opcode: 175, PayloadSize: 6}
+	// TS ServerGameProt.ts (244): VARP_SMALL=236/3, VARP_LARGE=226/6.
+	OpVarpSmall = Op{Opcode: 236, PayloadSize: 3}
+	OpVarpLarge = Op{Opcode: 226, PayloadSize: 6}
 
-	OpUpdateZonePartialFollows  = Op{Opcode: 7, PayloadSize: 2}
-	OpUpdateZoneFullFollows     = Op{Opcode: 135, PayloadSize: 2}
-	OpUpdateZonePartialEnclosed = Op{Opcode: 162, PayloadSize: -2}
+	// TS ServerGameProt.ts (244): UPDATE_ZONE_PARTIAL_FOLLOWS=94/2,
+	// UPDATE_ZONE_FULL_FOLLOWS=131/2, UPDATE_ZONE_PARTIAL_ENCLOSED=233/-2.
+	OpUpdateZonePartialFollows  = Op{Opcode: 94, PayloadSize: 2}
+	OpUpdateZoneFullFollows     = Op{Opcode: 131, PayloadSize: 2}
+	OpUpdateZonePartialEnclosed = Op{Opcode: 233, PayloadSize: -2}
 
 	// Zone-nested opcodes, reused as top-level packets for per-player
 	// UpdateZonePartialFollows delivery. Sizes match the Java client's
 	// SERVERPROT_SIZES at the matching indices.
-	OpLocAddChange = Op{Opcode: 59, PayloadSize: 4}
-	OpLocAnim      = Op{Opcode: 42, PayloadSize: 4}
-	OpLocDel       = Op{Opcode: 76, PayloadSize: 2}
-	OpLocMerge     = Op{Opcode: 23, PayloadSize: 14}
-	OpMapAnim      = Op{Opcode: 191, PayloadSize: 6}
-	OpMapProjAnim  = Op{Opcode: 69, PayloadSize: 15}
-	OpObjAdd       = Op{Opcode: 223, PayloadSize: 5}
-	OpObjCount     = Op{Opcode: 151, PayloadSize: 7}
-	OpObjDel       = Op{Opcode: 49, PayloadSize: 3}
-	OpObjReveal    = Op{Opcode: 50, PayloadSize: 7}
+	// TS ServerGameZoneProt.ts (244): LOC_ADD_CHANGE=232/4, LOC_ANIM=155/4,
+	// LOC_DEL=125/2, LOC_MERGE=29/14, MAP_ANIM=198/6, MAP_PROJANIM=137/15,
+	// OBJ_ADD=234/5, OBJ_COUNT=209/7, OBJ_DEL=39/3, OBJ_REVEAL=69/7.
+	OpLocAddChange = Op{Opcode: 232, PayloadSize: 4}
+	OpLocAnim      = Op{Opcode: 155, PayloadSize: 4}
+	OpLocDel       = Op{Opcode: 125, PayloadSize: 2}
+	OpLocMerge     = Op{Opcode: 29, PayloadSize: 14}
+	OpMapAnim      = Op{Opcode: 198, PayloadSize: 6}
+	OpMapProjAnim  = Op{Opcode: 137, PayloadSize: 15}
+	OpObjAdd       = Op{Opcode: 234, PayloadSize: 5}
+	OpObjCount     = Op{Opcode: 209, PayloadSize: 7}
+	OpObjDel       = Op{Opcode: 39, PayloadSize: 3}
+	OpObjReveal    = Op{Opcode: 69, PayloadSize: 7}
 
 	// Map-data streaming (sub-spec 5b). 991-byte chunk size per DATA_LAND/LOC.
+	// DATA_* removed at 244 — a later task deletes their vars + senders; left untouched here.
 	OpDataLand     = Op{Opcode: 132, PayloadSize: -2}
 	OpDataLoc      = Op{Opcode: 220, PayloadSize: -2}
 	OpDataLandDone = Op{Opcode: 80, PayloadSize: 2}
 	OpDataLocDone  = Op{Opcode: 20, PayloadSize: 2}
 
-	// Interaction (sub-spec 6a).
-	OpUnsetMapFlag = Op{Opcode: 19, PayloadSize: 0}
+	// Interaction (sub-spec 6a). TS ServerGameProt.ts (244): UNSET_MAP_FLAG=62/0.
+	OpUnsetMapFlag = Op{Opcode: 62, PayloadSize: 0}
 
 	// RuneScript S2 — chat output emitted by the MES opcode.
-	OpMessageGame = Op{Opcode: 4, PayloadSize: -1}
+	// TS ServerGameProt.ts (244): MESSAGE_GAME=95/-1.
+	OpMessageGame = Op{Opcode: 95, PayloadSize: -1}
 
-	// MIDI client-audio packets (verified against TS ServerGameProt.ts:81-82).
+	// MIDI client-audio packets — deferred to B2 Task 3 (size changes, emitters must update).
+	// Keep 225 values. TS ServerGameProt.ts (244): MIDI_SONG=240/2, MIDI_JINGLE=173/4.
 	// MIDI_SONG streams a song reference (name + crc + length so the client
 	// can fetch the .mid blob from the OnDemand server); MIDI_JINGLE streams
 	// an inline jingle payload. Wired from the MIDI_SONG (2064) / MIDI_JINGLE
@@ -123,86 +142,75 @@ var (
 	OpMidiSong   = Op{Opcode: 54, PayloadSize: -1}
 	OpMidiJingle = Op{Opcode: 212, PayloadSize: -2}
 
-	// Sound-effect packet (verified against TS ServerGameProt.ts:80).
+	// Sound-effect packet. TS ServerGameProt.ts (244): SYNTH_SOUND=151/5.
 	// SYNTH_SOUND plays a short synthesized sound effect; payload is
 	// fixed 5 bytes: p2(synth) p1(loops) p2(delay) per
 	// SynthSoundEncoder.ts:9-13. Wired from the SOUND_SYNTH (2104)
 	// script opcode via (*Player).PlaySynth.
-	OpSynthSound = Op{Opcode: 12, PayloadSize: 5}
+	OpSynthSound = Op{Opcode: 151, PayloadSize: 5}
 
 	// Input-tracking signals — server tells client to start/stop sending
-	// EVENT_TRACKING blobs (op 81). NAI-73; mirrors TS ServerGameProt.ts:43-44.
-	OpEnableTracking = Op{Opcode: 226, PayloadSize: 0}
-	OpFinishTracking = Op{Opcode: 133, PayloadSize: 0}
+	// EVENT_TRACKING blobs (op 81). NAI-73; mirrors TS ServerGameProt.ts (244):
+	// ENABLE_TRACKING=22/0, FINISH_TRACKING=60/0.
+	OpEnableTracking = Op{Opcode: 22, PayloadSize: 0}
+	OpFinishTracking = Op{Opcode: 60, PayloadSize: 0}
 
-	// OpLastLoginInfo carries previous-login telemetry the client renders
-	// on the welcome screen: last-login IP (always 127.0.0.1 / 2130706433
-	// per TS Player.ts:2194), days since previous login, days since
-	// recovery-questions changed (always 201, hidden), and the unread
-	// message count. Fixed 9-byte payload: p4(lastIp), p2(daysSinceLogin),
-	// p1(daysSinceRecoveriesChanged), p2(messageCount). Mirrors TS
-	// ServerGameProt.LAST_LOGIN_INFO (140, 9) and LastLoginInfoEncoder.ts.
+	// OpLastLoginInfo: deferred to B2 Task 3 (payload size 9→10, emitter changes).
+	// Keeps 225 value (140, 9). TS ServerGameProt.ts (244): LAST_LOGIN_INFO=44/10.
+	// Carries previous-login telemetry the client renders on the welcome screen.
 	OpLastLoginInfo = Op{Opcode: 140, PayloadSize: 9}
 
-	// OpUpdatePid carries the player's server-side slot to the client
-	// so the client's localPlayer reference is bound to the correct
-	// PlayerInfo slot. Emitted once at onLogin. Fixed 2-byte payload:
-	// p2(slot). Mirrors TS ServerGameProt.UPDATE_PID (139, 2) and
-	// UpdatePidEncoder.ts (NAI-182).
+	// OpUpdatePid: deferred to B2 Task 3 (payload size 2→3, emitter changes).
+	// Keeps 225 value (139, 2). TS ServerGameProt.ts (244): UPDATE_PID=210/3.
+	// Carries the player's server-side slot to the client so the client's
+	// localPlayer reference is bound to the correct PlayerInfo slot.
 	OpUpdatePid = Op{Opcode: 139, PayloadSize: 2}
 
 	// OpResetAnims tells the client to clear all animation layers on the
 	// local player. Zero-byte payload. Emitted at onLogin (after varp
 	// resync) and onReconnect (after per-stat UpdateStat/UpdateRunEnergy).
-	// Mirrors TS ServerGameProt.RESET_ANIMS (136, 0) and
-	// ResetAnimsEncoder.ts (NAI-182).
-	OpResetAnims = Op{Opcode: 136, PayloadSize: 0}
+	// TS ServerGameProt.ts (244): RESET_ANIMS=242/0.
+	OpResetAnims = Op{Opcode: 242, PayloadSize: 0}
 
 	// OpResetClientVarCache tells the client to drop its cached varp
 	// values so the next varp packets become authoritative. Emitted at
 	// onLogin and onReconnect immediately before the varp transmit-loop.
-	// Zero-byte payload. Mirrors TS ServerGameProt.RESET_CLIENT_VARCACHE
-	// (193, 0) and ResetClientVarCacheEncoder.ts (NAI-182).
-	OpResetClientVarCache = Op{Opcode: 193, PayloadSize: 0}
+	// Zero-byte payload. TS ServerGameProt.ts (244): RESET_CLIENT_VARCACHE=87/0.
+	OpResetClientVarCache = Op{Opcode: 87, PayloadSize: 0}
 
 	// OpUpdateRebootTimer carries the number of game ticks (600ms each)
 	// remaining until the world reboots. Sent broadcast by
 	// Server.rebootTimer and to each connecting player at processLogins
-	// if a shutdown is pending. Fixed 2-byte payload: p2(ticks). Mirrors
-	// TS ServerGameProt.UPDATE_REBOOT_TIMER (43, 2) and
-	// UpdateRebootTimerEncoder.ts (NAI-182).
-	OpUpdateRebootTimer = Op{Opcode: 43, PayloadSize: 2}
+	// if a shutdown is pending. Fixed 2-byte payload: p2(ticks).
+	// TS ServerGameProt.ts (244): UPDATE_REBOOT_TIMER=85/2.
+	OpUpdateRebootTimer = Op{Opcode: 85, PayloadSize: 2}
 
 	// OpUpdateFriendList carries one friend-entry update. Fixed 9-byte
 	// payload: p8(username37) + p1(worldId). worldId == 0 means the friend
 	// is offline / hidden. Emitted once per entry by the friends-server
 	// dispatcher (one packet per FriendEntry in the FriendlistUpdate batch).
-	// Mirrors TS ServerGameProt.UPDATE_FRIENDLIST (152, 9) and
-	// UpdateFriendListEncoder.ts.
-	OpUpdateFriendList = Op{Opcode: 152, PayloadSize: 9}
+	// TS ServerGameProt.ts (244): UPDATE_FRIENDLIST=70/9.
+	OpUpdateFriendList = Op{Opcode: 70, PayloadSize: 9}
 
 	// OpUpdateIgnoreList carries the complete ignorelist snapshot. Variable
 	// 2-byte-length-prefixed payload: p8(username37) × N. Emitted on every
 	// ignorelist mutation; the entire list is re-sent rather than a delta.
-	// Mirrors TS ServerGameProt.UPDATE_IGNORELIST (21, -2) and
-	// UpdateIgnoreListEncoder.ts.
-	OpUpdateIgnoreList = Op{Opcode: 21, PayloadSize: -2}
+	// TS ServerGameProt.ts (244): UPDATE_IGNORELIST=7/-2.
+	OpUpdateIgnoreList = Op{Opcode: 7, PayloadSize: -2}
 
 	// OpChatFilterSettings carries the player's chat-filter mode triple.
 	// Fixed 3-byte payload: p1(publicChat) + p1(privateChat) + p1(tradeDuel).
-	// Emitted once at onLogin (before UpdatePid). Mirrors TS
-	// ServerGameProt.CHAT_FILTER_SETTINGS (32, 3) and
-	// ChatFilterSettingsEncoder.ts.
-	OpChatFilterSettings = Op{Opcode: 32, PayloadSize: 3}
+	// Emitted once at onLogin (before UpdatePid). TS ServerGameProt.ts (244):
+	// CHAT_FILTER_SETTINGS=9/3.
+	OpChatFilterSettings = Op{Opcode: 9, PayloadSize: 3}
 
 	// OpMessagePrivate carries one inbound private-chat delivery to the
 	// recipient. Variable 1-byte-length-prefixed payload:
 	// p8(fromUsername37) + p4(pmId) + p1(staffLvlAdjusted) +
 	// WordPack.pack(chat). staffLvlAdjusted = staffLvl > 0 ? staffLvl + 1 :
 	// staffLvl. Emitted by the friends-server dispatcher on
-	// PrivateMessageDelivery. Mirrors TS ServerGameProt.MESSAGE_PRIVATE
-	// (41, -1) and MessagePrivateEncoder.ts.
-	OpMessagePrivate = Op{Opcode: 41, PayloadSize: -1}
+	// PrivateMessageDelivery. TS ServerGameProt.ts (244): MESSAGE_PRIVATE=30/-1.
+	OpMessagePrivate = Op{Opcode: 30, PayloadSize: -1}
 )
 
 // OpEntry pairs a server opcode with the symbolic name used by the
@@ -214,7 +222,7 @@ type OpEntry struct {
 
 // AllOps returns every declared server-side packet operation. The order
 // is not stable; callers must not rely on it. Used by external decoders
-// to build the rev225 outbound table without each consumer manually
+// to build the rev244 outbound table without each consumer manually
 // enumerating the constants.
 func AllOps() []OpEntry {
 	return []OpEntry{
@@ -224,6 +232,7 @@ func AllOps() []OpEntry {
 		{"IF_OPENCHAT", OpIfOpenChat},
 		{"IF_OPENSIDE", OpIfOpenSide},
 		{"IF_OPENMAIN_SIDE", OpIfOpenMainSide},
+		{"IF_OPENOVERLAY", OpIfOpenOverlay},
 		{"TUT_OPEN", OpTutOpen},
 		{"TUT_FLASH", OpTutFlash},
 		{"LOGOUT", OpLogout},

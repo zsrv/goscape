@@ -129,7 +129,7 @@ func TestInputTrackingEnable(t *testing.T) {
 	// Decode the ISAAC-encrypted byte against a parallel encryptor seeded
 	// the same way to verify the opcode.
 	parallel := io2.New([4]uint32{1, 2, 3, 4})
-	wantByte := byte((226 + parallel.GetNext()) & 0xff)
+	wantByte := byte((22 + parallel.GetNext()) & 0xff) // OpEnableTracking=22 at 244
 	if got[0] != wantByte {
 		t.Errorf("EnableTracking opcode (encrypted): got %d, want %d", got[0], wantByte)
 	}
@@ -186,7 +186,7 @@ func TestInputTrackingDisable(t *testing.T) {
 		t.Errorf("startTrackingAt: got %d, want in [%d, %d]", tt.startTrackingAt, wantMin, wantMax)
 	}
 
-	// FinishTracking packet was written (OpFinishTracking = 133, 0-payload = 1 wire byte).
+	// FinishTracking packet was written (OpFinishTracking = 60, 0-payload = 1 wire byte).
 	if len(got) != 1 {
 		t.Fatalf("client out: got %d bytes, want 1 (FinishTracking opcode)", len(got))
 	}

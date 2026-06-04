@@ -78,9 +78,9 @@ func TestUpdateZonesSendsPartialEnclosedForActiveZone(t *testing.T) {
 	if len(got) == 0 {
 		t.Fatal("expected zone packets, got none")
 	}
-	// Expect: FullFollows (opcode 135, 2 payload) + PartialFollows wrapper
-	// (opcode 7, 2 payload) + OpLocAddChange (59, 4 payload) for the replay
-	// + PartialEnclosed (162, -2) with the current-tick shared bytes.
+	// Expect: FullFollows (opcode 131, 2 payload) + PartialFollows wrapper
+	// (opcode 94, 2 payload) + OpLocAddChange (232, 4 payload) for the replay
+	// + PartialEnclosed (233, -2) with the current-tick shared bytes.
 	// That's at minimum 4 packets → many bytes. Assert > 15 bytes as a smoke test.
 	if len(got) < 15 {
 		t.Errorf("got %d bytes, expected many (full+partial+replay+enclosed)", len(got))
@@ -159,7 +159,7 @@ func TestWriteFullFollowsSkipsThisTickTransitions(t *testing.T) {
 	p.writeFullFollows(z, 100)
 	p.client.flushWrite()
 	got := <-received
-	// Only the FullFollows header (opcode 135 + 2 header bytes = 3 bytes).
+	// Only the FullFollows header (opcode 131 + 2 header bytes = 3 bytes).
 	if len(got) != 3 {
 		t.Errorf("want exactly 3 bytes (FullFollows header, no replay); got %d", len(got))
 	}

@@ -226,3 +226,36 @@ func TestEncodeZonePartialEnclosedAppendsData(t *testing.T) {
 		t.Errorf("got %v, want %v", buf.Data, want)
 	}
 }
+
+// TestZoneOpConsistency244 pins that the ten ZoneOp* constants match the
+// zone-nested Op values declared in pkg/io/protocol/game/server at the 244
+// revision (Engine-TS@9aadcec4 ServerGameZoneProt.ts).
+//
+// pkg/rsbuf intentionally does NOT import pkg/io/protocol/game/server to avoid
+// a new dependency edge, so this test pins the expected literal 244 values
+// directly. If you change one side, update both.
+func TestZoneOpConsistency244(t *testing.T) {
+	// Expected values sourced from ServerGameZoneProt.ts (244 pin 9aadcec4)
+	// and must match the Op{Opcode:…} vars in pkg/io/protocol/game/server.
+	cases := []struct {
+		name   string
+		zoneOp int
+		wantOp int // matching server prot opcode
+	}{
+		{"ZoneOpLocMerge / OpLocMerge", ZoneOpLocMerge, 29},
+		{"ZoneOpLocAnim / OpLocAnim", ZoneOpLocAnim, 155},
+		{"ZoneOpObjDel / OpObjDel", ZoneOpObjDel, 39},
+		{"ZoneOpObjReveal / OpObjReveal", ZoneOpObjReveal, 69},
+		{"ZoneOpLocAddChange / OpLocAddChange", ZoneOpLocAddChange, 232},
+		{"ZoneOpMapProjAnim / OpMapProjAnim", ZoneOpMapProjAnim, 137},
+		{"ZoneOpLocDel / OpLocDel", ZoneOpLocDel, 125},
+		{"ZoneOpObjCount / OpObjCount", ZoneOpObjCount, 209},
+		{"ZoneOpMapAnim / OpMapAnim", ZoneOpMapAnim, 198},
+		{"ZoneOpObjAdd / OpObjAdd", ZoneOpObjAdd, 234},
+	}
+	for _, tc := range cases {
+		if tc.zoneOp != tc.wantOp {
+			t.Errorf("%s: ZoneOp const = %d, want %d (server prot opcode)", tc.name, tc.zoneOp, tc.wantOp)
+		}
+	}
+}
