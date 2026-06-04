@@ -19,6 +19,7 @@ import (
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/io/packet"
+	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 	"github.com/zsrv/goscape/pkg/rsbuf"
@@ -33,83 +34,81 @@ import (
 var gameHandlers [256]func(*Player, []byte) error
 
 func init() {
-	gameHandlers[108] = handleNoTimeout // NO_TIMEOUT
-	gameHandlers[70] = handleIdleTimer  // IDLE_TIMER
+	gameHandlers[gameclient.OpcNoTimeout] = handleNoTimeout // NO_TIMEOUT
+	gameHandlers[gameclient.OpcIdleTimer] = handleIdleTimer // IDLE_TIMER
 
-	gameHandlers[181] = handleMoveGameClick    // MOVE_GAMECLICK (opClick=false)
-	gameHandlers[93] = handleMoveOpClick       // MOVE_OPCLICK (opClick=true)
-	gameHandlers[165] = handleMoveMinimapClick // MOVE_MINIMAPCLICK
+	gameHandlers[gameclient.OpcMoveGameClick]    = handleMoveGameClick    // MOVE_GAMECLICK (opClick=false)
+	gameHandlers[gameclient.OpcMoveOpClick]       = handleMoveOpClick       // MOVE_OPCLICK (opClick=true)
+	gameHandlers[gameclient.OpcMoveMinimapClick] = handleMoveMinimapClick // MOVE_MINIMAPCLICK
 
-	gameHandlers[4] = handleClientCheat // CLIENT_CHEAT
+	gameHandlers[gameclient.OpcClientCheat] = handleClientCheat // CLIENT_CHEAT
 
-	gameHandlers[150] = handleRebuildGetMaps // REBUILD_GETMAPS
+	gameHandlers[gameclient.OpcOpNpc1] = handleOpNpc1 // OPNPC1
+	gameHandlers[gameclient.OpcOpNpc2] = handleOpNpc2 // OPNPC2
+	gameHandlers[gameclient.OpcOpNpc3] = handleOpNpc3 // OPNPC3
+	gameHandlers[gameclient.OpcOpNpc4] = handleOpNpc4 // OPNPC4
+	gameHandlers[gameclient.OpcOpNpc5] = handleOpNpc5 // OPNPC5
 
-	gameHandlers[194] = handleOpNpc1 // OPNPC1
-	gameHandlers[8] = handleOpNpc2   // OPNPC2
-	gameHandlers[27] = handleOpNpc3  // OPNPC3
-	gameHandlers[113] = handleOpNpc4 // OPNPC4
-	gameHandlers[100] = handleOpNpc5 // OPNPC5
+	gameHandlers[gameclient.OpcOpLoc1] = handleOpLoc1 // OPLOC1
+	gameHandlers[gameclient.OpcOpLoc2] = handleOpLoc2 // OPLOC2
+	gameHandlers[gameclient.OpcOpLoc3] = handleOpLoc3 // OPLOC3
+	gameHandlers[gameclient.OpcOpLoc4] = handleOpLoc4 // OPLOC4
+	gameHandlers[gameclient.OpcOpLoc5] = handleOpLoc5 // OPLOC5
+	gameHandlers[gameclient.OpcOpLocT] = handleOpLocT // OPLOCT
+	gameHandlers[gameclient.OpcOpLocU] = handleOpLocU // OPLOCU
 
-	gameHandlers[245] = handleOpLoc1 // OPLOC1
-	gameHandlers[172] = handleOpLoc2 // OPLOC2
-	gameHandlers[96] = handleOpLoc3  // OPLOC3
-	gameHandlers[97] = handleOpLoc4  // OPLOC4
-	gameHandlers[116] = handleOpLoc5 // OPLOC5
-	gameHandlers[9] = handleOpLocT   // OPLOCT
-	gameHandlers[75] = handleOpLocU  // OPLOCU
+	gameHandlers[gameclient.OpcOpNpcT] = handleOpNpcT // OPNPCT
+	gameHandlers[gameclient.OpcOpNpcU] = handleOpNpcU // OPNPCU
 
-	gameHandlers[134] = handleOpNpcT // OPNPCT
-	gameHandlers[202] = handleOpNpcU // OPNPCU
+	gameHandlers[gameclient.OpcOpPlayer1] = handleOpPlayer1 // OPPLAYER1
+	gameHandlers[gameclient.OpcOpPlayer2] = handleOpPlayer2 // OPPLAYER2
+	gameHandlers[gameclient.OpcOpPlayer3] = handleOpPlayer3 // OPPLAYER3
+	gameHandlers[gameclient.OpcOpPlayer4] = handleOpPlayer4 // OPPLAYER4
+	gameHandlers[gameclient.OpcOpPlayerT] = handleOpPlayerT // OPPLAYERT
+	gameHandlers[gameclient.OpcOpPlayerU] = handleOpPlayerU // OPPLAYERU
 
-	gameHandlers[164] = handleOpPlayer1 // OPPLAYER1
-	gameHandlers[53] = handleOpPlayer2  // OPPLAYER2
-	gameHandlers[185] = handleOpPlayer3 // OPPLAYER3
-	gameHandlers[206] = handleOpPlayer4 // OPPLAYER4
-	gameHandlers[177] = handleOpPlayerT // OPPLAYERT
-	gameHandlers[248] = handleOpPlayerU // OPPLAYERU
+	gameHandlers[gameclient.OpcOpObj1] = handleOpObj1 // OPOBJ1
+	gameHandlers[gameclient.OpcOpObj2] = handleOpObj2 // OPOBJ2
+	gameHandlers[gameclient.OpcOpObj3] = handleOpObj3 // OPOBJ3
+	gameHandlers[gameclient.OpcOpObj4] = handleOpObj4 // OPOBJ4
+	gameHandlers[gameclient.OpcOpObj5] = handleOpObj5 // OPOBJ5
+	gameHandlers[gameclient.OpcOpObjT] = handleOpObjT // OPOBJT
+	gameHandlers[gameclient.OpcOpObjU] = handleOpObjU // OPOBJU
 
-	gameHandlers[140] = handleOpObj1 // OPOBJ1
-	gameHandlers[40] = handleOpObj2  // OPOBJ2
-	gameHandlers[200] = handleOpObj3 // OPOBJ3
-	gameHandlers[178] = handleOpObj4 // OPOBJ4
-	gameHandlers[247] = handleOpObj5 // OPOBJ5
-	gameHandlers[138] = handleOpObjT // OPOBJT
-	gameHandlers[239] = handleOpObjU // OPOBJU
+	gameHandlers[gameclient.OpcOpHeld1] = handleOpHeld1 // OPHELD1
+	gameHandlers[gameclient.OpcOpHeld2] = handleOpHeld2 // OPHELD2
+	gameHandlers[gameclient.OpcOpHeld3] = handleOpHeld3 // OPHELD3
+	gameHandlers[gameclient.OpcOpHeld4] = handleOpHeld4 // OPHELD4
+	gameHandlers[gameclient.OpcOpHeld5] = handleOpHeld5 // OPHELD5
+	gameHandlers[gameclient.OpcOpHeldT] = handleOpHeldT // OPHELDT
+	gameHandlers[gameclient.OpcOpHeldU] = handleOpHeldU // OPHELDU
 
-	gameHandlers[195] = handleOpHeld1 // OPHELD1
-	gameHandlers[71] = handleOpHeld2  // OPHELD2
-	gameHandlers[133] = handleOpHeld3 // OPHELD3
-	gameHandlers[157] = handleOpHeld4 // OPHELD4
-	gameHandlers[211] = handleOpHeld5 // OPHELD5
-	gameHandlers[48] = handleOpHeldT  // OPHELDT
-	gameHandlers[130] = handleOpHeldU // OPHELDU
+	gameHandlers[gameclient.OpcChatSetmode]   = handleChatSetMode   // CHAT_SETMODE
+	gameHandlers[gameclient.OpcFriendlistAdd] = handleFriendListAdd // FRIENDLIST_ADD
+	gameHandlers[gameclient.OpcFriendlistDel] = handleFriendListDel // FRIENDLIST_DEL
+	gameHandlers[gameclient.OpcIgnorelistAdd] = handleIgnoreListAdd // IGNORELIST_ADD
+	gameHandlers[gameclient.OpcIgnorelistDel] = handleIgnoreListDel // IGNORELIST_DEL
+	gameHandlers[gameclient.OpcReportAbuse]   = handleReportAbuse   // REPORT_ABUSE
 
-	gameHandlers[244] = handleChatSetMode   // CHAT_SETMODE
-	gameHandlers[118] = handleFriendListAdd // FRIENDLIST_ADD
-	gameHandlers[11] = handleFriendListDel  // FRIENDLIST_DEL
-	gameHandlers[79] = handleIgnoreListAdd  // IGNORELIST_ADD
-	gameHandlers[171] = handleIgnoreListDel // IGNORELIST_DEL
-	gameHandlers[190] = handleReportAbuse   // REPORT_ABUSE
+	gameHandlers[gameclient.OpcEventTracking] = handleEventTracking // EVENT_TRACKING
 
-	gameHandlers[81] = handleEventTracking // EVENT_TRACKING
+	gameHandlers[gameclient.OpcMessagePrivate] = handleMessagePrivate // MESSAGE_PRIVATE
+	gameHandlers[gameclient.OpcMessagePublic]  = handleMessagePublic  // MESSAGE_PUBLIC
 
-	gameHandlers[148] = handleMessagePrivate // MESSAGE_PRIVATE
-	gameHandlers[158] = handleMessagePublic  // MESSAGE_PUBLIC
+	gameHandlers[gameclient.OpcResumePauseButton]  = handleResumePauseButton // RESUME_PAUSEBUTTON
+	gameHandlers[gameclient.OpcResumePCountdialog] = handleResumeCountDialog // RESUME_P_COUNTDIALOG
 
-	gameHandlers[235] = handleResumePauseButton // RESUME_PAUSEBUTTON
-	gameHandlers[237] = handleResumeCountDialog // RESUME_P_COUNTDIALOG
+	gameHandlers[gameclient.OpcCloseModal]       = handleCloseModal   // CLOSE_MODAL
+	gameHandlers[gameclient.OpcTutorialClickSide] = handleTutClickSide // TUTORIAL_CLICKSIDE
 
-	gameHandlers[231] = handleCloseModal   // CLOSE_MODAL
-	gameHandlers[175] = handleTutClickSide // TUT_CLICKSIDE
-
-	gameHandlers[155] = handleIfButton         // IF_BUTTON
-	gameHandlers[31] = handleInvButton1        // INV_BUTTON1
-	gameHandlers[59] = handleInvButton2        // INV_BUTTON2
-	gameHandlers[212] = handleInvButton3       // INV_BUTTON3
-	gameHandlers[38] = handleInvButton4        // INV_BUTTON4
-	gameHandlers[6] = handleInvButton5         // INV_BUTTON5
-	gameHandlers[159] = handleInvButtonD       // INV_BUTTOND
-	gameHandlers[52] = handleIdkSaveDesignGame // IDK_SAVEDESIGN
+	gameHandlers[gameclient.OpcIfButton]       = handleIfButton         // IF_BUTTON
+	gameHandlers[gameclient.OpcInvButton1]     = handleInvButton1       // INV_BUTTON1
+	gameHandlers[gameclient.OpcInvButton2]     = handleInvButton2       // INV_BUTTON2
+	gameHandlers[gameclient.OpcInvButton3]     = handleInvButton3       // INV_BUTTON3
+	gameHandlers[gameclient.OpcInvButton4]     = handleInvButton4       // INV_BUTTON4
+	gameHandlers[gameclient.OpcInvButton5]     = handleInvButton5       // INV_BUTTON5
+	gameHandlers[gameclient.OpcInvButtonD]     = handleInvButtonD       // INV_BUTTOND
+	gameHandlers[gameclient.OpcIfPlayerDesign] = handleIdkSaveDesignGame // IF_PLAYERDESIGN
 }
 
 // handleResumePauseButton is the package-level adapter that wires the

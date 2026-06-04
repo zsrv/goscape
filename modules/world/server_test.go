@@ -248,17 +248,16 @@ func TestSendLoginOKStaffSendsRightsByte(t *testing.T) {
 
 func TestGameProtTableHasExpectedOpcodes(t *testing.T) {
 	cases := []struct {
-		opcode      int
+		opcode      uint8
 		name        string
 		payloadSize int
 	}{
-		{108, "NO_TIMEOUT", 0},
-		{70, "IDLE_TIMER", 0},
-		{181, "MOVE_GAMECLICK", -1},
-		{93, "MOVE_OPCLICK", -1},
-		{165, "MOVE_MINIMAPCLICK", -1},
-		{150, "REBUILD_GETMAPS", -1},
-		{81, "EVENT_TRACKING", -2},
+		{gameclient.OpcNoTimeout, "NO_TIMEOUT", 0},
+		{gameclient.OpcIdleTimer, "IDLE_TIMER", 0},
+		{gameclient.OpcMoveGameClick, "MOVE_GAMECLICK", -1},
+		{gameclient.OpcMoveOpClick, "MOVE_OPCLICK", -1},
+		{gameclient.OpcMoveMinimapClick, "MOVE_MINIMAPCLICK", -1},
+		{gameclient.OpcEventTracking, "EVENT_TRACKING", -2},
 	}
 	for _, tc := range cases {
 		op := gameclient.Ops[tc.opcode]

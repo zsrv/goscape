@@ -7,6 +7,7 @@ import (
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -41,15 +42,15 @@ func TestProcessIn_DecodedThisTickStaysFalseOnNoRead(t *testing.T) {
 }
 
 // TestProcessIn_DecodedThisTickSetAfterRead pins T1b: after processIn
-// reads ≥1 packet, decodedThisTick is true. Uses NO_TIMEOUT (op 108,
+// reads ≥1 packet, decodedThisTick is true. Uses NO_TIMEOUT (opcode 107 at 244,
 // 0-payload) — same pattern as TestReadPacketNoTimeoutConsumesAndResetsOpcode.
 func TestProcessIn_DecodedThisTickSetAfterRead(t *testing.T) {
 	enc, dec := isaacPair([4]uint32{10, 20, 30, 40})
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	// Op 108 = NO_TIMEOUT, payload 0.
-	p.client.in.Write([]byte{encryptOpcode(enc, 108)})
+	// NO_TIMEOUT: opcode 107 (244), payload 0.
+	p.client.in.Write([]byte{encryptOpcode(enc, gameclient.OpcNoTimeout)})
 
 	p.processIn(0)
 

@@ -12,6 +12,7 @@ import (
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/pathfinder/routefinder"
@@ -69,8 +70,8 @@ func TestReadPacketNoTimeoutConsumesAndResetsOpcode(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	// NO_TIMEOUT: opcode 108, payload size 0
-	p.client.in.Write([]byte{encryptOpcode(enc, 108)})
+	// NO_TIMEOUT: opcode 107 (244), payload size 0
+	p.client.in.Write([]byte{encryptOpcode(enc, gameclient.OpcNoTimeout)})
 
 	opcode, ok, _, err := p.readPacket()
 	if err != nil {
@@ -79,8 +80,8 @@ func TestReadPacketNoTimeoutConsumesAndResetsOpcode(t *testing.T) {
 	if !ok {
 		t.Error("expected ok=true")
 	}
-	if opcode != 108 {
-		t.Errorf("opcode: got %d, want 108", opcode)
+	if opcode != int(gameclient.OpcNoTimeout) {
+		t.Errorf("opcode: got %d, want %d", opcode, gameclient.OpcNoTimeout)
 	}
 	if p.client.opcode != -1 {
 		t.Errorf("client.opcode after dispatch: got %d, want -1", p.client.opcode)
@@ -95,11 +96,11 @@ func TestReadPacketMoveGameClickFullPacket(t *testing.T) {
 	s := newTestServer(t)
 	p.client.server = s
 
-	// MOVE_GAMECLICK: opcode 181, 1-byte length prefix
+	// MOVE_GAMECLICK: opcode 63 (244), 1-byte length prefix
 	// Payload: ctrlHeld(1) + startX G2(2) + startZ G2(2) = 5 bytes
 	payload := []byte{0, 0x0C, 0xA4, 0x0C, 0x8B}
 	var buf []byte
-	buf = append(buf, encryptOpcode(enc, 181))
+	buf = append(buf, encryptOpcode(enc, gameclient.OpcMoveGameClick))
 	buf = append(buf, byte(len(payload)))
 	buf = append(buf, payload...)
 	p.client.in.Write(buf)
@@ -111,8 +112,8 @@ func TestReadPacketMoveGameClickFullPacket(t *testing.T) {
 	if !ok {
 		t.Error("expected ok=true")
 	}
-	if opcode != 181 {
-		t.Errorf("opcode: got %d, want 181", opcode)
+	if opcode != int(gameclient.OpcMoveGameClick) {
+		t.Errorf("opcode: got %d, want %d", opcode, gameclient.OpcMoveGameClick)
 	}
 	if p.client.opcode != -1 {
 		t.Errorf("client.opcode after dispatch: got %d, want -1", p.client.opcode)
@@ -125,7 +126,7 @@ func TestReadPacketPartialPayloadReturnsFalse(t *testing.T) {
 	p.client.decryptor = dec
 
 	// MOVE_GAMECLICK claiming 10 payload bytes, only 3 arrive
-	buf := []byte{encryptOpcode(enc, 181), 10, 0x01, 0x02, 0x03}
+	buf := []byte{encryptOpcode(enc, gameclient.OpcMoveGameClick), 10, 0x01, 0x02, 0x03}
 	p.client.in.Write(buf)
 
 	_, ok, _, err := p.readPacket()
@@ -136,8 +137,8 @@ func TestReadPacketPartialPayloadReturnsFalse(t *testing.T) {
 		t.Error("expected ok=false for partial payload")
 	}
 	// cursor must be preserved
-	if p.client.opcode != 181 {
-		t.Errorf("client.opcode preserved: got %d, want 181", p.client.opcode)
+	if p.client.opcode != int(gameclient.OpcMoveGameClick) {
+		t.Errorf("client.opcode preserved: got %d, want %d", p.client.opcode, gameclient.OpcMoveGameClick)
 	}
 	if p.client.waiting != 10 {
 		t.Errorf("client.waiting preserved: got %d, want 10", p.client.waiting)
@@ -149,10 +150,10 @@ func TestReadPacketEventTrackingTwoByteLenPrefix(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	// EVENT_TRACKING: opcode 81, -2 (2-byte length prefix)
+	// EVENT_TRACKING: opcode 217 (244), -2 (2-byte length prefix)
 	payload := []byte{0x01, 0x02, 0x03, 0x04}
 	var buf []byte
-	buf = append(buf, encryptOpcode(enc, 81))
+	buf = append(buf, encryptOpcode(enc, gameclient.OpcEventTracking))
 	buf = append(buf, 0x00, byte(len(payload))) // 2-byte big-endian length
 	buf = append(buf, payload...)
 	p.client.in.Write(buf)
@@ -164,8 +165,8 @@ func TestReadPacketEventTrackingTwoByteLenPrefix(t *testing.T) {
 	if !ok {
 		t.Error("expected ok=true")
 	}
-	if opcode != 81 {
-		t.Errorf("opcode: got %d, want 81", opcode)
+	if opcode != int(gameclient.OpcEventTracking) {
+		t.Errorf("opcode: got %d, want %d", opcode, gameclient.OpcEventTracking)
 	}
 }
 
@@ -176,7 +177,7 @@ func TestReadPacketOversizedTwoByteLenClosesConn(t *testing.T) {
 
 	// EVENT_TRACKING with 2-byte length > 1600
 	var buf []byte
-	buf = append(buf, encryptOpcode(enc, 81))
+	buf = append(buf, encryptOpcode(enc, gameclient.OpcEventTracking))
 	buf = append(buf, 0x07, 0x00) // 0x0700 = 1792 > 1600
 	p.client.in.Write(buf)
 
@@ -200,10 +201,10 @@ func TestProcessInUserEventRateLimit(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	// CLOSE_MODAL: opcode 231, USER_EVENT, 0-byte payload — just the opcode byte
+	// CLOSE_MODAL: opcode 187 (244), USER_EVENT, 0-byte payload — just the opcode byte
 	var buf []byte
 	for range 6 {
-		buf = append(buf, encryptOpcode(enc, 231))
+		buf = append(buf, encryptOpcode(enc, gameclient.OpcCloseModal))
 	}
 	p.client.in.Write(buf)
 
@@ -223,10 +224,10 @@ func TestProcessInClientEventRateLimit(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	// NO_TIMEOUT: opcode 108, CLIENT_EVENT, 0-byte payload
+	// NO_TIMEOUT: opcode 107 (244), CLIENT_EVENT, 0-byte payload
 	var buf []byte
 	for range 21 {
-		buf = append(buf, encryptOpcode(enc, 108))
+		buf = append(buf, encryptOpcode(enc, gameclient.OpcNoTimeout))
 	}
 	p.client.in.Write(buf)
 
@@ -245,10 +246,10 @@ func TestProcessInRestrictedEventRateLimit(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	// EVENT_TRACKING: opcode 81, RESTRICTED_EVENT, -2 (2-byte length prefix), 0 payload bytes
+	// EVENT_TRACKING: opcode 217 (244), RESTRICTED_EVENT, -2 (2-byte length prefix), 0 payload bytes
 	var buf []byte
 	for range 3 {
-		buf = append(buf, encryptOpcode(enc, 81))
+		buf = append(buf, encryptOpcode(enc, gameclient.OpcEventTracking))
 		buf = append(buf, 0x00, 0x00) // 2-byte length = 0
 	}
 	p.client.in.Write(buf)
@@ -274,11 +275,11 @@ func TestProcessInRestrictedEventRateLimit(t *testing.T) {
 // REAL user-event packet that arrived in the same tick was throttled or
 // dropped based on bookkeeping it should have been billing.
 //
-// EVENT_CAMERA_POSITION (opcode 189, CategoryClientEvent, fixed 6-byte
-// payload per prot.go:33) is registered in gameclient.Ops but has no entry
-// in gameHandlers, so it exercises the handler-nil branch of readPacket.
-// Five consecutive 189 packets should leave clientLimit at 0 post-fix; the
-// other two limit counters likewise stay at 0 as a cross-category guard.
+// ANTICHEAT_OPLOGIC1 (opcode 47, CategoryClientEvent, fixed 4-byte payload)
+// is registered in gameclient.Ops but has no entry in gameHandlers, so it
+// exercises the handler-nil branch of readPacket.
+// Five consecutive opcode-47 packets should leave clientLimit at 0 post-fix;
+// the other two limit counters likewise stay at 0 as a cross-category guard.
 //
 // Toggle-revert RED proof: drop the `if !handled { continue }` guard in
 // processIn (restore the unconditional switch). The test then reads
@@ -288,11 +289,11 @@ func TestProcessIn_UnhandledOpcodeDoesNotConsumeClientLimit(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	const op189Payload = 6 // EVENT_CAMERA_POSITION fixed payload size
-	payload := make([]byte, op189Payload)
+	const anticheatOplogic1Payload = 4 // ANTICHEAT_OPLOGIC1 fixed payload size
+	payload := make([]byte, anticheatOplogic1Payload)
 	var buf []byte
 	for range 5 {
-		buf = append(buf, encryptOpcode(enc, 189))
+		buf = append(buf, encryptOpcode(enc, gameclient.OpcAnticheatOplogic1))
 		buf = append(buf, payload...)
 	}
 	p.client.in.Write(buf)
@@ -300,7 +301,7 @@ func TestProcessIn_UnhandledOpcodeDoesNotConsumeClientLimit(t *testing.T) {
 	p.processIn(0)
 
 	if p.clientLimit != 0 {
-		t.Errorf("clientLimit: got %d, want 0; TS NetworkPlayer.ts:143-152 gates the per-tick limit on handler.handle()==true — opcode 189 has no Go handler so it must NOT burn a clientLimit slot (player-net-7)", p.clientLimit)
+		t.Errorf("clientLimit: got %d, want 0; TS NetworkPlayer.ts:143-152 gates the per-tick limit on handler.handle()==true — ANTICHEAT_OPLOGIC1 has no Go handler so it must NOT burn a clientLimit slot (player-net-7)", p.clientLimit)
 	}
 	if p.userLimit != 0 {
 		t.Errorf("userLimit: got %d, want 0 (cross-category leak guard)", p.userLimit)
@@ -341,13 +342,13 @@ func TestProcessIn_PartialPacketRefreshesLastResponseOnBytesConsumed(t *testing.
 	p.client.decryptor = dec
 	p.lastResponse = -1
 
-	// Write only the opcode byte for op 189 (EVENT_CAMERA_POSITION,
-	// CategoryClientEvent, fixed payload size 6). The decode loop
+	// Write only the opcode byte for ANTICHEAT_OPLOGIC1 (opcode 47,
+	// CategoryClientEvent, fixed payload size 4). The decode loop
 	// consumes the opcode byte (advances c.in.Pos by 1) but cannot
-	// complete the packet — c.in.Len() falls below c.waiting=6 so
+	// complete the packet — c.in.Len() falls below c.waiting=4 so
 	// readPacket returns ok=false on the same iteration after stashing
 	// c.opcode for the next tick.
-	p.client.in.Write([]byte{encryptOpcode(enc, 189)})
+	p.client.in.Write([]byte{encryptOpcode(enc, gameclient.OpcAnticheatOplogic1)})
 
 	const currentTick = 5
 	p.processIn(currentTick)
@@ -361,8 +362,8 @@ func TestProcessIn_PartialPacketRefreshesLastResponseOnBytesConsumed(t *testing.
 	if p.client.in.Len() != 0 {
 		t.Errorf("c.in.Len: got %d, want 0 (opcode byte must be consumed)", p.client.in.Len())
 	}
-	if p.client.opcode != 189 {
-		t.Errorf("c.opcode: got %d, want 189 (stashed for next tick)", p.client.opcode)
+	if p.client.opcode != int(gameclient.OpcAnticheatOplogic1) {
+		t.Errorf("c.opcode: got %d, want %d (stashed for next tick)", p.client.opcode, gameclient.OpcAnticheatOplogic1)
 	}
 }
 

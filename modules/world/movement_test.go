@@ -5,6 +5,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/gamemap"
+	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 )
 
@@ -167,7 +168,7 @@ func TestMoveGameClickAdvancesPlayer(t *testing.T) {
 	p.x, p.z, p.level = 3094, 3106, 0
 	p.moveSpeed = MoveSpeedWalk
 
-	// MOVE_GAMECLICK: opcode 181, 1-byte length prefix.
+	// MOVE_GAMECLICK: opcode 63 (244), 1-byte length prefix.
 	// Payload: ctrlHeld(1) + startX G2(2) + startZ G2(2) = 5 bytes
 	// Move to (3094, 3107) — one tile north.
 	payload := []byte{
@@ -175,7 +176,7 @@ func TestMoveGameClickAdvancesPlayer(t *testing.T) {
 		0x0C, 0x16, // startX = 3094
 		0x0C, 0x23, // startZ = 3107
 	}
-	buf := []byte{encryptOpcode(enc, 181), byte(len(payload))}
+	buf := []byte{encryptOpcode(enc, gameclient.OpcMoveGameClick), byte(len(payload))}
 	buf = append(buf, payload...)
 	p.client.in.Write(buf)
 
