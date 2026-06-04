@@ -36,7 +36,10 @@ type WealthEvent struct {
 	// Zero means absent (TS optional field).
 	RecipientID int64
 
-	RecipientSession string // optional; TS WealthEventParams.recipient_session? (WealthEvent.ts:14)
+	// RecipientSession is the optional per-login session UUID of the
+	// counterparty; set by trade/PvP/duel callers alongside RecipientID.
+	// TS WealthEventParams.recipient_session? (WealthEvent.ts:14).
+	RecipientSession string
 	RecipientItems   []WealthItem
 	RecipientValue   int
 }

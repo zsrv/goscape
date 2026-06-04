@@ -37,12 +37,12 @@ func TestSessionLogCarriesAccountID(t *testing.T) {
 	}
 }
 
-// TestSessionLogAccountIDDefaultMinusOne pins Player.ts:306:
-// account_id defaults to -1 (DB not yet resolved). When AddSessionLog is
-// called with accountID still at its zero-value, the SessionLog should
-// reflect that (note: Go int64 zero is 0, not -1; but newPlayer copies
-// c.accountID which defaults to 0 when not set by the login reply — the
-// meaningful check is that whatever value is on the player flows into the log).
+// TestSessionLogAccountIDFlowsFromPlayer pins that AddSessionLog threads
+// whatever accountID is on the player into the SessionLog record — the
+// identity value flows through unchanged. (TS Player.ts:306 initialises
+// account_id to -1 as the "DB not yet resolved" sentinel; Go's zero-value
+// is 0 on login-bypass paths — documented at client.go:89-91. The
+// meaningful invariant is pass-through fidelity, not the sentinel value.)
 func TestSessionLogAccountIDFlowsFromPlayer(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
