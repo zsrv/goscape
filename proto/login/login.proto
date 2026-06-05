@@ -27,6 +27,12 @@ enum LoginResult {
   LOGIN_RESULT_NOT_A_MEMBER        = 7;
   LOGIN_RESULT_LOGIN_IN_PROGRESS   = 8;
   LOGIN_RESULT_IP_BANNED           = 9;
+  // rev-244: login-server 3-in-5s same-account+IP rate limit
+  // (TS LoginServer.ts:234-253, response 8 -> client byte 16).
+  LOGIN_RESULT_RATE_LIMITED        = 10;
+  // rev-244: 45s world-hop timer (TS LoginServer.ts:366-379,
+  // response 6 -> client byte 9).
+  LOGIN_RESULT_HOP_TIMER           = 11;
 }
 
 message WorldStartupRequest {

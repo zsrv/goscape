@@ -14,6 +14,7 @@ import (
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
+	"github.com/zsrv/goscape/pkg/loginpb"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
@@ -1088,5 +1089,19 @@ func TestShouldSpawnNpc_MembersGate(t *testing.T) {
 				t.Errorf("shouldSpawnNpc: got %v, want %v — TS GameMap.ts:131 (npcType.members && this.members) || !npcType.members (gamemap-1)", got, c.want)
 			}
 		})
+	}
+}
+
+// TestLoginResultToRS2_Rev244RateLimits pins the 244 reply→byte contract
+// (World.ts:1871-1911): login-server response 8 (3-in-5s rate limit) →
+// client byte 16 (TOO_MANY_ATTEMPTS, World.ts:1901-1906); response 6
+// (45s hop timer) → client byte 9 (IP_LIMIT "login limit exceeded",
+// World.ts:1891-1896).
+func TestLoginResultToRS2_Rev244RateLimits(t *testing.T) {
+	if got := loginResultToRS2(loginpb.LoginResult_LOGIN_RESULT_RATE_LIMITED); got != loginresp.OpTooManyAttempts.Opcode {
+		t.Errorf("RATE_LIMITED: got byte %d, want %d", got, loginresp.OpTooManyAttempts.Opcode)
+	}
+	if got := loginResultToRS2(loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER); got != loginresp.OpIPLimit.Opcode {
+		t.Errorf("HOP_TIMER: got byte %d, want %d", got, loginresp.OpIPLimit.Opcode)
 	}
 }

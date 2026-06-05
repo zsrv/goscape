@@ -36,21 +36,29 @@ const (
 	LoginResult_LOGIN_RESULT_NOT_A_MEMBER        LoginResult = 7
 	LoginResult_LOGIN_RESULT_LOGIN_IN_PROGRESS   LoginResult = 8
 	LoginResult_LOGIN_RESULT_IP_BANNED           LoginResult = 9
+	// rev-244: login-server 3-in-5s same-account+IP rate limit
+	// (TS LoginServer.ts:234-253, response 8 -> client byte 16).
+	LoginResult_LOGIN_RESULT_RATE_LIMITED LoginResult = 10
+	// rev-244: 45s world-hop timer (TS LoginServer.ts:366-379,
+	// response 6 -> client byte 9).
+	LoginResult_LOGIN_RESULT_HOP_TIMER LoginResult = 11
 )
 
 // Enum value maps for LoginResult.
 var (
 	LoginResult_name = map[int32]string{
-		0: "LOGIN_RESULT_UNSPECIFIED",
-		1: "LOGIN_RESULT_OK",
-		2: "LOGIN_RESULT_NEW_PLAYER",
-		3: "LOGIN_RESULT_RECONNECT_OK",
-		4: "LOGIN_RESULT_INVALID_CREDENTIALS",
-		5: "LOGIN_RESULT_ALREADY_LOGGED_IN",
-		6: "LOGIN_RESULT_ACCOUNT_DISABLED",
-		7: "LOGIN_RESULT_NOT_A_MEMBER",
-		8: "LOGIN_RESULT_LOGIN_IN_PROGRESS",
-		9: "LOGIN_RESULT_IP_BANNED",
+		0:  "LOGIN_RESULT_UNSPECIFIED",
+		1:  "LOGIN_RESULT_OK",
+		2:  "LOGIN_RESULT_NEW_PLAYER",
+		3:  "LOGIN_RESULT_RECONNECT_OK",
+		4:  "LOGIN_RESULT_INVALID_CREDENTIALS",
+		5:  "LOGIN_RESULT_ALREADY_LOGGED_IN",
+		6:  "LOGIN_RESULT_ACCOUNT_DISABLED",
+		7:  "LOGIN_RESULT_NOT_A_MEMBER",
+		8:  "LOGIN_RESULT_LOGIN_IN_PROGRESS",
+		9:  "LOGIN_RESULT_IP_BANNED",
+		10: "LOGIN_RESULT_RATE_LIMITED",
+		11: "LOGIN_RESULT_HOP_TIMER",
 	}
 	LoginResult_value = map[string]int32{
 		"LOGIN_RESULT_UNSPECIFIED":         0,
@@ -63,6 +71,8 @@ var (
 		"LOGIN_RESULT_NOT_A_MEMBER":        7,
 		"LOGIN_RESULT_LOGIN_IN_PROGRESS":   8,
 		"LOGIN_RESULT_IP_BANNED":           9,
+		"LOGIN_RESULT_RATE_LIMITED":        10,
+		"LOGIN_RESULT_HOP_TIMER":           11,
 	}
 )
 
@@ -833,7 +843,7 @@ const file_login_login_proto_rawDesc = "" +
 	"\x05staff\x18\x01 \x01(\tR\x05staff\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x120\n" +
 	"\x05until\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x05until\"\x14\n" +
-	"\x12PlayerMuteResponse*\xc8\x02\n" +
+	"\x12PlayerMuteResponse*\x83\x03\n" +
 	"\vLoginResult\x12\x1c\n" +
 	"\x18LOGIN_RESULT_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fLOGIN_RESULT_OK\x10\x01\x12\x1b\n" +
@@ -844,7 +854,10 @@ const file_login_login_proto_rawDesc = "" +
 	"\x1dLOGIN_RESULT_ACCOUNT_DISABLED\x10\x06\x12\x1d\n" +
 	"\x19LOGIN_RESULT_NOT_A_MEMBER\x10\a\x12\"\n" +
 	"\x1eLOGIN_RESULT_LOGIN_IN_PROGRESS\x10\b\x12\x1a\n" +
-	"\x16LOGIN_RESULT_IP_BANNED\x10\t2\x9b\x04\n" +
+	"\x16LOGIN_RESULT_IP_BANNED\x10\t\x12\x1d\n" +
+	"\x19LOGIN_RESULT_RATE_LIMITED\x10\n" +
+	"\x12\x1a\n" +
+	"\x16LOGIN_RESULT_HOP_TIMER\x10\v2\x9b\x04\n" +
 	"\fLoginService\x12E\n" +
 	"\fWorldStartup\x12\x1d.login.v1.WorldStartupRequest\x1a\x16.google.protobuf.Empty\x12J\n" +
 	"\vPlayerLogin\x12\x1c.login.v1.PlayerLoginRequest\x1a\x1d.login.v1.PlayerLoginResponse\x12M\n" +

@@ -1308,6 +1308,12 @@ func loginResultToRS2(result loginpb.LoginResult) byte {
 		return loginresp.OpTooManyAttempts.Opcode
 	case loginpb.LoginResult_LOGIN_RESULT_IP_BANNED:
 		return loginresp.OpLoginServerRejected.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_RATE_LIMITED:
+		// TS response 8 → byte 16 "too many attempts" (World.ts:1901-1906).
+		return loginresp.OpTooManyAttempts.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER:
+		// TS response 6 → byte 9 "login limit exceeded" (World.ts:1891-1896).
+		return loginresp.OpIPLimit.Opcode
 	default:
 		// UNSPECIFIED / unknown future values
 		return loginresp.OpIPLimit.Opcode
