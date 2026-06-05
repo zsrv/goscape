@@ -253,8 +253,12 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		// first so rebuildNormal (TS BuildArea slot, W.ts:996) settles before
 		// zone compute. Cost is a 1-tick facing artifact for a just-revealed
 		// zone — see the NAI-93 notes in player.go / processInfo below.
-		// processInfo is folded into CLIENT_OUT (its natural TS bucket,
-		// W.ts:1007-1104) so ZONE is measured after it, as in TS.
+		// Stat attribution: TS leaves processInfo UNMEASURED (its body,
+		// W.ts:1012-1108, writes no cycleStats entry); goscape attributes
+		// it to CLIENT_OUT — the adjacent phase that consumes its rsbuf
+		// computes — rather than leaving the time invisible. Deviation:
+		// goscape's CLIENT_OUT therefore reads slightly higher than TS's
+		// (which times only processClientsOut, W.ts:1109-1145).
 		t0 = time.Now()
 		s.processInfo()
 		s.addCycleTime(statClientOut, t0)

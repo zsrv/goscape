@@ -603,6 +603,8 @@ func (p *Player) writeOut(op gameserver.Op, payload []byte) {
 	// add (processClientsOut only calls writeOut when client is connected
 	// and encryptor is set), but c.server may be nil in unit tests.
 	if c.server != nil {
+		// n mirrors the framing staged by the switch above (opcode byte +
+		// prefix + payload) — keep the two in sync.
 		n := 1 + len(payload) // opcode byte + payload
 		switch op.PayloadSize {
 		case -1:

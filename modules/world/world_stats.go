@@ -17,7 +17,7 @@ const (
 	statCleanup             // 9
 	statBandwidthIn         // 10
 	statBandwidthOut        // 11
-	numWorldStats    = 12
+	numWorldStats           // 12 — iota continuation; auto-tracks the list above
 )
 
 // addCycleTime accumulates elapsed wall-clock ms into cycleStats[stat].
@@ -32,8 +32,11 @@ func (s *Server) addCycleTime(stat int, start time.Time) {
 }
 
 // resetCycleTimes zeroes the ten timing entries at tick start. The two
-// bandwidth counters have their own TS-cited reset points (World.ts:629,
-// :1111) and are NOT touched here.
+// bandwidth counters are NOT touched here: BANDWIDTH_IN resets at its
+// TS-cited point (World.ts:629, head of client-in); BANDWIDTH_OUT resets
+// at tick start — see PORTING-EXCEPTION (rev244-b4-bwout-reset) in
+// tick.go (TS resets at World.ts:1111, but goscape writes throughout
+// the tick).
 func (s *Server) resetCycleTimes() {
 	for i := statCycle; i <= statCleanup; i++ {
 		s.cycleStats[i] = 0
