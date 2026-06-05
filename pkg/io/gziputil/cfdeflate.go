@@ -90,7 +90,10 @@ type treeDesc struct {
 // cf-zlib deflate.h:88-258 (adapted for one-shot Go use)
 type deflateState struct {
 	// sliding window
-	window [wSize * 2]uint8
+	// +8: longestMatch's 8-byte XOR loop may read past window_size near the slide boundary;
+	// C zlib allocates MAX_MATCH slack beyond window_size (zutil/deflate WIN_INIT) —
+	// 8 bytes covers the widest Go read. Latent-only in one-shot scope; see B6 quality review.
+	window [wSize*2 + 8]uint8
 	prev   [wSize]uint16
 	head   [hashSize]uint16
 
@@ -202,8 +205,6 @@ func hashFunc(window []uint8, pos uint32) uint32 {
 	data := window[pos : pos+4]
 	return (crc32.Update(^uint32(0), castagnoli, data) ^ ^uint32(0)) & hashMask
 }
-
-const hashMaskConst = hashMask
 
 // insertString inserts window[str..str+3] into the hash table and returns the
 // previous head of that chain (i.e. the match_head before str was inserted).

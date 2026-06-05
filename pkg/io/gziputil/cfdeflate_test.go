@@ -51,6 +51,34 @@ func TestCompressGz_Fixtures(t *testing.T) {
 	}
 }
 
+// TestCompressGz_EmptyInput pins the exact output for a zero-length input.
+// Expected bytes were produced by the C oracle (cfztest /dev/null out 6) and
+// then compared against CompressGz to confirm the Go implementation agrees
+// (OS byte differs: C writes 0x03, Go zeroes it per TS GZip.ts — pinned as Go output).
+// m4 — B6 quality review.
+func TestCompressGz_EmptyInput(t *testing.T) {
+	want := []byte{
+		0x1f, 0x8b, // ID1, ID2
+		0x08,                   // CM = Z_DEFLATED
+		0x00,                   // FLG
+		0x00, 0x00, 0x00, 0x00, // MTIME = 0
+		0x00,       // XFL
+		0x00,       // OS = 0 (zeroed per TS GZip.ts)
+		0x03, 0x00, // deflate: BFINAL=1 empty block
+		0x00, 0x00, 0x00, 0x00, // CRC32(empty) = 0
+		0x00, 0x00, 0x00, 0x00, // ISIZE = 0
+	}
+	got := CompressGz([]byte{}, 0, 0)
+	if len(got) != len(want) {
+		t.Fatalf("empty input: got %d bytes, want %d: % x", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("empty input: byte[%d] = 0x%02x, want 0x%02x", i, got[i], want[i])
+		}
+	}
+}
+
 // TestCompressGz_RefCorpus is an env-gated full corpus check.
 // Set GOSCAPE_REF244_DIR to the path of Server244-ref/engine to enable it.
 // It iterates every entry in data/pack/ondemand.zip (strip last 2 bytes for gz)
