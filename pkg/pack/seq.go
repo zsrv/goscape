@@ -103,6 +103,44 @@ func parseSeqConfigFor(animPack, objPack *PackFile) ParseFn {
 			}
 			return idx + 512, true, nil
 		}
+		// TS SeqConfig.ts:116-148 (Engine-TS 9aadcec4): preanim_move / postanim_move / duplicatebehavior.
+		// TS returns null for unrecognised enum values → Go: accepted=true, err!=nil.
+		if key == "preanim_move" {
+			switch value {
+			case "delaymove":
+				return 0, true, nil
+			case "delayanim":
+				return 1, true, nil
+			case "merge":
+				return 2, true, nil
+			default:
+				return nil, true, fmt.Errorf("invalid preanim_move value: %s", value)
+			}
+		}
+		if key == "postanim_move" {
+			switch value {
+			case "delaymove":
+				return 0, true, nil
+			case "abortanim":
+				return 1, true, nil
+			case "merge":
+				return 2, true, nil
+			default:
+				return nil, true, fmt.Errorf("invalid postanim_move value: %s", value)
+			}
+		}
+		if key == "duplicatebehavior" {
+			switch value {
+			case "0":
+				return 0, true, nil
+			case "reset":
+				return 1, true, nil
+			case "reset_loop":
+				return 2, true, nil
+			default:
+				return nil, true, fmt.Errorf("invalid duplicatebehavior value: %s", value)
+			}
+		}
 		return nil, false, nil
 	}
 }
@@ -189,6 +227,16 @@ func packSeqConfigs(configs map[string][]ConfigLine, seqPack *PackFile, modelFla
 				client.P2(uint16(line.Value.(int)))
 			case line.Key == "maxloops":
 				client.P1(8)
+				client.P1(uint8(line.Value.(int)))
+			// TS SeqConfig.ts:203-211 (Engine-TS 9aadcec4): preanim_move / postanim_move / duplicatebehavior.
+			case line.Key == "preanim_move":
+				client.P1(9)
+				client.P1(uint8(line.Value.(int)))
+			case line.Key == "postanim_move":
+				client.P1(10)
+				client.P1(uint8(line.Value.(int)))
+			case line.Key == "duplicatebehavior":
+				client.P1(11)
 				client.P1(uint8(line.Value.(int)))
 			}
 		}
