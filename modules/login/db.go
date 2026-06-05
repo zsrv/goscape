@@ -183,6 +183,13 @@ func upsertAccountLogin(ctx context.Context, db *sql.DB, accountID int, profile 
 	return upsertAccountLoginTx(ctx, db, accountID, profile, nodeID)
 }
 
+// upsertAccountLoginTx sets logged_in=1 and node_id on the account_login row
+// for (accountID, profile), inserting the row if it does not yet exist.
+// On conflict it updates ONLY logged_in and node_id — logged_out and
+// logout_time are left intact, mirroring TS LoginServer.ts:438-457 which
+// writes only logged_in (nodeId) and login_time on re-login. This preserves
+// the hop-timer inputs (logged_out + logout_time) so they remain valid until
+// the next graceful logout overwrites them via setLoggedOut.
 func upsertAccountLoginTx(ctx context.Context, ex execer, accountID int, profile string, nodeID int) error {
 	_, err := ex.ExecContext(ctx, `
 		INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, 1)

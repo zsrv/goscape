@@ -53,6 +53,14 @@ ALTER TABLE account DROP COLUMN logout_time;
 -- Messages.ts; prisma models message_thread / message / message_status).
 -- message_tag and tag are website-only (no goscape consumer) — see the
 -- B5 NOT-PORTED rows in PORTING.md.
+--
+-- These tables deliberately carry NO foreign-key constraints: the 244
+-- prisma models declare no @relation fields, so the upstream
+-- prisma-generated SQL creates bare integer columns (see prisma
+-- migration 20250303210826_message_centre). Same posture for the
+-- dormant account_session/wealth_event tables below. The `login` table
+-- above differs because this module's own convention (000003) adds
+-- cascade FKs where goscape itself reads/writes.
 CREATE TABLE message_thread (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
     to_account_id     INTEGER,

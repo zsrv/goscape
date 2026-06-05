@@ -230,6 +230,38 @@ func TestUpsertAccountLogin_Update(t *testing.T) {
 	}
 }
 
+// TestUpsertAccountLogin_PreservesLogoutState pins that a re-login
+// leaves account_login.logged_out/logout_time intact: TS's login-success
+// update writes only logged_in + login_time (LoginServer.ts:438-457),
+// so the hop-timer inputs survive until the next graceful logout
+// overwrites them.
+func TestUpsertAccountLogin_PreservesLogoutState(t *testing.T) {
+	db := createTestDB(t)
+	if _, err := db.Exec(`INSERT INTO account (username, password) VALUES ('bob', 'x')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO account_login (account_id, profile, node_id, logged_in, logged_out, logout_time)
+	                      VALUES (1, 'main', 11, 0, 11, '2026-06-01 12:00:00')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := upsertAccountLogin(t.Context(), db, 1, "main", 10); err != nil {
+		t.Fatalf("upsertAccountLogin: %v", err)
+	}
+	var loggedIn, nodeID, loggedOut int
+	var logoutTime sql.NullString
+	if err := db.QueryRow(`SELECT logged_in, node_id, logged_out, logout_time FROM account_login
+	                       WHERE account_id = 1 AND profile = 'main'`).
+		Scan(&loggedIn, &nodeID, &loggedOut, &logoutTime); err != nil {
+		t.Fatal(err)
+	}
+	if loggedIn != 1 || nodeID != 10 {
+		t.Errorf("upsert: logged_in=%d node_id=%d; want 1, 10", loggedIn, nodeID)
+	}
+	if loggedOut != 11 || !logoutTime.Valid || logoutTime.String != "2026-06-01 12:00:00" {
+		t.Errorf("logout state clobbered: logged_out=%d logout_time=%v; want 11, 2026-06-01 12:00:00", loggedOut, logoutTime)
+	}
+}
+
 func TestInsertSession(t *testing.T) {
 	db := createTestDB(t)
 	id := insertTestAccount(t, db, "sessionuser", "pass")
@@ -310,16 +342,23 @@ func TestSetLoggedOut(t *testing.T) {
 		t.Fatalf("setLoggedOut: %v", err)
 	}
 
-	var loggedIn int
+	var loggedIn, loggedOut int
+	var logoutTime sql.NullString
 	err = db.QueryRowContext(t.Context(),
-		`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`,
+		`SELECT logged_in, logged_out, logout_time FROM account_login WHERE account_id = ? AND profile = ?`,
 		id, "main",
-	).Scan(&loggedIn)
+	).Scan(&loggedIn, &loggedOut, &logoutTime)
 	if err != nil {
 		t.Fatalf("query account_login: %v", err)
 	}
 	if loggedIn != 0 {
 		t.Errorf("logged_in: got %d, want 0", loggedIn)
+	}
+	if loggedOut != 3 {
+		t.Errorf("logged_out: got %d, want 3 (nodeID passed to setLoggedOut)", loggedOut)
+	}
+	if !logoutTime.Valid {
+		t.Error("logout_time: expected non-NULL timestamp after setLoggedOut")
 	}
 }
 
