@@ -908,6 +908,38 @@ func TestRemovePlayerDoubleCallIsNoop(t *testing.T) {
 	}
 }
 
+// TestRemovePlayerClearsBuildArea pins TS Player.ts:453 cleanup() →
+// buildArea.clear(false): all three buildArea sets must be empty after
+// removePlayerInternal. Mirrors TS Player.cleanup field order
+// (heroPoints.clear → buildArea.clear(false) → appearanceInv=-1).
+// Pre-existing 225 gap; wired in rev-244 B3 T24.
+func TestRemovePlayerClearsBuildArea(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+
+	// Seed non-empty state so the test can observe the clear.
+	p.buildArea.activeZones[999] = true
+	p.buildArea.loadedZones[888] = true
+	p.buildArea.mapsquares[777] = true
+
+	s.removePlayerInternal(p)
+
+	if len(p.buildArea.activeZones) != 0 {
+		t.Errorf("buildArea.activeZones not cleared: len=%d", len(p.buildArea.activeZones))
+	}
+	if len(p.buildArea.loadedZones) != 0 {
+		t.Errorf("buildArea.loadedZones not cleared: len=%d", len(p.buildArea.loadedZones))
+	}
+	if len(p.buildArea.mapsquares) != 0 {
+		t.Errorf("buildArea.mapsquares not cleared: len=%d", len(p.buildArea.mapsquares))
+	}
+}
+
 // TestLookupPlayerBySlot_Found returns the player at the slot.
 func TestLookupPlayerBySlot_Found(t *testing.T) {
 	s := newTestServer(t)

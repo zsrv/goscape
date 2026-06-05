@@ -1450,9 +1450,12 @@ func (s *Server) removePlayerInternal(p *Player) {
 		s.gamemap.ChangeNPCCollision(1, p.x, p.z, p.level, false)
 	}
 
-	// 244 delta: TS Player.cleanup (Player.ts:453) resets appearanceInv to -1
-	// as part of transient-state teardown, so a re-logged-in player always
-	// starts fresh from the login wiring (SetAppearanceInv(invTypes.Worn)).
+	// 244 delta: TS Player.cleanup (Player.ts:452-454) clears buildArea then
+	// resets appearanceInv to -1. heroPoints.clear() (Player.ts:452) is
+	// omitted — newPlayer allocates a fresh ledger per login (NAI-120 B2D).
+	// buildArea.clear(false) wired here per TS field order; the onReconnect
+	// path calls clear(true), which is a TS no-op (BuildArea.ts:24-28).
+	p.buildArea.clear(false)
 	p.appearanceInv = -1
 }
 
