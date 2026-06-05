@@ -95,8 +95,8 @@ func (s *Server) broadcast(msg string) {
 	s.BroadcastMes(msg)
 }
 
-// Reload re-loads all type-configs, scripts, CRCs, and preloaded client
-// assets from cfg.CachePath. Mirrors TS World.reload at World.ts:206-292.
+// Reload re-loads all type-configs, scripts, and CRCs from cfg.CachePath.
+// Mirrors TS World.reload at World.ts:206-292.
 //
 // Callers: (1) handleClientCheat ::reload (always clearInvs=true);
 // (2) future friends-server inbound RELAY_RELOAD relay (clearInvs=false;
@@ -262,15 +262,9 @@ func (s *Server) Reload(clearInvs bool) error {
 		}
 	}
 
-	// ─── Step 10: CRC regen + client preload (TS L288, L291) ───
+	// ─── Step 10: CRC regen (TS L288) ───
+	// preloadClient() was removed at 244 (PreloadedPacks.ts deleted).
 	cache.MakeCRCs(cachePath)
-	clientDir := filepath.Join(cachePath, "client")
-	if err := cache.PreloadClient(clientDir); err != nil {
-		// TS preloadClient throws on error; goscape returns. Per
-		// DEVIATION-NAI-190-D2-HALF-SWAP, the post-step-3 swap is
-		// already committed.
-		return fmt.Errorf("reload: preload client: %w", err)
-	}
 
 	// ─── Step 11: GameMap re-injection (DEVIATION-NAI-190-D1) ───
 	if s.gamemap != nil {
