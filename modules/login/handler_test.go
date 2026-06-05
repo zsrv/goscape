@@ -1107,6 +1107,11 @@ func TestPlayerLogin_RateLimit_ScopedToAccountAndIP(t *testing.T) {
 	if err != nil || resp.Result != loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS {
 		t.Errorf("other-IP attempt: got %v / %v, want INVALID_CREDENTIALS", resp, err)
 	}
+	// And the same-IP side of the scope still limits: IP A has 3 rows.
+	resp, err = h.PlayerLogin(t.Context(), mk("1.2.3.4:5"))
+	if err != nil || resp.Result != loginpb.LoginResult_LOGIN_RESULT_RATE_LIMITED {
+		t.Errorf("same-IP attempt: got %v / %v, want RATE_LIMITED", resp, err)
+	}
 }
 
 // TestPlayerLogin_RateLimit_WindowExpiry pins the 5s window edge: rows
@@ -1162,12 +1167,18 @@ func hopTimerFixture(t *testing.T, loggedOut int, logoutAge time.Duration, staff
 	}); err != nil {
 		t.Fatal(err)
 	}
+	// Resolve bob's real id rather than assuming AUTOINCREMENT id 1 —
+	// keeps the fixture correct if seeding order ever changes.
+	acc, err := accountByUsername(t.Context(), h.db, "bob", "main")
+	if err != nil || acc == nil {
+		t.Fatalf("hopTimerFixture account lookup: %v / %v", acc, err)
+	}
 	lt := time.Now().UTC().Add(-logoutAge).Format(dbTimeFormat)
 	if _, err := h.db.Exec(`UPDATE account_login SET logged_out = ?, logout_time = ?
-	                        WHERE account_id = 1 AND profile = 'main'`, loggedOut, lt); err != nil {
+	                        WHERE account_id = ? AND profile = 'main'`, loggedOut, lt, acc.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := h.db.Exec(`UPDATE account SET staff_mod_level = ? WHERE id = 1`, staffLvl); err != nil {
+	if _, err := h.db.Exec(`UPDATE account SET staff_mod_level = ? WHERE id = ?`, staffLvl, acc.ID); err != nil {
 		t.Fatal(err)
 	}
 	// A valid save must exist or the M25 missing-save reject fires first
