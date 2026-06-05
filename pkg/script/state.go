@@ -414,9 +414,11 @@ type ScriptState struct {
 
 	// huntIterator holds the active hunt-command iterator: *PlayerIterator
 	// (set by HUNTALL) or *NpcIterator (set by NPC_HUNTALL). Consumers
-	// type-switch and error on mismatch, reproducing TS's instanceof
-	// guards (ServerOps.ts:71-73,129-131). Single-tick lifetime — Stale()
-	// enforced by the consumers. Mirrors TS ScriptState.huntIterator
+	// drive next() first, then check the yielded type — mirroring TS
+	// ServerOps.ts:64-73 (HUNTNEXT) and :125-135 (NPC_HUNTNEXT): an
+	// exhausted iterator's done-branch pushes 0 before the instanceof guard;
+	// only a YIELDED wrong-type value returns an error. Single-tick lifetime
+	// — Stale() enforced by the consumers. Mirrors TS ScriptState.huntIterator
 	// (ScriptState.ts:124, IterableIterator<Entity>); replaces the 225
 	// playerIterator field. rev-244 B4.
 	huntIterator any

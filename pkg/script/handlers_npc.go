@@ -978,31 +978,48 @@ func handleNpcHuntAll(s *ScriptState) error {
 
 // handleNpcHuntNext (NPC_HUNTNEXT, opcode 2529) advances the unified hunt
 // iterator and binds the next NPC to the operand-selected active slot.
-// Mirrors TS ServerOps.ts:124-138 at pin 9aadcec4. Errors when the iterator
-// holds players (TS instanceof Npc guard, ServerOps.ts:131).
+// Mirrors TS ServerOps.ts:124-138 at pin 9aadcec4.
+//
+// TS drives next() BEFORE checking instanceof Npc (ServerOps.ts:125-135):
+// an exhausted iterator's done-branch pushes 0 regardless of the iterator
+// type; only a YIELDED non-Npc value trips the instanceof throw.
+// Stale-before-Next stays per iterator_state_pattern.md element 3.
 //
 // Exhaustion does NOT clear s.huntIterator (mirrors NPC_FINDNEXT semantics
 // and the HUNTNEXT convention at iterator_state_pattern.md element 7).
 func handleNpcHuntNext(s *ScriptState) error {
-	it, ok := s.huntIterator.(*NpcIterator)
-	if s.huntIterator != nil && !ok {
+	switch it := s.huntIterator.(type) {
+	case nil:
+		// TS ServerOps.ts:125-129 — nil iterator → !result → push 0.
+		s.PushInt(0)
+		return nil
+	case *NpcIterator:
+		if it.Stale(s.World.CurrentTick()) {
+			return fmt.Errorf("NPC_HUNTNEXT: tried to use an old iterator. Create a new iterator instead.")
+		}
+		npc, ok := it.Next()
+		if !ok {
+			s.PushInt(0)
+			return nil
+		}
+		setActiveNpcSlot(s, npc)
+		s.PushInt(1)
+		return nil
+	case *PlayerIterator:
+		// TS drives next() BEFORE the instanceof guard (ServerOps.ts:125-135):
+		// an exhausted iterator pushes 0 (done-branch short-circuits before
+		// instanceof); only a YIELDED wrong-type value trips the throw.
+		if it.Stale(s.World.CurrentTick()) {
+			return fmt.Errorf("NPC_HUNTNEXT: tried to use an old iterator. Create a new iterator instead.")
+		}
+		if _, ok := it.Next(); !ok {
+			s.PushInt(0)
+			return nil
+		}
 		return fmt.Errorf("NPC_HUNTNEXT: command must result instance of Npc") // TS ServerOps.ts:132
+	default:
+		return fmt.Errorf("NPC_HUNTNEXT: unknown hunt iterator type %T", it)
 	}
-	if it == nil {
-		s.PushInt(0)
-		return nil
-	}
-	if it.Stale(s.World.CurrentTick()) {
-		return fmt.Errorf("NPC_HUNTNEXT: tried to use an old iterator. Create a new iterator instead.")
-	}
-	npc, ok2 := it.Next()
-	if !ok2 {
-		s.PushInt(0)
-		return nil
-	}
-	setActiveNpcSlot(s, npc)
-	s.PushInt(1)
-	return nil
 }
 
 // handleNpcHunt (NPC_HUNT, opcode 2527) pops [coord, distance, huntvis] and

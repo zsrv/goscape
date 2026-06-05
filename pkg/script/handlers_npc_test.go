@@ -5192,17 +5192,74 @@ func TestHuntNext_TypeMismatchErrors(t *testing.T) {
 	}
 }
 
-// TestNpcHuntNext_TypeMismatchErrors pins the inverse guard (ServerOps.ts:131):
-// when huntIterator holds a *PlayerIterator, NPC_HUNTNEXT must return an error.
+// TestNpcHuntNext_TypeMismatchErrors pins the TS instanceof guard
+// (ServerOps.ts:131-133): when huntIterator holds a *PlayerIterator and
+// the iterator actually YIELDS a player (i.e. it is not exhausted),
+// NPC_HUNTNEXT must return an error. The error is only reachable after
+// next() succeeds — an exhausted iterator pushes 0 instead
+// (TS ServerOps.ts:126-129, done-branch short-circuits before instanceof).
 func TestNpcHuntNext_TypeMismatchErrors(t *testing.T) {
+	// Seed a non-empty *PlayerIterator so that next() yields a player;
+	// only then does the instanceof Npc guard fire and produce an error.
+	// Zone math: coord (0, 3200, 3200), distance=10 →
+	//   centerX/Z = 400, radius = 2; first zone sweep at (402*8, 402*8) = (3216, 3216).
+	target := &mockPlayer{username: "TypeMismatch", x: 3204, z: 3204}
+	lookup := &mockPlayerLookup{
+		byZone: map[zoneKey][]ActivePlayer{
+			{0, 3216, 3216}: {target},
+		},
+	}
 	coord := (0 << 28) | (3200 << 14) | 3200
-	lookup := &mockPlayerLookup{}
 	s := newHuntAllState(t, coord, 10, objtype.HuntVisOff, lookup)
 	if err := handleHuntAll(s); err != nil {
 		t.Fatal(err)
 	}
-	// huntIterator now holds *PlayerIterator; NPC_HUNTNEXT expects *NpcIterator.
+	// huntIterator now holds *PlayerIterator that will yield a player;
+	// NPC_HUNTNEXT expects *NpcIterator — must error on the YIELDED value.
 	if err := handleNpcHuntNext(s); err == nil {
-		t.Fatal("NPC_HUNTNEXT over a player iterator: want error, got nil")
+		t.Fatal("NPC_HUNTNEXT over a yielding player iterator: want error, got nil")
+	}
+}
+
+// TestHuntNext_ExhaustedWrongTypePushesZero pins TS ServerOps.ts:64-68:
+// the done-branch (exhausted iterator) short-circuits before the instanceof
+// Player guard, so an EXHAUSTED *NpcIterator in huntIterator pushes 0
+// rather than returning an error.
+func TestHuntNext_ExhaustedWrongTypePushesZero(t *testing.T) {
+	// Seed an empty NpcLookup → NPC_HUNTALL stores an immediately-exhausted
+	// *NpcIterator into huntIterator.
+	coord := (0 << 28) | (3200 << 14) | 3200
+	s := newNpcHuntAllState(t, coord, 10, objtype.HuntVisOff, &mockNpcLookup{})
+	if err := handleNpcHuntAll(s); err != nil {
+		t.Fatal(err)
+	}
+	// huntIterator holds *NpcIterator (wrong type for HUNTNEXT), but it is
+	// exhausted — TS pushes 0, not an error.
+	if err := handleHuntNext(s); err != nil {
+		t.Fatalf("HUNTNEXT over exhausted npc iterator: want push-0, got error: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Fatalf("HUNTNEXT exhausted wrong-type: got %d, want 0", got)
+	}
+}
+
+// TestNpcHuntNext_ExhaustedWrongTypePushesZero pins TS ServerOps.ts:126-129:
+// an EXHAUSTED *PlayerIterator in huntIterator pushes 0 rather than
+// returning an error (done-branch fires before instanceof Npc guard).
+func TestNpcHuntNext_ExhaustedWrongTypePushesZero(t *testing.T) {
+	// Seed an empty PlayerLookup → HUNTALL stores an immediately-exhausted
+	// *PlayerIterator into huntIterator.
+	coord := (0 << 28) | (3200 << 14) | 3200
+	s := newHuntAllState(t, coord, 10, objtype.HuntVisOff, &mockPlayerLookup{})
+	if err := handleHuntAll(s); err != nil {
+		t.Fatal(err)
+	}
+	// huntIterator holds *PlayerIterator (wrong type for NPC_HUNTNEXT), but it
+	// is exhausted — TS pushes 0, not an error.
+	if err := handleNpcHuntNext(s); err != nil {
+		t.Fatalf("NPC_HUNTNEXT over exhausted player iterator: want push-0, got error: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Fatalf("NPC_HUNTNEXT exhausted wrong-type: got %d, want 0", got)
 	}
 }

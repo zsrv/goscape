@@ -1394,15 +1394,17 @@ func handleHuntAll(s *ScriptState) error {
 	return nil
 }
 
-// handleHuntNext (HUNTNEXT, opcode 1005) advances the active
-// PlayerIterator from s.huntIterator and either sets active_player +
-// pushes 1 on hit, or pushes 0 on miss / nil-iterator. Mirrors TS
-// ServerOps.ts:63-77 at pin 9aadcec4. Errors when huntIterator holds
-// a non-Player iterator (TS instanceof Player guard, ServerOps.ts:70-72).
+// handleHuntNext (HUNTNEXT, opcode 1005) advances the active hunt iterator
+// and either sets active_player + pushes 1 on hit, or pushes 0 on
+// miss / nil-iterator. Mirrors TS ServerOps.ts:63-77 at pin 9aadcec4.
+//
+// TS drives next() BEFORE checking instanceof Player (ServerOps.ts:64-73):
+// an exhausted iterator's done-branch pushes 0 regardless of the iterator
+// type; only a YIELDED non-Player value trips the instanceof throw.
+// Stale-before-Next stays per iterator_state_pattern.md element 3.
 //
 // Active-player slot is selected by intOperand: 0 → Self + PtrActivePlayer,
-// 1 → Self2 + PtrActivePlayer2. Stale check uses strict-greater-than per
-// iterator_state_pattern.md element 3.
+// 1 → Self2 + PtrActivePlayer2.
 //
 // Exhaustion does NOT clear s.huntIterator (iterator_state_pattern.md
 // element 7). NAI-35-T5.
@@ -1411,31 +1413,44 @@ func handleHuntNext(s *ScriptState) error {
 	if operand != 0 && operand != 1 {
 		return fmt.Errorf("HUNTNEXT: invalid intOperand %d", operand)
 	}
-	it, ok := s.huntIterator.(*PlayerIterator)
-	if s.huntIterator != nil && !ok {
+	switch it := s.huntIterator.(type) {
+	case nil:
+		// TS ServerOps.ts:64-68 — nil iterator → !result → push 0.
+		s.PushInt(0)
+		return nil
+	case *PlayerIterator:
+		if it.Stale(s.World.CurrentTick()) {
+			return fmt.Errorf("HUNTNEXT: tried to use an old iterator. Create a new iterator instead.")
+		}
+		p, ok := it.Next()
+		if !ok {
+			s.PushInt(0)
+			return nil
+		}
+		if operand == 0 {
+			s.Self = p
+			s.Pointers |= PtrActivePlayer
+		} else {
+			s.Self2 = p
+			s.Pointers |= PtrActivePlayer2
+		}
+		s.PushInt(1)
+		return nil
+	case *NpcIterator:
+		// TS drives next() BEFORE the instanceof guard (ServerOps.ts:64-73):
+		// an exhausted iterator pushes 0 (done-branch short-circuits before
+		// instanceof); only a YIELDED wrong-type value trips the throw.
+		if it.Stale(s.World.CurrentTick()) {
+			return fmt.Errorf("HUNTNEXT: tried to use an old iterator. Create a new iterator instead.")
+		}
+		if _, ok := it.Next(); !ok {
+			s.PushInt(0)
+			return nil
+		}
 		return fmt.Errorf("HUNTNEXT: command must result instance of Player") // TS ServerOps.ts:71
+	default:
+		return fmt.Errorf("HUNTNEXT: unknown hunt iterator type %T", it)
 	}
-	if it == nil {
-		s.PushInt(0)
-		return nil
-	}
-	if it.Stale(s.World.CurrentTick()) {
-		return fmt.Errorf("HUNTNEXT: tried to use an old iterator. Create a new iterator instead.")
-	}
-	p, ok2 := it.Next()
-	if !ok2 {
-		s.PushInt(0)
-		return nil
-	}
-	if operand == 0 {
-		s.Self = p
-		s.Pointers |= PtrActivePlayer
-	} else {
-		s.Self2 = p
-		s.Pointers |= PtrActivePlayer2
-	}
-	s.PushInt(1)
-	return nil
 }
 
 // handleHintNpc (HINT_NPC, opcode 2032) sends a HintArrow type=1 wire
