@@ -26,7 +26,8 @@ var (
 	// TS ServerGameProt.ts (244): IF_SETTEXT=154/-2, IF_SETMODEL=245/4,
 	// IF_SETNPCHEAD=129/4, IF_SETPLAYERHEAD=108/2, IF_SETANIM=219/4,
 	// IF_SETHIDE=123/3, IF_SETOBJECT=164/6, IF_SETCOLOUR=78/4,
-	// IF_SETPOSITION=241/6, IF_SETRECOL=103/6, IF_SETTAB=200/3, IF_SETTAB_ACTIVE=56/1.
+	// IF_SETPOSITION=241/6, IF_SETTAB=200/3, IF_SETTAB_ACTIVE=56/1.
+	// IF_SETRECOL (103/6) removed at 244 — encoder/model deleted upstream; see PORTING.md §B2/§B4.
 	OpIfSetText       = Op{Opcode: 154, PayloadSize: -2}
 	OpIfSetModel      = Op{Opcode: 245, PayloadSize: 4}
 	OpIfSetNpcHead    = Op{Opcode: 129, PayloadSize: 4}
@@ -36,7 +37,6 @@ var (
 	OpIfSetObject     = Op{Opcode: 164, PayloadSize: 6}
 	OpIfSetColour     = Op{Opcode: 78, PayloadSize: 4}
 	OpIfSetPosition   = Op{Opcode: 241, PayloadSize: 6}
-	OpIfSetRecol      = Op{Opcode: 103, PayloadSize: 6}
 	OpIfSetTab        = Op{Opcode: 200, PayloadSize: 3}
 	OpIfSetTabActive  = Op{Opcode: 56, PayloadSize: 1}
 
@@ -242,7 +242,6 @@ func AllOps() []OpEntry {
 		{"IF_SETOBJECT", OpIfSetObject},
 		{"IF_SETCOLOUR", OpIfSetColour},
 		{"IF_SETPOSITION", OpIfSetPosition},
-		{"IF_SETRECOL", OpIfSetRecol},
 		{"IF_SETTAB", OpIfSetTab},
 		{"IF_SETTAB_ACTIVE", OpIfSetTabActive},
 		// dialog

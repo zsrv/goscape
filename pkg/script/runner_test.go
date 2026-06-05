@@ -325,7 +325,6 @@ type mockPlayer struct {
 	lastIfSetObject    struct{ com, objID, scale int }
 	lastIfSetColour    struct{ com, colour int }
 	lastIfSetPosition  struct{ com, x, y int }
-	lastIfSetRecol     struct{ com, src, dst int }
 	lastIfSetTabActive int // just tab
 
 	lastSetResumeButtons [5]int
@@ -793,9 +792,8 @@ func (m *mockPlayer) IfSetColour(com, colour int) {
 func (m *mockPlayer) IfSetPosition(com, x, y int) {
 	m.lastIfSetPosition = struct{ com, x, y int }{com, x, y}
 }
-func (m *mockPlayer) IfSetRecol(com, srcColour, dstColour int) {
-	m.lastIfSetRecol = struct{ com, src, dst int }{com, srcColour, dstColour}
-}
+
+// IfSetRecol deleted in 244 (IfSetRecolEncoder.ts removed upstream); mock method removed in B4 Task 2.
 func (m *mockPlayer) IfSetTabActive(tab int) { m.lastIfSetTabActive = tab }
 
 func (m *mockPlayer) SetResumeButtons(b1, b2, b3, b4, b5 int) {

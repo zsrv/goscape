@@ -28,7 +28,7 @@ func TestServerProt244Table(t *testing.T) {
 		{"IF_SETHIDE", OpIfSetHide, 123, 3},
 		{"IF_SETOBJECT", OpIfSetObject, 164, 6},
 		{"IF_SETMODEL", OpIfSetModel, 245, 4},
-		{"IF_SETRECOL", OpIfSetRecol, 103, 6},
+		// IF_SETRECOL (103/6) removed at 244 — encoder/model deleted upstream; see PORTING.md §B2/§B4.
 		{"IF_SETANIM", OpIfSetAnim, 219, 4},
 		{"IF_SETPLAYERHEAD", OpIfSetPlayerHead, 108, 2},
 		{"IF_SETTEXT", OpIfSetText, 154, -2},
@@ -171,6 +171,17 @@ func TestSubSpec3COpcodes(t *testing.T) {
 	}
 	if OpNpcInfo.PayloadSize != -2 {
 		t.Errorf("OpNpcInfo.PayloadSize = %d, want -2", OpNpcInfo.PayloadSize)
+	}
+}
+
+// TestIfSetRecolRemoved244 asserts that IF_SETRECOL (103/6) is absent from
+// the AllOps name table. TS 244 deletes IfSetRecolEncoder.ts + its model;
+// the wire row goes with it (B2 deferral, closed in B4 Task 2).
+func TestIfSetRecolRemoved244(t *testing.T) {
+	for _, e := range AllOps() {
+		if e.Name == "IF_SETRECOL" {
+			t.Fatalf("IF_SETRECOL wire row still registered")
+		}
 	}
 }
 

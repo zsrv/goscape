@@ -107,15 +107,6 @@ func (p *Player) IfSetPosition(com, x, y int) {
 	p.writeOut(gameserver.OpIfSetPosition, buf.Bytes())
 }
 
-// IfSetRecol emits IF_SETRECOL (com u16, src u16, dst u16). 6-byte payload.
-func (p *Player) IfSetRecol(com, srcColour, dstColour int) {
-	buf := packet.NewPacket(nil)
-	buf.P2(uint16(com))
-	buf.P2(uint16(srcColour))
-	buf.P2(uint16(dstColour))
-	p.writeOut(gameserver.OpIfSetRecol, buf.Bytes())
-}
-
 // IfSetTabActive emits IF_SETTABACTIVE (tab u8). 1-byte payload.
 func (p *Player) IfSetTabActive(tab int) {
 	buf := packet.NewPacket(nil)

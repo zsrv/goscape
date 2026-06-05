@@ -397,11 +397,6 @@ type ActivePlayer interface {
 	// persistence.
 	IfSetPosition(com, x, y int)
 
-	// IfSetRecol emits an IF_SETRECOL wire op remapping srcColour to
-	// dstColour on component com. Fire-and-forget; no server-side
-	// persistence.
-	IfSetRecol(com, srcColour, dstColour int)
-
 	// IfSetTabActive emits an IF_SETTABACTIVE wire op making tab the
 	// currently-active tab. Fire-and-forget; no server-side persistence.
 	IfSetTabActive(tab int)
