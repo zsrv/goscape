@@ -73,31 +73,28 @@ func parseInvConfigFor(objPack *PackFile) ParseFn {
 	}
 }
 
-// packInvConfigs walks every id, pre-finds size, then walks config
-// lines emitting opcodes 1/2/3/5/6/7/8/9 inline. Stock entries are
-// collected into a sparse []*[]int slot map by stockN index, then the
-// stock-list trailer (opcode 4) is emitted at end of config.
+// packInvConfigs walks every id and emits opcodes 1/2/3/5/6/7/8/9 inline.
+// Stock entries are collected into a dense slice in file-scan (declaration)
+// order — the N in stockN is ignored — then the stock block (opcode 4) is
+// emitted after all other opcodes.
 //
-// Error paths (TS packStepError analogue):
-//   - duplicate stockN line     → "%s: duplicate stockN"
-//   - stockN index >= size      → "%s: stockN exceeds size"
+// 244 changes vs 225:
+//   - No size pre-scan pass.
+//   - No duplicate-stockN error.
+//   - No stockN-index->=size bounds check.
+//   - Stock is a dense push list: stock.push(value) in line order.
+//   - Filler slots (0xffff,0,0) are never emitted.
 //
 // modelFlags is accepted for TS ConfigPackCallback parity
 // (PackShared.ts:137-141); inv does not write any model flags.
 //
-// TS source: tools/pack/config/InvConfig.ts:94-197.
+// TS source: tools/pack/config/InvConfig.ts:94-172 (9aadcec4).
 func packInvConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []int) (*PackedData, error) {
 	pd := NewPackedData(pf.Max)
 	for id := range pf.Max {
 		name := pf.GetByID(id)
 		if cfg, ok := configs[name]; ok {
-			size := 0
-			for _, line := range cfg {
-				if line.Key == "size" {
-					size = line.Value.(int)
-				}
-			}
-
+			// Collect stock entries in declaration order (dense, TS:115-116).
 			var stock [][]int
 			for _, line := range cfg {
 				switch {
@@ -108,21 +105,7 @@ func packInvConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []
 					pd.P1(2)
 					pd.P2(uint16(line.Value.(int)))
 				case strings.HasPrefix(line.Key, "stock"):
-					n, err := strconv.Atoi(line.Key[5:])
-					if err != nil {
-						return nil, fmt.Errorf("%s: invalid stock key: %s", name, line.Key)
-					}
-					index := n - 1
-					if index >= size {
-						return nil, fmt.Errorf("%s: stock%d exceeds size=%d", name, n, size)
-					}
-					for len(stock) <= index {
-						stock = append(stock, nil)
-					}
-					if stock[index] != nil {
-						return nil, fmt.Errorf("%s: duplicate stock%d", name, n)
-					}
-					stock[index] = line.Value.([]int)
+					stock = append(stock, line.Value.([]int))
 				case line.Key == "stackall":
 					if line.Value.(bool) {
 						pd.P1(3)
@@ -150,20 +133,15 @@ func packInvConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []
 				}
 			}
 
+			// TS:144-159: emit stock block only when non-empty; no filler slots.
 			if len(stock) > 0 {
 				pd.P1(4)
 				pd.P1(uint8(len(stock)))
-				for _, slot := range stock {
-					if slot == nil {
-						pd.P2(uint16(0xffff)) // -1 as uint16
-						pd.P2(0)
-						pd.P4(0)
-						continue
-					}
-					pd.P2(uint16(slot[0]))
-					pd.P2(uint16(slot[1]))
-					if len(slot) == 3 {
-						pd.P4(uint32(slot[2]))
+				for _, entry := range stock {
+					pd.P2(uint16(entry[0]))
+					pd.P2(uint16(entry[1]))
+					if len(entry) == 3 {
+						pd.P4(uint32(entry[2]))
 					} else {
 						pd.P4(0)
 					}

@@ -167,14 +167,19 @@ func TestPackInvConfigs_ProtectTrueDoesNotEmit(t *testing.T) {
 	}
 }
 
-func TestPackInvConfigs_StockListWithHoles(t *testing.T) {
+// TestPackInvConfigs_StockDense_GapBecomesOneEntry pins the 244 dense behavior:
+// stock3=... alone (no stock1/2) packs ONE entry — the N in stockN is ignored,
+// push order is file-scan order.
+// Previously (225) this produced 3 entries with 2 filler slots (0xffff,0,0).
+// TS source: tools/pack/config/InvConfig.ts:115-116 (stock.push(value)) +
+//            tools/pack/config/InvConfig.ts:148-158 (dense emit, no filler branch).
+func TestPackInvConfigs_StockDense_GapBecomesOneEntry(t *testing.T) {
 	pf := newTestPF("inv", map[int]string{0: "shop"})
 	cfgs := map[string][]ConfigLine{
 		"shop": {
 			{Key: "size", Value: 3},
-			{Key: "stock1", Value: []int{42, 10, 200}}, // index 0 → present
-			// stock2 absent → hole
-			{Key: "stock3", Value: []int{99, 5}}, // index 2 → present, no respawn
+			// Only stock3 declared — 244 dense: emits 1 entry (no fillers for 1/2).
+			{Key: "stock3", Value: []int{99, 5}}, // no respawn
 		},
 	}
 	pd, err := packInvConfigs(cfgs, pf, nil)
@@ -184,11 +189,9 @@ func TestPackInvConfigs_StockListWithHoles(t *testing.T) {
 	want := []byte{
 		0x00, 0x01,
 		0x02, 0x00, 0x03, // size=3
-		0x04,                                           // op4 stock trailer
-		0x03,                                           // p1(stock.length=3)
-		0x00, 0x2a, 0x00, 0x0a, 0x00, 0x00, 0x00, 0xc8, // slot 0: 42, 10, 200
-		0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // slot 1: hole (-1, 0, 0)
-		0x00, 0x63, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, // slot 2: 99, 5, 0
+		0x04,                                           // op4 stock block
+		0x01,                                           // p1(count=1)
+		0x00, 0x63, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, // entry: id=99, count=5, rate=0
 		0xfa, 's', 'h', 'o', 'p', 0x0a,
 		0x00,
 	}
@@ -197,31 +200,92 @@ func TestPackInvConfigs_StockListWithHoles(t *testing.T) {
 	}
 }
 
-func TestPackInvConfigs_DuplicateStockErrors(t *testing.T) {
+// TestPackInvConfigs_StockDense_DuplicatesBothEmit pins the 244 behavior:
+// duplicate stockN lines both emit as separate dense entries (no error).
+// Previously (225) this returned a pack error.
+// TS source: tools/pack/config/InvConfig.ts:115-116 (unconditional stock.push).
+func TestPackInvConfigs_StockDense_DuplicatesBothEmit(t *testing.T) {
 	pf := newTestPF("inv", map[int]string{0: "i"})
 	cfgs := map[string][]ConfigLine{
 		"i": {
-			{Key: "size", Value: 2},
 			{Key: "stock1", Value: []int{0, 1}},
 			{Key: "stock1", Value: []int{0, 2}},
 		},
 	}
-	_, err := packInvConfigs(cfgs, pf, nil)
-	if err == nil || !strings.Contains(err.Error(), "stock1") {
-		t.Fatalf("duplicate stock: err=%v", err)
+	pd, err := packInvConfigs(cfgs, pf, nil)
+	if err != nil {
+		t.Fatalf("duplicate stock should not error in 244: %v", err)
+	}
+	want := []byte{
+		0x00, 0x01,
+		0x04,                                           // op4 stock block
+		0x02,                                           // p1(count=2)
+		0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, // entry 0: id=0, count=1, rate=0
+		0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, // entry 1: id=0, count=2, rate=0
+		0xfa, 'i', 0x0a,
+		0x00,
+	}
+	if !bytes.Equal(pd.Dat.Data, want) {
+		t.Fatalf("got % x\nwant % x", pd.Dat.Data, want)
 	}
 }
 
-func TestPackInvConfigs_StockBeyondSizeErrors(t *testing.T) {
+// TestPackInvConfigs_StockDense_NoBoundsCheck pins the 244 behavior:
+// stockN with N >= size produces no error.
+// Previously (225) this returned a pack error.
+// TS source: tools/pack/config/InvConfig.ts:115-116 (no index check, just push).
+func TestPackInvConfigs_StockDense_NoBoundsCheck(t *testing.T) {
 	pf := newTestPF("inv", map[int]string{0: "i"})
 	cfgs := map[string][]ConfigLine{
 		"i": {
 			{Key: "size", Value: 1},
-			{Key: "stock2", Value: []int{0, 1}}, // index 1 >= size 1
+			{Key: "stock2", Value: []int{0, 1}}, // N=2 >= size=1, but no error in 244
 		},
 	}
-	_, err := packInvConfigs(cfgs, pf, nil)
-	if err == nil || !strings.Contains(err.Error(), "size") {
-		t.Fatalf("stock beyond size: err=%v", err)
+	pd, err := packInvConfigs(cfgs, pf, nil)
+	if err != nil {
+		t.Fatalf("stockN>=size should not error in 244: %v", err)
+	}
+	want := []byte{
+		0x00, 0x01,
+		0x02, 0x00, 0x01, // size=1
+		0x04,                                           // op4 stock block
+		0x01,                                           // p1(count=1)
+		0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, // entry: id=0, count=1, rate=0
+		0xfa, 'i', 0x0a,
+		0x00,
+	}
+	if !bytes.Equal(pd.Dat.Data, want) {
+		t.Fatalf("got % x\nwant % x", pd.Dat.Data, want)
+	}
+}
+
+// TestPackInvConfigs_StockDense_DeclarationOrder pins the 244 behavior:
+// stock entries emit in file-scan (declaration) order, not index-N order.
+// A stock2 line appearing before stock1 emits stock2's value first.
+// TS source: tools/pack/config/InvConfig.ts:115-116 (push appends in scan order).
+func TestPackInvConfigs_StockDense_DeclarationOrder(t *testing.T) {
+	pf := newTestPF("inv", map[int]string{0: "i"})
+	cfgs := map[string][]ConfigLine{
+		"i": {
+			{Key: "stock2", Value: []int{7, 3}}, // appears first in file → emits first
+			{Key: "stock1", Value: []int{5, 1}}, // appears second → emits second
+		},
+	}
+	pd, err := packInvConfigs(cfgs, pf, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []byte{
+		0x00, 0x01,
+		0x04,                                           // op4 stock block
+		0x02,                                           // p1(count=2)
+		0x00, 0x07, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, // entry 0: id=7, count=3, rate=0 (stock2 first)
+		0x00, 0x05, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, // entry 1: id=5, count=1, rate=0 (stock1 second)
+		0xfa, 'i', 0x0a,
+		0x00,
+	}
+	if !bytes.Equal(pd.Dat.Data, want) {
+		t.Fatalf("got % x\nwant % x", pd.Dat.Data, want)
 	}
 }
