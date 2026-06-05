@@ -1617,34 +1617,42 @@ func (p *Player) SetBodyPart(slot, idkit int)  { p.body[slot] = idkit }
 func (p *Player) SetColorPart(slot, color int) { p.colors[slot] = color }
 
 // normalizeSongName mirrors TS Player.playSong's normalization step
-// (Engine-TS/src/engine/entity/Player.ts:1903) — lowercase + spaces
-// replaced by underscores. Extracted for direct testability given
-// PlaySong's current no-op write body (S7h-D1). Asymmetric with
-// normalizeJingleName (spaces→underscores vs. underscores→spaces);
-// the asymmetry is TS-intentional — songs key into disk with
-// underscore filenames; jingles key into a space-separated title map.
+// (Engine-TS/src/engine/entity/Player.ts:1922 at 244):
+//
+//	name.toLowerCase().replaceAll(' ', '_').replace(/[^a-z0-9_-]/g, '')
+//
+// Lowercase → spaces→underscores → strip characters outside [a-z0-9_-].
+// Asymmetric with normalizeJingleName: jingles are lowercase-only (TS
+// Player.ts:1929 uses only toLowerCase()).
 func normalizeSongName(name string) string {
-	return strings.ReplaceAll(strings.ToLower(name), " ", "_")
+	name = strings.ToLower(name)
+	name = strings.ReplaceAll(name, " ", "_")
+	var b strings.Builder
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // PlaySong normalizes the song name per TS Player.playSong
-// (Engine-TS/src/engine/entity/Player.ts:1919-1924 at 244), resolves
-// the pack id via midiIDByName, and writes MidiSong to the client.
-// Silent no-op on empty name or id == -1 (mirrors TS's `if (id !== -1)`
-// guard at Player.ts:1921).
+// (Engine-TS/src/engine/entity/Player.ts:1919-1925 at 244), resolves
+// the pack id via the server's midiPack registry, and writes MidiSong
+// to the client. Silent no-op on empty name, id == -1, or nil server
+// (mirrors TS's `if (id !== -1)` guard at Player.ts:1921-1924).
 //
-// normalizeSongName: lowercase + spaces→underscores. TS 244 also strips
-// /[^a-z0-9_-]/g — the Go normalization omits that strip; midiIDByName
-// returning -1 until B3 makes the difference moot for now.
-//
-// rev-244 B2: midiIDByName always returns -1 (B3 MidiPack pending),
-// so PlaySong is always a silent no-op. See midi_encoders.go.
+// normalizeSongName (TS-faithful): lowercase + spaces→underscores + strip
+// /[^a-z0-9_-]/g. Asymmetric with normalizeJingleName (lowercase only).
 func (p *Player) PlaySong(name string) {
 	name = normalizeSongName(name)
 	if name == "" {
 		return
 	}
-	id := midiIDByName(name)
+	if p.client == nil || p.client.server == nil {
+		return
+	}
+	id := p.client.server.midiIDByName(name)
 	if id == -1 {
 		return
 	}
@@ -1654,34 +1662,35 @@ func (p *Player) PlaySong(name string) {
 }
 
 // normalizeJingleName mirrors TS Player.playJingle's normalization step
-// (Engine-TS/src/engine/entity/Player.ts:1917) — lowercase + underscores
-// replaced by spaces. Extracted for direct testability given
-// PlayJingle's current no-op write body (S7h-D1). Asymmetric with
-// normalizeSongName (underscores→spaces vs. spaces→underscores);
-// the asymmetry is TS-intentional — jingles key into a space-separated
-// title map; songs key into underscore-filename disk paths.
+// (Engine-TS/src/engine/entity/Player.ts:1929 at 244):
+//
+//	name.toLowerCase()
+//
+// Lowercase only — no underscore-to-space conversion. Asymmetric with
+// normalizeSongName (lowercase+strip+spaces→underscores). The asymmetry
+// is TS-faithful: jingle names match the pack file keys verbatim after
+// casing; song names have an additional space-to-underscore step.
 func normalizeJingleName(name string) string {
-	return strings.ReplaceAll(strings.ToLower(name), "_", " ")
+	return strings.ToLower(name)
 }
 
 // PlayJingle normalizes the jingle name per TS Player.playJingle
-// (Engine-TS/src/engine/entity/Player.ts:1925-1932 at 244), resolves
-// the pack id via midiIDByName, and writes MidiJingle to the client.
-// Silent no-op on empty name or id == -1 (mirrors TS's `if (id !== -1)`
-// guard at Player.ts:1929).
+// (Engine-TS/src/engine/entity/Player.ts:1928-1933 at 244), resolves
+// the pack id via the server's midiPack registry, and writes MidiJingle
+// to the client. Silent no-op on empty name, id == -1, or nil server
+// (mirrors TS's `if (id !== -1)` guard at Player.ts:1930-1932).
 //
-// normalizeJingleName: lowercase + underscores→spaces. TS 244 normalizes
-// via just toLowerCase() — the Go normalization also replaces underscores
-// with spaces; midiIDByName returning -1 until B3 makes the difference moot.
-//
-// rev-244 B2: midiIDByName always returns -1 (B3 MidiPack pending),
-// so PlayJingle is always a silent no-op. See midi_encoders.go.
+// normalizeJingleName (TS-faithful): lowercase only. Asymmetric with
+// normalizeSongName (lowercase + spaces→underscores + strip).
 func (p *Player) PlayJingle(delay int, name string) {
 	name = normalizeJingleName(name)
 	if name == "" {
 		return
 	}
-	id := midiIDByName(name)
+	if p.client == nil || p.client.server == nil {
+		return
+	}
+	id := p.client.server.midiIDByName(name)
 	if id == -1 {
 		return
 	}

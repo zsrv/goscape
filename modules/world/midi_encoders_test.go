@@ -53,39 +53,43 @@ func TestEncodeMidiJingle244ZeroFields(t *testing.T) {
 	}
 }
 
-// TestMidiIDByName244AlwaysReturnsMinusOne pins that midiIDByName returns -1
-// for all inputs until B3 MidiPack lands.
-// PORTING-EXCEPTION (rev244-b2-midi-window): placeholder returns -1.
-func TestMidiIDByName244AlwaysReturnsMinusOne(t *testing.T) {
+// TestServerMidiIDByName244NilRegistryReturnsMinusOne pins that a Server with
+// nil midiPack returns -1 for all names (degrade posture when ContentPath is
+// empty or midi.pack is absent). Replaces the B2 stub
+// TestMidiIDByName244AlwaysReturnsMinusOne which tested the old free function.
+func TestServerMidiIDByName244NilRegistryReturnsMinusOne(t *testing.T) {
+	s := &Server{midiPack: nil}
 	cases := []string{"adventure", "", "fanfare", "some_song"}
 	for _, name := range cases {
-		if got := midiIDByName(name); got != -1 {
-			t.Errorf("midiIDByName(%q) = %d, want -1", name, got)
+		if got := s.midiIDByName(name); got != -1 {
+			t.Errorf("midiIDByName(%q) with nil registry = %d; want -1", name, got)
 		}
 	}
 }
 
-// TestPlaySong244SilentNoOp pins that PlaySong is always a silent no-op at
-// rev-244 B2 because midiIDByName returns -1 (MidiPack not yet ported).
-// Mirrors TS Player.ts:1921 `if (id !== -1) this.write(...)` guard.
-func TestPlaySong244SilentNoOp(t *testing.T) {
+// TestPlaySongNoServer244SilentNoOp pins that PlaySong is a silent no-op when
+// p.client.server is nil (bare test player, no server). Mirrors TS
+// Player.ts:1921 `if (id !== -1) this.write(...)` guard — nil server
+// degrades to -1 posture.
+func TestPlaySongNoServer244SilentNoOp(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = enc
+	// p.client.server is nil; PlaySong must not panic and must write nothing.
 	p.PlaySong("adventure")
 	if n := p.client.bufw.Buffered(); n != 0 {
-		t.Errorf("PlaySong wrote %d bytes; want 0 (silent no-op until B3 MidiPack)", n)
+		t.Errorf("PlaySong(nil server) wrote %d bytes; want 0", n)
 	}
 }
 
-// TestPlayJingle244SilentNoOp pins that PlayJingle is always a silent no-op at
-// rev-244 B2 because midiIDByName returns -1 (MidiPack not yet ported).
-func TestPlayJingle244SilentNoOp(t *testing.T) {
+// TestPlayJingleNoServer244SilentNoOp pins that PlayJingle is a silent no-op
+// when p.client.server is nil. Mirrors TS Player.ts:1929 guard.
+func TestPlayJingleNoServer244SilentNoOp(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = enc
 	p.PlayJingle(3, "fanfare")
 	if n := p.client.bufw.Buffered(); n != 0 {
-		t.Errorf("PlayJingle wrote %d bytes; want 0 (silent no-op until B3 MidiPack)", n)
+		t.Errorf("PlayJingle(nil server) wrote %d bytes; want 0", n)
 	}
 }

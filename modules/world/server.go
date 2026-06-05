@@ -206,6 +206,12 @@ type Server struct {
 	// encfilter.Empty(). TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:35-37.
 	wordenc *encfilter.Filter
 
+	// midiPack is the name→id registry loaded from <ContentPath>/pack/midi.pack
+	// at world start. Mirrors TS PackFileBase.ts:50-71 (load) + :129-131
+	// (getByName). Nil or empty map degrades every midiIDByName lookup to -1,
+	// mirroring TS's unknown-name posture (Player.ts:1921-1929 id!==-1 guard).
+	midiPack map[string]int
+
 	npcs          [8192]*Npc
 	npcLoop       []*Npc
 	npcEventQueue []NpcEventRequest
@@ -586,6 +592,22 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		s.scriptProvider = nil
 	} else {
 		s.log.Info("script provider loaded", "count", count)
+	}
+
+	// Load MidiPack name→id registry from <ContentPath>/pack/midi.pack.
+	// TS: MidiPack = new PackFile('midi', …) loaded at server startup via
+	// PackFileBase.ts:50-71. Absent file → empty registry → every
+	// midiIDByName lookup returns -1 → PlaySong/PlayJingle are silent
+	// no-ops (TS unknown-name posture, Player.ts:1921-1929). ContentPath
+	// is empty in tests; os.ReadFile fails silently → empty map.
+	if cfg.ContentPath != "" {
+		midiPackPath := filepath.Join(cfg.ContentPath, "pack", "midi.pack")
+		s.midiPack = loadMidiPack(midiPackPath)
+		if len(s.midiPack) == 0 {
+			s.log.Warn("midi.pack not loaded; PlaySong/PlayJingle will be silent no-ops", "path", midiPackPath)
+		} else {
+			s.log.Info("midi.pack loaded", "count", len(s.midiPack))
+		}
 	}
 
 	for _, spawn := range s.gamemap.NpcSpawns() {

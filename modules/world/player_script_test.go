@@ -1029,7 +1029,10 @@ func TestPlayerLowMemoryGetter(t *testing.T) {
 	}
 }
 
-func TestNormalizeSongNameLowercaseAndSpacesToUnderscores(t *testing.T) {
+// TestNormalizeSongNameB3 pins normalizeSongName (B3 TS-faithful):
+// lowercase + spaces→underscores + strip /[^a-z0-9_-]/g.
+// TS ref: Player.ts:1922 at 244.
+func TestNormalizeSongNameB3(t *testing.T) {
 	cases := []struct {
 		in, want string
 	}{
@@ -1037,6 +1040,11 @@ func TestNormalizeSongNameLowercaseAndSpacesToUnderscores(t *testing.T) {
 		{"already_lower", "already_lower"},
 		{"ALLCAPS", "allcaps"},
 		{"Mixed CASE With Spaces", "mixed_case_with_spaces"},
+		// Strip: special chars removed after lowercase+underscore step.
+		{"Scape Main!", "scape_main"},
+		{"church music 1", "church_music_1"},
+		{"quest.complete", "questcomplete"},
+		{"a-b_c", "a-b_c"}, // hyphens and underscores are allowed
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {
@@ -1053,9 +1061,9 @@ func TestNormalizeSongNameEmptyReturnsEmpty(t *testing.T) {
 	}
 }
 
-// TestPlaySong244SilentNoOp_EmptyName pins that PlaySong("") is a no-op
-// (empty name guard fires before midiIDByName). rev-244 B2.
-func TestPlaySong244SilentNoOp_EmptyName(t *testing.T) {
+// TestPlaySong_EmptyNameIsNoOp pins that PlaySong("") is a no-op
+// (empty name guard fires after normalization, before registry lookup).
+func TestPlaySong_EmptyNameIsNoOp(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.PlaySong("")
 	if n := p.client.bufw.Buffered(); n != 0 {
@@ -1063,25 +1071,35 @@ func TestPlaySong244SilentNoOp_EmptyName(t *testing.T) {
 	}
 }
 
-// TestPlaySong244SilentNoOp_AnyName pins that PlaySong with a non-empty
-// name is still silent because midiIDByName returns -1 until B3 MidiPack.
-// Mirrors TS Player.ts:1921 `if (id !== -1)` guard.
-func TestPlaySong244SilentNoOp_AnyName(t *testing.T) {
+// TestPlaySong_NilServerIsNoOp pins that PlaySong with a non-empty name
+// is silent when p.client.server is nil (bare test player).
+// Mirrors TS Player.ts:1921 `if (id !== -1)` guard — nil server degrades
+// to id==-1 posture. Player.ts:1919-1925 at 244.
+func TestPlaySong_NilServerIsNoOp(t *testing.T) {
 	p, _ := newTestPlayer(t)
+	// p.client.server is nil; PlaySong must not panic and must write nothing.
 	p.PlaySong("adventure")
 	if n := p.client.bufw.Buffered(); n != 0 {
-		t.Errorf("PlaySong wrote %d bytes; want 0 (silent no-op until B3 MidiPack)", n)
+		t.Errorf("PlaySong(nil server) wrote %d bytes; want 0", n)
 	}
 }
 
-func TestNormalizeJingleNameLowercaseAndUnderscoresToSpaces(t *testing.T) {
+// TestNormalizeJingleNameB3 pins normalizeJingleName (B3 TS-faithful):
+// lowercase ONLY — no underscore conversion.
+// TS ref: Player.ts:1929 at 244 (name.toLowerCase()).
+func TestNormalizeJingleNameB3(t *testing.T) {
 	cases := []struct {
 		in, want string
 	}{
-		{"a_quick_jingle", "a quick jingle"},
+		// Underscores are preserved (TS does NOT convert them to spaces).
+		{"a_quick_jingle", "a_quick_jingle"},
+		// Spaces are preserved as-is (only casing changes).
 		{"Space Already", "space already"},
 		{"ALLCAPS", "allcaps"},
-		{"Mixed_CASE_With_Underscores", "mixed case with underscores"},
+		{"Mixed_CASE_With_Underscores", "mixed_case_with_underscores"},
+		// Real pack keys (from Content/pack/midi.pack): spaces preserved.
+		{"Sailing Journey", "sailing journey"},
+		{"Quest Complete 1", "quest complete 1"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {
@@ -1098,9 +1116,9 @@ func TestNormalizeJingleNameEmptyReturnsEmpty(t *testing.T) {
 	}
 }
 
-// TestPlayJingle244SilentNoOp_EmptyName pins that PlayJingle("", ...) is a
-// no-op. Empty-name guard fires before midiIDByName. rev-244 B2.
-func TestPlayJingle244SilentNoOp_EmptyName(t *testing.T) {
+// TestPlayJingle_EmptyNameIsNoOp pins that PlayJingle("", ...) is a
+// no-op (empty-name guard fires after normalization, before registry lookup).
+func TestPlayJingle_EmptyNameIsNoOp(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.PlayJingle(3, "")
 	if n := p.client.bufw.Buffered(); n != 0 {
@@ -1108,14 +1126,15 @@ func TestPlayJingle244SilentNoOp_EmptyName(t *testing.T) {
 	}
 }
 
-// TestPlayJingle244SilentNoOp_AnyName pins that PlayJingle with a non-empty
-// name is silent because midiIDByName returns -1 until B3 MidiPack.
-// Mirrors TS Player.ts:1929 `if (id !== -1)` guard.
-func TestPlayJingle244SilentNoOp_AnyName(t *testing.T) {
+// TestPlayJingle_NilServerIsNoOp pins that PlayJingle with a non-empty name
+// is silent when p.client.server is nil (bare test player).
+// Mirrors TS Player.ts:1929 `if (id !== -1)` guard — nil server degrades
+// to id==-1 posture. Player.ts:1928-1933 at 244.
+func TestPlayJingle_NilServerIsNoOp(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.PlayJingle(3, "fanfare")
 	if n := p.client.bufw.Buffered(); n != 0 {
-		t.Errorf("PlayJingle wrote %d bytes; want 0 (silent no-op until B3 MidiPack)", n)
+		t.Errorf("PlayJingle(nil server) wrote %d bytes; want 0", n)
 	}
 }
 
