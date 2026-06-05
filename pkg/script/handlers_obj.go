@@ -452,7 +452,7 @@ func handleObjName(s *ScriptState) error {
 	return nil
 }
 
-// handleObjParam (OBJ_PARAM, opcode 3509) pops a paramID and delegates
+// handleObjParam (OBJ_PARAM, opcode 3506) pops a paramID and delegates
 // to paramLookup using the active obj's type Params. Mirrors TS
 // ObjOps.ts:95-104 and the existing handleOcParam at
 // handlers_config.go:449.
@@ -472,7 +472,7 @@ func handleObjParam(s *ScriptState) error {
 	return paramLookup(s, ot.Params, paramID, "OBJ_PARAM")
 }
 
-// handleObjType (OBJ_TYPE, opcode 3511) pushes the active obj's type id.
+// handleObjType (OBJ_TYPE, opcode 3508) pushes the active obj's type id.
 // Mirrors TS ObjOps.ts:132-134:
 //
 //	[ScriptOpcode.OBJ_TYPE]: state => {

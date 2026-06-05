@@ -1065,7 +1065,7 @@ func handleSessionLog(s *ScriptState) error {
 	return nil
 }
 
-// handlePLogout (P_LOGOUT, opcode 2075) flags the active player for
+// handlePLogout (P_LOGOUT, opcode 2077) flags the active player for
 // logout processing. The tick loop's processLogouts pass tears the
 // session down at the next boundary. Mirrors TS PlayerOps.ts:622-624.
 func handlePLogout(s *ScriptState) error {
@@ -1153,7 +1153,7 @@ func handleP_OpLoc(s *ScriptState) error {
 	return nil
 }
 
-// handleP_OpNpc (P_OPNPC, opcode 2078) re-anchors on the active npc.
+// handleP_OpNpc (P_OPNPC, opcode 2081) re-anchors on the active npc.
 // Matches TS PlayerOps.ts:404-415.
 //
 // S6v-D1 closed in S6w: gates on PtrProtectedActivePlayer via
@@ -1753,7 +1753,7 @@ func handleBothHeroPoints(s *ScriptState) error {
 	return nil
 }
 
-// handleDamage (DAMAGE, opcode 2015) applies damage to the player
+// handleDamage (DAMAGE, opcode 2021) applies damage to the player
 // resolved from a UID popped from the stack. Pop order (TS): amount,
 // hitType, uid (LIFO via popInt). Each slot is validated as TS pops it
 // — amount via NumberNotNull, hitType via HitTypeValid, uid via
@@ -1791,7 +1791,7 @@ func handleDamage(s *ScriptState) error {
 	return nil
 }
 
-// handleGender (GENDER, opcode 2020) pushes the active player's
+// handleGender (GENDER, opcode 2025) pushes the active player's
 // gender (0=male, 1=female). Mirrors TS PlayerOps.ts:968-970.
 //
 // DEVIATION-NAI-127-D2: TS uses raw `state =>` — there is no pointer
@@ -1804,7 +1804,7 @@ func handleGender(s *ScriptState) error {
 	return nil
 }
 
-// handlePlayerMember (PLAYERMEMBER, opcode 2090) pushes 1 if the active
+// handlePlayerMember (PLAYERMEMBER, opcode 2130) pushes 1 if the active
 // player has a members account, else 0. Mirrors TS
 // LostCityRS/Engine-TS/.../PlayerOps.ts:1211-1213 — checkedHandler(ActivePlayer).
 func handlePlayerMember(s *ScriptState) error {
@@ -1819,7 +1819,7 @@ func handlePlayerMember(s *ScriptState) error {
 	return nil
 }
 
-// handlePPreventLogout (P_PREVENTLOGOUT, opcode 2084) sets the
+// handlePPreventLogout (P_PREVENTLOGOUT, opcode 2078) sets the
 // player's anti-log message and absolute tick deadline. Pop order
 // (TS): popString first (message), then popInt (additional ticks
 // from current tick). Goscape's int and string stacks are
@@ -1850,7 +1850,7 @@ func handlePPreventLogout(s *ScriptState) error {
 	return nil
 }
 
-// handleAfkEvent (AFK_EVENT, opcode 2000) pushes 1 when the player is
+// handleAfkEvent (AFK_EVENT, opcode 2113) pushes 1 when the player is
 // eligible to receive an AFK-event prompt and clears the eligibility
 // flag. Mirrors TS LostCityRS/Engine-TS/.../PlayerOps.ts:1057-1062:
 //
@@ -1936,7 +1936,7 @@ func handleSetSkinColour(s *ScriptState) error {
 	return nil
 }
 
-// handleSetGender (SETGENDER, opcode 2099) rewrites the player's body[]
+// handleSetGender (SETGENDER, opcode 2121) rewrites the player's body[]
 // idkit array via gender lookup maps and writes the gender field.
 // Mirrors TS PlayerOps.ts:1104-1118:
 //
@@ -2056,7 +2056,7 @@ func handlePOpHeld(s *ScriptState) error {
 	return fmt.Errorf("P_OPHELD: unimplemented")
 }
 
-// handlePOpPlayerT (P_OPPLAYERT, opcode 2082). Protected gate. Pops
+// handlePOpPlayerT (P_OPPLAYERT, opcode 2085). Protected gate. Pops
 // spellId; validates via NumberNotNull. If Self2 absent, silently returns
 // (TS PlayerOps.ts:1130-1132). Otherwise StopAction +
 // SetInteractionScriptPlayer(Self2, spellId). Mirrors TS
@@ -2077,7 +2077,7 @@ func handlePOpPlayerT(s *ScriptState) error {
 	return nil
 }
 
-// handlePLocMerge (P_LOCMERGE, opcode 2074). Protected gate. Pops
+// handlePLocMerge (P_LOCMERGE, opcode 2076). Protected gate. Pops
 // [northWest, southEast, endCycle, startCycle] (LIFO; TS popInts(4) →
 // [startCycle, endCycle, southEast, northWest]). Validates both coords;
 // delegates to World.MergeLoc with (se.z=south, se.x=east, nw.z=north,
@@ -2121,7 +2121,7 @@ func handlePLocMerge(s *ScriptState) error {
 	return nil
 }
 
-// handleWealthEvent (WEALTH_EVENT, opcode 2131). Pops a string name from
+// handleWealthEvent (WEALTH_EVENT, opcode 2128). Pops a string name from
 // the string stack, then 3 ints (LIFO: value, count, eventType — matching
 // TS popInts(3) → [eventType, count, value]). Resolves the obj via
 // Configs.ObjByName; missing name → id=-1 (mirrors TS `objType?.id`
