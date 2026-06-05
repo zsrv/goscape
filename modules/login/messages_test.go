@@ -18,7 +18,7 @@ func mt(t *testing.T, db *sql.DB, from, to, lastFrom int) int64 {
 	return id
 }
 
-// msg inserts a message row with the given created stamp ('' = CURRENT_TIMESTAMP default).
+// msg inserts a message row with the given created stamp (” = CURRENT_TIMESTAMP default).
 func msg(t *testing.T, db *sql.DB, thread int64, created string, deleted bool) {
 	t.Helper()
 	del := sql.NullString{}
@@ -39,7 +39,7 @@ func msg(t *testing.T, db *sql.DB, thread int64, created string, deleted bool) {
 }
 
 // st inserts a message_status row for (thread, account) with optional
-// read/deleted stamps ('' = NULL).
+// read/deleted stamps (” = NULL).
 func st(t *testing.T, db *sql.DB, thread int64, account int, read, deleted string) {
 	t.Helper()
 	toNull := func(s string) sql.NullString {

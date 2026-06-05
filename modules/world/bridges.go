@@ -311,7 +311,7 @@ func (noopBridges) AddIgnore(string, uint64)                                  {}
 func (noopBridges) RemoveIgnore(string, uint64)                               {}
 func (noopBridges) SetChatMode(string, int)                                   {}
 func (noopBridges) PrivateMessage(string, int32, uint32, uint64, string, int) {}
-func (noopBridges) PublicMessage(string, int, string) {}
+func (noopBridges) PublicMessage(string, int, string)                         {}
 func (noopBridges) NotifyPlayerBan(string, string, time.Time)                 {}
 func (noopBridges) NotifyPlayerMute(string, string, time.Time)                {}
 func (noopBridges) NotifyPlayerReport(*Player, string, string)                {}
