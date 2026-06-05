@@ -122,6 +122,27 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		}
 	}
 
+	// 3b. Per-attempt rate limit + attempt log. TS LoginServer.ts:234-268:
+	// runs only when the account exists (auto-registered accounts
+	// included), BEFORE the password compare; 3 rows for (account, ip)
+	// inside 5s → response 8; a rate-limited attempt does NOT insert.
+	// goscape's per-attempt sessionUUID stands in for TS's socket uuid.
+	// (TS's `if (account)` guard covers its no-auto-register fallthrough,
+	// which goscape already returned from at step 3 — account is non-nil
+	// here.)
+	recent, err := countRecentLoginAttempts(ctx, h.db, account.ID, ip, 5*time.Second)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "countRecentLoginAttempts: %v", err)
+	}
+	if recent >= 3 {
+		return &loginpb.PlayerLoginResponse{
+			Result: loginpb.LoginResult_LOGIN_RESULT_RATE_LIMITED,
+		}, nil
+	}
+	if err := insertLoginAttempt(ctx, h.db, sessionUUID, account.ID, int(req.NodeId), int(req.Uid), ip); err != nil {
+		return nil, status.Errorf(codes.Internal, "insertLoginAttempt: %v", err)
+	}
+
 	// 4. Password check.
 	// Lowercase before compare — mirrors TS LoginServer.ts:233
 	// `bcrypt.compare(password.toLowerCase(), account.password)`.

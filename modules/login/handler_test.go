@@ -1028,6 +1028,123 @@ func TestPlayerLogin_SaveMissingNoLogoutTimeIsNewPlayer(t *testing.T) {
 	}
 }
 
+// TestPlayerLogin_RateLimit pins TS LoginServer.ts:234-268: per-attempt
+// `login` rows keyed (account, ip); 3 rows inside 5s → response 8
+// (LOGIN_RESULT_RATE_LIMITED) BEFORE the password compare; a rejected
+// attempt does NOT insert a row.
+func TestPlayerLogin_RateLimit(t *testing.T) {
+	h, _ := newTestHandler(t)
+	req := func(pw string) *loginpb.PlayerLoginRequest {
+		return &loginpb.PlayerLoginRequest{
+			NodeId: 10, Profile: "main", Username: "bob", Password: pw,
+			RemoteAddress: "1.2.3.4:5", Uid: 1,
+		}
+	}
+	// Attempt 1 registers the account (NEW_PLAYER) and logs row 1.
+	resp, err := h.PlayerLogin(t.Context(), req("pw"))
+	if err != nil || resp.Result != loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER {
+		t.Fatalf("attempt 1: %v / %v", resp, err)
+	}
+	// Logout so attempts 2-3 are not ALREADY_LOGGED_IN. Force-logout does
+	// NOT stamp logout_time, so M25 stays unarmed.
+	if _, err := h.PlayerForceLogout(t.Context(), &loginpb.PlayerForceLogoutRequest{
+		NodeId: 10, Profile: "main", Username: "bob",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// Attempts 2-3: wrong password — still insert attempt rows (the TS
+	// insert precedes the bcrypt compare).
+	for i := 2; i <= 3; i++ {
+		resp, err = h.PlayerLogin(t.Context(), req("wrong"))
+		if err != nil || resp.Result != loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS {
+			t.Fatalf("attempt %d: %v / %v", i, resp, err)
+		}
+	}
+	// Attempt 4 inside the window: rate limited, even with the right password.
+	resp, err = h.PlayerLogin(t.Context(), req("pw"))
+	if err != nil || resp.Result != loginpb.LoginResult_LOGIN_RESULT_RATE_LIMITED {
+		t.Fatalf("attempt 4: got %v / %v, want RATE_LIMITED", resp, err)
+	}
+	// Exactly 3 rows (the rejected attempt did not insert).
+	var n int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM login`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 3 {
+		t.Errorf("login rows: got %d, want 3", n)
+	}
+}
+
+// TestPlayerLogin_RateLimit_ScopedToAccountAndIP pins the window key:
+// a different IP for the same account is NOT limited (TS keys the
+// window by account_id AND ip, LoginServer.ts:238-239).
+func TestPlayerLogin_RateLimit_ScopedToAccountAndIP(t *testing.T) {
+	h, _ := newTestHandler(t)
+	mk := func(addr string) *loginpb.PlayerLoginRequest {
+		return &loginpb.PlayerLoginRequest{
+			NodeId: 10, Profile: "main", Username: "bob", Password: "wrong",
+			RemoteAddress: addr, Uid: 1,
+		}
+	}
+	if _, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 10, Profile: "main", Username: "bob", Password: "pw",
+		RemoteAddress: "1.2.3.4:5", Uid: 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.PlayerForceLogout(t.Context(), &loginpb.PlayerForceLogoutRequest{
+		NodeId: 10, Profile: "main", Username: "bob",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := h.PlayerLogin(t.Context(), mk("1.2.3.4:5")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Attempt from IP B: not limited (INVALID_CREDENTIALS, not RATE_LIMITED).
+	resp, err := h.PlayerLogin(t.Context(), mk("9.9.9.9:5"))
+	if err != nil || resp.Result != loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS {
+		t.Errorf("other-IP attempt: got %v / %v, want INVALID_CREDENTIALS", resp, err)
+	}
+}
+
+// TestPlayerLogin_RateLimit_WindowExpiry pins the 5s window edge: rows
+// older than 5s do not count (TS timestamp >= now-5000,
+// LoginServer.ts:240). Backdates the rows directly rather than sleeping.
+func TestPlayerLogin_RateLimit_WindowExpiry(t *testing.T) {
+	h, _ := newTestHandler(t)
+	seed := &loginpb.PlayerLoginRequest{
+		NodeId: 10, Profile: "main", Username: "bob", Password: "pw",
+		RemoteAddress: "1.2.3.4:5", Uid: 1,
+	}
+	if _, err := h.PlayerLogin(t.Context(), seed); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.PlayerForceLogout(t.Context(), &loginpb.PlayerForceLogoutRequest{
+		NodeId: 10, Profile: "main", Username: "bob",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+			NodeId: 10, Profile: "main", Username: "bob", Password: "wrong",
+			RemoteAddress: "1.2.3.4:5", Uid: 1,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Backdate all 3 rows past the window.
+	if _, err := h.db.Exec(`UPDATE login SET timestamp = '2000-01-01 00:00:00'`); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := h.PlayerLogin(t.Context(), seed)
+	if err != nil || (resp.Result != loginpb.LoginResult_LOGIN_RESULT_OK &&
+		resp.Result != loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER) {
+		t.Errorf("post-window attempt: got %v / %v, want OK/NEW_PLAYER", resp, err)
+	}
+}
+
 // TestPlayerLogin_M25_PerProfileLogoutTime pins the re-pointed M25
 // safety reject (login-server-7 closure step iv): a missing save with a
 // PER-PROFILE logout_time set rejects, while a different profile with
