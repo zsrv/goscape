@@ -236,7 +236,14 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 			}
 			saveBytes = b
 		}
-		return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK, account, saveBytes, sessionUUID), nil
+		// TS LoginServer.ts:322 — messageCount on the reconnect reply too.
+		mc, err := getUnreadMessageCount(ctx, h.db, account.ID)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "getUnreadMessageCount: %v", err)
+		}
+		resp := buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK, account, saveBytes, sessionUUID)
+		resp.MessageCount = int32(mc)
+		return resp, nil
 	}
 
 	// 8. Record session + login row atomically (PORTING.md Arc 18 DB-1).
@@ -302,7 +309,15 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	committed = true
 
 
-	return buildLoginResponse(result, account, saveBytes, sessionUUID), nil
+	// TS LoginServer.ts:395 — messageCount computed after the session
+	// insert, attached to the success reply (:412/:433).
+	mc, err := getUnreadMessageCount(ctx, h.db, account.ID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getUnreadMessageCount: %v", err)
+	}
+	resp := buildLoginResponse(result, account, saveBytes, sessionUUID)
+	resp.MessageCount = int32(mc)
+	return resp, nil
 }
 
 // persistSaveIfValid writes save to disk only if it passes verifySave AND would

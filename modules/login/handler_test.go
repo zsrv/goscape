@@ -1243,6 +1243,43 @@ func TestPlayerLogin_HopTimer(t *testing.T) {
 	})
 }
 
+// TestPlayerLogin_MessageCountWired pins that the unread count reaches
+// PlayerLoginResponse.message_count on the full-login path (TS
+// LoginServer.ts:395 + :433) — previously a stub 0.
+func TestPlayerLogin_MessageCountWired(t *testing.T) {
+	h, _ := newTestHandler(t)
+	if _, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 10, Profile: "main", Username: "bob", Password: "pw",
+		RemoteAddress: "1.2.3.4:5", Uid: 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.PlayerForceLogout(t.Context(), &loginpb.PlayerForceLogoutRequest{
+		NodeId: 10, Profile: "main", Username: "bob",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// One unread thread to account 1 from account 99.
+	if _, err := h.db.Exec(`INSERT INTO message_thread (to_account_id, from_account_id, last_message_from, subject)
+	                        VALUES (1, 99, 99, 's')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.db.Exec(`INSERT INTO message (thread_id, sender_id, sender_ip, content)
+	                        VALUES (1, 99, '', 'm')`); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 10, Profile: "main", Username: "bob", Password: "pw",
+		RemoteAddress: "5.6.7.8:5", Uid: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.MessageCount != 1 {
+		t.Errorf("MessageCount: got %d, want 1", resp.MessageCount)
+	}
+}
+
 // TestPlayerLogin_M25_PerProfileLogoutTime pins the re-pointed M25
 // safety reject (login-server-7 closure step iv): a missing save with a
 // PER-PROFILE logout_time set rejects, while a different profile with
