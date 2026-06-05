@@ -353,6 +353,51 @@ func (w worldVarsView) MergeLoc(loc script.ActiveLoc, player script.ActivePlayer
 	w.s.MergeLoc(realLoc, playerSlot, startCycle, endCycle, east, south, west, north)
 }
 
+// TotalNpcs counts the live NPC registry entries. Mirrors TS
+// World.getTotalNpcs (npcs.count, World.ts:1734-1736). In goscape,
+// s.npcs is a fixed-size [8192]*Npc array (no count field); we count
+// non-nil slots. npcs is tick-goroutine-only — no lock needed (matches
+// the tick-side read in addNpc / removeNpc / npcLoop iteration).
+func (w worldVarsView) TotalNpcs() int {
+	if w.s == nil {
+		return 0
+	}
+	n := 0
+	for _, npc := range w.s.npcs {
+		if npc != nil {
+			n++
+		}
+	}
+	return n
+}
+
+// TotalZones delegates to Server.zoneMap.ZoneCount(). Mirrors TS
+// GameMap.getTotalZones (zonemap.zoneCount(), GameMap.ts:102-104).
+func (w worldVarsView) TotalZones() int {
+	if w.s == nil || w.s.zoneMap == nil {
+		return 0
+	}
+	return w.s.zoneMap.ZoneCount()
+}
+
+// TotalLocs delegates to Server.zoneMap.LocCount(). Mirrors TS
+// GameMap.getTotalLocs (zonemap.locCount(), GameMap.ts:106-108).
+func (w worldVarsView) TotalLocs() int {
+	if w.s == nil || w.s.zoneMap == nil {
+		return 0
+	}
+	return w.s.zoneMap.LocCount()
+}
+
+// TotalObjs delegates to Server.zoneMap.ObjCount(). Mirrors TS
+// GameMap.getTotalObjs (zonemap.objCount(), GameMap.ts:110-112).
+func (w worldVarsView) TotalObjs() int {
+	if w.s == nil || w.s.zoneMap == nil {
+		return 0
+	}
+	return w.s.zoneMap.ObjCount()
+}
+
 // Compile-time conformance assertion for script.WorldVars. Adding any
 // new WorldVars method that worldVarsView fails to implement breaks
 // the build here. NAI-150 T1.

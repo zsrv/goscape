@@ -26,6 +26,11 @@ type mockWorld struct {
 	// addNpcAtFn (default-nil returns an error so unstubbed tests fail
 	// obviously rather than silently push nil).
 	addNpcAtFn func(level, x, z, typeID, duration int) (ActiveNpc, error)
+	// 244 count ops (ServerOps.ts:402-417).
+	totalNpcs  int
+	totalZones int
+	totalLocs  int
+	totalObjs  int
 }
 
 func newMockWorld() *mockWorld {
@@ -128,6 +133,12 @@ func (m *mockWorld) IsIndoors(x, z, level int) bool {
 // exercising MergeLoc override via a recorder type in handlers_player_test.go.
 func (m *mockWorld) MergeLoc(loc ActiveLoc, player ActivePlayer, startCycle, endCycle, south, east, north, west int) {
 }
+
+// 244 count ops (ServerOps.ts:402-417): stubs backed by the explicit fields.
+func (m *mockWorld) TotalNpcs() int  { return m.totalNpcs }
+func (m *mockWorld) TotalZones() int { return m.totalZones }
+func (m *mockWorld) TotalLocs() int  { return m.totalLocs }
+func (m *mockWorld) TotalObjs() int  { return m.totalObjs }
 
 func TestPushVarp(t *testing.T) {
 	sf := &ScriptFile{

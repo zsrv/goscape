@@ -137,6 +137,72 @@ func handleMapIndoors(s *ScriptState) error {
 	return nil
 }
 
+// handleNpcCount (NPCCOUNT, opcode 1030) pushes the live NPC total.
+// Mirrors TS ServerOps.ts:403-405 (9aadcec4):
+//
+//	[ScriptOpcode.NPCCOUNT]: state => {
+//	    state.pushInt(World.getTotalNpcs());
+//	}
+//
+// getTotalNpcs returns this.npcs.count (World.ts:1734-1736).
+func handleNpcCount(s *ScriptState) error {
+	if s.World == nil {
+		return fmt.Errorf("NPCCOUNT: %w", ErrNoWorld)
+	}
+	s.PushInt(s.World.TotalNpcs())
+	return nil
+}
+
+// handleZoneCount (ZONECOUNT, opcode 1031) pushes the number of
+// materialised zones. Mirrors TS ServerOps.ts:407-409 (9aadcec4):
+//
+//	[ScriptOpcode.ZONECOUNT]: state => {
+//	    state.pushInt(World.gameMap.getTotalZones());
+//	}
+//
+// getTotalZones delegates to zonemap.zoneCount() (GameMap.ts:102-104).
+func handleZoneCount(s *ScriptState) error {
+	if s.World == nil {
+		return fmt.Errorf("ZONECOUNT: %w", ErrNoWorld)
+	}
+	s.PushInt(s.World.TotalZones())
+	return nil
+}
+
+// handleLocCount (LOCCOUNT, opcode 1032) pushes the total loc count
+// across all materialised zones. Mirrors TS ServerOps.ts:411-413 (9aadcec4):
+//
+//	[ScriptOpcode.LOCCOUNT]: state => {
+//	    state.pushInt(World.gameMap.getTotalLocs());
+//	}
+//
+// getTotalLocs delegates to zonemap.locCount() (GameMap.ts:106-108).
+func handleLocCount(s *ScriptState) error {
+	if s.World == nil {
+		return fmt.Errorf("LOCCOUNT: %w", ErrNoWorld)
+	}
+	s.PushInt(s.World.TotalLocs())
+	return nil
+}
+
+// handleZoneObjCount (OBJCOUNT, opcode 1033) pushes the total obj count
+// across all materialised zones. Named handleZoneObjCount (matching
+// OpZoneObjCount) to distinguish from handleObjCount (OBJ_COUNT/3503).
+// Mirrors TS ServerOps.ts:415-417 (9aadcec4):
+//
+//	[ScriptOpcode.OBJCOUNT]: state => {
+//	    state.pushInt(World.gameMap.getTotalObjs());
+//	}
+//
+// getTotalObjs delegates to zonemap.objCount() (GameMap.ts:110-112).
+func handleZoneObjCount(s *ScriptState) error {
+	if s.World == nil {
+		return fmt.Errorf("OBJCOUNT: %w", ErrNoWorld)
+	}
+	s.PushInt(s.World.TotalObjs())
+	return nil
+}
+
 // handleWorldDelay (WORLD_DELAY, opcode 1029) suspends the active
 // script to the world-script queue. The wakeup-tick value is NOT
 // popped here — it remains on the script's int stack and is popped by

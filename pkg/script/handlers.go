@@ -91,6 +91,12 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpSeqLength:  handleSeqLength,
 	OpMapIndoors: handleMapIndoors,
 
+	// 244 count ops (ServerOps.ts:402-417).
+	OpNpcCount:     handleNpcCount,
+	OpZoneCount:    handleZoneCount,
+	OpLocCount:     handleLocCount,
+	OpZoneObjCount: handleZoneObjCount,
+
 	// NAI-35-T2: rect-bounded player-count enumeration.
 	OpMapPlayerCount: handleMapPlayerCount,
 

@@ -8,6 +8,88 @@ import (
 	"github.com/zsrv/goscape/pkg/zone"
 )
 
+// TestWorldVarsView_TotalNpcs pins that TotalNpcs counts non-nil slots in
+// Server.npcs. Mirrors TS World.getTotalNpcs (npcs.count, World.ts:1734-1736).
+func TestWorldVarsView_TotalNpcs(t *testing.T) {
+	s := newZoneTestServer(t)
+	w := worldVarsView{s: s}
+
+	// Empty: 0.
+	if got := w.TotalNpcs(); got != 0 {
+		t.Fatalf("TotalNpcs empty: got %d, want 0", got)
+	}
+
+	// Seed 3 NPCs at arbitrary slots.
+	s.npcs[0] = newTestNpc(0)
+	s.npcs[7] = newTestNpc(7)
+	s.npcs[42] = newTestNpc(42)
+	if got := w.TotalNpcs(); got != 3 {
+		t.Errorf("TotalNpcs after 3 seeded: got %d, want 3", got)
+	}
+
+	// Remove one: count drops.
+	s.npcs[7] = nil
+	if got := w.TotalNpcs(); got != 2 {
+		t.Errorf("TotalNpcs after nil slot 7: got %d, want 2", got)
+	}
+
+	// Nil-server defensive.
+	wn := worldVarsView{}
+	if got := wn.TotalNpcs(); got != 0 {
+		t.Errorf("TotalNpcs nil-server: got %d, want 0", got)
+	}
+}
+
+// TestWorldVarsView_TotalZonesLocsObjs pins that the zone-count accessors
+// delegate to Server.zoneMap. Rather than hard-coding brittle literals, we
+// assert the returned values equal the zoneMap's own counts — confirming the
+// delegation plumbing is correct regardless of how many zones the fixture
+// materialises. Mirrors TS GameMap.getTotalZones/Locs/Objs (GameMap.ts:102-112).
+func TestWorldVarsView_TotalZonesLocsObjs(t *testing.T) {
+	s := newZoneTestServer(t)
+	w := worldVarsView{s: s}
+
+	// Materialise zones by adding a loc and an obj (side-effect: zoneMap.Get
+	// creates the zone entry on first access). Add to two different tiles so
+	// we cover distinct zones for loc and obj.
+	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)
+	s.AddLoc(loc, 0)
+
+	obj := entitypkg.NewObj(0, 3200, 3200, entitypkg.LifecycleDespawn, 995, 1)
+	s.AddObj(obj, zone.PublicReceiver, 0, 0)
+
+	// Zones: assert delegation matches zoneMap directly.
+	if got, want := w.TotalZones(), s.zoneMap.ZoneCount(); got != want {
+		t.Errorf("TotalZones: got %d, want %d (zoneMap.ZoneCount)", got, want)
+	}
+	// Locs: at least 1 from the loc we added.
+	if got, want := w.TotalLocs(), s.zoneMap.LocCount(); got != want {
+		t.Errorf("TotalLocs: got %d, want %d (zoneMap.LocCount)", got, want)
+	}
+	if got := w.TotalLocs(); got < 1 {
+		t.Errorf("TotalLocs: got %d, want >=1 (at least the seeded loc)", got)
+	}
+	// Objs: at least 1 from the obj we added.
+	if got, want := w.TotalObjs(), s.zoneMap.ObjCount(); got != want {
+		t.Errorf("TotalObjs: got %d, want %d (zoneMap.ObjCount)", got, want)
+	}
+	if got := w.TotalObjs(); got < 1 {
+		t.Errorf("TotalObjs: got %d, want >=1 (at least the seeded obj)", got)
+	}
+
+	// Nil-server defensives.
+	wn := worldVarsView{}
+	if got := wn.TotalZones(); got != 0 {
+		t.Errorf("TotalZones nil-server: got %d, want 0", got)
+	}
+	if got := wn.TotalLocs(); got != 0 {
+		t.Errorf("TotalLocs nil-server: got %d, want 0", got)
+	}
+	if got := wn.TotalObjs(); got != 0 {
+		t.Errorf("TotalObjs nil-server: got %d, want 0", got)
+	}
+}
+
 // TestWorldVarsView_MapProjAnim_Delegates pins that the WorldVars
 // MapProjAnim method routes through Server.MapProjAnim →
 // Zone.MapProjAnim, producing an enclosed ZoneOpMapProjAnim event in

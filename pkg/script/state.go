@@ -185,6 +185,14 @@ type WorldVars interface {
 	// INV_DROPITEM). Mirrors the same value threaded through emission sites
 	// in modules/world/ that read cfg.NodeID directly.
 	NodeID() int
+
+	// 244 count ops (ServerOps.ts:402-417). TotalNpcs mirrors TS
+	// World.getTotalNpcs (npcs.count, World.ts:1734-1736); the rest mirror
+	// GameMap.getTotalZones/Locs/Objs (GameMap.ts:102-112).
+	TotalNpcs() int
+	TotalZones() int
+	TotalLocs() int
+	TotalObjs() int
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.

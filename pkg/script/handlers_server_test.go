@@ -269,3 +269,102 @@ func TestHandleSeqLength_RejectsUnknownID(t *testing.T) {
 		t.Errorf("error: got %q, want to contain \"SEQ_LENGTH\"", err.Error())
 	}
 }
+
+// TestCountOps pins the 244 NPCCOUNT/ZONECOUNT/LOCCOUNT/OBJCOUNT handlers.
+// Mirrors TS ServerOps.ts:403-417 (verified against 9aadcec4).
+func TestCountOps(t *testing.T) {
+	type countCase struct {
+		name    string
+		op      Opcode
+		handler func(*ScriptState) error
+		field   func(*mockWorld, int)
+		errTag  string
+	}
+	cases := []countCase{
+		{
+			name:    "NPCCOUNT",
+			op:      OpNpcCount,
+			handler: handleNpcCount,
+			field:   func(w *mockWorld, v int) { w.totalNpcs = v },
+			errTag:  "NPCCOUNT",
+		},
+		{
+			name:    "ZONECOUNT",
+			op:      OpZoneCount,
+			handler: handleZoneCount,
+			field:   func(w *mockWorld, v int) { w.totalZones = v },
+			errTag:  "ZONECOUNT",
+		},
+		{
+			name:    "LOCCOUNT",
+			op:      OpLocCount,
+			handler: handleLocCount,
+			field:   func(w *mockWorld, v int) { w.totalLocs = v },
+			errTag:  "LOCCOUNT",
+		},
+		{
+			name:    "OBJCOUNT",
+			op:      OpZoneObjCount,
+			handler: handleZoneObjCount,
+			field:   func(w *mockWorld, v int) { w.totalObjs = v },
+			errTag:  "OBJCOUNT",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name+"_pushesTotal", func(t *testing.T) {
+			const canned = 42
+			w := &mockWorld{}
+			tc.field(w, canned)
+			s := &ScriptState{
+				IntStack:    make([]int, StackCapacity),
+				StringStack: make([]string, StackCapacity),
+				World:       w,
+			}
+			if err := tc.handler(s); err != nil {
+				t.Fatalf("%s handler: %v", tc.name, err)
+			}
+			if got := s.PopInt(); got != canned {
+				t.Errorf("%s: got %d, want %d", tc.name, got, canned)
+			}
+		})
+
+		t.Run(tc.name+"_nilWorldRejects", func(t *testing.T) {
+			s := &ScriptState{
+				IntStack:    make([]int, StackCapacity),
+				StringStack: make([]string, StackCapacity),
+			}
+			err := tc.handler(s)
+			if err == nil {
+				t.Fatalf("%s with nil World: want error, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.errTag) {
+				t.Errorf("%s nil-world error: got %q, want substring %q",
+					tc.name, err.Error(), tc.errTag)
+			}
+		})
+
+		// Integration path: Execute via opcode dispatch.
+		t.Run(tc.name+"_execute", func(t *testing.T) {
+			const canned = 77
+			w := &mockWorld{}
+			tc.field(w, canned)
+			sf := &ScriptFile{
+				Name:             strings.ToLower(tc.name),
+				Opcodes:          []Opcode{tc.op, OpReturn},
+				IntOperands:      []int32{0, 0},
+				StringOperands:   []string{"", ""},
+				InstructionCount: 2,
+			}
+			state := Init(sf, nil, false, nil, nil)
+			state.World = w
+			if err := Execute(state); err != nil {
+				t.Fatalf("Execute %s: %v", tc.name, err)
+			}
+			if got := state.PopInt(); got != canned {
+				t.Errorf("%s Execute: got %d, want %d", tc.name, got, canned)
+			}
+		})
+	}
+}
