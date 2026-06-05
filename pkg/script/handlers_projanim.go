@@ -75,7 +75,8 @@ func handleProjAnimNpc(s *ScriptState) error {
 
 // handleProjAnimPl (PROJANIM_PL, opcode 1020) queues a tile→player
 // projectile event with the player encoded as receiver via
-// -player.Slot()-1. Mirrors TS ServerOps.ts:171-183.
+// -player.Slot()-1 (Slot() returns the pid since the B3 rename, so this
+// is TS's `-player.pid - 1`). Mirrors TS ServerOps.ts:320-332.
 func handleProjAnimPl(s *ScriptState) error {
 	arc := s.PopInt()
 	peak := s.PopInt()
