@@ -227,6 +227,21 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpGetTimeSpent: handleGetTimeSpent,
 	OpTimeSpent:    handleTimeSpent,
 
+	// 244: MAP_PRODUCTION + MAP_LAST* cycle-stat debug ops (DebugOps.ts:16-66).
+	OpMapProduction:       handleMapProduction,
+	OpMapLastClock:        handleMapLastClock,
+	OpMapLastWorld:        handleMapLastWorld,
+	OpMapLastClientIn:     handleMapLastClientIn,
+	OpMapLastNpc:          handleMapLastNpc,
+	OpMapLastPlayer:       handleMapLastPlayer,
+	OpMapLastLogout:       handleMapLastLogout,
+	OpMapLastLogin:        handleMapLastLogin,
+	OpMapLastZone:         handleMapLastZone,
+	OpMapLastClientOut:    handleMapLastClientOut,
+	OpMapLastCleanup:      handleMapLastCleanup,
+	OpMapLastBandwidthIn:  handleMapLastBandwidthIn,
+	OpMapLastBandwidthOut: handleMapLastBandwidthOut,
+
 	// S5a: array ops + SWITCH.
 	OpDefineArray:  handleDefineArray,
 	OpPushArrayInt: handlePushArrayInt,

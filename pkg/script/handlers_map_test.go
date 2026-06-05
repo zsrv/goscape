@@ -150,7 +150,7 @@ type xzKey struct{ x, z int }
 
 // mapFindSquareWorld extends mockWorld with the IsMapBlocked / IsFreeToPlay
 // surface MAP_FINDSQUARE needs. Embeds *mockWorld so all existing WorldVars
-// methods (CurrentTick / PlayerCount / MapLive / VarsInt etc.) are inherited;
+// methods (CurrentTick / PlayerCount / MapProduction / VarsInt etc.) are inherited;
 // MapMembers is overridden to allow a F2P (members=0) test case.
 type mapFindSquareWorld struct {
 	*mockWorld

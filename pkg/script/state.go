@@ -64,9 +64,17 @@ type WorldVars interface {
 	CurrentTick() int
 	PlayerCount() int
 
-	// World-config queries: MAP_MEMBERS / MAP_LIVE. Pushed as 0/1.
+	// World-config queries: MAP_MEMBERS / MAP_PRODUCTION. Pushed as 0/1.
 	MapMembers() int
-	MapLive() int
+	// MapProduction returns 1 if the server is in production mode, else 0.
+	// MAP_PRODUCTION — DebugOps.ts:16-18 at 244; the 225 MAP_LIVE body
+	// relocated+renamed.
+	MapProduction() int
+
+	// LastCycleStat returns lastCycleStats[stat] — the per-cycle stats
+	// surface the MAP_LAST* debug ops read (DebugOps.ts:20-66). Stat
+	// indexes follow the TS WorldStat enum order.
+	LastCycleStat(stat int) int
 
 	// IsMapBlocked reports whether the tile at (level, x, z) blocks
 	// walking. Used by MAP_FINDSQUARE for candidate-square rejection.

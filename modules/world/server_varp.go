@@ -74,13 +74,23 @@ func (w worldVarsView) MapMembers() int {
 	return 1
 }
 
-// MapLive returns 1 if the server is in production mode, else 0.
-// Matches TS Environment.NODE_PRODUCTION. Used by MAP_LIVE opcode.
-func (w worldVarsView) MapLive() int {
+// MapProduction returns 1 if the server is in production mode, else 0.
+// Matches TS Environment.NODE_PRODUCTION. Renamed from MapLive at 244:
+// DebugOps.ts:16-18 MAP_PRODUCTION.
+func (w worldVarsView) MapProduction() int {
 	if w.s == nil || !w.s.cfg.NodeProduction {
 		return 0
 	}
 	return 1
+}
+
+// LastCycleStat returns lastCycleStats[stat] — delegates to Server.LastCycleStat.
+// Used by the MAP_LAST* debug ops (DebugOps.ts:20-66).
+func (w worldVarsView) LastCycleStat(stat int) int {
+	if w.s == nil {
+		return 0
+	}
+	return w.s.LastCycleStat(stat)
 }
 
 // NodeID returns the server's configured node ID. Used as the world_id
