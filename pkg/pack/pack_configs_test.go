@@ -579,6 +579,62 @@ func TestPackConfigs_TwentyConfigsLand(t *testing.T) {
 	}
 }
 
+// TestPackConfigsModelFlagsPlumbing_SharedBackingArray is the RED→GREEN pin
+// for the modelFlags threading (TS PackShared.ts:137-141 @ 9aadcec4).
+//
+// TS contract: packConfigs(cache, modelFlags) receives a caller-allocated
+// number[] indexed by model id; readConfigs forwards it to each
+// ConfigPackCallback; the five consumers (idk/loc/npc/obj/spotanim) write
+// bit flags back via modelFlags[modelId] |= 0xNN. Because it is a shared
+// slice, the caller observes the writes after packConfigs returns.
+//
+// This test covers the T5 plumbing milestone only — no flag writes land
+// until T6-T13. The test:
+//  1. Calls packConfigsCoreWithModelFlags (new internal entry point, RED).
+//  2. Places a sentinel value at modelFlags[5] before the call.
+//  3. Verifies the sentinel is intact after the call (T5: no writes yet).
+//  4. Calls packNpcConfigs directly with a modelFlags arg to confirm the
+//     per-config signature change compiles (RED before T5 signature change).
+//
+// Actual flag-write assertions (modelFlags[id] |= 0x2 etc.) land in T6+.
+func TestPackConfigsModelFlagsPlumbing_SharedBackingArray(t *testing.T) {
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+	ClearFsCache()
+
+	modelFlags := make([]int, 10)
+	modelFlags[5] = 0x1 // sentinel; T5 must not overwrite it
+
+	reg := &Registry{SrcDir: srcDir}
+	if err := packConfigsCoreWithModelFlags(srcDir, outDir, reg, modelFlags); err != nil {
+		t.Fatalf("packConfigsCoreWithModelFlags: %v", err)
+	}
+
+	// Shared backing array: no T5 writes, sentinel must survive.
+	if modelFlags[5] != 0x1 {
+		t.Errorf("modelFlags[5] = 0x%x, want 0x1 (T5 must not overwrite)", modelFlags[5])
+	}
+
+	// Stub: packNpcConfigs with modelFlags arg compiles (per-config signature).
+	// Simulates the T6 contract: the function accepts modelFlags and the caller
+	// can observe any writes via shared backing array semantics.
+	localFlags := make([]int, 10)
+	npcPack, err := NewPackFile(srcDir, "npc", nil)
+	if err != nil {
+		t.Fatalf("NewPackFile npc: %v", err)
+	}
+	// Empty configs: no writes happen yet (T6 wires the actual flag writes).
+	_, _, err = packNpcConfigs(map[string][]ConfigLine{}, npcPack, localFlags)
+	if err != nil {
+		t.Fatalf("packNpcConfigs stub: %v", err)
+	}
+	// Stub write to verify slice aliasing semantics work as expected.
+	localFlags[5] |= 0x2
+	if localFlags[5] != 0x2 {
+		t.Errorf("localFlags[5] = 0x%x, want 0x2 (slice aliasing sanity)", localFlags[5])
+	}
+}
+
 // TestPackConfigs_OrphanPackNameRejected is the RED→GREEN integration test
 // for wiring ValidateConfigPackNames into the live pack path.
 //

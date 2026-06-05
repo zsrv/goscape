@@ -138,7 +138,7 @@ func TestPackObjConfigs_Model(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"widget": {{Key: "model", Value: 7}},
 	}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestPackObjConfigs_Name(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"sword": {{Key: "name", Value: "Sword"}},
 	}
-	server, client, err := packObjConfigs(configs, objPack)
+	server, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ func TestPackObjConfigs_Name(t *testing.T) {
 func TestPackObjConfigs_Desc(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "desc", Value: "It's a thing."}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestPackObjConfigs_Desc(t *testing.T) {
 func TestPackObjConfigs_Zoom2d(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "2dzoom", Value: 0x1234}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +206,7 @@ func TestPackObjConfigs_Zoom2d(t *testing.T) {
 func TestPackObjConfigs_Xan2d(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "2dxan", Value: 0x0102}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func TestPackObjConfigs_Xan2d(t *testing.T) {
 func TestPackObjConfigs_Yan2d(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "2dyan", Value: 0x0203}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func TestPackObjConfigs_Yan2d(t *testing.T) {
 func TestPackObjConfigs_Xof2d(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "2dxof", Value: 50}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestPackObjConfigs_Xof2d(t *testing.T) {
 func TestPackObjConfigs_Yof2d(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "2dyof", Value: 60}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +258,7 @@ func TestPackObjConfigs_Yof2d(t *testing.T) {
 func TestPackObjConfigs_Code9True(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "code9", Value: true}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +271,7 @@ func TestPackObjConfigs_Code9True(t *testing.T) {
 func TestPackObjConfigs_Code10(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "code10", Value: 5}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +284,7 @@ func TestPackObjConfigs_Code10(t *testing.T) {
 func TestPackObjConfigs_StackableTrue(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "stackable", Value: true}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +297,7 @@ func TestPackObjConfigs_StackableTrue(t *testing.T) {
 func TestPackObjConfigs_Cost(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "cost", Value: 0x01020304}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,7 +311,7 @@ func TestPackObjConfigs_Wearpos(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	// wearpos=4 (torso) → opcode 13 + p1(4) on server.
 	configs := map[string][]ConfigLine{"x": {{Key: "wearpos", Value: 4}}}
-	server, _, err := packObjConfigs(configs, objPack)
+	server, _, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +324,7 @@ func TestPackObjConfigs_Wearpos(t *testing.T) {
 func TestPackObjConfigs_Wearpos2(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "wearpos2", Value: 6}}}
-	server, _, err := packObjConfigs(configs, objPack)
+	server, _, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -338,7 +338,7 @@ func TestPackObjConfigs_TradeableFalse(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	// tradeable=false → opcode 15 on server.
 	configs := map[string][]ConfigLine{"x": {{Key: "tradeable", Value: false}}}
-	server, _, err := packObjConfigs(configs, objPack)
+	server, _, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,7 +351,7 @@ func TestPackObjConfigs_TradeableFalse(t *testing.T) {
 func TestPackObjConfigs_MembersTrue(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "members", Value: true}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -366,7 +366,7 @@ func TestPackObjConfigs_Manwear(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"x": {{Key: "manwear", Value: objManWomanWearPair{Model: 1, Offset: 7}}},
 	}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -380,7 +380,7 @@ func TestPackObjConfigs_Manwear(t *testing.T) {
 func TestPackObjConfigs_Manwear2(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "manwear2", Value: 3}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +395,7 @@ func TestPackObjConfigs_Womanwear(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"x": {{Key: "womanwear", Value: objManWomanWearPair{Model: 2, Offset: 5}}},
 	}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -409,7 +409,7 @@ func TestPackObjConfigs_Womanwear(t *testing.T) {
 func TestPackObjConfigs_Womanwear2(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "womanwear2", Value: 4}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -422,7 +422,7 @@ func TestPackObjConfigs_Womanwear2(t *testing.T) {
 func TestPackObjConfigs_Wearpos3(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "wearpos3", Value: 8}}}
-	server, _, err := packObjConfigs(configs, objPack)
+	server, _, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -435,7 +435,7 @@ func TestPackObjConfigs_Wearpos3(t *testing.T) {
 func TestPackObjConfigs_Op1(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "op1", Value: "use"}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -449,7 +449,7 @@ func TestPackObjConfigs_Op1(t *testing.T) {
 func TestPackObjConfigs_Op5(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "op5", Value: "drop"}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -463,7 +463,7 @@ func TestPackObjConfigs_Op5(t *testing.T) {
 func TestPackObjConfigs_Iop1(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "iop1", Value: "examine"}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -477,7 +477,7 @@ func TestPackObjConfigs_Iop1(t *testing.T) {
 func TestPackObjConfigs_Iop5(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "iop5", Value: "trash"}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -497,7 +497,7 @@ func TestPackObjConfigs_RecolPair(t *testing.T) {
 			{Key: "recol1d", Value: 22},
 		},
 	}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -512,7 +512,7 @@ func TestPackObjConfigs_Weight(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	// weight pre-parsed to -10 grams. Server emits opcode 75 + p2 (signed).
 	configs := map[string][]ConfigLine{"x": {{Key: "weight", Value: -10}}}
-	server, _, err := packObjConfigs(configs, objPack)
+	server, _, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -526,7 +526,7 @@ func TestPackObjConfigs_Weight(t *testing.T) {
 func TestPackObjConfigs_Manwear3(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "manwear3", Value: 11}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -539,7 +539,7 @@ func TestPackObjConfigs_Manwear3(t *testing.T) {
 func TestPackObjConfigs_Womanwear3(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "womanwear3", Value: 12}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -552,7 +552,7 @@ func TestPackObjConfigs_Womanwear3(t *testing.T) {
 func TestPackObjConfigs_Manhead(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "manhead", Value: 1}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -565,7 +565,7 @@ func TestPackObjConfigs_Manhead(t *testing.T) {
 func TestPackObjConfigs_Womanhead(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "womanhead", Value: 2}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -578,7 +578,7 @@ func TestPackObjConfigs_Womanhead(t *testing.T) {
 func TestPackObjConfigs_Manhead2(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "manhead2", Value: 3}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -591,7 +591,7 @@ func TestPackObjConfigs_Manhead2(t *testing.T) {
 func TestPackObjConfigs_Womanhead2(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "womanhead2", Value: 4}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -604,7 +604,7 @@ func TestPackObjConfigs_Womanhead2(t *testing.T) {
 func TestPackObjConfigs_Category(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "category", Value: 9}}}
-	server, client, err := packObjConfigs(configs, objPack)
+	server, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -621,7 +621,7 @@ func TestPackObjConfigs_Category(t *testing.T) {
 func TestPackObjConfigs_Zan2d(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "2dzan", Value: 0x0506}}}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -634,7 +634,7 @@ func TestPackObjConfigs_Zan2d(t *testing.T) {
 func TestPackObjConfigs_Dummyitem(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "dummyitem", Value: 1}}}
-	server, _, err := packObjConfigs(configs, objPack)
+	server, _, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -651,7 +651,7 @@ func TestPackObjConfigs_Count1(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"x": {{Key: "count1", Value: objCountPair{Obj: 42, Count: 100}}},
 	}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -667,7 +667,7 @@ func TestPackObjConfigs_Count10(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"x": {{Key: "count10", Value: objCountPair{Obj: 1, Count: 5}}},
 	}
-	_, client, err := packObjConfigs(configs, objPack)
+	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -680,7 +680,7 @@ func TestPackObjConfigs_Count10(t *testing.T) {
 func TestPackObjConfigs_Respawnrate(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "respawnrate", Value: 600}}}
-	server, _, err := packObjConfigs(configs, objPack)
+	server, _, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -699,7 +699,7 @@ func TestPackObjConfigs_Param(t *testing.T) {
 			Value: ParamValue{ID: 3, Type: objtype.ScriptVarTypeInt, Value: 42},
 		}},
 	}
-	server, _, err := packObjConfigs(configs, objPack)
+	server, _, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -728,7 +728,7 @@ func TestPackObjConfigs_ParamString(t *testing.T) {
 			Value: ParamValue{ID: 2, Type: objtype.ScriptVarTypeString, Value: "hi"},
 		}},
 	}
-	server, _, err := packObjConfigs(configs, objPack)
+	server, _, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -782,7 +782,7 @@ func TestPackObjConfigs_CertUncertPairing(t *testing.T) {
 		// no reverse-lookup, no trailers" arm.
 	}
 
-	server, client, err := packObjConfigs(configs, objPack)
+	server, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -839,7 +839,7 @@ func TestPackObjConfigs_DebugnameEmpty(t *testing.T) {
 	// Empty debugname slot → no opcode 250, just Next() terminator.
 	objPack := newTestPF("obj", map[int]string{0: ""})
 	configs := map[string][]ConfigLine{}
-	server, _, err := packObjConfigs(configs, objPack)
+	server, _, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -58,12 +58,16 @@ type dbRowDataField struct {
 //	4   → P2(table.id)
 //	250 → debugname PJStr  (when len(name) > 0)
 //
+// modelFlags is accepted for TS ConfigPackCallback parity
+// (PackShared.ts:137-141); dbrow does not write any model flags.
+//
 // TS source: tools/pack/config/DbRowConfig.ts:84-185.
 func packDbRowConfigs(
 	configs map[string][]ConfigLine,
 	pf *PackFile,
 	dbtableTypes *objtype.DbTableTypeConfigs,
 	lk *paramLookups,
+	modelFlags []int,
 ) (*PackedData, error) {
 	pd := NewPackedData(pf.Max)
 

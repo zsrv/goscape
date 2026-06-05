@@ -146,7 +146,7 @@ func TestPackSeqConfigs_Loops(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"walk": {{Key: "loops", Value: 5}},
 	}
-	_, client := packSeqConfigs(configs, seqPack)
+	_, client := packSeqConfigs(configs, seqPack, nil)
 	want := []byte{0x00, 0x01, 0x02, 0x00, 0x05, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -156,7 +156,7 @@ func TestPackSeqConfigs_Loops(t *testing.T) {
 func TestPackSeqConfigs_ServerDebugTrailer(t *testing.T) {
 	seqPack := seqOneSlotPack("walk")
 	configs := map[string][]ConfigLine{}
-	server, _ := packSeqConfigs(configs, seqPack)
+	server, _ := packSeqConfigs(configs, seqPack, nil)
 	if !bytes.Equal(server.Dat.Data, seqServerDebugTrailer("walk")) {
 		t.Fatalf("server:\n got % x\nwant % x", server.Dat.Data, seqServerDebugTrailer("walk"))
 	}
@@ -165,7 +165,7 @@ func TestPackSeqConfigs_ServerDebugTrailer(t *testing.T) {
 func TestPackSeqConfigs_NoDebugnameNoTrailer(t *testing.T) {
 	pf := newTestPF("seq", map[int]string{0: ""}) // explicit empty name
 	configs := map[string][]ConfigLine{}
-	server, _ := packSeqConfigs(configs, pf)
+	server, _ := packSeqConfigs(configs, pf, nil)
 	want := []byte{0x00, 0x01, 0x00}
 	if !bytes.Equal(server.Dat.Data, want) {
 		t.Fatalf("server:\n got % x\nwant % x", server.Dat.Data, want)
@@ -182,7 +182,7 @@ func TestPackSeqConfigs_FramesIframesDelays(t *testing.T) {
 			{Key: "delay2", Value: 7},
 		},
 	}
-	_, client := packSeqConfigs(configs, seqPack)
+	_, client := packSeqConfigs(configs, seqPack, nil)
 	want := []byte{
 		0x00, 0x01,
 		0x01, 0x02,
@@ -200,7 +200,7 @@ func TestPackSeqConfigs_ReplaceHeldRight_Hide(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"walk": {{Key: "replaceheldright", Value: 0}},
 	}
-	_, client := packSeqConfigs(configs, seqPack)
+	_, client := packSeqConfigs(configs, seqPack, nil)
 	want := []byte{0x00, 0x01, 0x07, 0x00, 0x00, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -212,7 +212,7 @@ func TestPackSeqConfigs_ReplaceHeldRight_ObjPlus512(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"walk": {{Key: "replaceheldright", Value: 513}},
 	}
-	_, client := packSeqConfigs(configs, seqPack)
+	_, client := packSeqConfigs(configs, seqPack, nil)
 	want := []byte{0x00, 0x01, 0x07, 0x02, 0x01, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -224,7 +224,7 @@ func TestPackSeqConfigs_Walkmerge(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"walk": {{Key: "walkmerge", Value: []int{3, 7, 11}}},
 	}
-	_, client := packSeqConfigs(configs, seqPack)
+	_, client := packSeqConfigs(configs, seqPack, nil)
 	want := []byte{0x00, 0x01, 0x03, 0x03, 0x03, 0x07, 0x0B, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)

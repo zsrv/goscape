@@ -217,7 +217,9 @@ func paramIndexOrErr(pf *PackFile, value, kind string) (int, error) {
 // TS source: tools/pack/config/ParamConfig.ts:216-265. TS uses `!`
 // non-null assertion on the type-find; goscape returns an explicit
 // error to name the failure mode.
-func packParamConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *paramLookups) (server, client *PackedData, err error) {
+// modelFlags is accepted for TS ConfigPackCallback parity
+// (PackShared.ts:137-141); param does not write any model flags.
+func packParamConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *paramLookups, modelFlags []int) (server, client *PackedData, err error) {
 	server = NewPackedData(pf.Max)
 	client = NewPackedData(pf.Max)
 

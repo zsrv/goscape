@@ -269,7 +269,7 @@ func TestPackNpcConfigs_Name(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"rat": {{Key: "name", Value: "Giant Rat"}},
 	}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +287,7 @@ func TestPackNpcConfigs_Name(t *testing.T) {
 func TestPackNpcConfigs_Desc(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "desc", Value: "It bites."}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +303,7 @@ func TestPackNpcConfigs_Desc(t *testing.T) {
 func TestPackNpcConfigs_Size(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "size", Value: 3}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,7 +317,7 @@ func TestPackNpcConfigs_Size(t *testing.T) {
 func TestPackNpcConfigs_Readyanim(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "readyanim", Value: 7}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,7 +331,7 @@ func TestPackNpcConfigs_Readyanim(t *testing.T) {
 func TestPackNpcConfigs_Walkanim(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "walkanim", Value: 5}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -345,7 +345,7 @@ func TestPackNpcConfigs_Walkanim(t *testing.T) {
 func TestPackNpcConfigs_WalkanimList(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "walkanim", Value: []int{0, 1, 2, 3}}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,7 +365,7 @@ func TestPackNpcConfigs_WalkanimList(t *testing.T) {
 func TestPackNpcConfigs_HasalphaTrue(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "hasalpha", Value: true}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -379,7 +379,7 @@ func TestPackNpcConfigs_HasalphaTrue(t *testing.T) {
 func TestPackNpcConfigs_Category(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "category", Value: 5}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +393,7 @@ func TestPackNpcConfigs_Category(t *testing.T) {
 func TestPackNpcConfigs_Op1(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "op1", Value: "attack"}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -410,7 +410,7 @@ func TestPackNpcConfigs_Op1(t *testing.T) {
 func TestPackNpcConfigs_Op5(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "op5", Value: "examine"}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -427,7 +427,7 @@ func TestPackNpcConfigs_Op5(t *testing.T) {
 func TestPackNpcConfigs_Attack(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "attack", Value: 100}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +441,7 @@ func TestPackNpcConfigs_Attack(t *testing.T) {
 func TestPackNpcConfigs_Defence(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "defence", Value: 50}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,7 +454,7 @@ func TestPackNpcConfigs_Defence(t *testing.T) {
 func TestPackNpcConfigs_Strength(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "strength", Value: 25}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -467,7 +467,7 @@ func TestPackNpcConfigs_Strength(t *testing.T) {
 func TestPackNpcConfigs_Hitpoints(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "hitpoints", Value: 500}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -480,7 +480,7 @@ func TestPackNpcConfigs_Hitpoints(t *testing.T) {
 func TestPackNpcConfigs_Ranged(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "ranged", Value: 7}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,7 +493,7 @@ func TestPackNpcConfigs_Ranged(t *testing.T) {
 func TestPackNpcConfigs_Magic(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "magic", Value: 8}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -506,7 +506,7 @@ func TestPackNpcConfigs_Magic(t *testing.T) {
 func TestPackNpcConfigs_Resizex(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "resizex", Value: 100}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -520,7 +520,7 @@ func TestPackNpcConfigs_Resizex(t *testing.T) {
 func TestPackNpcConfigs_Resizey(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "resizey", Value: 100}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -534,7 +534,7 @@ func TestPackNpcConfigs_Resizey(t *testing.T) {
 func TestPackNpcConfigs_Resizez(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "resizez", Value: 100}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -548,7 +548,7 @@ func TestPackNpcConfigs_Resizez(t *testing.T) {
 func TestPackNpcConfigs_MinimapFalse(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "minimap", Value: false}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -562,7 +562,7 @@ func TestPackNpcConfigs_MinimapFalse(t *testing.T) {
 func TestPackNpcConfigs_Vislevel(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "vislevel", Value: 42}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -581,7 +581,7 @@ func TestPackNpcConfigs_Vislevel(t *testing.T) {
 func TestPackNpcConfigs_Resizeh(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "resizeh", Value: 200}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -595,7 +595,7 @@ func TestPackNpcConfigs_Resizeh(t *testing.T) {
 func TestPackNpcConfigs_Resizev(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "resizev", Value: 300}}}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -609,7 +609,7 @@ func TestPackNpcConfigs_Resizev(t *testing.T) {
 func TestPackNpcConfigs_Wanderrange(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "wanderrange", Value: 5}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -623,7 +623,7 @@ func TestPackNpcConfigs_Wanderrange(t *testing.T) {
 func TestPackNpcConfigs_Maxrange(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "maxrange", Value: 10}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -637,7 +637,7 @@ func TestPackNpcConfigs_Maxrange(t *testing.T) {
 func TestPackNpcConfigs_Huntrange(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "huntrange", Value: 15}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -651,7 +651,7 @@ func TestPackNpcConfigs_Huntrange(t *testing.T) {
 func TestPackNpcConfigs_Timer(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "timer", Value: 60}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -665,7 +665,7 @@ func TestPackNpcConfigs_Timer(t *testing.T) {
 func TestPackNpcConfigs_Respawnrate(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "respawnrate", Value: 100}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -681,7 +681,7 @@ func TestPackNpcConfigs_Moverestrict(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"x": {{Key: "moverestrict", Value: objtype.MoveRestrictBlocked}},
 	}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -695,7 +695,7 @@ func TestPackNpcConfigs_Moverestrict(t *testing.T) {
 func TestPackNpcConfigs_Attackrange(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "attackrange", Value: 7}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -711,7 +711,7 @@ func TestPackNpcConfigs_Blockwalk(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"x": {{Key: "blockwalk", Value: objtype.BlockWalkAll}},
 	}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -725,7 +725,7 @@ func TestPackNpcConfigs_Blockwalk(t *testing.T) {
 func TestPackNpcConfigs_Huntmode(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "huntmode", Value: 3}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -741,7 +741,7 @@ func TestPackNpcConfigs_Defaultmode(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"x": {{Key: "defaultmode", Value: objtype.NPCModeWander}},
 	}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -755,7 +755,7 @@ func TestPackNpcConfigs_Defaultmode(t *testing.T) {
 func TestPackNpcConfigs_MembersTrue(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "members", Value: true}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -769,7 +769,7 @@ func TestPackNpcConfigs_MembersTrue(t *testing.T) {
 func TestPackNpcConfigs_GivechaseFalse(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "givechase", Value: false}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -783,7 +783,7 @@ func TestPackNpcConfigs_GivechaseFalse(t *testing.T) {
 func TestPackNpcConfigs_Regenrate(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "regenrate", Value: 100}}}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -803,7 +803,7 @@ func TestPackNpcConfigs_RecolPair(t *testing.T) {
 			{Key: "recol1d", Value: 22},
 		},
 	}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -827,7 +827,7 @@ func TestPackNpcConfigs_Models(t *testing.T) {
 			{Key: "model2", Value: 7},
 		},
 	}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -852,7 +852,7 @@ func TestPackNpcConfigs_Heads(t *testing.T) {
 			{Key: "head2", Value: 9},
 		},
 	}
-	_, client, err := packNpcConfigs(configs, npcPack)
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -873,7 +873,7 @@ func TestPackNpcConfigs_Patrol(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"x": {{Key: "patrol1", Value: npcPatrolEntry{Coord: 0x01020304, Delay: 7}}},
 	}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -898,7 +898,7 @@ func TestPackNpcConfigs_Param(t *testing.T) {
 			Value: ParamValue{ID: 4, Type: objtype.ScriptVarTypeInt, Value: 42},
 		}},
 	}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -925,7 +925,7 @@ func TestPackNpcConfigs_ParamString(t *testing.T) {
 			Value: ParamValue{ID: 3, Type: objtype.ScriptVarTypeString, Value: "hi"},
 		}},
 	}
-	server, _, err := packNpcConfigs(configs, npcPack)
+	server, _, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -951,7 +951,7 @@ func TestPackNpcConfigs_ParamString(t *testing.T) {
 func TestPackNpcConfigs_NoConfig(t *testing.T) {
 	npcPack := npcOneSlotPack("rat")
 	configs := map[string][]ConfigLine{}
-	server, client, err := packNpcConfigs(configs, npcPack)
+	server, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -974,7 +974,7 @@ func TestPackNpcConfigs_DebugnameEmpty(t *testing.T) {
 	// trailers either.
 	npcPack := newTestPF("npc", map[int]string{0: ""})
 	configs := map[string][]ConfigLine{}
-	server, client, err := packNpcConfigs(configs, npcPack)
+	server, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

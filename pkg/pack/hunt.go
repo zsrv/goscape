@@ -446,8 +446,11 @@ func findTypeValue(cfg []ConfigLine) int {
 // Server-only — TS allocates a client PackedData but never writes to
 // it. Goscape omits the client buffer entirely.
 //
+// modelFlags is accepted for TS ConfigPackCallback parity
+// (PackShared.ts:137-141); hunt does not write any model flags.
+//
 // TS source: tools/pack/config/HuntConfig.ts:383-545.
-func packHuntConfigs(configs map[string][]ConfigLine, pf *PackFile) (*PackedData, error) {
+func packHuntConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []int) (*PackedData, error) {
 	pd := NewPackedData(pf.Max)
 	for id := range pf.Max {
 		name := pf.GetByID(id)

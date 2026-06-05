@@ -26,7 +26,7 @@ func TestPackDbTableConfigs_EmptyConfigDebugnameOnly(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"t_empty": {},
 	}
-	pd, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t))
+	pd, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestPackDbTableConfigs_SingleColumnNoDefault(t *testing.T) {
 			{Key: "column", Value: "id,int"},
 		},
 	}
-	pd, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t))
+	pd, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestPackDbTableConfigs_SingleColumnWithIntDefault(t *testing.T) {
 			{Key: "default", Value: "score,42"},
 		},
 	}
-	pd, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t))
+	pd, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestPackDbTableConfigs_AllPropertyBits(t *testing.T) {
 			{Key: "column", Value: "key,int,INDEXED,REQUIRED,LIST,CLIENTSIDE"},
 		},
 	}
-	pd, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t))
+	pd, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestPackDbTableConfigs_IndexedWithoutRequiredErrors(t *testing.T) {
 			{Key: "column", Value: "x,int,INDEXED"},
 		},
 	}
-	_, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t))
+	_, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t), nil)
 	if err == nil {
 		t.Fatal("want error for INDEXED without REQUIRED, got nil")
 	}
@@ -141,7 +141,7 @@ func TestPackDbTableConfigs_DefaultOnRequiredErrors(t *testing.T) {
 			{Key: "default", Value: "x,7"},
 		},
 	}
-	_, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t))
+	_, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t), nil)
 	if err == nil {
 		t.Fatal("want error for default on REQUIRED, got nil")
 	}
@@ -158,7 +158,7 @@ func TestPackDbTableConfigs_UnknownDefaultColumnErrors(t *testing.T) {
 			{Key: "default", Value: "z,7"},
 		},
 	}
-	_, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t))
+	_, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t), nil)
 	if err == nil {
 		t.Fatal("want error for unknown default column, got nil")
 	}

@@ -60,8 +60,11 @@ func parseFloConfigFor(texturePack *PackFile) ParseFn {
 // The debugname trailer for .flo lives on the CLIENT side as opcode 6,
 // gated `debugname.length && !startsWith('flo_')` (TS FloConfig.ts:93-97).
 //
+// modelFlags is accepted for TS ConfigPackCallback parity
+// (PackShared.ts:137-141); flo does not write any model flags.
+//
 // TS source: tools/pack/config/FloConfig.ts:63-104.
-func packFloConfigs(configs map[string][]ConfigLine, floPack *PackFile) (server, client *PackedData) {
+func packFloConfigs(configs map[string][]ConfigLine, floPack *PackFile, modelFlags []int) (server, client *PackedData) {
 	server = NewPackedData(floPack.Max)
 	client = NewPackedData(floPack.Max)
 

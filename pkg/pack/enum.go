@@ -44,8 +44,11 @@ func parseEnumConfig(key, value string) (ConfigValue, bool, error) {
 // AUTOINT outputtype: value = lookupParamValue(outputtype, valStr)
 // over the WHOLE string (no comma split).
 //
+// modelFlags is accepted for TS ConfigPackCallback parity
+// (PackShared.ts:137-141); enum does not write any model flags.
+//
 // TS source: tools/pack/config/EnumConfig.ts:60-156.
-func packEnumConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *paramLookups) (*PackedData, error) {
+func packEnumConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *paramLookups, modelFlags []int) (*PackedData, error) {
 	pd := NewPackedData(pf.Max)
 	for id := range pf.Max {
 		name := pf.GetByID(id)

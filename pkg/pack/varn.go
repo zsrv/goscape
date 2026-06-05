@@ -33,8 +33,11 @@ func parseVarnConfig(key, value string) (ConfigValue, bool, error) {
 // 250 + LF-terminated string) when the slot has a name. Each slot
 // ends with PackedData.Next() — a single 0x00 terminator + idx offset.
 //
+// modelFlags is accepted for TS ConfigPackCallback parity
+// (PackShared.ts:137-141); varn does not write any model flags.
+//
 // TS source: tools/pack/config/VarnConfig.ts:53-82.
-func packVarnConfigs(configs map[string][]ConfigLine, pf *PackFile) *PackedData {
+func packVarnConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []int) *PackedData {
 	pd := NewPackedData(pf.Max)
 	for id := range pf.Max {
 		name := pf.GetByID(id)

@@ -95,8 +95,13 @@ func parseIdkConfigFor(modelPack *PackFile) ParseFn {
 //
 // Server side: opcode 250 + pjstr(debugname) when debugname.length > 0.
 //
+// modelFlags is indexed by model id (size = Model PackFile max). The idk
+// packer writes 0x80 flags for model references (T6+). The parameter is
+// accepted here for plumbing parity with TS PackShared.ts:137-141; no
+// writes land in T5.
+//
 // TS source: tools/pack/config/IdkConfig.ts:126-205.
-func packIdkConfigs(configs map[string][]ConfigLine, idkPack *PackFile) (server, client *PackedData) {
+func packIdkConfigs(configs map[string][]ConfigLine, idkPack *PackFile, modelFlags []int) (server, client *PackedData) {
 	server = NewPackedData(idkPack.Max)
 	client = NewPackedData(idkPack.Max)
 

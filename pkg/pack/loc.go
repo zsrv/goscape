@@ -280,8 +280,13 @@ func resolveLocModels(srcModels []string, modelPack *PackFile, debugname string)
 // Server gets: opcode 61 (category), opcode 249 (params), opcode 250
 // (debugname). Client gets everything else (1, 2, 3, 14-73).
 //
+// modelFlags is indexed by model id (size = Model PackFile max). The loc
+// packer writes 0x4 flags for model references (T6+). The parameter is
+// accepted here for plumbing parity with TS PackShared.ts:137-141; no
+// writes land in T5.
+//
 // TS source: tools/pack/config/LocConfig.ts:170-434.
-func packLocConfigs(configs map[string][]ConfigLine, locPack, modelPack *PackFile) (server, client *PackedData, err error) {
+func packLocConfigs(configs map[string][]ConfigLine, locPack, modelPack *PackFile, modelFlags []int) (server, client *PackedData, err error) {
 	server = NewPackedData(locPack.Max)
 	client = NewPackedData(locPack.Max)
 

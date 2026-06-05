@@ -55,7 +55,7 @@ func TestPackVarsConfigs_BytePin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pd := packVarsConfigs(cfgs, pf)
+	pd := packVarsConfigs(cfgs, pf, nil)
 
 	// Each entry body: 2 (type opcode+code) + 1 (250 opcode) + 13 (name+LF) + 1 (terminator) = 17 = 0x11
 	wantDat := []byte{
@@ -92,7 +92,7 @@ func TestPackVarsConfigs_RoundtripThroughObjtypeLoader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pd := packVarsConfigs(cfgs, pf)
+	pd := packVarsConfigs(cfgs, pf, nil)
 
 	outDir := filepath.Join(dir, "out")
 	serverDir := filepath.Join(outDir, "server")

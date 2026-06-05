@@ -87,7 +87,7 @@ func TestPackSpotAnimConfigs_Model(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"flame": {{Key: "model", Value: 7}},
 	}
-	_, client := packSpotAnimConfigs(configs, pf)
+	_, client := packSpotAnimConfigs(configs, pf, nil)
 	want := []byte{0x00, 0x01, 0x01, 0x00, 0x07, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -99,7 +99,7 @@ func TestPackSpotAnimConfigs_HasAlpha_TrueEmits(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"flame": {{Key: "hasalpha", Value: true}},
 	}
-	_, client := packSpotAnimConfigs(configs, pf)
+	_, client := packSpotAnimConfigs(configs, pf, nil)
 	want := []byte{0x00, 0x01, 0x03, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -111,7 +111,7 @@ func TestPackSpotAnimConfigs_HasAlpha_FalseNoEmit(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"flame": {{Key: "hasalpha", Value: false}},
 	}
-	_, client := packSpotAnimConfigs(configs, pf)
+	_, client := packSpotAnimConfigs(configs, pf, nil)
 	want := []byte{0x00, 0x01, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -126,7 +126,7 @@ func TestPackSpotAnimConfigs_RecolSrcDst(t *testing.T) {
 			{Key: "recol1d", Value: 0x5678}, // → opcode 50
 		},
 	}
-	_, client := packSpotAnimConfigs(configs, pf)
+	_, client := packSpotAnimConfigs(configs, pf, nil)
 	want := []byte{
 		0x00, 0x01,
 		40, 0x12, 0x34,
@@ -140,7 +140,7 @@ func TestPackSpotAnimConfigs_RecolSrcDst(t *testing.T) {
 
 func TestPackSpotAnimConfigs_ServerDebugTrailer(t *testing.T) {
 	pf := spotanimOneSlotPack("flame")
-	server, _ := packSpotAnimConfigs(map[string][]ConfigLine{}, pf)
+	server, _ := packSpotAnimConfigs(map[string][]ConfigLine{}, pf, nil)
 	if !bytes.Equal(server.Dat.Data, spotanimServerDebugTrailer("flame")) {
 		t.Fatalf("server:\n got % x\nwant % x", server.Dat.Data, spotanimServerDebugTrailer("flame"))
 	}
@@ -160,7 +160,7 @@ func TestParseSpotAnimConfig_UnknownKey(t *testing.T) {
 
 func TestPackSpotAnimConfigs_NoDebugnameNoTrailer(t *testing.T) {
 	pf := newTestPF("spotanim", map[int]string{0: ""})
-	server, _ := packSpotAnimConfigs(map[string][]ConfigLine{}, pf)
+	server, _ := packSpotAnimConfigs(map[string][]ConfigLine{}, pf, nil)
 	want := []byte{0x00, 0x01, 0x00}
 	if !bytes.Equal(server.Dat.Data, want) {
 		t.Fatalf("server:\n got % x\nwant % x", server.Dat.Data, want)

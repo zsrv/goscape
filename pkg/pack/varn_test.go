@@ -65,7 +65,7 @@ func TestPackVarnConfigs_BytePin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pd := packVarnConfigs(cfgs, pf)
+	pd := packVarnConfigs(cfgs, pf, nil)
 
 	// Expected dat:
 	//   p2(size=2)             — 00 02
@@ -118,7 +118,7 @@ func TestPackVarnConfigs_EmptySlotEmitsTerminatorOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pd := packVarnConfigs(cfgs, pf)
+	pd := packVarnConfigs(cfgs, pf, nil)
 
 	wantDat := []byte{
 		0x00, 0x01,
@@ -153,7 +153,7 @@ func TestPackVarnConfigs_RoundtripThroughObjtypeLoader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pd := packVarnConfigs(cfgs, pf)
+	pd := packVarnConfigs(cfgs, pf, nil)
 
 	outDir := filepath.Join(dir, "out")
 	serverDir := filepath.Join(outDir, "server")

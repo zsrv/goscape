@@ -35,8 +35,11 @@ func parseMesAnimConfigFor(seqPack *PackFile) ParseFn {
 // when the slot has a non-empty debugname. Each id ends with Next()
 // (terminator + idx length).
 //
+// modelFlags is accepted for TS ConfigPackCallback parity
+// (PackShared.ts:137-141); mesanim does not write any model flags.
+//
 // TS source: tools/pack/config/MesAnimConfig.ts:57-90.
-func packMesAnimConfigs(configs map[string][]ConfigLine, pf *PackFile) *PackedData {
+func packMesAnimConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []int) *PackedData {
 	pd := NewPackedData(pf.Max)
 	for id := range pf.Max {
 		name := pf.GetByID(id)

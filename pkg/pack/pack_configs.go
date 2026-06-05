@@ -63,7 +63,16 @@ import (
 // TS source: tools/pack/config/PackShared.ts:261-669 (packConfigs).
 func PackConfigsForRegistry(srcDir, outDir string) (*Registry, error) {
 	reg := &Registry{SrcDir: srcDir}
-	if err := packConfigsCore(srcDir, outDir, reg); err != nil {
+	// Allocate modelFlags sized by ModelPack.max (reg.Model.Max after EnsureModel).
+	// EnsureModel is lazy; we call it here so the size is known before the
+	// pipeline starts. Matches TS PackAll.ts:38-40:
+	//   for (let i = 0; i < ModelPack.max; i++) { modelFlags[i] = 0; }
+	// Zero-alloc satisfies that init.
+	if _, err := reg.EnsureModel(); err != nil {
+		return nil, err
+	}
+	modelFlags := make([]int, reg.Model.Max)
+	if err := packConfigsCoreWithModelFlags(srcDir, outDir, reg, modelFlags); err != nil {
 		return nil, err
 	}
 	return reg, nil
@@ -76,7 +85,25 @@ func PackConfigs(srcDir, outDir string) error {
 	return err
 }
 
-func packConfigsCore(srcDir, outDir string, reg *Registry) error {
+// packConfigsCoreWithModelFlags is the real implementation of the config
+// pack pipeline. modelFlags is a caller-allocated []int indexed by model
+// id (len = reg.Model.Max). Per TS PackShared.ts:137-141 each config packer
+// receives the slice and the five consumers (idk/loc/npc/obj/spotanim) write
+// bit flags back; the caller observes writes via shared backing array
+// semantics after this function returns.
+//
+// PackConfigsForRegistry allocates modelFlags from reg.Model.Max and
+// delegates here. pkg/packall.PackAll will allocate its own modelFlags and
+// call this function directly (T10+) so flag writes from later pipeline
+// stages are all visible in the same slice.
+//
+// cache parameter: TS packConfigs(cache, modelFlags) accepts a FileStream
+// for writing versionlist model_index data. That write is Task 10's scope;
+// the parameter is NOT added here yet to avoid a second signature churn
+// when cache becomes load-bearing. Wired in T10/T15.
+//
+// TS source: tools/pack/config/PackShared.ts:261-669 (packConfigs).
+func packConfigsCoreWithModelFlags(srcDir, outDir string, reg *Registry, modelFlags []int) error {
 	constants, err := LoadConstants(srcDir)
 	if err != nil {
 		return err
@@ -110,7 +137,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	}
 
 	// `lk` is NOT promoted to Registry — it carries *paramLookups, not
-	// a *PackFile, and is consumed only within packConfigsCore.
+	// a *PackFile, and is consumed only within packConfigsCoreWithModelFlags.
 	var lk *paramLookups
 	ensureLk := func() error {
 		if lk != nil {
@@ -133,7 +160,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	if err := ensureLk(); err != nil {
 		return err
 	}
-	if err := packAndSaveParam(srcDir, serverOut, reg.Param, lk, constants); err != nil {
+	if err := packAndSaveParam(srcDir, serverOut, reg.Param, lk, constants, modelFlags); err != nil {
 		return err
 	}
 
@@ -190,7 +217,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 		if err != nil {
 			return err
 		}
-		if err := packAndSaveEnum(srcDir, serverOut, enumPack, lk, constants); err != nil {
+		if err := packAndSaveEnum(srcDir, serverOut, enumPack, lk, constants, modelFlags); err != nil {
 			return err
 		}
 	}
@@ -204,7 +231,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 		if _, err := reg.EnsureInv(); err != nil {
 			return err
 		}
-		if err := packAndSaveInv(srcDir, serverOut, reg.Inv, reg.Obj, constants); err != nil {
+		if err := packAndSaveInv(srcDir, serverOut, reg.Inv, reg.Obj, constants, modelFlags); err != nil {
 			return err
 		}
 	}
@@ -218,7 +245,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 		if _, err := reg.EnsureMesAnim(); err != nil {
 			return err
 		}
-		if err := packAndSaveMesAnim(srcDir, serverOut, reg.MesAnim, reg.Seq, constants); err != nil {
+		if err := packAndSaveMesAnim(srcDir, serverOut, reg.MesAnim, reg.Seq, constants, modelFlags); err != nil {
 			return err
 		}
 	}
@@ -229,7 +256,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 		if _, err := reg.EnsureStruct(); err != nil {
 			return err
 		}
-		if err := packAndSaveStruct(srcDir, serverOut, reg.Struct, paramTypes, lk, constants); err != nil {
+		if err := packAndSaveStruct(srcDir, serverOut, reg.Struct, paramTypes, lk, constants, modelFlags); err != nil {
 			return err
 		}
 	}
@@ -243,7 +270,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 			if _, err := reg.EnsureDbTable(); err != nil {
 				return err
 			}
-			if err := packAndSaveDbTable(srcDir, serverOut, reg.DbTable, lk, constants); err != nil {
+			if err := packAndSaveDbTable(srcDir, serverOut, reg.DbTable, lk, constants, modelFlags); err != nil {
 				return err
 			}
 
@@ -259,7 +286,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 			if _, err := reg.EnsureDbRow(); err != nil {
 				return err
 			}
-			if err := packAndSaveDbRow(srcDir, serverOut, reg.DbRow, reg.DbTable, dbtableTypes, lk, constants); err != nil {
+			if err := packAndSaveDbRow(srcDir, serverOut, reg.DbRow, reg.DbTable, dbtableTypes, lk, constants, modelFlags); err != nil {
 				return err
 			}
 		}
@@ -276,7 +303,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	if _, err := reg.EnsureObj(); err != nil {
 		return err
 	}
-	if err := packAndSaveSeq(srcDir, serverOut, reg.Seq, reg.Anim, reg.Obj, constants, clientJag); err != nil {
+	if err := packAndSaveSeq(srcDir, serverOut, reg.Seq, reg.Anim, reg.Obj, constants, clientJag, modelFlags); err != nil {
 		return err
 	}
 
@@ -296,7 +323,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	if _, err := reg.EnsureTexture(); err != nil {
 		return err
 	}
-	if err := packAndSaveLoc(srcDir, serverOut, reg.Loc, reg.Model, reg.Category, reg.Seq, reg.Texture, lk, paramTypes, constants, clientJag); err != nil {
+	if err := packAndSaveLoc(srcDir, serverOut, reg.Loc, reg.Model, reg.Category, reg.Seq, reg.Texture, lk, paramTypes, constants, clientJag, modelFlags); err != nil {
 		return err
 	}
 
@@ -308,7 +335,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	if _, err := reg.EnsureTexture(); err != nil {
 		return err
 	}
-	if err := packAndSaveFlo(srcDir, serverOut, reg.Flo, reg.Texture, constants, clientJag); err != nil {
+	if err := packAndSaveFlo(srcDir, serverOut, reg.Flo, reg.Texture, constants, clientJag, modelFlags); err != nil {
 		return err
 	}
 
@@ -323,7 +350,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	if _, err := reg.EnsureSeq(); err != nil {
 		return err
 	}
-	if err := packAndSaveSpotAnim(srcDir, serverOut, reg.SpotAnim, reg.Model, reg.Seq, constants, clientJag); err != nil {
+	if err := packAndSaveSpotAnim(srcDir, serverOut, reg.SpotAnim, reg.Model, reg.Seq, constants, clientJag, modelFlags); err != nil {
 		return err
 	}
 
@@ -343,7 +370,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	if _, err := reg.EnsureHunt(); err != nil {
 		return err
 	}
-	if err := packAndSaveNpc(srcDir, serverOut, reg.Npc, reg.Model, reg.Category, reg.Seq, reg.Hunt, lk, paramTypes, constants, clientJag); err != nil {
+	if err := packAndSaveNpc(srcDir, serverOut, reg.Npc, reg.Model, reg.Category, reg.Seq, reg.Hunt, lk, paramTypes, constants, clientJag, modelFlags); err != nil {
 		return err
 	}
 
@@ -360,7 +387,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	if _, err := reg.EnsureSeq(); err != nil {
 		return err
 	}
-	if err := packAndSaveObj(srcDir, serverOut, reg.Obj, reg.Model, reg.Category, reg.Seq, lk, paramTypes, constants, clientJag); err != nil {
+	if err := packAndSaveObj(srcDir, serverOut, reg.Obj, reg.Model, reg.Category, reg.Seq, lk, paramTypes, constants, clientJag, modelFlags); err != nil {
 		return err
 	}
 
@@ -372,12 +399,12 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	if _, err := reg.EnsureModel(); err != nil {
 		return err
 	}
-	if err := packAndSaveIdk(srcDir, serverOut, reg.Idk, reg.Model, constants, clientJag); err != nil {
+	if err := packAndSaveIdk(srcDir, serverOut, reg.Idk, reg.Model, constants, clientJag, modelFlags); err != nil {
 		return err
 	}
 
 	// .varp — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
-	if err := packAndSaveVarp(srcDir, serverOut, reg.Varp, constants, clientJag); err != nil {
+	if err := packAndSaveVarp(srcDir, serverOut, reg.Varp, constants, clientJag, modelFlags); err != nil {
 		return err
 	}
 
@@ -407,7 +434,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 		if _, err := reg.EnsureParam(); err != nil {
 			return err
 		}
-		if err := packAndSaveHunt(srcDir, serverOut, reg.Hunt, reg.Category, reg.Inv, reg.Loc, reg.Npc, reg.Obj, reg.Param, reg.Varn, reg.Varp, constants); err != nil {
+		if err := packAndSaveHunt(srcDir, serverOut, reg.Hunt, reg.Category, reg.Inv, reg.Loc, reg.Npc, reg.Obj, reg.Param, reg.Varn, reg.Varp, constants, modelFlags); err != nil {
 			return err
 		}
 	}
@@ -415,7 +442,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	// .varn — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".varn") > 0 &&
 		ShouldBuild(scriptsDir, ".varn", filepath.Join(serverOut, "varn.dat")) {
-		if err := packAndSaveVarn(srcDir, serverOut, reg.Varn, constants); err != nil {
+		if err := packAndSaveVarn(srcDir, serverOut, reg.Varn, constants, modelFlags); err != nil {
 			return err
 		}
 	}
@@ -423,7 +450,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	// .vars — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".vars") > 0 &&
 		ShouldBuild(scriptsDir, ".vars", filepath.Join(serverOut, "vars.dat")) {
-		if err := packAndSaveVars(srcDir, serverOut, reg.Vars, constants); err != nil {
+		if err := packAndSaveVars(srcDir, serverOut, reg.Vars, constants, modelFlags); err != nil {
 			return err
 		}
 	}
@@ -457,7 +484,7 @@ func checkVarNameUniqueness(pfs ...*PackFile) error {
 	return nil
 }
 
-func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, clientJag *jagfile.Jagfile) error {
+func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	cfgs, err := ReadTypedConfigs(srcDir, ".varp", nil, parseVarpConfig, c)
 	if err != nil {
 		return err
@@ -465,7 +492,7 @@ func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, client
 	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".varp"); err != nil {
 		return err
 	}
-	server, client := packVarpConfigs(cfgs, pf)
+	server, client := packVarpConfigs(cfgs, pf, modelFlags)
 	if err := server.Save(
 		filepath.Join(serverOut, "varp.dat"),
 		filepath.Join(serverOut, "varp.idx"),
@@ -477,7 +504,7 @@ func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, client
 	return nil
 }
 
-func packAndSaveVarn(srcDir, serverOut string, pf *PackFile, c Constants) error {
+func packAndSaveVarn(srcDir, serverOut string, pf *PackFile, c Constants, modelFlags []int) error {
 	cfgs, err := ReadTypedConfigs(srcDir, ".varn", nil, parseVarnConfig, c)
 	if err != nil {
 		return err
@@ -485,11 +512,11 @@ func packAndSaveVarn(srcDir, serverOut string, pf *PackFile, c Constants) error 
 	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".varn"); err != nil {
 		return err
 	}
-	pd := packVarnConfigs(cfgs, pf)
+	pd := packVarnConfigs(cfgs, pf, modelFlags)
 	return pd.Save(filepath.Join(serverOut, "varn.dat"), filepath.Join(serverOut, "varn.idx"))
 }
 
-func packAndSaveVars(srcDir, serverOut string, pf *PackFile, c Constants) error {
+func packAndSaveVars(srcDir, serverOut string, pf *PackFile, c Constants, modelFlags []int) error {
 	cfgs, err := ReadTypedConfigs(srcDir, ".vars", nil, parseVarsConfig, c)
 	if err != nil {
 		return err
@@ -497,7 +524,7 @@ func packAndSaveVars(srcDir, serverOut string, pf *PackFile, c Constants) error 
 	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".vars"); err != nil {
 		return err
 	}
-	pd := packVarsConfigs(cfgs, pf)
+	pd := packVarsConfigs(cfgs, pf, modelFlags)
 	return pd.Save(filepath.Join(serverOut, "vars.dat"), filepath.Join(serverOut, "vars.idx"))
 }
 
@@ -542,7 +569,7 @@ func loadParamLookups(srcDir string, varpPF *PackFile) (*paramLookups, error) {
 // as the read-side callback).
 //
 // TS source: tools/pack/PackShared.ts (param branch of packConfigs).
-func packAndSaveParam(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c Constants) error {
+func packAndSaveParam(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c Constants, modelFlags []int) error {
 	cfgs, err := ReadTypedConfigs(srcDir, ".param", nil, parseParamConfig, c)
 	if err != nil {
 		return err
@@ -550,7 +577,7 @@ func packAndSaveParam(srcDir, serverOut string, pf *PackFile, lk *paramLookups, 
 	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".param"); err != nil {
 		return err
 	}
-	server, _, err := packParamConfigs(cfgs, pf, lk)
+	server, _, err := packParamConfigs(cfgs, pf, lk, modelFlags)
 	if err != nil {
 		return err
 	}
@@ -560,7 +587,7 @@ func packAndSaveParam(srcDir, serverOut string, pf *PackFile, lk *paramLookups, 
 	)
 }
 
-func packAndSaveEnum(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c Constants) error {
+func packAndSaveEnum(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c Constants, modelFlags []int) error {
 	cfgs, err := ReadTypedConfigs(srcDir, ".enum", nil, parseEnumConfig, c)
 	if err != nil {
 		return err
@@ -568,14 +595,14 @@ func packAndSaveEnum(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c
 	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".enum"); err != nil {
 		return err
 	}
-	pd, err := packEnumConfigs(cfgs, pf, lk)
+	pd, err := packEnumConfigs(cfgs, pf, lk, modelFlags)
 	if err != nil {
 		return err
 	}
 	return pd.Save(filepath.Join(serverOut, "enum.dat"), filepath.Join(serverOut, "enum.idx"))
 }
 
-func packAndSaveInv(srcDir, serverOut string, pf, objPack *PackFile, c Constants) error {
+func packAndSaveInv(srcDir, serverOut string, pf, objPack *PackFile, c Constants, modelFlags []int) error {
 	cfgs, err := ReadTypedConfigs(srcDir, ".inv", nil, parseInvConfigFor(objPack), c)
 	if err != nil {
 		return err
@@ -583,14 +610,14 @@ func packAndSaveInv(srcDir, serverOut string, pf, objPack *PackFile, c Constants
 	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".inv"); err != nil {
 		return err
 	}
-	pd, err := packInvConfigs(cfgs, pf)
+	pd, err := packInvConfigs(cfgs, pf, modelFlags)
 	if err != nil {
 		return err
 	}
 	return pd.Save(filepath.Join(serverOut, "inv.dat"), filepath.Join(serverOut, "inv.idx"))
 }
 
-func packAndSaveMesAnim(srcDir, serverOut string, pf, seqPack *PackFile, c Constants) error {
+func packAndSaveMesAnim(srcDir, serverOut string, pf, seqPack *PackFile, c Constants, modelFlags []int) error {
 	cfgs, err := ReadTypedConfigs(srcDir, ".mesanim", nil, parseMesAnimConfigFor(seqPack), c)
 	if err != nil {
 		return err
@@ -598,11 +625,11 @@ func packAndSaveMesAnim(srcDir, serverOut string, pf, seqPack *PackFile, c Const
 	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".mesanim"); err != nil {
 		return err
 	}
-	pd := packMesAnimConfigs(cfgs, pf)
+	pd := packMesAnimConfigs(cfgs, pf, modelFlags)
 	return pd.Save(filepath.Join(serverOut, "mesanim.dat"), filepath.Join(serverOut, "mesanim.idx"))
 }
 
-func packAndSaveStruct(srcDir, serverOut string, pf *PackFile, paramTypes *objtype.ParamTypeConfigs, lk *paramLookups, c Constants) error {
+func packAndSaveStruct(srcDir, serverOut string, pf *PackFile, paramTypes *objtype.ParamTypeConfigs, lk *paramLookups, c Constants, modelFlags []int) error {
 	cfgs, err := ReadTypedConfigs(srcDir, ".struct", nil, parseStructConfigFor(paramTypes, lk), c)
 	if err != nil {
 		return err
@@ -610,7 +637,7 @@ func packAndSaveStruct(srcDir, serverOut string, pf *PackFile, paramTypes *objty
 	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".struct"); err != nil {
 		return err
 	}
-	pd := packStructConfigs(cfgs, pf)
+	pd := packStructConfigs(cfgs, pf, modelFlags)
 	return pd.Save(filepath.Join(serverOut, "struct.dat"), filepath.Join(serverOut, "struct.idx"))
 }
 
@@ -622,7 +649,7 @@ func packAndSaveStruct(srcDir, serverOut string, pf *PackFile, paramTypes *objty
 // TS PackShared.ts:477 (rebuildClient=true ungates shouldBuild).
 //
 // TS source: tools/pack/config/LocConfig.ts:172-432.
-func packAndSaveLoc(srcDir, serverOut string, locPack, modelPack, categoryPack, seqPack, texturePack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs, c Constants, clientJag *jagfile.Jagfile) error {
+func packAndSaveLoc(srcDir, serverOut string, locPack, modelPack, categoryPack, seqPack, texturePack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseLocConfigFor(categoryPack, seqPack, texturePack, lk, paramTypes)
 	cfgs, err := ReadTypedConfigs(srcDir, ".loc", nil, parse, c)
 	if err != nil {
@@ -631,7 +658,7 @@ func packAndSaveLoc(srcDir, serverOut string, locPack, modelPack, categoryPack, 
 	if err := validatePackNamesAgainstCfgs(locPack, cfgs, ".loc"); err != nil {
 		return err
 	}
-	server, client, err := packLocConfigs(cfgs, locPack, modelPack)
+	server, client, err := packLocConfigs(cfgs, locPack, modelPack, modelFlags)
 	if err != nil {
 		return err
 	}
@@ -653,7 +680,7 @@ func packAndSaveLoc(srcDir, serverOut string, locPack, modelPack, categoryPack, 
 // PackConfigs invocation regardless of source freshness.
 //
 // TS source: tools/pack/config/NpcConfig.ts:265-509.
-func packAndSaveNpc(srcDir, serverOut string, npcPack, modelPack, categoryPack, seqPack, huntPack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs, c Constants, clientJag *jagfile.Jagfile) error {
+func packAndSaveNpc(srcDir, serverOut string, npcPack, modelPack, categoryPack, seqPack, huntPack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack, lk, paramTypes)
 	cfgs, err := ReadTypedConfigs(srcDir, ".npc", nil, parse, c)
 	if err != nil {
@@ -662,7 +689,7 @@ func packAndSaveNpc(srcDir, serverOut string, npcPack, modelPack, categoryPack, 
 	if err := validatePackNamesAgainstCfgs(npcPack, cfgs, ".npc"); err != nil {
 		return err
 	}
-	server, client, err := packNpcConfigs(cfgs, npcPack)
+	server, client, err := packNpcConfigs(cfgs, npcPack, modelFlags)
 	if err != nil {
 		return err
 	}
@@ -684,7 +711,7 @@ func packAndSaveNpc(srcDir, serverOut string, npcPack, modelPack, categoryPack, 
 // PackConfigs invocation regardless of source freshness.
 //
 // TS source: tools/pack/config/ObjConfig.ts:196-440.
-func packAndSaveObj(srcDir, serverOut string, objPack, modelPack, categoryPack, seqPack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs, c Constants, clientJag *jagfile.Jagfile) error {
+func packAndSaveObj(srcDir, serverOut string, objPack, modelPack, categoryPack, seqPack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseObjConfigFor(modelPack, categoryPack, seqPack, objPack, lk, paramTypes)
 	cfgs, err := ReadTypedConfigs(srcDir, ".obj", nil, parse, c)
 	if err != nil {
@@ -693,7 +720,7 @@ func packAndSaveObj(srcDir, serverOut string, objPack, modelPack, categoryPack, 
 	if err := validatePackNamesAgainstCfgs(objPack, cfgs, ".obj"); err != nil {
 		return err
 	}
-	server, client, err := packObjConfigs(cfgs, objPack)
+	server, client, err := packObjConfigs(cfgs, objPack, modelFlags)
 	if err != nil {
 		return err
 	}
@@ -716,7 +743,7 @@ func packAndSaveObj(srcDir, serverOut string, objPack, modelPack, categoryPack, 
 // TS PackShared.ts:460 (rebuildClient=true ungates shouldBuild).
 //
 // TS source: tools/pack/config/SeqConfig.ts:121-208.
-func packAndSaveSeq(srcDir, serverOut string, seqPack, animPack, objPack *PackFile, c Constants, clientJag *jagfile.Jagfile) error {
+func packAndSaveSeq(srcDir, serverOut string, seqPack, animPack, objPack *PackFile, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseSeqConfigFor(animPack, objPack)
 	cfgs, err := ReadTypedConfigs(srcDir, ".seq", nil, parse, c)
 	if err != nil {
@@ -725,7 +752,7 @@ func packAndSaveSeq(srcDir, serverOut string, seqPack, animPack, objPack *PackFi
 	if err := validatePackNamesAgainstCfgs(seqPack, cfgs, ".seq"); err != nil {
 		return err
 	}
-	server, client := packSeqConfigs(cfgs, seqPack)
+	server, client := packSeqConfigs(cfgs, seqPack, modelFlags)
 	if err := server.Save(
 		filepath.Join(serverOut, "seq.dat"),
 		filepath.Join(serverOut, "seq.idx"),
@@ -744,7 +771,7 @@ func packAndSaveSeq(srcDir, serverOut string, seqPack, animPack, objPack *PackFi
 // NAI-196-D-UNCONDITIONAL-CLIENT-PACK: unconditional.
 //
 // TS source: tools/pack/config/FloConfig.ts:63-104.
-func packAndSaveFlo(srcDir, serverOut string, floPack, texturePack *PackFile, c Constants, clientJag *jagfile.Jagfile) error {
+func packAndSaveFlo(srcDir, serverOut string, floPack, texturePack *PackFile, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseFloConfigFor(texturePack)
 	cfgs, err := ReadTypedConfigs(srcDir, ".flo", nil, parse, c)
 	if err != nil {
@@ -753,7 +780,7 @@ func packAndSaveFlo(srcDir, serverOut string, floPack, texturePack *PackFile, c 
 	if err := validatePackNamesAgainstCfgs(floPack, cfgs, ".flo"); err != nil {
 		return err
 	}
-	server, client := packFloConfigs(cfgs, floPack)
+	server, client := packFloConfigs(cfgs, floPack, modelFlags)
 	if err := server.Save(
 		filepath.Join(serverOut, "flo.dat"),
 		filepath.Join(serverOut, "flo.idx"),
@@ -771,7 +798,7 @@ func packAndSaveFlo(srcDir, serverOut string, floPack, texturePack *PackFile, c 
 // NAI-196-D-UNCONDITIONAL-CLIENT-PACK: unconditional.
 //
 // TS source: tools/pack/config/SpotAnimConfig.ts:92-152.
-func packAndSaveSpotAnim(srcDir, serverOut string, spotanimPack, modelPack, seqPack *PackFile, c Constants, clientJag *jagfile.Jagfile) error {
+func packAndSaveSpotAnim(srcDir, serverOut string, spotanimPack, modelPack, seqPack *PackFile, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseSpotAnimConfigFor(modelPack, seqPack)
 	cfgs, err := ReadTypedConfigs(srcDir, ".spotanim", nil, parse, c)
 	if err != nil {
@@ -780,7 +807,7 @@ func packAndSaveSpotAnim(srcDir, serverOut string, spotanimPack, modelPack, seqP
 	if err := validatePackNamesAgainstCfgs(spotanimPack, cfgs, ".spotanim"); err != nil {
 		return err
 	}
-	server, client := packSpotAnimConfigs(cfgs, spotanimPack)
+	server, client := packSpotAnimConfigs(cfgs, spotanimPack, modelFlags)
 	if err := server.Save(
 		filepath.Join(serverOut, "spotanim.dat"),
 		filepath.Join(serverOut, "spotanim.idx"),
@@ -796,7 +823,7 @@ func packAndSaveSpotAnim(srcDir, serverOut string, spotanimPack, modelPack, seqP
 // server .dat/.idx. Server-only — does NOT contribute to clientJag.
 //
 // TS source: tools/pack/config/DbTableConfig.ts:78-224.
-func packAndSaveDbTable(srcDir, serverOut string, dbtablePack *PackFile, lk *paramLookups, c Constants) error {
+func packAndSaveDbTable(srcDir, serverOut string, dbtablePack *PackFile, lk *paramLookups, c Constants, modelFlags []int) error {
 	cfgs, err := ReadTypedConfigs(srcDir, ".dbtable", nil, parseDbTableConfig, c)
 	if err != nil {
 		return err
@@ -804,7 +831,7 @@ func packAndSaveDbTable(srcDir, serverOut string, dbtablePack *PackFile, lk *par
 	if err := validatePackNamesAgainstCfgs(dbtablePack, cfgs, ".dbtable"); err != nil {
 		return err
 	}
-	pd, err := packDbTableConfigs(cfgs, dbtablePack, lk)
+	pd, err := packDbTableConfigs(cfgs, dbtablePack, lk, modelFlags)
 	if err != nil {
 		return err
 	}
@@ -816,7 +843,7 @@ func packAndSaveDbTable(srcDir, serverOut string, dbtablePack *PackFile, lk *par
 // the just-written dbtable.dat for schema lookup.
 //
 // TS source: tools/pack/config/DbRowConfig.ts:84-185.
-func packAndSaveDbRow(srcDir, serverOut string, dbrowPack, dbtablePack *PackFile, dbtableTypes *objtype.DbTableTypeConfigs, lk *paramLookups, c Constants) error {
+func packAndSaveDbRow(srcDir, serverOut string, dbrowPack, dbtablePack *PackFile, dbtableTypes *objtype.DbTableTypeConfigs, lk *paramLookups, c Constants, modelFlags []int) error {
 	parse := parseDbRowConfigFor(dbtablePack)
 	cfgs, err := ReadTypedConfigs(srcDir, ".dbrow", nil, parse, c)
 	if err != nil {
@@ -825,7 +852,7 @@ func packAndSaveDbRow(srcDir, serverOut string, dbrowPack, dbtablePack *PackFile
 	if err := validatePackNamesAgainstCfgs(dbrowPack, cfgs, ".dbrow"); err != nil {
 		return err
 	}
-	pd, err := packDbRowConfigs(cfgs, dbrowPack, dbtableTypes, lk)
+	pd, err := packDbRowConfigs(cfgs, dbrowPack, dbtableTypes, lk, modelFlags)
 	if err != nil {
 		return err
 	}
@@ -839,7 +866,7 @@ func packAndSaveDbRow(srcDir, serverOut string, dbrowPack, dbtablePack *PackFile
 // config.
 //
 // TS source: tools/pack/config/HuntConfig.ts:383-545.
-func packAndSaveHunt(srcDir, serverOut string, huntPack, categoryPack, invPack, locPack, npcPack, objPack, paramPack, varnPack, varpPack *PackFile, c Constants) error {
+func packAndSaveHunt(srcDir, serverOut string, huntPack, categoryPack, invPack, locPack, npcPack, objPack, paramPack, varnPack, varpPack *PackFile, c Constants, modelFlags []int) error {
 	parse := parseHuntConfigFor(categoryPack, invPack, locPack, npcPack, objPack, paramPack, varnPack, varpPack)
 	cfgs, err := ReadTypedConfigs(srcDir, ".hunt", nil, parse, c)
 	if err != nil {
@@ -848,7 +875,7 @@ func packAndSaveHunt(srcDir, serverOut string, huntPack, categoryPack, invPack, 
 	if err := validatePackNamesAgainstCfgs(huntPack, cfgs, ".hunt"); err != nil {
 		return err
 	}
-	pd, err := packHuntConfigs(cfgs, huntPack)
+	pd, err := packHuntConfigs(cfgs, huntPack, modelFlags)
 	if err != nil {
 		return err
 	}
@@ -861,7 +888,7 @@ func packAndSaveHunt(srcDir, serverOut string, huntPack, categoryPack, invPack, 
 // NAI-196-D-UNCONDITIONAL-CLIENT-PACK: unconditional.
 //
 // TS source: tools/pack/config/IdkConfig.ts:126-205.
-func packAndSaveIdk(srcDir, serverOut string, idkPack, modelPack *PackFile, c Constants, clientJag *jagfile.Jagfile) error {
+func packAndSaveIdk(srcDir, serverOut string, idkPack, modelPack *PackFile, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseIdkConfigFor(modelPack)
 	cfgs, err := ReadTypedConfigs(srcDir, ".idk", nil, parse, c)
 	if err != nil {
@@ -870,7 +897,7 @@ func packAndSaveIdk(srcDir, serverOut string, idkPack, modelPack *PackFile, c Co
 	if err := validatePackNamesAgainstCfgs(idkPack, cfgs, ".idk"); err != nil {
 		return err
 	}
-	server, client := packIdkConfigs(cfgs, idkPack)
+	server, client := packIdkConfigs(cfgs, idkPack, modelFlags)
 	if err := server.Save(
 		filepath.Join(serverOut, "idk.dat"),
 		filepath.Join(serverOut, "idk.idx"),

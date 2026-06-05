@@ -130,7 +130,7 @@ func TestPackInvConfigs_AllOpcodes(t *testing.T) {
 			{Key: "dummyinv", Value: true},                    // op9
 		},
 	}
-	pd, err := packInvConfigs(cfgs, pf)
+	pd, err := packInvConfigs(cfgs, pf, nil)
 	if err != nil {
 		t.Fatalf("packInvConfigs: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestPackInvConfigs_ProtectTrueDoesNotEmit(t *testing.T) {
 	cfgs := map[string][]ConfigLine{
 		"i": {{Key: "protect", Value: true}}, // op7 should NOT fire
 	}
-	pd, err := packInvConfigs(cfgs, pf)
+	pd, err := packInvConfigs(cfgs, pf, nil)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -177,7 +177,7 @@ func TestPackInvConfigs_StockListWithHoles(t *testing.T) {
 			{Key: "stock3", Value: []int{99, 5}}, // index 2 → present, no respawn
 		},
 	}
-	pd, err := packInvConfigs(cfgs, pf)
+	pd, err := packInvConfigs(cfgs, pf, nil)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -206,7 +206,7 @@ func TestPackInvConfigs_DuplicateStockErrors(t *testing.T) {
 			{Key: "stock1", Value: []int{0, 2}},
 		},
 	}
-	_, err := packInvConfigs(cfgs, pf)
+	_, err := packInvConfigs(cfgs, pf, nil)
 	if err == nil || !strings.Contains(err.Error(), "stock1") {
 		t.Fatalf("duplicate stock: err=%v", err)
 	}
@@ -220,7 +220,7 @@ func TestPackInvConfigs_StockBeyondSizeErrors(t *testing.T) {
 			{Key: "stock2", Value: []int{0, 1}}, // index 1 >= size 1
 		},
 	}
-	_, err := packInvConfigs(cfgs, pf)
+	_, err := packInvConfigs(cfgs, pf, nil)
 	if err == nil || !strings.Contains(err.Error(), "size") {
 		t.Fatalf("stock beyond size: err=%v", err)
 	}

@@ -157,7 +157,7 @@ func TestPackLocConfigs_Name(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"table": {{Key: "name", Value: "Table"}},
 	}
-	server, client, err := packLocConfigs(configs, locPack, mp)
+	server, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ func TestPackLocConfigs_Width(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"block": {{Key: "width", Value: 3}},
 	}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +192,7 @@ func TestPackLocConfigs_Length(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "length", Value: 4}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +206,7 @@ func TestPackLocConfigs_BlockwalkFalse(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "blockwalk", Value: false}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestPackLocConfigs_BlockrangeFalse(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "blockrange", Value: false}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ func TestPackLocConfigs_Active(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "active", Value: true}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +249,7 @@ func TestPackLocConfigs_HillskewTrue(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "hillskew", Value: true}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestPackLocConfigs_SharelightTrue(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "sharelight", Value: true}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +277,7 @@ func TestPackLocConfigs_OccludeTrue(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "occlude", Value: true}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +291,7 @@ func TestPackLocConfigs_Anim(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "anim", Value: 7}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +305,7 @@ func TestPackLocConfigs_HasalphaTrue(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "hasalpha", Value: true}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -319,7 +319,7 @@ func TestPackLocConfigs_Wallwidth(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "wallwidth", Value: 5}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,7 +333,7 @@ func TestPackLocConfigs_Ambient(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "ambient", Value: 9}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +347,7 @@ func TestPackLocConfigs_Contrast(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "contrast", Value: 4}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -361,7 +361,7 @@ func TestPackLocConfigs_Op1(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "op1", Value: "use"}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -381,7 +381,7 @@ func TestPackLocConfigs_RecolPair(t *testing.T) {
 			{Key: "recol1d", Value: 0x2222},
 		},
 	}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -401,7 +401,7 @@ func TestPackLocConfigs_RetexPair(t *testing.T) {
 			{Key: "retex1d", Value: 8},
 		},
 	}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -416,7 +416,7 @@ func TestPackLocConfigs_Mapfunction(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "mapfunction", Value: 0x1234}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,7 +430,7 @@ func TestPackLocConfigs_Category(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "category", Value: 9}}}
-	server, client, err := packLocConfigs(configs, locPack, mp)
+	server, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -449,7 +449,7 @@ func TestPackLocConfigs_MirrorTrue(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "mirror", Value: true}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -463,7 +463,7 @@ func TestPackLocConfigs_ShadowFalse(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "shadow", Value: false}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -477,7 +477,7 @@ func TestPackLocConfigs_Resizex(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "resizex", Value: 100}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -491,7 +491,7 @@ func TestPackLocConfigs_Resizey(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "resizey", Value: 100}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -505,7 +505,7 @@ func TestPackLocConfigs_Resizez(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "resizez", Value: 100}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -519,7 +519,7 @@ func TestPackLocConfigs_Mapscene(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "mapscene", Value: 4}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -533,7 +533,7 @@ func TestPackLocConfigs_Forceapproach(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "forceapproach", Value: 0b1110}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -547,7 +547,7 @@ func TestPackLocConfigs_Offsetx(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "offsetx", Value: 50}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -561,7 +561,7 @@ func TestPackLocConfigs_Offsety(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "offsety", Value: 50}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -575,7 +575,7 @@ func TestPackLocConfigs_Offsetz(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "offsetz", Value: 50}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -589,7 +589,7 @@ func TestPackLocConfigs_ForcedecorTrue(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "forcedecor", Value: true}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -603,7 +603,7 @@ func TestPackLocConfigs_Desc(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "desc", Value: "A thing"}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -619,7 +619,7 @@ func TestPackLocConfigs_Models_ForceShape8(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("c")
 	configs := map[string][]ConfigLine{"c": {{Key: "model1", Value: "chair"}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -640,7 +640,7 @@ func TestPackLocConfigs_Models_DirectMatchWithShape8Variant(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("t")
 	configs := map[string][]ConfigLine{"t": {{Key: "model1", Value: "table"}}}
-	_, client, err := packLocConfigs(configs, locPack, mp)
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -661,7 +661,7 @@ func TestPackLocConfigs_Param(t *testing.T) {
 			Value: ParamValue{ID: 7, Type: objtype.ScriptVarTypeInt, Value: 1},
 		}},
 	}
-	server, _, err := packLocConfigs(configs, locPack, mp)
+	server, _, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -691,7 +691,7 @@ func TestPackLocConfigs_ParamString(t *testing.T) {
 			Value: ParamValue{ID: 6, Type: objtype.ScriptVarTypeString, Value: "hi"},
 		}},
 	}
-	server, _, err := packLocConfigs(configs, locPack, mp)
+	server, _, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -717,7 +717,7 @@ func TestPackLocConfigs_DebugnameEmpty(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := newTestPF("loc", map[int]string{0: ""})
 	configs := map[string][]ConfigLine{}
-	server, _, err := packLocConfigs(configs, locPack, mp)
+	server, _, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

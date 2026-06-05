@@ -260,7 +260,7 @@ func TestPackHuntConfigs_OpcodeTypeOnly(t *testing.T) {
 			{Key: "type", Value: objtype.HuntModeNpc},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +284,7 @@ func TestPackHuntConfigs_OpcodeTypeOffSkipped(t *testing.T) {
 			{Key: "type", Value: objtype.HuntModeOff},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +307,7 @@ func TestPackHuntConfigs_OpcodeCheckVis(t *testing.T) {
 			{Key: "check_vis", Value: objtype.HuntVisLineOfSight},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +330,7 @@ func TestPackHuntConfigs_OpcodeRate(t *testing.T) {
 			{Key: "rate", Value: 5},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +354,7 @@ func TestPackHuntConfigs_OpcodeRateOneSkipped(t *testing.T) {
 			{Key: "rate", Value: 1},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -376,7 +376,7 @@ func TestPackHuntConfigs_OpcodeNobodynearPauseSkipped(t *testing.T) {
 			{Key: "nobodynear", Value: objtype.HuntNobodyNearPauseHunt},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -398,7 +398,7 @@ func TestPackHuntConfigs_OpcodeNobodynearKeephunting(t *testing.T) {
 			{Key: "nobodynear", Value: objtype.HuntNobodyNearKeepHunting},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -422,7 +422,7 @@ func TestPackHuntConfigs_OpcodeCheckNotcombatVarp(t *testing.T) {
 			{Key: "check_notcombat", Value: 42},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -446,7 +446,7 @@ func TestPackHuntConfigs_OpcodeCheckNotcombatSelfVarn(t *testing.T) {
 			{Key: "check_notcombat_self", Value: 11},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -471,7 +471,7 @@ func TestPackHuntConfigs_OpcodeCheckCategoryWithMatchingType(t *testing.T) {
 			{Key: "check_category", Value: 3},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -496,7 +496,7 @@ func TestPackHuntConfigs_OpcodeCheckCategoryWithoutTypeErrors(t *testing.T) {
 			{Key: "check_category", Value: 3},
 		},
 	}
-	_, err := packHuntConfigs(configs, pf)
+	_, err := packHuntConfigs(configs, pf, nil)
 	if err == nil {
 		t.Fatal("want error for check_category without type")
 	}
@@ -511,7 +511,7 @@ func TestPackHuntConfigs_OpcodeCheckCategoryWithPlayerTypeErrors(t *testing.T) {
 			{Key: "check_category", Value: 3},
 		},
 	}
-	_, err := packHuntConfigs(configs, pf)
+	_, err := packHuntConfigs(configs, pf, nil)
 	if err == nil {
 		t.Fatal("want error for check_category with type=player")
 	}
@@ -526,7 +526,7 @@ func TestPackHuntConfigs_OpcodeCheckInvWithType(t *testing.T) {
 			{Key: "check_inv", Value: huntCheckInv{inv: 0, obj: 2, condition: ">", val: 10}},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -557,7 +557,7 @@ func TestPackHuntConfigs_OpcodeCheckInvWithoutTypeErrors(t *testing.T) {
 			{Key: "check_inv", Value: huntCheckInv{inv: 0, obj: 2, condition: ">", val: 10}},
 		},
 	}
-	_, err := packHuntConfigs(configs, pf)
+	_, err := packHuntConfigs(configs, pf, nil)
 	if err == nil {
 		t.Fatal("want error for check_inv without type=player")
 	}
@@ -574,7 +574,7 @@ func TestPackHuntConfigs_OpcodeExtraCheckVar1Through3(t *testing.T) {
 			{Key: "extracheck_var", Value: huntCheckVarParsed{varp: 9, condition: "=", val: 0}},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -609,7 +609,7 @@ func TestPackHuntConfigs_OpcodeExtraCheckVarOverflow(t *testing.T) {
 			{Key: "extracheck_var", Value: huntCheckVarParsed{varp: 4, condition: ">", val: 0}},
 		},
 	}
-	_, err := packHuntConfigs(configs, pf)
+	_, err := packHuntConfigs(configs, pf, nil)
 	if err == nil {
 		t.Fatal("want error for more than 3 extracheck_var")
 	}
@@ -628,7 +628,7 @@ func TestPackHuntConfigs_OPOBJ2BugPin(t *testing.T) {
 			{Key: "find_newmode", Value: objtype.NPCModeOpObj1},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -653,7 +653,7 @@ func TestPackHuntConfigs_DebugnameTrailer(t *testing.T) {
 	// Debugname present → emits opcode 250 + PJStr(name).
 	pf := buildHuntPF("myname")
 	configs := map[string][]ConfigLine{}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -672,7 +672,7 @@ func TestPackHuntConfigs_EmptyDebugname_No250Trailer(t *testing.T) {
 	// Empty debugname → no 250 byte emitted; only the terminator.
 	pf := buildHuntPF("")
 	configs := map[string][]ConfigLine{}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -696,7 +696,7 @@ func TestPackHuntConfigs_CheckNpcWithMatchingType(t *testing.T) {
 			{Key: "check_npc", Value: 5},
 		},
 	}
-	pd, err := packHuntConfigs(configs, pf)
+	pd, err := packHuntConfigs(configs, pf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -722,7 +722,7 @@ func TestPackHuntConfigs_CheckNpcWithMutexConflictErrors(t *testing.T) {
 			{Key: "check_npc", Value: 5},
 		},
 	}
-	_, err := packHuntConfigs(configs, pf)
+	_, err := packHuntConfigs(configs, pf, nil)
 	if err == nil {
 		t.Fatal("want error for check_npc with mutex conflict (check_category present)")
 	}

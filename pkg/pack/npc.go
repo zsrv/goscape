@@ -335,7 +335,13 @@ func parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack *PackFile, lk 
 // a TS oversight; mirrored here for byte-exact parity.
 //
 // TS source: tools/pack/config/NpcConfig.ts:267-510.
-func packNpcConfigs(configs map[string][]ConfigLine, npcPack *PackFile) (server, client *PackedData, err error) {
+// modelFlags is indexed by model id (size = Model PackFile max). The npc
+// packer writes 0x2 flags for model references (T6+). The parameter is
+// accepted here for plumbing parity with TS PackShared.ts:137-141; no
+// writes land in T5.
+//
+// TS source: tools/pack/config/NpcConfig.ts:267-510.
+func packNpcConfigs(configs map[string][]ConfigLine, npcPack *PackFile, modelFlags []int) (server, client *PackedData, err error) {
 	server = NewPackedData(npcPack.Max)
 	client = NewPackedData(npcPack.Max)
 

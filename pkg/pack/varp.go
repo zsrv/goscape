@@ -76,7 +76,9 @@ func parseVarpConfig(key, value string) (ConfigValue, bool, error) {
 // TS author note at VarpConfig.ts:97 — "// todo: maybe this was
 // opcode 10?" — preserved here as a TS-author uncertainty about the
 // 250 trailer opcode, not a goscape deviation.
-func packVarpConfigs(configs map[string][]ConfigLine, pf *PackFile) (server, client *PackedData) {
+// modelFlags is accepted for TS ConfigPackCallback parity
+// (PackShared.ts:137-141); varp does not write any model flags.
+func packVarpConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []int) (server, client *PackedData) {
 	server = NewPackedData(pf.Max)
 	client = NewPackedData(pf.Max)
 

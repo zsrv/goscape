@@ -98,8 +98,13 @@ func parseSpotAnimConfigFor(modelPack, seqPack *PackFile) ParseFn {
 //
 // Server-side: opcode 250 + pjstr(debugname) when debugname.length > 0.
 //
+// modelFlags is indexed by model id (size = Model PackFile max). The
+// spotanim packer writes 0x2 flags for model references (T6+). The
+// parameter is accepted here for plumbing parity with TS
+// PackShared.ts:137-141; no writes land in T5.
+//
 // TS source: tools/pack/config/SpotAnimConfig.ts:92-152.
-func packSpotAnimConfigs(configs map[string][]ConfigLine, spotanimPack *PackFile) (server, client *PackedData) {
+func packSpotAnimConfigs(configs map[string][]ConfigLine, spotanimPack *PackFile, modelFlags []int) (server, client *PackedData) {
 	server = NewPackedData(spotanimPack.Max)
 	client = NewPackedData(spotanimPack.Max)
 

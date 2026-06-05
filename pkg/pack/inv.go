@@ -82,8 +82,11 @@ func parseInvConfigFor(objPack *PackFile) ParseFn {
 //   - duplicate stockN line     → "%s: duplicate stockN"
 //   - stockN index >= size      → "%s: stockN exceeds size"
 //
+// modelFlags is accepted for TS ConfigPackCallback parity
+// (PackShared.ts:137-141); inv does not write any model flags.
+//
 // TS source: tools/pack/config/InvConfig.ts:94-197.
-func packInvConfigs(configs map[string][]ConfigLine, pf *PackFile) (*PackedData, error) {
+func packInvConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []int) (*PackedData, error) {
 	pd := NewPackedData(pf.Max)
 	for id := range pf.Max {
 		name := pf.GetByID(id)

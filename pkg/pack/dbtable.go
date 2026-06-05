@@ -48,8 +48,11 @@ type dbTableColumn struct {
 //	252 → column-count | per-column props-byte
 //	250 → debugname PJStr  (when len(name) > 0)
 //
+// modelFlags is accepted for TS ConfigPackCallback parity
+// (PackShared.ts:137-141); dbtable does not write any model flags.
+//
 // TS source: tools/pack/config/DbTableConfig.ts:78-224.
-func packDbTableConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *paramLookups) (*PackedData, error) {
+func packDbTableConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *paramLookups, modelFlags []int) (*PackedData, error) {
 	pd := NewPackedData(pf.Max)
 
 	for id := range pf.Max {

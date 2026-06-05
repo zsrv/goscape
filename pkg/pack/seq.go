@@ -114,8 +114,11 @@ func parseSeqConfigFor(animPack, objPack *PackFile) ParseFn {
 //     when at least one frame{N} key is present;
 //   - the server 250-trailer fires when the slot has a non-empty debugname.
 //
+// modelFlags is accepted for TS ConfigPackCallback parity
+// (PackShared.ts:137-141); seq does not write any model flags.
+//
 // TS source: tools/pack/config/SeqConfig.ts:121-208.
-func packSeqConfigs(configs map[string][]ConfigLine, seqPack *PackFile) (server, client *PackedData) {
+func packSeqConfigs(configs map[string][]ConfigLine, seqPack *PackFile, modelFlags []int) (server, client *PackedData) {
 	server = NewPackedData(seqPack.Max)
 	client = NewPackedData(seqPack.Max)
 

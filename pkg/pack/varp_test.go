@@ -229,7 +229,7 @@ func TestPackVarpConfigs_BytePin(t *testing.T) {
 	// way is to bump pf.Max directly for the test fixture.
 	pf.Max = 2
 
-	server, client := packVarpConfigs(cfgs, pf)
+	server, client := packVarpConfigs(cfgs, pf, nil)
 
 	wantServerDat := []byte{
 		0x00, 0x02,
@@ -284,7 +284,7 @@ func TestPackVarpConfigs_ProtectFalseEmitsOpcode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server, _ := packVarpConfigs(cfgs, pf)
+	server, _ := packVarpConfigs(cfgs, pf, nil)
 
 	// Server dat for id=0 with protect=false:
 	//   p2(1)               → 00 01
@@ -316,7 +316,7 @@ func TestPackVarpConfigs_ProtectTrueOmitsOpcode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server, _ := packVarpConfigs(cfgs, pf)
+	server, _ := packVarpConfigs(cfgs, pf, nil)
 
 	// Server dat for id=0 with protect=true (no opcode emitted):
 	//   p2(1)               → 00 01
@@ -347,7 +347,7 @@ func TestPackVarpConfigs_TransmitFalseOmitsOpcode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server, _ := packVarpConfigs(cfgs, pf)
+	server, _ := packVarpConfigs(cfgs, pf, nil)
 
 	// Server dat for id=0 with transmit=false (no opcode emitted):
 	//   p2(1)               → 00 01

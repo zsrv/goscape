@@ -50,7 +50,7 @@ func TestPackMesAnimConfigs_ByteExact_SingleLen(t *testing.T) {
 			{Key: "len0", Value: 7},
 		},
 	}
-	pd := packMesAnimConfigs(cfgs, pf)
+	pd := packMesAnimConfigs(cfgs, pf, nil)
 	// dat header (p2 size=1) + opcode 1 + p2(7) + 250 + pjstr("test_anim\n") + 0x00 terminator
 	want := []byte{
 		0x00, 0x01, // size=1
@@ -77,7 +77,7 @@ func TestPackMesAnimConfigs_OpcodeFormula(t *testing.T) {
 		{"len5", 5},
 	} {
 		cfgs := map[string][]ConfigLine{"x": {{Key: tc.key, Value: 0}}}
-		pd := packMesAnimConfigs(cfgs, pf)
+		pd := packMesAnimConfigs(cfgs, pf, nil)
 		// dat is: [00 01 OP 00 00 fa 'x' 0a 00]
 		got := pd.Dat.Data[2]
 		if got != tc.wantOp {
@@ -91,7 +91,7 @@ func TestPackMesAnimConfigs_NonNumericLenSkipped(t *testing.T) {
 	cfgs := map[string][]ConfigLine{
 		"x": {{Key: "lenABC", Value: 0}},
 	}
-	pd := packMesAnimConfigs(cfgs, pf)
+	pd := packMesAnimConfigs(cfgs, pf, nil)
 	// dat = [00 01 fa 'x' 0a 00] — no len opcode emitted
 	want := []byte{0x00, 0x01, 0xfa, 'x', 0x0a, 0x00}
 	if !bytes.Equal(pd.Dat.Data, want) {
@@ -102,7 +102,7 @@ func TestPackMesAnimConfigs_NonNumericLenSkipped(t *testing.T) {
 func TestPackMesAnimConfigs_NoConfigEmitsOnlyTrailer(t *testing.T) {
 	pf := newTestPF("mesanim", map[int]string{0: "named", 1: ""}) // slot 1 unnamed
 	cfgs := map[string][]ConfigLine{}                             // no config for either
-	pd := packMesAnimConfigs(cfgs, pf)
+	pd := packMesAnimConfigs(cfgs, pf, nil)
 	want := []byte{
 		0x00, 0x02, // size=2
 		0xfa, 'n', 'a', 'm', 'e', 'd', 0x0a, 0x00, // slot 0: trailer + Next

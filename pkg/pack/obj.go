@@ -320,8 +320,13 @@ func parseObjConfigFor(modelPack, categoryPack, seqPack, objPack *PackFile, lk *
 // 249 (params), 250 (debugname). Client gets all other client-facing
 // fields including the certlink/certtemplate emits at 97/98.
 //
+// modelFlags is indexed by model id (size = Model PackFile max). The obj
+// packer writes 0x80/0x40/0x10/0x20/0x08 flags for model references (T6+).
+// The parameter is accepted here for plumbing parity with TS
+// PackShared.ts:137-141; no writes land in T5.
+//
 // TS source: tools/pack/config/ObjConfig.ts:195-444.
-func packObjConfigs(configs map[string][]ConfigLine, objPack *PackFile) (server, client *PackedData, err error) {
+func packObjConfigs(configs map[string][]ConfigLine, objPack *PackFile, modelFlags []int) (server, client *PackedData, err error) {
 	server = NewPackedData(objPack.Max)
 	client = NewPackedData(objPack.Max)
 

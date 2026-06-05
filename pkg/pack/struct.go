@@ -47,8 +47,11 @@ func parseStructConfigFor(paramTypes *objtype.ParamTypeConfigs, lk *paramLookups
 // + pjstr(value)|p4(value) when at least one param is present. 250
 // trailer + Next() always.
 //
+// modelFlags is accepted for TS ConfigPackCallback parity
+// (PackShared.ts:137-141); struct does not write any model flags.
+//
 // TS source: tools/pack/config/StructConfig.ts:70-117.
-func packStructConfigs(configs map[string][]ConfigLine, pf *PackFile) *PackedData {
+func packStructConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []int) *PackedData {
 	pd := NewPackedData(pf.Max)
 	for id := range pf.Max {
 		name := pf.GetByID(id)

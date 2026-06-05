@@ -56,7 +56,7 @@ func TestPackDbRowConfigs_RowWithSingleColumn(t *testing.T) {
 			{Key: "data", Value: "col_name,42"},
 		},
 	}
-	pd, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t))
+	pd, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestPackDbRowConfigs_NoTableDefinedError(t *testing.T) {
 			{Key: "data", Value: "col_name,42"},
 		},
 	}
-	_, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t))
+	_, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t), nil)
 	if err == nil {
 		t.Fatal("want error for missing table, got nil")
 	}
@@ -125,7 +125,7 @@ func TestPackDbRowConfigs_RequiredColumnMissingError(t *testing.T) {
 			{Key: "data", Value: "optional_col,99"},
 		},
 	}
-	_, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t))
+	_, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t), nil)
 	if err == nil {
 		t.Fatal("want error for REQUIRED column missing data, got nil")
 	}
@@ -152,7 +152,7 @@ func TestPackDbRowConfigs_NonListColumnWithMultipleDataError(t *testing.T) {
 			{Key: "data", Value: "plain_col,2"},
 		},
 	}
-	_, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t))
+	_, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t), nil)
 	if err == nil {
 		t.Fatal("want error for non-LIST column with multiple data, got nil")
 	}
@@ -177,7 +177,7 @@ func TestPackDbRowConfigs_OnlyTableNoData(t *testing.T) {
 			{Key: "table", Value: 0},
 		},
 	}
-	pd, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t))
+	pd, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

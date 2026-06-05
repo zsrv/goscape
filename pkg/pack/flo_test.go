@@ -80,7 +80,7 @@ func TestPackFloConfigs_Colour(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"red": {{Key: "colour", Value: 0xFF0000}},
 	}
-	_, client := packFloConfigs(configs, floPack)
+	_, client := packFloConfigs(configs, floPack, nil)
 	want := []byte{
 		0x00, 0x01,
 		0x01, 0xFF, 0x00, 0x00,
@@ -97,7 +97,7 @@ func TestPackFloConfigs_Texture(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"flo_dirt": {{Key: "texture", Value: 3}},
 	}
-	_, client := packFloConfigs(configs, floPack)
+	_, client := packFloConfigs(configs, floPack, nil)
 	want := []byte{0x00, 0x01, 0x02, 0x03, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -109,7 +109,7 @@ func TestPackFloConfigs_OverlayTrueEmits(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"flo_x": {{Key: "overlay", Value: true}},
 	}
-	_, client := packFloConfigs(configs, floPack)
+	_, client := packFloConfigs(configs, floPack, nil)
 	want := []byte{0x00, 0x01, 0x03, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -121,7 +121,7 @@ func TestPackFloConfigs_OverlayFalseNoEmit(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"flo_x": {{Key: "overlay", Value: false}},
 	}
-	_, client := packFloConfigs(configs, floPack)
+	_, client := packFloConfigs(configs, floPack, nil)
 	want := []byte{0x00, 0x01, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -133,7 +133,7 @@ func TestPackFloConfigs_OccludeFalseEmits(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"flo_x": {{Key: "occlude", Value: false}},
 	}
-	_, client := packFloConfigs(configs, floPack)
+	_, client := packFloConfigs(configs, floPack, nil)
 	want := []byte{0x00, 0x01, 0x05, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -145,7 +145,7 @@ func TestPackFloConfigs_OccludeTrueNoEmit(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"flo_x": {{Key: "occlude", Value: true}},
 	}
-	_, client := packFloConfigs(configs, floPack)
+	_, client := packFloConfigs(configs, floPack, nil)
 	want := []byte{0x00, 0x01, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -163,7 +163,7 @@ func TestPackFloConfigs_Opcode6_Asymmetry(t *testing.T) {
 	}
 	for _, tc := range cases {
 		floPack := floOneSlotPack(tc.name)
-		_, client := packFloConfigs(map[string][]ConfigLine{}, floPack)
+		_, client := packFloConfigs(map[string][]ConfigLine{}, floPack, nil)
 		if !bytes.Equal(client.Dat.Data, tc.want) {
 			t.Errorf("client[%s]:\n got % x\nwant % x", tc.name, client.Dat.Data, tc.want)
 		}
@@ -177,7 +177,7 @@ func TestPackFloConfigs_EmptyServerBytes(t *testing.T) {
 		1: "blue",
 		2: "green",
 	})
-	server, _ := packFloConfigs(map[string][]ConfigLine{}, floPack)
+	server, _ := packFloConfigs(map[string][]ConfigLine{}, floPack, nil)
 	want := []byte{0x00, 0x03, 0x00, 0x00, 0x00}
 	if !bytes.Equal(server.Dat.Data, want) {
 		t.Fatalf("server (empty-bytes invariant):\n got % x\nwant % x", server.Dat.Data, want)

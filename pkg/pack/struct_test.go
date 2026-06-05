@@ -79,7 +79,7 @@ func TestPackStructConfigs_IntParam(t *testing.T) {
 			{Key: "param", Value: ParamValue{ID: 5, Type: objtype.ScriptVarTypeInt, Value: 42}},
 		},
 	}
-	pd := packStructConfigs(cfgs, pf)
+	pd := packStructConfigs(cfgs, pf, nil)
 	want := []byte{
 		0x00, 0x01,
 		0xf9,             // op249
@@ -102,7 +102,7 @@ func TestPackStructConfigs_StringParam(t *testing.T) {
 			{Key: "param", Value: ParamValue{ID: 6, Type: objtype.ScriptVarTypeString, Value: "hi"}},
 		},
 	}
-	pd := packStructConfigs(cfgs, pf)
+	pd := packStructConfigs(cfgs, pf, nil)
 	want := []byte{
 		0x00, 0x01,
 		0xf9,
@@ -123,7 +123,7 @@ func TestPackStructConfigs_EmptyParamList_NoOp249(t *testing.T) {
 	cfgs := map[string][]ConfigLine{
 		"s": {}, // present block but no params
 	}
-	pd := packStructConfigs(cfgs, pf)
+	pd := packStructConfigs(cfgs, pf, nil)
 	// No op249 emitted (TS L89 `if (params.length > 0)`). Just 250-trailer + Next.
 	want := []byte{
 		0x00, 0x01,

@@ -359,7 +359,7 @@ func TestPackParamConfigs_IntDefaultAutodisableFalse(t *testing.T) {
 			{Key: "autodisable", Value: false},
 		},
 	}
-	server, client, err := packParamConfigs(cfgs, pf, &paramLookups{})
+	server, client, err := packParamConfigs(cfgs, pf, &paramLookups{}, nil)
 	if err != nil {
 		t.Fatalf("packParamConfigs: %v", err)
 	}
@@ -421,7 +421,7 @@ func TestPackParamConfigs_StringDefault(t *testing.T) {
 			// no autodisable → default true → no opcode 4
 		},
 	}
-	server, _, err := packParamConfigs(cfgs, pf, &paramLookups{})
+	server, _, err := packParamConfigs(cfgs, pf, &paramLookups{}, nil)
 	if err != nil {
 		t.Fatalf("packParamConfigs: %v", err)
 	}
@@ -453,7 +453,7 @@ func TestPackParamConfigs_CoordDefault(t *testing.T) {
 			{Key: "default", Value: "0_50_50_32_32"},
 		},
 	}
-	server, _, err := packParamConfigs(cfgs, pf, &paramLookups{})
+	server, _, err := packParamConfigs(cfgs, pf, &paramLookups{}, nil)
 	if err != nil {
 		t.Fatalf("packParamConfigs: %v", err)
 	}
@@ -484,7 +484,7 @@ func TestPackParamConfigs_TypedDefaultViaPackFile(t *testing.T) {
 			{Key: "default", Value: "kalphite_queen"},
 		},
 	}
-	server, _, err := packParamConfigs(cfgs, pf, lk)
+	server, _, err := packParamConfigs(cfgs, pf, lk, nil)
 	if err != nil {
 		t.Fatalf("packParamConfigs: %v", err)
 	}
@@ -509,7 +509,7 @@ func TestPackParamConfigs_MissingType(t *testing.T) {
 			{Key: "default", Value: "42"},
 		},
 	}
-	_, _, err := packParamConfigs(cfgs, pf, &paramLookups{})
+	_, _, err := packParamConfigs(cfgs, pf, &paramLookups{}, nil)
 	if err == nil {
 		t.Fatalf("missing type: want error, got nil")
 	}
@@ -531,7 +531,7 @@ func TestPackParamConfigs_UnknownTypedDefault(t *testing.T) {
 			{Key: "default", Value: "nonexistent_npc"},
 		},
 	}
-	_, _, err := packParamConfigs(cfgs, pf, lk)
+	_, _, err := packParamConfigs(cfgs, pf, lk, nil)
 	if err == nil {
 		t.Fatalf("unknown npc default: want error, got nil")
 	}
@@ -549,7 +549,7 @@ func TestPackParamConfigs_EmptyClientFaithful(t *testing.T) {
 		"b": {{Key: "type", Value: objtype.ScriptVarTypeString}, {Key: "default", Value: "x"}},
 		"c": {{Key: "type", Value: objtype.ScriptVarTypeInt}, {Key: "default", Value: "99"}},
 	}
-	_, client, err := packParamConfigs(cfgs, pf, &paramLookups{})
+	_, client, err := packParamConfigs(cfgs, pf, &paramLookups{}, nil)
 	if err != nil {
 		t.Fatalf("packParamConfigs: %v", err)
 	}

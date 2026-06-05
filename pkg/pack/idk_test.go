@@ -139,7 +139,7 @@ func TestPackIdkConfigs_Type(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"man_hair_0": {{Key: "type", Value: 0}},
 	}
-	_, client := packIdkConfigs(configs, pf)
+	_, client := packIdkConfigs(configs, pf, nil)
 	want := []byte{0x00, 0x01, 0x01, 0x00, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -151,7 +151,7 @@ func TestPackIdkConfigs_DisableTrueEmits(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"idk0": {{Key: "disable", Value: true}},
 	}
-	_, client := packIdkConfigs(configs, pf)
+	_, client := packIdkConfigs(configs, pf, nil)
 	want := []byte{0x00, 0x01, 0x03, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -166,7 +166,7 @@ func TestPackIdkConfigs_Models(t *testing.T) {
 			{Key: "model2", Value: 9},
 		},
 	}
-	_, client := packIdkConfigs(configs, pf)
+	_, client := packIdkConfigs(configs, pf, nil)
 	want := []byte{0x00, 0x01, 0x02, 0x02, 0x00, 0x07, 0x00, 0x09, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -181,7 +181,7 @@ func TestPackIdkConfigs_Heads(t *testing.T) {
 			{Key: "head2", Value: 5},
 		},
 	}
-	_, client := packIdkConfigs(configs, pf)
+	_, client := packIdkConfigs(configs, pf, nil)
 	want := []byte{0x00, 0x01, 60, 0x00, 0x04, 61, 0x00, 0x05, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -196,7 +196,7 @@ func TestPackIdkConfigs_RecolSrcDst(t *testing.T) {
 			{Key: "recol1d", Value: 0x5678},
 		},
 	}
-	_, client := packIdkConfigs(configs, pf)
+	_, client := packIdkConfigs(configs, pf, nil)
 	want := []byte{0x00, 0x01, 40, 0x12, 0x34, 50, 0x56, 0x78, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
@@ -205,7 +205,7 @@ func TestPackIdkConfigs_RecolSrcDst(t *testing.T) {
 
 func TestPackIdkConfigs_ServerDebugTrailer(t *testing.T) {
 	pf := idkOneSlotPack("man_hair_0")
-	server, _ := packIdkConfigs(map[string][]ConfigLine{}, pf)
+	server, _ := packIdkConfigs(map[string][]ConfigLine{}, pf, nil)
 	if !bytes.Equal(server.Dat.Data, idkServerDebugTrailer("man_hair_0")) {
 		t.Fatalf("server:\n got % x\nwant % x", server.Dat.Data, idkServerDebugTrailer("man_hair_0"))
 	}
@@ -213,7 +213,7 @@ func TestPackIdkConfigs_ServerDebugTrailer(t *testing.T) {
 
 func TestPackIdkConfigs_NoDebugnameNoTrailer(t *testing.T) {
 	pf := newTestPF("idk", map[int]string{0: ""})
-	server, _ := packIdkConfigs(map[string][]ConfigLine{}, pf)
+	server, _ := packIdkConfigs(map[string][]ConfigLine{}, pf, nil)
 	want := []byte{0x00, 0x01, 0x00}
 	if !bytes.Equal(server.Dat.Data, want) {
 		t.Fatalf("server:\n got % x\nwant % x", server.Dat.Data, want)
@@ -225,7 +225,7 @@ func TestPackIdkConfigs_DisableFalseNoEmit(t *testing.T) {
 	configs := map[string][]ConfigLine{
 		"idk0": {{Key: "disable", Value: false}},
 	}
-	_, client := packIdkConfigs(configs, pf)
+	_, client := packIdkConfigs(configs, pf, nil)
 	want := []byte{0x00, 0x01, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)

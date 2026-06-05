@@ -46,7 +46,7 @@ func TestPackParamConfigs_ClientOutputAllZeroPerTSCallback(t *testing.T) {
 		"b": {{Key: "type", Value: objtype.ScriptVarTypeString}, {Key: "default", Value: "x"}},
 		"c": {{Key: "type", Value: objtype.ScriptVarTypeBoolean}, {Key: "default", Value: "yes"}, {Key: "autodisable", Value: false}},
 	}
-	_, client, err := packParamConfigs(cfgs, pf, &paramLookups{})
+	_, client, err := packParamConfigs(cfgs, pf, &paramLookups{}, nil)
 	if err != nil {
 		t.Fatalf("packParamConfigs: %v", err)
 	}

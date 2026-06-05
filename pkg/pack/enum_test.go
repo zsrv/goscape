@@ -76,7 +76,7 @@ func TestPackEnumConfigs_IntOutputType_DefaultAndOneVal(t *testing.T) {
 			{Key: "val", Value: "7,99"},
 		},
 	}
-	pd, err := packEnumConfigs(cfgs, pf, lk)
+	pd, err := packEnumConfigs(cfgs, pf, lk, nil)
 	if err != nil {
 		t.Fatalf("packEnumConfigs: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestPackEnumConfigs_StringOutputType_StringDefaultAndVal(t *testing.T) {
 			{Key: "val", Value: "1,abc"},
 		},
 	}
-	pd, err := packEnumConfigs(cfgs, pf, lk)
+	pd, err := packEnumConfigs(cfgs, pf, lk, nil)
 	if err != nil {
 		t.Fatalf("packEnumConfigs: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestPackEnumConfigs_AutoIntInputType_BareVal(t *testing.T) {
 			{Key: "val", Value: "555"},
 		},
 	}
-	pd, err := packEnumConfigs(cfgs, pf, lk)
+	pd, err := packEnumConfigs(cfgs, pf, lk, nil)
 	if err != nil {
 		t.Fatalf("packEnumConfigs: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestPackEnumConfigs_AutoIntInputType_CommaVal_IgnoresKeyHalf(t *testing.T) 
 			{Key: "val", Value: "ignored,555"},
 		},
 	}
-	pd, err := packEnumConfigs(cfgs, pf, lk)
+	pd, err := packEnumConfigs(cfgs, pf, lk, nil)
 	if err != nil {
 		t.Fatalf("packEnumConfigs: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestPackEnumConfigs_DefaultLookupFails_CoercesToZero(t *testing.T) {
 			{Key: "default", Value: "stat"}, // unresolvable for INT
 		},
 	}
-	pd, err := packEnumConfigs(cfgs, pf, lk)
+	pd, err := packEnumConfigs(cfgs, pf, lk, nil)
 	if err != nil {
 		t.Fatalf("packEnumConfigs: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestPackEnumConfigs_MissingInputType_Errors(t *testing.T) {
 			{Key: "outputtype", Value: objtype.ScriptVarTypeInt},
 		},
 	}
-	_, err := packEnumConfigs(cfgs, pf, lk)
+	_, err := packEnumConfigs(cfgs, pf, lk, nil)
 	if err == nil || !strings.Contains(err.Error(), "inputtype") {
 		t.Fatalf("missing inputtype: err=%v", err)
 	}
