@@ -1,78 +1,69 @@
+// Package audio ports the client-stage audio packers from
+// tools/pack/sound/pack.ts and tools/pack/midi/pack.ts.
 package audio
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
-	"github.com/zsrv/goscape/pkg/io/jagfile"
+	"github.com/zsrv/goscape/pkg/io/filestream"
+	"github.com/zsrv/goscape/pkg/io/gziputil"
+	"github.com/zsrv/goscape/pkg/pack"
 )
 
-// PackMidi ports TS midi/pack.ts:packClientMidi.
+// PackMidi ports TS tools/pack/midi/pack.ts:packClientMidi at rev-244.
 //
-// For each of jingles/ and songs/ under srcDir, copies new files
-// into <outDir>/client/<subdir>/, bzip2-compressed (prefixLength=true,
-// removeHeader=false, blockSize=1) matching TS BZip2.compress(data, true).
+// For each .mid file in <srcDir>/jingles and <srcDir>/songs (lexical order,
+// jingles first matching TS spread `[...jingles, ...songs]`):
+//   - id = MidiPack.getByName(basename sans ".mid")
+//   - data = file bytes; if len > 0: cache.Write(3, id, CompressGz(data), 1)
 //
-// NAI-213-D-PACKMIDI-MTIME-CHECK-MIRROR-TS-TODO: per-file gate is
-// existence-only (TS comment: "TODO: mtime-based check"). Both TS
-// and goscape have this TODO.
+// cache is required for the write path. When nil the stage is a no-op (the
+// cache is the only output at 244; the 225 bzip2 per-file subdirs are deleted
+// upstream and not produced here). Callers in pkg/packall pass nil until T15
+// wires the real FileStream handle.
 //
-// NAI-213-D-PACKMIDI-PER-SUBDIR-GATE: TS calls shouldBuild() only on
-// jingles/, and if the gate skips, ALSO skips songs/. goscape gates
-// per-subdir independently (more correct: each subdir's freshness is
-// independent). Behavioral divergence; no client-visible side effect
-// since both eventually converge.
+// Rev-244: the 225 shouldBuild guard and bzip2 client/jingles + client/songs
+// dirs are deleted upstream. This port follows suit — no file outputs, no
+// existence-check skip, no bzip2.
 //
-// NAI-192-D-NO-SRC-NO-OP mirror: missing src subdir => no-op.
-func PackMidi(srcDir, outDir string) error {
-	for _, sub := range []string{"jingles", "songs"} {
-		if err := packMidiSubdir(srcDir, outDir, sub); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func packMidiSubdir(srcDir, outDir, sub string) error {
-	srcSub := filepath.Join(srcDir, sub)
-	outSub := filepath.Join(outDir, "client", sub)
-
-	if _, err := os.Stat(srcSub); os.IsNotExist(err) {
-		// NAI-192-D-NO-SRC-NO-OP mirror.
+// NAI-192-D-NO-SRC-NO-OP mirror: missing jingles/songs dirs → no .mid files
+// returned by ListFilesExt → no-op (not an error).
+//
+// TS source: tools/pack/midi/pack.ts:10-19 @ 9aadcec4 (rev-244).
+func PackMidi(reg *pack.Registry, srcDir string, cache *filestream.FileStream) error {
+	if cache == nil {
+		// T15 comment: nil cache means real FileStream not yet wired; no-op.
 		return nil
 	}
 
-	if err := os.MkdirAll(outSub, 0o755); err != nil {
-		return err
-	}
-
-	entries, err := os.ReadDir(srcSub)
+	midiPack, err := reg.EnsureMidi()
 	if err != nil {
 		return err
 	}
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		dest := filepath.Join(outSub, e.Name())
-		// Existence-only skip - TS midi/pack.ts:15-17 + 27-29.
-		if _, err := os.Stat(dest); err == nil {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(srcSub, e.Name()))
+
+	// TS: [...listFilesExt(jingles, '.mid'), ...listFilesExt(songs, '.mid')]
+	var midis []string
+	midis = append(midis, pack.ListFilesExt(filepath.Join(srcDir, "jingles"), ".mid")...)
+	midis = append(midis, pack.ListFilesExt(filepath.Join(srcDir, "songs"), ".mid")...)
+
+	for _, file := range midis {
+		base := filepath.Base(file)
+		name := strings.TrimSuffix(base, ".mid")
+		id := midiPack.GetByName(name)
+		data, err := os.ReadFile(file)
 		if err != nil {
-			return err
+			return fmt.Errorf("audio.PackMidi: read %q: %w", file, err)
 		}
-		// TS BZip2.compress(data, true) =
-		//   (prefixLength=true, removeHeader=false, blockSize=1, compressedLength=0)
-		compressed, err := jagfile.BZip2Compress(data, true, false, 1, 0)
-		if err != nil {
-			return fmt.Errorf("PackMidi(%s/%s): %w", sub, e.Name(), err)
-		}
-		if err := os.WriteFile(dest, compressed, 0o644); err != nil {
-			return err
+		if len(data) > 0 {
+			compressed := gziputil.CompressGz(data, 0, len(data))
+			if compressed != nil {
+				cache.Write(3, id, compressed, 1)
+			}
 		}
 	}
+
 	return nil
 }

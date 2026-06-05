@@ -351,9 +351,10 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 	logger.Info("stage_start", "stage", "PackConfigs")
 	pcStart := time.Now()
 	var reg *pack.Registry
+	var modelFlags []int
 	pcErr := safeRun(func() error {
 		var err error
-		reg, err = pack.PackConfigsForRegistry(srcDir, outDir)
+		reg, modelFlags, err = pack.PackConfigsForRegistryAndModelFlags(srcDir, outDir)
 		return err
 	})
 	pcElapsed := time.Since(pcStart)
@@ -389,8 +390,8 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 		{"Texture", func() error { return sprites.PackTexture(reg, srcDir, outDir, nil) }},
 		{"Wordenc", func() error { return wordenc.Pack(rawDir, nil) }},
 		{"Sound", func() error { return audio.PackSound(reg, srcDir, outDir, nil) }},
-		{"Graphics", func() error { return graphics.Pack(reg, srcDir, outDir) }},
-		{"Midi", func() error { return audio.PackMidi(srcDir, outDir) }},
+		{"Graphics", func() error { return graphics.Pack(reg, srcDir, modelFlags, nil, nil) }},
+		{"Midi", func() error { return audio.PackMidi(reg, srcDir, nil) }},
 		{"Maps", func() error { return maps.Pack(srcDir, outDir) }},
 		{"Worldmap", func() error { return worldmap.Pack(srcDir, outDir) }},
 	}

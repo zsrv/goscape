@@ -21,14 +21,14 @@ import (
 //
 // Pipeline (TS-faithful order):
 //  1. ClearFsCache
-//  2. PackConfigsForRegistry (server-side configs + registry of *PackFile singletons)
+//  2. PackConfigsForRegistryAndModelFlags (server-side configs + registry + modelFlags)
 //  3. clientinterface.Pack (build-verify-gated, informational only)
 //  4. compiler.RunServerCompiler
 //  5. sprites.PackTitle / PackMedia / PackTexture (PixPack-backed)
 //  6. wordenc.Pack
 //  7. audio.PackSound
-//  8. graphics.Pack
-//  9. audio.PackMidi
+//  8. graphics.Pack  (cache=nil until T15; modelFlags threaded from step 2)
+//  9. audio.PackMidi (cache=nil until T15)
 //
 // 10. maps.Pack
 //
@@ -49,7 +49,7 @@ import (
 // a no-op in goscape. Permanent.
 func PackAll(srcDir, outDir, dataPackDir, rawDir string) error {
 	pack.ClearFsCache()
-	reg, err := pack.PackConfigsForRegistry(srcDir, outDir)
+	reg, modelFlags, err := pack.PackConfigsForRegistryAndModelFlags(srcDir, outDir)
 	if err != nil {
 		return fmt.Errorf("PackAll: PackConfigs: %w", err)
 	}
@@ -78,10 +78,13 @@ func PackAll(srcDir, outDir, dataPackDir, rawDir string) error {
 	if err := audio.PackSound(reg, srcDir, outDir, nil); err != nil {
 		return fmt.Errorf("PackAll: Sound: %w", err)
 	}
-	if err := graphics.Pack(reg, srcDir, outDir); err != nil {
+	// nil cache: real FileStream handle wired in T15.
+	// modelFlags threaded from PackConfigs (TS PackAll.ts:152 @ 9aadcec4).
+	if err := graphics.Pack(reg, srcDir, modelFlags, nil, nil); err != nil {
 		return fmt.Errorf("PackAll: Graphics: %w", err)
 	}
-	if err := audio.PackMidi(srcDir, outDir); err != nil {
+	// nil cache: real FileStream handle wired in T15.
+	if err := audio.PackMidi(reg, srcDir, nil); err != nil {
 		return fmt.Errorf("PackAll: Midi: %w", err)
 	}
 	if err := maps.Pack(srcDir, outDir); err != nil {

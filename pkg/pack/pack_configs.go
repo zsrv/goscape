@@ -83,6 +83,18 @@ const (
 //
 // TS source: tools/pack/config/PackShared.ts:261-669 (packConfigs).
 func PackConfigsForRegistry(srcDir, outDir string) (*Registry, error) {
+	reg, _, err := PackConfigsForRegistryAndModelFlags(srcDir, outDir)
+	return reg, err
+}
+
+// PackConfigsForRegistryAndModelFlags is like PackConfigsForRegistry but also
+// returns the modelFlags slice so callers that need it (e.g. pkg/packall.PackAll
+// threading flags into graphics.Pack) can observe the flag writes from the five
+// consumers (idk/loc/npc/obj/spotanim). TS PackAll.ts:117-129 @ 9aadcec4.
+//
+// The returned slice is indexed by model id, length = reg.Model.Max.
+// Callers must not modify the returned slice concurrently.
+func PackConfigsForRegistryAndModelFlags(srcDir, outDir string) (*Registry, []int, error) {
 	reg := &Registry{SrcDir: srcDir}
 	// Allocate modelFlags sized by ModelPack.max (reg.Model.Max after EnsureModel).
 	// EnsureModel is lazy; we call it here so the size is known before the
@@ -90,15 +102,15 @@ func PackConfigsForRegistry(srcDir, outDir string) (*Registry, error) {
 	//   for (let i = 0; i < ModelPack.max; i++) { modelFlags[i] = 0; }
 	// Zero-alloc satisfies that init.
 	if _, err := reg.EnsureModel(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	modelFlags := make([]int, reg.Model.Max)
 	// nil cache: PackConfigsForRegistry callers do not yet have a FileStream.
 	// real handle is wired in T15 (PackAll.ts:42).
 	if err := packConfigsCoreWithModelFlags(srcDir, outDir, reg, modelFlags, nil); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return reg, nil
+	return reg, modelFlags, nil
 }
 
 // PackConfigs is the original entry point (2-arg). Kept for backward
