@@ -986,3 +986,228 @@ func TestPackNpcConfigs_DebugnameEmpty(t *testing.T) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
 	}
 }
+
+// ── New keys: ambient / contrast / headicon / alwaysontop + modelFlags ──────
+
+// TestParseNpcConfig_Ambient checks that "ambient" is accepted as a number key.
+func TestParseNpcConfig_Ambient(t *testing.T) {
+	mp, cp, sp, hp, pt, lk := npcTestRegistries(t)
+	parse := parseNpcConfigFor(mp, cp, sp, hp, lk, pt)
+
+	val, accepted, err := parse("ambient", "20")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !accepted {
+		t.Fatal("ambient key should be accepted")
+	}
+	n, ok := val.(int)
+	if !ok || n != 20 {
+		t.Fatalf("got %#v, want int 20", val)
+	}
+}
+
+// TestParseNpcConfig_Contrast checks that "contrast" is accepted as a number key.
+func TestParseNpcConfig_Contrast(t *testing.T) {
+	mp, cp, sp, hp, pt, lk := npcTestRegistries(t)
+	parse := parseNpcConfigFor(mp, cp, sp, hp, lk, pt)
+
+	val, accepted, err := parse("contrast", "45")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !accepted {
+		t.Fatal("contrast key should be accepted")
+	}
+	n, ok := val.(int)
+	if !ok || n != 45 {
+		t.Fatalf("got %#v, want int 45", val)
+	}
+}
+
+// TestParseNpcConfig_Headicon checks that "headicon" is accepted as a number key.
+func TestParseNpcConfig_Headicon(t *testing.T) {
+	mp, cp, sp, hp, pt, lk := npcTestRegistries(t)
+	parse := parseNpcConfigFor(mp, cp, sp, hp, lk, pt)
+
+	val, accepted, err := parse("headicon", "512")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !accepted {
+		t.Fatal("headicon key should be accepted")
+	}
+	n, ok := val.(int)
+	if !ok || n != 512 {
+		t.Fatalf("got %#v, want int 512", val)
+	}
+}
+
+// TestParseNpcConfig_Alwaysontop checks that "alwaysontop" is accepted as a
+// boolean key. TS source: NpcConfig.ts:31-33.
+func TestParseNpcConfig_Alwaysontop(t *testing.T) {
+	mp, cp, sp, hp, pt, lk := npcTestRegistries(t)
+	parse := parseNpcConfigFor(mp, cp, sp, hp, lk, pt)
+
+	val, accepted, err := parse("alwaysontop", "yes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !accepted {
+		t.Fatal("alwaysontop key should be accepted")
+	}
+	b, ok := val.(bool)
+	if !ok || !b {
+		t.Fatalf("got %#v, want bool true", val)
+	}
+}
+
+// TestPackNpcConfigs_Alwaysontop pins opcode 99 as presence-only (no value
+// byte). TS NpcConfig.ts:379-381: `client.p1(99)` — no p1(value) follows.
+// Only emitted when value is true (boolean key).
+func TestPackNpcConfigs_Alwaysontop(t *testing.T) {
+	npcPack := npcOneSlotPack("x")
+	configs := map[string][]ConfigLine{"x": {{Key: "alwaysontop", Value: true}}}
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// opcode 99 (0x63) only — no value byte.
+	want := expectClient("x", 0x63)
+	if !bytes.Equal(client.Dat.Data, want) {
+		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
+	}
+}
+
+// TestPackNpcConfigs_AlwaysontopFalse pins that alwaysontop=false emits
+// nothing (mirrors hasalpha/members/minimap pattern — presence-only flags
+// are only written when the value is true/non-default).
+func TestPackNpcConfigs_AlwaysontopFalse(t *testing.T) {
+	npcPack := npcOneSlotPack("x")
+	configs := map[string][]ConfigLine{"x": {{Key: "alwaysontop", Value: false}}}
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// No body bytes — only the mandatory trailer.
+	want := expectClient("x")
+	if !bytes.Equal(client.Dat.Data, want) {
+		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
+	}
+}
+
+// TestPackNpcConfigs_Ambient pins opcode 100 + p1(value).
+// TS NpcConfig.ts:382-384: `client.p1(100); client.p1(value)`.
+func TestPackNpcConfigs_Ambient(t *testing.T) {
+	npcPack := npcOneSlotPack("x")
+	configs := map[string][]ConfigLine{"x": {{Key: "ambient", Value: 20}}}
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// opcode 100 (0x64) + p1(20 = 0x14)
+	want := expectClient("x", 0x64, 0x14)
+	if !bytes.Equal(client.Dat.Data, want) {
+		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
+	}
+}
+
+// TestPackNpcConfigs_Contrast pins opcode 101 + p1(value).
+// TS NpcConfig.ts:385-387: `client.p1(101); client.p1(value)`.
+func TestPackNpcConfigs_Contrast(t *testing.T) {
+	npcPack := npcOneSlotPack("x")
+	configs := map[string][]ConfigLine{"x": {{Key: "contrast", Value: 45}}}
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// opcode 101 (0x65) + p1(45 = 0x2D)
+	want := expectClient("x", 0x65, 0x2D)
+	if !bytes.Equal(client.Dat.Data, want) {
+		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
+	}
+}
+
+// TestPackNpcConfigs_Headicon pins opcode 102 + p2(value).
+// TS NpcConfig.ts:388-390: `client.p1(102); client.p2(value)`.
+func TestPackNpcConfigs_Headicon(t *testing.T) {
+	npcPack := npcOneSlotPack("x")
+	configs := map[string][]ConfigLine{"x": {{Key: "headicon", Value: 512}}}
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// opcode 102 (0x66) + p2(512 = 0x02 0x00)
+	want := expectClient("x", 0x66, 0x02, 0x00)
+	if !bytes.Equal(client.Dat.Data, want) {
+		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
+	}
+}
+
+// TestPackNpcConfigs_ModelFlags_Model pins that model1= sets modelFlags[id]|=0x2.
+// TS NpcConfig.ts:293: `modelFlags[value] |= 0x2; // todo: use context from script compiler`
+func TestPackNpcConfigs_ModelFlags_Model(t *testing.T) {
+	npcPack := npcOneSlotPack("x")
+	configs := map[string][]ConfigLine{
+		"x": {
+			{Key: "model1", Value: 5},
+			{Key: "model2", Value: 7},
+		},
+	}
+	// modelFlags slice must be large enough to cover model ids 5 and 7.
+	modelFlags := make([]int, 10)
+	_, _, err := packNpcConfigs(configs, npcPack, modelFlags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if modelFlags[5]&0x2 == 0 {
+		t.Fatalf("modelFlags[5]: got 0x%X, expected bit 0x2 set", modelFlags[5])
+	}
+	if modelFlags[7]&0x2 == 0 {
+		t.Fatalf("modelFlags[7]: got 0x%X, expected bit 0x2 set", modelFlags[7])
+	}
+	// Unrelated slot should be untouched.
+	if modelFlags[0] != 0 {
+		t.Fatalf("modelFlags[0]: got 0x%X, expected 0", modelFlags[0])
+	}
+}
+
+// TestPackNpcConfigs_ModelFlags_Head pins that head1= sets modelFlags[id]|=0x2.
+// TS NpcConfig.ts:297: `modelFlags[value] |= 0x2; // todo: use context from script compiler`
+func TestPackNpcConfigs_ModelFlags_Head(t *testing.T) {
+	npcPack := npcOneSlotPack("x")
+	configs := map[string][]ConfigLine{
+		"x": {
+			{Key: "head1", Value: 3},
+			{Key: "head2", Value: 9},
+		},
+	}
+	modelFlags := make([]int, 15)
+	_, _, err := packNpcConfigs(configs, npcPack, modelFlags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if modelFlags[3]&0x2 == 0 {
+		t.Fatalf("modelFlags[3]: got 0x%X, expected bit 0x2 set", modelFlags[3])
+	}
+	if modelFlags[9]&0x2 == 0 {
+		t.Fatalf("modelFlags[9]: got 0x%X, expected bit 0x2 set", modelFlags[9])
+	}
+}
+
+// TestPackNpcConfigs_ModelFlags_NilSafe pins that nil modelFlags does not panic
+// (existing call sites pass nil; this covers the B5 no-op plumbing path).
+func TestPackNpcConfigs_ModelFlags_NilSafe(t *testing.T) {
+	npcPack := npcOneSlotPack("x")
+	configs := map[string][]ConfigLine{
+		"x": {
+			{Key: "model1", Value: 2},
+			{Key: "head1", Value: 4},
+		},
+	}
+	// nil must not panic — existing callers pass nil.
+	_, _, err := packNpcConfigs(configs, npcPack, nil)
+	if err != nil {
+		t.Fatalf("nil modelFlags should not cause error: %v", err)
+	}
+}

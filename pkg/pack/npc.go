@@ -19,7 +19,7 @@ var npcStringKeys = map[string]struct{}{
 }
 
 // npcNumberKeys is the set of keys parsed as signed/unsigned integers via
-// TS parseInt (accepts 0x-prefixed hex). TS source: NpcConfig.ts:18-26.
+// TS parseInt (accepts 0x-prefixed hex). TS source: NpcConfig.ts:18-27.
 //
 // Range constraints (TS L61-87) are honoured by the parser.
 var npcNumberKeys = map[string]struct{}{
@@ -41,16 +41,20 @@ var npcNumberKeys = map[string]struct{}{
 	"ranged":      {},
 	"timer":       {},
 	"respawnrate": {},
+	"ambient":     {},
+	"contrast":    {},
+	"headicon":    {},
 	"regenrate":   {},
 }
 
 // npcBooleanKeys is the set of keys parsed as IsConfigBoolean-gated
-// booleans. TS source: NpcConfig.ts:28-30.
+// booleans. TS source: NpcConfig.ts:28-33.
 var npcBooleanKeys = map[string]struct{}{
-	"hasalpha":  {},
-	"minimap":   {},
-	"members":   {},
-	"givechase": {},
+	"hasalpha":    {},
+	"minimap":     {},
+	"members":     {},
+	"givechase":   {},
+	"alwaysontop": {},
 }
 
 // npcHeadKeyRE matches keys of the form headN or headNN (anchored: full key
@@ -335,10 +339,9 @@ func parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack *PackFile, lk 
 // a TS oversight; mirrored here for byte-exact parity.
 //
 // TS source: tools/pack/config/NpcConfig.ts:267-510.
-// modelFlags is indexed by model id (size = Model PackFile max). The npc
-// packer writes 0x2 flags for model references (T6+). The parameter is
-// accepted here for plumbing parity with TS PackShared.ts:137-141; no
-// writes land in T5.
+// modelFlags is indexed by model id (size = Model PackFile max). Every
+// model1..N and head1..N value sets modelFlags[v]|=0x2 (TS NpcConfig.ts:293,297).
+// May be nil (existing callers pass nil; nil is a safe no-op).
 //
 // TS source: tools/pack/config/NpcConfig.ts:267-510.
 func packNpcConfigs(configs map[string][]ConfigLine, npcPack *PackFile, modelFlags []int) (server, client *PackedData, err error) {
@@ -370,7 +373,7 @@ func packNpcConfigs(configs map[string][]ConfigLine, npcPack *PackFile, modelFla
 					s := line.Value.(string)
 					name = &s
 				case strings.HasPrefix(key, "model"):
-					// TS L291-293: index = parseInt(key after "model") - 1.
+					// TS L291-294: index = parseInt(key after "model") - 1.
 					idxStr := key[len("model"):]
 					idx, perr := strconv.Atoi(idxStr)
 					if perr != nil {
@@ -380,9 +383,13 @@ func packNpcConfigs(configs map[string][]ConfigLine, npcPack *PackFile, modelFla
 					for len(models) <= idx {
 						models = append(models, 0)
 					}
-					models[idx] = line.Value.(int)
+					v := line.Value.(int)
+					models[idx] = v
+					if modelFlags != nil {
+						modelFlags[v] |= 0x2 // todo: use context from script compiler
+					}
 				case npcHeadKeyRE.MatchString(key):
-					// TS L294-296: head\d+; index = parseInt(after "head") - 1.
+					// TS L295-298: head\d+; index = parseInt(after "head") - 1.
 					idxStr := key[len("head"):]
 					idx, perr := strconv.Atoi(idxStr)
 					if perr != nil {
@@ -392,7 +399,11 @@ func packNpcConfigs(configs map[string][]ConfigLine, npcPack *PackFile, modelFla
 					for len(heads) <= idx {
 						heads = append(heads, 0)
 					}
-					heads[idx] = line.Value.(int)
+					v := line.Value.(int)
+					heads[idx] = v
+					if modelFlags != nil {
+						modelFlags[v] |= 0x2 // todo: use context from script compiler
+					}
 				case strings.HasPrefix(key, "recol"):
 					// TS L297-303: index = parseInt(key.substring("recol", len-1)) - 1;
 					// suffix 's' → recol_s, otherwise → recol_d.
@@ -486,6 +497,23 @@ func packNpcConfigs(configs map[string][]ConfigLine, npcPack *PackFile, modelFla
 					client.P2(uint16(line.Value.(int)))
 				case key == "resizev":
 					client.P1(98)
+					client.P2(uint16(line.Value.(int)))
+				case key == "alwaysontop":
+					// TS NpcConfig.ts:379-381: presence-only opcode, no value byte.
+					if line.Value.(bool) {
+						client.P1(99)
+					}
+				case key == "ambient":
+					// TS NpcConfig.ts:382-384.
+					client.P1(100)
+					client.P1(uint8(line.Value.(int)))
+				case key == "contrast":
+					// TS NpcConfig.ts:385-387.
+					client.P1(101)
+					client.P1(uint8(line.Value.(int)))
+				case key == "headicon":
+					// TS NpcConfig.ts:388-390.
+					client.P1(102)
 					client.P2(uint16(line.Value.(int)))
 				case key == "wanderrange":
 					server.P1(200)
