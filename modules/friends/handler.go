@@ -469,7 +469,7 @@ func (h *handler) RelayQueueScript(_ context.Context, req *friendspb.RelayQueueS
 //
 // Retires NAI-S6-D-PUBLIC-CHAT-DEFERRED.
 func (h *handler) PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest) (*emptypb.Empty, error) {
-	if err := h.repo.LogPublicMessage(ctx, req.SessionUuid, req.Coord, req.Chat); err != nil {
+	if err := h.repo.LogPublicMessage(ctx, req.Username, req.Coord, req.Chat); err != nil {
 		return nil, status.Errorf(codes.Internal, "LogPublicMessage: %v", err)
 	}
 	return &emptypb.Empty{}, nil

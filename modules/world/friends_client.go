@@ -205,7 +205,7 @@ func (c *grpcFriendsClient) PrivateMessage(ctx context.Context, req *friendspb.P
 func (c *grpcFriendsClient) PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest) {
 	if _, err := c.client.PublicMessage(ctx, req); err != nil {
 		c.log.Warn("PublicMessage RPC failed",
-			slog.String("session_uuid", req.SessionUuid),
+			slog.String("username", req.Username),
 			slog.Any("err", err),
 		)
 	}

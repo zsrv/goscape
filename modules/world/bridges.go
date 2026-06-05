@@ -483,10 +483,10 @@ func (b *grpcFriendsBridge) PublicMessage(sessionUUID string, coord int, message
 		ctx, cancel := context.WithTimeout(b.parentCtx, bridgeCallTimeout)
 		defer cancel()
 		b.client.PublicMessage(ctx, &friendspb.PublicMessageRequest{
-			WorldId:     b.worldID,
-			SessionUuid: sessionUUID,
-			Coord:       int32(coord),
-			Chat:        message,
+			WorldId:  b.worldID,
+			Username: sessionUUID,
+			Coord:    int32(coord),
+			Chat:     message,
 		})
 	}()
 }

@@ -75,11 +75,13 @@ func (x *WorldConnectRequest) GetProfile() string {
 }
 
 type PlayerLoginRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WorldId       int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
-	Username37    uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
-	PrivateChat   int32                  `protobuf:"varint,3,opt,name=private_chat,json=privateChat,proto3" json:"private_chat,omitempty"`
-	StaffLvl      int32                  `protobuf:"varint,4,opt,name=staff_lvl,json=staffLvl,proto3" json:"staff_lvl,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	WorldId     int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
+	Username37  uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
+	PrivateChat int32                  `protobuf:"varint,3,opt,name=private_chat,json=privateChat,proto3" json:"private_chat,omitempty"`
+	StaffLvl    int32                  `protobuf:"varint,4,opt,name=staff_lvl,json=staffLvl,proto3" json:"staff_lvl,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,5,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -142,6 +144,13 @@ func (x *PlayerLoginRequest) GetStaffLvl() int32 {
 	return 0
 }
 
+func (x *PlayerLoginRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type PlayerLoginResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Per-RPC player-cap surfacing. Set false on cap rejection so the
@@ -189,9 +198,11 @@ func (x *PlayerLoginResponse) GetAccepted() bool {
 }
 
 type PlayerLogoutRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WorldId       int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
-	Username37    uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	WorldId    int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
+	Username37 uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,3,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -240,11 +251,20 @@ func (x *PlayerLogoutRequest) GetUsername37() uint64 {
 	return 0
 }
 
+func (x *PlayerLogoutRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type ChatSetModeRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WorldId       int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
-	Username37    uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
-	PrivateChat   int32                  `protobuf:"varint,3,opt,name=private_chat,json=privateChat,proto3" json:"private_chat,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	WorldId     int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
+	Username37  uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
+	PrivateChat int32                  `protobuf:"varint,3,opt,name=private_chat,json=privateChat,proto3" json:"private_chat,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,4,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -300,13 +320,22 @@ func (x *ChatSetModeRequest) GetPrivateChat() int32 {
 	return 0
 }
 
+func (x *ChatSetModeRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type FriendlistAddRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	WorldId          int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
 	Username37       uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
 	TargetUsername37 uint64                 `protobuf:"varint,3,opt,name=target_username37,json=targetUsername37,proto3" json:"target_username37,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,4,opt,name=profile,proto3" json:"profile,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FriendlistAddRequest) Reset() {
@@ -360,13 +389,22 @@ func (x *FriendlistAddRequest) GetTargetUsername37() uint64 {
 	return 0
 }
 
+func (x *FriendlistAddRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type FriendlistDelRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	WorldId          int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
 	Username37       uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
 	TargetUsername37 uint64                 `protobuf:"varint,3,opt,name=target_username37,json=targetUsername37,proto3" json:"target_username37,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,4,opt,name=profile,proto3" json:"profile,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FriendlistDelRequest) Reset() {
@@ -420,13 +458,22 @@ func (x *FriendlistDelRequest) GetTargetUsername37() uint64 {
 	return 0
 }
 
+func (x *FriendlistDelRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type IgnorelistAddRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	WorldId          int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
 	Username37       uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
 	TargetUsername37 uint64                 `protobuf:"varint,3,opt,name=target_username37,json=targetUsername37,proto3" json:"target_username37,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,4,opt,name=profile,proto3" json:"profile,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *IgnorelistAddRequest) Reset() {
@@ -480,13 +527,22 @@ func (x *IgnorelistAddRequest) GetTargetUsername37() uint64 {
 	return 0
 }
 
+func (x *IgnorelistAddRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type IgnorelistDelRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	WorldId          int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
 	Username37       uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
 	TargetUsername37 uint64                 `protobuf:"varint,3,opt,name=target_username37,json=targetUsername37,proto3" json:"target_username37,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,4,opt,name=profile,proto3" json:"profile,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *IgnorelistDelRequest) Reset() {
@@ -540,6 +596,13 @@ func (x *IgnorelistDelRequest) GetTargetUsername37() uint64 {
 	return 0
 }
 
+func (x *IgnorelistDelRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type PrivateMessageRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	WorldId          int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
@@ -549,8 +612,10 @@ type PrivateMessageRequest struct {
 	PmId             uint32                 `protobuf:"varint,5,opt,name=pm_id,json=pmId,proto3" json:"pm_id,omitempty"`
 	Chat             string                 `protobuf:"bytes,6,opt,name=chat,proto3" json:"chat,omitempty"`
 	Coord            int32                  `protobuf:"varint,7,opt,name=coord,proto3" json:"coord,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,8,opt,name=profile,proto3" json:"profile,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PrivateMessageRequest) Reset() {
@@ -632,12 +697,23 @@ func (x *PrivateMessageRequest) GetCoord() int32 {
 	return 0
 }
 
+func (x *PrivateMessageRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type PublicMessageRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WorldId       int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
-	SessionUuid   string                 `protobuf:"bytes,2,opt,name=session_uuid,json=sessionUuid,proto3" json:"session_uuid,omitempty"`
-	Coord         int32                  `protobuf:"varint,3,opt,name=coord,proto3" json:"coord,omitempty"`
-	Chat          string                 `protobuf:"bytes,4,opt,name=chat,proto3" json:"chat,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	WorldId int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
+	// rev-244: re-keyed from session_uuid to the player username
+	// (TS FriendServer.ts:287-305 / FriendClient.publicMessage :704-722).
+	Username string `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Coord    int32  `protobuf:"varint,3,opt,name=coord,proto3" json:"coord,omitempty"`
+	Chat     string `protobuf:"bytes,4,opt,name=chat,proto3" json:"chat,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,5,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -679,9 +755,9 @@ func (x *PublicMessageRequest) GetWorldId() int32 {
 	return 0
 }
 
-func (x *PublicMessageRequest) GetSessionUuid() string {
+func (x *PublicMessageRequest) GetUsername() string {
 	if x != nil {
-		return x.SessionUuid
+		return x.Username
 	}
 	return ""
 }
@@ -700,10 +776,19 @@ func (x *PublicMessageRequest) GetChat() string {
 	return ""
 }
 
+func (x *PublicMessageRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type SubscribeUpdatesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WorldId       int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
-	Username37    uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	WorldId    int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
+	Username37 uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,3,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -750,6 +835,13 @@ func (x *SubscribeUpdatesRequest) GetUsername37() uint64 {
 		return x.Username37
 	}
 	return 0
+}
+
+func (x *SubscribeUpdatesRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
 }
 
 type FriendsUpdate struct {
@@ -1066,7 +1158,9 @@ type RelayMuteRequest struct {
 	// Mute expiry as epoch milliseconds (matches TS `muted_until: number`).
 	// 0 = unmute. Negative = permanent (matches existing modules/login
 	// PlayerMute semantics).
-	MutedUntilMs  int64 `protobuf:"varint,3,opt,name=muted_until_ms,json=mutedUntilMs,proto3" json:"muted_until_ms,omitempty"`
+	MutedUntilMs int64 `protobuf:"varint,3,opt,name=muted_until_ms,json=mutedUntilMs,proto3" json:"muted_until_ms,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,4,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1122,10 +1216,19 @@ func (x *RelayMuteRequest) GetMutedUntilMs() int64 {
 	return 0
 }
 
+func (x *RelayMuteRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type RelayKickRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
 	Username37    uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,3,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1174,11 +1277,20 @@ func (x *RelayKickRequest) GetUsername37() uint64 {
 	return 0
 }
 
+func (x *RelayKickRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type RelayShutdownRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
 	// Shutdown countdown in ticks (TS `duration`).
 	DurationTicks int32 `protobuf:"varint,2,opt,name=duration_ticks,json=durationTicks,proto3" json:"duration_ticks,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,3,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1227,11 +1339,20 @@ func (x *RelayShutdownRequest) GetDurationTicks() int32 {
 	return 0
 }
 
+func (x *RelayShutdownRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type RelayBroadcastRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
 	// Game-wide chat broadcast text (TS `broadcast` → `message`).
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Message string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,3,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1280,13 +1401,22 @@ func (x *RelayBroadcastRequest) GetMessage() string {
 	return ""
 }
 
+func (x *RelayBroadcastRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type RelayTrackRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
 	Username37    uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
 	// TS-faithful `state` (FriendServer.ts:348). Untyped in TS; pinned as
 	// int32 so slice 5b can interpret per the anti-cheat tracking subsystem.
-	State         int32 `protobuf:"varint,3,opt,name=state,proto3" json:"state,omitempty"`
+	State int32 `protobuf:"varint,3,opt,name=state,proto3" json:"state,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,4,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1342,9 +1472,18 @@ func (x *RelayTrackRequest) GetState() int32 {
 	return 0
 }
 
+func (x *RelayTrackRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type RelayReloadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,2,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1386,9 +1525,18 @@ func (x *RelayReloadRequest) GetTargetWorldId() int32 {
 	return 0
 }
 
+func (x *RelayReloadRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type RelayClearLoginsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,2,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1430,9 +1578,18 @@ func (x *RelayClearLoginsRequest) GetTargetWorldId() int32 {
 	return 0
 }
 
+func (x *RelayClearLoginsRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type RelayClearLogoutsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,2,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1474,11 +1631,20 @@ func (x *RelayClearLogoutsRequest) GetTargetWorldId() int32 {
 	return 0
 }
 
+func (x *RelayClearLogoutsRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type RelayQueueScriptRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
 	ScriptName    string                 `protobuf:"bytes,2,opt,name=script_name,json=scriptName,proto3" json:"script_name,omitempty"`
 	Username37    uint64                 `protobuf:"varint,3,opt,name=username37,proto3" json:"username37,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,4,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1534,9 +1700,18 @@ func (x *RelayQueueScriptRequest) GetUsername37() uint64 {
 	return 0
 }
 
+func (x *RelayQueueScriptRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
 type SubscribeWorldEventsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WorldId       int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	WorldId int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
+	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	Profile       string `protobuf:"bytes,2,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1576,6 +1751,13 @@ func (x *SubscribeWorldEventsRequest) GetWorldId() int32 {
 		return x.WorldId
 	}
 	return 0
+}
+
+func (x *SubscribeWorldEventsRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
 }
 
 // WorldEvent is the inbound push variant pushed to a world's
@@ -2180,51 +2362,58 @@ const file_friends_friends_proto_rawDesc = "" +
 	"friends.v1\x1a\x1bgoogle/protobuf/empty.proto\"J\n" +
 	"\x13WorldConnectRequest\x12\x19\n" +
 	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x18\n" +
-	"\aprofile\x18\x02 \x01(\tR\aprofile\"\x8f\x01\n" +
+	"\aprofile\x18\x02 \x01(\tR\aprofile\"\xa9\x01\n" +
 	"\x12PlayerLoginRequest\x12\x19\n" +
 	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x1e\n" +
 	"\n" +
 	"username37\x18\x02 \x01(\x04R\n" +
 	"username37\x12!\n" +
 	"\fprivate_chat\x18\x03 \x01(\x05R\vprivateChat\x12\x1b\n" +
-	"\tstaff_lvl\x18\x04 \x01(\x05R\bstaffLvl\"1\n" +
+	"\tstaff_lvl\x18\x04 \x01(\x05R\bstaffLvl\x12\x18\n" +
+	"\aprofile\x18\x05 \x01(\tR\aprofile\"1\n" +
 	"\x13PlayerLoginResponse\x12\x1a\n" +
-	"\baccepted\x18\x01 \x01(\bR\baccepted\"P\n" +
+	"\baccepted\x18\x01 \x01(\bR\baccepted\"j\n" +
 	"\x13PlayerLogoutRequest\x12\x19\n" +
 	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x1e\n" +
 	"\n" +
 	"username37\x18\x02 \x01(\x04R\n" +
-	"username37\"r\n" +
+	"username37\x12\x18\n" +
+	"\aprofile\x18\x03 \x01(\tR\aprofile\"\x8c\x01\n" +
 	"\x12ChatSetModeRequest\x12\x19\n" +
 	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x1e\n" +
 	"\n" +
 	"username37\x18\x02 \x01(\x04R\n" +
 	"username37\x12!\n" +
-	"\fprivate_chat\x18\x03 \x01(\x05R\vprivateChat\"~\n" +
+	"\fprivate_chat\x18\x03 \x01(\x05R\vprivateChat\x12\x18\n" +
+	"\aprofile\x18\x04 \x01(\tR\aprofile\"\x98\x01\n" +
 	"\x14FriendlistAddRequest\x12\x19\n" +
 	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x1e\n" +
 	"\n" +
 	"username37\x18\x02 \x01(\x04R\n" +
 	"username37\x12+\n" +
-	"\x11target_username37\x18\x03 \x01(\x04R\x10targetUsername37\"~\n" +
+	"\x11target_username37\x18\x03 \x01(\x04R\x10targetUsername37\x12\x18\n" +
+	"\aprofile\x18\x04 \x01(\tR\aprofile\"\x98\x01\n" +
 	"\x14FriendlistDelRequest\x12\x19\n" +
 	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x1e\n" +
 	"\n" +
 	"username37\x18\x02 \x01(\x04R\n" +
 	"username37\x12+\n" +
-	"\x11target_username37\x18\x03 \x01(\x04R\x10targetUsername37\"~\n" +
+	"\x11target_username37\x18\x03 \x01(\x04R\x10targetUsername37\x12\x18\n" +
+	"\aprofile\x18\x04 \x01(\tR\aprofile\"\x98\x01\n" +
 	"\x14IgnorelistAddRequest\x12\x19\n" +
 	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x1e\n" +
 	"\n" +
 	"username37\x18\x02 \x01(\x04R\n" +
 	"username37\x12+\n" +
-	"\x11target_username37\x18\x03 \x01(\x04R\x10targetUsername37\"~\n" +
+	"\x11target_username37\x18\x03 \x01(\x04R\x10targetUsername37\x12\x18\n" +
+	"\aprofile\x18\x04 \x01(\tR\aprofile\"\x98\x01\n" +
 	"\x14IgnorelistDelRequest\x12\x19\n" +
 	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x1e\n" +
 	"\n" +
 	"username37\x18\x02 \x01(\x04R\n" +
 	"username37\x12+\n" +
-	"\x11target_username37\x18\x03 \x01(\x04R\x10targetUsername37\"\xdb\x01\n" +
+	"\x11target_username37\x18\x03 \x01(\x04R\x10targetUsername37\x12\x18\n" +
+	"\aprofile\x18\x04 \x01(\tR\aprofile\"\xf5\x01\n" +
 	"\x15PrivateMessageRequest\x12\x19\n" +
 	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x1e\n" +
 	"\n" +
@@ -2234,17 +2423,20 @@ const file_friends_friends_proto_rawDesc = "" +
 	"\tstaff_lvl\x18\x04 \x01(\x05R\bstaffLvl\x12\x13\n" +
 	"\x05pm_id\x18\x05 \x01(\rR\x04pmId\x12\x12\n" +
 	"\x04chat\x18\x06 \x01(\tR\x04chat\x12\x14\n" +
-	"\x05coord\x18\a \x01(\x05R\x05coord\"~\n" +
+	"\x05coord\x18\a \x01(\x05R\x05coord\x12\x18\n" +
+	"\aprofile\x18\b \x01(\tR\aprofile\"\x91\x01\n" +
 	"\x14PublicMessageRequest\x12\x19\n" +
-	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12!\n" +
-	"\fsession_uuid\x18\x02 \x01(\tR\vsessionUuid\x12\x14\n" +
+	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x14\n" +
 	"\x05coord\x18\x03 \x01(\x05R\x05coord\x12\x12\n" +
-	"\x04chat\x18\x04 \x01(\tR\x04chat\"T\n" +
+	"\x04chat\x18\x04 \x01(\tR\x04chat\x12\x18\n" +
+	"\aprofile\x18\x05 \x01(\tR\aprofile\"n\n" +
 	"\x17SubscribeUpdatesRequest\x12\x19\n" +
 	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x1e\n" +
 	"\n" +
 	"username37\x18\x02 \x01(\x04R\n" +
-	"username37\"\xe8\x01\n" +
+	"username37\x12\x18\n" +
+	"\aprofile\x18\x03 \x01(\tR\aprofile\"\xe8\x01\n" +
 	"\rFriendsUpdate\x12>\n" +
 	"\n" +
 	"friendlist\x18\x01 \x01(\v2\x1c.friends.v1.FriendlistUpdateH\x00R\n" +
@@ -2269,45 +2461,55 @@ const file_friends_friends_proto_rawDesc = "" +
 	"\x0ffrom_username37\x18\x01 \x01(\x04R\x0efromUsername37\x12\x1b\n" +
 	"\tstaff_lvl\x18\x02 \x01(\x05R\bstaffLvl\x12\x13\n" +
 	"\x05pm_id\x18\x03 \x01(\rR\x04pmId\x12\x12\n" +
-	"\x04chat\x18\x04 \x01(\tR\x04chat\"\x80\x01\n" +
+	"\x04chat\x18\x04 \x01(\tR\x04chat\"\x9a\x01\n" +
 	"\x10RelayMuteRequest\x12&\n" +
 	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12\x1e\n" +
 	"\n" +
 	"username37\x18\x02 \x01(\x04R\n" +
 	"username37\x12$\n" +
-	"\x0emuted_until_ms\x18\x03 \x01(\x03R\fmutedUntilMs\"Z\n" +
+	"\x0emuted_until_ms\x18\x03 \x01(\x03R\fmutedUntilMs\x12\x18\n" +
+	"\aprofile\x18\x04 \x01(\tR\aprofile\"t\n" +
 	"\x10RelayKickRequest\x12&\n" +
 	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12\x1e\n" +
 	"\n" +
 	"username37\x18\x02 \x01(\x04R\n" +
-	"username37\"e\n" +
+	"username37\x12\x18\n" +
+	"\aprofile\x18\x03 \x01(\tR\aprofile\"\x7f\n" +
 	"\x14RelayShutdownRequest\x12&\n" +
 	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12%\n" +
-	"\x0eduration_ticks\x18\x02 \x01(\x05R\rdurationTicks\"Y\n" +
+	"\x0eduration_ticks\x18\x02 \x01(\x05R\rdurationTicks\x12\x18\n" +
+	"\aprofile\x18\x03 \x01(\tR\aprofile\"s\n" +
 	"\x15RelayBroadcastRequest\x12&\n" +
 	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"q\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x18\n" +
+	"\aprofile\x18\x03 \x01(\tR\aprofile\"\x8b\x01\n" +
 	"\x11RelayTrackRequest\x12&\n" +
 	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12\x1e\n" +
 	"\n" +
 	"username37\x18\x02 \x01(\x04R\n" +
 	"username37\x12\x14\n" +
-	"\x05state\x18\x03 \x01(\x05R\x05state\"<\n" +
+	"\x05state\x18\x03 \x01(\x05R\x05state\x12\x18\n" +
+	"\aprofile\x18\x04 \x01(\tR\aprofile\"V\n" +
 	"\x12RelayReloadRequest\x12&\n" +
-	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\"A\n" +
+	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12\x18\n" +
+	"\aprofile\x18\x02 \x01(\tR\aprofile\"[\n" +
 	"\x17RelayClearLoginsRequest\x12&\n" +
-	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\"B\n" +
+	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12\x18\n" +
+	"\aprofile\x18\x02 \x01(\tR\aprofile\"\\\n" +
 	"\x18RelayClearLogoutsRequest\x12&\n" +
-	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\"\x82\x01\n" +
+	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12\x18\n" +
+	"\aprofile\x18\x02 \x01(\tR\aprofile\"\x9c\x01\n" +
 	"\x17RelayQueueScriptRequest\x12&\n" +
 	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12\x1f\n" +
 	"\vscript_name\x18\x02 \x01(\tR\n" +
 	"scriptName\x12\x1e\n" +
 	"\n" +
 	"username37\x18\x03 \x01(\x04R\n" +
-	"username37\"8\n" +
+	"username37\x12\x18\n" +
+	"\aprofile\x18\x04 \x01(\tR\aprofile\"R\n" +
 	"\x1bSubscribeWorldEventsRequest\x12\x19\n" +
-	"\bworld_id\x18\x01 \x01(\x05R\aworldId\"\x93\x04\n" +
+	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x18\n" +
+	"\aprofile\x18\x02 \x01(\tR\aprofile\"\x93\x04\n" +
 	"\n" +
 	"WorldEvent\x12+\n" +
 	"\x04mute\x18\x01 \x01(\v2\x15.friends.v1.MuteEventH\x00R\x04mute\x12+\n" +

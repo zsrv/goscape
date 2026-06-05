@@ -26,15 +26,18 @@ service FriendsService {
   // SubscribeUpdates fan-out; insert error → codes.Internal.
   rpc PrivateMessage(PrivateMessageRequest) returns (google.protobuf.Empty);
 
-  // Public-chat audit log. Mirrors TS FriendServer.ts:286-297 — append-
-  // only persistence keyed by per-login session UUID (Player.session,
-  // populated by slice 7). No delivery half; the world handles in-world
-  // chat propagation itself. Insert error → codes.Internal.
+  // Public-chat audit log. Mirrors TS FriendServer.ts:291-307 — append-
+  // only persistence keyed by username + profile + world (rev-244 re-key:
+  // TS re-keyed from session_uuid to username at FriendServer.ts:292-293).
+  // No delivery half; the world handles in-world chat propagation itself.
+  // Insert error → codes.Internal.
   rpc PublicMessage(PublicMessageRequest) returns (google.protobuf.Empty);
 
   // Server -> world push. Server streams update events for a single
-  // (world, player) subscription. Backed by a per-subscriber registry
-  // with broadcastWorldToFollowers fan-out on mutating RPCs.
+  // (world, player) subscription. Backed by a per-profile, per-subscriber
+  // registry with broadcastWorldToFollowers fan-out on mutating RPCs.
+  // rev-244: profile-scoped registries; each profile is an isolated
+  // namespace (FriendServer.ts:546-722).
   rpc SubscribeUpdates(SubscribeUpdatesRequest) returns (stream FriendsUpdate);
 
   // Cross-world admin relay. Each RPC accepts a target_world_id; the
@@ -55,7 +58,9 @@ service FriendsService {
 
   // Server -> world push for cross-world admin events. One subscriber per
   // world (owned by world.Server); the world-side dispatcher applies
-  // world-state effects on inbound events.
+  // world-state effects on inbound events. rev-244: profile-scoped
+  // registries; each profile is an isolated namespace
+  // (FriendServer.ts:546-722).
   // NAI-S5A-D-PERWORLD-EVENTS-STREAM-SEPARATE — second stream RPC
   // alongside SubscribeUpdates; goscape has two parallel streams where
   // TS has one socket. Permanent; reviewer traceability only.
@@ -72,6 +77,8 @@ message PlayerLoginRequest {
   uint64 username37   = 2;
   int32  private_chat = 3;
   int32  staff_lvl    = 4;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile      = 5;
 }
 
 message PlayerLoginResponse {
@@ -83,36 +90,48 @@ message PlayerLoginResponse {
 message PlayerLogoutRequest {
   int32  world_id   = 1;
   uint64 username37 = 2;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile    = 3;
 }
 
 message ChatSetModeRequest {
   int32  world_id     = 1;
   uint64 username37   = 2;
   int32  private_chat = 3;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile      = 4;
 }
 
 message FriendlistAddRequest {
   int32  world_id          = 1;
   uint64 username37        = 2;
   uint64 target_username37 = 3;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile           = 4;
 }
 
 message FriendlistDelRequest {
   int32  world_id          = 1;
   uint64 username37        = 2;
   uint64 target_username37 = 3;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile           = 4;
 }
 
 message IgnorelistAddRequest {
   int32  world_id          = 1;
   uint64 username37        = 2;
   uint64 target_username37 = 3;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile           = 4;
 }
 
 message IgnorelistDelRequest {
   int32  world_id          = 1;
   uint64 username37        = 2;
   uint64 target_username37 = 3;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile           = 4;
 }
 
 message PrivateMessageRequest {
@@ -123,18 +142,26 @@ message PrivateMessageRequest {
   uint32 pm_id             = 5;
   string chat              = 6;
   int32  coord             = 7;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile           = 8;
 }
 
 message PublicMessageRequest {
-  int32  world_id     = 1;
-  string session_uuid = 2;
-  int32  coord        = 3;
-  string chat         = 4;
+  int32  world_id  = 1;
+  // rev-244: re-keyed from session_uuid to the player username
+  // (TS FriendServer.ts:287-305 / FriendClient.publicMessage :704-722).
+  string username  = 2;
+  int32  coord     = 3;
+  string chat      = 4;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile   = 5;
 }
 
 message SubscribeUpdatesRequest {
   int32  world_id   = 1;
   uint64 username37 = 2;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile    = 3;
 }
 
 message FriendsUpdate {
@@ -176,23 +203,31 @@ message RelayMuteRequest {
   // 0 = unmute. Negative = permanent (matches existing modules/login
   // PlayerMute semantics).
   int64  muted_until_ms  = 3;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile         = 4;
 }
 
 message RelayKickRequest {
   int32  target_world_id = 1;
   uint64 username37      = 2;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile         = 3;
 }
 
 message RelayShutdownRequest {
   int32  target_world_id = 1;
   // Shutdown countdown in ticks (TS `duration`).
   int32  duration_ticks  = 2;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile         = 3;
 }
 
 message RelayBroadcastRequest {
   int32  target_world_id = 1;
   // Game-wide chat broadcast text (TS `broadcast` → `message`).
   string message         = 2;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile         = 3;
 }
 
 message RelayTrackRequest {
@@ -201,28 +236,40 @@ message RelayTrackRequest {
   // TS-faithful `state` (FriendServer.ts:348). Untyped in TS; pinned as
   // int32 so slice 5b can interpret per the anti-cheat tracking subsystem.
   int32  state           = 3;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile         = 4;
 }
 
 message RelayReloadRequest {
-  int32 target_world_id = 1;
+  int32  target_world_id = 1;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile         = 2;
 }
 
 message RelayClearLoginsRequest {
-  int32 target_world_id = 1;
+  int32  target_world_id = 1;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile         = 2;
 }
 
 message RelayClearLogoutsRequest {
-  int32 target_world_id = 1;
+  int32  target_world_id = 1;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile         = 2;
 }
 
 message RelayQueueScriptRequest {
   int32  target_world_id = 1;
   string script_name     = 2;
   uint64 username37      = 3;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile         = 4;
 }
 
 message SubscribeWorldEventsRequest {
-  int32 world_id = 1;
+  int32  world_id = 1;
+  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  string profile  = 2;
 }
 
 // WorldEvent is the inbound push variant pushed to a world's

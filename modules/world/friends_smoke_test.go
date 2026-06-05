@@ -930,7 +930,7 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 
 	client.PublicMessage(ctx, &friendspb.PublicMessageRequest{
 		WorldId:     10,
-		SessionUuid: "uuid-e2e-1",
+		Username: "uuid-e2e-1",
 		Coord:       42,
 		Chat:        "persisted publicly",
 	})

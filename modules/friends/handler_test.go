@@ -1089,7 +1089,7 @@ func TestHandler_PublicMessage_PersistsRow(t *testing.T) {
 
 	resp, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
 		WorldId:     10,
-		SessionUuid: "uuid-pub-1",
+		Username: "uuid-pub-1",
 		Coord:       9876,
 		Chat:        "audit me",
 	})
@@ -1129,7 +1129,7 @@ func TestHandler_PublicMessage_InsertErrorReturnsInternal(t *testing.T) {
 
 	resp, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
 		WorldId:     10,
-		SessionUuid: "uuid-pub-err",
+		Username: "uuid-pub-err",
 		Coord:       0,
 		Chat:        "should not persist",
 	})

@@ -63,14 +63,17 @@ type FriendsServiceClient interface {
 	// Chat. Mirrors TS PRIVATE_MESSAGE. Server persists then delivers via
 	// SubscribeUpdates fan-out; insert error → codes.Internal.
 	PrivateMessage(ctx context.Context, in *PrivateMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// Public-chat audit log. Mirrors TS FriendServer.ts:286-297 — append-
-	// only persistence keyed by per-login session UUID (Player.session,
-	// populated by slice 7). No delivery half; the world handles in-world
-	// chat propagation itself. Insert error → codes.Internal.
+	// Public-chat audit log. Mirrors TS FriendServer.ts:291-307 — append-
+	// only persistence keyed by username + profile + world (rev-244 re-key:
+	// TS re-keyed from session_uuid to username at FriendServer.ts:292-293).
+	// No delivery half; the world handles in-world chat propagation itself.
+	// Insert error → codes.Internal.
 	PublicMessage(ctx context.Context, in *PublicMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Server -> world push. Server streams update events for a single
-	// (world, player) subscription. Backed by a per-subscriber registry
-	// with broadcastWorldToFollowers fan-out on mutating RPCs.
+	// (world, player) subscription. Backed by a per-profile, per-subscriber
+	// registry with broadcastWorldToFollowers fan-out on mutating RPCs.
+	// rev-244: profile-scoped registries; each profile is an isolated
+	// namespace (FriendServer.ts:546-722).
 	SubscribeUpdates(ctx context.Context, in *SubscribeUpdatesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FriendsUpdate], error)
 	// Cross-world admin relay. Each RPC accepts a target_world_id; the
 	// server forwards a WorldEvent to that world's SubscribeWorldEvents
@@ -89,7 +92,9 @@ type FriendsServiceClient interface {
 	RelayQueueScript(ctx context.Context, in *RelayQueueScriptRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Server -> world push for cross-world admin events. One subscriber per
 	// world (owned by world.Server); the world-side dispatcher applies
-	// world-state effects on inbound events.
+	// world-state effects on inbound events. rev-244: profile-scoped
+	// registries; each profile is an isolated namespace
+	// (FriendServer.ts:546-722).
 	// NAI-S5A-D-PERWORLD-EVENTS-STREAM-SEPARATE — second stream RPC
 	// alongside SubscribeUpdates; goscape has two parallel streams where
 	// TS has one socket. Permanent; reviewer traceability only.
@@ -352,14 +357,17 @@ type FriendsServiceServer interface {
 	// Chat. Mirrors TS PRIVATE_MESSAGE. Server persists then delivers via
 	// SubscribeUpdates fan-out; insert error → codes.Internal.
 	PrivateMessage(context.Context, *PrivateMessageRequest) (*emptypb.Empty, error)
-	// Public-chat audit log. Mirrors TS FriendServer.ts:286-297 — append-
-	// only persistence keyed by per-login session UUID (Player.session,
-	// populated by slice 7). No delivery half; the world handles in-world
-	// chat propagation itself. Insert error → codes.Internal.
+	// Public-chat audit log. Mirrors TS FriendServer.ts:291-307 — append-
+	// only persistence keyed by username + profile + world (rev-244 re-key:
+	// TS re-keyed from session_uuid to username at FriendServer.ts:292-293).
+	// No delivery half; the world handles in-world chat propagation itself.
+	// Insert error → codes.Internal.
 	PublicMessage(context.Context, *PublicMessageRequest) (*emptypb.Empty, error)
 	// Server -> world push. Server streams update events for a single
-	// (world, player) subscription. Backed by a per-subscriber registry
-	// with broadcastWorldToFollowers fan-out on mutating RPCs.
+	// (world, player) subscription. Backed by a per-profile, per-subscriber
+	// registry with broadcastWorldToFollowers fan-out on mutating RPCs.
+	// rev-244: profile-scoped registries; each profile is an isolated
+	// namespace (FriendServer.ts:546-722).
 	SubscribeUpdates(*SubscribeUpdatesRequest, grpc.ServerStreamingServer[FriendsUpdate]) error
 	// Cross-world admin relay. Each RPC accepts a target_world_id; the
 	// server forwards a WorldEvent to that world's SubscribeWorldEvents
@@ -378,7 +386,9 @@ type FriendsServiceServer interface {
 	RelayQueueScript(context.Context, *RelayQueueScriptRequest) (*emptypb.Empty, error)
 	// Server -> world push for cross-world admin events. One subscriber per
 	// world (owned by world.Server); the world-side dispatcher applies
-	// world-state effects on inbound events.
+	// world-state effects on inbound events. rev-244: profile-scoped
+	// registries; each profile is an isolated namespace
+	// (FriendServer.ts:546-722).
 	// NAI-S5A-D-PERWORLD-EVENTS-STREAM-SEPARATE — second stream RPC
 	// alongside SubscribeUpdates; goscape has two parallel streams where
 	// TS has one socket. Permanent; reviewer traceability only.
