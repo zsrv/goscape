@@ -86,7 +86,7 @@ func (g *App) initOnDemand() (services.Service, error) {
 	}
 
 	//return g.ondemand, nil
-	return server.NewServerService(serv, servicesToWaitFor), nil
+	return ondemand.NewOndemandService(g.ondemand, serv, servicesToWaitFor), nil
 	//return g.ondemand.Service, nil
 }
 

@@ -2,6 +2,7 @@ package ondemand
 
 import (
 	"net/http"
+	"os"
 	"path"
 	"strings"
 
@@ -19,6 +20,34 @@ var publicMimeTypes = map[string]string{
 	".html": "text/html",
 	".wasm": "application/wasm",
 	".sf2":  "application/octet-stream",
+}
+
+// archiveRoutes maps URL prefix → archive-0 file index.
+// Verified against Engine-TS 9aadcec4 src/web.ts:65-80:
+//
+//	/title       → cache.read(0, 1)
+//	/config      → cache.read(0, 2)
+//	/interface   → cache.read(0, 3)
+//	/media       → cache.read(0, 4)
+//	/versionlist → cache.read(0, 5)  (NEW at 244; replaces 225's /models loose-file route)
+//	/textures    → cache.read(0, 6)
+//	/wordenc     → cache.read(0, 7)
+//	/sounds      → cache.read(0, 8)
+//
+// Prefix order matters: more-specific prefixes must appear before less-specific
+// ones (e.g. /versionlist before /v, if any). The table is checked in order.
+var archiveRoutes = []struct {
+	prefix  string
+	file    int
+}{
+	{"/title", 1},
+	{"/config", 2},
+	{"/interface", 3},
+	{"/media", 4},
+	{"/versionlist", 5},
+	{"/textures", 6},
+	{"/wordenc", 7},
+	{"/sounds", 8},
 }
 
 // isValidMapName matches the m{x}_{z} / l{x}_{z} cache-key convention used
@@ -48,102 +77,44 @@ func isValidMapName(s string) bool {
 }
 
 func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
-	// client concats the prefix with the expected crc from the initial /crc call (or the one it has cached? idk)
-	// should make a way for the server to store all the crcs and check against them when they're requested
-	// then reject a request if a crc we don't have is requested or something
-
-	// L47: .mid is matched FIRST, before /crc and the archive prefixes, to
-	// mirror TS web.ts dispatch order (web.ts:62-86 — the `.mid` branch
-	// precedes every `startsWith` archive branch). Otherwise a song whose
-	// filename begins with an archive word (e.g. GET /config_<crc>.mid) would
-	// be captured by the `/config` prefix and served the wrong archive. The `/`
-	// WebSocket-upgrade branch that leads TS's chain is handled at the server
-	// layer, so .mid is RootHandler's first check.
-	if strings.HasSuffix(r.URL.Path, ".mid") {
-		a.log.Debug("rootHandler mid", "path", r.URL.Path)
-
-		// TODO: packing process should spit out files with crc included in
-		//  the name, but the server needs to be aware of the crc so it can
-		//  send the proper length, so that's been pushed off till later...
-
-		// strip _crc from filename, but keep extension. M28: a ".mid" path with
-		// no "_" gives LastIndex == -1, and slicing [1:-1] panics. TS web.ts:68
-		// (substring(1, lastIndexOf('_'))) clamps to a filename that can't exist
-		// and falls through to a 404, so reject the malformed path the same way
-		// rather than panicking mid-response.
-		us := strings.LastIndex(r.URL.Path, "_")
-		if us < 1 {
-			http.NotFound(w, r)
-			return
-		}
-		filename := r.URL.Path[1:us] + ".mid"
-
-		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client/songs", filename))
-		return
-	}
-
-	if strings.HasPrefix(r.URL.Path, "/crc") { // archive checksums
-		// the number appended to the url is random
+	// /crc — archive checksums (unchanged from 225).
+	if strings.HasPrefix(r.URL.Path, "/crc") {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(http.StatusOK)
 		w.Write(cache.CRC().Bytes)
 		return
 	}
-	if strings.HasPrefix(r.URL.Path, "/title") { // title screen
-		// TODO: check [http.Dir.Open] for path sanitization ideas
-		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "title"))
+
+	// Archive-0 routes: /title, /config, /interface, /media, /versionlist,
+	// /textures, /wordenc, /sounds — each reads from FileStream cache.read(0, N).
+	// Verified against Engine-TS 9aadcec4 src/web.ts:65-80.
+	// Missing-file posture: 404 (established goscape-ondemand posture; TS would
+	// 500 via Bun non-null assertion on cache.read(0, N)! — decision row).
+	for _, ar := range archiveRoutes {
+		if strings.HasPrefix(r.URL.Path, ar.prefix) {
+			a.serveArchive(w, r, 0, ar.file)
+			return
+		}
+	}
+
+	// /ondemand.zip — new at 244 (web.ts:81-82): static file served from CWD.
+	if strings.HasPrefix(r.URL.Path, "/ondemand.zip") {
+		a.serveStaticFile(w, r, path.Join("data", "pack", "ondemand.zip"))
 		return
 	}
-	if strings.HasPrefix(r.URL.Path, "/config") { // config
-		// TODO: check [http.Dir.Open] for path sanitization ideas
-		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "config"))
+
+	// /build — new at 244 (web.ts:83-84): static file served from CWD.
+	if strings.HasPrefix(r.URL.Path, "/build") {
+		a.serveStaticFile(w, r, path.Join("data", "pack", "server", "build"))
 		return
 	}
-	if strings.HasPrefix(r.URL.Path, "/interface") { // interface
-		// TODO: check [http.Dir.Open] for path sanitization ideas
-		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "interface"))
-		return
-	}
-	if strings.HasPrefix(r.URL.Path, "/media") { // 2d graphics
-		// TODO: check [http.Dir.Open] for path sanitization ideas
-		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "media"))
-		return
-	}
-	if strings.HasPrefix(r.URL.Path, "/models") { // 3d graphics
-		// TODO: check [http.Dir.Open] for path sanitization ideas
-		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "models"))
-		return
-	}
-	if strings.HasPrefix(r.URL.Path, "/textures") { // textures
-		// TODO: check [http.Dir.Open] for path sanitization ideas
-		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "textures"))
-		return
-	}
-	if strings.HasPrefix(r.URL.Path, "/wordenc") { // chat system
-		// TODO: check [http.Dir.Open] for path sanitization ideas
-		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "wordenc"))
-		return
-	}
-	if strings.HasPrefix(r.URL.Path, "/sounds") { // sound effects
-		// TODO: check [http.Dir.Open] for path sanitization ideas
-		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "sounds"))
-		return
-	}
-	if strings.HasPrefix(r.URL.Path, "/maps/") { // per-zone map/loc files (m{x}_{z}, l{x}_{z})
-		// HTTP cache fallback for per-zone map/loc files: a client's signlink
-		// CacheHTTPFallback fetches missing map/loc cache items here. Live
-		// clients never hit this — they request map data via game opcode 150
-		// over the TCP stream. The name is constrained to ^[ml]\d+_\d+$ to
-		// guarantee the joined path resolves under data/pack/client/maps.
+
+	// /maps/ — goscape-specific HTTP cache fallback for per-zone map/loc files.
+	// No analog in 244 web.ts; kept as-is for the goscape-client CacheHTTPFallback
+	// arrangement. Revisit at B6 when the client arrangement changes.
+	if strings.HasPrefix(r.URL.Path, "/maps/") {
+		// The name is constrained to ^[ml]\d+_\d+$ to guarantee the joined path
+		// resolves under data/pack/client/maps.
 		name := strings.TrimPrefix(r.URL.Path, "/maps/")
 		if !isValidMapName(name) {
 			http.NotFound(w, r)
@@ -153,6 +124,7 @@ func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, path.Join("data/pack/client/maps", name))
 		return
 	}
+
 	// /rs2.cgi Java applet bootstrap — mirrors web.ts:88-113. Matched before
 	// the public/ fallback to preserve TS dispatch order.
 	if r.URL.Path == "/rs2.cgi" {
@@ -171,6 +143,36 @@ func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 
 	a.log.Debug("unmatched path", "path", r.URL.Path, "sourceIPs", a.clientIP(r))
 	http.NotFound(w, r)
+}
+
+// serveArchive serves archive/file from the module's FileStream under cacheMu.
+// Returns 404 when the cache is not configured or the file is not present.
+func (a *OnDemand) serveArchive(w http.ResponseWriter, r *http.Request, archive, file int) {
+	a.cacheMu.Lock()
+	var data []byte
+	if a.cache != nil {
+		data = a.cache.Read(archive, file, false)
+	}
+	a.cacheMu.Unlock()
+
+	if data == nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+}
+
+// serveStaticFile serves a static file at filePath relative to the CWD.
+// Returns 404 when the file is absent (goscape-ondemand posture; TS would 500).
+func (a *OnDemand) serveStaticFile(w http.ResponseWriter, r *http.Request, filePath string) {
+	if _, err := os.Stat(filePath); err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	http.ServeFile(w, r, filePath)
 }
 
 // clientIP returns the request's source IP per the configured

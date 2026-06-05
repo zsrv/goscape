@@ -279,10 +279,10 @@ func TestRootHandlerPublicFallbackDirectory404s(t *testing.T) {
 	}
 }
 
-// TestRootHandler_MidWithoutUnderscore404s pins M28: a ".mid" request whose
-// path has no "_" must return a clean 404, not panic on the [1:-1] slice.
-// Mirrors TS web.ts:68 (substring(1, lastIndexOf('_')) → non-existent file →
-// 404). A crafted GET /x.mid previously aborted the response mid-flight.
+// TestRootHandler_MidWithoutUnderscore404s pins that a ".mid" request returns
+// 404. At rev-244, the .mid route is removed entirely (midi now flows over TCP
+// OnDemand archive 3 per web.ts 9aadcec4). The Arc-31 M28 no-underscore
+// panic guard is also gone since the whole branch is deleted.
 func TestRootHandler_MidWithoutUnderscore404s(t *testing.T) {
 	a := &OnDemand{log: discardLogger()}
 
@@ -290,7 +290,7 @@ func TestRootHandler_MidWithoutUnderscore404s(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, p, nil)
 		rr := httptest.NewRecorder()
 
-		// Must not panic.
+		// Must not panic, must 404 (route is gone at rev-244).
 		a.RootHandler(rr, req)
 
 		if rr.Code != http.StatusNotFound {
@@ -299,41 +299,45 @@ func TestRootHandler_MidWithoutUnderscore404s(t *testing.T) {
 	}
 }
 
-// TestRootHandler_MidBeatsArchivePrefix pins L47: a ".mid" request whose
-// filename begins with an archive prefix word (here "config") must be
-// dispatched to the song handler, not captured by the "/config" archive
-// prefix. Mirrors TS web.ts dispatch order, where the `.mid` branch
-// (web.ts:62) precedes every archive `startsWith` branch. A regression that
-// re-ordered the prefix checks ahead of `.mid` would serve the wrong ondemand.
+// TestRootHandler_MidBeatsArchivePrefix was testing the L47 dispatch order
+// (the .mid branch preceding archive startsWith branches in TS web.ts:62-86).
+// At rev-244, the .mid route is removed entirely from web.ts; the dispatch
+// concern no longer applies. A /config_123.mid request now 404s (the .mid
+// branch is gone; /config prefix only matches when the path starts with
+// "/config" but ends in .mid — however the archive route for /config fires
+// first without a FileStream; result is 404 regardless since no cache is
+// configured here).
+//
+// This test is kept as a regression guard: the request must not accidentally
+// serve the config archive as if it were a song.
 func TestRootHandler_MidBeatsArchivePrefix(t *testing.T) {
-	// The handlers use hardcoded relative paths under data/pack/client, so
-	// run from a temp CWD seeded with both candidate files.
+	// No cache wired — /config archive route will 404. The test confirms the
+	// old "serve a song file" path is gone regardless.
 	t.Chdir(t.TempDir())
 
 	songDir := filepath.Join("data", "pack", "client", "songs")
 	if err := os.MkdirAll(songDir, 0o755); err != nil {
 		t.Fatalf("mkdir songs: %v", err)
 	}
-	// GET /config_123.mid → filename = "config" + ".mid" (strip _<crc>).
-	const wantSong = "THE-SONG"
-	if err := os.WriteFile(filepath.Join(songDir, "config.mid"), []byte(wantSong), 0o644); err != nil {
+	// The song file that the old handler would have served.
+	if err := os.WriteFile(filepath.Join(songDir, "config.mid"), []byte("THE-SONG"), 0o644); err != nil {
 		t.Fatalf("write song: %v", err)
 	}
-	// The decoy archive the "/config" prefix would have served.
+	// The decoy archive file (would be served by /config if cache were present).
 	if err := os.WriteFile(filepath.Join("data", "pack", "client", "config"), []byte("THE-ARCHIVE"), 0o644); err != nil {
 		t.Fatalf("write archive: %v", err)
 	}
 
-	a := &OnDemand{log: discardLogger()}
+	a := &OnDemand{log: discardLogger()} // no cache
 	req := httptest.NewRequest(http.MethodGet, "/config_123.mid", nil)
 	rr := httptest.NewRecorder()
 	a.RootHandler(rr, req)
 
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", rr.Code)
-	}
-	got, _ := io.ReadAll(rr.Body)
-	if string(got) != wantSong {
-		t.Fatalf("body = %q, want %q (served the archive instead of the song?)", got, wantSong)
+	// .mid route is gone; /config archive route fires but cache is nil → 404.
+	// Must never serve "THE-SONG" (old .mid path is dead) or "THE-ARCHIVE"
+	// (cache is nil so archive route also 404s).
+	if rr.Code == http.StatusOK {
+		body, _ := io.ReadAll(rr.Body)
+		t.Fatalf("status = 200, want 404; body = %q (old .mid or archive path still active?)", body)
 	}
 }

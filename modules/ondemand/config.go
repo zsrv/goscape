@@ -16,6 +16,13 @@ type Config struct {
 	Server server.Config `yaml:",inline"`
 	Enable bool          `yaml:"enable"`
 
+	// CachePath is the directory containing the dat/idx client cache files
+	// (main_file_cache.dat + main_file_cache.idx0..4). The ondemand module
+	// opens a read-only FileStream here to serve archive-0 files over HTTP
+	// (web.ts:65-80 at Engine-TS 9aadcec4). Defaults to "./data/pack",
+	// matching the world module's cache-path flag idiom (world.Config:93).
+	CachePath string `yaml:"cache_path"`
+
 	// PublicDir is the filesystem directory served as a static-file fallback
 	// after named routes do not match. Mirrors web.ts:114-119 in Engine-TS.
 	PublicDir string `yaml:"public_dir"`
@@ -83,6 +90,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.StringVar(&c.Server.LogSourceIPsRegex, "ondemand.log-source-ips-regex", `^\s*([^,]+?)\s*(?:,|$)`, "Regex for matching the source IPs. The first capture group is used. Used in conjunction with ondemand.log-source-ips-header.")
 	f.BoolVar(&c.Server.LogSourceIPsFull, "ondemand.log-source-ips-full", false, "Log all source IPs instead of returning the first match.")
 
+	f.StringVar(&c.CachePath, "ondemand.cache-path", "./data/pack", "Cache root containing main_file_cache.dat + idx files; archive-0 files are served over HTTP from here.")
 	f.StringVar(&c.PublicDir, "ondemand.public-dir", "./public", "Filesystem directory served as a static-file fallback after named routes do not match.")
 
 	// /rs2.cgi bootstrap params (mirror web.ts:88-113 + Environment.NODE_*).
