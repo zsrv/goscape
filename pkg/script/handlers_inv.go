@@ -1575,8 +1575,9 @@ func handleInvDropItem(s *ScriptState) error {
 // InvOps.ts:445-494: STAKE for 'dueloffer', TRADE for non-secondary trade.
 // NAI-115-D1 retired at NAI-162 B2.
 //
-// Deviation: RecipientSession is empty (goscape lacks a Session() method
-// on ActivePlayer; analytics RPC deferred per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY).
+// rev-244 B4: the STAKE/TRADE events below carry RecipientID +
+// RecipientSession via the ActivePlayer.RecipientSession seam (TS
+// InvOps.ts:446) — the former Session-not-exposed deferral is closed.
 func handleBothMoveInv(s *ScriptState) error {
 	operand := s.Script.IntOperands[s.PC]
 	if operand != 0 && operand != 1 {

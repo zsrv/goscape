@@ -4473,6 +4473,10 @@ func TestBothDropSlot_SecondaryFromSelf2_UntradeableStops244(t *testing.T) {
 	if len(world.addedCalls) != 0 {
 		t.Errorf("244 secondary untradeable-stop: got %d AddObj calls, want 0", len(world.addedCalls))
 	}
+	// The delete still happened (stop comes AFTER invDel, TS InvOps.ts:717-724).
+	if it := lookup.self2Invs[5].Get(0); it != nil {
+		t.Errorf("self2 inv slot 0 = %+v, want cleared (delete precedes the stop)", it)
+	}
 }
 
 // TestInvDropAll_UntradeableStops244 verifies the 244 INV_DROPALL change:

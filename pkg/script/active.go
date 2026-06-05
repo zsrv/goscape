@@ -585,7 +585,8 @@ type ActivePlayer interface {
 	// client is attached, else "disconnected". Used when this player is
 	// the COUNTERPARTY of a wealth event. Mirrors TS InvOps.ts:446
 	// `isClientConnected(toPlayer) ? toPlayer.client.uuid : 'disconnected'`
-	// (single-Player-type adaptation, rev-244 B3 row).
+	// (single-Player-type adaptation documented at the rev-244 B3
+	// account_id row; seam added in B4).
 	RecipientSession() string
 
 	// X returns the player's current absolute world X coord. Used by
