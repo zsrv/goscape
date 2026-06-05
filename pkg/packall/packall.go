@@ -14,6 +14,7 @@ import (
 	"github.com/zsrv/goscape/pkg/pack/graphics"
 	"github.com/zsrv/goscape/pkg/pack/maps"
 	"github.com/zsrv/goscape/pkg/pack/sprites"
+	"github.com/zsrv/goscape/pkg/pack/versionlist"
 	"github.com/zsrv/goscape/pkg/pack/wordenc"
 )
 
@@ -31,6 +32,7 @@ import (
 //  9. audio.PackMidi (cache=nil until T15)
 //
 // 10. maps.Pack
+// 11. versionlist.Pack (NEW rev-244; cache=nil until T15)
 //
 // dataPackDir is the cache directory RunServerCompiler reads (the 7
 // entity-type loaders: InvType, Component, VarP, VarN, VarS, Param,
@@ -91,6 +93,11 @@ func PackAll(srcDir, outDir, dataPackDir, rawDir string) error {
 	// modelFlags threaded from PackConfigs (TS PackAll.ts:69 @ 9aadcec4).
 	if err := maps.Pack(srcDir, outDir, nil, nil, modelFlags); err != nil {
 		return fmt.Errorf("PackAll: Maps: %w", err)
+	}
+	// nil cache: real FileStream handle wired in T15.
+	// modelFlags threaded from PackConfigs (TS PackAll.ts:152 @ 9aadcec4).
+	if err := versionlist.Pack(reg, srcDir, outDir, modelFlags, nil); err != nil {
+		return fmt.Errorf("PackAll: VersionList: %w", err)
 	}
 	return nil
 }
