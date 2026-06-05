@@ -40,16 +40,6 @@ func (s *ScriptState) activePlayer() ActivePlayer {
 	return s.Self2
 }
 
-// activePlayer2 returns the operand-resolved secondary active player: Self2
-// for operand 0, Self for operand 1 (the inverse of activePlayer). Mirrors TS
-// ScriptState.activePlayer2 getter (ScriptState.ts:223-230).
-func (s *ScriptState) activePlayer2() ActivePlayer {
-	if s.intOperand() == 0 {
-		return s.Self2
-	}
-	return s.Self
-}
-
 // activePlayerPointer returns the pointer-flag bit for the operand-resolved
 // primary active-player slot (PtrActivePlayer for operand 0, PtrActivePlayer2
 // for operand 1).

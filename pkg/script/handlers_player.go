@@ -59,25 +59,20 @@ func checkStatID(id int, op string) error {
 // triage of every existing call site, which is out of scope and risks
 // regressing the overwhelmingly common operand-0 path. The protect-slot
 // gate is already operand-aware where it matters (NAI-133, h-inv-3 in
-// med-bundle-15 #23feee4d); script bodies that need Self2 explicitly
-// call requireActivePlayer2. Adding a new gate function (e.g.
+// med-bundle-15 #23feee4d). Adding a new gate function (e.g.
 // requireOperandAwareActivePlayer) for the narrow handler subset that
 // IS operand-routed would be the correct future port if a real
 // divergence is ever observed — not a sweeping replacement of this
 // gate.
+//
+// Note: requireActivePlayer2 was deleted at rev-244 B4 — its sole
+// production caller was handleHintPlayer (HINT_PL→HINT_PLAYER), which at
+// 244 pops a uid and resolves via PlayerLookup instead of reading
+// activePlayer2. The TS ScriptState.activePlayer2 getter was removed at the
+// same revision (ScriptState.ts 225:222-230 gone at 244).
 func requireActivePlayer(s *ScriptState, op string) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return fmt.Errorf("%s: %w", op, ErrNoActivePlayer)
-	}
-	return nil
-}
-
-// requireActivePlayer2 is the dual-pin validator for the secondary
-// active-player slot (Self2). Every handler that dereferences s.Self2
-// calls this first. NAI-39.
-func requireActivePlayer2(s *ScriptState, op string) error {
-	if s.Pointers&PtrActivePlayer2 == 0 || s.Self2 == nil {
-		return fmt.Errorf("%s: %w", op, ErrNoActivePlayer2)
 	}
 	return nil
 }
@@ -1454,22 +1449,26 @@ func handleHuntNext(s *ScriptState) error {
 }
 
 // handleHintNpc (HINT_NPC, opcode 2032) sends a HintArrow type=1 wire
-// packet to the active player, pointing at the active NPC. Mirrors TS
-// PlayerOps.ts:972-974:
+// packet to the active player, pointing at the given NPC. Mirrors TS
+// PlayerOps.ts:963-965 (244 pin):
 //
-//	state.activePlayer.hintNpc(state.activeNpc.nid)
+//	state.activePlayer.hintNpc(check(state.popInt(), NumberNotNull))
 //
-// Full HintArrowEncoder coverage: HINT_NPC (type=1, NAI-37 T6),
-// HINT_COORD (type=2..6, NAI-39), HINT_PL (type=10, NAI-39),
-// HINT_STOP (type=-1, NAI-39).
+// 244 change: nid is popped from the int stack (was read from activeNpc in
+// 225). requireActiveNpc is gone from this handler (the compiler-side
+// pointer-table entry for HINT_NPC still requires active_npc; do NOT touch
+// opcode_pointers.go). Full HintArrowEncoder coverage: HINT_NPC (type=1,
+// NAI-37 T6), HINT_COORD (type=2..6, NAI-39), HINT_PLAYER (type=10,
+// NAI-39), HINT_STOP (type=-1, NAI-39).
 func handleHintNpc(s *ScriptState) error {
 	if err := requireActivePlayer(s, "HINT_NPC"); err != nil {
 		return err
 	}
-	if err := requireActiveNpc(s, "HINT_NPC"); err != nil {
+	nid := s.PopInt()
+	if err := checkNotNull(nid, "HINT_NPC"); err != nil {
 		return err
 	}
-	s.activePlayer().HintNpc(s.ActiveNpc.Nid())
+	s.activePlayer().HintNpc(nid)
 	return nil
 }
 
@@ -1493,23 +1492,35 @@ func handleHintCoord(s *ScriptState) error {
 	return nil
 }
 
-// handleHintPlayer (HINT_PLAYER, renamed from HINT_PL in 244) sends a HintArrow
-// type=10 (PL) wire packet to the active player, pointing at the secondary
-// active_player2 by slot. Mirrors TS PlayerOps.ts:976-978:
+// handleHintPlayer (HINT_PLAYER, renamed from HINT_PL in 244) sends a
+// HintArrow type=10 (PL) wire packet to the active player, pointing at the
+// player identified by the popped uid. Mirrors TS PlayerOps.ts:967-974
+// (244 pin):
 //
-//	state.activePlayer.hintPlayer(state.activePlayer2.slot)
+//	const uid = check(state.popInt(), NumberNotNull)
+//	const player = World.getPlayerByUid(uid)
+//	if (!player) { return }
+//	state.activePlayer.hintPlayer(player.pid)
 //
-// Requires both active_player and active_player2 to be bound. NAI-39.
+// 244 change: uid is popped from the int stack and resolved via
+// PlayerLookup; the old activePlayer2 gate is gone. A uid miss is a silent
+// no-op (matching sibling FINDUID nil-PlayerLookup convention). NAI-39.
 func handleHintPlayer(s *ScriptState) error {
 	if err := requireActivePlayer(s, "HINT_PLAYER"); err != nil {
 		return err
 	}
-	if err := requireActivePlayer2(s, "HINT_PLAYER"); err != nil {
+	uid := s.PopInt()
+	if err := checkNotNull(uid, "HINT_PLAYER"); err != nil {
 		return err
 	}
-	// L14: the target slot is operand-aware (TS state.activePlayer2, which
-	// swaps to _activePlayer at operand 1), not a raw s.Self2.
-	s.activePlayer().HintPlayer(s.activePlayer2().Slot())
+	if s.PlayerLookup == nil {
+		return nil
+	}
+	p := s.PlayerLookup.LookupPlayerByUID(uid)
+	if p == nil {
+		return nil // silent miss — TS PlayerOps.ts:970-972
+	}
+	s.activePlayer().HintPlayer(p.Slot())
 	return nil
 }
 

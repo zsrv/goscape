@@ -4550,99 +4550,66 @@ func TestHandleHuntNext_InvalidOperand_Errors(t *testing.T) {
 	}
 }
 
-// --- NAI-37 Task 6: HINT_NPC handler unit tests ---------------------------
+// --- NAI-37 Task 6 / rev-244 B4: HINT_NPC handler unit tests --------------
+//
+// 244 contract (PlayerOps.ts:963-965):
+//
+//	state.activePlayer.hintNpc(check(state.popInt(), NumberNotNull))
+//
+// HINT_NPC now pops the nid from the int stack rather than reading
+// state.activeNpc. The requireActiveNpc gate is gone from the handler
+// (though the compiler-side pointer-table entry retains it). Removed tests
+// that pinned the 225 activeNpc-based contract:
+//   - TestHintNpc_NoActiveNpc_Errors (225 gate is gone in 244)
+//   - TestHintNpc_Success_RecordsNid (pinned nid from activeNpc, not stack)
 
 func TestHintNpc_NoActivePlayer_Errors(t *testing.T) {
-	npc := &mockNpc{nid: 42}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
-		ActiveNpc:   npc,
 	} // no Self
+	s.PushInt(42)
 	if err := handleHintNpc(s); err == nil {
 		t.Fatalf("expected error for no active player")
 	}
 }
 
-func TestHintNpc_NoActiveNpc_Errors(t *testing.T) {
+// TestHintNpc_PopsNidFromStack pins the 244 contract: nid is popped from the
+// int stack (not read from state.activeNpc). TS PlayerOps.ts:963-965.
+func TestHintNpc_PopsNidFromStack(t *testing.T) {
 	pl := &mockPlayer{}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 		Self:        pl,
 		Pointers:    PtrActivePlayer,
-	} // no ActiveNpc
-	if err := handleHintNpc(s); err == nil {
-		t.Fatalf("expected error for no active npc")
+		// ActiveNpc intentionally NOT set — handler must not require it.
 	}
-	if len(pl.hintNpcCalls) != 0 {
-		t.Errorf("hintNpcCalls: got %d, want 0 on validation failure",
-			len(pl.hintNpcCalls))
-	}
-}
-
-func TestHintNpc_Success_RecordsNid(t *testing.T) {
-	pl := &mockPlayer{}
-	npc := &mockNpc{nid: 4242}
-	s := &ScriptState{
-		IntStack:    make([]int, StackCapacity),
-		StringStack: make([]string, StackCapacity),
-		Self:        pl,
-		Pointers:    PtrActivePlayer,
-		ActiveNpc:   npc,
-	}
+	s.PushInt(42)
 	if err := handleHintNpc(s); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if want := []int{4242}; !slices.Equal(pl.hintNpcCalls, want) {
+	if want := []int{42}; !slices.Equal(pl.hintNpcCalls, want) {
 		t.Errorf("hintNpcCalls: got %v, want %v", pl.hintNpcCalls, want)
 	}
 }
 
-// --- NAI-39 Task 1: requireActivePlayer2 unit tests ----------------------
-
-// TestRequireActivePlayer2_NoBit_Errors pins the pointer-bit check:
-// Self2 is set but PtrActivePlayer2 is unset → error. Without this direct
-// helper test, a bug that drops the bit-mask check could pass the
-// handler-level "Self2 set" path silently (per test_passes_for_wrong_reason.md).
-func TestRequireActivePlayer2_NoBit_Errors(t *testing.T) {
+// TestHintNpc_NullNid_Errors pins that a null(-1) nid is rejected via
+// checkNotNull, mirroring TS check(state.popInt(), NumberNotNull).
+func TestHintNpc_NullNid_Errors(t *testing.T) {
+	pl := &mockPlayer{}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
-		Self2:       &mockPlayer{},
-		Pointers:    PtrActivePlayer, // PtrActivePlayer2 NOT set
+		Self:        pl,
+		Pointers:    PtrActivePlayer,
 	}
-	if err := requireActivePlayer2(s, "TEST"); err == nil {
-		t.Fatal("expected error when PtrActivePlayer2 unset")
+	s.PushInt(-1) // null sentinel
+	if err := handleHintNpc(s); err == nil {
+		t.Fatal("expected error for null nid (-1)")
 	}
-}
-
-// TestRequireActivePlayer2_NilSelf2_Errors pins the nil-receiver check:
-// PtrActivePlayer2 is set but Self2 is nil → error. Defends against the
-// flag/state mismatch case that buildPlayerScriptState's atomic seeding
-// is supposed to prevent.
-func TestRequireActivePlayer2_NilSelf2_Errors(t *testing.T) {
-	s := &ScriptState{
-		IntStack:    make([]int, StackCapacity),
-		StringStack: make([]string, StackCapacity),
-		Pointers:    PtrActivePlayer | PtrActivePlayer2,
-		// Self2 nil
-	}
-	if err := requireActivePlayer2(s, "TEST"); err == nil {
-		t.Fatal("expected error when Self2 nil")
-	}
-}
-
-// TestRequireActivePlayer2_Both_OK pins the both-present happy path.
-func TestRequireActivePlayer2_Both_OK(t *testing.T) {
-	s := &ScriptState{
-		IntStack:    make([]int, StackCapacity),
-		StringStack: make([]string, StackCapacity),
-		Self2:       &mockPlayer{},
-		Pointers:    PtrActivePlayer | PtrActivePlayer2,
-	}
-	if err := requireActivePlayer2(s, "TEST"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if len(pl.hintNpcCalls) != 0 {
+		t.Errorf("hintNpcCalls: got %d, want 0 on validation failure", len(pl.hintNpcCalls))
 	}
 }
 
@@ -4725,49 +4692,93 @@ func TestHintCoord_PopOrderDistinctValues(t *testing.T) {
 	}
 }
 
+// --- NAI-39 Task 4 / rev-244 B4: HINT_PLAYER handler unit tests -----------
+//
+// 244 contract (PlayerOps.ts:967-974):
+//
+//	const uid = check(state.popInt(), NumberNotNull)
+//	const player = World.getPlayerByUid(uid)
+//	if (!player) { return }
+//	state.activePlayer.hintPlayer(player.pid)
+//
+// HINT_PLAYER now pops a uid, resolves via PlayerLookup, and hints by pid
+// (Slot() in the ActivePlayer interface). activePlayer2 is gone. Removed
+// tests that pinned the 225 activePlayer2-based contract:
+//   - TestHintPl_NoActivePlayer2_Errors (requireActivePlayer2 gate is gone)
+//   - TestHintPl_Success_RecordsSlot (pinned Self2.Slot(), not uid lookup)
+
 func TestHintPl_NoActivePlayer_Errors(t *testing.T) {
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
-	} // no Self, no Self2
+	} // no Self
+	s.PushInt(7)
 	if err := handleHintPlayer(s); err == nil {
 		t.Fatal("expected error for no active player")
 	}
 }
 
-// TestHintPl_NoActivePlayer2_Errors pins the second guard: Self set +
-// PtrActivePlayer set, but Self2 nil + PtrActivePlayer2 unset.
-func TestHintPl_NoActivePlayer2_Errors(t *testing.T) {
+// TestHintPlayer_UidLookup_Hit pins: uid resolved → HintPlayer called with
+// the target player's pid (Slot()). TS PlayerOps.ts:967-974.
+func TestHintPlayer_UidLookup_Hit(t *testing.T) {
 	pl := &mockPlayer{}
+	target := &mockPlayer{slot: 3}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{7: target}}
 	s := &ScriptState{
-		IntStack:    make([]int, StackCapacity),
-		StringStack: make([]string, StackCapacity),
-		Self:        pl,
-		Pointers:    PtrActivePlayer, // PtrActivePlayer2 NOT set
+		IntStack:     make([]int, StackCapacity),
+		StringStack:  make([]string, StackCapacity),
+		Self:         pl,
+		Pointers:     PtrActivePlayer,
+		PlayerLookup: lookup,
 	}
-	if err := handleHintPlayer(s); err == nil {
-		t.Fatal("expected error for no active player2")
-	}
-	if len(pl.hintPlayerCalls) != 0 {
-		t.Errorf("hintPlayerCalls: got %d, want 0 on validation failure", len(pl.hintPlayerCalls))
-	}
-}
-
-func TestHintPl_Success_RecordsSlot(t *testing.T) {
-	pl := &mockPlayer{}
-	pl2 := &mockPlayer{slot: 7}
-	s := &ScriptState{
-		IntStack:    make([]int, StackCapacity),
-		StringStack: make([]string, StackCapacity),
-		Self:        pl,
-		Self2:       pl2,
-		Pointers:    PtrActivePlayer | PtrActivePlayer2,
-	}
+	s.PushInt(7) // uid
 	if err := handleHintPlayer(s); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if want := []int{7}; !slices.Equal(pl.hintPlayerCalls, want) {
+	if want := []int{3}; !slices.Equal(pl.hintPlayerCalls, want) {
 		t.Errorf("hintPlayerCalls: got %v, want %v", pl.hintPlayerCalls, want)
+	}
+}
+
+// TestHintPlayer_UidLookup_Miss pins the silent no-op on uid miss: TS
+// PlayerOps.ts:970-972 `if (!player) { return; }` — no error, no hint call.
+func TestHintPlayer_UidLookup_Miss(t *testing.T) {
+	pl := &mockPlayer{}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{}} // uid 9999 not present
+	s := &ScriptState{
+		IntStack:     make([]int, StackCapacity),
+		StringStack:  make([]string, StackCapacity),
+		Self:         pl,
+		Pointers:     PtrActivePlayer,
+		PlayerLookup: lookup,
+	}
+	s.PushInt(9999) // unknown uid
+	if err := handleHintPlayer(s); err != nil {
+		t.Fatalf("unexpected error on uid miss: %v", err)
+	}
+	if len(pl.hintPlayerCalls) != 0 {
+		t.Errorf("hintPlayerCalls: got %d, want 0 on uid miss", len(pl.hintPlayerCalls))
+	}
+}
+
+// TestHintPlayer_NullUid_Errors pins that a null(-1) uid is rejected via
+// checkNotNull, mirroring TS check(state.popInt(), NumberNotNull).
+func TestHintPlayer_NullUid_Errors(t *testing.T) {
+	pl := &mockPlayer{}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{}}
+	s := &ScriptState{
+		IntStack:     make([]int, StackCapacity),
+		StringStack:  make([]string, StackCapacity),
+		Self:         pl,
+		Pointers:     PtrActivePlayer,
+		PlayerLookup: lookup,
+	}
+	s.PushInt(-1) // null sentinel
+	if err := handleHintPlayer(s); err == nil {
+		t.Fatal("expected error for null uid (-1)")
+	}
+	if len(pl.hintPlayerCalls) != 0 {
+		t.Errorf("hintPlayerCalls: got %d, want 0 on validation failure", len(pl.hintPlayerCalls))
 	}
 }
 
