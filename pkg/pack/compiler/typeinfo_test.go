@@ -200,19 +200,42 @@ func TestLoadArray_Empty(t *testing.T) {
 	}
 }
 
-// TestLoadRecords_ValueAsKeyFalse pins spec §7.8: with valueAsKey=false,
-// NameMap[key] = lowercase(value); key UNCHANGED.
+// TestLoadRecords_ValueAsKeyFalse pins the RuneScriptKt-26 parity rule for
+// constant loading: with valueAsKey=false, NameMap[key] = value as-is
+// (no lowercasing). RuneScriptKt reads constant.sym which contains raw
+// (case-preserved) values written by CompilerSymbols.ts; lowercasing here
+// would corrupt mixed-case string constants (e.g. "You need..." → "you need...").
+//
+// Updated from prior pin (which mirrored old TS loadRecords value.toLowerCase())
+// as part of the B6 byte-diff fix (Class 1: 72 scripts, same length, wrong case).
 func TestLoadRecords_ValueAsKeyFalse(t *testing.T) {
 	p := LoadRecords(map[string]string{"Foo": "BAR", "Baz": "QUX"}, false)
 
-	if p.NameMap["Foo"] != "bar" || p.NameMap["Baz"] != "qux" {
-		t.Fatalf("NameMap: got %v, want {Foo:bar,Baz:qux}", p.NameMap)
+	// Values MUST be preserved as-is — no lowercasing.
+	if p.NameMap["Foo"] != "BAR" || p.NameMap["Baz"] != "QUX" {
+		t.Fatalf("NameMap: got %v, want {Foo:BAR,Baz:QUX} (values case-preserved, not lowercased)", p.NameMap)
 	}
 	if len(p.Map) != 0 {
 		t.Fatalf("Map: got %v, want empty (LoadRecords writes only NameMap)", p.Map)
 	}
 	if p.Max != -1 {
 		t.Fatalf("Max: got %d, want -1 (LoadRecords doesn't call Add)", p.Max)
+	}
+}
+
+// TestLoadRecords_ValueAsKeyFalse_MixedCaseStringConstant pins that a
+// mixed-case constant value (like "You need...") survives LoadRecords
+// without case alteration. This is the exact Class-1 byte-diff scenario:
+// goscape was emitting "you need..." where the reference expects "You need..."
+// because the source .constant file contains the capitalised form.
+func TestLoadRecords_ValueAsKeyFalse_MixedCaseStringConstant(t *testing.T) {
+	input := map[string]string{
+		"mes_members_feature": "You need to be on a members' server to use this feature.",
+	}
+	p := LoadRecords(input, false)
+	want := "You need to be on a members' server to use this feature."
+	if got := p.NameMap["mes_members_feature"]; got != want {
+		t.Fatalf("NameMap[mes_members_feature] = %q, want %q (case must be preserved)", got, want)
 	}
 }
 

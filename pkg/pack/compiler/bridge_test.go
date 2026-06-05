@@ -42,7 +42,7 @@ func TestToCompilerTypeInfo_NumericIDs(t *testing.T) {
 func TestToCompilerTypeInfo_NameMap(t *testing.T) {
 	src := LoadRecords(map[string]string{"FOO": "100", "BAR": "hello"}, false)
 	dst := ToCompilerTypeInfo(src)
-	// LoadRecords lowercases values; keys preserved as-is.
+	// LoadRecords stores values as-is (case-preserved); keys unchanged.
 	checkMap(t, "Map", dst.Map, map[string]string{"FOO": "100", "BAR": "hello"})
 }
 

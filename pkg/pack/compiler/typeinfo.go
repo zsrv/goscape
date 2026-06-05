@@ -173,11 +173,20 @@ func LoadArray(input []string) *TypeInfo {
 }
 
 // LoadRecords builds a *TypeInfo from a string-keyed map. The
-// valueAsKey flag flips which side of the input becomes the NameMap
-// key. Mirrors TS Compiler.ts:72-84 (CompilerTypeInfo.loadRecords).
+// valueAsKey flag flips which side of the input becomes the NameMap key.
 //
-//	false: NameMap[k] = lowercase(v)
+//	false: NameMap[k] = v   (value stored as-is)
 //	true:  NameMap[v] = lowercase(k)
+//
+// TS Compiler.ts:72-84 (CompilerTypeInfo.loadRecords) did
+// `pack.map[key] = value.toLowerCase()` for the false branch.
+// RuneScriptKt-26 supersedes the TS compiler and reads constant.sym
+// (written with raw case by CompilerSymbols.ts) without any lowercasing.
+// Lowercasing the value here produces wrong bytecode for mixed-case
+// string constants (e.g. "You need..." → "you need..."; B6 Class-1 fix).
+//
+// The valueAsKey=true path (NameMap[v] = lowercase(k)) is unused in the
+// current call graph but preserved for TS-structural fidelity.
 //
 // Used by runServerCompiler for the constant table loaded
 // from data/src/scripts/**/*.constant files.
@@ -187,7 +196,7 @@ func LoadRecords(input map[string]string, valueAsKey bool) *TypeInfo {
 		if valueAsKey {
 			p.NameMap[v] = strings.ToLower(k)
 		} else {
-			p.NameMap[k] = strings.ToLower(v)
+			p.NameMap[k] = v
 		}
 	}
 	return p
