@@ -331,18 +331,29 @@ func enrichVarpInfo(info *TypeInfo, configs *objtype.VarpTypeConfigs) {
 	}
 }
 
-// enrichVarnInfo populates varn.VarType from VarNpcType.Type. Mirrors TS
-// Compiler.ts:245-253 faithfully, including the typo at line 247 where
-// the loop guard reads varpInfo.map[id] (NOT varnInfo.map[id]). Net
-// effect: varn ids without a varp at the same id are skipped, and
-// varp-only ids may still receive a vartype write if a varn config
-// exists at that id slot.
-func enrichVarnInfo(info *TypeInfo, varpInfo *TypeInfo, configs *objtype.VarnTypeConfigs) {
+// enrichVarnInfo populates varn.VarType from VarNpcType.Type.
+//
+// NEW semantics (CompilerSymbols.ts:167-178 @ Engine-TS@9aadcec4):
+// iterates info.Map (varn pack entries), enriching only ids present in
+// varn.pack. This matches the NEW CompilerSymbols.ts which iterates
+// `varns` (the varn.pack slice) directly.
+//
+// DEVIATION from OLD Compiler.ts:245-253 (Engine-TS@e1dea19f):
+// OLD had a typo at line 247 — the loop guard read `varpInfo.map[id]`
+// instead of `varnInfo.map[id]`, meaning varn ids without a varp at the
+// same id were silently skipped, and varp-only ids could incorrectly
+// receive a vartype write. NEW CompilerSymbols.ts fixes this by iterating
+// varn entries directly. Go is updated to NEW semantics here so the
+// in-memory compiler symbol table agrees with what the jar sees via
+// varn.sym.
+//
+// rev244-b6-cs-delta3: enrichVarnInfo updated from OLD to NEW semantics.
+func enrichVarnInfo(info *TypeInfo, configs *objtype.VarnTypeConfigs) {
 	if configs == nil {
 		return
 	}
-	for id := 0; id <= varpInfo.Max; id++ {
-		if _, ok := varpInfo.Map[id]; !ok {
+	for id := 0; id <= info.Max; id++ {
+		if _, ok := info.Map[id]; !ok {
 			continue
 		}
 		if id < 0 || id >= len(configs.Configs) {
@@ -537,7 +548,7 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 
 	// 6. varp/varn/vars/param vartype + protect enrichments.
 	enrichVarpInfo(varpInfo, loaders.varp)
-	enrichVarnInfo(varnInfo, varpInfo, loaders.varn)
+	enrichVarnInfo(varnInfo, loaders.varn)
 	enrichVarsInfo(varsInfo, loaders.varsCfg)
 	enrichParamInfo(paramInfo, loaders.param)
 
@@ -606,10 +617,27 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 // populateInterfaceOverlay derives the `interface` and `overlayinterface`
 // TypeInfos from componentInfo (loaded from interface.pack) enriched
 // with Component.ComName / Component.Overlay from the cache loader.
-// Mirrors TS Compiler.ts:214-232.
+//
+// NEW semantics (CompilerSymbols.ts:124-152 @ Engine-TS@9aadcec4):
+// three-way split on name:
+//   - name contains ':' → component (NOT added to interface or overlay here;
+//     componentInfo already holds all entries from interface.pack)
+//   - com.Overlay       → overlayinterface; ALSO added to interface
+//     ("temporary: until compiler updates", CompilerSymbols.ts:145-148)
+//   - else              → interface
 //
 // `name` is com.ComName if non-empty, else componentInfo.Map[id]
 // (TS `com.comName || componentInfo.map[id]`).
+//
+// DEVIATION from OLD Compiler.ts:214-232 (Engine-TS@e1dea19f):
+// OLD fed ALL entries (including colon-names) to interfaceInfo regardless
+// of whether they were component-style (containing ':') entries. NEW splits
+// them so only pure-interface names (no ':') + overlay-duplicates resolve
+// via the `interface` symbol type in the compiler. Colon-names resolve
+// exclusively via `component`.
+//
+// rev244-b6-cs-delta1: populateInterfaceOverlay updated to NEW three-way
+// split semantics.
 //
 // NAI-212-D-INTERFACE-FALLBACK-FROM-COMPONENTINFO: defensive fallback
 // when loaders.comp is empty or missing entries. When compile runs
@@ -620,9 +648,9 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 // (cmd_compile.go:91) — do NOT run clientinterface.Pack first, and
 // LoadComponentTypes returns empty configs when the client/interface
 // jagfile is missing (componenttype.go:133-134). In that state the
-// fallback populates interfaceInfo from componentInfo.Map alone (base
-// names, no ComName override, no overlay flag) so `interface`-typed
-// identifier lookups still resolve to a BasicSymbol. Permanent —
+// fallback uses the base name's colon-presence to classify (no ComName
+// override, no overlay flag) so `interface`-typed identifier lookups
+// still resolve to a BasicSymbol for non-component entries. Permanent —
 // removing the fallback would break `goscape-cli compile` on a fresh
 // dataPackDir.
 func populateInterfaceOverlay(
@@ -642,9 +670,18 @@ func populateInterfaceOverlay(
 		if com != nil && com.ComName != "" {
 			name = com.ComName
 		}
-		interfaceInfo.Add(id, name, true)
+
+		// Three-way split mirroring CompilerSymbols.ts:137-148.
+		if strings.Contains(name, ":") {
+			// component — componentInfo already holds these; skip interface/overlay.
+			continue
+		}
 		if com != nil && com.Overlay {
 			overlayInfo.Add(id, name, true)
+			// Temporary duplication into interface (CompilerSymbols.ts:145-148).
+			interfaceInfo.Add(id, name, true)
+		} else {
+			interfaceInfo.Add(id, name, true)
 		}
 	}
 }

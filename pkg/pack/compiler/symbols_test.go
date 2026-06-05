@@ -389,9 +389,9 @@ func TestPopulateCommandInfo_RealData(t *testing.T) {
 	_ = sort.Slice
 }
 
-// TestPopulateInterfaceOverlay_PrefersComName pins TS Compiler.ts:225 —
-// when com.comName is non-empty, that name takes precedence over the
-// componentInfo.Map[id] fallback.
+// TestPopulateInterfaceOverlay_PrefersComName pins CompilerSymbols.ts:135
+// (Engine-TS@9aadcec4) — when com.comName is non-empty, that name takes
+// precedence over the componentInfo.Map[id] fallback.
 func TestPopulateInterfaceOverlay_PrefersComName(t *testing.T) {
 	componentInfo := newTypeInfo()
 	componentInfo.Add(5, "fallback_name", true)
@@ -436,8 +436,10 @@ func TestPopulateInterfaceOverlay_FallsBackToComponentInfoMap(t *testing.T) {
 	}
 }
 
-// TestPopulateInterfaceOverlay_OverlayOnlyOnTrue pins TS Compiler.ts:229-231
-// — overlayInfo gets the entry only when com.Overlay == true.
+// TestPopulateInterfaceOverlay_OverlayOnlyOnTrue pins CompilerSymbols.ts:139-148
+// (Engine-TS@9aadcec4, rev244-b6-cs-delta1):
+//   - overlayInfo gets the entry only when com.Overlay == true
+//   - overlay entries are ALSO added to interfaceInfo (temporary duplication)
 func TestPopulateInterfaceOverlay_OverlayOnlyOnTrue(t *testing.T) {
 	componentInfo := newTypeInfo()
 	componentInfo.Add(1, "a", true)
@@ -458,6 +460,36 @@ func TestPopulateInterfaceOverlay_OverlayOnlyOnTrue(t *testing.T) {
 	}
 	if _, ok := overlayInfo.Map[2]; ok {
 		t.Errorf("overlay.Map[2]: present; want absent (overlay=false)")
+	}
+	// Overlay entries are temporarily duplicated into interfaceInfo (CompilerSymbols.ts:145-148).
+	if _, ok := interfaceInfo.Map[1]; !ok {
+		t.Errorf("interface.Map[1]: missing; want present (overlay dup into interface)")
+	}
+}
+
+// TestPopulateInterfaceOverlay_ColonNameGoesToComponentOnly pins the NEW
+// three-way split (rev244-b6-cs-delta1, CompilerSymbols.ts:137-138):
+// entries whose resolved name contains ':' are NOT added to interfaceInfo
+// or overlayInfo; they remain in componentInfo (already loaded from
+// interface.pack).
+func TestPopulateInterfaceOverlay_ColonNameGoesToComponentOnly(t *testing.T) {
+	componentInfo := newTypeInfo()
+	componentInfo.Add(1, "inv:com_0", true) // colon name — component only
+
+	components := &objtype.ComponentTypeConfigs{
+		Configs: make([]*objtype.ComponentType, 10),
+	}
+	components.Configs[1] = &objtype.ComponentType{ComName: "inv:com_0", Overlay: false}
+
+	interfaceInfo := newTypeInfo()
+	overlayInfo := newTypeInfo()
+	populateInterfaceOverlay(componentInfo, interfaceInfo, overlayInfo, components)
+
+	if _, ok := interfaceInfo.Map[1]; ok {
+		t.Errorf("interface.Map[1]: present; want absent (colon-name → component only, rev244-b6-cs-delta1)")
+	}
+	if _, ok := overlayInfo.Map[1]; ok {
+		t.Errorf("overlay.Map[1]: present; want absent (colon-name → component only)")
 	}
 }
 
@@ -929,15 +961,12 @@ func TestEnrichVarpInfo(t *testing.T) {
 	}
 }
 
-// TestEnrichVarnInfo_HappyPath pins TS Compiler.ts:245-253 with the
-// varpInfo.map[id] loop guard. A varn id is enriched only when a varp
-// exists at the same id slot.
+// TestEnrichVarnInfo_HappyPath pins NEW CompilerSymbols.ts:167-178 semantics
+// (rev244-b6-cs-delta3): a varn id present in varn.pack is enriched
+// regardless of whether a varp exists at the same id slot.
 func TestEnrichVarnInfo_HappyPath(t *testing.T) {
 	varn := newTypeInfo()
 	varn.Add(0, "n0", true)
-
-	varp := newTypeInfo()
-	varp.Add(0, "p0", true)
 
 	configs := &objtype.VarnTypeConfigs{
 		Configs: []*objtype.VarNpcType{
@@ -945,21 +974,19 @@ func TestEnrichVarnInfo_HappyPath(t *testing.T) {
 		},
 	}
 
-	enrichVarnInfo(varn, varp, configs)
+	enrichVarnInfo(varn, configs)
 
 	if got, want := varn.VarType[0], "string"; got != want {
 		t.Errorf("VarType[0] = %q, want %q", got, want)
 	}
 }
 
-// TestEnrichVarnInfo_VarnOnlyIDSkipped pins TS-faithful behavior at TS
-// Compiler.ts:247: the loop iterates varpInfo.map keys. A varn id with
-// no varp at the same id MUST NOT receive a vartype.
-func TestEnrichVarnInfo_VarnOnlyIDSkipped(t *testing.T) {
+// TestEnrichVarnInfo_VarnOnlyIDEnriched pins NEW semantics (rev244-b6-cs-delta3):
+// a varn id with no varp at the same id IS enriched (unlike OLD Compiler.ts:247
+// which checked varpInfo.map[id] and would have skipped it).
+func TestEnrichVarnInfo_VarnOnlyIDEnriched(t *testing.T) {
 	varn := newTypeInfo()
 	varn.Add(7, "lonely_varn", true) // id=7 — no varp at this id
-
-	varp := newTypeInfo() // empty — no varp ids
 
 	configs := &objtype.VarnTypeConfigs{
 		Configs: make([]*objtype.VarNpcType, 10),
@@ -969,10 +996,33 @@ func TestEnrichVarnInfo_VarnOnlyIDSkipped(t *testing.T) {
 		Type:       objtype.ScriptVarTypeBoolean,
 	}
 
-	enrichVarnInfo(varn, varp, configs)
+	enrichVarnInfo(varn, configs)
 
-	if got, present := varn.VarType[7]; present {
-		t.Errorf("VarType[7] = %q present; want absent (TS-faithful: varpInfo.map guard skips varn-only ids)", got)
+	if got, present := varn.VarType[7]; !present {
+		t.Errorf("VarType[7]: absent; want present (NEW: varn-only ids ARE enriched, rev244-b6-cs-delta3)")
+	} else if got != "boolean" {
+		t.Errorf("VarType[7] = %q, want %q", got, "boolean")
+	}
+}
+
+// TestEnrichVarnInfo_AbsentFromPackSkipped pins that ids absent from
+// varn.pack (no entry in varnInfo.Map) are NOT enriched even if a
+// VarNpcType config exists for that id.
+func TestEnrichVarnInfo_AbsentFromPackSkipped(t *testing.T) {
+	varn := newTypeInfo()
+	// id=0 is present in varn.pack; id=3 is absent.
+	varn.Add(0, "n0", true)
+
+	configs := &objtype.VarnTypeConfigs{
+		Configs: make([]*objtype.VarNpcType, 10),
+	}
+	configs.Configs[0] = &objtype.VarNpcType{ConfigType: objtype.ConfigType{ID: 0}, Type: objtype.ScriptVarTypeInt}
+	configs.Configs[3] = &objtype.VarNpcType{ConfigType: objtype.ConfigType{ID: 3}, Type: objtype.ScriptVarTypeBoolean}
+
+	enrichVarnInfo(varn, configs)
+
+	if _, present := varn.VarType[3]; present {
+		t.Errorf("VarType[3]: present; want absent (id=3 not in varn.pack → skip)")
 	}
 }
 
