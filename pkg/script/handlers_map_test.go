@@ -380,33 +380,59 @@ func TestMapBlocked_MembersWorldBlockedTilePushes1(t *testing.T) {
 	}
 }
 
-// F2P-world non-F2P tile: short-circuits to push 1 BEFORE the IsMapBlocked
-// check. Tests the early-return per TS ServerOps.ts:132-135.
+// TestMapBlocked_F2PWorldNonF2PTilePushes1 was the 225 pin for the F2P-world
+// gate (MapMembers==0 && !IsFreeToPlay → push 1). The gate was deleted in
+// TS 244 (ServerOps.ts:282-286). Re-pointed to 244 contract: free-world +
+// non-F2P + unblocked tile must push 0 (isMapBlocked decides).
+// rev-244 B4 re-points this test; see TestMapBlocked_NoF2PGate244 for the
+// discriminating regression test.
 func TestMapBlocked_F2PWorldNonF2PTilePushes1(t *testing.T) {
 	w := &mapBlockedWorld{
-		mockWorld:  mockWorld{mapMembers: 0}, // F2P world
-		mapBlocked: false,                    // would push 0 if reached
-		freeToPlay: false,                    // tile is NOT F2P
+		mockWorld:  mockWorld{mapMembers: 0}, // free world
+		mapBlocked: false,                    // tile is NOT blocked → isMapBlocked=false
+		freeToPlay: false,                    // tile is NOT F2P (old gate would have fired)
 	}
 	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
 
-	if state.ISP != 1 || state.IntStack[0] != 1 {
-		t.Errorf("F2P-world non-F2P tile: got top=%d ISP=%d, want top=1 ISP=1 (short-circuit)",
+	// 244: gate gone → isMapBlocked(false) → push 0.
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("244 no-F2P-gate: free-world non-F2P unblocked tile: got top=%d ISP=%d, want top=0 ISP=1",
 			state.IntStack[0], state.ISP)
 	}
 }
 
-// F2P-world F2P tile: passes the gate; falls through to IsMapBlocked.
+// TestMapBlocked_F2PWorldF2PTilePushesIsBlocked: free world + blocked tile
+// still pushes 1 because isMapBlocked=true. The 225 F2P-gate had already
+// passed this through to IsMapBlocked; 244 deletion changes nothing here.
+// re-pointed rev-244 B4.
 func TestMapBlocked_F2PWorldF2PTilePushesIsBlocked(t *testing.T) {
 	w := &mapBlockedWorld{
-		mockWorld:  mockWorld{mapMembers: 0}, // F2P world
-		mapBlocked: true,
-		freeToPlay: true, // tile IS F2P
+		mockWorld:  mockWorld{mapMembers: 0}, // free world
+		mapBlocked: true,                     // tile IS blocked → isMapBlocked=true
+		freeToPlay: true,
 	}
 	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
 
 	if state.ISP != 1 || state.IntStack[0] != 1 {
-		t.Errorf("F2P-world F2P-blocked tile: got top=%d ISP=%d, want top=1 ISP=1",
+		t.Errorf("free-world blocked tile: got top=%d ISP=%d, want top=1 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TestMapBlocked_NoF2PGate244 asserts that a free-world (MapMembers==0) +
+// non-F2P tile + UNBLOCKED tile pushes 0, not 1. TS 244 ServerOps.ts:282-286
+// deleted the F2P-world gate entirely; only isMapBlocked decides the result.
+// Discriminating condition: 225 code pushes 1 (gate fires); 244 must push 0.
+func TestMapBlocked_NoF2PGate244(t *testing.T) {
+	w := &mapBlockedWorld{
+		mockWorld:  mockWorld{mapMembers: 0}, // free world (members==0)
+		mapBlocked: false,                    // tile is NOT blocked → isMapBlocked returns false
+		freeToPlay: false,                    // tile is NOT F2P → old gate would have fired
+	}
+	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
+
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("244 no-F2P-gate: free-world non-F2P unblocked tile: got top=%d ISP=%d, want top=0 ISP=1",
 			state.IntStack[0], state.ISP)
 	}
 }

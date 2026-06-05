@@ -4783,9 +4783,11 @@ func TestHandleNpcStatHeal_PartialHeal(t *testing.T) {
 	}
 }
 
-// TestHandleNpcStatHeal_HpFullClearsHeroPoints pins the HP-full branch.
-// base=20, current=18, constant=5, percent=50 → healed=33;
-// min(33, 20) = 20 (full HP). Clears HeroPoints. NAI-162 B1.9.
+// TestHandleNpcStatHeal_HpFullClearsHeroPoints was the 225 pin for the
+// HP-full → HeroPointsClear branch. Replaced by
+// TestNpcStatHeal_FullHealKeepsHeroPoints244 below; 244 deleted the branch
+// (TS NpcOps.ts:240-252). Kept as a renamed no-op stub so git history
+// remains auditable. NAI-162 B1.9 → re-pointed rev-244 B4.
 func TestHandleNpcStatHeal_HpFullClearsHeroPoints(t *testing.T) {
 	mn := &mockNpc{levels: make(map[int]int), baseLevels: make(map[int]int)}
 	mn.baseLevels[objtype.NpcStatHitpoints] = 20
@@ -4799,7 +4801,7 @@ func TestHandleNpcStatHeal_HpFullClearsHeroPoints(t *testing.T) {
 	}
 	s.PushInt(objtype.NpcStatHitpoints) // stat
 	s.PushInt(5)                        // constant
-	s.PushInt(50)                       // percent
+	s.PushInt(50)                       // percent → healed=33 capped at 20
 
 	if err := handleNpcStatHeal(s); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -4807,8 +4809,9 @@ func TestHandleNpcStatHeal_HpFullClearsHeroPoints(t *testing.T) {
 	if got := mn.levels[objtype.NpcStatHitpoints]; got != 20 {
 		t.Errorf("levels[Hitpoints]: got %d, want 20", got)
 	}
-	if mn.heroPointsClearCalls != 1 {
-		t.Errorf("heroPointsClear: got %d calls, want 1", mn.heroPointsClearCalls)
+	// 244: branch deleted — HeroPointsClear must NOT be called.
+	if mn.heroPointsClearCalls != 0 {
+		t.Errorf("heroPointsClear: got %d calls, want 0 (244: branch deleted)", mn.heroPointsClearCalls)
 	}
 }
 
@@ -4866,6 +4869,37 @@ func TestHandleNpcStatHeal_NonHpStatNeverClears(t *testing.T) {
 	}
 	if mn.heroPointsClearCalls != 0 {
 		t.Errorf("heroPointsClear: got %d calls, want 0 (non-HP)", mn.heroPointsClearCalls)
+	}
+}
+
+// TestNpcStatHeal_FullHealKeepsHeroPoints244 asserts that a full-HP heal no
+// longer calls HeroPointsClear. TS 244 NpcOps.ts:240-252 deleted that branch.
+// Discriminating condition: HP healed to base (18+12=30, capped at 20); 225
+// code would call HeroPointsClear once — 244 must NOT call it.
+func TestNpcStatHeal_FullHealKeepsHeroPoints244(t *testing.T) {
+	mn := &mockNpc{levels: make(map[int]int), baseLevels: make(map[int]int)}
+	mn.baseLevels[objtype.NpcStatHitpoints] = 20
+	mn.levels[objtype.NpcStatHitpoints] = 18
+
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveNpc:   mn,
+		Pointers:    PtrActiveNpc,
+	}
+	s.PushInt(objtype.NpcStatHitpoints) // stat
+	s.PushInt(5)                        // constant
+	s.PushInt(50)                       // percent → healed=33 capped at 20 (full)
+
+	if err := handleNpcStatHeal(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := mn.levels[objtype.NpcStatHitpoints]; got != 20 {
+		t.Errorf("levels[Hitpoints]: got %d, want 20", got)
+	}
+	// 244 change: HeroPointsClear must NOT be called even on full heal.
+	if mn.heroPointsClearCalls != 0 {
+		t.Errorf("heroPointsClear: got %d calls, want 0 (244: branch deleted)", mn.heroPointsClearCalls)
 	}
 }
 

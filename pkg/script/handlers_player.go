@@ -1561,9 +1561,10 @@ func handleTextGender(s *ScriptState) error {
 // [1,5], looks up ObjType.Op[op-1] and silently returns if empty.
 // Else: StopAction → QueueWaypoint to obj tile → SetInteractionScriptObj.
 //
-// Mirrors TS PlayerOps.ts:990-1006 (op subtracted to 0-based in TS;
-// goscape keeps 1-based throughout for consistency with sibling
-// SetInteractionScript* signatures).
+// Mirrors TS PlayerOps.ts:984-1000 (244 verified). TS renamed locals
+// op→type and type→objType; Go keeps its own names. Guard semantics
+// identical: !objType.op || !objType.op[type] ≡ nil-slice or out-of-bounds
+// or empty-string. NO-OP: guard already aligned with 244.
 func handleP_OpObj(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_OPOBJ"); err != nil {
 		return err

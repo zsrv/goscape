@@ -1456,9 +1456,8 @@ func handleNpcAttackRange(s *ScriptState) error {
 }
 
 // handleNpcStatHeal (NPC_STATHEAL, opcode 2537) heals the active NPC's
-// stat by `constant + (base*percent/100)`, capped at base. When the
-// healed value reaches base and the stat is HITPOINTS, the NPC's HeroPoints
-// ledger is cleared. Mirrors TS NpcOps.ts:241-257.
+// stat by `constant + (base*percent/100)`, capped at base.
+// Mirrors TS NpcOps.ts:240-252 (244: HeroPointsClear branch deleted).
 //
 // Pop order (LIFO): percent (top), constant, stat (bottom) — TS popInts(3)
 // returns [stat, constant, percent].
@@ -1485,8 +1484,5 @@ func handleNpcStatHeal(s *ScriptState) error {
 		healed = base
 	}
 	s.activeNpc().SetNpcStat(stat, healed)
-	if stat == objtype.NpcStatHitpoints && healed >= base {
-		s.activeNpc().HeroPointsClear()
-	}
 	return nil
 }

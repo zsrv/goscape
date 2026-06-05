@@ -780,9 +780,7 @@ type ActivePlayer interface {
 
 	// HeroPointsClear resets the player's hero-point contributor ledger.
 	// Called by STAT_ADD / STAT_BOOST / STAT_HEAL on the HP-full branch
-	// (PlayerOps.ts:513-515, :552-554, :609-611). Parallel to
-	// ActiveNpc.HeroPointsClear (used by NPC_STATHEAL HP-full branch).
-	// NAI-120 Bundle 2D follow-up.
+	// (PlayerOps.ts:513-515, :552-554, :609-611). NAI-120 Bundle 2D follow-up.
 	HeroPointsClear()
 
 	// ChangeStat fires the [changestat,<skill>] trigger for the given
@@ -1119,8 +1117,8 @@ type ActiveNpc interface {
 	TargetWithinMaxRange() bool
 
 	// HeroPointsClear resets the NPC's hero-point contributor ledger.
-	// Called by NPC_STATHEAL when HP reaches base (NpcOps.ts:253-256).
-	// NAI-162 B1.
+	// NOTE: NPC_STATHEAL no longer calls this (244: branch deleted,
+	// NpcOps.ts:240-252). Seam retained for forward-compat. NAI-162 B1.
 	HeroPointsClear()
 }
 
