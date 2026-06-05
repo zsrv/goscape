@@ -5,17 +5,21 @@ package pack
 // graphics) read from it after PackConfigs returns.
 //
 // Each EnsureX accessor lazily constructs on first call and memoizes.
-// Field names match the TS singleton names (InterfacePack → Interface).
+// Field names match the TS singleton names (InterfacePack → Interface,
+// MapPack → Map, AnimSetPack → AnimSet, MidiPack → Midi).
 //
 // NAI-213-D-REGISTRY-RETURN: TS exposes these as module-level singletons
 // (e.g. tools/pack/PackFile.ts:InterfacePack); goscape returns a
 // per-PackAll Registry instead. Permanent structural shape change.
+//
+// TS source: tools/pack/PackFile.ts:191-206 @ 9aadcec4 (rev-244 B6).
 type Registry struct {
 	SrcDir string
 
 	Interface, Obj, Seq, Loc, Npc, Model, Anim, Base,
 	Synth, Texture, Varp, Varn, Vars, Inv, SpotAnim, Idk,
-	Flo, Category, Hunt, Param, DbTable, DbRow, MesAnim, Struct *PackFile
+	Flo, Category, Hunt, Param, DbTable, DbRow, MesAnim, Struct,
+	AnimSet, Map, Midi *PackFile
 }
 
 func (r *Registry) ensure(field **PackFile, packType string) (*PackFile, error) {
@@ -54,3 +58,21 @@ func (r *Registry) EnsureDbTable() (*PackFile, error)   { return r.ensure(&r.DbT
 func (r *Registry) EnsureDbRow() (*PackFile, error)     { return r.ensure(&r.DbRow, "dbrow") }
 func (r *Registry) EnsureMesAnim() (*PackFile, error)   { return r.ensure(&r.MesAnim, "mesanim") }
 func (r *Registry) EnsureStruct() (*PackFile, error)    { return r.ensure(&r.Struct, "struct") }
+
+// EnsureAnimSet lazy-constructs the animset PackFile.
+//
+// TS: AnimSetPack = new PackFile('animset', validateFilesPack, [BUILD_SRC_DIR/models], '.anim')
+// TS source: tools/pack/PackFile.ts:191 @ 9aadcec4.
+func (r *Registry) EnsureAnimSet() (*PackFile, error) { return r.ensure(&r.AnimSet, "animset") }
+
+// EnsureMap lazy-constructs the map PackFile.
+//
+// TS: MapPack = new PackFile('map', validateFilesPack, [BUILD_SRC_DIR/maps], '.jm2', false)
+// TS source: tools/pack/PackFile.ts:205 @ 9aadcec4.
+func (r *Registry) EnsureMap() (*PackFile, error) { return r.ensure(&r.Map, "map") }
+
+// EnsureMidi lazy-constructs the midi PackFile.
+//
+// TS: MidiPack = new PackFile('midi', validateFilesPack, [BUILD_SRC_DIR/jingles, BUILD_SRC_DIR/songs], '.mid')
+// TS source: tools/pack/PackFile.ts:206 @ 9aadcec4.
+func (r *Registry) EnsureMidi() (*PackFile, error) { return r.ensure(&r.Midi, "midi") }

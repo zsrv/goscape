@@ -195,3 +195,33 @@ func (pf *PackFile) GetByName(name string) int {
 	}
 	return -1
 }
+
+// ValidateConfigPackNames checks that every name registered in pf also
+// appears in configNames. Returns an error for the first name that is
+// absent, unless the name has the "cert_" prefix (those are synthesised
+// by the obj packer and have no source counterpart).
+//
+// This ports the rev-244 removal of the `if (transmitted)` gate in
+// TS PackFile.ts:114-121 @ 9aadcec4. Before the change the check only
+// ran for transmitted packs; now it runs for ALL config packs. In Go,
+// BUILD_VERIFY is not modelled as a runtime env-var — the check is
+// always-on, consistent with Go's structural-enforcement approach.
+//
+// Error format mirrors TS PackFile.ts:119 @ 9aadcec4:
+//
+//	"<type>: <name> was not found in any <ext> files, you may need to
+//	 edit <srcDir>/pack/<type>.pack"
+//
+// TS source: tools/pack/PackFile.ts:117-121 @ 9aadcec4 (rev-244 B6).
+func ValidateConfigPackNames(pf *PackFile, configNames map[string]struct{}, ext string) error {
+	for name := range pf.Names {
+		if strings.HasPrefix(name, "cert_") {
+			continue
+		}
+		if _, ok := configNames[name]; !ok {
+			return fmt.Errorf("%s: %s was not found in any %s files, you may need to edit %s/pack/%s.pack",
+				pf.Type, name, ext, pf.SrcDir, pf.Type)
+		}
+	}
+	return nil
+}

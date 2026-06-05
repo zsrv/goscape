@@ -258,3 +258,82 @@ func TestPackFileGetByIDMissingReturnsEmpty(t *testing.T) {
 		t.Fatalf("got %q, want empty", s)
 	}
 }
+
+// TestValidateConfigPackNames_UniversalGate pins the rev-244 B6 change:
+// validateConfigPack no longer gates the "name not found in any <ext> files"
+// BUILD_VERIFY check behind `if (transmitted)`. The check now runs for ALL
+// config packs.
+//
+// TS diff e1dea19f..9aadcec4 -- tools/pack/PackFile.ts:
+//
+//	-    if (transmitted) {
+//	-        for (const name of pack.names) {
+//	-            if (Environment.BUILD_VERIFY && !configNames.has(name) ...
+//	-    }
+//	+    for (const name of pack.names) {
+//	+        if (Environment.BUILD_VERIFY && !configNames.has(name) ...
+//
+// In Go, BUILD_VERIFY is not an env-var gate — the check is always-on
+// (consistent with Go dropping env-var gates in favour of structural enforcement).
+func TestValidateConfigPackNames_UniversalGate(t *testing.T) {
+	// Pack contains "ghost_name" which is NOT in any source config file.
+	pf := &PackFile{
+		Type:     "obj",
+		Pack:     map[int]string{0: "ghost_name"},
+		Names:    map[string]struct{}{"ghost_name": {}},
+		NameToID: map[string]int{"ghost_name": 0},
+	}
+	configNames := map[string]struct{}{"real_obj": {}}
+
+	err := ValidateConfigPackNames(pf, configNames, ".obj")
+	if err == nil {
+		t.Fatal("want error for name absent from source configs, got nil")
+	}
+	// Error message must mirror TS shape: "<type>: <name> was not found in any <ext> files..."
+	// TS PackFile.ts:119 @ 9aadcec4: `${pack.type}: ${name} was not found in any ${ext} files`
+	if !strings.Contains(err.Error(), "obj") {
+		t.Errorf("error should name the pack type; got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "ghost_name") {
+		t.Errorf("error should name the offending entry; got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "was not found in any") {
+		t.Errorf("error should use TS phrase 'was not found in any'; got: %v", err)
+	}
+	if !strings.Contains(err.Error(), ".obj") {
+		t.Errorf("error should name the extension; got: %v", err)
+	}
+}
+
+// TestValidateConfigPackNames_CertPrefix pins that cert_ names are
+// exempted from the check — TS PackFile.ts:118 @ 9aadcec4:
+// `!name.startsWith('cert_')`.
+func TestValidateConfigPackNames_CertPrefix(t *testing.T) {
+	pf := &PackFile{
+		Type:     "obj",
+		Pack:     map[int]string{0: "cert_bronze_dagger"},
+		Names:    map[string]struct{}{"cert_bronze_dagger": {}},
+		NameToID: map[string]int{"cert_bronze_dagger": 0},
+	}
+	configNames := map[string]struct{}{} // cert_ name absent from configs — should NOT error
+
+	if err := ValidateConfigPackNames(pf, configNames, ".obj"); err != nil {
+		t.Fatalf("cert_ names must be exempt from the check, got: %v", err)
+	}
+}
+
+// TestValidateConfigPackNames_KnownName pins the happy path: a pack name
+// that IS in the config names set must not produce an error.
+func TestValidateConfigPackNames_KnownName(t *testing.T) {
+	pf := &PackFile{
+		Type:     "npc",
+		Pack:     map[int]string{0: "rat"},
+		Names:    map[string]struct{}{"rat": {}},
+		NameToID: map[string]int{"rat": 0},
+	}
+	configNames := map[string]struct{}{"rat": {}}
+
+	if err := ValidateConfigPackNames(pf, configNames, ".npc"); err != nil {
+		t.Fatalf("known name must pass; got: %v", err)
+	}
+}
