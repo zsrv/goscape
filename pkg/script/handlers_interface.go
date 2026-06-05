@@ -32,6 +32,20 @@ func handleIfOpenMain(s *ScriptState) error {
 	return nil
 }
 
+// handleIfOpenOverlay implements IF_OPENOVERLAY (opcode 2041).
+// TS PlayerOps.ts:709-712 — raw popInt (NO NumberNotNull wrap). -1 must
+// reach openOverlay to clear the overlay. Dispatches to the B3 overlay
+// state (Player.OpenOverlay, player_script.go; flushed by encodeOut).
+// Closes the B2 (0ef495fb wire row) → B3 (ebce9706 entity state+flush)
+// → B4 chain.
+func handleIfOpenOverlay(s *ScriptState) error {
+	if err := requireActivePlayer(s, "IF_OPENOVERLAY"); err != nil {
+		return err
+	}
+	s.activePlayer().OpenOverlay(s.PopInt())
+	return nil
+}
+
 // handleIfOpenChat implements IF_OPENCHAT.
 // TS PlayerOps.ts:641-643 — pops a single int (com); check(com, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfOpenChat(s *ScriptState) error {

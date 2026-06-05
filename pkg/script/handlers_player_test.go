@@ -7444,3 +7444,50 @@ func TestHuntNext_ConsumesHuntIterator(t *testing.T) {
 		t.Fatalf("Self: got %v, want target %v", s.Self, target)
 	}
 }
+
+// -- rev-244 B4: BUFFER_FULL (opcode 2009) ---------------------------------
+
+// TestBufferFull_PushesZero pins BUFFER_FULL: TS PlayerOps.ts:198-203 — the
+// handler stubs bandwidth soft-limit awareness by pushing 0 ("todo: should
+// we have this yet?"). The value is always 0 regardless of actual state.
+// https://x.com/JagexAsh/status/1694990340669747261
+func TestBufferFull_PushesZero(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name:             "buffer_full",
+		Opcodes:          []Opcode{OpBufferFull, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 0 {
+		t.Errorf("BUFFER_FULL: got %d, want 0", got)
+	}
+}
+
+// TestBufferFull_NoActivePlayer pins the requireActivePlayer gate:
+// Self=nil → error containing "BUFFER_FULL".
+func TestBufferFull_NoActivePlayer(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "buffer_full_nap",
+		Opcodes:          []Opcode{OpBufferFull, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("expected error from BUFFER_FULL with no active player, got nil")
+	}
+	if !strings.Contains(err.Error(), "BUFFER_FULL") {
+		t.Errorf("error: got %q, want contains %q", err.Error(), "BUFFER_FULL")
+	}
+	if state.Execution != Aborted {
+		t.Errorf("Execution: got %v, want Aborted", state.Execution)
+	}
+}

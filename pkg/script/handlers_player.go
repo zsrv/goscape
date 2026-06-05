@@ -2191,3 +2191,16 @@ func handleLastLoginInfo(s *ScriptState) error {
 	s.activePlayer().LastLoginInfo()
 	return nil
 }
+
+// handleBufferFull implements BUFFER_FULL (opcode 2009).
+// TS PlayerOps.ts:198-203 — stubs bandwidth soft-limit awareness by pushing
+// 0 ("todo: should we have this yet?"). Preserved upstream posture for
+// the rev-244 pin.
+// https://x.com/JagexAsh/status/1694990340669747261
+func handleBufferFull(s *ScriptState) error {
+	if err := requireActivePlayer(s, "BUFFER_FULL"); err != nil {
+		return err
+	}
+	s.PushInt(0)
+	return nil
+}

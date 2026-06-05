@@ -362,8 +362,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpInvOtherTransmit: handleInvOtherTransmit,
 
 	// S5f: interface / modal.
-	// Modal management (8).
+	// Modal management (9).
 	OpIfClose:        handleIfClose,
+	OpIfOpenOverlay:  handleIfOpenOverlay,
 	OpIfOpenMain:     handleIfOpenMain,
 	OpIfOpenChat:     handleIfOpenChat,
 	OpIfOpenSide:     handleIfOpenSide,
@@ -583,6 +584,11 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpWealthEvent: handleWealthEvent, // opcode 2128 (244)
 	OpPLocMerge:   handlePLocMerge,   // opcode 2076 (244)
 	OpPOpPlayerT:  handlePOpPlayerT,  // opcode 2085 (244)
+
+	// rev-244 B4: BUFFER_FULL stub (opcode 2009). TS-upstream stub posture
+	// — pushes 0. PlayerOps.ts:198-203. IF_OPENOVERLAY (2041) is registered
+	// in the S5f modal block above.
+	OpBufferFull: handleBufferFull, // opcode 2009 (244)
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

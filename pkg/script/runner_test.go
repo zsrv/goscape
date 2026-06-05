@@ -300,6 +300,7 @@ type mockPlayer struct {
 
 	// S5f: captured calls from the interface / modal-control methods.
 	lastCloseModalCalls    int
+	lastOpenOverlay        int
 	lastOpenMain           int
 	lastOpenChat           int
 	lastOpenSide           int
@@ -744,10 +745,11 @@ func (m *mockPlayer) SetRunEnergy(v int) { m.runenergyValue = v }
 
 // S5f: interface / modal control.
 
-func (m *mockPlayer) CloseModal(bool)  { m.lastCloseModalCalls++ }
-func (m *mockPlayer) OpenMain(com int) { m.lastOpenMain = com }
-func (m *mockPlayer) OpenChat(com int) { m.lastOpenChat = com }
-func (m *mockPlayer) OpenSide(com int) { m.lastOpenSide = com }
+func (m *mockPlayer) CloseModal(bool)     { m.lastCloseModalCalls++ }
+func (m *mockPlayer) OpenOverlay(com int) { m.lastOpenOverlay = com }
+func (m *mockPlayer) OpenMain(com int)    { m.lastOpenMain = com }
+func (m *mockPlayer) OpenChat(com int)    { m.lastOpenChat = com }
+func (m *mockPlayer) OpenSide(com int)    { m.lastOpenSide = com }
 func (m *mockPlayer) OpenMainModalSide(mainCom, sideCom int) {
 	m.lastOpenMainSide = struct{ main, side int }{mainCom, sideCom}
 }

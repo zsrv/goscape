@@ -1269,3 +1269,68 @@ func TestTutFlashNoActivePlayer(t *testing.T) {
 		t.Errorf("Execution: got %v, want Aborted", state.Execution)
 	}
 }
+
+// -- rev-244 B4: IF_OPENOVERLAY (opcode 2041) ------------------------------
+
+// TestIfOpenOverlay_DispatchesIncludingMinusOne pins IF_OPENOVERLAY:
+// TS PlayerOps.ts:709-712 — raw popInt (no NumberNotNull wrap), so -1
+// passes through to openOverlay to clear the overlay. Both a valid com
+// (523) and -1 must reach OpenOverlay without error.
+func TestIfOpenOverlay_DispatchesIncludingMinusOne(t *testing.T) {
+	// Sub-test: positive com (523).
+	t.Run("positive_com", func(t *testing.T) {
+		mp := &mockPlayer{}
+		sf := &ScriptFile{
+			Name:             "if_openoverlay_523",
+			Opcodes:          []Opcode{OpPushConstantInt, OpIfOpenOverlay, OpReturn},
+			IntOperands:      []int32{523, 0, 0},
+			StringOperands:   []string{"", "", ""},
+			InstructionCount: 3,
+		}
+		state := Init(sf, mp, false, nil, nil)
+		if err := Execute(state); err != nil {
+			t.Fatalf("Execute: %v", err)
+		}
+		if mp.lastOpenOverlay != 523 {
+			t.Errorf("OpenOverlay: got %d, want 523", mp.lastOpenOverlay)
+		}
+	})
+
+	// Sub-test: -1 must pass through (clears overlay) — no NumberNotNull.
+	t.Run("minus_one_clears", func(t *testing.T) {
+		mp := &mockPlayer{}
+		sf := &ScriptFile{
+			Name:             "if_openoverlay_neg1",
+			Opcodes:          []Opcode{OpPushConstantInt, OpIfOpenOverlay, OpReturn},
+			IntOperands:      []int32{-1, 0, 0},
+			StringOperands:   []string{"", "", ""},
+			InstructionCount: 3,
+		}
+		state := Init(sf, mp, false, nil, nil)
+		if err := Execute(state); err != nil {
+			t.Fatalf("Execute with -1: %v", err)
+		}
+		if mp.lastOpenOverlay != -1 {
+			t.Errorf("OpenOverlay: got %d, want -1", mp.lastOpenOverlay)
+		}
+	})
+}
+
+// TestIfOpenOverlayNoActivePlayer pins the requireActivePlayer gate:
+// Self=nil → error; matches the pattern of TestIfOpenMainNoActivePlayer.
+func TestIfOpenOverlayNoActivePlayer(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "if_openoverlay_nap",
+		Opcodes:          []Opcode{OpPushConstantInt, OpIfOpenOverlay, OpReturn},
+		IntOperands:      []int32{1, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	if err := Execute(state); err == nil {
+		t.Fatal("expected error from IF_OPENOVERLAY with no active player, got nil")
+	}
+	if state.Execution != Aborted {
+		t.Errorf("Execution: got %v, want Aborted", state.Execution)
+	}
+}

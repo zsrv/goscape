@@ -317,6 +317,12 @@ type ActivePlayer interface {
 	// preserves them. Mirrors TS Player.closeModal(clearWeakQueue).
 	CloseModal(clearWeakQueue bool)
 
+	// OpenOverlay opens the given component as the full-screen overlay
+	// (com == -1 clears it). State-setting only — the per-tick modal
+	// flush emits IF_OPENOVERLAY on change (B3 ebce9706). Mirrors TS
+	// Player.openOverlay (Player.ts:1955-1965).
+	OpenOverlay(com int)
+
 	// OpenMain opens the given interface component as the main modal,
 	// closing any chat/side modals per authentic TS rules.
 	OpenMain(com int)
