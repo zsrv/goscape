@@ -314,8 +314,8 @@ const (
 )
 
 // Loc ops (3000–3499)
-// 244: LOC_OP moved to 3014 → removed from map (no handler in TS), but constant kept.
-// Note: LOC_OP has no TS map entry in 244 either; keep constant, no map row.
+// 244: LOC_OP does not exist in this range. LC_OP (the loc-config query form)
+// lives at 4104 (OpLcOp). No LOC_OP constant is defined here.
 const (
 	OpLocAdd         Opcode = 3000
 	OpLocAngle       Opcode = 3001

@@ -435,13 +435,13 @@ type ActivePlayer interface {
 	StopAction()
 
 	// HasInteraction reports whether the player has a current interaction
-	// target (i.e., `target != nil`). Used by BUSY2 (opcode 2006). Mirrors
+	// target (i.e., `target != nil`). Used by BUSY2 (opcode 2118). Mirrors
 	// TS Player.hasInteraction at Engine-TS/.../PathingEntity.ts. NAI-120
 	// Bundle 2B.
 	HasInteraction() bool
 
 	// HasWaypoints reports whether the player has waypoints queued
-	// (waypointIndex >= 0). Used by BUSY2 (opcode 2006). Mirrors TS
+	// (waypointIndex >= 0). Used by BUSY2 (opcode 2118). Mirrors TS
 	// Player.hasWaypoints. NAI-120 Bundle 2B.
 	HasWaypoints() bool
 
@@ -540,24 +540,24 @@ type ActivePlayer interface {
 	// HintNpc directs the client to render a hint arrow pointing at the
 	// NPC with the given nid (slot id). Mirrors TS Player.hintNpc at
 	// Player.ts:2174-2176, which writes a HintArrow(type=1) packet.
-	// Called by the HINT_NPC (opcode 2028) handler.
+	// Called by the HINT_NPC (opcode 2032) handler.
 	HintNpc(nid int)
 
 	// HintCoord directs the client to render a hint arrow at the (x, z) tile
 	// with the given offset (2..6, sub-tile arrow position) and height.
 	// Mirrors TS Player.hintTile at Player.ts:2178-2180; called by the
-	// HINT_COORD (opcode 2027) handler. NAI-39.
+	// HINT_COORD (opcode 2031) handler. NAI-39.
 	HintCoord(offset, x, z, height int)
 
 	// HintPlayer directs the client to render a hint arrow pointing at the
 	// player with the given pid. Mirrors TS Player.hintPlayer at
-	// Player.ts:2181-2183 (244); called by the HINT_PL (opcode 2029) handler.
+	// Player.ts:2181-2183 (244); called by the HINT_PLAYER (opcode 2033) handler.
 	// NAI-39.
 	HintPlayer(pid int)
 
 	// HintStop directs the client to clear any active hint arrow. Mirrors
 	// TS Player.stopHint at Player.ts:2186-2188; called by the HINT_STOP
-	// (opcode 2030) handler. NAI-39.
+	// (opcode 2034) handler. NAI-39.
 	HintStop()
 
 	// Slot returns the player's pid (protocol identity). Name kept for the
@@ -689,13 +689,13 @@ type ActivePlayer interface {
 	SetAnimProtect(v int)
 
 	// WalkTrigger returns the active player's queued walktrigger script
-	// id, or -1 if none. Read by GETWALKTRIGGER (opcode 2023) and by
+	// id, or -1 if none. Read by GETWALKTRIGGER (opcode 2117) and by
 	// (*Player).processWalktrigger before firing. Mirrors TS
 	// Player.walktrigger getter at Player.ts:1057-1070.
 	WalkTrigger() int
 
 	// SetWalkTrigger writes the queued walktrigger script id. -1 clears.
-	// Written by P_WALKTRIGGER (opcode 2128); also written by
+	// Written by WALKTRIGGER (opcode 2095); also written by
 	// (*Player).processWalktrigger to -1 immediately before script
 	// dispatch (TS clear-before-check semantics). Mirrors TS
 	// Player.walktrigger setter at PlayerOps.ts:1035-1037.
@@ -935,7 +935,7 @@ type ActiveNpc interface {
 
 	// PlaySpotAnim schedules a spotanim graphic on the NPC for this tick
 	// at the given height with the given client-side delay. Used by
-	// SPOTANIM_NPC (opcode 2547). Mirrors TS Npc.spotanim. NAI-120 Bundle 2C.
+	// SPOTANIM_NPC (opcode 2542). Mirrors TS Npc.spotanim. NAI-120 Bundle 2C.
 	PlaySpotAnim(id, height, delay int)
 
 	// FaceCoord rotates the NPC to face absolute square (x, z). Wire coords
@@ -954,7 +954,7 @@ type ActiveNpc interface {
 	// reset). The revert, when it fires, takes the light path
 	// (resetOnRevert=false → typeId + uid + CHANGE_TYPE mask only).
 	// Mirrors TS Npc.changeType at Engine-TS/.../Npc.ts:427-449 with
-	// reset=false, dispatched from NPC_CHANGETYPE_KEEPALL (opcode 2506,
+	// reset=false, dispatched from NPC_CHANGETYPE_KEEPALL (opcode 2505,
 	// TS NpcOps.ts:465-471). No-op when duration < 1 OR when the NPC is dead.
 	ChangeTypeKeepAll(newType, duration int)
 
@@ -1015,7 +1015,7 @@ type ActiveNpc interface {
 	SetHuntMode(mode int)
 
 	// SetWalkTrigger sets the deferred AI-queue trigger index for the
-	// active NPC. Called by NPC_WALKTRIGGER (opcode 2545). Range
+	// active NPC. Called by NPC_WALKTRIGGER (opcode 2533). Range
 	// validation [1, 20] happens in the handler before -1 transform;
 	// this method just writes the field. Mirrors TS Npc.walktrigger
 	// at NpcOps.ts:488.
@@ -1058,11 +1058,11 @@ type ActiveNpc interface {
 
 	// QueueWaypoint clears any existing path and sets a single destination
 	// (level-implicit by current NPC level). Mirrors TS Npc.queueWaypoint
-	// at Engine-TS/.../Npc.ts. Used by NPC_WALK (opcode 2544).
+	// at Engine-TS/.../Npc.ts. Used by NPC_WALK (opcode 2543).
 	QueueWaypoint(x, z int)
 
 	// TargetOp returns the NPC's current targetOp/mode value (the field set
-	// by NPC_SETMODE / interaction binding). Used by NPC_GETMODE (opcode 2522).
+	// by NPC_SETMODE / interaction binding). Used by NPC_GETMODE (opcode 2520).
 	TargetOp() int
 
 	// ClearInteraction clears the NPC's current interaction binding.
@@ -1096,7 +1096,7 @@ type ActiveNpc interface {
 	SetInteractionScript(target any, mode int)
 
 	// AddHeroPoints credits `amount` to `playerUID` on the NPC's hero-point
-	// ledger. Used by NPC_HEROPOINTS (opcode 2524) to track damage
+	// ledger. Used by NPC_HEROPOINTS (opcode 2521) to track damage
 	// contributions for loot routing. amount < 1 is a no-op (TS short-circuit).
 	// Mirrors TS Npc.heroPoints.addHero(...) at NpcOps.ts:479. NAI-120 Bundle 2D.
 	AddHeroPoints(playerUID, amount int)

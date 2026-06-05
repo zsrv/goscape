@@ -87,9 +87,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpMoveCoord:   handleMoveCoord,
 	OpMapMembers:  handleMapMembers,
 	// MAP_LIVE deleted in 244 (ScriptOpcode.ts); MAP_PRODUCTION lands in Task 12.
-	OpInZone:      handleInZone,
-	OpSeqLength:   handleSeqLength,
-	OpMapIndoors:  handleMapIndoors,
+	OpInZone:     handleInZone,
+	OpSeqLength:  handleSeqLength,
+	OpMapIndoors: handleMapIndoors,
 
 	// NAI-35-T2: rect-bounded player-count enumeration.
 	OpMapPlayerCount: handleMapPlayerCount,
@@ -238,9 +238,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// S5c: player stat/coord/facing/anim.
 	// Stat read + mutation ops.
 	// STAT_TOTAL deleted in 244 (ScriptOpcode.ts).
-	OpStat:     handleStat,
-	OpStatBase: handleStatBase,
-	OpStatAdd:  handleStatAdd,
+	OpStat:        handleStat,
+	OpStatBase:    handleStatBase,
+	OpStatAdd:     handleStatAdd,
 	OpStatSub:     handleStatSub,
 	OpStatBoost:   handleStatBoost,
 	OpStatDrain:   handleStatDrain,

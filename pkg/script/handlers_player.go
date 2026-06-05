@@ -799,7 +799,7 @@ func handlePExactMove(s *ScriptState) error {
 	return nil
 }
 
-// handlePWalk implements P_WALK (opcode 2076). Pops a packed coord,
+// handlePWalk implements P_WALK (opcode 2090). Pops a packed coord,
 // validates via CoordValid, and queues a path from the player's current
 // position to (destX, destZ). The coord's level component is validated
 // but not used — TS uses player.level for the pathfinder call
@@ -817,7 +817,7 @@ func handlePWalk(s *ScriptState) error {
 	return nil
 }
 
-// handlePRun implements P_RUN (opcode 2085). Pops the run-mode int and
+// handlePRun implements P_RUN (opcode 2129). Pops the run-mode int and
 // writes it to the player's run field, then mirrors it to the
 // cache-resolved run-mode varp id (`RunVarpID()`, the config with
 // `ClientCode==7`). Mirrors TS PlayerOps.ts:1204-1209 line-for-line.
@@ -862,7 +862,7 @@ func handlePRun(s *ScriptState) error {
 	return nil
 }
 
-// handleRunEnergy implements RUNENERGY (opcode 2096). Pushes the active
+// handleRunEnergy implements RUNENERGY (opcode 2124). Pushes the active
 // player's current run-energy as an int (range [0, 10000]). Mirrors TS
 // PlayerOps.ts:1175-1178. Gate: ActivePlayer (no Protected requirement).
 //
@@ -2149,7 +2149,7 @@ func handleWealthEvent(s *ScriptState) error {
 	return nil
 }
 
-// handleLastLoginInfo (LAST_LOGIN_INFO, opcode 2054). Single delegation
+// handleLastLoginInfo (LAST_LOGIN_INFO, opcode 2057). Single delegation
 // to Self.LastLoginInfo. Mirrors TS PlayerOps.ts:931-933.
 func handleLastLoginInfo(s *ScriptState) error {
 	if err := requireActivePlayer(s, "LAST_LOGIN_INFO"); err != nil {
