@@ -46,7 +46,8 @@ type OnDemand struct {
 	cacheMu sync.Mutex
 }
 
-// TODO: unused - reuse the code for other modules though
+// New constructs the OnDemand module. Called from cmd/goscape/app
+// modules.go initOnDemand; the service wrapper is NewOndemandService.
 func New(cfg Config, logger *slog.Logger, serv *server.Server, worldConn connhandler.ConnHandler) (*OnDemand, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -151,29 +152,4 @@ func NewOndemandService(a *OnDemand, serv *server.Server, servicesToWaitFor func
 	}
 
 	return services.NewBasicService(nil, runFn, stoppingFn)
-}
-
-func (a *OnDemand) starting(ctx context.Context) error {
-	// NOTE: OnDemand server doesn't have any subservices
-	// Only report success if all subservices start properly
-	//err := services.StartManagerAndAwaitHealthy(ctx, a.subservices)
-	//if err != nil {
-	//	return fmt.Errorf("failed to start subservices: %w", err)
-	//}
-
-	return nil
-}
-
-func (a *OnDemand) running(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return nil
-	case err := <-a.subservicesWatcher.Chan():
-		// TODO: NewServerService does this differently in tempo
-		return fmt.Errorf("ondemand subservices failed: %w", err)
-	}
-}
-
-func (a *OnDemand) stopping(_ error) error {
-	return services.StopManagerAndAwaitStopped(context.Background(), a.subservices)
 }

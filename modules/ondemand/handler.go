@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/cache"
@@ -37,8 +38,8 @@ var publicMimeTypes = map[string]string{
 // Prefix order matters: more-specific prefixes must appear before less-specific
 // ones (e.g. /versionlist before /v, if any). The table is checked in order.
 var archiveRoutes = []struct {
-	prefix  string
-	file    int
+	prefix string
+	file   int
 }{
 	{"/title", 1},
 	{"/config", 2},
@@ -99,13 +100,13 @@ func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 
 	// /ondemand.zip — new at 244 (web.ts:81-82): static file served from CWD.
 	if strings.HasPrefix(r.URL.Path, "/ondemand.zip") {
-		a.serveStaticFile(w, r, path.Join("data", "pack", "ondemand.zip"))
+		a.serveStaticFile(w, r, filepath.Join("data", "pack", "ondemand.zip"))
 		return
 	}
 
 	// /build — new at 244 (web.ts:83-84): static file served from CWD.
 	if strings.HasPrefix(r.URL.Path, "/build") {
-		a.serveStaticFile(w, r, path.Join("data", "pack", "server", "build"))
+		a.serveStaticFile(w, r, filepath.Join("data", "pack", "server", "build"))
 		return
 	}
 
@@ -121,7 +122,7 @@ func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client/maps", name))
+		http.ServeFile(w, r, filepath.Join("data", "pack", "client", "maps", name))
 		return
 	}
 
@@ -166,13 +167,18 @@ func (a *OnDemand) serveArchive(w http.ResponseWriter, r *http.Request, archive,
 
 // serveStaticFile serves a static file at filePath relative to the CWD.
 // Returns 404 when the file is absent (goscape-ondemand posture; TS would 500).
+// Reads + writes explicitly (mirroring serveArchive) so the module's
+// octet-stream Content-Type posture sticks — http.ServeFile would sniff and
+// overwrite a pre-set Content-Type header.
 func (a *OnDemand) serveStaticFile(w http.ResponseWriter, r *http.Request, filePath string) {
-	if _, err := os.Stat(filePath); err != nil {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
-	http.ServeFile(w, r, filePath)
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 }
 
 // clientIP returns the request's source IP per the configured
