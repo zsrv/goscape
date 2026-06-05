@@ -9,9 +9,11 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/tabwriter"
 	"time"
 
+	"github.com/zsrv/goscape/pkg/io/filestream"
 	"github.com/zsrv/goscape/pkg/pack"
 	"github.com/zsrv/goscape/pkg/pack/audio"
 	"github.com/zsrv/goscape/pkg/pack/clientinterface"
@@ -19,18 +21,20 @@ import (
 	"github.com/zsrv/goscape/pkg/pack/graphics"
 	"github.com/zsrv/goscape/pkg/pack/maps"
 	"github.com/zsrv/goscape/pkg/pack/sprites"
+	"github.com/zsrv/goscape/pkg/pack/versionlist"
 	"github.com/zsrv/goscape/pkg/pack/wordenc"
 	"github.com/zsrv/goscape/pkg/pack/worldmap"
+	"github.com/zsrv/goscape/pkg/packall"
 	"github.com/zsrv/goscape/pkg/util/log"
 )
 
 // runSmokePack implements the `smoke-pack` verb: a best-effort driver
-// over all 11 packall.PackAll stages (PackConfigs + 10 downstream) plus
-// the standalone Worldmap packer, with per-stage logging and an end-of-run
-// summary table. See docs/superpowers/specs/2026-05-17-smoke-pack-verb-design.md
-// for the design contract. The first 11 stages mirror pkg/packall/packall.go;
-// Worldmap is appended last (TS parity keeps it out of PackAll itself but it
-// produces a Jagfile worth byte-pinning against the TS reference).
+// over all PackAll stages (PackConfigs + downstream) plus the standalone
+// Worldmap packer, with per-stage logging and an end-of-run summary table.
+// See docs/superpowers/specs/2026-05-17-smoke-pack-verb-design.md for the
+// design contract. The stages mirror pkg/packall/packall.go; Worldmap is
+// appended last (TS parity keeps it out of PackAll itself but it produces a
+// Jagfile worth byte-pinning against the TS reference).
 //
 // Exit codes:
 //
@@ -329,16 +333,21 @@ func safeRun(fn func() error) (err error) {
 	return fn()
 }
 
-// runStages drives all 11 PackAll stages plus the standalone Worldmap
-// packer best-effort (PackConfigs + 11 downstream). PackConfigs is
-// special: if it fails, all 11 downstream stages render as SKIP because
-// they consume the *pack.Registry it produces. When refDir != "", every
-// successful stage is also byte-diffed against the same relpath under
-// refDir; results are attached to stageResult.Diffs.
+// runStages drives all PackAll stages plus the standalone Worldmap packer
+// best-effort. PackConfigs is special: if it fails, all downstream stages
+// render as SKIP because they consume the *pack.Registry it produces. When
+// refDir != "", every successful stage is also byte-diffed against the same
+// relpath under refDir; results are attached to stageResult.Diffs.
 func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError bool, logger *slog.Logger) []stageResult {
 	pack.ClearFsCache()
 
-	results := make([]stageResult, 0, 11)
+	// Create the FileStream cache (createNew=true, matching TS PackAll.ts:43).
+	// The cache is shared across all stages that write to it; closed after all
+	// stages complete (including Worldmap which does not use it).
+	cache := filestream.New(outDir, true, false)
+	defer cache.Close()
+
+	results := make([]stageResult, 0, 16)
 
 	// prevSnapshot is the outDir state after the most recently
 	// successful stage. Empty when refDir is unset (snapshots are
@@ -348,26 +357,31 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 		prevSnapshot, _ = snapshotOutDir(outDir)
 	}
 
+	// PackConfigs: special — owns reg + modelFlags allocation.
 	logger.Info("stage_start", "stage", "PackConfigs")
 	pcStart := time.Now()
 	var reg *pack.Registry
 	var modelFlags []int
 	pcErr := safeRun(func() error {
-		var err error
-		reg, modelFlags, err = pack.PackConfigsForRegistryAndModelFlags(srcDir, outDir)
-		return err
+		reg = &pack.Registry{SrcDir: srcDir}
+		if _, err := reg.EnsureModel(); err != nil {
+			return err
+		}
+		modelFlags = make([]int, reg.Model.Max)
+		return pack.PackConfigsForPackAll(srcDir, outDir, reg, modelFlags, cache)
 	})
 	pcElapsed := time.Since(pcStart)
 	pcFiles, pcBytes, _ := walkOutDir(outDir)
 	if pcErr != nil || reg == nil {
 		if pcErr == nil {
-			pcErr = fmt.Errorf("PackConfigsForRegistry returned nil registry")
+			pcErr = fmt.Errorf("PackConfigsForPackAll returned nil registry")
 		}
 		logger.Error("stage_err", "stage", "PackConfigs", "elapsed_ms", pcElapsed.Milliseconds(), "files", pcFiles, "bytes", pcBytes, "err", pcErr)
 		results = append(results, stageResult{Name: "PackConfigs", Status: stageErr, Elapsed: pcElapsed, OutputFiles: pcFiles, OutputBytes: pcBytes, Err: pcErr})
 		for _, name := range []string{
 			"ClientInterface", "RunServerCompiler", "Title", "Media", "Texture",
-			"Wordenc", "Sound", "Graphics", "Midi", "Maps", "Worldmap",
+			"Wordenc", "Sound", "Graphics", "Midi", "Maps",
+			"VersionList", "BuildStamp", "OndemandZip", "Worldmap",
 		} {
 			results = append(results, stageResult{Name: name, Status: stageSkip})
 		}
@@ -383,18 +397,24 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 		run  func() error
 	}
 	rest := []stage{
-		{"ClientInterface", func() error { return clientinterface.Pack(reg, srcDir, outDir) }},
+		{"ClientInterface", func() error { return clientinterface.Pack(reg, srcDir, outDir, cache) }},
 		{"RunServerCompiler", func() error { return compiler.RunServerCompiler(srcDir, outDir, dataPackDir) }},
-		{"Title", func() error { return sprites.PackTitle(srcDir, outDir, nil) }},
-		{"Media", func() error { return sprites.PackMedia(srcDir, outDir, nil) }},
-		{"Texture", func() error { return sprites.PackTexture(reg, srcDir, outDir, nil) }},
-		{"Wordenc", func() error { return wordenc.Pack(rawDir, nil) }},
-		{"Sound", func() error { return audio.PackSound(reg, srcDir, outDir, nil) }},
-		{"Graphics", func() error { return graphics.Pack(reg, srcDir, modelFlags, nil, nil) }},
-		{"Midi", func() error { return audio.PackMidi(reg, srcDir, nil) }},
-		// nil mapPack/cache: cache wiring deferred to T15 (TS PackAll.ts:69 @ 9aadcec4).
-		// modelFlags threaded from PackConfigs above.
-		{"Maps", func() error { return maps.Pack(srcDir, outDir, nil, nil, modelFlags) }},
+		{"Title", func() error { return sprites.PackTitle(srcDir, outDir, cache) }},
+		{"Media", func() error { return sprites.PackMedia(srcDir, outDir, cache) }},
+		{"Texture", func() error { return sprites.PackTexture(reg, srcDir, outDir, cache) }},
+		{"Wordenc", func() error { return wordenc.Pack(rawDir, cache) }},
+		{"Sound", func() error { return audio.PackSound(reg, srcDir, outDir, cache) }},
+		{"Graphics", func() error { return graphics.Pack(reg, srcDir, modelFlags, cache, nil) }},
+		{"Midi", func() error { return audio.PackMidi(reg, srcDir, cache) }},
+		{"Maps", func() error {
+			if _, err := reg.EnsureMap(); err != nil {
+				return err
+			}
+			return maps.Pack(srcDir, outDir, reg.Map, cache, modelFlags)
+		}},
+		{"VersionList", func() error { return versionlist.Pack(reg, srcDir, outDir, modelFlags, cache) }},
+		{"BuildStamp", func() error { return packall.WriteServerBuild(outDir) }},
+		{"OndemandZip", func() error { return packall.WriteOndemandZip(outDir, cache) }},
 		{"Worldmap", func() error { return worldmap.Pack(srcDir, outDir) }},
 	}
 	for i, st := range rest {
@@ -427,6 +447,13 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 // each added/modified file against the same relpath under refDir.
 // Returns the diff list and the new snapshot (for use as `prev` in the
 // next stage).
+//
+// main_file_cache.* files are excluded from the per-stage diff: the RS2
+// client cache grows incrementally across all stages, so comparing an
+// intermediate stage snapshot against a completed refDir always produces
+// spurious SIZE diffs. The cache files are effectively the "sum" of all
+// stage writes; final parity is already implied by the ondemand.zip and
+// the per-archive content visible after all stages complete.
 func computeStageDiffs(refDir, outDir string, prev stageSnapshot) ([]fileDiff, stageSnapshot) {
 	if refDir == "" {
 		return nil, nil
@@ -435,6 +462,12 @@ func computeStageDiffs(refDir, outDir string, prev stageSnapshot) ([]fileDiff, s
 	delta := deltaFiles(prev, next)
 	var diffs []fileDiff
 	for _, rel := range delta {
+		// Skip RS2 client cache files: they accumulate writes across every stage,
+		// so per-stage size comparison against a completed refDir is meaningless.
+		base := filepath.Base(rel)
+		if strings.HasPrefix(base, "main_file_cache.") {
+			continue
+		}
 		d, err := diffOneFile(filepath.Join(outDir, rel), filepath.Join(refDir, rel))
 		if err != nil {
 			diffs = append(diffs, fileDiff{Path: rel, Kind: "ERR", Note: err.Error()})

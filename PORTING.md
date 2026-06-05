@@ -964,6 +964,70 @@ scope-diff coverage). Marker audit: **22** `PORTING-EXCEPTION`
 mentions (was 21 at B4); +1 new id `rev244-b5-startup-profile` (1 mention);
 `login-server-7` retired (0 mentions; closure notes remain in-code).
 
+### B6 — pack pipeline re-baseline (2026-06-05)
+
+Scope diff = `git -C ../Engine-TS diff e1dea19f..9aadcec4 -- tools/pack src/app.ts`
+(all packer tool changes + the top-level orchestration entry point).
+Plan: [`docs/superpowers/plans/2026-06-05-rev244-b6-pack-pipeline.md`](docs/superpowers/plans/2026-06-05-rev244-b6-pack-pipeline.md).
+
+**Decision rows**
+
+- 🚧 **`rev244-b6-packall-modelflags` NO-OP boundary** — TS `packAll(modelFlags)`
+  out-param is read by NO caller at the pin (`app.ts:28-29`, `DevThread.ts:24-25`,
+  `Build.ts:163-166` all discard the returned slice). Go keeps
+  `PackAll(srcDir,outDir,dataPackDir,rawDir)` and owns the `[]int` slice
+  internally. Closes the B1-deferred DevThread row + B3-deferred `app.ts
+  packAll` row. Doc comment in `pkg/packall/packall.go`.
+- 🚧 **`updateCompiler()`/BUILD_STARTUP_UPDATE NOT-PORTED** — TS
+  `src/app.ts:14-16` downloads the RuneScriptKt JAR via `updateCompiler()`
+  when `BUILD_STARTUP_UPDATE` env is set. goscape uses its own native Go
+  compiler (`pkg/pack/compiler/`); no JAR download, no env gate needed.
+  Architecture-mapped: dskit `--config.file` drives startup behaviour.
+- 🚧 **`createWorker()` hunks in app.ts NOT-PORTED** — TS `app.ts:35-37`
+  spawns login/friend/logger workers via `WorkerFactory`. goscape uses
+  dskit module graph with one binary; these rows close the remaining B3
+  app.ts worker-launch hunks (already doc-closed at B5 for WorkerServer /
+  WorkerClientSocket).
+- 🚧 **`printError` catch blocks NOT-PORTED** — TS `app.ts:27` catches
+  `packAll` errors with `printError(err.message)`. Go propagates errors
+  via `fmt.Errorf` wraps and the `cmd/goscape-cli` `runPack` function logs
+  them via slog + returns exit 1. Architecture-mapped: dskit error
+  propagation.
+- ⚠ **`PORTING-EXCEPTION (rev244-b6-build-stamp)` NEW** (marker:
+  `pkg/packall/packall.go`) — TS writes 4 bytes via `Packet.p4(Date.now()/1000)`
+  (signed int32). Go writes `uint32` big-endian. Observable divergence only
+  after Unix second overflow of int32 (~2038). Parity-exempt artifact.
+- ⚠ **`PORTING-EXCEPTION (rev244-b6-ondemand-zip)` NEW** (markers:
+  `pkg/packall/packall.go` x2) — TS uses `fflate.zipSync({level:0})` which
+  embeds tool-specific zip headers and timestamps. Go uses `archive/zip`
+  with `zip.Store` method and fixed `ModTime=time.Unix(0,0).UTC()` for
+  determinism. Entry content is byte-identical; zip container bytes differ.
+  Content-level parity.
+- ℹ **`rev244-b1-format-window` exception NOW REMOVABLE** — the seqtype.go
+  `PORTING-EXCEPTION (rev244-b1-format-window)` comment ("removable after
+  B6 repack") is now addressable: B6 PackAll supplies a live 244 FileStream
+  cache. The marker removal (1-line comment delete in
+  `pkg/objtype/seqtype.go:98`) is deferred as a cleanup-pass candidate;
+  no behaviour change until a test exercises the SeqType empty-Instances
+  path with the real cache wired in.
+
+**Correspondence audit** — `src/app.ts` B6 scope → commit / decision:
+
+| TS surface (e1dea19f..9aadcec4) | numstat | goscape commit / decision |
+|---|---|---|
+| `src/app.ts:14-16` BUILD_STARTUP_UPDATE | +3 | **NOT-PORTED** (updateCompiler row above) |
+| `src/app.ts:24` `packAll(modelFlags)` | port | `rev244-b6-packall-modelflags` NO-OP doc row |
+| `src/app.ts:27` printError catch | +1 | **NOT-PORTED** (printError row above) |
+| `src/app.ts:35-37` createWorker x3 | +3 | **NOT-PORTED** (createWorker row above) |
+| `tools/pack/PackAll.ts` orchestration | +90 | this commit (`pkg/packall/packall.go`) |
+| `tools/pack/PackAll.ts:73-75` build stamp | +3 | `rev244-b6-build-stamp` EXCEPTION |
+| `tools/pack/PackAll.ts:77-90` ondemand.zip | +14 | `rev244-b6-ondemand-zip` EXCEPTION |
+
+Marker audit: **20** `PORTING-EXCEPTION` mentions (was 22 at B5); +2 new ids
+`rev244-b6-build-stamp` (1 mention) and `rev244-b6-ondemand-zip` (2 mentions);
+net −2 reflects the login-server-7 "former PORTING-EXCEPTION" comment removal
+between B5 and this audit. No B6 ids retired.
+
 ---
 
 ## Recent audit history (full log in `docs/PORTING-CLOSED.md`)
@@ -981,3 +1045,4 @@ mentions (was 21 at B4); +1 new id `rev244-b5-startup-profile` (1 mention);
 - rev-244 B3 — engine core ported (Engine-TS `e1dea19f..9aadcec4`): PlayerList+pid `94f40331`/`fcc7e212`, entity deltas (setAnim>= `2f10deb6`, regen `dc33a57b`, modals `d5a70fb1`, overlay `ebce9706`), account_id `07e44a61`, InputTrackingBlob `2f67fed2`, rate-limit removal `f4e7571e`, OnDemand `b2e7adac`+`02ce3929`, handshake `1f69f708`, CrcTable `23cbbc02`, PreloadedPacks deleted `59240b70`, HTTP routes `1de71136`, token/WS `130f6583`, MidiPack `0f1ea964` (closes rev244-b2-midi-window), buildArea.clear `7797c9f7`. gap-db-datastruct-4 CLOSED; 3 new PORTING-EXCEPTION ids (crc-compare, ws-origin, ws-ondemand-gate); client smoke + all windows → B6 (user decision). Full correspondence audit in §rev-244 Bundle audit trail above.
 - rev-244 B4 — script runtime ported (Engine-TS `e1dea19f..9aadcec4`, 15 script files + 3 externals): opcode renumber `b663bf63`, huntIterator unify `84b8ea2a`/`491822b8` (NPC_FINDNEXT/npc_huntall split), HINT_NPC/PLAYER `631737b7`, DB_GETFIELD full-column `da896c1a`, InvOps untradeable-stop + wealth re-key `de628f37`, NPC_STATHEAL/MAP_BLOCKED/P_OPOBJ `cb4fab32`, BUFFER_FULL + IF_OPENOVERLAY `0d9f0ad4`, runner deltas `294f5c24`/`c6005b60`, count ops `4268ba95`, cycle stats `c321e11d`+`9a4d9b96`+`aeb70ba7`, MAP_PRODUCTION + MAP_LAST* `5cebb3e9`, IF_SETRECOL wire removal `b7c9d08f`, moved-handler citations `f093d4e6`. CLOSED: B2 IF_SETRECOL deferral, B2→B3→B4 overlay chain, NAI-162-D varbit stubs. 1 new PORTING-EXCEPTION id (`rev244-b4-bwout-reset`); cycle-stats 225-era gap closed (user decision); script.dat numbering window → B6. Full correspondence audit in §rev-244 Bundle audit trail above.
 - rev-244 B5 — server/login/db ported (Engine-TS `e1dea19f..9aadcec4`, 14 server files + 2 prisma schemas + 2 externals): login schema 000005 `8fddfb4d` (+`d08963c0` — attempts table, per-profile logged_out/logout_time backfill, message + dormant account_session/wealth_event tables, account.logout_time dropped), RATE_LIMITED/HOP_TIMER enum + bytes 16/9 `7eb38361`, 3-in-5s rate limit `53715e4d` (+`6804c746`), 45s hop timer `d5240e66`, getUnreadMessageCount `83a8e6d6` (+`5c05394a`), friends profile proto `704dad98`, multi-profile server `a7234653` (+`30d65a1e`), public_chat username re-key `062a3293` (+`550bade5`), world-side profile carriage + username public-chat log `1d173abc` (+`96e5fa60`), logger report/input_track seam re-key `4e4f8192`. CLOSED: PORTING-EXCEPTION login-server-7, B3 tracker rows 1/2/4/5 (rate limit, world_heartbeat dead-at-pin NO-OP, logger/friends shapes public-half, messageCount). 1 new PORTING-EXCEPTION id (`rev244-b5-startup-profile`); worker files + website-only schema models formally NOT-PORTED. Full correspondence audit in §rev-244 Bundle audit trail above.
+- rev-244 B6 — pack pipeline re-baseline (Engine-TS `e1dea19f..9aadcec4`, tools/pack/* + src/app.ts orchestration): per-type config packing with modelFlags (SeqConfig/LocConfig/ObjConfig/NpcConfig/SpotAnimConfig/FloConfig/IdkConfig/VarpConfig 244 shape) `b692e78b` ff., animset/map/midi registries `2cfec7ea`, seq preanim/postanim/duplicatebehavior `619bd681`, npc ambient/contrast/headicon/alwaysontop `b1cb4832`, obj resize/ambient/contrast `88a01023`, inv dense order `b1d1ce01`, idk/loc/spotanim model flags + 244 CRC pins `9e3f0d5b`, raw wordenc blob + client jags into cache archive 0 `8e0beec0`, per-file gzip model/animset/midi archives `27cfb146`, maps gzip + archive 4 `a824e218`, versionlist `0f348913`, PackAll orchestration (cache handle, build stamp, ondemand.zip) this commit. CLOSED: B1 DevThread row (NO-OP boundary `rev244-b6-packall-modelflags`), B3 app.ts packAll row (same), B4 script.dat numbering window (versionlist closes it), B3 client-smoke + all format windows (full cache shipped). `rev244-b1-format-window` exception in seqtype.go is NOW removable (244 cache supplied by PackAll). 2 new PORTING-EXCEPTION ids (`rev244-b6-build-stamp`, `rev244-b6-ondemand-zip`). 3 NOT-PORTED rows: `updateCompiler()`/BUILD_STARTUP_UPDATE (RuneScriptKt jar download — goscape uses native compiler); `createWorker()` hunks in app.ts (dskit-mapped); `printError` catch blocks (dskit error propagation). Marker audit: **20** `PORTING-EXCEPTION` mentions (was 22 at B5; net -2 reflects login-server-7 retirement marker removal + 3 B6 adds). Full correspondence audit in §rev-244 Bundle audit trail above.

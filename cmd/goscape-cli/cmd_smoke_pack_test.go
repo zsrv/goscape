@@ -14,6 +14,8 @@ import (
 // adds synth.pack + anim/base/model.pack so audio/graphics stages don't
 // fail their reg.Ensure* lookups. All other stages' src subdirs are
 // absent; per NAI-192-D-NO-SRC-NO-OP, those stages no-op cleanly.
+// rawDir defaults to "data/raw" (the smoke-pack flag default); tests that
+// need wordenc to succeed must call seedWordencRaw separately.
 func seedSmokeFixture(t *testing.T, dir string) {
 	t.Helper()
 	// Configs (PackConfigs inputs).
@@ -34,6 +36,14 @@ func seedSmokeFixture(t *testing.T, dir string) {
 	writeFile(t, filepath.Join(dir, "pack", "anim.pack"), "")
 	writeFile(t, filepath.Join(dir, "pack", "base.pack"), "")
 	writeFile(t, filepath.Join(dir, "pack", "model.pack"), "")
+	// VersionList: versionlist.Pack reads <srcDir>/maps/free2play.csv.
+	// Rev-244 B6: required by PackAll pipeline.
+	if err := os.MkdirAll(filepath.Join(dir, "maps"), 0o755); err != nil {
+		t.Fatalf("MkdirAll maps: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "maps", "free2play.csv"), []byte(""), 0o644); err != nil {
+		t.Fatalf("WriteFile free2play.csv: %v", err)
+	}
 }
 
 // TestRunSmokePack_AllStagesRunBestEffort verifies that against the
@@ -63,7 +73,8 @@ func TestRunSmokePack_AllStagesRunBestEffort(t *testing.T) {
 	// Stage-start log for each stage must appear (one per stage).
 	for _, name := range []string{
 		"PackConfigs", "ClientInterface", "RunServerCompiler",
-		"Title", "Media", "Texture", "Wordenc", "Sound", "Graphics", "Midi", "Maps", "Worldmap",
+		"Title", "Media", "Texture", "Wordenc", "Sound", "Graphics", "Midi",
+		"Maps", "VersionList", "BuildStamp", "OndemandZip", "Worldmap",
 	} {
 		if !strings.Contains(stderr.String(), name) {
 			t.Errorf("stderr missing stage %q; got:\n%s", name, stderr.String())
@@ -190,7 +201,7 @@ func TestRunSmokePack_SummaryTableShape(t *testing.T) {
 	}
 
 	out := stdout.String()
-	for _, want := range []string{"STAGE", "STATUS", "ELAPSED", "FILES", "BYTES", "PackConfigs", "Maps", "Result:"} {
+	for _, want := range []string{"STAGE", "STATUS", "ELAPSED", "FILES", "BYTES", "PackConfigs", "Maps", "BuildStamp", "OndemandZip", "Result:"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("stdout missing %q; got:\n%s", want, out)
 		}

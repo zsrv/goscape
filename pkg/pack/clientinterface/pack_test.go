@@ -46,7 +46,7 @@ func TestPack_BytePinned(t *testing.T) {
 
 	reg := &pack.Registry{SrcDir: src}
 	out := filepath.Join(tmp, "out")
-	if err := Pack(reg, src, out); err != nil {
+	if err := Pack(reg, src, out, nil); err != nil {
 		t.Fatalf("Pack: %v", err)
 	}
 
@@ -111,7 +111,7 @@ func TestPack_StringFieldsRoundTrip(t *testing.T) {
 
 	reg := &pack.Registry{SrcDir: src}
 	out := filepath.Join(tmp, "out")
-	if err := Pack(reg, src, out); err != nil {
+	if err := Pack(reg, src, out, nil); err != nil {
 		t.Fatalf("Pack: %v", err)
 	}
 
@@ -166,7 +166,7 @@ func TestAtoiOr0(t *testing.T) {
 func TestPack_MissingSrcReturnsNil(t *testing.T) {
 	tmp := t.TempDir()
 	reg := &pack.Registry{SrcDir: filepath.Join(tmp, "src")}
-	if err := Pack(reg, filepath.Join(tmp, "src"), filepath.Join(tmp, "out")); err != nil {
+	if err := Pack(reg, filepath.Join(tmp, "src"), filepath.Join(tmp, "out"), nil); err != nil {
 		t.Errorf("Pack: %v, want nil", err)
 	}
 }

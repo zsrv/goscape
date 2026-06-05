@@ -43,6 +43,14 @@ func seedMinimalPackFixture(t *testing.T, dir string) {
 	writeFile(t, filepath.Join(dir, "pack", "vars.pack"), "0=shared_xp\n")
 	writeFile(t, filepath.Join(dir, "scripts", "d.dbtable"), "[records]\n")
 	writeFile(t, filepath.Join(dir, "pack", "dbtable.pack"), "0=records\n")
+	// VersionList: versionlist.Pack reads <srcDir>/maps/free2play.csv for the
+	// map_index section. Rev-244 B6: required by PackAll pipeline.
+	if err := os.MkdirAll(filepath.Join(dir, "maps"), 0o755); err != nil {
+		t.Fatalf("MkdirAll maps: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "maps", "free2play.csv"), []byte(""), 0o644); err != nil {
+		t.Fatalf("WriteFile free2play.csv: %v", err)
+	}
 }
 
 // makeRawDir creates a fixture rawDir containing a synthetic wordenc blob.

@@ -11,22 +11,26 @@ import (
 )
 
 // clientConfigCRC* are the rev-244 BUILD_VERIFY CRC magic numbers for
-// the six client-jagfile config sub-files. Updated from the 225 values
-// at TS PackShared.ts:435,459,507,531,555,603 @ 9aadcec4.
+// the eight client-jagfile config sub-files. Updated from the 225 values
+// at TS PackShared.ts:435,459,467,507,531,555,573,603 @ 9aadcec4.
 //
 // 225 values (for reference):
-//   seqCRC     was 1638136604  → now 1405403166
-//   locCRC     was 891497087   → now 1195428820
-//   spotanimCRC was -1279835623 → now 117013845
-//   npcCRC     was -2140681882  → now -997428438
-//   objCRC     was -840233510   → now 1589810970
-//   varpCRC    was 705633567    → now -1961744050
+//   seqCRC      was 1638136604  → now 1405403166  (PackShared.ts:435)
+//   locCRC      was 891497087   → now 1195428820  (PackShared.ts:459)
+//   floCRC      new constant    → now 1976597026  (PackShared.ts:467)
+//   spotanimCRC was -1279835623 → now 117013845   (PackShared.ts:507)
+//   npcCRC      was -2140681882 → now -997428438  (PackShared.ts:531)
+//   objCRC      was -840233510  → now 1589810970  (PackShared.ts:555)
+//   idkCRC      new constant    → now -359342366  (PackShared.ts:573)
+//   varpCRC     was 705633567   → now -1961744050 (PackShared.ts:603)
 const (
 	clientConfigCRCSeq      int32 = 1405403166
 	clientConfigCRCLoc      int32 = 1195428820
+	clientConfigCRCFlo      int32 = 1976597026
 	clientConfigCRCSpotAnim int32 = 117013845
 	clientConfigCRCNpc      int32 = -997428438
 	clientConfigCRCObj      int32 = 1589810970
+	clientConfigCRCIdk      int32 = -359342366
 	clientConfigCRCVarp     int32 = -1961744050
 )
 
@@ -50,9 +54,9 @@ const (
 //
 // NAI-191-D-VALIDATE-FLAGS: formerly deferred; now wired in rev-244 B6
 // via validatePackNamesAgainstCfgs at each packAndSave* call site. The
-// .varp BUILD_VERIFY magic clientConfigCRCVarp (-1961744050) check
-// (PackShared.ts:603 @ 9aadcec4) is a CRC-parity guard unrelated to
-// the config-name check and remains outside scope (wired in T15).
+// eight CLIENT BUILD_VERIFY CRC checks (seq/loc/flo/spotanim/npc/obj/idk/varp)
+// are now wired with log-not-throw posture per the established BuildVerify
+// convention (see packAndSave* functions and pkg/pack/build_verify.go).
 //
 // NAI-196-D-UNCONDITIONAL-CLIENT-PACK: .param, .seq, .loc, .flo,
 // .spotanim, .npc, .obj, .idk, .varp run on EVERY PackConfigs
@@ -94,6 +98,10 @@ func PackConfigsForRegistry(srcDir, outDir string) (*Registry, error) {
 //
 // The returned slice is indexed by model id, length = reg.Model.Max.
 // Callers must not modify the returned slice concurrently.
+//
+// pkg/packall.PackAll callers should use PackConfigsForPackAll instead, which
+// takes caller-owned reg, modelFlags, and cache so PackAll controls the
+// allocation order (TS PackAll.ts:38-40 initialises modelFlags before cache).
 func PackConfigsForRegistryAndModelFlags(srcDir, outDir string) (*Registry, []int, error) {
 	reg := &Registry{SrcDir: srcDir}
 	// Allocate modelFlags sized by ModelPack.max (reg.Model.Max after EnsureModel).
@@ -105,12 +113,22 @@ func PackConfigsForRegistryAndModelFlags(srcDir, outDir string) (*Registry, []in
 		return nil, nil, err
 	}
 	modelFlags := make([]int, reg.Model.Max)
-	// nil cache: PackConfigsForRegistry callers do not yet have a FileStream.
-	// real handle is wired in T15 (PackAll.ts:42).
 	if err := packConfigsCoreWithModelFlags(srcDir, outDir, reg, modelFlags, nil); err != nil {
 		return nil, nil, err
 	}
 	return reg, modelFlags, nil
+}
+
+// PackConfigsForPackAll is the entry point for pkg/packall.PackAll. Unlike
+// PackConfigsForRegistryAndModelFlags, the caller pre-allocates reg and
+// modelFlags (after EnsureModel) and supplies a live FileStream cache so
+// the packed client/config jagfile is written to cache.Write(0, 2, data, 0)
+// in the same call.
+//
+// TS source: tools/pack/config/PackShared.ts:261-641 (packConfigs) +
+// tools/pack/PackAll.ts:38-45 (modelFlags zeroing + cache construction).
+func PackConfigsForPackAll(srcDir, outDir string, reg *Registry, modelFlags []int, cache *filestream.FileStream) error {
+	return packConfigsCoreWithModelFlags(srcDir, outDir, reg, modelFlags, cache)
 }
 
 // PackConfigs is the original entry point (2-arg). Kept for backward
@@ -128,16 +146,16 @@ func PackConfigs(srcDir, outDir string) error {
 // semantics after this function returns.
 //
 // PackConfigsForRegistry allocates modelFlags from reg.Model.Max and
-// delegates here. pkg/packall.PackAll will allocate its own modelFlags and
-// call this function directly (T10+) so flag writes from later pipeline
-// stages are all visible in the same slice.
+// delegates here. pkg/packall.PackAll calls PackConfigsForPackAll which
+// passes caller-allocated reg, modelFlags, and cache so the allocation order
+// matches TS PackAll.ts:38-45 (modelFlags zeroed before cache open).
 //
 // cache is an optional *filestream.FileStream. When non-nil, the packed
 // client/config jagfile bytes are written to cache.Write(0, 2, data, 0),
 // mirroring TS PackShared.ts:641 @ 9aadcec4:
 //   cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
 // Callers that do not yet have a FileStream pass nil (e.g.
-// PackConfigsForRegistry). The real handle is wired in T15 (PackAll.ts:42).
+// PackConfigsForRegistry).
 //
 // TS source: tools/pack/config/PackShared.ts:261-669 (packConfigs).
 func packConfigsCoreWithModelFlags(srcDir, outDir string, reg *Registry, modelFlags []int, cache *filestream.FileStream) error {
@@ -530,6 +548,10 @@ func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, client
 		return err
 	}
 	server, client := packVarpConfigs(cfgs, pf, modelFlags)
+	// TS PackShared.ts:603 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, -1961744050)
+	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCVarp); err != nil {
+		fmt.Fprintf(os.Stderr, "packAndSaveVarp: %v (BUILD_VERIFY)\n", err)
+	}
 	if err := server.Save(
 		filepath.Join(serverOut, "varp.dat"),
 		filepath.Join(serverOut, "varp.idx"),
@@ -699,6 +721,10 @@ func packAndSaveLoc(srcDir, serverOut string, locPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
+	// TS PackShared.ts:459 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, 1195428820)
+	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCLoc); err != nil {
+		fmt.Fprintf(os.Stderr, "packAndSaveLoc: %v (BUILD_VERIFY)\n", err)
+	}
 	if err := server.Save(
 		filepath.Join(serverOut, "loc.dat"),
 		filepath.Join(serverOut, "loc.idx"),
@@ -729,6 +755,10 @@ func packAndSaveNpc(srcDir, serverOut string, npcPack, modelPack, categoryPack, 
 	server, client, err := packNpcConfigs(cfgs, npcPack, modelFlags)
 	if err != nil {
 		return err
+	}
+	// TS PackShared.ts:531 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, -997428438)
+	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCNpc); err != nil {
+		fmt.Fprintf(os.Stderr, "packAndSaveNpc: %v (BUILD_VERIFY)\n", err)
 	}
 	if err := server.Save(
 		filepath.Join(serverOut, "npc.dat"),
@@ -761,6 +791,10 @@ func packAndSaveObj(srcDir, serverOut string, objPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
+	// TS PackShared.ts:555 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, 1589810970)
+	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCObj); err != nil {
+		fmt.Fprintf(os.Stderr, "packAndSaveObj: %v (BUILD_VERIFY)\n", err)
+	}
 	if err := server.Save(
 		filepath.Join(serverOut, "obj.dat"),
 		filepath.Join(serverOut, "obj.idx"),
@@ -790,6 +824,10 @@ func packAndSaveSeq(srcDir, serverOut string, seqPack, animPack, objPack *PackFi
 		return err
 	}
 	server, client := packSeqConfigs(cfgs, seqPack, modelFlags)
+	// TS PackShared.ts:435 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, 1405403166)
+	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCSeq); err != nil {
+		fmt.Fprintf(os.Stderr, "packAndSaveSeq: %v (BUILD_VERIFY)\n", err)
+	}
 	if err := server.Save(
 		filepath.Join(serverOut, "seq.dat"),
 		filepath.Join(serverOut, "seq.idx"),
@@ -818,6 +856,10 @@ func packAndSaveFlo(srcDir, serverOut string, floPack, texturePack *PackFile, c 
 		return err
 	}
 	server, client := packFloConfigs(cfgs, floPack, modelFlags)
+	// TS PackShared.ts:467 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, 1976597026)
+	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCFlo); err != nil {
+		fmt.Fprintf(os.Stderr, "packAndSaveFlo: %v (BUILD_VERIFY)\n", err)
+	}
 	if err := server.Save(
 		filepath.Join(serverOut, "flo.dat"),
 		filepath.Join(serverOut, "flo.idx"),
@@ -845,6 +887,10 @@ func packAndSaveSpotAnim(srcDir, serverOut string, spotanimPack, modelPack, seqP
 		return err
 	}
 	server, client := packSpotAnimConfigs(cfgs, spotanimPack, modelFlags)
+	// TS PackShared.ts:507 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, 117013845)
+	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCSpotAnim); err != nil {
+		fmt.Fprintf(os.Stderr, "packAndSaveSpotAnim: %v (BUILD_VERIFY)\n", err)
+	}
 	if err := server.Save(
 		filepath.Join(serverOut, "spotanim.dat"),
 		filepath.Join(serverOut, "spotanim.idx"),
@@ -935,6 +981,10 @@ func packAndSaveIdk(srcDir, serverOut string, idkPack, modelPack *PackFile, c Co
 		return err
 	}
 	server, client := packIdkConfigs(cfgs, idkPack, modelFlags)
+	// TS PackShared.ts:573 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, -359342366)
+	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCIdk); err != nil {
+		fmt.Fprintf(os.Stderr, "packAndSaveIdk: %v (BUILD_VERIFY)\n", err)
+	}
 	if err := server.Save(
 		filepath.Join(serverOut, "idk.dat"),
 		filepath.Join(serverOut, "idk.idx"),

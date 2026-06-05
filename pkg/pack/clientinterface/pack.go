@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/zsrv/goscape/pkg/io/filestream"
 	"github.com/zsrv/goscape/pkg/io/jagfile"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/pack"
@@ -35,13 +36,17 @@ type component struct {
 // client output, then saves both. compressWhole=true matches TS
 // Jagfile.new(true) at PackClient.ts:8.
 //
+// cache is optional. When non-nil the packed client/interface jagfile
+// bytes are written to cache.Write(0, 3, data, 0), mirroring
+// TS PackClient.ts:31: cache.write(0, 3, fs.readFileSync('data/pack/client/interface'))
+//
 // NAI-192-D-NO-SRC-NO-OP mirror: missing src/scripts → no-op (return nil).
 //
 // NAI-213-D-NO-SOURCE-OF-TRUTH-FRESHNESS: TS PackClient.ts ORs a second
 // shouldBuild('tools/pack/interface', '.ts', ...) gate that re-builds
 // when the packer source itself changes. goscape has no equivalent
 // "watch the packer code" surface; only the scripts-dir gate is kept.
-func Pack(reg *pack.Registry, srcDir, outDir string) error {
+func Pack(reg *pack.Registry, srcDir, outDir string, cache *filestream.FileStream) error {
 	scriptsSrc := filepath.Join(srcDir, "scripts")
 	clientOut := filepath.Join(outDir, "client", "interface")
 	serverOut := filepath.Join(outDir, "server", "interface.dat")
@@ -99,6 +104,15 @@ func Pack(reg *pack.Registry, srcDir, outDir string) error {
 	jag.Write("data", client)
 	if err := jag.Save(clientOut); err != nil {
 		return err
+	}
+
+	// TS PackClient.ts:31: cache.write(0, 3, fs.readFileSync('data/pack/client/interface'))
+	if cache != nil {
+		data, err := os.ReadFile(clientOut)
+		if err != nil {
+			return fmt.Errorf("Pack: read client/interface for cache: %w", err)
+		}
+		cache.Write(0, 3, data, 0)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(serverOut), 0o755); err != nil {

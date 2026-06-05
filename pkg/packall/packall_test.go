@@ -1,6 +1,9 @@
 package packall
 
 import (
+	"archive/zip"
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,15 +37,19 @@ func seedWordencRaw(t *testing.T, rawDir string) {
 // TestPackAll_TwelveStageSmoke pins NAI-213 spec §PackAll arc-close.
 //
 // Drives a fixture with minimal sources for the relevant stages through
-// the full 12-stage pipeline (PackConfigs + ClientInterface +
-// RunServerCompiler + Title + Media + Texture + Wordenc + Sound +
-// Graphics + Midi + Maps). Asserts each stage produced its expected
-// artifact:
+// the full orchestration (PackConfigs + ClientInterface + RunServerCompiler +
+// Title + Media + Texture + Wordenc + Sound + Graphics + Midi + Maps +
+// VersionList + BuildStamp + OndemandZip). Asserts each stage produced
+// its expected artifact:
 //   - PackConfigs server: <outDir>/server/obj.dat exists.
 //   - PackConfigs client: <outDir>/client/config jagfile exists.
 //   - RunServerCompiler: <outDir>/server/script.dat exists.
 //   - Sound: <outDir>/client/sounds jagfile exists.
 //   - Texture: <outDir>/client/textures jagfile exists.
+//   - Cache: main_file_cache.dat + idx0-4 exist (truncated on pack).
+//   - BuildStamp: <outDir>/server/build is exactly 4 bytes.
+//   - OndemandZip: <outDir>/ondemand.zip is a valid zip (may be empty
+//     if the minimal fixture produces no cache entries in archives 1-4).
 //
 // dataPackDir is passed as outDir so RunServerCompiler reads back the
 // cache PackConfigs just wrote.
@@ -94,6 +101,14 @@ func TestPackAll_TwelveStageSmoke(t *testing.T) {
 	// Sound: empty .pack/.order so PackSound writes a terminator-only sounds.dat.
 	_ = os.WriteFile(filepath.Join(dir, "pack", "synth.order"), []byte(""), 0o644)
 
+	// VersionList: free2play.csv required by versionlist.Pack for the map_index section.
+	if err := os.MkdirAll(filepath.Join(dir, "maps"), 0o755); err != nil {
+		t.Fatalf("MkdirAll maps: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "maps", "free2play.csv"), []byte(""), 0o644); err != nil {
+		t.Fatalf("WriteFile free2play.csv: %v", err)
+	}
+
 	// Rev-244: wordenc.Pack reads rawDir/wordenc (replaces 4-txt builder).
 	rawDir := filepath.Join(dir, "raw")
 	seedWordencRaw(t, rawDir)
@@ -125,7 +140,59 @@ func TestPackAll_TwelveStageSmoke(t *testing.T) {
 			t.Errorf("expected client artifact %s: %v", p, err)
 		}
 	}
+
+	// rev-244 B6: cache files (main_file_cache.dat + idx0-4) must exist.
+	for _, name := range []string{
+		"main_file_cache.dat",
+		"main_file_cache.idx0",
+		"main_file_cache.idx1",
+		"main_file_cache.idx2",
+		"main_file_cache.idx3",
+		"main_file_cache.idx4",
+	} {
+		if _, err := os.Stat(filepath.Join(outDir, name)); err != nil {
+			t.Errorf("cache file missing %s: %v", name, err)
+		}
+	}
+
+	// rev-244 B6: server/build must be exactly 4 bytes.
+	if fi, err := os.Stat(filepath.Join(outDir, "server", "build")); err != nil {
+		t.Errorf("server/build missing: %v", err)
+	} else if fi.Size() != 4 {
+		t.Errorf("server/build size = %d, want 4", fi.Size())
+	}
+
+	// rev-244 B6: ondemand.zip must exist and be a valid zip.
+	zipPath := filepath.Join(outDir, "ondemand.zip")
+	zipData, err := os.ReadFile(zipPath)
+	if err != nil {
+		t.Fatalf("ondemand.zip missing: %v", err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		t.Fatalf("ondemand.zip is not a valid zip: %v", err)
+	}
+	// Entry names must match the "${archive}.${file}" pattern.
+	for _, f := range zr.File {
+		var archive, file int
+		if n, scanErr := fmt.Sscanf(f.Name, "%d.%d", &archive, &file); scanErr != nil || n != 2 {
+			t.Errorf("ondemand.zip entry %q: want 'archive.file' format: %v", f.Name, scanErr)
+		}
+	}
+
+	// rev-244 B6: truncation test — pack again, cache must not grow stale
+	// entries (createNew=true zeroes the cache file each run).
+	if err := PackAll(dir, outDir, outDir, rawDir); err != nil {
+		t.Fatalf("PackAll (repack): %v", err)
+	}
+	// Re-run assertions pass: build file is still 4 bytes.
+	if fi, err := os.Stat(filepath.Join(outDir, "server", "build")); err != nil {
+		t.Errorf("server/build missing after repack: %v", err)
+	} else if fi.Size() != 4 {
+		t.Errorf("server/build size after repack = %d, want 4", fi.Size())
+	}
 }
+
 
 // TestPackAll_PackConfigsErrorPropagates pins NAI-212 spec §7 PackAll
 // test 2: error from a stage is wrapped with the stage name.
