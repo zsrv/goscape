@@ -52,6 +52,13 @@ func extractIP(remoteAddr string) string {
 
 // WorldStartup clears all login sessions for the given node+profile.
 func (h *handler) WorldStartup(ctx context.Context, req *loginpb.WorldStartupRequest) (*emptypb.Empty, error) {
+	// PORTING-EXCEPTION (rev244-b5-startup-profile, world_startup keeps
+	// profile): TS 244 dropped `profile` from the world_startup message
+	// (LoginClient.ts:13-27) but LoginServer.ts:161-170 still filters the
+	// account_login reset by the now-undefined profile — the upstream
+	// reset matches nothing at the pin. goscape keeps the field and the
+	// per-profile reset (correct behavior over broken-line fidelity;
+	// rev244-b3-ws-origin precedent). See PORTING.md.
 	if err := clearWorldSessions(ctx, h.db, int(req.NodeId), req.Profile); err != nil {
 		return nil, status.Errorf(codes.Internal, "clearWorldSessions: %v", err)
 	}
@@ -221,12 +228,16 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	result := loginpb.LoginResult_LOGIN_RESULT_OK
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			// M25 (TS LoginServer.ts:342-348): a missing save is only benign for
-			// an account that never logged in. If logout_time is set the player
-			// logged out before, so a save SHOULD exist — its absence is data
-			// loss, not a new player. Reject for safety rather than silently
-			// resetting a real character to fresh. The deferred rollback drops
-			// the just-inserted session row. (TS rejectLoginForSafety → resp 7.)
+			// M25 (TS LoginServer.ts:397-403): a missing save is only benign for
+			// an account that never logged in on THIS profile. If the per-profile
+			// logout_time is set the player logged out before, so a save SHOULD
+			// exist — its absence is data loss, not a new player. Reject for
+			// safety rather than silently resetting a real character to fresh.
+			// The deferred rollback drops the just-inserted session row.
+			// (TS rejectLoginForSafety → resp 7.)
+			// login-server-7 CLOSED (rev-244 B5): logout_time is now read from
+			// account_login.logout_time (per-profile) via the accountByUsername
+			// LEFT-JOIN, eliminating spurious rejects on cross-profile first logins.
 			if account.LogoutTime.Valid {
 				return nil, status.Errorf(codes.DataLoss, "save missing but logout_time set for %q", req.Username)
 			}
@@ -294,7 +305,7 @@ func (h *handler) PlayerLogout(ctx context.Context, req *loginpb.PlayerLogoutReq
 	if account == nil {
 		return nil, status.Errorf(codes.NotFound, "account %q not found", req.Username)
 	}
-	if err := setLoggedOut(ctx, h.db, account.ID, req.Profile); err != nil {
+	if err := setLoggedOut(ctx, h.db, account.ID, req.Profile, int(req.NodeId)); err != nil {
 		return nil, status.Errorf(codes.Internal, "setLoggedOut: %v", err)
 	}
 

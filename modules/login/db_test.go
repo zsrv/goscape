@@ -305,7 +305,7 @@ func TestSetLoggedOut(t *testing.T) {
 		t.Fatalf("upsertAccountLogin: %v", err)
 	}
 
-	err = setLoggedOut(t.Context(), db, int(id), "main")
+	err = setLoggedOut(t.Context(), db, int(id), "main", 3)
 	if err != nil {
 		t.Fatalf("setLoggedOut: %v", err)
 	}
@@ -344,7 +344,7 @@ func TestSetLoggedOut_ClearsRowRegardlessOfNodeId(t *testing.T) {
 		t.Fatalf("upsertAccountLogin: %v", err)
 	}
 
-	if err := setLoggedOut(t.Context(), db, int(id), "main"); err != nil {
+	if err := setLoggedOut(t.Context(), db, int(id), "main", 0); err != nil {
 		t.Fatalf("setLoggedOut: %v", err)
 	}
 
@@ -356,7 +356,45 @@ func TestSetLoggedOut_ClearsRowRegardlessOfNodeId(t *testing.T) {
 		t.Fatalf("query account_login: %v", err)
 	}
 	if loggedIn != 0 {
-		t.Errorf("logged_in: got %d, want 0; TS LoginServer.ts:438-439,484-485 clears WHERE (account_id, profile) only — setLoggedOut must NOT gate on node_id (login-server-3)", loggedIn)
+		t.Errorf("logged_in: got %d, want 0; TS LoginServer.ts:484-496 clears WHERE (account_id, profile) only — setLoggedOut must NOT gate on node_id (login-server-3)", loggedIn)
+	}
+}
+
+// TestSetLoggedOut_StampsPerProfile pins login-server-7 closure step iii:
+// setLoggedOut writes account_login.logged_out = nodeID and
+// account_login.logout_time for THIS (account, profile) row only.
+// TS LoginServer.ts:484-496.
+func TestSetLoggedOut_StampsPerProfile(t *testing.T) {
+	db := createTestDB(t)
+	if _, err := db.Exec(`INSERT INTO account (username, password) VALUES ('bob', 'x')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO account_login (account_id, profile, node_id, logged_in)
+	                      VALUES (1, 'main', 10, 1), (1, 'beta', 11, 1)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := setLoggedOut(t.Context(), db, 1, "main", 10); err != nil {
+		t.Fatalf("setLoggedOut: %v", err)
+	}
+	var loggedIn, loggedOut int
+	var logoutTime sql.NullString
+	if err := db.QueryRow(`SELECT logged_in, logged_out, logout_time FROM account_login
+	                       WHERE account_id = 1 AND profile = 'main'`).
+		Scan(&loggedIn, &loggedOut, &logoutTime); err != nil {
+		t.Fatal(err)
+	}
+	if loggedIn != 0 || loggedOut != 10 || !logoutTime.Valid {
+		t.Errorf("main row: logged_in=%d logged_out=%d logout_time.Valid=%v; want 0, 10, true",
+			loggedIn, loggedOut, logoutTime.Valid)
+	}
+	if err := db.QueryRow(`SELECT logged_in, logged_out, logout_time FROM account_login
+	                       WHERE account_id = 1 AND profile = 'beta'`).
+		Scan(&loggedIn, &loggedOut, &logoutTime); err != nil {
+		t.Fatal(err)
+	}
+	if loggedIn != 1 || loggedOut != 0 || logoutTime.Valid {
+		t.Errorf("beta row touched: logged_in=%d logged_out=%d logout_time.Valid=%v; want 1, 0, false",
+			loggedIn, loggedOut, logoutTime.Valid)
 	}
 }
 
@@ -578,5 +616,118 @@ func TestMigration002CoercesLegacyRows(t *testing.T) {
 	}
 	if newID <= legacyID {
 		t.Errorf("AUTOINCREMENT continuity broken: new id %d <= legacy id %d", newID, legacyID)
+	}
+}
+
+// TestMigration000005_Schema pins the rev-244 B5 schema surface: the
+// `login` attempts table (TS prisma model `login`), the per-profile
+// account_login.logged_out/logout_time columns (TS prisma account_login),
+// the message_thread/message/message_status tables backing
+// getUnreadMessageCount (TS Messages.ts), the dormant account_session /
+// wealth_event landing tables (user decision: schema-only, no Go writer),
+// and the account.logout_time drop (login-server-7 closure step v).
+func TestMigration000005_Schema(t *testing.T) {
+	db := createTestDB(t)
+
+	mustExec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := db.Exec(q, args...); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	mustExec(`INSERT INTO account (username, password) VALUES ('a', 'x')`)
+	mustExec(`INSERT INTO login (uuid, account_id, world, timestamp, uid, ip)
+	          VALUES ('u-1', 1, 10, '2026-06-05 00:00:00', 7, '1.2.3.4')`)
+	mustExec(`INSERT INTO account_login (account_id, profile, node_id, logged_in, logged_out, logout_time)
+	          VALUES (1, 'main', 10, 0, 10, '2026-06-05 00:00:00')`)
+	mustExec(`INSERT INTO message_thread (to_account_id, from_account_id, last_message_from, subject)
+	          VALUES (2, 1, 1, 's')`)
+	mustExec(`INSERT INTO message (thread_id, sender_id, sender_ip, content)
+	          VALUES (1, 1, '1.2.3.4', 'hello')`)
+	mustExec(`INSERT INTO message_status (thread_id, account_id, "read", deleted)
+	          VALUES (1, 2, NULL, NULL)`)
+	mustExec(`INSERT INTO account_session (account_id, world, profile, session_uuid, timestamp, coord, event, event_type)
+	          VALUES (1, 10, 'main', 's-1', '2026-06-05 00:00:00', 0, 'e', -1)`)
+	mustExec(`INSERT INTO wealth_event (timestamp, coord, world, profile, event_type,
+	          account_id, account_session, account_items, account_value)
+	          VALUES ('2026-06-05 00:00:00', 0, 10, 'main', -1, 1, 's-1', '[]', 0)`)
+
+	// account.logout_time is GONE (login-server-7 step v).
+	if _, err := db.Exec(`SELECT logout_time FROM account`); err == nil {
+		t.Errorf("account.logout_time still exists; migration 000005 must drop it")
+	}
+
+	// FK integrity after the migration.
+	rows, err := db.Query(`PRAGMA foreign_key_check`)
+	if err != nil {
+		t.Fatalf("foreign_key_check: %v", err)
+	}
+	defer rows.Close()
+	if rows.Next() {
+		t.Errorf("foreign_key_check reported violations")
+	}
+}
+
+// TestMigration000005_Backfill pins login-server-7 closure steps i-iii:
+// pre-migration account.logout_time values land on EVERY existing
+// (account_id, profile) account_login row; logged_out backfills 0 (the
+// origin node was never recorded; the hop timer's `logged_out != 0`
+// gate treats 0 as no-block, TS LoginServer.ts:368).
+func TestMigration000005_Backfill(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	for _, pragma := range []string{`PRAGMA journal_mode=WAL`, `PRAGMA foreign_keys=ON`} {
+		if _, err := db.Exec(pragma); err != nil {
+			t.Fatalf("%s: %v", pragma, err)
+		}
+	}
+	src, err := iofs.New(migrations, "migrations")
+	if err != nil {
+		t.Fatalf("iofs: %v", err)
+	}
+	drv, err := sqlitedriver.WithInstance(db, &sqlitedriver.Config{})
+	if err != nil {
+		t.Fatalf("driver: %v", err)
+	}
+	m, err := migrate.NewWithInstance("iofs", src, "sqlite", drv)
+	if err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if err := m.Migrate(4); err != nil {
+		t.Fatalf("migrate to 4: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO account (username, password, logout_time)
+	                      VALUES ('bob', 'x', '2026-06-01 12:00:00')`); err != nil {
+		t.Fatalf("seed account: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO account_login (account_id, profile, node_id, logged_in)
+	                      VALUES (1, 'main', 10, 0), (1, 'beta', 11, 0)`); err != nil {
+		t.Fatalf("seed account_login: %v", err)
+	}
+	if err := m.Migrate(5); err != nil {
+		t.Fatalf("migrate to 5: %v", err)
+	}
+	rows, err := db.Query(`SELECT profile, logged_out, COALESCE(logout_time, '') FROM account_login ORDER BY profile`)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	defer rows.Close()
+	got := map[string][2]string{}
+	for rows.Next() {
+		var profile, lt string
+		var lo int
+		if err := rows.Scan(&profile, &lo, &lt); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		got[profile] = [2]string{fmt.Sprint(lo), lt}
+	}
+	for _, profile := range []string{"beta", "main"} {
+		want := [2]string{"0", "2026-06-01 12:00:00"}
+		if got[profile] != want {
+			t.Errorf("backfill %s: got %v, want %v", profile, got[profile], want)
+		}
 	}
 }

@@ -1027,3 +1027,42 @@ func TestPlayerLogin_SaveMissingNoLogoutTimeIsNewPlayer(t *testing.T) {
 		t.Errorf("Result: got %v, want NEW_PLAYER (NULL logout_time must not reject)", resp.Result)
 	}
 }
+
+// TestPlayerLogin_M25_PerProfileLogoutTime pins the re-pointed M25
+// safety reject (login-server-7 closure step iv): a missing save with a
+// PER-PROFILE logout_time set rejects, while a different profile with
+// NULL logout_time (legitimate first login) is admitted. This was the
+// login-server-7 latent failure mode — now fixed.
+func TestPlayerLogin_M25_PerProfileLogoutTime(t *testing.T) {
+	h, _ := newTestHandler(t)
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 10, Profile: "main", Username: "bob", Password: "pw",
+		RemoteAddress: "1.2.3.4:5", Uid: 1,
+	})
+	if err != nil || resp.Result != loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER {
+		t.Fatalf("first login: resp=%v err=%v", resp, err)
+	}
+	// Graceful logout on main with NO save written → logout_time stamped
+	// per-profile on main only. (PlayerLogout's persistSaveIfValid skips
+	// an invalid save without error.)
+	if _, err := h.PlayerLogout(t.Context(), &loginpb.PlayerLogoutRequest{
+		NodeId: 10, Profile: "main", Username: "bob", Save: []byte("bad"),
+	}); err != nil {
+		t.Fatalf("logout: %v", err)
+	}
+	// main: save missing + logout_time set → DataLoss reject (M25).
+	if _, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 10, Profile: "main", Username: "bob", Password: "pw",
+		RemoteAddress: "1.2.3.4:5", Uid: 1,
+	}); status.Code(err) != codes.DataLoss {
+		t.Errorf("main relogin: got err %v, want codes.DataLoss", err)
+	}
+	// beta: same account, no beta logout_time → NEW_PLAYER admitted.
+	resp, err = h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 10, Profile: "beta", Username: "bob", Password: "pw",
+		RemoteAddress: "1.2.3.4:5", Uid: 1,
+	})
+	if err != nil || resp.Result != loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER {
+		t.Errorf("beta first login: resp=%v err=%v; want NEW_PLAYER", resp, err)
+	}
+}

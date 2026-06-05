@@ -30,6 +30,7 @@ type accountRow struct {
 	Members       int
 	LoggedIn      int
 	NodeID        int
+	LoggedOut     int
 	BannedUntil   sql.NullString
 	MutedUntil    sql.NullString
 	LogoutTime    sql.NullString
@@ -104,7 +105,9 @@ func migrateDB(db *sql.DB) error {
 func accountByUsername(ctx context.Context, db *sql.DB, username, profile string) (*accountRow, error) {
 	const query = `
 SELECT a.id, a.username, a.password, a.staff_mod_level, a.members,
-       a.banned_until, a.muted_until, a.logout_time,
+       a.banned_until, a.muted_until,
+       al.logout_time,
+       COALESCE(al.logged_out, 0),
        COALESCE(al.logged_in, 0),
        COALESCE(al.node_id, 0),
        CASE WHEN al.account_id IS NOT NULL THEN 1 ELSE 0 END as has_login_row
@@ -123,6 +126,7 @@ WHERE a.username = ?`
 		&row.BannedUntil,
 		&row.MutedUntil,
 		&row.LogoutTime,
+		&row.LoggedOut,
 		&row.LoggedIn,
 		&row.NodeID,
 		&hasLoginRow,
@@ -218,82 +222,41 @@ func clearWorldSessions(ctx context.Context, db *sql.DB, nodeID int, profile str
 	return nil
 }
 
-// setLoggedOut clears the account_login flag and stamps account.logout_time.
-// Mirrors TS LoginServer.ts:429-440 (setLoggedOut), which sets logged_in=0 plus
-// logout_time. goscape stores logout_time on the `account` table (not
-// account_login as in TS) and has no `logged_out` node-id column (TS keeps it
-// for bookkeeping; nothing reads it). The logout_time stamp is what arms the
-// M25 "save missing but logout_time set" safety reject on the next login, so the
-// two writes are wrapped in a transaction to stay consistent.
+// setLoggedOut clears the account_login flag and stamps the per-profile
+// logged_out origin node + logout_time. Mirrors TS LoginServer.ts:484-496
+// (player_logout): logged_in=0, login_time=null (goscape carries no
+// login_time column — pre-existing), logged_out=nodeId, logout_time=now,
+// keyed by (account_id, profile). The logout_time stamp arms the M25
+// "save missing but logout_time set" safety reject on the next login for
+// THIS profile, and the logged_out node id feeds the 45s hop timer
+// (LoginServer.ts:366-371).
 //
-// The UPDATE matches by (account_id, profile) only — node_id is intentionally
-// excluded so a force-logout originating from a different node clears the
-// row a previous world wrote (TS LoginServer.ts:438-439,484-485 likewise
-// keys the clear by account/profile, not by which node currently holds it).
+// The UPDATE matches by (account_id, profile) only — node_id is
+// intentionally excluded so a force-logout originating from a different
+// node clears the row a previous world wrote.
 //
-// PORTING-EXCEPTION (login-server-7): the logout_time stamp is per-ACCOUNT
-// here (goscape's `account.logout_time` column is keyed by account_id
-// alone) but per-PROFILE in TS (`account_login.logout_time`, keyed by
-// (account_id, profile) — see the UPDATE shape at LoginServer.ts:430-440).
-// For an account that logs in across more than one profile (different
-// worlds / save slots), TS stamps an independent logout_time per profile;
-// goscape stamps one logout_time shared by all profiles. The latent
-// failure mode: profile A graceful-logs-out (stamps account.logout_time),
-// profile B (same account, never logged in before so its save file does
-// not exist) then attempts a first login — the M25 safety reject at
-// handler.go reads the shared account.logout_time != NULL and force-
-// rejects profile B with a spurious "save missing but logout_time set"
-// even though profile B has a legitimate first-login posture. Closing
-// this requires (i) a new migration adding account_login.logout_time
-// (NULL allowed), (ii) backfilling from account.logout_time for every
-// existing (account_id, profile) row, (iii) updating setLoggedOut to
-// stamp account_login.logout_time instead of account.logout_time, (iv)
-// rewriting the M25 safety-reject site in handler.go to read the
-// per-profile column via the existing accountByUsername LEFT-JOIN, and
-// (v) deciding whether to drop account.logout_time (SQLite drop-column
-// is a CREATE-TABLE-COPY-DROP-RENAME dance pre-3.35) or leave it as
-// legacy. Broader than a setLoggedOut-site fix and broader than any
-// reasonable bundle slot. The deviation is real but only triggers on
-// multi-profile accounts; single-profile deployments are unaffected.
-// See PORTING.md.
-func setLoggedOut(ctx context.Context, db *sql.DB, accountID int, profile string) error {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("setLoggedOut: begin tx: %w", err)
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback()
-		}
-	}()
-
-	if _, err := tx.ExecContext(ctx,
-		`UPDATE account_login SET logged_in = 0 WHERE account_id = ? AND profile = ?`,
-		accountID, profile,
-	); err != nil {
-		return fmt.Errorf("setLoggedOut: clear logged_in: %w", err)
-	}
-
+// login-server-7 CLOSED (rev-244 B5): logout_time moved from the
+// per-account `account.logout_time` column to per-profile
+// `account_login.logout_time` (migration 000005 backfilled and dropped
+// the legacy column), eliminating the multi-profile spurious-M25-reject
+// failure mode documented by the former PORTING-EXCEPTION here.
+func setLoggedOut(ctx context.Context, db *sql.DB, accountID int, profile string, nodeID int) error {
 	logoutTime := time.Now().UTC().Format(dbTimeFormat)
-	if _, err := tx.ExecContext(ctx,
-		`UPDATE account SET logout_time = ? WHERE id = ?`,
-		logoutTime, accountID,
+	if _, err := db.ExecContext(ctx,
+		`UPDATE account_login
+		 SET logged_in = 0, logged_out = ?, logout_time = ?
+		 WHERE account_id = ? AND profile = ?`,
+		nodeID, logoutTime, accountID, profile,
 	); err != nil {
-		return fmt.Errorf("setLoggedOut: stamp logout_time: %w", err)
+		return fmt.Errorf("setLoggedOut: %w", err)
 	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("setLoggedOut: commit: %w", err)
-	}
-	committed = true
 	return nil
 }
 
 // clearLoggedInFlag clears the account_login.logged_in flag WITHOUT
-// stamping account.logout_time. Mirrors the TS force-logout path at
-// LoginServer.ts:477-487, which writes only `logged_in:0, login_time:null`
-// — distinct from the graceful logout path (LoginServer.ts:425-440) which
+// stamping logout_time. Mirrors the TS force-logout path at
+// LoginServer.ts:532-541, which writes only `logged_in:0, login_time:null`
+// — distinct from the graceful logout path (LoginServer.ts:484-496) which
 // also writes `logged_out:nodeId, logout_time:...`.
 //
 // Used by PlayerForceLogout. Stamping logout_time here would arm the M25
