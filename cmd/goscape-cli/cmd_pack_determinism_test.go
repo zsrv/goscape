@@ -35,15 +35,16 @@ import (
 func TestRunPack_DeterministicOutput(t *testing.T) {
 	src := t.TempDir()
 	seedDeterminismFixture(t, src)
+	rawDir := makeRawDir(t, src)
 
 	out1 := t.TempDir()
 	var stderr1 bytes.Buffer
-	if code := runPack([]string{"--src-dir", src, "--out-dir", out1}, io.Discard, &stderr1); code != 0 {
+	if code := runPack([]string{"--src-dir", src, "--out-dir", out1, "--raw-dir", rawDir}, io.Discard, &stderr1); code != 0 {
 		t.Fatalf("run 1: runPack returned %d; stderr=%s", code, stderr1.String())
 	}
 	out2 := t.TempDir()
 	var stderr2 bytes.Buffer
-	if code := runPack([]string{"--src-dir", src, "--out-dir", out2}, io.Discard, &stderr2); code != 0 {
+	if code := runPack([]string{"--src-dir", src, "--out-dir", out2, "--raw-dir", rawDir}, io.Discard, &stderr2); code != 0 {
 		t.Fatalf("run 2: runPack returned %d; stderr=%s", code, stderr2.String())
 	}
 

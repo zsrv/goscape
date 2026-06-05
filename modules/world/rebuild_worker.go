@@ -52,7 +52,7 @@ func (s *Server) runRebuildWorker() {
 		s.rebuildMu.Unlock()
 
 		start := time.Now()
-		err := s.packFn(s.cfg.ContentPath, s.cfg.CachePath, s.cfg.CachePath)
+		err := s.packFn(s.cfg.ContentPath, s.cfg.CachePath, s.cfg.CachePath, "data/raw")
 		elapsed := time.Since(start)
 
 		// Blocking send + s.quit select: back-pressure ensures tick

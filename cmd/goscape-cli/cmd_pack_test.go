@@ -23,7 +23,7 @@ func writeFile(t *testing.T, path, content string) {
 
 // seedMinimalPackFixture writes the minimum srcDir layout that lets
 // pack.PackAll succeed end-to-end. Mirrors pkg/pack/pack_all_test.go
-// TestPackAll_ThreeStageSmoke fixture (.obj + .rs2 + freshness-gated
+// TestPackAll_TwelveStageSmoke fixture (.obj + .rs2 + freshness-gated
 // inv/varn/vars/dbtable).
 func seedMinimalPackFixture(t *testing.T, dir string) {
 	t.Helper()
@@ -45,6 +45,20 @@ func seedMinimalPackFixture(t *testing.T, dir string) {
 	writeFile(t, filepath.Join(dir, "pack", "dbtable.pack"), "0=records\n")
 }
 
+// makeRawDir creates a fixture rawDir containing a synthetic wordenc blob.
+// Rev-244: wordenc.Pack reads rawDir/wordenc as an opaque blob; any content works.
+func makeRawDir(t *testing.T, dir string) string {
+	t.Helper()
+	rawDir := filepath.Join(dir, "raw")
+	if err := os.MkdirAll(rawDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll rawDir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(rawDir, "wordenc"), []byte{0x01, 0x02, 0x03, 0x04}, 0o644); err != nil {
+		t.Fatalf("WriteFile wordenc: %v", err)
+	}
+	return rawDir
+}
+
 // TestRunPack_HappyPath verifies runPack returns 0 when PackAll succeeds.
 // Implicitly covers --datapack-dir empty → --out-dir fallback.
 // Also pins that the logger writes its output to the injected stderr
@@ -52,12 +66,14 @@ func seedMinimalPackFixture(t *testing.T, dir string) {
 func TestRunPack_HappyPath(t *testing.T) {
 	dir := t.TempDir()
 	seedMinimalPackFixture(t, dir)
+	rawDir := makeRawDir(t, dir)
 	outDir := filepath.Join(dir, "out")
 
 	var stderr bytes.Buffer
 	code := runPack([]string{
 		"--src-dir", dir,
 		"--out-dir", outDir,
+		"--raw-dir", rawDir,
 	}, io.Discard, &stderr)
 
 	if code != 0 {
@@ -84,11 +100,13 @@ func TestRunPack_PackAllErrorReturns1(t *testing.T) {
 		"0=duplicate_name\n")
 	writeFile(t, filepath.Join(dir, "pack", "vars.pack"),
 		"0=duplicate_name\n")
+	rawDir := makeRawDir(t, dir)
 	outDir := filepath.Join(dir, "out")
 
 	code := runPack([]string{
 		"--src-dir", dir,
 		"--out-dir", outDir,
+		"--raw-dir", rawDir,
 	}, io.Discard, io.Discard)
 
 	if code != 1 {

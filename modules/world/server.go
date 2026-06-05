@@ -327,7 +327,7 @@ type Server struct {
 
 	// packFn is the function the worker invokes. Defaults to
 	// packall.PackAll; test code overrides to avoid 7s real-content packs.
-	packFn func(srcDir, outDir, dataPackDir string) error
+	packFn func(srcDir, outDir, dataPackDir, rawDir string) error
 
 	// reloadFn is the function the tick-drain invokes on success. Defaults
 	// to s.Reload; test code overrides to record invocations / inject errors.

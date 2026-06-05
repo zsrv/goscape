@@ -34,6 +34,8 @@ func runPack(args []string, stdout, stderr io.Writer) int {
 		"Output directory.")
 	dataPackDir := fs.String("datapack-dir", "",
 		"Entity-type cache directory (default: --out-dir).")
+	rawDir := fs.String("raw-dir", "data/raw",
+		"Engine-owned raw blobs directory (contains wordenc Jagfile).")
 
 	var logLevel slog.Level = slog.LevelInfo
 	fs.TextVar(&logLevel, "log.level", logLevel,
@@ -64,7 +66,7 @@ func runPack(args []string, stdout, stderr io.Writer) int {
 		"out_dir", *outDir,
 		"datapack_dir", dpd,
 	)
-	if err := packall.PackAll(*srcDir, *outDir, dpd); err != nil {
+	if err := packall.PackAll(*srcDir, *outDir, dpd, *rawDir); err != nil {
 		logger.Error("pack failed", "err", err)
 		return 1
 	}

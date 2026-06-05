@@ -115,7 +115,7 @@ func runSmokePack(args []string, stdout, stderr io.Writer) int {
 		effectiveDataPack = effectiveOut
 	}
 	runStart := time.Now()
-	results := runStages(*contentDir, effectiveOut, effectiveDataPack, *refDir, *stopOnError, logger)
+	results := runStages(*contentDir, effectiveOut, effectiveDataPack, "data/raw", *refDir, *stopOnError, logger)
 	totalElapsed := time.Since(runStart)
 	printSummary(stdout, results, totalElapsed, *refDir != "")
 
@@ -335,7 +335,7 @@ func safeRun(fn func() error) (err error) {
 // they consume the *pack.Registry it produces. When refDir != "", every
 // successful stage is also byte-diffed against the same relpath under
 // refDir; results are attached to stageResult.Diffs.
-func runStages(srcDir, outDir, dataPackDir, refDir string, stopOnError bool, logger *slog.Logger) []stageResult {
+func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError bool, logger *slog.Logger) []stageResult {
 	pack.ClearFsCache()
 
 	results := make([]stageResult, 0, 11)
@@ -384,11 +384,11 @@ func runStages(srcDir, outDir, dataPackDir, refDir string, stopOnError bool, log
 	rest := []stage{
 		{"ClientInterface", func() error { return clientinterface.Pack(reg, srcDir, outDir) }},
 		{"RunServerCompiler", func() error { return compiler.RunServerCompiler(srcDir, outDir, dataPackDir) }},
-		{"Title", func() error { return sprites.PackTitle(srcDir, outDir) }},
-		{"Media", func() error { return sprites.PackMedia(srcDir, outDir) }},
-		{"Texture", func() error { return sprites.PackTexture(reg, srcDir, outDir) }},
-		{"Wordenc", func() error { return wordenc.Pack(srcDir, outDir) }},
-		{"Sound", func() error { return audio.PackSound(reg, srcDir, outDir) }},
+		{"Title", func() error { return sprites.PackTitle(srcDir, outDir, nil) }},
+		{"Media", func() error { return sprites.PackMedia(srcDir, outDir, nil) }},
+		{"Texture", func() error { return sprites.PackTexture(reg, srcDir, outDir, nil) }},
+		{"Wordenc", func() error { return wordenc.Pack(rawDir, nil) }},
+		{"Sound", func() error { return audio.PackSound(reg, srcDir, outDir, nil) }},
 		{"Graphics", func() error { return graphics.Pack(reg, srcDir, outDir) }},
 		{"Midi", func() error { return audio.PackMidi(srcDir, outDir) }},
 		{"Maps", func() error { return maps.Pack(srcDir, outDir) }},

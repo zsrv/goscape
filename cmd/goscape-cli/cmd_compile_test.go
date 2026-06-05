@@ -3,12 +3,26 @@ package main
 import (
 	"bytes"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/packall"
 )
+
+// seedWordencRaw creates a synthetic wordenc blob at <rawDir>/wordenc.
+// wordenc.Pack reads the blob as opaque bytes; any non-empty content works
+// for tests that do not validate wordenc content.
+func seedWordencRaw(t *testing.T, rawDir string) {
+	t.Helper()
+	if err := os.MkdirAll(rawDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll rawDir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(rawDir, "wordenc"), []byte{0x01, 0x02, 0x03, 0x04}, 0o644); err != nil {
+		t.Fatalf("WriteFile wordenc: %v", err)
+	}
+}
 
 // TestRunCompile_HappyPath_Check seeds the same minimal fixture pack
 // uses (via the seedMinimalPackFixture helper in cmd_pack_test.go),
@@ -21,7 +35,9 @@ func TestRunCompile_HappyPath_Check(t *testing.T) {
 	// <datapack-dir>/server/, which the source-only fixture does not
 	// create. Pack first so the cache exists; --datapack-dir then
 	// points to a real packed dir.
-	if err := packall.PackAll(dir, dir, dir); err != nil {
+	rawDir := filepath.Join(dir, "raw")
+	seedWordencRaw(t, rawDir)
+	if err := packall.PackAll(dir, dir, dir, rawDir); err != nil {
 		t.Fatalf("PackAll seed: %v", err)
 	}
 
@@ -46,7 +62,9 @@ func TestRunCompile_HappyPath_Check(t *testing.T) {
 func TestRunCompile_SourceError(t *testing.T) {
 	dir := t.TempDir()
 	seedMinimalPackFixture(t, dir)
-	if err := packall.PackAll(dir, dir, dir); err != nil {
+	rawDir := filepath.Join(dir, "raw")
+	seedWordencRaw(t, rawDir)
+	if err := packall.PackAll(dir, dir, dir, rawDir); err != nil {
 		t.Fatalf("PackAll seed: %v", err)
 	}
 	// Overwrite helper.rs2 with a clearly-broken source (unknown

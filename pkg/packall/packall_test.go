@@ -17,6 +17,20 @@ func writeFile(t *testing.T, path, content string) {
 	}
 }
 
+// seedWordencRaw creates a synthetic wordenc blob at <rawDir>/wordenc.
+// The blob is not a valid Jagfile, but wordenc.Pack only reads and passes
+// through raw bytes (no parsing at pack time), so any non-empty content works.
+func seedWordencRaw(t *testing.T, rawDir string) {
+	t.Helper()
+	if err := os.MkdirAll(rawDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll rawDir: %v", err)
+	}
+	// 4 bytes of synthetic blob — wordenc.Pack treats them as opaque.
+	if err := os.WriteFile(filepath.Join(rawDir, "wordenc"), []byte{0x01, 0x02, 0x03, 0x04}, 0o644); err != nil {
+		t.Fatalf("WriteFile wordenc: %v", err)
+	}
+}
+
 // TestPackAll_TwelveStageSmoke pins NAI-213 spec §PackAll arc-close.
 //
 // Drives a fixture with minimal sources for the relevant stages through
@@ -27,7 +41,6 @@ func writeFile(t *testing.T, path, content string) {
 //   - PackConfigs server: <outDir>/server/obj.dat exists.
 //   - PackConfigs client: <outDir>/client/config jagfile exists.
 //   - RunServerCompiler: <outDir>/server/script.dat exists.
-//   - Wordenc: <outDir>/client/wordenc jagfile exists.
 //   - Sound: <outDir>/client/sounds jagfile exists.
 //   - Texture: <outDir>/client/textures jagfile exists.
 //
@@ -47,6 +60,10 @@ func writeFile(t *testing.T, path, content string) {
 // jingles/songs/maps are NOT seeded; those stages either no-op (via
 // NAI-192-D-NO-SRC-NO-OP mirrors) or write minimal jagfiles iterating
 // empty registries.
+//
+// Rev-244: wordenc stage reads from rawDir/wordenc (not txt files).
+// A synthetic 4-byte blob is provided to exercise the full pipeline
+// without requiring the real Engine-TS blob.
 func TestPackAll_TwelveStageSmoke(t *testing.T) {
 	dir := t.TempDir()
 
@@ -74,17 +91,15 @@ func TestPackAll_TwelveStageSmoke(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "scripts", "d.dbtable"), "[records]\n")
 	writeFile(t, filepath.Join(dir, "pack", "dbtable.pack"), "0=records\n")
 
-	// Seed minimal client-stage fixtures to exercise wiring without errors.
-	// Wordenc: 4 empty txt files.
-	_ = os.MkdirAll(filepath.Join(dir, "wordenc"), 0o755)
-	for _, name := range []string{"badenc.txt", "fragmentsenc.txt", "tldlist.txt", "domainenc.txt"} {
-		_ = os.WriteFile(filepath.Join(dir, "wordenc", name), []byte("\n"), 0o644)
-	}
 	// Sound: empty .pack/.order so PackSound writes a terminator-only sounds.dat.
 	_ = os.WriteFile(filepath.Join(dir, "pack", "synth.order"), []byte(""), 0o644)
 
+	// Rev-244: wordenc.Pack reads rawDir/wordenc (replaces 4-txt builder).
+	rawDir := filepath.Join(dir, "raw")
+	seedWordencRaw(t, rawDir)
+
 	outDir := filepath.Join(dir, "out")
-	if err := PackAll(dir, outDir, outDir); err != nil {
+	if err := PackAll(dir, outDir, outDir, rawDir); err != nil {
 		t.Fatalf("PackAll: %v", err)
 	}
 
@@ -103,7 +118,6 @@ func TestPackAll_TwelveStageSmoke(t *testing.T) {
 	}
 
 	for _, p := range []string{
-		filepath.Join(outDir, "client", "wordenc"),
 		filepath.Join(outDir, "client", "sounds"),
 		filepath.Join(outDir, "client", "textures"),
 	} {
@@ -134,8 +148,11 @@ func TestPackAll_PackConfigsErrorPropagates(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "pack", "vars.pack"),
 		"0=duplicate_name\n")
 
+	rawDir := filepath.Join(dir, "raw")
+	// No wordenc needed: PackConfigs failure happens before Wordenc stage.
+
 	outDir := filepath.Join(dir, "out")
-	err := PackAll(dir, outDir, outDir)
+	err := PackAll(dir, outDir, outDir, rawDir)
 	if err == nil {
 		t.Fatal("want error, got nil")
 	}

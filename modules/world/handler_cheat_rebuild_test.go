@@ -55,7 +55,7 @@ func TestHandleClientCheat_Rebuild_DispatchesAndBroadcastsInProgress(t *testing.
 	// Block packFn so the worker stays busy across the assertion.
 	release := make(chan struct{})
 	entered := make(chan struct{})
-	s.packFn = func(srcDir, outDir, dataPackDir string) error {
+	s.packFn = func(srcDir, outDir, dataPackDir, rawDir string) error {
 		close(entered)
 		<-release
 		return nil
@@ -117,7 +117,7 @@ func TestHandleClientCheat_Rebuild_Async_HappyPath_DrainsAndReloads(t *testing.T
 	p.staffModLevel = 4
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
-	s.packFn = func(srcDir, outDir, dataPackDir string) error { return nil }
+	s.packFn = func(srcDir, outDir, dataPackDir, rawDir string) error { return nil }
 
 	var reloadCalls atomic.Int32
 	var reloadArg atomic.Bool
@@ -182,7 +182,7 @@ func TestHandleClientCheat_Rebuild_Async_PackError_BroadcastsFailureAndSkipsRelo
 	p.staffModLevel = 4
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
-	s.packFn = func(srcDir, outDir, dataPackDir string) error {
+	s.packFn = func(srcDir, outDir, dataPackDir, rawDir string) error {
 		return errors.New("pack boom")
 	}
 

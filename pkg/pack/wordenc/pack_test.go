@@ -5,57 +5,56 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zsrv/goscape/pkg/io/jagfile"
+	"github.com/zsrv/goscape/pkg/io/filestream"
 )
 
-func TestPack_BytePinned(t *testing.T) {
-	tmp := t.TempDir()
-	src := filepath.Join(tmp, "src")
-	wordencDir := filepath.Join(src, "wordenc")
-	if err := os.MkdirAll(wordencDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
-	}
-	for name, body := range map[string]string{
-		"badenc.txt":       "hi 1:2\n",
-		"fragmentsenc.txt": "42\n",
-		"tldlist.txt":      "com 1\n",
-		"domainenc.txt":    "x.com\n",
-	} {
-		if err := os.WriteFile(filepath.Join(wordencDir, name), []byte(body), 0o644); err != nil {
-			t.Fatalf("WriteFile %s: %v", name, err)
-		}
+// TestPack_WritesToCache pins the rev-244 behaviour: Pack reads the raw
+// wordenc blob from <rawDir>/wordenc and writes it to cache(0, 7).
+func TestPack_WritesToCache(t *testing.T) {
+	// Build a synthetic wordenc blob (any non-empty bytes suffice for
+	// the round-trip check; real format is validated by encfilter tests).
+	blobBytes := []byte{0x01, 0x02, 0x03, 0x04}
+
+	rawDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(rawDir, "wordenc"), blobBytes, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
 	}
 
-	outDir := filepath.Join(tmp, "out")
-	if err := Pack(src, outDir); err != nil {
+	cacheDir := t.TempDir()
+	fs := filestream.New(cacheDir, true, false)
+	defer fs.Close()
+
+	if err := Pack(rawDir, fs); err != nil {
 		t.Fatalf("Pack: %v", err)
 	}
 
-	jagPath := filepath.Join(outDir, "client", "wordenc")
-	jag, err := jagfile.LoadJagfile(jagPath)
-	if err != nil {
-		t.Fatalf("LoadJagfile: %v", err)
+	if !fs.Has(0, 7) {
+		t.Fatal("cache(0,7) has no entry after Pack")
 	}
-
-	for _, name := range []string{"badenc.txt", "fragmentsenc.txt", "tldlist.txt", "domainenc.txt"} {
-		pkt, err := jag.Read(name)
-		if err != nil {
-			t.Errorf("Read %q: %v", name, err)
-			continue
-		}
-		if pkt.Length() == 0 {
-			t.Errorf("entry %q is empty", name)
-		}
+	got := fs.Read(0, 7, false)
+	if string(got) != string(blobBytes) {
+		t.Errorf("cache(0,7) = %v, want %v", got, blobBytes)
 	}
 }
 
-func TestPack_MissingSrcReturnsNil(t *testing.T) {
-	tmp := t.TempDir()
-	src := filepath.Join(tmp, "src")
-	outDir := filepath.Join(tmp, "out")
+// TestPack_NilCache_NoError pins that Pack with a nil cache returns nil
+// (file read succeeds, write is skipped).
+func TestPack_NilCache_NoError(t *testing.T) {
+	rawDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(rawDir, "wordenc"), []byte{0xAB}, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := Pack(rawDir, nil); err != nil {
+		t.Errorf("Pack(nil cache): %v, want nil", err)
+	}
+}
 
-	// No src/wordenc dir exists. Should no-op cleanly.
-	if err := Pack(src, outDir); err != nil {
-		t.Errorf("Pack(missing src): %v, want nil", err)
+// TestPack_MissingBlob_ReturnsError pins that a missing data/raw/wordenc
+// blob causes Pack to return an error (fail-fast; no silent no-op).
+func TestPack_MissingBlob_ReturnsError(t *testing.T) {
+	rawDir := t.TempDir()
+	// No wordenc file written.
+	if err := Pack(rawDir, nil); err == nil {
+		t.Error("Pack(missing blob): want error, got nil")
 	}
 }

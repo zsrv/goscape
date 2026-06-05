@@ -10,7 +10,13 @@ cmd/goscape-cli/goscape-cli
 dist/
 
 
-data/
+# data/ is ignored except for the committed engine-owned raw blobs
+# (data/raw/ — see data/raw/README.md). Use data/* + negation so that
+# git can un-ignore the raw subdir (a trailing-/ ignore of a parent
+# cannot be negated for children in git; data/* can be).
+data/*
+!data/raw/
+!data/raw/**
 dataplayers/
 
 # Runtime assets (soundfonts etc.) — not source

@@ -6,12 +6,14 @@
 package sprites
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/zsrv/goscape/pkg/io/filestream"
 	"github.com/zsrv/goscape/pkg/io/jagfile"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/pack"
@@ -25,7 +27,12 @@ import (
 // <outDir>/client/title.
 //
 // NAI-192-D-NO-SRC-NO-OP mirror: missing <srcDir>/title → no-op cleanly.
-func PackTitle(srcDir, outDir string) error {
+//
+// cache is an optional *filestream.FileStream. When non-nil, the packed
+// client/title jagfile bytes are written to cache.Write(0, 1, data, 0),
+// mirroring TS title.ts:33: `cache.write(0, 1, fs.readFileSync('data/pack/client/title'))`.
+// Real handle is wired in T15.
+func PackTitle(srcDir, outDir string, cache *filestream.FileStream) error {
 	if _, err := os.Stat(filepath.Join(srcDir, "title")); os.IsNotExist(err) {
 		return nil
 	}
@@ -62,7 +69,18 @@ func PackTitle(srcDir, outDir string) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
-	return jag.Save(dest)
+	if err := jag.Save(dest); err != nil {
+		return err
+	}
+
+	if cache != nil {
+		data, err := os.ReadFile(dest)
+		if err != nil {
+			return fmt.Errorf("PackTitle: read client/title for cache: %w", err)
+		}
+		cache.Write(0, 1, data, 0)
+	}
+	return nil
 }
 
 // PackMedia ports tools/pack/sprite/media.ts (34 LOC).
@@ -70,7 +88,12 @@ func PackTitle(srcDir, outDir string) error {
 // Walks <srcDir>/sprites/*.png, sorts spritesheets (those with a
 // <srcDir>/sprites/meta/<name>.opt sidecar) last per TS line 16-20,
 // converts each, bundles into Jagfile at <outDir>/client/media.
-func PackMedia(srcDir, outDir string) error {
+//
+// cache is an optional *filestream.FileStream. When non-nil, the packed
+// client/media jagfile bytes are written to cache.Write(0, 4, data, 0),
+// mirroring TS media.ts:36: `cache.write(0, 4, fs.readFileSync('data/pack/client/media'))`.
+// Real handle is wired in T15.
+func PackMedia(srcDir, outDir string, cache *filestream.FileStream) error {
 	index := packet.Alloc(3)
 
 	spritesDir := filepath.Join(srcDir, "sprites")
@@ -111,7 +134,18 @@ func PackMedia(srcDir, outDir string) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
-	return jag.Save(dest)
+	if err := jag.Save(dest); err != nil {
+		return err
+	}
+
+	if cache != nil {
+		data, err := os.ReadFile(dest)
+		if err != nil {
+			return fmt.Errorf("PackMedia: read client/media for cache: %w", err)
+		}
+		cache.Write(0, 4, data, 0)
+	}
+	return nil
 }
 
 // PackTexture ports tools/pack/sprite/textures.ts (21 LOC).
@@ -123,7 +157,12 @@ func PackMedia(srcDir, outDir string) error {
 // (passes undefined to convertImage → reads "/.png"); goscape skips
 // them gracefully. Tolerance-divergence; production datapack has all
 // 50 IDs populated so the path is unreachable in practice.
-func PackTexture(reg *pack.Registry, srcDir, outDir string) error {
+//
+// cache is an optional *filestream.FileStream. When non-nil, the packed
+// client/textures jagfile bytes are written to cache.Write(0, 6, data, 0),
+// mirroring TS textures.ts:24: `cache.write(0, 6, fs.readFileSync('data/pack/client/textures'))`.
+// Real handle is wired in T15.
+func PackTexture(reg *pack.Registry, srcDir, outDir string, cache *filestream.FileStream) error {
 	texturePack, err := reg.EnsureTexture()
 	if err != nil {
 		return err
@@ -157,5 +196,16 @@ func PackTexture(reg *pack.Registry, srcDir, outDir string) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
-	return jag.Save(dest)
+	if err := jag.Save(dest); err != nil {
+		return err
+	}
+
+	if cache != nil {
+		data, err := os.ReadFile(dest)
+		if err != nil {
+			return fmt.Errorf("PackTexture: read client/textures for cache: %w", err)
+		}
+		cache.Write(0, 6, data, 0)
+	}
+	return nil
 }

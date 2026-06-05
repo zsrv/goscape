@@ -17,7 +17,7 @@ func TestRebuildWorker_Request_RunsPackAndPostsResult(t *testing.T) {
 
 	var calls atomic.Int32
 	var gotSrc, gotOut, gotPack string
-	s.packFn = func(srcDir, outDir, dataPackDir string) error {
+	s.packFn = func(srcDir, outDir, dataPackDir, rawDir string) error {
 		calls.Add(1)
 		gotSrc, gotOut, gotPack = srcDir, outDir, dataPackDir
 		return nil
@@ -65,7 +65,7 @@ func TestRebuildWorker_Request_RunsPackAndPostsResult(t *testing.T) {
 func TestRebuildWorker_PackError_PostsErrorResult(t *testing.T) {
 	s := newTestServer(t)
 	wantErr := errors.New("boom")
-	s.packFn = func(srcDir, outDir, dataPackDir string) error { return wantErr }
+	s.packFn = func(srcDir, outDir, dataPackDir, rawDir string) error { return wantErr }
 
 	done := make(chan struct{})
 	go func() {
@@ -102,7 +102,7 @@ func TestRebuildWorker_BusyCoalesce_PendingTriggersSecondRun(t *testing.T) {
 	entered := make(chan struct{}, 2)
 	var calls atomic.Int32
 
-	s.packFn = func(srcDir, outDir, dataPackDir string) error {
+	s.packFn = func(srcDir, outDir, dataPackDir, rawDir string) error {
 		n := calls.Add(1)
 		entered <- struct{}{}
 		switch n {
@@ -176,7 +176,7 @@ func TestRebuildWorker_BusyCoalesce_PendingTriggersSecondRun(t *testing.T) {
 // causes runRebuildWorker to return promptly when idle.
 func TestRebuildWorker_QuitMidIdle_ExitsCleanly(t *testing.T) {
 	s := newTestServer(t)
-	s.packFn = func(srcDir, outDir, dataPackDir string) error { return nil }
+	s.packFn = func(srcDir, outDir, dataPackDir, rawDir string) error { return nil }
 
 	done := make(chan struct{})
 	go func() {
@@ -283,7 +283,7 @@ func TestHandleRebuildResult_ReloadFailed_StampUntouched(t *testing.T) {
 // before/after bracket the dispatchRebuildRequest call.
 func TestRunRebuildWorker_PropagatesStartedAt(t *testing.T) {
 	s := newTestServer(t)
-	s.packFn = func(srcDir, outDir, dataPackDir string) error {
+	s.packFn = func(srcDir, outDir, dataPackDir, rawDir string) error {
 		time.Sleep(10 * time.Millisecond) // ensure pack-start < pack-end measurably
 		return nil
 	}

@@ -43,7 +43,20 @@ func ConvertImage(index *packet.Packet, srcDir, name string) (*packet.Packet, er
 	index.P2(uint16(tileX))
 	index.P2(uint16(tileY))
 
-	colors := generatePalette(img)
+	// TS PixPack.ts:185-192 (9aadcec4): if <srcDir>/meta/<name>.pal.png exists,
+	// read its palette as a CRC-preserving workaround; otherwise use the source image.
+	var colors []int32
+	palPath := filepath.Join(srcDir, "meta", name+".pal.png")
+	if _, err := os.Stat(palPath); err == nil {
+		palImg, err := decodePNG(palPath)
+		if err != nil {
+			data.Release()
+			return nil, fmt.Errorf("ConvertImage(%q): read pal.png: %w", name, err)
+		}
+		colors = generatePalette(palImg)
+	} else {
+		colors = generatePalette(img)
+	}
 	if len(colors) > 255 {
 		// NAI-213-D-PIXPACK-QUANTIZE-MISSING: TS calls img.quantize({ colors: 255 });
 		// goscape stdlib has no equivalent — surface error instead of silent truncate.
