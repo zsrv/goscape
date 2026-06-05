@@ -951,9 +951,16 @@ Every hunk of the scope diff (+ the 2 externals) maps to a commit or decision ab
    stay public and compiling).
 4. **B3 row 5 (messageCount real query) CLOSED** — `83a8e6d6`.
 
-**Gates (2026-06-05):** recorded at bundle close (B5 T13) — build /
-vet (pre-existing-only) / full suite / `-race` on modules/login +
-modules/friends + modules/world. Marker audit: **22** `PORTING-EXCEPTION`
+**Gates (2026-06-05):** `CGO_ENABLED=0 go build -trimpath ./...` exit 0;
+`go vet ./...` — ONLY the pre-existing `pkg/util/build` self-assignment
+placeholders (B1/B3/B4 precedent); full `go test ./... -count=1
+-timeout 20m` REAL exit 0 (67 packages ok, zero FAIL); `-race`
+(CGO_ENABLED=1) on modules/login (9.6s) +
+modules/friends (12.7s) + modules/world (148.7s) exit 0. Final
+whole-bundle integration review: **READY** (all 7 checks — spec
+coverage, SHA-table accuracy, no double-application of B3 surfaces,
+fresh-install migrations, no phantom staging, config consistency,
+scope-diff coverage). Marker audit: **22** `PORTING-EXCEPTION`
 mentions (was 21 at B4); +1 new id `rev244-b5-startup-profile` (1 mention);
 `login-server-7` retired (0 mentions; closure notes remain in-code).
 
