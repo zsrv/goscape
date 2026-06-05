@@ -155,3 +155,45 @@ func TestWsOndemandConfigFlagDefault(t *testing.T) {
 		t.Fatalf("WebSocket.WsOndemand default = %v, want false", cfg.WebSocket.WsOndemand)
 	}
 }
+
+// TestConfigValidate_PEMStartupFatal pins the startup-fatal PEM validation
+// that mirrors PemUtil.ts:10 (Engine-TS 9aadcec4): the PEM is parsed at
+// module load; a missing or malformed file is startup-fatal.
+//
+// Rules:
+//   - gate off (WsTokenProtection=false): Validate passes regardless of PubPEM
+//   - gate on + PubPEM empty: Validate returns error (missing key)
+//   - gate on + PubPEM garbage: Validate returns error (parse failure)
+//   - gate on + valid PubPEM: Validate returns nil
+func TestConfigValidate_PEMStartupFatal(t *testing.T) {
+	t.Run("gate off, empty PEM, passes", func(t *testing.T) {
+		cfg := Config{WsTokenProtection: false, PubPEM: nil}
+		if err := cfg.Validate(); err != nil {
+			t.Fatalf("gate off: Validate() = %v, want nil", err)
+		}
+	})
+	t.Run("gate off, garbage PEM, passes", func(t *testing.T) {
+		cfg := Config{WsTokenProtection: false, PubPEM: []byte("not a pem")}
+		if err := cfg.Validate(); err != nil {
+			t.Fatalf("gate off with garbage PEM: Validate() = %v, want nil", err)
+		}
+	})
+	t.Run("gate on, empty PEM, fails", func(t *testing.T) {
+		cfg := Config{WsTokenProtection: true, PubPEM: nil}
+		if err := cfg.Validate(); err == nil {
+			t.Fatal("gate on + empty PEM: Validate() = nil, want error")
+		}
+	})
+	t.Run("gate on, garbage PEM, fails", func(t *testing.T) {
+		cfg := Config{WsTokenProtection: true, PubPEM: []byte("not a pem block")}
+		if err := cfg.Validate(); err == nil {
+			t.Fatal("gate on + garbage PEM: Validate() = nil, want error")
+		}
+	})
+	t.Run("gate on, valid PEM, passes", func(t *testing.T) {
+		cfg := Config{WsTokenProtection: true, PubPEM: []byte(testRSAPEM)}
+		if err := cfg.Validate(); err != nil {
+			t.Fatalf("gate on + valid PEM: Validate() = %v, want nil", err)
+		}
+	})
+}

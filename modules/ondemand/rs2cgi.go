@@ -3,6 +3,7 @@ package ondemand
 import (
 	"bytes"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -85,15 +86,17 @@ func (a *OnDemand) Rs2CgiHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Compute the per-deployment token when WsTokenProtection is on.
 		// Mirrors web.ts:105: WEB_SOCKET_TOKEN_PROTECTION ? getPublicPerDeploymentToken() : ''
+		// Token derivation mirrors PemUtil.ts:3,18 (Engine-TS 9aadcec4):
+		//   import { hostname } from 'os'  (line 3)
+		//   pubkeySha1.update(hostname())  (line 18)
+		// The OS system hostname is the third sha1 input alongside rsa.N and
+		// rsa.E. Errors from os.Hostname fall back to "" (acceptable — the
+		// token still uniquifies per-deployment via the RSA key material).
 		var token string
 		if a.cfg.WsTokenProtection {
+			hn, _ := os.Hostname()
 			var err error
-			// hostname is intentionally empty string: the TS
-			// getPublicPerDeploymentToken() calls Token(pubPEM, hostname) where
-			// hostname comes from Environment.NODE_HOSTNAME (default '').
-			// We pass "" to match the default TS behaviour; operators that set a
-			// hostname should supply it via YAML (future extension).
-			token, err = pemtoken.Token(a.cfg.PubPEM, "")
+			token, err = pemtoken.Token(a.cfg.PubPEM, hn)
 			if err != nil {
 				a.log.Error("rs2.cgi: per-deployment token computation failed", "err", err)
 				http.Error(w, "token error", http.StatusInternalServerError)

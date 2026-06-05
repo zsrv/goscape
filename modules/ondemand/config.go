@@ -1,10 +1,12 @@
 package ondemand
 
 import (
+	"errors"
 	"flag"
 	"time"
 
 	"github.com/zsrv/goscape/pkg/dskit/server"
+	"github.com/zsrv/goscape/pkg/util/pemtoken"
 )
 
 // TODO: asset request path rewriting middleware, cache middleware
@@ -146,6 +148,22 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.BoolVar(&c.WsTokenProtection, "ondemand.websocket-token-protection", false, "Mirror of TS WEB_SOCKET_TOKEN_PROTECTION: injects a per-deployment token cookie into the rs2.cgi client page. Requires pub_pem to be set in config YAML.")
 }
 
+// Validate verifies that the config is self-consistent.
+//
+// When WsTokenProtection is true, PubPEM must be non-empty and parse as a
+// valid RSA public key. This mirrors PemUtil.ts:10 (Engine-TS 9aadcec4) which
+// reads and parses the PEM at module load — a bad or missing file causes a
+// startup-fatal error rather than a per-request failure.
 func (c *Config) Validate() error {
+	if c.WsTokenProtection {
+		if len(c.PubPEM) == 0 {
+			return errors.New("ondemand: WsTokenProtection requires pub_pem to be set")
+		}
+		// Pre-parse by calling Token with a throwaway hostname; if the PEM is
+		// malformed the error surfaces at startup, not at first request.
+		if _, err := pemtoken.Token(c.PubPEM, ""); err != nil {
+			return errors.New("ondemand: WsTokenProtection pub_pem is invalid: " + err.Error())
+		}
+	}
 	return nil
 }
