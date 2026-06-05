@@ -146,11 +146,25 @@ func loadSpriteMeta(srcDir, name string, defaultTileX, defaultTileY int) ([]Spri
 	return sprites, tileX, tileY, nil
 }
 
-// parseSpriteLine parses a single "x,y,w,h,row|col" line into a SpriteMeta.
+// parseSpriteLine parses a single "x,y,w,h[,row|col]" line into a SpriteMeta.
+//
+// TS PixPack.ts:154-162 (9aadcec4): sprite = line.split(','); pixelOrder is
+// sprite[4] === 'row' ? 1 : 0 — sprite[4] is undefined for 4-field lines
+// (JS: undefined !== 'row'), so pixelOrder is 0 with no error. Real 244
+// content (e.g. title/meta/runes.opt) has 4-field lines.
+//
+// Go mirrors: >=4 fields accepted; field 5 absent or != "row" → pixelOrder 0;
+// == "row" → pixelOrder 1. <4 fields remain an error — TS does not guard
+// (parseInt(undefined)=NaN), so the defensive error is a Go deviation
+// (documented below). This applies to BOTH the single-sprite and tiled-sheet
+// parse paths in loadSpriteMeta (both call parseSpriteLine).
+//
+// PORTING-EXCEPTION: <4-field lines return an error in Go where TS would
+// silently use NaN x/y/w/h. Go keeps the guard as a defensive deviation.
 func parseSpriteLine(line string) (SpriteMeta, error) {
 	parts := strings.Split(line, ",")
-	if len(parts) < 5 {
-		return SpriteMeta{}, fmt.Errorf("sprite line %q: want 5 fields, got %d", line, len(parts))
+	if len(parts) < 4 {
+		return SpriteMeta{}, fmt.Errorf("sprite line %q: want at least 4 fields, got %d", line, len(parts))
 	}
 	x, err := strconv.Atoi(parts[0])
 	if err != nil {
@@ -169,7 +183,7 @@ func parseSpriteLine(line string) (SpriteMeta, error) {
 		return SpriteMeta{}, err
 	}
 	order := 0
-	if parts[4] == "row" {
+	if len(parts) >= 5 && parts[4] == "row" {
 		order = 1
 	}
 	return SpriteMeta{X: x, Y: y, W: w, H: h, PixelOrder: order}, nil

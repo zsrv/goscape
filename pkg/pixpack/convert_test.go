@@ -134,3 +134,48 @@ func TestLoadSpriteMeta_TiledSheet(t *testing.T) {
 		t.Errorf("pixelOrders = %d,%d, want 0,1", sprites[0].PixelOrder, sprites[1].PixelOrder)
 	}
 }
+
+// TestParseSpriteLine_FourFieldsAccepted pins TS PixPack.ts:154-162 (9aadcec4):
+// sprite[4] is undefined for 4-field lines → undefined !== 'row' → pixelOrder=0,
+// no error. Real 244 content (title/meta/runes.opt) has lines like "10,11,74,74".
+func TestParseSpriteLine_FourFieldsAccepted(t *testing.T) {
+	s, err := parseSpriteLine("10,11,74,74")
+	if err != nil {
+		t.Fatalf("parseSpriteLine 4-field: unexpected error: %v", err)
+	}
+	want := SpriteMeta{X: 10, Y: 11, W: 74, H: 74, PixelOrder: 0}
+	if s != want {
+		t.Errorf("got %+v, want %+v", s, want)
+	}
+}
+
+// TestParseSpriteLine_FiveFieldRow pins that "row" in field 5 → pixelOrder=1.
+func TestParseSpriteLine_FiveFieldRow(t *testing.T) {
+	s, err := parseSpriteLine("1,2,3,4,row")
+	if err != nil {
+		t.Fatalf("parseSpriteLine 5-field row: unexpected error: %v", err)
+	}
+	if s.PixelOrder != 1 {
+		t.Errorf("pixelOrder = %d, want 1", s.PixelOrder)
+	}
+}
+
+// TestParseSpriteLine_FiveFieldOther pins that non-"row" field 5 → pixelOrder=0.
+func TestParseSpriteLine_FiveFieldOther(t *testing.T) {
+	s, err := parseSpriteLine("1,2,3,4,col")
+	if err != nil {
+		t.Fatalf("parseSpriteLine 5-field col: unexpected error: %v", err)
+	}
+	if s.PixelOrder != 0 {
+		t.Errorf("pixelOrder = %d, want 0", s.PixelOrder)
+	}
+}
+
+// TestParseSpriteLine_TooFewFieldsErrors pins the defensive Go deviation:
+// <4 fields return an error (TS silently uses NaN, Go guards instead).
+func TestParseSpriteLine_TooFewFieldsErrors(t *testing.T) {
+	_, err := parseSpriteLine("1,2,3")
+	if err == nil {
+		t.Fatal("parseSpriteLine 3-field: want error, got nil")
+	}
+}

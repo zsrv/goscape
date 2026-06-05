@@ -16,7 +16,9 @@ import (
 )
 
 // interfaceCRCMagic is the TS PackClient.ts:16 build-verify constant.
-const interfaceCRCMagic int32 = -2146838800
+// Rev-244 (9aadcec4) PackClient.ts:21: updated from the rev-225 value
+// (-2146838800) to the rev-244 value below.
+const interfaceCRCMagic int32 = 316858560
 
 // component mirrors the TS Component type (PackShared.ts:156-160).
 //
@@ -36,6 +38,11 @@ type component struct {
 // client output, then saves both. compressWhole=true matches TS
 // Jagfile.new(true) at PackClient.ts:8.
 //
+// modelFlags is the shared flags slice allocated by PackAll (TS PackAll.ts:38-40).
+// When a component type 6 writes a model or activemodel, modelFlags[modelId]
+// is OR-ed with 0x2 (PackShared.ts:511,522 @ 9aadcec4). nil is safe (flags
+// are not written). Mirrors TS PackClient.ts:7 packClientInterface(cache, modelFlags).
+//
 // cache is optional. When non-nil the packed client/interface jagfile
 // bytes are written to cache.Write(0, 3, data, 0), mirroring
 // TS PackClient.ts:31: cache.write(0, 3, fs.readFileSync('data/pack/client/interface'))
@@ -46,7 +53,7 @@ type component struct {
 // shouldBuild('tools/pack/interface', '.ts', ...) gate that re-builds
 // when the packer source itself changes. goscape has no equivalent
 // "watch the packer code" surface; only the scripts-dir gate is kept.
-func Pack(reg *pack.Registry, srcDir, outDir string, cache *filestream.FileStream) error {
+func Pack(reg *pack.Registry, srcDir, outDir string, modelFlags []int, cache *filestream.FileStream) error {
 	scriptsSrc := filepath.Join(srcDir, "scripts")
 	clientOut := filepath.Join(outDir, "client", "interface")
 	serverOut := filepath.Join(outDir, "server", "interface.dat")
@@ -58,7 +65,7 @@ func Pack(reg *pack.Registry, srcDir, outDir string, cache *filestream.FileStrea
 		return nil
 	}
 
-	client, server, err := packInterface(reg, srcDir)
+	client, server, err := packInterface(reg, srcDir, modelFlags)
 	if err != nil {
 		return err
 	}
@@ -122,7 +129,7 @@ func Pack(reg *pack.Registry, srcDir, outDir string, cache *filestream.FileStrea
 }
 
 // packInterface ports PackShared.ts:162-597 verbatim.
-func packInterface(reg *pack.Registry, srcDir string) (client, server *packet.Packet, err error) {
+func packInterface(reg *pack.Registry, srcDir string, modelFlags []int) (client, server *packet.Packet, err error) {
 	interfacePack, err := reg.EnsureInterface()
 	if err != nil {
 		return nil, nil, err
@@ -191,7 +198,10 @@ func packInterface(reg *pack.Registry, srcDir string) (client, server *packet.Pa
 
 			if key == "layer" {
 				layerId := interfacePack.GetByName(ifName + ":" + value)
-				if layerId == -1 {
+				// TS PackShared.ts:209 (9aadcec4): `if (!layerId)` — falsy for both
+				// 0 and -1 (not-found). Go: layerId <= 0 mirrors the same gate.
+				// A layer resolving to id 0 is now also an error (new in rev-244).
+				if layerId <= 0 {
 					loadErr = fmt.Errorf("clientinterface: layer %s:%s does not exist", ifName, value)
 					return
 				}
@@ -420,6 +430,10 @@ func packInterface(reg *pack.Registry, srcDir string) (client, server *packet.Pa
 					return nil, nil, fmt.Errorf("clientinterface: %s invalid model %q", com.root, model)
 				}
 				client.P2(uint16(mid + 0x100))
+				// TS PackShared.ts:511 (9aadcec4): modelFlags[modelId] |= 0x2
+				if modelFlags != nil && mid >= 0 && mid < len(modelFlags) {
+					modelFlags[mid] |= 0x2
+				}
 			} else {
 				client.P1(0)
 			}
@@ -429,6 +443,10 @@ func packInterface(reg *pack.Registry, srcDir string) (client, server *packet.Pa
 					return nil, nil, fmt.Errorf("clientinterface: %s invalid activemodel %q", com.root, am)
 				}
 				client.P2(uint16(mid + 0x100))
+				// TS PackShared.ts:522 (9aadcec4): modelFlags[modelId] |= 0x2
+				if modelFlags != nil && mid >= 0 && mid < len(modelFlags) {
+					modelFlags[mid] |= 0x2
+				}
 			} else {
 				client.P1(0)
 			}

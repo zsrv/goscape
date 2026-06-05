@@ -397,7 +397,7 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 		run  func() error
 	}
 	rest := []stage{
-		{"ClientInterface", func() error { return clientinterface.Pack(reg, srcDir, outDir, cache) }},
+		{"ClientInterface", func() error { return clientinterface.Pack(reg, srcDir, outDir, modelFlags, cache) }},
 		{"CompilerSymbols", func() error {
 			symbolsDir := filepath.Join(filepath.Dir(outDir), "symbols")
 			return compiler.WriteCompilerSymbols(srcDir, outDir, symbolsDir)

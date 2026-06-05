@@ -9,18 +9,19 @@ import (
 )
 
 // TestBuildVerifyMagicNumbers_AppearExactlyOnce pins that the two CRC
-// magic numbers from TS PackClient.ts:16 and sound/pack.ts:47 appear
-// exactly once each, in their expected locations. Guards against
-// silent removal or duplication.
+// magic numbers from TS PackClient.ts and sound/pack.ts appear exactly
+// once each, in their expected locations. Guards against silent removal
+// or duplication.
 //
-// Rev-244 (9aadcec4): sound CRC updated from the 225 placeholder
-// -1570057128 (was commented out) to the active value -1415586973.
+// Rev-244 (9aadcec4): interface CRC updated from -2146838800 (225) →
+// 316858560 (PackClient.ts:21). Sound CRC updated from -1570057128 (225
+// placeholder) to the active value -1415586973.
 func TestBuildVerifyMagicNumbers_AppearExactlyOnce(t *testing.T) {
 	tests := []struct {
 		file    string
 		literal string
 	}{
-		{"clientinterface/pack.go", "-2146838800"},
+		{"clientinterface/pack.go", "316858560"},
 		{"audio/sound.go", "-1415586973"},
 	}
 	for _, tc := range tests {

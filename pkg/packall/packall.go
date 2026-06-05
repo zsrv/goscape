@@ -85,7 +85,7 @@ func PackAll(srcDir, outDir, dataPackDir, rawDir string) error {
 	if err := pack.PackConfigsForPackAll(srcDir, outDir, reg, modelFlags, cache); err != nil {
 		return fmt.Errorf("PackAll: PackConfigs: %w", err)
 	}
-	if err := clientinterface.Pack(reg, srcDir, outDir, cache); err != nil {
+	if err := clientinterface.Pack(reg, srcDir, outDir, modelFlags, cache); err != nil {
 		return fmt.Errorf("PackAll: ClientInterface: %w", err)
 	}
 	// TS PackAll.ts:49 @ 9aadcec4: generateCompilerSymbols() runs BEFORE
