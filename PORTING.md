@@ -417,9 +417,13 @@ Plan: [`docs/superpowers/plans/2026-06-04-rev244-b2-wire-protocol.md`](docs/supe
   **DEFERRED → B4.** The IF_SETRECOL table row is value-identical across pins
   (103/6, unchanged); goscape's emitter stays wired until B4 removes the script
   op (`IF_SETRECOL` is gone from 244 ScriptOpcode.ts).
+  **✅ CLOSED in B4 (`b7c9d08f`)** — script op + wire row + name row removed;
+  opcode 103 unassigned in both (fused-Op nuance, see §B4 closure row).
 - 🚧 `IF_OPENOVERLAY` — table row + `OpIfOpenOverlay` added (`0ef495fb`); the
   encoder is inline-at-call-site per goscape convention and the call site lands
   with **B4**'s IF_OPENOVERLAY script op.
+  **✅ CLOSED in B4 (`0d9f0ad4`)** — script op dispatches to B3's
+  `Player.OpenOverlay` (raw popInt, −1 passes through); B2→B3→B4 chain complete.
 - 🚧 `InvButtonD.mode` byte — decoded and discarded, **matching TS's own
   posture** (`// todo: pass message.mode to script` at the pin). NO-DIVERGENCE;
   no PORTING-EXCEPTION marker (Arc-24 taxonomy: TS-matching ≠ exception).
@@ -630,6 +634,173 @@ mentions (3 new B3 ids: crc-compare ×2, ws-origin ×1, ws-ondemand-gate ×2 +
 1 test cross-ref; rev244-b2-midi-window removed; gap-db-datastruct-4 now
 closure-notes only).
 
+### B4 — script runtime (2026-06-05)
+
+Scope diff = `git -C ../Engine-TS diff e1dea19f..9aadcec4 -- src/engine/script`
+(15 files, +584/−556) plus three B4-assigned externals: the B2-deferred
+IF_SETRECOL wire-row removal, the B3-deferred IF_OPENOVERLAY script-op
+dispatch, and the world-side `cycleStats`/`lastCycleStats` instrumentation the
+new debug ops read (a pre-existing 225-era gap, closed here by user decision).
+Spec: [`docs/superpowers/specs/2026-06-04-rev244-b4-script-runtime-design.md`](docs/superpowers/specs/2026-06-04-rev244-b4-script-runtime-design.md).
+Plan: [`docs/superpowers/plans/2026-06-04-rev244-b4-script-runtime.md`](docs/superpowers/plans/2026-06-04-rev244-b4-script-runtime.md).
+24 commits (spec/plan + 22 implementation/doc commits), `b663bf63..f093d4e6`.
+
+**User decisions (recorded in the spec):** (1) **cycle stats ported fully** —
+the 12 new `MAP_LAST*` debug ops are backed by real WorldStat instrumentation
+(tick-section stopwatches + bandwidth in/out counters), not stubs, closing a
+pre-existing 225-era gap; (2) **renumber-first** — the opcode renumber lands as
+one mechanical foundation commit-pair (the B3 pid-rename pattern) before any
+behavioral slice, because the compiler name→value map is all-or-nothing.
+
+**Decision rows**
+
+- ⚠ **`PORTING-EXCEPTION (rev244-b4-bwout-reset)` NEW** (markers:
+  `modules/world/tick.go:99`, cross-refs `tick.go:272` +
+  `world_stats.go:37`) — TS resets `BANDWIDTH_OUT` at World.ts:1111, the head
+  of `processClientsOut`, its ONLY write pass, so the stat covers every byte
+  written that cycle. goscape emits packets incrementally THROUGHOUT the tick
+  (login resync, script-driven sends, relay-action friends/PM packets), so
+  resetting at the TS line would silently drop everything written before
+  client-out. Reset moved to tick start (`tick.go:109`) to preserve the stat's
+  TS-INTENT ("bytes out this cycle") at the cost of the literal reset-line
+  position. Intent-over-line.
+- ✅ **B2 IF_SETRECOL deferral row CLOSED** (`b7c9d08f`) — script op constant,
+  name/pointer rows, `handleIfSetRecol`, the `ActivePlayer.IfSetRecol` seam +
+  world impl, AND the wire table row (`OpIfSetRecol`) + name row all removed.
+  **Fused-Op nuance:** TS 244 KEEPS the ServerGameProt 103/6 constant
+  defined-but-unbound (the encoder/model/repository-binding are deleted);
+  goscape's `Op` type fuses constant+encoder, so removing the row is the
+  consistent translation — opcode 103 is unassigned in BOTH (no other 244 op
+  took it; `prot.go:30` records the gap). `IF_SETRECOL` is gone from 244
+  ScriptOpcode.ts.
+- ✅ **B2→B3→B4 overlay chain CLOSED** (`0d9f0ad4`) — IF_OPENOVERLAY dispatches
+  to B3's `Player.OpenOverlay(com)` via the ActivePlayer seam: raw `popInt`,
+  NO `NumberNotNull` check (−1 must pass through to clear), per
+  PlayerOps.ts:709-712. Closes the B2 (`0ef495fb` table row + `OpIfOpenOverlay`)
+  → B3 (`ebce9706` entity state + per-tick flush) → B4 (script op) chain.
+- ✅ **NAI-162-D-STUB-PUSHVARBIT / NAI-162-D-STUB-POPVARBIT CLOSED**
+  (`b663bf63`) — 244 comments out the enum entries (ScriptOpcode.ts:18-19);
+  `OpPushVarbit`/`OpPopVarbit` + their NAI-162 stubs deleted with a
+  TS-deleted-upstream note. (`OpStatTotal`, `OpMapLive`, `OpIfSetRecol` also
+  deleted in the same renumber.)
+- ℹ **OBJCOUNT naming** (`4268ba95`) — TS `OBJCOUNT` (ServerOps.ts, 1033)
+  binds to `OpZoneObjCount` in Go to avoid a collision with the pre-existing
+  `OBJ_COUNT`/3503 → `OpObjCount`. Distinct ops, distinct Go names.
+- ℹ **Hunt guard-ordering** (`491822b8`, spec-review-caught) — HUNTNEXT /
+  NPC_HUNTNEXT drive the iterator's `next()` BEFORE the instanceof/type check
+  (TS ServerOps.ts:64-73): an exhausted wrong-type iterator pushes 0, it does
+  NOT raise the type-mismatch error. The naïve check-then-drive ordering would
+  diverge on exhaustion.
+- ℹ **HINT fallout + Self2 observable** (`631737b7` + `1f2a0681`) — HINT_NPC
+  pops nid; HINT_PLAYER pops uid via `LookupPlayerByUID`. The `activePlayer2()`
+  getter + `requireActivePlayer2` were deleted (sole-caller mirror of TS's
+  `activePlayer2` getter deletion). World E2E fixtures had pinned the 225
+  contract (5 callers re-pointed; 2 had been silently passing via uid-miss);
+  the `Self2`-binding lost its wire observable — coverage note recorded with
+  the fixture re-point.
+- ℹ **RecipientSession unreachable-`disconnected` adaptation** (`43a0b4dc`) —
+  TS computes the recipient session via `isClientConnected ? client.uuid :
+  'disconnected'`. goscape's `ActivePlayer.RecipientSession` honesty note
+  records that the `'disconnected'` branch is production-unreachable (the
+  client is never nilled in goscape's single-Player-type model); the seam
+  carries the branch for fidelity but it cannot fire.
+- 🚧 **TRADE `recipient_items`/`recipient_value` known-residual** — TS
+  populates `recipient_items: toItems` + `recipient_value: toTotal` on the
+  TRADE `addWealthEvent` call (InvOps.ts:494-495). goscape's in-memory
+  `WealthEvent` (the B4 re-key target — `de628f37`) carries only
+  `RecipientID`/`RecipientSession`; the recipient items/value land on the
+  SEPARATE telemetry `TradeCompletedEvent` struct as `ItemsReceived`/
+  `ValueReceived` (`handlers_inv.go:1793,1795`). This is a pre-existing shape,
+  outside the B4 re-key scope — the `WealthEvent.RecipientItems` field exists
+  (active.go:43) but is unpopulated on the TRADE path. Recorded, not papered
+  over.
+- ℹ **Cycle-stats attribution deviations** (`c321e11d` + `aeb70ba7`) —
+  (a) TS leaves `processInfo` UNMEASURED (its timing is folded into no stat);
+  goscape attributes it to `CLIENT_OUT`, the adjacent phase that consumes its
+  rsbuf output, so goscape's CLIENT_OUT reads slightly higher than TS's
+  (in-code note at `tick.go:256-260`). (b) `CYCLE` excludes the
+  pre-existing-hoisted `processShutdown`/`autosavePlayers` passes (L3/L4 tick
+  deviations: TS runs both at cycle END and measures them inside CYCLE,
+  goscape hoists both to top-of-body BEFORE the CYCLE stopwatch starts).
+  (c) uint16-wrap faithful (TS `Uint16Array` truncation). (d) BANDWIDTH_IN
+  counted at the on-tick decode drain — the same delta the lastResponse logic
+  reads (TS NetworkPlayer.ts:78-83), keeping the counter tick-goroutine-owned.
+- ℹ **TotalNpcs O(n)** (`4268ba95`) — TS `World.getTotalNpcs` returns
+  `npcs.count` (O(1), World.ts:1734-1736); goscape has no count field on the
+  fixed `[8192]*Npc` array and scans for non-nil slots (O(n)). Acceptable on a
+  debug-only count op (`server_varp.go:371`).
+- ℹ **NO-OP / already-applied verdict batch** (verified this task; evidence in
+  the controller report): RANDOM/RANDOMINC clamp (244 `nextInt(max(0,n))` ≡
+  goscape's `n≤0→0`/`n<0→0` — `nextInt(0)` hits JavaRandom's power-of-two
+  branch returning 0, `checkIsPositiveInt` rejects only `n<0`); STAT_RANDOM
+  `nextInt(256)` ≡ `rand.IntN(256)` (distribution-identical, comment already
+  faithful); GETQUEUE/CLEARQUEUE iteration-style only (Go routes through
+  QueueCount/UnlinkQueuedScript; B3 T12 pinned re-entry semantics); ScriptFile
+  `STANDALONE_BUNDLE` branch NOT-PORTED, platform-inapplicable (B3 taxonomy);
+  handler file moves (SPLIT_* ×5 + STRUCT_PARAM → ServerOps, StructOps.ts
+  deleted, NPC_HUNT/NPC_HUNTALL → ServerOps) citation-only — re-pointed in
+  `f093d4e6`; enum-position moves (AFK_EVENT/GETTIMER/STAT_ADVANCE/TUT_*/
+  WALKTRIGGER/STAT/STAT_HEAL/STAT_SUB) covered by the renumber, no citation
+  change; InvOps whitespace hunks + DbOps/ScriptRunner/PlayerOps import churn
+  one-line NO-OP. World.addPlayer (handoff flag #4) + staffModLevel≥2 (#5)
+  verified with no B4-slice consumer — the B3 dead-at-pin rows stand.
+- ℹ **B3-shipped, audit-listed (NOT double-applied):** IF_OPENCHAT /
+  IF_OPENMAIN_SIDE call-site renames (`d5a70fb1`); PROJANIM_PL `pid` arg
+  (`fcc7e212`); `Player.OpenOverlay` + flush (`ebce9706`); `RecipientID` field
+  threading into `WealthEventParams` (`07e44a61`).
+
+**Correspondence audit** — every file in the B4 scope diff (+ 3 externals) → commit / decision:
+
+| TS surface (e1dea19f..9aadcec4) | numstat | goscape commit / decision |
+|---|---|---|
+| `src/engine/script/ScriptOpcode.ts` | +226/−206 | `b663bf63` full renumber (+`e4001b92`, `82020a6a` doc/gofmt sweep); closes NAI-162-D varbit stubs |
+| `src/engine/script/ScriptOpcodePointers.ts` | +27/−12 | `b663bf63` (renamed keys + new rows: NPC_HUNTNEXT conditional, LAST_COORD, BUFFER_FULL, IF_OPENOVERLAY) |
+| `src/engine/script/ScriptIterators.ts` | 0/−58 | `84b8ea2a` huntIterator unification (only `PlayerHuntAllCommandIterator` deleted; `HuntIterator` etc. survive — handoff correction) |
+| `src/engine/script/ScriptState.ts` | +1/−10 | `84b8ea2a` `playerIterator`→`huntIterator` (`PlayerIterator` type survives as the HUNTALL engine) |
+| `src/engine/script/ScriptRunner.ts` | +4/−6 | `294f5c24` (unknown-opcode `Unknown opcode <num>`, pid/name in player error log, backtrace `i>0` frame-0 skip — Go shares one impl for TS's two loops) + `c6005b60` (pid attrs on the world-queue player path too; nil-guard) |
+| `src/engine/script/ScriptFile.ts` | +6/−1 | **NOT-PORTED** — `STANDALONE_BUNDLE` fileName branch, platform-inapplicable (decision row) |
+| `handlers/ServerOps.ts` | +175/−10 | `84b8ea2a`/`491822b8` HUNTALL/HUNTNEXT/NPC_HUNTALL/NPC_HUNTNEXT; `4268ba95` NPCCOUNT/ZONECOUNT/LOCCOUNT/OBJCOUNT; SPLIT_* + STRUCT_PARAM + NPC_HUNT file-move citations (`f093d4e6`) |
+| `handlers/DebugOps.ts` | +55/0 | `5cebb3e9` MAP_PRODUCTION + 12 MAP_LAST* (backed by `c321e11d` cycle stats) |
+| `handlers/PlayerOps.ts` | +40/−72 | `631737b7` HINT_NPC/HINT_PLAYER; `0d9f0ad4` BUFFER_FULL + IF_OPENOVERLAY; `cb4fab32` MAP_BLOCKED/P_OPOBJ; STAT_RANDOM/GETQUEUE/CLEARQUEUE **NO-OP** (verdict batch); STAT_TOTAL handler deleted (`b663bf63`) |
+| `handlers/InvOps.ts` | +35/−31 | `de628f37` untradeable-stop-after-delete ×2 + PVP/STAKE/TRADE wealth re-keys (+`43a0b4dc`, `eae5de71`); whitespace hunks **NO-OP**; TRADE recipient_items residual (row above) |
+| `handlers/NpcOps.ts` | +1/−52 | `cb4fab32` NPC_STATHEAL full-heal heroPoints branch removed (`Npc.HeroPointsClear` seam now zero-caller, retained); NPC_HUNT/NPC_HUNTALL moved → ServerOps (covered above) |
+| `handlers/DbOps.ts` | +9/−21 | `da896c1a` DB_GETFIELD tuple-index sub-selection removed → pushes full column; import churn **NO-OP** |
+| `handlers/NumberOps.ts` | +4/−4 | **NO-OP** — RANDOM/RANDOMINC `nextInt(max(0,n))` ≡ goscape's clamp (verdict batch) |
+| `handlers/StringOps.ts` | +1/−51 | SPLIT_* family moved → ServerOps (citation-only, `f093d4e6`); residual StringOps ops unchanged |
+| `handlers/StructOps.ts` | 0/−22 | **DELETED upstream** — STRUCT_PARAM moved → ServerOps; Go `handleStructParam` citation re-pointed (`f093d4e6`) |
+| **External:** IF_SETRECOL wire-row removal (B2-deferred) | — | `b7c9d08f` (closes B2 deferral row; fused-Op nuance above) |
+| **External:** IF_OPENOVERLAY script-op dispatch (B3-deferred) | — | `0d9f0ad4` (closes B2→B3→B4 overlay chain) |
+| **External:** `World` cycleStats/lastCycleStats instrumentation (225-era gap) | — | `c321e11d` (+`9a4d9b96` bwout-reset exception, `aeb70ba7` attribution honesty) |
+
+Every hunk of the scope diff (+ the 3 externals) maps to a commit or decision above — no unmapped hunks.
+
+**Tracker rows (open work this bundle creates/carries):**
+
+1. **script.dat opcode-numbering window** — the compiler (`pkg/pack/compiler/
+   symbols.go` via `opcode_map.go`) + runtime renumber together, so packed
+   `script.dat` opcode numbering shifts. Byte-parity verification rides **B6**
+   against the 244 reference cache (extends `rev244-b1-format-window`; B3 user
+   decision that ALL windows close at B6).
+2. **Cycle-stats pre-existing gap CLOSED** (user decision) — the 225-era
+   WorldStat divergence is closed with real instrumentation; uint16-wrap
+   fidelity + the bwout-reset / processInfo-attribution / CYCLE-exclusion
+   deviations are recorded (rows above). No further work; tracked as closed.
+3. **NPC_FINDNEXT / npc_huntall split** — TS-faithful 225→244 semantic change
+   (`84b8ea2a`): NPC_HUNTALL now feeds the unified `huntIterator`, so
+   **NPC_FINDNEXT no longer consumes npc_huntall results**. Not a deviation;
+   documented here for content authors — any content script pairing
+   `npc_huntall` with `npc_findnext` changes behavior at 244. Pinned by the
+   hunt-split tests.
+
+**Gates (2026-06-05):** `CGO_ENABLED=0 go build -trimpath ./...` exit 0;
+`go vet ./...` exit 1 — ONLY the pre-existing `pkg/util/build` self-assignment
+placeholders (B1/B3 precedent); full `go test ./... -count=1 -timeout 20m`
+exit 0 (modules/world 145s); `-race` (CGO_ENABLED=1) on
+`modules/world` + `pkg/script` + `pkg/pack/...` exit 0 (modules/world 149s).
+Marker audit: **21** `PORTING-EXCEPTION` mentions (was 18 at B3); 1 new B4 id
+**`rev244-b4-bwout-reset`** with 3 mentions (1 code site `tick.go:99`, 2
+cross-refs `tick.go:272` + `world_stats.go:37`). No B4 ids retired.
+
 ---
 
 ## Recent audit history (full log in `docs/PORTING-CLOSED.md`)
@@ -645,3 +816,4 @@ closure-notes only).
 - Arc 28 (2026-06-01): CategoryType subsystem ported — closes gap-world-reload-events-8 / cfg-var-9 / h-npc-3 cluster (3 audit IDs, 6 commits across TDD per-task). Full TS-faithful CategoryTypeValid bound check at checkCategoryType replaces the partial -1-only stub. See docs/PORTING-CLOSED.md.
 - Arc 29 (2026-06-01): login-server-9 / gap-db-datastruct-9 (hiscore write-path port) — FIXED fix/hiscore-port; promoted from EXCEPTION-DOCUMENTED (med-bundle-19). Migration 000004 adds hiscore + hiscore_large tables; PlayerLogout now calls updateHiscores (LoginServer.ts:450). Write-path parity only (TS has no serving endpoint). See docs/PORTING-CLOSED.md.
 - rev-244 B3 — engine core ported (Engine-TS `e1dea19f..9aadcec4`): PlayerList+pid `94f40331`/`fcc7e212`, entity deltas (setAnim>= `2f10deb6`, regen `dc33a57b`, modals `d5a70fb1`, overlay `ebce9706`), account_id `07e44a61`, InputTrackingBlob `2f67fed2`, rate-limit removal `f4e7571e`, OnDemand `b2e7adac`+`02ce3929`, handshake `1f69f708`, CrcTable `23cbbc02`, PreloadedPacks deleted `59240b70`, HTTP routes `1de71136`, token/WS `130f6583`, MidiPack `0f1ea964` (closes rev244-b2-midi-window), buildArea.clear `7797c9f7`. gap-db-datastruct-4 CLOSED; 3 new PORTING-EXCEPTION ids (crc-compare, ws-origin, ws-ondemand-gate); client smoke + all windows → B6 (user decision). Full correspondence audit in §rev-244 Bundle audit trail above.
+- rev-244 B4 — script runtime ported (Engine-TS `e1dea19f..9aadcec4`, 15 script files + 3 externals): opcode renumber `b663bf63`, huntIterator unify `84b8ea2a`/`491822b8` (NPC_FINDNEXT/npc_huntall split), HINT_NPC/PLAYER `631737b7`, DB_GETFIELD full-column `da896c1a`, InvOps untradeable-stop + wealth re-key `de628f37`, NPC_STATHEAL/MAP_BLOCKED/P_OPOBJ `cb4fab32`, BUFFER_FULL + IF_OPENOVERLAY `0d9f0ad4`, runner deltas `294f5c24`/`c6005b60`, count ops `4268ba95`, cycle stats `c321e11d`+`9a4d9b96`+`aeb70ba7`, MAP_PRODUCTION + MAP_LAST* `5cebb3e9`, IF_SETRECOL wire removal `b7c9d08f`, moved-handler citations `f093d4e6`. CLOSED: B2 IF_SETRECOL deferral, B2→B3→B4 overlay chain, NAI-162-D varbit stubs. 1 new PORTING-EXCEPTION id (`rev244-b4-bwout-reset`); cycle-stats 225-era gap closed (user decision); script.dat numbering window → B6. Full correspondence audit in §rev-244 Bundle audit trail above.
