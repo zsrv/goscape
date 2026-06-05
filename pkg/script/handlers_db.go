@@ -69,49 +69,49 @@ func handleDbGetFieldCount(s *ScriptState) error {
 }
 
 // handleDbGetField (DB_GETFIELD, opcode 7502) pops listIndex, a
-// (table << 12 | column << 4 | tupleIndex+1) packed key, and a row id,
-// and pushes the requested value(s) in order. Type-directed push uses
-// the table's type schema (not the row's). When the row's TableID doesn't
-// match the packed table, falls back to the table's column default.
-// Mirrors TS DbOps.ts:97.
+// (table << 12 | column << 4) packed key, and a row id, then pushes ALL
+// values in the column in order. Type-directed push uses the table's type
+// schema (not the row's). When the row's TableID doesn't match the packed
+// table, falls back to the table's column default.
+//
+// 244 change (TS DbOps.ts:97-121): the low 4 bits of the packed key (the
+// 225 tupleIndex nibble) are no longer read; the tuple-index derivation,
+// its bounds check, and the off/length windowing are all removed. The loop
+// now runs over the full column width (len(valueTypes)), matching TS's
+// `for (let i = 0; i < values.length; i++)` where values.length ==
+// len(valueTypes) for a single list entry.
+//
+// Note on Go shape: GetValue / GetDefault return parallel ints/strs slices
+// positionally indexed by the column's type list — valueTypes[i] selects
+// which slice to read at position i. The full-width loop preserves that.
 func handleDbGetField(s *ScriptState) error {
 	listIndex := s.PopInt()
-	packed := s.PopInt()
+	tableColumnPacked := s.PopInt()
 	row := s.PopInt()
 
-	fieldTable := (packed >> 12) & 0xffff
-	fieldColumn := (packed >> 4) & 0x7f
-	tupleIndex := (packed & 0xf) - 1
+	table := (tableColumnPacked >> 12) & 0xffff
+	column := (tableColumnPacked >> 4) & 0x7f
 
 	if err := checkDbRow(s, row, "DB_GETFIELD"); err != nil {
 		return err
 	}
-	if err := checkDbTable(s, fieldTable, "DB_GETFIELD"); err != nil {
+	if err := checkDbTable(s, table, "DB_GETFIELD"); err != nil {
 		return err
 	}
 
 	rowType := s.Configs.DbRowType(row)
-	tableType := s.Configs.DbTableType(fieldTable)
-	valueTypes := tableType.Types[fieldColumn]
-
-	off, length := 0, len(valueTypes)
-	if tupleIndex >= 0 {
-		if tupleIndex >= length {
-			return fmt.Errorf("DB_GETFIELD: tuple index out-of-bounds. Requested: %d, Max: %d", tupleIndex, length)
-		}
-		off = tupleIndex
-		length = tupleIndex + 1
-	}
+	tableType := s.Configs.DbTableType(table)
+	valueTypes := tableType.Types[column]
 
 	var ints []int32
 	var strs []string
-	if rowType.TableID != fieldTable {
-		ints, strs, _ = tableType.GetDefault(fieldColumn)
+	if rowType.TableID != table {
+		ints, strs, _ = tableType.GetDefault(column)
 	} else {
-		ints, strs, _ = rowType.GetValue(fieldColumn, listIndex, tableType)
+		ints, strs, _ = rowType.GetValue(column, listIndex, tableType)
 	}
 
-	for i := off; i < length; i++ {
+	for i := range valueTypes {
 		if valueTypes[i] == objtype.ScriptVarTypeString {
 			s.PushString(strs[i])
 		} else {
