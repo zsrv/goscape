@@ -597,16 +597,16 @@ func (r *Repository) LogPrivateMessage(ctx context.Context, from, to uint64, coo
 }
 
 // LogPublicMessage appends one row to public_chat under r.profile.
-// Mirrors TS FriendServer.ts:286-297 — append-only, no dedupe, no
-// validation, no session_uuid existence check. Insert is the
-// synchronous gate for the PublicMessage RPC: a failure here returns
-// an error to the handler which surfaces codes.Internal to the caller,
-// matching the TS thrown-await pattern and slice 6's posture.
-func (r *Repository) LogPublicMessage(ctx context.Context, sessionUUID string, coord int32, message string) error {
+// rev-244 re-key: rows are keyed (profile, world, username) — TS
+// FriendServer.ts:287-305 resolves username to account_id; goscape
+// stores the username directly (federated DB, no account table —
+// NO-LANDING-SITE row, PORTING.md §B5). Append-only, no dedupe, no
+// validation; insert failure surfaces codes.Internal at the handler.
+func (r *Repository) LogPublicMessage(ctx context.Context, world int32, username string, coord int32, message string) error {
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO public_chat (profile, session_uuid, coord, message)
-		 VALUES (?, ?, ?, ?)`,
-		r.profile, sessionUUID, coord, message,
+		`INSERT INTO public_chat (profile, world, username, coord, message)
+		 VALUES (?, ?, ?, ?, ?)`,
+		r.profile, world, username, coord, message,
 	)
 	if err != nil {
 		return fmt.Errorf("LogPublicMessage: %w", err)

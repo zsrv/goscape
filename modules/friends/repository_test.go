@@ -790,7 +790,7 @@ func TestRepository_LogPrivateMessage_EmptyMessageAllowed(t *testing.T) {
 func TestRepository_LogPublicMessage_PersistsRow(t *testing.T) {
 	r, db := newTestRepo(t)
 	ctx := t.Context()
-	if err := r.LogPublicMessage(ctx, "uuid-aaa", 54321, "hello"); err != nil {
+	if err := r.LogPublicMessage(ctx, 0, "uuid-aaa", 54321, "hello"); err != nil {
 		t.Fatalf("LogPublicMessage: %v", err)
 	}
 	var n int
@@ -801,15 +801,15 @@ func TestRepository_LogPublicMessage_PersistsRow(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("row count = %d, want 1", n)
 	}
-	var sess, msg string
+	var username, msg string
 	var coord int32
 	if err := db.QueryRowContext(ctx,
-		`SELECT session_uuid, coord, message FROM public_chat`).
-		Scan(&sess, &coord, &msg); err != nil {
+		`SELECT username, coord, message FROM public_chat`).
+		Scan(&username, &coord, &msg); err != nil {
 		t.Fatalf("SELECT row: %v", err)
 	}
-	if sess != "uuid-aaa" {
-		t.Errorf("session_uuid = %q, want %q", sess, "uuid-aaa")
+	if username != "uuid-aaa" {
+		t.Errorf("username = %q, want %q", username, "uuid-aaa")
 	}
 	if coord != 54321 {
 		t.Errorf("coord = %d, want 54321", coord)
@@ -822,10 +822,10 @@ func TestRepository_LogPublicMessage_PersistsRow(t *testing.T) {
 func TestRepository_LogPublicMessage_AppendOnly(t *testing.T) {
 	r, db := newTestRepo(t)
 	ctx := t.Context()
-	if err := r.LogPublicMessage(ctx, "uuid-bbb", 0, "first"); err != nil {
+	if err := r.LogPublicMessage(ctx, 0, "uuid-bbb", 0, "first"); err != nil {
 		t.Fatalf("first: %v", err)
 	}
-	if err := r.LogPublicMessage(ctx, "uuid-bbb", 0, "second"); err != nil {
+	if err := r.LogPublicMessage(ctx, 0, "uuid-bbb", 0, "second"); err != nil {
 		t.Fatalf("second: %v", err)
 	}
 	var n int
@@ -841,10 +841,10 @@ func TestRepository_LogPublicMessage_RespectsProfile(t *testing.T) {
 	r, db := newTestRepo(t) // profile = "test"
 	r2 := NewRepository(db, "other")
 	ctx := t.Context()
-	if err := r.LogPublicMessage(ctx, "uuid-x", 0, "from default"); err != nil {
+	if err := r.LogPublicMessage(ctx, 0, "uuid-x", 0, "from default"); err != nil {
 		t.Fatalf("r: %v", err)
 	}
-	if err := r2.LogPublicMessage(ctx, "uuid-x", 0, "from other"); err != nil {
+	if err := r2.LogPublicMessage(ctx, 0, "uuid-x", 0, "from other"); err != nil {
 		t.Fatalf("r2: %v", err)
 	}
 	rows, err := db.QueryContext(ctx,
@@ -879,7 +879,7 @@ func TestRepository_LogPublicMessage_RespectsProfile(t *testing.T) {
 func TestRepository_LogPublicMessage_EmptyMessageAllowed(t *testing.T) {
 	r, db := newTestRepo(t)
 	ctx := t.Context()
-	if err := r.LogPublicMessage(ctx, "uuid-empty", 0, ""); err != nil {
+	if err := r.LogPublicMessage(ctx, 0, "uuid-empty", 0, ""); err != nil {
 		t.Fatalf("LogPublicMessage(empty): %v", err)
 	}
 	var n int
@@ -889,6 +889,39 @@ func TestRepository_LogPublicMessage_EmptyMessageAllowed(t *testing.T) {
 	}
 	if n != 1 {
 		t.Errorf("row count = %d, want 1 (empty message allowed, no server-side validation)", n)
+	}
+}
+
+// TestLogPublicMessage_Rev244Shape pins the re-keyed public_chat row:
+// (profile, world, username, coord, message). TS FriendServer.ts:287-305
+// resolves username -> account_id against the shared account table;
+// goscape's friends DB is username-keyed by design (DB-2 federation) —
+// the username is stored directly (account_id resolution has no landing
+// site; see the B5 rows in PORTING.md).
+func TestLogPublicMessage_Rev244Shape(t *testing.T) {
+	r := NewRepository(createTestDB(t), "main")
+	if err := r.LogPublicMessage(t.Context(), 10, "bob", 12345, "hello"); err != nil {
+		t.Fatalf("LogPublicMessage: %v", err)
+	}
+	var profile, username, message string
+	var world, coord int
+	if err := r.db.QueryRow(`SELECT profile, world, username, coord, message FROM public_chat`).
+		Scan(&profile, &world, &username, &coord, &message); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if profile != "main" || world != 10 || username != "bob" || coord != 12345 || message != "hello" {
+		t.Errorf("row: %s/%d/%s/%d/%s", profile, world, username, coord, message)
+	}
+}
+
+// TestMigration000004_PreservesLegacyRows pins the legacy-table rename:
+// pre-244 session_uuid-keyed rows survive in public_chat_legacy_225.
+func TestMigration000004_PreservesLegacyRows(t *testing.T) {
+	// createTestDB runs ALL migrations, so seed via the legacy table.
+	db := createTestDB(t)
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM public_chat_legacy_225`).Scan(&n); err != nil {
+		t.Fatalf("legacy table missing: %v", err)
 	}
 }
 

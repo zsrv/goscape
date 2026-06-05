@@ -939,15 +939,15 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 	t.Cleanup(func() { _ = rdb.Close() })
 
 	deadline := time.Now().Add(2 * time.Second)
-	var sess, msg string
+	var username, msg string
 	var coord int32
 	for time.Now().Before(deadline) {
 		err := rdb.QueryRowContext(t.Context(),
-			`SELECT session_uuid, coord, message
+			`SELECT username, coord, message
 			 FROM public_chat
 			 WHERE profile = 'main'
 			 ORDER BY id DESC
-			 LIMIT 1`).Scan(&sess, &coord, &msg)
+			 LIMIT 1`).Scan(&username, &coord, &msg)
 		if err == nil {
 			break
 		}
@@ -957,9 +957,9 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	if sess != "uuid-e2e-1" || coord != 42 || msg != "persisted publicly" {
+	if username != "uuid-e2e-1" || coord != 42 || msg != "persisted publicly" {
 		t.Errorf("public_chat row = (%q, %d, %q), want (uuid-e2e-1, 42, %q)",
-			sess, coord, msg, "persisted publicly")
+			username, coord, msg, "persisted publicly")
 	}
 }
 

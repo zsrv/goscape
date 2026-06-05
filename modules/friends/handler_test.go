@@ -1182,15 +1182,15 @@ func TestHandler_PublicMessage_PersistsRow(t *testing.T) {
 		t.Fatalf("PublicMessage: nil response, want non-nil Empty")
 	}
 
-	var sess, msg string
+	var username, msg string
 	var coord int32
 	if err := db.QueryRowContext(t.Context(),
-		`SELECT session_uuid, coord, message FROM public_chat`).
-		Scan(&sess, &coord, &msg); err != nil {
+		`SELECT username, coord, message FROM public_chat`).
+		Scan(&username, &coord, &msg); err != nil {
 		t.Fatalf("SELECT public_chat: %v", err)
 	}
-	if sess != "uuid-pub-1" || coord != 9876 || msg != "audit me" {
-		t.Errorf("row = (%q, %d, %q), want (uuid-pub-1, 9876, audit me)", sess, coord, msg)
+	if username != "uuid-pub-1" || coord != 9876 || msg != "audit me" {
+		t.Errorf("row = (%q, %d, %q), want (uuid-pub-1, 9876, audit me)", username, coord, msg)
 	}
 }
 
@@ -1225,5 +1225,38 @@ func TestHandler_PublicMessage_InsertErrorReturnsInternal(t *testing.T) {
 	}
 	if status.Code(err) != codes.Internal {
 		t.Fatalf("PublicMessage err code = %v, want %v", status.Code(err), codes.Internal)
+	}
+}
+
+// TestHandler_PublicMessage_Rev244Shape pins the rev-244 re-key: handler
+// persists (profile, world, username, coord, message) — world is now
+// persisted from req.WorldId, username from req.Username. TS
+// FriendServer.ts:287-305.
+func TestHandler_PublicMessage_Rev244Shape(t *testing.T) {
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	log := noopLogger()
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
+
+	if _, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
+		WorldId:  10,
+		Profile:  "main",
+		Username: "bob",
+		Coord:    7,
+		Chat:     "hi",
+	}); err != nil {
+		t.Fatalf("PublicMessage: %v", err)
+	}
+
+	var profile, username, message string
+	var world, coord int
+	if err := repos.get("main").db.QueryRow(
+		`SELECT profile, world, username, coord, message FROM public_chat`).
+		Scan(&profile, &world, &username, &coord, &message); err != nil {
+		t.Fatalf("SELECT public_chat: %v", err)
+	}
+	if profile != "main" || world != 10 || username != "bob" || coord != 7 || message != "hi" {
+		t.Errorf("row: profile=%s world=%d username=%s coord=%d message=%s", profile, world, username, coord, message)
 	}
 }
