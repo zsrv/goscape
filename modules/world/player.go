@@ -596,6 +596,22 @@ func (p *Player) writeOut(op gameserver.Op, payload []byte) {
 		c.tap.Tap(p.accountID, c.sessionID, tapper.DirOut,
 			op.Opcode, payload, time.Now())
 	}
+
+	// TS NetworkPlayer.ts:241 — World.cycleStats[BANDWIDTH_OUT] += buf.pos.
+	// buf.pos covers the full framed message: 1 opcode byte + 0/1/2-byte
+	// length prefix + payload bytes. The guard mirrors TS's unconditional
+	// add (processClientsOut only calls writeOut when client is connected
+	// and encryptor is set), but c.server may be nil in unit tests.
+	if c.server != nil {
+		n := 1 + len(payload) // opcode byte + payload
+		switch op.PayloadSize {
+		case -1:
+			n++ // 1-byte length prefix
+		case -2:
+			n += 2 // 2-byte length prefix
+		}
+		c.server.cycleStats[statBandwidthOut] += uint16(n)
+	}
 }
 
 // WriteEnableTracking sends the EnableTracking server packet (op 226,
@@ -1206,13 +1222,19 @@ func (p *Player) processIn(currentTick int) {
 			p.clientLimit++
 		}
 	}
-	if c.in.Pos-posBefore > 0 {
+	if delta := c.in.Pos - posBefore; delta > 0 {
 		// gap-configs-snapshot-netbase-3: refresh on any bytes
 		// consumed off c.in, including partial packets whose payload
 		// hasn't arrived yet (TS NetworkPlayer.ts:78-83 keys on the
 		// `bytesStart - this.client.in.pos` delta, not on
 		// complete-packet boundaries).
 		p.lastResponse = currentTick
+		// TS NetworkPlayer.ts:83 — World.cycleStats[BANDWIDTH_IN] += bytesRead.
+		// c.server is always non-nil when a player is in game (set at
+		// connection handshake in server.go); guard kept for test safety.
+		if c.server != nil {
+			c.server.cycleStats[statBandwidthIn] += uint16(delta)
+		}
 	}
 	p.decodedThisTick = readAny // NAI-146 T1: TS decodeIn() return value
 

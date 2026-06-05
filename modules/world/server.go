@@ -358,6 +358,15 @@ type Server struct {
 	// NAI-S5A-D-WORLDEVENTS-DROP-ON-FULL posture (slice 5b adopts the
 	// same posture client-side).
 	relayActionQueue chan func()
+
+	// cycleStats/lastCycleStats mirror TS World.cycleStats /
+	// lastCycleStats (Uint16Array(12), World.ts — both pins; the surface
+	// is new to goscape at rev-244 B4, closing a pre-existing 225-era
+	// gap). Tick-goroutine-owned; uint16 wrap is TS-faithful.
+	// worldStats.go defines the stat constants and the three helpers
+	// (addCycleTime, resetCycleTimes, snapshotCycleStats).
+	cycleStats     [numWorldStats]uint16
+	lastCycleStats [numWorldStats]uint16
 }
 
 // appendNewPlayer queues a player for registration on the next tick.
