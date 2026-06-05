@@ -166,3 +166,36 @@ func TestPackSpotAnimConfigs_NoDebugnameNoTrailer(t *testing.T) {
 		t.Fatalf("server:\n got % x\nwant % x", server.Dat.Data, want)
 	}
 }
+
+// TestPackSpotAnimConfigs_ModelFlags_0x2 pins that packSpotAnimConfigs writes
+// 0x2 into modelFlags for the model id, per TS SpotAnimConfig.ts:107 @ 9aadcec4.
+func TestPackSpotAnimConfigs_ModelFlags_0x2(t *testing.T) {
+	pf := spotanimOneSlotPack("flame")
+	configs := map[string][]ConfigLine{
+		"flame": {{Key: "model", Value: 5}},
+	}
+	modelFlags := make([]int, 10)
+	packSpotAnimConfigs(configs, pf, modelFlags)
+	if modelFlags[5] != 0x2 {
+		t.Errorf("modelFlags[5] = 0x%x, want 0x2", modelFlags[5])
+	}
+	for i, v := range modelFlags {
+		if i == 5 {
+			continue
+		}
+		if v != 0 {
+			t.Errorf("modelFlags[%d] = 0x%x, want 0", i, v)
+		}
+	}
+}
+
+// TestPackSpotAnimConfigs_ModelFlags_NilSafe pins that nil modelFlags does
+// not panic.
+func TestPackSpotAnimConfigs_ModelFlags_NilSafe(t *testing.T) {
+	pf := spotanimOneSlotPack("flame")
+	configs := map[string][]ConfigLine{
+		"flame": {{Key: "model", Value: 5}},
+	}
+	// Must not panic.
+	packSpotAnimConfigs(configs, pf, nil)
+}

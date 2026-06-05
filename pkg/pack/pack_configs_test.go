@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zsrv/goscape/pkg/io/filestream"
 	"github.com/zsrv/goscape/pkg/io/jagfile"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
@@ -443,17 +444,8 @@ func TestPackConfigs_TwentyConfigsLand(t *testing.T) {
 	writeFile(t, filepath.Join(srcDir, "pack", "hunt.pack"), "0=h_off\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "texture.pack"), "")
 	writeFile(t, filepath.Join(srcDir, "pack", "anim.pack"), "0=walk\n")
-	walkFrame := []byte{
-		0xab,                                           // del[0] sentinel
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // trailer: head=0,tran1=0,tran2=0,delLen=1
-	}
-	modelsDir := filepath.Join(srcDir, "models")
-	if err := os.MkdirAll(modelsDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(modelsDir, "walk.frame"), walkFrame, 0o644); err != nil {
-		t.Fatal(err)
-	}
+	// Note: frame_del.dat is not produced at rev-244 (TS PackShared.ts:355-388
+	// deleted @ 9aadcec4); no models/*.frame fixture needed.
 	writeFile(t, filepath.Join(srcDir, "pack", "dbtable.pack"), "0=t_simple\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "dbrow.pack"), "0=r_one\n")
 	for _, p := range []string{"interface", "synth"} {
@@ -515,18 +507,15 @@ func TestPackConfigs_TwentyConfigsLand(t *testing.T) {
 		}
 	}
 
-	for _, name := range []string{"category.dat", "frame_del.dat"} {
+	// frame_del.dat is not produced at rev-244 (packer removed @ 9aadcec4).
+	if _, err := os.Stat(filepath.Join(server, "frame_del.dat")); err == nil {
+		t.Errorf("frame_del.dat must NOT be produced at rev-244")
+	}
+
+	for _, name := range []string{"category.dat"} {
 		if _, err := os.Stat(filepath.Join(server, name)); err != nil {
 			t.Errorf("%s missing: %v", name, err)
 		}
-	}
-
-	frameDel, err := os.ReadFile(filepath.Join(server, "frame_del.dat"))
-	if err != nil {
-		t.Fatalf("read frame_del.dat: %v", err)
-	}
-	if len(frameDel) != 1 || frameDel[0] != 0xab {
-		t.Fatalf("frame_del.dat: got % x, want ab", frameDel)
 	}
 
 	cat, err := os.ReadFile(filepath.Join(server, "category.dat"))
@@ -606,7 +595,7 @@ func TestPackConfigsModelFlagsPlumbing_SharedBackingArray(t *testing.T) {
 	modelFlags[5] = 0x1 // sentinel; T5 must not overwrite it
 
 	reg := &Registry{SrcDir: srcDir}
-	if err := packConfigsCoreWithModelFlags(srcDir, outDir, reg, modelFlags); err != nil {
+	if err := packConfigsCoreWithModelFlags(srcDir, outDir, reg, modelFlags, nil); err != nil {
 		t.Fatalf("packConfigsCoreWithModelFlags: %v", err)
 	}
 
@@ -669,5 +658,90 @@ func TestPackConfigs_OrphanPackNameRejected(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "ghost_varp") {
 		t.Errorf("error should name the orphan entry; got: %v", err)
+	}
+}
+
+// TestPackConfigsConfigJagCacheWrite is the RED→GREEN pin for Slice F
+// of rev-244 B6: after PackConfigs the packed client/config jagfile bytes
+// must be written to cache.Write(0, 2, data, 0) when a non-nil FileStream
+// is supplied.
+//
+// TS source: tools/pack/config/PackShared.ts:641 @ 9aadcec4:
+//   cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
+//
+// Test:
+//  1. Create a minimal fixture (varp only — unconditional branch).
+//  2. Open a FileStream into t.TempDir().
+//  3. Call packConfigsCoreWithModelFlags with the cache handle.
+//  4. Assert cache.Has(0, 2) is true.
+//  5. Assert cache.Read(0, 2, false) equals the on-disk client/config bytes.
+func TestPackConfigsConfigJagCacheWrite(t *testing.T) {
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+	cacheDir := t.TempDir()
+
+	// Minimal varp fixture (unconditional branch, always writes client jag).
+	writeFile(t, filepath.Join(srcDir, "scripts", "v.varp"),
+		"[quest_points]\ntype=int\nscope=perm\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "varp.pack"), "0=quest_points\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "varn.pack"), "")
+	writeFile(t, filepath.Join(srcDir, "pack", "vars.pack"), "")
+	ClearFsCache()
+
+	cache := filestream.New(cacheDir, true, false)
+	defer cache.Close()
+
+	reg := &Registry{SrcDir: srcDir}
+	if _, err := reg.EnsureModel(); err != nil {
+		t.Fatalf("EnsureModel: %v", err)
+	}
+	modelFlags := make([]int, reg.Model.Max)
+	if err := packConfigsCoreWithModelFlags(srcDir, outDir, reg, modelFlags, cache); err != nil {
+		t.Fatalf("packConfigsCoreWithModelFlags: %v", err)
+	}
+
+	// Assert cache has archive=0, file=2 entry.
+	if !cache.Has(0, 2) {
+		t.Fatal("cache.Has(0, 2) = false; want true after config.jag cache write")
+	}
+
+	// Assert cache bytes match on-disk client/config file.
+	want, err := os.ReadFile(filepath.Join(outDir, "client", "config"))
+	if err != nil {
+		t.Fatalf("read client/config: %v", err)
+	}
+	got := cache.Read(0, 2, false)
+	if !bytes.Equal(got, want) {
+		t.Errorf("cache.Read(0,2) len=%d, want len=%d; bytes mismatch", len(got), len(want))
+	}
+}
+
+// TestClientConfigCRCConstants_Rev244 pins the six BUILD_VERIFY CRC magic
+// numbers to their rev-244 values (TS PackShared.ts @ 9aadcec4).
+//
+// Old 225 values for reference (updated at 9aadcec4):
+//   seq      1638136604 → 1405403166  (PackShared.ts:435)
+//   loc       891497087 → 1195428820  (PackShared.ts:459)
+//   spotanim -1279835623 → 117013845  (PackShared.ts:507)
+//   npc      -2140681882 → -997428438 (PackShared.ts:531)
+//   obj       -840233510 → 1589810970 (PackShared.ts:555)
+//   varp       705633567 → -1961744050 (PackShared.ts:603)
+func TestClientConfigCRCConstants_Rev244(t *testing.T) {
+	tests := []struct {
+		name string
+		got  int32
+		want int32
+	}{
+		{"seq", clientConfigCRCSeq, 1405403166},
+		{"loc", clientConfigCRCLoc, 1195428820},
+		{"spotanim", clientConfigCRCSpotAnim, 117013845},
+		{"npc", clientConfigCRCNpc, -997428438},
+		{"obj", clientConfigCRCObj, 1589810970},
+		{"varp", clientConfigCRCVarp, -1961744050},
+	}
+	for _, tc := range tests {
+		if tc.got != tc.want {
+			t.Errorf("clientConfigCRC%s = %d, want %d", tc.name, tc.got, tc.want)
+		}
 	}
 }

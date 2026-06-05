@@ -96,9 +96,8 @@ func parseIdkConfigFor(modelPack *PackFile) ParseFn {
 // Server side: opcode 250 + pjstr(debugname) when debugname.length > 0.
 //
 // modelFlags is indexed by model id (size = Model PackFile max). The idk
-// packer writes 0x80 flags for model references (T6+). The parameter is
-// accepted here for plumbing parity with TS PackShared.ts:137-141; no
-// writes land in T5.
+// packer writes 0x80 flags for model/head references per
+// TS IdkConfig.ts:146,150 @ 9aadcec4.
 //
 // TS source: tools/pack/config/IdkConfig.ts:126-205.
 func packIdkConfigs(configs map[string][]ConfigLine, idkPack *PackFile, modelFlags []int) (server, client *PackedData) {
@@ -123,7 +122,11 @@ func packIdkConfigs(configs map[string][]ConfigLine, idkPack *PackFile, modelFla
 				for len(models) <= idx {
 					models = append(models, 0)
 				}
-				models[idx] = line.Value.(int)
+				v := line.Value.(int)
+				models[idx] = v
+				if modelFlags != nil {
+					modelFlags[v] |= 0x80 // TS IdkConfig.ts:146
+				}
 			case strings.HasPrefix(key, "head"):
 				idx, err := strconv.Atoi(key[len("head"):])
 				if err != nil {
@@ -133,7 +136,11 @@ func packIdkConfigs(configs map[string][]ConfigLine, idkPack *PackFile, modelFla
 				for len(heads) <= idx {
 					heads = append(heads, 0)
 				}
-				heads[idx] = line.Value.(int)
+				v := line.Value.(int)
+				heads[idx] = v
+				if modelFlags != nil {
+					modelFlags[v] |= 0x80 // TS IdkConfig.ts:150
+				}
 			case strings.HasPrefix(key, "recol") && strings.HasSuffix(key, "s"):
 				idx, err := strconv.Atoi(key[5 : len(key)-1])
 				if err != nil {

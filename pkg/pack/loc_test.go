@@ -726,3 +726,72 @@ func TestPackLocConfigs_DebugnameEmpty(t *testing.T) {
 		t.Fatalf("got % x, want % x", server.Dat.Data, want)
 	}
 }
+
+// TestPackLocConfigs_ModelFlags_0x4_ShapeSuffix pins that resolveLocModels
+// writes 0x4 into modelFlags for the per-shape suffix branch
+// (TS LocConfig.ts:359 @ 9aadcec4).
+//
+// Setup: raw="wall" has a non-_8 shape variant "wall_0" (LocShapeSuffix[0]).
+// directReference probe finds "wall_0" → directReference=false.
+// "wall_8" does not exist → _8 branch skipped.
+// Shape 0 loop → modelFlags[model_id_of_wall_0] |= 0x4.
+func TestPackLocConfigs_ModelFlags_0x4_ShapeSuffix(t *testing.T) {
+	// LocShapeSuffix[0] is the suffix for shape 0.
+	suffix0 := LocShapeSuffix[0]
+	mp := newTestPF("model", map[int]string{
+		0: "wall",
+		1: "wall" + suffix0,
+	})
+	locPack := newTestPF("loc", map[int]string{0: "mywall"})
+	configs := map[string][]ConfigLine{
+		"mywall": {{Key: "model1", Value: "wall"}},
+	}
+	modelFlags := make([]int, 2)
+	_, _, err := packLocConfigs(configs, locPack, mp, modelFlags)
+	if err != nil {
+		t.Fatalf("packLocConfigs: %v", err)
+	}
+	// "wall"+suffix0 (id=1) resolved via per-shape branch → 0x4.
+	if modelFlags[1] != 0x4 {
+		t.Errorf("modelFlags[1] = 0x%x, want 0x4 (per-shape branch)", modelFlags[1])
+	}
+	// "wall" (id=0) untouched (direct ref probe found shape variant).
+	if modelFlags[0] != 0 {
+		t.Errorf("modelFlags[0] = 0x%x, want 0", modelFlags[0])
+	}
+}
+
+// TestResolveLocModels_DirectRef_ModelFlags pins the forced-shape
+// (direct-reference) branch: when no shape-suffix variants exist for
+// the raw name, the exact-match model gets 0x4 (TS LocConfig.ts:337).
+func TestResolveLocModels_DirectRef_ModelFlags(t *testing.T) {
+	mp := newTestPF("model", map[int]string{
+		0: "pillar", // only direct ref, no shape suffixes in pack
+	})
+	modelFlags := make([]int, 1)
+	models, err := resolveLocModels([]string{"pillar"}, mp, modelFlags, "test")
+	if err != nil {
+		t.Fatalf("resolveLocModels: %v", err)
+	}
+	if len(models) != 1 || models[0].model != 0 {
+		t.Fatalf("expected model id 0, got %v", models)
+	}
+	if modelFlags[0] != 0x4 {
+		t.Errorf("modelFlags[0] = 0x%x, want 0x4 (direct-ref branch)", modelFlags[0])
+	}
+}
+
+// TestPackLocConfigs_ModelFlags_NilSafe pins that nil modelFlags does not
+// panic in resolveLocModels.
+func TestPackLocConfigs_ModelFlags_NilSafe(t *testing.T) {
+	mp := newTestPF("model", map[int]string{0: "pillar"})
+	locPack := newTestPF("loc", map[int]string{0: "myobj"})
+	configs := map[string][]ConfigLine{
+		"myobj": {{Key: "model1", Value: "pillar"}},
+	}
+	// Must not panic.
+	_, _, err := packLocConfigs(configs, locPack, mp, nil)
+	if err != nil {
+		t.Fatalf("packLocConfigs with nil modelFlags: %v", err)
+	}
+}

@@ -2,10 +2,32 @@ package pack
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
+	"github.com/zsrv/goscape/pkg/io/filestream"
 	"github.com/zsrv/goscape/pkg/io/jagfile"
 	"github.com/zsrv/goscape/pkg/objtype"
+)
+
+// clientConfigCRC* are the rev-244 BUILD_VERIFY CRC magic numbers for
+// the six client-jagfile config sub-files. Updated from the 225 values
+// at TS PackShared.ts:435,459,507,531,555,603 @ 9aadcec4.
+//
+// 225 values (for reference):
+//   seqCRC     was 1638136604  → now 1405403166
+//   locCRC     was 891497087   → now 1195428820
+//   spotanimCRC was -1279835623 → now 117013845
+//   npcCRC     was -2140681882  → now -997428438
+//   objCRC     was -840233510   → now 1589810970
+//   varpCRC    was 705633567    → now -1961744050
+const (
+	clientConfigCRCSeq      int32 = 1405403166
+	clientConfigCRCLoc      int32 = 1195428820
+	clientConfigCRCSpotAnim int32 = 117013845
+	clientConfigCRCNpc      int32 = -997428438
+	clientConfigCRCObj      int32 = 1589810970
+	clientConfigCRCVarp     int32 = -1961744050
 )
 
 // PackConfigsForRegistry runs the per-config packing pipeline,
@@ -28,9 +50,9 @@ import (
 //
 // NAI-191-D-VALIDATE-FLAGS: formerly deferred; now wired in rev-244 B6
 // via validatePackNamesAgainstCfgs at each packAndSave* call site. The
-// .varp BUILD_VERIFY magic-705633567 check (PackShared.ts:631-633) is a
-// CRC-parity guard unrelated to the config-name check and remains
-// outside scope.
+// .varp BUILD_VERIFY magic clientConfigCRCVarp (-1961744050) check
+// (PackShared.ts:603 @ 9aadcec4) is a CRC-parity guard unrelated to
+// the config-name check and remains outside scope (wired in T15).
 //
 // NAI-196-D-UNCONDITIONAL-CLIENT-PACK: .param, .seq, .loc, .flo,
 // .spotanim, .npc, .obj, .idk, .varp run on EVERY PackConfigs
@@ -45,11 +67,10 @@ import (
 // the scope to the four additional client+server configs ported in
 // that slice (.seq, .flo, .spotanim, .idk). The server-only nine retain
 // their ShouldBuild + GetLatestModified freshness gates (enumerated
-// in the NAI-192-D-NO-SRC-NO-OP paragraph below). NAI-199 adds two
-// more server-only outputs (category.dat, frame_del.dat) that sit
-// outside the NAI-192 scope — both use distinct gate shapes
-// (ShouldBuildFile and GetLatestModified+ShouldBuild, respectively)
-// and produce .dat without .idx.
+// in the NAI-192-D-NO-SRC-NO-OP paragraph below). NAI-199 added two
+// server-only specials (category.dat, frame_del.dat); frame_del.dat
+// was removed at rev-244 (TS PackShared.ts:355-388 deleted @ 9aadcec4).
+// category.dat uses ShouldBuildFile gating and produces .dat without .idx.
 //
 // NAI-192-D-NO-SRC-NO-OP: applies only to the nine server-only
 // freshness-gated branches (.enum, .inv, .mesanim, .struct, .dbtable,
@@ -72,7 +93,9 @@ func PackConfigsForRegistry(srcDir, outDir string) (*Registry, error) {
 		return nil, err
 	}
 	modelFlags := make([]int, reg.Model.Max)
-	if err := packConfigsCoreWithModelFlags(srcDir, outDir, reg, modelFlags); err != nil {
+	// nil cache: PackConfigsForRegistry callers do not yet have a FileStream.
+	// real handle is wired in T15 (PackAll.ts:42).
+	if err := packConfigsCoreWithModelFlags(srcDir, outDir, reg, modelFlags, nil); err != nil {
 		return nil, err
 	}
 	return reg, nil
@@ -97,13 +120,15 @@ func PackConfigs(srcDir, outDir string) error {
 // call this function directly (T10+) so flag writes from later pipeline
 // stages are all visible in the same slice.
 //
-// cache parameter: TS packConfigs(cache, modelFlags) accepts a FileStream
-// for writing versionlist model_index data. That write is Task 10's scope;
-// the parameter is NOT added here yet to avoid a second signature churn
-// when cache becomes load-bearing. Wired in T10/T15.
+// cache is an optional *filestream.FileStream. When non-nil, the packed
+// client/config jagfile bytes are written to cache.Write(0, 2, data, 0),
+// mirroring TS PackShared.ts:641 @ 9aadcec4:
+//   cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
+// Callers that do not yet have a FileStream pass nil (e.g.
+// PackConfigsForRegistry). The real handle is wired in T15 (PackAll.ts:42).
 //
 // TS source: tools/pack/config/PackShared.ts:261-669 (packConfigs).
-func packConfigsCoreWithModelFlags(srcDir, outDir string, reg *Registry, modelFlags []int) error {
+func packConfigsCoreWithModelFlags(srcDir, outDir string, reg *Registry, modelFlags []int, cache *filestream.FileStream) error {
 	constants, err := LoadConstants(srcDir)
 	if err != nil {
 		return err
@@ -189,26 +214,14 @@ func packConfigsCoreWithModelFlags(srcDir, outDir string, reg *Registry, modelFl
 		}
 	}
 
-	// frame_del — server-only special. TS PackShared.ts:355-388.
-	// Reads AnimPack + <srcDir>/models/**/*.frame trailers.
-	// Server-only; no idx. Empty models dir → branch skipped
-	// (GetLatestModified guard); empty AnimPack registry inside the
-	// branch → 0-byte frame_del.dat (per packAndSaveFrameDel docs).
-	// NAI-199-D-TS-CODE-STALENESS-GATE drops TS's second arm
-	// `shouldBuild('tools/pack/config', '.ts', dest)`.
-	if GetLatestModified(filepath.Join(srcDir, "models"), ".frame") > 0 &&
-		ShouldBuild(
-			filepath.Join(srcDir, "models"),
-			".frame",
-			filepath.Join(serverOut, "frame_del.dat"),
-		) {
-		if _, err := reg.EnsureAnim(); err != nil {
-			return err
-		}
-		if err := packAndSaveFrameDel(srcDir, serverOut, reg.Anim); err != nil {
-			return err
-		}
-	}
+	// frame_del — REMOVED at rev-244 (TS PackShared.ts:355-388 deleted at
+	// 9aadcec4). The packer block was deleted from TS at commit 9aadcec4;
+	// goscape mirrors that removal. Consumer check: no Go runtime code in
+	// modules/ or cmd/ reads frame_del.dat; pkg/io/jagfile/jagfile.go:513
+	// retains "frame_del.dat" in the known-name table for legacy decode
+	// support (225-era caches), which is unrelated to the packer. The TS
+	// runtime at 9aadcec4 likewise only retains it in Jagfile.ts:405 as a
+	// decode-side name entry.
 
 	// .enum — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".enum") > 0 &&
@@ -455,7 +468,19 @@ func packConfigsCoreWithModelFlags(srcDir, outDir string, reg *Registry, modelFl
 		}
 	}
 
-	return clientJag.Save(filepath.Join(clientOut, "config"))
+	configPath := filepath.Join(clientOut, "config")
+	if err := clientJag.Save(configPath); err != nil {
+		return err
+	}
+	// TS PackShared.ts:641 @ 9aadcec4: cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
+	if cache != nil {
+		data, err := os.ReadFile(configPath)
+		if err != nil {
+			return fmt.Errorf("read client/config for cache write: %w", err)
+		}
+		cache.Write(0, 2, data, 0)
+	}
+	return nil
 }
 
 // checkVarNameUniqueness rejects when any debugname appears in more

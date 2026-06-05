@@ -231,3 +231,44 @@ func TestPackIdkConfigs_DisableFalseNoEmit(t *testing.T) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
 	}
 }
+
+// TestPackIdkConfigs_ModelFlags_0x80 pins that packIdkConfigs writes 0x80
+// into modelFlags for each model and head model id, per TS
+// IdkConfig.ts:146,150 @ 9aadcec4.
+func TestPackIdkConfigs_ModelFlags_0x80(t *testing.T) {
+	pf := idkOneSlotPack("idk0")
+	configs := map[string][]ConfigLine{
+		"idk0": {
+			{Key: "model1", Value: 3},
+			{Key: "head1", Value: 7},
+		},
+	}
+	modelFlags := make([]int, 10)
+	packIdkConfigs(configs, pf, modelFlags)
+	if modelFlags[3] != 0x80 {
+		t.Errorf("modelFlags[3] = 0x%x, want 0x80 (model1 id=3)", modelFlags[3])
+	}
+	if modelFlags[7] != 0x80 {
+		t.Errorf("modelFlags[7] = 0x%x, want 0x80 (head1 id=7)", modelFlags[7])
+	}
+	// Unrelated slots must be zero.
+	for _, idx := range []int{0, 1, 2, 4, 5, 6, 8, 9} {
+		if modelFlags[idx] != 0 {
+			t.Errorf("modelFlags[%d] = 0x%x, want 0 (untouched)", idx, modelFlags[idx])
+		}
+	}
+}
+
+// TestPackIdkConfigs_ModelFlags_NilSafe pins that passing nil for modelFlags
+// does not panic (nil guard required for backward-compat callers).
+func TestPackIdkConfigs_ModelFlags_NilSafe(t *testing.T) {
+	pf := idkOneSlotPack("idk0")
+	configs := map[string][]ConfigLine{
+		"idk0": {
+			{Key: "model1", Value: 3},
+			{Key: "head1", Value: 7},
+		},
+	}
+	// Must not panic.
+	packIdkConfigs(configs, pf, nil)
+}

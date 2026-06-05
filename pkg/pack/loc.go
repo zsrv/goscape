@@ -228,10 +228,14 @@ func parseLocConfigFor(categoryPack, seqPack, texturePack *PackFile, lk *paramLo
 //     force the model to shape _8 (centrepiece_straight)
 //   - otherwise probe `_8` first and then all other shapes in order
 //
+// modelFlags receives 0x4 at each resolved model id, matching TS
+// LocConfig.ts:337,347,359 @ 9aadcec4. May be nil (callers that
+// don't need flag tracking pass nil).
+//
 // Returns the (model, shape) list to feed opcode 1, plus a flag
 // indicating whether any non-_8 shape was synthesised (used for the
 // "any _8 shape forces name transmit" downstream check).
-func resolveLocModels(srcModels []string, modelPack *PackFile, debugname string) ([]locModelShape, error) {
+func resolveLocModels(srcModels []string, modelPack *PackFile, modelFlags []int, debugname string) ([]locModelShape, error) {
 	var models []locModelShape
 	for _, raw := range srcModels {
 		directReference := modelPack.GetByName(raw) != -1
@@ -248,6 +252,9 @@ func resolveLocModels(srcModels []string, modelPack *PackFile, debugname string)
 		if directReference {
 			forceID := modelPack.GetByName(raw)
 			if forceID != -1 {
+				if modelFlags != nil {
+					modelFlags[forceID] |= 0x4 // TS LocConfig.ts:337
+				}
 				models = append(models, locModelShape{model: forceID, shape: locShapeCentrepieceStraight})
 				continue
 			}
@@ -255,6 +262,9 @@ func resolveLocModels(srcModels []string, modelPack *PackFile, debugname string)
 
 		// centrepiece_straight (`_8`) first.
 		if id := modelPack.GetByName(raw + "_8"); id != -1 {
+			if modelFlags != nil {
+				modelFlags[id] |= 0x4 // TS LocConfig.ts:347
+			}
 			models = append(models, locModelShape{model: id, shape: locShapeCentrepieceStraight})
 		}
 		for shape := 0; shape <= 22; shape++ {
@@ -262,6 +272,9 @@ func resolveLocModels(srcModels []string, modelPack *PackFile, debugname string)
 				continue
 			}
 			if id := modelPack.GetByName(raw + LocShapeSuffix[shape]); id != -1 {
+				if modelFlags != nil {
+					modelFlags[id] |= 0x4 // TS LocConfig.ts:359
+				}
 				models = append(models, locModelShape{model: id, shape: shape})
 			}
 		}
@@ -281,9 +294,8 @@ func resolveLocModels(srcModels []string, modelPack *PackFile, debugname string)
 // (debugname). Client gets everything else (1, 2, 3, 14-73).
 //
 // modelFlags is indexed by model id (size = Model PackFile max). The loc
-// packer writes 0x4 flags for model references (T6+). The parameter is
-// accepted here for plumbing parity with TS PackShared.ts:137-141; no
-// writes land in T5.
+// packer writes 0x4 flags for model references via resolveLocModels per
+// TS LocConfig.ts:337,347,359 @ 9aadcec4.
 //
 // TS source: tools/pack/config/LocConfig.ts:170-434.
 func packLocConfigs(configs map[string][]ConfigLine, locPack, modelPack *PackFile, modelFlags []int) (server, client *PackedData, err error) {
@@ -469,7 +481,7 @@ func packLocConfigs(configs map[string][]ConfigLine, locPack, modelPack *PackFil
 			}
 
 			// Model resolution and opcode 1 emission.
-			models, mErr := resolveLocModels(srcModels, modelPack, debugname)
+			models, mErr := resolveLocModels(srcModels, modelPack, modelFlags, debugname)
 			if mErr != nil {
 				return nil, nil, mErr
 			}
