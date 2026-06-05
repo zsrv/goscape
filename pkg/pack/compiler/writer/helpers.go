@@ -81,13 +81,21 @@ func GetLocalCount(locals *codegen.LocalTable, baseType typ.BaseVarType) int {
 // (array-vs-scalar; scalar further partitioned by BaseVarType, with
 // non-parameter arrays excluded from the scalar pool).
 //
-// Returns -1 if local is not a member of locals.All. The binary writer
-// emits -1 verbatim (as 0xFFFFFFFF) — TS does the same since
-// Array.prototype.indexOf returns -1 silently — so this signals a stage
-// upstream of the writer (typecheck/codegen) failed to register the local.
-// In a healthy pipeline this code path is unreachable.
+// For scalar (non-array) locals, the lookup uses value equality (name + type),
+// mirroring RuneScriptKt's LocalVariableSymbol data-class indexOf behaviour:
+// two symbols with the same name and type that were declared in mutually-
+// exclusive block scopes (if/else branches etc.) share the same slot index
+// (the index of the FIRST occurrence). This is the block-scope local slot
+// recycling rule described in RuneScriptKt BaseScriptWriter.getVariableId.
 //
-// Mirrors TS getVariableId L276-282.
+// For array locals, pointer identity is used (arrays are not recycled).
+//
+// Returns -1 if no matching symbol is found in locals.All. The binary writer
+// emits -1 verbatim (as 0xFFFFFFFF) — this signals a stage upstream of the
+// writer (typecheck/codegen) failed to register the local, which is
+// unreachable in a healthy pipeline.
+//
+// Mirrors TS getVariableId L276-282 + RuneScriptKt getVariableId (same rule).
 func GetVariableId(locals *codegen.LocalTable, local *symbol.LocalVariableSymbol) int {
 	if _, isArr := local.Type.(*typ.ArrayType); isArr {
 		n := 0
@@ -104,7 +112,11 @@ func GetVariableId(locals *codegen.LocalTable, local *symbol.LocalVariableSymbol
 	bt, _ := local.Type.BaseType()
 	n := 0
 	for _, v := range locals.All {
-		if v == local {
+		// Value-equality check (mirrors Kt data-class equals: name + type).
+		// Two distinct pointer objects with the same name and type are treated
+		// as the same symbol — the slot of the FIRST occurrence is returned for
+		// all of them, implementing block-scope local slot recycling.
+		if v.Name == local.Name && v.Type == local.Type {
 			return n
 		}
 		vbt, ok := v.Type.BaseType()

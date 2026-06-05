@@ -115,6 +115,62 @@ func TestGetVariableId_ParamsAndLocals(t *testing.T) {
 	}
 }
 
+// TestGetVariableId_BlockScopeRecycling verifies RuneScriptKt LocalTable slot
+// reuse: when two LocalVariableSymbols with the same name and type appear in
+// All (because they were declared in mutually-exclusive block scopes), the
+// SECOND symbol must get the same slot as the FIRST (slot 0), not the next
+// monotonic index (slot 1).
+//
+// This mirrors Kt's data-class valueOf indexOf behaviour:
+// LocalVariableSymbol("i", INT).indexOf(...) returns the index of the
+// first equal element regardless of which pointer object was passed.
+//
+// Fixture: two separate $i int locals that would be in if/else branches.
+// All = [$i_if, $i_else] — $i_else should reuse slot 0.
+//
+// int_locals header count = GetLocalCount = 2 (raw symbol count is unchanged).
+func TestGetVariableId_BlockScopeRecycling(t *testing.T) {
+	// Two distinct pointer objects, same name+type — simulates if/else $i reuse.
+	iIf := &symbol.LocalVariableSymbol{Name: "$i", Type: typ.PrimitiveInt}
+	iElse := &symbol.LocalVariableSymbol{Name: "$i", Type: typ.PrimitiveInt}
+
+	locals := &codegen.LocalTable{
+		Parameters: nil,
+		All:        []*symbol.LocalVariableSymbol{iIf, iElse},
+	}
+
+	if got := writer.GetVariableId(locals, iIf); got != 0 {
+		t.Errorf("iIf slot = %d, want 0", got)
+	}
+	if got := writer.GetVariableId(locals, iElse); got != 0 {
+		t.Errorf("iElse slot = %d, want 0 (slot recycled from closed scope)", got)
+	}
+	// int_locals count stays 2 — raw symbol count, not slot watermark.
+	if got := writer.GetLocalCount(locals, typ.BaseVarInteger); got != 2 {
+		t.Errorf("LocalCount(Integer) = %d, want 2", got)
+	}
+}
+
+// TestGetVariableId_DifferentNameNoRecycling verifies that two locals with
+// DIFFERENT names in sequential scopes do NOT share a slot, even if they
+// have the same type.
+func TestGetVariableId_DifferentNameNoRecycling(t *testing.T) {
+	aLocal := &symbol.LocalVariableSymbol{Name: "$a", Type: typ.PrimitiveInt}
+	bLocal := &symbol.LocalVariableSymbol{Name: "$b", Type: typ.PrimitiveInt}
+
+	locals := &codegen.LocalTable{
+		Parameters: nil,
+		All:        []*symbol.LocalVariableSymbol{aLocal, bLocal},
+	}
+
+	if got := writer.GetVariableId(locals, aLocal); got != 0 {
+		t.Errorf("aLocal slot = %d, want 0", got)
+	}
+	if got := writer.GetVariableId(locals, bLocal); got != 1 {
+		t.Errorf("bLocal slot = %d, want 1 (distinct name, no recycling)", got)
+	}
+}
+
 // TestGetCounts pins GetParameterCount + GetLocalCount.
 // GetLocalCount excludes arrays unless the array is a parameter.
 func TestGetCounts(t *testing.T) {
