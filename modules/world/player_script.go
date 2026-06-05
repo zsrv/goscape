@@ -388,6 +388,12 @@ func (p *Player) AccountID() int64 { return p.accountID }
 // 'disconnected'. Distinct from AddSessionLog's 'headless' fallback
 // (Player.ts:641), which covers the never-had-a-client path.
 // rev-244 B4 closes the NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY Session-not-exposed deferral.
+//
+// Honesty note: goscape never nils p.client on disconnect (players leave via
+// the server.go removePlayer* paths with the client intact), so the
+// "disconnected" branch is effectively unreachable in production — same
+// posture as AddSessionLog's "unreachable... kept for clarity" note. TS
+// reaches it via the NullClientSocket swap on socket close (TcpServer.ts:48).
 func (p *Player) RecipientSession() string {
 	if p.client != nil {
 		return p.session
