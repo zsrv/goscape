@@ -24,6 +24,38 @@ func TestExecuteUnknownOpcodeAborts(t *testing.T) {
 	}
 }
 
+// TestExecute_UnknownOpcodeMessage244 pins the 244 error shape for the
+// unknown-opcode dispatch: TS ScriptRunner.ts:151 drops the name-map
+// lookup → "Unknown opcode ${opcode}". The Go message must contain
+// "unknown opcode <N>" (case-insensitive substring) without the
+// op.String() mnemonic that was present pre-244.
+func TestExecute_UnknownOpcodeMessage244(t *testing.T) {
+	const missingOp Opcode = 60000 // well above any real handler
+	f := &ScriptFile{
+		Name:           "test_script",
+		Opcodes:        []Opcode{missingOp},
+		IntOperands:    []int32{0},
+		StringOperands: []string{""},
+	}
+	s := Init(f, nil, false, nil, nil)
+	err := Execute(s)
+	if err == nil {
+		t.Fatal("expected error for unknown opcode 60000, got nil")
+	}
+	if s.Execution != Aborted {
+		t.Errorf("Execution: got %v want Aborted", s.Execution)
+	}
+	msg := err.Error()
+	if !strings.Contains(strings.ToLower(msg), "unknown opcode 60000") {
+		t.Errorf("error message should contain %q, got %q", "unknown opcode 60000", msg)
+	}
+	// Pre-244 message included op.String() which for opcode 60000 is
+	// "opcode_60000" — must NOT appear in the 244 shape.
+	if strings.Contains(msg, "opcode_60000") {
+		t.Errorf("error message must not include opcode mnemonic 'opcode_60000' (244 drop): got %q", msg)
+	}
+}
+
 func TestExecutePcOutOfRangeAborts(t *testing.T) {
 	// Empty Opcodes slice: PC=0 is immediately out of range.
 	f := &ScriptFile{
@@ -121,10 +153,22 @@ func TestScriptOpcodePrefixVarpSecondaryDotFlag(t *testing.T) {
 }
 
 // TestBacktrace pins the per-frame format and ordering of Backtrace.
-// Mirrors TS ScriptRunner.ts:194-201 — first frame is the current
-// state.Script @ state.PC; subsequent frames are the GOSUB stack from
-// most-recent (Frames[FrameSP-1]) down to oldest (Frames[0]).
+// Mirrors TS ScriptRunner.ts:196 (player) and ScriptRunner.ts:221
+// (console) — both loops are `i > 0` in 244, skipping frame 0 (the
+// oldest GOSUB frame). First frame is the current state.Script @
+// state.PC; subsequent frames iterate Frames[FrameSP-1] down to
+// Frames[1] (frame 0 excluded).
+//
+// 244 delta: pre-244 the loop was `i >= 0`; it is now `i > 0`.
+// This test uses FrameSP=2 (frames 1 + 0) to demonstrate that only
+// frame 1 is emitted — frame 0 is silently skipped.
 func TestBacktrace(t *testing.T) {
+	root := &ScriptFile{
+		Name:     "root_script",
+		FileName: "root.rs2",
+		PCs:      []uint32{0, 3},
+		Lines:    []uint32{10, 20},
+	}
 	caller := &ScriptFile{
 		Name:     "caller_script",
 		FileName: "caller.rs2",
@@ -137,16 +181,21 @@ func TestBacktrace(t *testing.T) {
 		PCs:      []uint32{0, 5},
 		Lines:    []uint32{100, 110},
 	}
+	// Frames[0] = root_script (oldest — frame 0, should be SKIPPED by 244 loop).
+	// Frames[1] = caller_script (frame index 1, should appear as frame 2 in trace).
+	// current script = callee_script (frame 1 in output).
 	s := &ScriptState{
 		Script: callee,
-		PC:     5, // line 110 per the table above (threshold 5+ → final line)
+		PC:     5, // line 110
 		Frames: []Frame{
-			{Script: caller, PC: 7}, // line 42 (threshold 10 > 7 → preceding line)
+			{Script: root, PC: 2},   // index 0 — skipped by 244's i > 0 loop
+			{Script: caller, PC: 7}, // index 1 — emitted as trace frame 2
 		},
-		FrameSP: 1,
+		FrameSP: 2,
 	}
 
 	got := Backtrace(s)
+	// 244: frame 0 (root_script) is skipped; only frames[1] (caller_script) appears.
 	want := []string{
 		"stack backtrace:",
 		"    1: callee_script - callee.rs2:110",
@@ -159,6 +208,52 @@ func TestBacktrace(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("Backtrace line %d: got %q want %q", i, got[i], want[i])
 		}
+	}
+}
+
+// TestBacktrace_SkipsFrameZero244 explicitly verifies the 244 loop
+// boundary: TS ScriptRunner.ts:196 and :221 both use `i > 0`, so
+// frame 0 (oldest GOSUB frame) is never emitted. With FrameSP=3 there
+// are frames at indices 0, 1, 2; only frames 2 and 1 appear in output
+// (frame 0 is skipped). Total output lines: header + current + 2 = 4.
+func TestBacktrace_SkipsFrameZero244(t *testing.T) {
+	mkScript := func(name, file string) *ScriptFile {
+		return &ScriptFile{
+			Name:     name,
+			FileName: file,
+			PCs:      []uint32{0},
+			Lines:    []uint32{1},
+		}
+	}
+	s := &ScriptState{
+		Script: mkScript("current", "current.rs2"),
+		PC:     0,
+		Frames: []Frame{
+			{Script: mkScript("frame0", "frame0.rs2"), PC: 0}, // skipped
+			{Script: mkScript("frame1", "frame1.rs2"), PC: 0}, // emitted
+			{Script: mkScript("frame2", "frame2.rs2"), PC: 0}, // emitted
+		},
+		FrameSP: 3,
+	}
+
+	got := Backtrace(s)
+	// header + current + frame2 + frame1 = 4 lines; frame0 absent.
+	if len(got) != 4 {
+		t.Fatalf("Backtrace line count: got %d want 4 (frame 0 must be skipped): %q", len(got), got)
+	}
+	// Verify frame0 is NOT in output.
+	for _, line := range got {
+		if strings.Contains(line, "frame0") {
+			t.Errorf("frame 0 must be skipped in 244 backtrace, but found: %q", line)
+		}
+	}
+	// Verify frame1 and frame2 ARE in output.
+	joined := strings.Join(got, "\n")
+	if !strings.Contains(joined, "frame2") {
+		t.Error("frame2 (index 2) should appear in backtrace")
+	}
+	if !strings.Contains(joined, "frame1") {
+		t.Error("frame1 (index 1) should appear in backtrace")
 	}
 }
 

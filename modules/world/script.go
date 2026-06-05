@@ -148,7 +148,12 @@ func (s *Server) runScript(
 // tick loop doesn't need to type-assert back to *Player.
 func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePlayer) {
 	if err := script.Execute(state); err != nil {
-		s.logScriptExecuteError("script execute error", state, err)
+		// 244 delta: TS ScriptRunner.ts:187 adds pid+name to the player
+		// error console line: `printError("Player script error -
+		// pid:${pid} name:${username}")`. Goscape folds these into the
+		// structured warn log attrs via the variadic extra path.
+		s.logScriptExecuteError("script execute error", state, err,
+			"pid", self.Slot(), "name", self.Username())
 		s.handlePlayerScriptError(state, self, err)
 		// NAI-55: fall through. script.Execute sets state.Execution =
 		// Aborted on every error path (pkg/script/runner.go:54-83),
@@ -294,13 +299,22 @@ func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 // that existing tests pin (e.g. modules/world/nai128_rat_loot_test.go);
 // extending with the file / pc / backtrace fields is purely additive.
 // Mirrors TS ScriptRunner.ts:215-226 console.error block (file + backtrace).
-func (s *Server) logScriptExecuteError(msg string, state *script.ScriptState, err error) {
-	s.log.Warn(msg,
+//
+// extra is a variadic slog attr list (key, value, key, value …). The
+// player call site (resumeOrFinish) passes "pid" + "name" to mirror
+// TS ScriptRunner.ts:187: `printError("Player script error - pid:…
+// name:…")`. NPC and world call sites pass nothing extra (TS does not
+// add pid/name for those paths).
+func (s *Server) logScriptExecuteError(msg string, state *script.ScriptState, err error, extra ...any) {
+	attrs := []any{
 		"script", state.Script.Name,
 		"file", state.Script.FileName,
 		"pc", state.PC,
 		"err", err,
-		"backtrace", script.Backtrace(state))
+		"backtrace", script.Backtrace(state),
+	}
+	attrs = append(attrs, extra...)
+	s.log.Warn(msg, attrs...)
 }
 
 // handlePlayerScriptError applies the TS-faithful script-error reaction for

@@ -72,8 +72,11 @@ func Execute(s *ScriptState) error {
 		h, ok := handlers[op]
 		if !ok {
 			s.Execution = Aborted
-			return fmt.Errorf("script %q: no handler for %s (opcode %d) at pc=%d",
-				s.Script.Name, op.String(), op, s.PC)
+			// 244 delta: TS ScriptRunner.ts:151 drops the name-map lookup
+			// (`Unknown opcode ${opcode}`) — the mnemonic is no longer
+			// prepended. Go mirrors by removing op.String() from the message.
+			return fmt.Errorf("script %q: unknown opcode %d at pc=%d",
+				s.Script.Name, op, s.PC)
 		}
 
 		if err := h(s); err != nil {
@@ -165,10 +168,13 @@ func scriptOpcodePrefix(s *ScriptState, existingMsg string) string {
 // should emit. The first entry is the literal header "stack backtrace:";
 // subsequent entries are "    N: <name> - <fileName>:<line>" — frame 1 is
 // the currently-executing script (state.Script @ state.PC), frames 2..N are
-// the GOSUB call stack from most-recent (Frames[FrameSP-1]) down to oldest
-// (Frames[0]). Mirrors TS ScriptRunner.ts:194-201 (Player path) and
-// ScriptRunner.ts:219-226 (console path); the console and player traces
-// are identical text and identical iteration order.
+// the GOSUB call stack from most-recent (Frames[FrameSP-1]) down to
+// Frames[1]. Frame 0 (the oldest GOSUB frame) is intentionally skipped.
+//
+// 244 delta: TS ScriptRunner.ts:196 (Player path) and ScriptRunner.ts:221
+// (console path) both changed from `i >= 0` to `i > 0` — frame 0 is
+// excluded from both traces. Go shares one Backtrace impl so this single
+// change covers both paths, matching TS exactly.
 //
 // Source-line resolution uses ScriptFile.LineNumber, the PCs/Lines table
 // accessor added alongside this helper (script-core-5 closure).
@@ -183,7 +189,9 @@ func Backtrace(s *ScriptState) []string {
 	out = append(out, fmt.Sprintf("    1: %s - %s:%d",
 		s.Script.Name, s.Script.FileName, s.Script.LineNumber(s.PC)))
 	trace := 1
-	for i := s.FrameSP - 1; i >= 0; i-- {
+	// 244: loop is i > 0, not i >= 0 — frame 0 (oldest GOSUB frame) is
+	// skipped. Mirrors TS ScriptRunner.ts:196 and :221.
+	for i := s.FrameSP - 1; i > 0; i-- {
 		f := s.Frames[i]
 		if f.Script == nil {
 			continue
