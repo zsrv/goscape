@@ -614,14 +614,19 @@ Every hunk of the scope diff maps to a commit or decision above — no unmapped 
 1. **Login rate limiting absent everywhere** until B5 lands the login-server
    replacement (3-in-5s same-account+IP + 45s hop timer, LoginServer.ts:234-269/
    366-379). Accepted dev-branch window (worker-eval §5).
+   **✅ CLOSED in B5** (`53715e4d` + `d5240e66` — see §B5 tracker rows).
 2. **`world_heartbeat`** producer (World.ts:1252-1275) → B5 (login gRPC proto).
+   **✅ CLOSED in B5** as NO-OP — dead-at-pin consumer (§B5 decision row).
 3. **Map-delivery + midi + B1 format windows ALL close at B6** — the umbrella's
    post-B2+B3 client smoke is amended to B6 (user decision, spec §User
    decisions); the 244 reference-cache generation (missed B1 de-risk) is now a
    **B6 prerequisite**.
 4. **Logger/friends message shapes** → B5/private-sibling (seams compiling,
    adapters in place).
+   **✅ CLOSED in B5 for the public repo** (`4e4f8192`/`704dad98`/`1d173abc`;
+   proto/events deltas remain private-sibling-owned — §B5 tracker rows).
 5. **`messageCount` real query** (Messages.ts) → B5 (proto field exists, wired).
+   **✅ CLOSED in B5** (`83a8e6d6`).
 6. **ws-ondemand-gate enforcement** needs a WS-origin marker on the world
    client (exception row above) — revisit if/when WS clients matter.
 
@@ -801,6 +806,157 @@ Marker audit: **21** `PORTING-EXCEPTION` mentions (was 18 at B3); 1 new B4 id
 **`rev244-b4-bwout-reset`** with 3 mentions (1 code site `tick.go:99`, 2
 cross-refs `tick.go:272` + `world_stats.go:37`). No B4 ids retired.
 
+### B5 — server/login/db (2026-06-05)
+
+Scope diff = `git -C ../Engine-TS diff e1dea19f..9aadcec4 -- src/server/login
+src/server/friend src/server/logger src/server/worker prisma` (14 src files +
+2 schema.prisma + migrations churn) plus the B3 tracker rows assigned here
+(rate-limit replacement, world_heartbeat, logger/friends shapes, messageCount).
+Spec: [`docs/superpowers/specs/2026-06-05-rev244-b5-server-login-db-design.md`](docs/superpowers/specs/2026-06-05-rev244-b5-server-login-db-design.md).
+Plan: [`docs/superpowers/plans/2026-06-05-rev244-b5-server-login-db.md`](docs/superpowers/plans/2026-06-05-rev244-b5-server-login-db.md).
+16 commits, `8fddfb4d..4e4f8192`.
+
+**User decisions (recorded in the spec):** (1) schema delta ports
+consumer-backed tables PLUS `account_session`/`wealth_event` as dormant
+logger landing sites; website-only models get NOT-PORTED rows; (2)
+login-server-7 closes fully with the legacy `account.logout_time` column
+dropped; (3) friends goes multi-profile with per-message `profile` fields
+(TS-shaped); (4) `world_heartbeat` + `WorldStartupRequest.profile` are
+doc-closures.
+
+**Decision rows**
+
+- ✅ **`PORTING-EXCEPTION (login-server-7)` CLOSED** (`8fddfb4d`) — migration
+  000005 adds per-profile `account_login.logged_out`/`logout_time`
+  (backfilled from `account.logout_time`, which is dropped — closure step v);
+  `setLoggedOut` stamps both per (account, profile) (TS LoginServer.ts:484-496);
+  the M25 safety reject reads the per-profile column, eliminating the
+  multi-profile spurious-reject failure mode. Closure notes in-code at
+  db.go's setLoggedOut. Re-login preserves `logged_out`/`logout_time`
+  (TS :438-457 writes only logged_in/login_time) — pinned (`d08963c0`).
+- ⚠ **`PORTING-EXCEPTION (rev244-b5-startup-profile)` NEW** (marker:
+  `modules/login/handler.go` WorldStartup) — TS 244 dropped `profile` from
+  the world_startup message (LoginClient.ts:13-27) while LoginServer.ts:160-171
+  still filters the account_login reset by the now-undefined value — the
+  upstream reset matches nothing at the pin. goscape KEEPS the field and the
+  per-profile reset (correct behavior over broken-line fidelity;
+  rev244-b3-ws-origin precedent).
+- 🚧 **`world_heartbeat` NO-OP, dead-at-pin consumer** — World.ts:1251-1273
+  savePlayers posts it; LoginThread.ts:183-185 is `case 'world_heartbeat':
+  break;` — the message never reaches the login server (no LoginClient
+  method exists). Producer not modeled (B1 DoublyLinkList dead-at-pin
+  precedent). Closes B3 tracker row 2. The handoff's "login gRPC proto
+  surface" framing was a #177 over-estimate.
+- 🚧 **Worker files NOT-PORTED, platform-inapplicable** (formal rows closing
+  the worker-eval deferral): `src/util/WorkerFactory.ts` (+11),
+  `src/appWorker.ts` (+8), `src/server/worker/WorkerServer.ts` (+50),
+  `src/server/worker/WorkerClientSocket.ts` (+24), and the
+  `STANDALONE_BUNDLE` branches in LoginThread.ts/FriendThread.ts/
+  LoggerThread.ts — browser-bundle mode, architecture-mapped to dskit
+  (worker-eval verdict; B3 NOT-PORTED taxonomy).
+- 🚧 **Website-only schema models NOT-PORTED** (user decision 1): `newspost`,
+  `tag`/`account_tag`, `message_tag`, `mod_action`, `input_report`/
+  `input_report_event_raw` re-shape, the `account`
+  2FA/email/oauth/notes/password_updated columns, the prisma `session`
+  re-shape (goscape's session table already diverged with its own audit
+  columns), and the hiscore PK reorder `(profile, account_id, type)`
+  (index-order only, no behavior; goscape keeps `(profile, type,
+  account_id)`). No goscape consumer for any of these — goscape has no
+  website.
+- ℹ **`account_session`/`wealth_event` dormant landing tables** (`8fddfb4d`)
+  — schema-only (user decision 1), NO Go reader or writer in this public
+  repo (the logger sink is slog-only); the private sibling owns consumers.
+  The message/dormant tables carry NO FK constraints, mirroring the
+  prisma-generated SQL (no `@relation` at the pin — verified against
+  migration `20250303210826_message_centre`). The B4 TRADE
+  recipient_items known-residual row is unchanged.
+- 🚧 **friends `public_chat` account_id resolution NO-LANDING-SITE**
+  (`062a3293`) — TS FriendServer.ts:287-305 resolves username→account_id
+  against the shared account table; goscape's friends DB is
+  username-keyed by design (DB-2 federation, no account table), so the
+  username is stored directly. Pre-244 session_uuid rows preserved as
+  `public_chat_legacy_225` (two-phase preservation pin `550bade5`).
+- ℹ **FriendServerRepository internals NO-OP/N-A** — the orderBy
+  `'f.created', 'asc'` → `'f.created asc'` Kysely-API form change, the
+  addFriend select slimming (`account.members` no longer selected), and
+  the inline 100-cap all target TS's account-id-keyed repository; goscape's
+  username37-keyed repository has no corresponding lines (cap already
+  inline as `friendListLimit`). Verified hunk-by-hunk.
+- ℹ **`LoginClient.remaining` drop already-aligned** — goscape never carried
+  the field (worker-eval §2); the rest of the LoginClient.ts delta is
+  field-order churn (NO-OP).
+- ℹ **`TestHandler_WorldConnect_ProfileMismatch` deleted** (`a7234653`) —
+  pinned the 225 WORLD_CONNECT profile reject that TS deleted at 244
+  (verified: FriendServer.ts:92-103 has no profile comparison at the pin);
+  replaced by an any-profile-accepted pin + multi-profile isolation pins
+  (hard-rule #2: a test can pin removed behavior).
+- ℹ **`friends.node-profile` config field retired** (`a7234653`) — TS 244
+  deleted the server-side `profile = Environment.NODE_PROFILE` field; the
+  friends server no longer validates a configured profile (the world's
+  `world.node-profile` is what it SENDS, unchanged).
+- ℹ **Logger seam adaptation scope** (`4e4f8192`) — `report` re-keyed
+  session→username + world/profile/timestamp (LoggerClient.ts:48-67);
+  `input_track` gains the world/profile envelope (LoggerClient.ts:76-86) —
+  its TS `timestamp` param is NOT modeled (goscape's seam has no
+  caller-supplied timestamp; the slog record carries its own time).
+  `proto/events/v1` message shapes deliberately untouched — the
+  telemetry-split posture (dormant seams stay public; the private
+  sibling owns message shapes). `session_log`→`account_session` and the
+  wealth-event reshape land only as the dormant tables above.
+- ℹ **Rate-limit adaptations** (`53715e4d`) — TS's per-socket `uuid`
+  becomes goscape's per-attempt sessionUUID (same one-row-per-attempt
+  cardinality); TS's `timestamp: toDbDate(nodeTime)` becomes the server
+  clock (no world clock on the RPC; both sides of the 5s window use the
+  same clock — observable unchanged); TS's `if (account)` guard collapses
+  (goscape returns earlier when no account and no auto-register).
+- ℹ Pre-existing patterns NOT touched (quality-review verdicts, recorded
+  as cleanup-pass candidates, no TS counterpart changed at 244): the
+  subscriptions/worldSubscriptions `send` unlock-then-write drop window
+  (pre-dates B5, identical shape at the base SHA); admin_bridge
+  `context.Background()` posture; parse-failure silent-bypass on
+  banned/muted/logout_time timestamp columns (all writers in-package).
+
+**Correspondence audit** — every file in the B5 scope diff → commit / decision:
+
+| TS surface (e1dea19f..9aadcec4) | numstat | goscape commit / decision |
+|---|---|---|
+| `src/server/login/LoginServer.ts` | +59/−4 | rate limit `53715e4d` (+`6804c746`), hop timer `d5240e66`, messageCount wiring `83a8e6d6` (+`5c05394a`), logged_out stamp `8fddfb4d` (+`d08963c0`) |
+| `src/server/login/Messages.ts` | +37 | `83a8e6d6` SQL port (fixture matrix pins the unread semantics) |
+| `src/server/login/LoginClient.ts` | 10/9 | world_startup profile drop → rev244-b5-startup-profile exception; `remaining` drop already-aligned; rest field-order churn **NO-OP** |
+| `src/server/login/LoginThread.ts` | 27/13 | STANDALONE_BUNDLE **NOT-PORTED**; `world_heartbeat: break` → **NO-OP** row |
+| `src/server/login/index.d.ts` | 0/−1 | covered by the `remaining`-drop row |
+| `src/server/friend/FriendServer.ts` | 136/101 | multi-profile `a7234653` (+`30d65a1e`), public_chat re-key `062a3293` (+`550bade5`), profile carriage `704dad98`/`1d173abc` |
+| `src/server/friend/FriendServerRepository.ts` | 13/13 | **NO-OP/N-A** (username37-keyed repo; verdicts row above) |
+| `src/server/friend/FriendThread.ts` | 28/14 | STANDALONE_BUNDLE **NOT-PORTED**; `public_message` username re-key `704dad98`/`1d173abc` |
+| `src/server/logger/LoggerClient.ts` | 13/5 | report + input_track seam re-key `4e4f8192` |
+| `src/server/logger/LoggerServer.ts` (48/16) + `LoggerThread.ts` (31/17) + `WealthEventType.ts` (1/1) | — | dormant-seam decision row: `account_session`/`wealth_event` tables `8fddfb4d`; consumers private-sibling-owned |
+| `src/server/worker/WorkerServer.ts` (+50) + `WorkerClientSocket.ts` (+24) | — | **NOT-PORTED** rows above (with WorkerFactory.ts/appWorker.ts from the B3 surface) |
+| `prisma/singleworld/schema.prisma` (214/71) + `prisma/multiworld/schema.prisma` (213/71) + migrations churn | — | consumer-backed + dormant tables `8fddfb4d` (login) / `062a3293` (friends); website-only models **NOT-PORTED** row; multiworld delta observably identical for the ported models (covered-by-singleworld) |
+| **External:** login wire mapping (World.ts:1871-1911 reply dispatch) | — | `7eb38361` RATE_LIMITED→16 / HOP_TIMER→9 enum + `loginResultToRS2` |
+| **External:** `World.ts:1620-1628` logPublicChat username key + `:677-679` gate | — | `1d173abc` (+`96e5fa60` gofmt) — 225 session gate removed with the re-key |
+
+Every hunk of the scope diff (+ the 2 externals) maps to a commit or decision above — no unmapped hunks.
+
+**Tracker rows (B3 rows closed by this bundle):**
+
+1. **B3 row 1 (login rate limiting absent everywhere) CLOSED** — the 244
+   replacement pair shipped: 3-in-5s same-account+IP (`53715e4d`) + 45s hop
+   timer (`d5240e66`) over the new `login` attempts table + per-profile
+   logged_out columns.
+2. **B3 row 2 (world_heartbeat) CLOSED** — NO-OP, dead-at-pin consumer
+   (decision row above).
+3. **B3 row 4 (logger/friends message shapes) CLOSED for the public repo** —
+   report/input_track seam re-keys + public_message re-key shipped;
+   `proto/events/v1` deltas remain private-sibling-owned (dormant seams
+   stay public and compiling).
+4. **B3 row 5 (messageCount real query) CLOSED** — `83a8e6d6`.
+
+**Gates (2026-06-05):** recorded at bundle close (B5 T13) — build /
+vet (pre-existing-only) / full suite / `-race` on modules/login +
+modules/friends + modules/world. Marker audit: **22** `PORTING-EXCEPTION`
+mentions (was 21 at B4); +1 new id `rev244-b5-startup-profile` (1 mention);
+`login-server-7` retired (0 mentions; closure notes remain in-code).
+
 ---
 
 ## Recent audit history (full log in `docs/PORTING-CLOSED.md`)
@@ -817,3 +973,4 @@ cross-refs `tick.go:272` + `world_stats.go:37`). No B4 ids retired.
 - Arc 29 (2026-06-01): login-server-9 / gap-db-datastruct-9 (hiscore write-path port) — FIXED fix/hiscore-port; promoted from EXCEPTION-DOCUMENTED (med-bundle-19). Migration 000004 adds hiscore + hiscore_large tables; PlayerLogout now calls updateHiscores (LoginServer.ts:450). Write-path parity only (TS has no serving endpoint). See docs/PORTING-CLOSED.md.
 - rev-244 B3 — engine core ported (Engine-TS `e1dea19f..9aadcec4`): PlayerList+pid `94f40331`/`fcc7e212`, entity deltas (setAnim>= `2f10deb6`, regen `dc33a57b`, modals `d5a70fb1`, overlay `ebce9706`), account_id `07e44a61`, InputTrackingBlob `2f67fed2`, rate-limit removal `f4e7571e`, OnDemand `b2e7adac`+`02ce3929`, handshake `1f69f708`, CrcTable `23cbbc02`, PreloadedPacks deleted `59240b70`, HTTP routes `1de71136`, token/WS `130f6583`, MidiPack `0f1ea964` (closes rev244-b2-midi-window), buildArea.clear `7797c9f7`. gap-db-datastruct-4 CLOSED; 3 new PORTING-EXCEPTION ids (crc-compare, ws-origin, ws-ondemand-gate); client smoke + all windows → B6 (user decision). Full correspondence audit in §rev-244 Bundle audit trail above.
 - rev-244 B4 — script runtime ported (Engine-TS `e1dea19f..9aadcec4`, 15 script files + 3 externals): opcode renumber `b663bf63`, huntIterator unify `84b8ea2a`/`491822b8` (NPC_FINDNEXT/npc_huntall split), HINT_NPC/PLAYER `631737b7`, DB_GETFIELD full-column `da896c1a`, InvOps untradeable-stop + wealth re-key `de628f37`, NPC_STATHEAL/MAP_BLOCKED/P_OPOBJ `cb4fab32`, BUFFER_FULL + IF_OPENOVERLAY `0d9f0ad4`, runner deltas `294f5c24`/`c6005b60`, count ops `4268ba95`, cycle stats `c321e11d`+`9a4d9b96`+`aeb70ba7`, MAP_PRODUCTION + MAP_LAST* `5cebb3e9`, IF_SETRECOL wire removal `b7c9d08f`, moved-handler citations `f093d4e6`. CLOSED: B2 IF_SETRECOL deferral, B2→B3→B4 overlay chain, NAI-162-D varbit stubs. 1 new PORTING-EXCEPTION id (`rev244-b4-bwout-reset`); cycle-stats 225-era gap closed (user decision); script.dat numbering window → B6. Full correspondence audit in §rev-244 Bundle audit trail above.
+- rev-244 B5 — server/login/db ported (Engine-TS `e1dea19f..9aadcec4`, 14 server files + 2 prisma schemas + 2 externals): login schema 000005 `8fddfb4d` (+`d08963c0` — attempts table, per-profile logged_out/logout_time backfill, message + dormant account_session/wealth_event tables, account.logout_time dropped), RATE_LIMITED/HOP_TIMER enum + bytes 16/9 `7eb38361`, 3-in-5s rate limit `53715e4d` (+`6804c746`), 45s hop timer `d5240e66`, getUnreadMessageCount `83a8e6d6` (+`5c05394a`), friends profile proto `704dad98`, multi-profile server `a7234653` (+`30d65a1e`), public_chat username re-key `062a3293` (+`550bade5`), world-side profile carriage + username public-chat log `1d173abc` (+`96e5fa60`), logger report/input_track seam re-key `4e4f8192`. CLOSED: PORTING-EXCEPTION login-server-7, B3 tracker rows 1/2/4/5 (rate limit, world_heartbeat dead-at-pin NO-OP, logger/friends shapes public-half, messageCount). 1 new PORTING-EXCEPTION id (`rev244-b5-startup-profile`); worker files + website-only schema models formally NOT-PORTED. Full correspondence audit in §rev-244 Bundle audit trail above.
