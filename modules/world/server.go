@@ -1087,6 +1087,10 @@ func (c *client) handleLogin() error {
 		}
 
 		crcSnap := cache.CRC()
+		// PORTING-EXCEPTION (rev244-b3-crc-compare): per-slot compare vs TS's
+		// CrcBuffer32 hash-of-36-bytes (World.ts:2170) — strictly stronger,
+		// wire-identical. Empty cache → empty Table → all logins rejected
+		// until B6 produces a real cache. See pkg/cache/crctable.go.
 		if !slices.Equal(crcSnap.Table, req.ArchiveChecksums[:]) {
 			// LOG-1: full CRC tables are bulky and only useful at debug time.
 			c.log.Info("invalid checksum", "remote_addr", c.conn.RemoteAddr())

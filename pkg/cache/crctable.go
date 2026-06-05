@@ -65,10 +65,20 @@ func CRC() *CRCSnapshot {
 //
 // CrcBuffer wire shape: always 36 bytes (TS: new Packet(new Uint8Array(4*9))).
 // When count < 9 the unused tail stays zero (faithful to the pre-allocated
-// fixed buffer). CrcTable has exactly count entries.
+// fixed buffer).
 //
-// CrcBuffer32 (TS CrcTable.ts:26): remains dropped — login compares the
-// table, not the 32-bit hash; the divergence is recorded in the audit trail.
+// PORTING-EXCEPTION (rev244-b3-crc-compare, per-slot table vs TS
+// CrcBuffer32): TS 244 leaves CrcTable EMPTY (makeCrcs resets it at
+// CrcTable.ts:13 and never pushes) and the login check compares the single
+// 32-bit hash CrcBuffer32 against getcrc of the client's 36 CRC bytes
+// (World.ts:2170). goscape — since rev-225 — validates per-slot instead:
+// Table here carries count entries and the login compare is
+// slices.Equal(Table, client CRCs) (modules/world server handleLogin).
+// Wire bytes are identical either way; the per-slot predicate is strictly
+// stronger (a crc32-colliding forged blob passes TS, never goscape). An
+// empty/absent cache yields an empty Table → every login rejected
+// out-of-date until a real cache exists (B6-deferred posture).
+// See PORTING.md.
 //
 // Module-init guard (CrcTable.ts:29-33): maps to the existing world-start
 // and ::reload call sites (modules/world/world.go + reload.go). No new call
