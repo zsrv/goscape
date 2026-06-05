@@ -15,7 +15,7 @@ package script
 // diverges from the other three by popping an extra logoutAction and
 // prepending it to the args slice (TS PlayerOps.ts:191).
 
-// handleStrongQueueVarArg implements STRONGQUEUEVARARG (opcode 2118):
+// handleStrongQueueVarArg implements STRONGQUEUEVARARG (opcode 2134):
 // pop popScriptArgs (top), then delay, then scriptID, and enqueue a
 // STRONG queue request. Mirrors TS PlayerOps.ts:110-120.
 //
@@ -33,7 +33,7 @@ func handleStrongQueueVarArg(s *ScriptState) error {
 	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueStrong)
 }
 
-// handleWeakQueueVarArg implements WEAKQUEUEVARARG (opcode 2130):
+// handleWeakQueueVarArg implements WEAKQUEUEVARARG (opcode 2133):
 // identical structure to STRONGQUEUEVARARG with QueueWeak. Mirrors TS
 // PlayerOps.ts:134-144.
 func handleWeakQueueVarArg(s *ScriptState) error {
@@ -46,7 +46,7 @@ func handleWeakQueueVarArg(s *ScriptState) error {
 	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueWeak)
 }
 
-// handleQueueVarArg implements QUEUEVARARG (opcode 2093): identical
+// handleQueueVarArg implements QUEUEVARARG (opcode 2131): identical
 // structure to STRONGQUEUEVARARG with QueueNormal. Mirrors TS
 // PlayerOps.ts:159-169. Does NOT check NumberNotNull on delay (TS
 // asymmetry — only the fixed-arg STRONGQUEUE checks).
@@ -60,7 +60,7 @@ func handleQueueVarArg(s *ScriptState) error {
 	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueNormal)
 }
 
-// handleLongQueueVarArg implements LONGQUEUEVARARG (opcode 2060):
+// handleLongQueueVarArg implements LONGQUEUEVARARG (opcode 2132):
 // pops popScriptArgs (top), then logoutAction, then delay, then scriptID,
 // and enqueues a LONG queue request with the args slice
 // `[logoutAction, ...intArgs]` (logoutAction prepended). Mirrors TS

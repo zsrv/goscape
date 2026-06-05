@@ -409,29 +409,7 @@ func TestIfSetPosition(t *testing.T) {
 	}
 }
 
-func TestIfSetRecol(t *testing.T) {
-	sf := &ScriptFile{
-		Name: "if_setrecol",
-		Opcodes: []Opcode{
-			OpPushConstantInt, // com
-			OpPushConstantInt, // src
-			OpPushConstantInt, // dst
-			OpIfSetRecol,
-			OpReturn,
-		},
-		IntOperands:      []int32{7, 0x123, 0x456, 0, 0},
-		StringOperands:   []string{"", "", "", "", ""},
-		InstructionCount: 5,
-	}
-	mp := &mockPlayer{}
-	state := Init(sf, mp, false, nil, nil)
-	if err := Execute(state); err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if mp.lastIfSetRecol != (struct{ com, src, dst int }{7, 0x123, 0x456}) {
-		t.Errorf("IfSetRecol: got %+v, want {7, 0x123, 0x456}", mp.lastIfSetRecol)
-	}
-}
+// IF_SETRECOL deleted in 244 (ScriptOpcode.ts); TestIfSetRecol removed.
 
 // -- Misc ---------------------------------------------------------------
 
@@ -1070,36 +1048,7 @@ func TestHandleIfSetPositionNullComRejected(t *testing.T) {
 	}
 }
 
-// TestHandleIfSetRecolNullComRejected pins IF_SETRECOL: TS wraps com with
-// NumberNotNull (PlayerOps.ts:689). src and dest are NOT wrapped in TS so
-// only com is covered here.
-func TestHandleIfSetRecolNullComRejected(t *testing.T) {
-	mp := &mockPlayer{}
-	sf := &ScriptFile{
-		Name: "if_setrecol_null_com",
-		Opcodes: []Opcode{
-			OpPushConstantInt, // push com = -1 (bottom)
-			OpPushConstantInt, // push src
-			OpPushConstantInt, // push dest (top)
-			OpIfSetRecol,
-			OpReturn,
-		},
-		IntOperands: []int32{-1, 0x123, 0x456, 0, 0},
-	}
-	state := Init(sf, mp, false, nil, nil)
-
-	err := Execute(state)
-	if err == nil {
-		t.Fatalf("Execute: want error for com=-1, got nil")
-	}
-	want := "IF_SETRECOL: input number was null(-1)"
-	if !strings.Contains(err.Error(), want) {
-		t.Errorf("error: got %q, want substring %q", err.Error(), want)
-	}
-	if mp.lastIfSetRecol != (struct{ com, src, dst int }{0, 0, 0}) {
-		t.Errorf("IfSetRecol: should not have been called, got %+v", mp.lastIfSetRecol)
-	}
-}
+// IF_SETRECOL deleted in 244 (ScriptOpcode.ts); TestHandleIfSetRecolNullComRejected removed.
 
 // TestHandleIfSetTabActiveNullRejected pins IF_SETTABACTIVE: TS wraps tab with
 // NumberNotNull (PlayerOps.ts:674).

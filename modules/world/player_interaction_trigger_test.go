@@ -51,7 +51,7 @@ func buildOpPlayerHintPlScript(trigger script.ServerTriggerType) *script.ScriptF
 	return &script.ScriptFile{
 		Name:             "[opplayer1,_]",
 		LookupKey:        script.LookupKeyForGlobal(trigger),
-		Opcodes:          []script.Opcode{script.OpHintPl, script.OpReturn},
+		Opcodes:          []script.Opcode{script.OpHintPlayer, script.OpReturn},
 		IntOperands:      []int32{0, 0},
 		StringOperands:   []string{"", ""},
 		InstructionCount: 2,

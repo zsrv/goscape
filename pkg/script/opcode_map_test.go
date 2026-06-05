@@ -6,19 +6,14 @@ import (
 	"testing"
 )
 
-// TestScriptOpcodeMap_LengthParity pins spec §7.4: 393 entries verified
-// at plan-write against TS ScriptOpcode.ts via
-//
-//	awk '/^export const ScriptOpcodeMap/,/^]\)/' ScriptOpcode.ts |
-//	grep -c "^\s*\['"
-//
-// If TS upstream adds opcodes, this count rises and the test fails —
-// implementer updates the count after re-running the awk against
-// LostCityRS/Engine-TS HEAD.
+// TestScriptOpcodeMap_LengthParity pins spec §7.4: 413 entries verified
+// at 244 pin 9aadcec4 against TS ScriptOpcode.ts (rev-244 B4).
+// Was 393 at 225; 244 adds ops and removes MAP_LIVE/STAT_TOTAL/IF_SETRECOL/
+// PUSH_VARBIT/POP_VARBIT.
 func TestScriptOpcodeMap_LengthParity(t *testing.T) {
-	const wantLen = 393
+	const wantLen = 413
 	if got := len(ScriptOpcodeMap); got != wantLen {
-		t.Fatalf("len(ScriptOpcodeMap) = %d, want %d (re-verify against TS ScriptOpcode.ts:445)", got, wantLen)
+		t.Fatalf("len(ScriptOpcodeMap) = %d, want %d (re-verify against TS ScriptOpcode.ts at pin 9aadcec4)", got, wantLen)
 	}
 }
 
@@ -106,7 +101,7 @@ func TestScriptOpcodeMap_ReverseCoverage(t *testing.T) {
 	}
 
 	missing := []Opcode{}
-	for i := 0; i <= int(OpTimeSpent); i++ {
+	for i := 0; i <= int(OpConsole); i++ {
 		op := Opcode(i)
 		name := op.String()
 		if strings.HasPrefix(name, "opcode_") {

@@ -205,7 +205,7 @@ func checkIdkType(s *ScriptState, id int, op string) error {
 	return nil
 }
 
-// handlePAnimProtect (P_ANIMPROTECT, opcode 2066) sets the active player's
+// handlePAnimProtect (P_ANIMPROTECT, opcode 2123) sets the active player's
 // animProtect flag. While nonzero, the (*Player).PlayAnim reader gate at
 // TS Player.ts:1842 suppresses in-engine animation requests (NAI-56).
 // Mirrors TS PlayerOps.ts:1171-1172.
@@ -221,7 +221,7 @@ func handlePAnimProtect(s *ScriptState) error {
 	return nil
 }
 
-// handleAllowDesign (ALLOWDESIGN, opcode 2001) sets the active player's
+// handleAllowDesign (ALLOWDESIGN, opcode 2000) sets the active player's
 // allowDesign flag. Pops one int, rejects -1 via NumberNotNull, and stores
 // (v == 1) as a bool. Gate is ActivePlayer (not Protected). Mirrors TS
 // PlayerOps.ts:1022-1024. The gate permits `IfPlayerDesign` inbound packets
@@ -238,7 +238,7 @@ func handleAllowDesign(s *ScriptState) error {
 	return nil
 }
 
-// handleBuildAppearance (BUILDAPPEARANCE, opcode 2004) validates the popped
+// handleBuildAppearance (BUILDAPPEARANCE, opcode 2010) validates the popped
 // InvType id and stages an appearance refresh on the active player. Mirrors
 // TS PlayerOps.ts:202-204. Gate is ActivePlayer (not Protected). Validator
 // mirrors TS InvTypeValid. The setter writes both Player.appearanceInv and
@@ -257,7 +257,7 @@ func handleBuildAppearance(s *ScriptState) error {
 	return nil
 }
 
-// handleSetIdKit (SETIDKIT, opcode 2100) sets one body-part slot on the
+// handleSetIdKit (SETIDKIT, opcode 2115) sets one body-part slot on the
 // active player's appearance. Pops (idkit int, color int) from the stack.
 // Validates idkit via Configs.IdkType; writes body[slot] and
 // colors[colorSlot] (slot adjusted for gender). Script must call
@@ -333,19 +333,7 @@ func handleStatBase(s *ScriptState) error {
 	return nil
 }
 
-// handleStatTotal pushes the sum of all base levels. Per the spec we
-// iterate via StatBase to avoid adding another interface method.
-func handleStatTotal(s *ScriptState) error {
-	if err := requireActivePlayer(s, "STAT_TOTAL"); err != nil {
-		return err
-	}
-	total := 0
-	for i := 0; i < NumStats; i++ {
-		total += s.activePlayer().StatBase(i)
-	}
-	s.PushInt(total)
-	return nil
-}
+// STAT_TOTAL deleted in 244 (ScriptOpcode.ts); handleStatTotal removed.
 
 // -- Stat mutation ops ---------------------------------------------------
 //
@@ -692,7 +680,7 @@ func handleCoord(s *ScriptState) error {
 	return nil
 }
 
-// handleDisplayName (DISPLAYNAME, opcode 2016) pushes the active
+// handleDisplayName (DISPLAYNAME, opcode 2022) pushes the active
 // player's display name. Mirrors TS PlayerOps.ts:235-237.
 //
 // Pointer gate: require active_player (TS ScriptOpcodePointers.ts
@@ -918,96 +906,96 @@ func handleSpotAnimPl(s *ScriptState) error {
 	return nil
 }
 
-// handleReadyAnim implements READYANIM — pops a seq id, stores as the
-// player's idle/stand animation. Mirrors TS PlayerOps.ts:935-937
-// (check(state.popInt(), SeqTypeValid).id).
-func handleReadyAnim(s *ScriptState) error {
-	if err := requireActivePlayer(s, "READYANIM"); err != nil {
+// handleBasReadyAnim implements BAS_READYANIM (renamed from READYANIM in 244) —
+// pops a seq id, stores as the player's idle/stand animation.
+// Mirrors TS PlayerOps.ts:935-937 (check(state.popInt(), SeqTypeValid).id).
+func handleBasReadyAnim(s *ScriptState) error {
+	if err := requireActivePlayer(s, "BAS_READYANIM"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
-	if err := checkSeqType(s, seq, "READYANIM"); err != nil {
+	if err := checkSeqType(s, seq, "BAS_READYANIM"); err != nil {
 		return err
 	}
 	s.activePlayer().SetReadyAnim(seq)
 	return nil
 }
 
-// handleTurnAnim implements TURNANIM. Mirrors TS PlayerOps.ts:939-941
-// (check(state.popInt(), SeqTypeValid).id).
-func handleTurnAnim(s *ScriptState) error {
-	if err := requireActivePlayer(s, "TURNANIM"); err != nil {
+// handleBasTurnOnSpot implements BAS_TURNONSPOT (renamed from TURNANIM in 244).
+// Mirrors TS PlayerOps.ts:939-941 (check(state.popInt(), SeqTypeValid).id).
+func handleBasTurnOnSpot(s *ScriptState) error {
+	if err := requireActivePlayer(s, "BAS_TURNONSPOT"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
-	if err := checkSeqType(s, seq, "TURNANIM"); err != nil {
+	if err := checkSeqType(s, seq, "BAS_TURNONSPOT"); err != nil {
 		return err
 	}
 	s.activePlayer().SetTurnAnim(seq)
 	return nil
 }
 
-// handleWalkAnim implements WALKANIM. Mirrors TS PlayerOps.ts:943-945
-// (check(state.popInt(), SeqTypeValid).id).
-func handleWalkAnim(s *ScriptState) error {
-	if err := requireActivePlayer(s, "WALKANIM"); err != nil {
+// handleBasWalkF implements BAS_WALK_F (renamed from WALKANIM in 244).
+// Mirrors TS PlayerOps.ts:943-945 (check(state.popInt(), SeqTypeValid).id).
+func handleBasWalkF(s *ScriptState) error {
+	if err := requireActivePlayer(s, "BAS_WALK_F"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
-	if err := checkSeqType(s, seq, "WALKANIM"); err != nil {
+	if err := checkSeqType(s, seq, "BAS_WALK_F"); err != nil {
 		return err
 	}
 	s.activePlayer().SetWalkAnim(seq)
 	return nil
 }
 
-// handleWalkAnimB implements WALKANIM_B (backward). Mirrors TS
-// PlayerOps.ts:947-949 (check(state.popInt(), SeqTypeValid).id).
-func handleWalkAnimB(s *ScriptState) error {
-	if err := requireActivePlayer(s, "WALKANIM_B"); err != nil {
+// handleBasWalkB implements BAS_WALK_B (renamed from WALKANIM_B in 244).
+// Mirrors TS PlayerOps.ts:947-949 (check(state.popInt(), SeqTypeValid).id).
+func handleBasWalkB(s *ScriptState) error {
+	if err := requireActivePlayer(s, "BAS_WALK_B"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
-	if err := checkSeqType(s, seq, "WALKANIM_B"); err != nil {
+	if err := checkSeqType(s, seq, "BAS_WALK_B"); err != nil {
 		return err
 	}
 	s.activePlayer().SetWalkAnimB(seq)
 	return nil
 }
 
-// handleWalkAnimL implements WALKANIM_L (strafe left). Mirrors TS
-// PlayerOps.ts:951-953 (check(state.popInt(), SeqTypeValid).id).
-func handleWalkAnimL(s *ScriptState) error {
-	if err := requireActivePlayer(s, "WALKANIM_L"); err != nil {
+// handleBasWalkL implements BAS_WALK_L (renamed from WALKANIM_L in 244).
+// Mirrors TS PlayerOps.ts:951-953 (check(state.popInt(), SeqTypeValid).id).
+func handleBasWalkL(s *ScriptState) error {
+	if err := requireActivePlayer(s, "BAS_WALK_L"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
-	if err := checkSeqType(s, seq, "WALKANIM_L"); err != nil {
+	if err := checkSeqType(s, seq, "BAS_WALK_L"); err != nil {
 		return err
 	}
 	s.activePlayer().SetWalkAnimL(seq)
 	return nil
 }
 
-// handleWalkAnimR implements WALKANIM_R (strafe right). Mirrors TS
-// PlayerOps.ts:955-957 (check(state.popInt(), SeqTypeValid).id).
-func handleWalkAnimR(s *ScriptState) error {
-	if err := requireActivePlayer(s, "WALKANIM_R"); err != nil {
+// handleBasWalkR implements BAS_WALK_R (renamed from WALKANIM_R in 244).
+// Mirrors TS PlayerOps.ts:955-957 (check(state.popInt(), SeqTypeValid).id).
+func handleBasWalkR(s *ScriptState) error {
+	if err := requireActivePlayer(s, "BAS_WALK_R"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
-	if err := checkSeqType(s, seq, "WALKANIM_R"); err != nil {
+	if err := checkSeqType(s, seq, "BAS_WALK_R"); err != nil {
 		return err
 	}
 	s.activePlayer().SetWalkAnimR(seq)
 	return nil
 }
 
-// handleRunAnim implements RUNANIM. Mirrors TS PlayerOps.ts:959-966 —
-// -1 is a clear-sentinel that bypasses SeqTypeValid; any other id is
-// validated against SeqTypeValid before being stored.
-func handleRunAnim(s *ScriptState) error {
-	if err := requireActivePlayer(s, "RUNANIM"); err != nil {
+// handleBasRunning implements BAS_RUNNING (renamed from RUNANIM in 244).
+// Mirrors TS PlayerOps.ts:959-966 — -1 is a clear-sentinel that bypasses
+// SeqTypeValid; any other id is validated against SeqTypeValid before storing.
+func handleBasRunning(s *ScriptState) error {
+	if err := requireActivePlayer(s, "BAS_RUNNING"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
@@ -1015,14 +1003,14 @@ func handleRunAnim(s *ScriptState) error {
 		s.activePlayer().SetRunAnim(-1)
 		return nil
 	}
-	if err := checkSeqType(s, seq, "RUNANIM"); err != nil {
+	if err := checkSeqType(s, seq, "BAS_RUNNING"); err != nil {
 		return err
 	}
 	s.activePlayer().SetRunAnim(seq)
 	return nil
 }
 
-// handleWalkTrigger (P_WALKTRIGGER, opcode 2128) sets the active player's
+// handleWalkTrigger (WALKTRIGGER, opcode 2095) sets the active player's
 // queued walktrigger script id. Pops one int. Mirrors TS PlayerOps.ts:1035-1037.
 // Consumed by (*Player).processWalktrigger on the next interaction tick.
 func handleWalkTrigger(s *ScriptState) error {
@@ -1033,7 +1021,7 @@ func handleWalkTrigger(s *ScriptState) error {
 	return nil
 }
 
-// handleGetWalkTrigger (GETWALKTRIGGER, opcode 2023) pushes the active
+// handleGetWalkTrigger (GETWALKTRIGGER, opcode 2117) pushes the active
 // player's current walktrigger script id. Returns -1 when unset.
 // Mirrors TS PlayerOps.ts:1039-1042.
 func handleGetWalkTrigger(s *ScriptState) error {
@@ -1111,7 +1099,7 @@ func handlePApRange(s *ScriptState) error {
 
 // -- p_op* script-queued interaction anchoring (S6v) --------------------
 
-// handleP_OpLoc (P_OPLOC, opcode 2077) re-anchors the active player on
+// handleP_OpLoc (P_OPLOC, opcode 2080) re-anchors the active player on
 // the active loc with AP trigger APLOC<op>. Matches TS
 // PlayerOps.ts:386-402.
 //
@@ -1293,7 +1281,7 @@ func handlePFindUID(s *ScriptState) error {
 	return nil
 }
 
-// handleMidiSong (MIDI_SONG, opcode 2064) plays a MIDI song by name to
+// handleMidiSong (MIDI_SONG, opcode 2068) plays a MIDI song by name to
 // the active player. Silent no-op if the player has lowMemory set.
 // Mirrors TS PlayerOps.ts:796-804.
 //
@@ -1314,7 +1302,7 @@ func handleMidiSong(s *ScriptState) error {
 	return nil
 }
 
-// handleMidiJingle (MIDI_JINGLE, opcode 2063) plays a short MIDI jingle
+// handleMidiJingle (MIDI_JINGLE, opcode 2067) plays a short MIDI jingle
 // by name and delay to the active player. Silent no-op if the player
 // has lowMemory set. Mirrors TS PlayerOps.ts:806-816.
 //
@@ -1343,7 +1331,7 @@ func handleMidiJingle(s *ScriptState) error {
 	return nil
 }
 
-// handleSoundSynth (SOUND_SYNTH, opcode 2104) plays a synthesized
+// handleSoundSynth (SOUND_SYNTH, opcode 2098) plays a synthesized
 // sound effect to the active player. Silent no-op if the player has
 // lowMemory set. Mirrors TS PlayerOps.ts:466-474.
 //
@@ -1369,7 +1357,7 @@ func handleSoundSynth(s *ScriptState) error {
 	return nil
 }
 
-// handleHuntAll (HUNTALL, opcode 2031) pops [coord, distance, huntvis]
+// handleHuntAll (HUNTALL, opcode 1004) pops [coord, distance, huntvis]
 // and stores a HuntAll-mode PlayerIterator in s.playerIterator
 // (consumed by HUNTNEXT 2032 in T5). Mirrors TS PlayerOps.ts:1215-1223.
 //
@@ -1402,7 +1390,7 @@ func handleHuntAll(s *ScriptState) error {
 	return nil
 }
 
-// handleHuntNext (HUNTNEXT, opcode 2032) advances the active
+// handleHuntNext (HUNTNEXT, opcode 1005) advances the active
 // PlayerIterator and either sets active_player + pushes 1 on hit, or
 // pushes 0 on miss / nil-iterator. Mirrors TS PlayerOps.ts:1226-1233
 // and the analogous NPC handler at handlers_npc.go:641 (handleNpcFindNext).
@@ -1444,7 +1432,7 @@ func handleHuntNext(s *ScriptState) error {
 	return nil
 }
 
-// handleHintNpc (HINT_NPC, opcode 2028) sends a HintArrow type=1 wire
+// handleHintNpc (HINT_NPC, opcode 2032) sends a HintArrow type=1 wire
 // packet to the active player, pointing at the active NPC. Mirrors TS
 // PlayerOps.ts:972-974:
 //
@@ -1464,7 +1452,7 @@ func handleHintNpc(s *ScriptState) error {
 	return nil
 }
 
-// handleHintCoord (HINT_COORD, opcode 2027) sends a HintArrow type=2..6
+// handleHintCoord (HINT_COORD, opcode 2031) sends a HintArrow type=2..6
 // (TILE) wire packet to the active player at the unpacked coord. Pop
 // order: [offset, coord, height] (per TS popInts(3) destructuring at
 // PlayerOps.ts:867); goscape's PopInt order is height, coord, offset.
@@ -1484,18 +1472,18 @@ func handleHintCoord(s *ScriptState) error {
 	return nil
 }
 
-// handleHintPl (HINT_PL, opcode 2029) sends a HintArrow type=10 (PL)
-// wire packet to the active player, pointing at the secondary
+// handleHintPlayer (HINT_PLAYER, renamed from HINT_PL in 244) sends a HintArrow
+// type=10 (PL) wire packet to the active player, pointing at the secondary
 // active_player2 by slot. Mirrors TS PlayerOps.ts:976-978:
 //
 //	state.activePlayer.hintPlayer(state.activePlayer2.slot)
 //
 // Requires both active_player and active_player2 to be bound. NAI-39.
-func handleHintPl(s *ScriptState) error {
-	if err := requireActivePlayer(s, "HINT_PL"); err != nil {
+func handleHintPlayer(s *ScriptState) error {
+	if err := requireActivePlayer(s, "HINT_PLAYER"); err != nil {
 		return err
 	}
-	if err := requireActivePlayer2(s, "HINT_PL"); err != nil {
+	if err := requireActivePlayer2(s, "HINT_PLAYER"); err != nil {
 		return err
 	}
 	// L14: the target slot is operand-aware (TS state.activePlayer2, which
@@ -1504,7 +1492,7 @@ func handleHintPl(s *ScriptState) error {
 	return nil
 }
 
-// handleHintStop (HINT_STOP, opcode 2030) sends a HintArrow type=-1
+// handleHintStop (HINT_STOP, opcode 2034) sends a HintArrow type=-1
 // (STOP) wire packet to the active player, clearing any active hint.
 // Mirrors TS PlayerOps.ts:873-875. NAI-39.
 func handleHintStop(s *ScriptState) error {
@@ -1536,7 +1524,7 @@ func handleTextGender(s *ScriptState) error {
 	return nil
 }
 
-// handleP_OpObj (P_OPOBJ, opcode 2080) re-anchors the active player on
+// handleP_OpObj (P_OPOBJ, opcode 2083) re-anchors the active player on
 // the active obj with AP trigger APOBJ<op>. Pops 1-based op, validates
 // [1,5], looks up ObjType.Op[op-1] and silently returns if empty.
 // Else: StopAction → QueueWaypoint to obj tile → SetInteractionScriptObj.
@@ -1576,11 +1564,11 @@ func handleP_OpObj(s *ScriptState) error {
 	return nil
 }
 
-// handleLowMem (LOWMEM, opcode 2061) pushes 1 if the active player's
-// client requested low-memory mode at login, else 0. Mirrors TS
+// handleLowMemory (LOWMEMORY, renamed from LOWMEM in 244) pushes 1 if the active
+// player's client requested low-memory mode at login, else 0. Mirrors TS
 // PlayerOps.ts:1062-1064: pushes state.activePlayer.lowMemory ? 1 : 0.
-func handleLowMem(s *ScriptState) error {
-	if err := requireActivePlayer(s, "LOWMEM"); err != nil {
+func handleLowMemory(s *ScriptState) error {
+	if err := requireActivePlayer(s, "LOWMEMORY"); err != nil {
 		return err
 	}
 	if s.activePlayer().LowMemory() {
@@ -1591,14 +1579,14 @@ func handleLowMem(s *ScriptState) error {
 	return nil
 }
 
-// handleBusy (BUSY, opcode 2005) pushes 1 if the active player is busy
+// handleBusy (BUSY, opcode 2011) pushes 1 if the active player is busy
 // (delayed/main-or-chat-modal-open) OR is in the logout-in-progress state,
 // else 0. Mirrors TS PlayerOps.ts:893-895:
 //
 //	state.pushInt(state.activePlayer.busy() || state.activePlayer.loggingOut ? 1 : 0);
 //
 // Gate: ActivePlayer (no Protected requirement). Distinct from BUSY2
-// (opcode 2006) which uses HasInteraction()||HasWaypoints(). The
+// (opcode 2118) which uses HasInteraction()||HasWaypoints(). The
 // loggingOut arm is the conspicuous TS-asymmetry vs BUSY2. NAI-163 B0.
 func handleBusy(s *ScriptState) error {
 	if err := requireActivePlayer(s, "BUSY"); err != nil {
@@ -1612,7 +1600,7 @@ func handleBusy(s *ScriptState) error {
 	return nil
 }
 
-// handleBusy2 (BUSY2, opcode 2006) pushes 1 if the active player has either
+// handleBusy2 (BUSY2, opcode 2118) pushes 1 if the active player has either
 // an interaction target OR queued waypoints, else 0. Mirrors TS
 // PlayerOps.ts:898-900 (https://x.com/JagexAsh/status/1791053667228856563):
 //
@@ -1632,7 +1620,7 @@ func handleBusy2(s *ScriptState) error {
 	return nil
 }
 
-// handlePOpNpcT (P_OPNPCT, opcode 2079) anchors the active player on the
+// handlePOpNpcT (P_OPNPCT, opcode 2082) anchors the active player on the
 // active NPC with the APNPCT/OPNPCT trigger family and stores spellCom as
 // the targetSubject.com. Mirrors TS PlayerOps.ts:417-421
 // (https://x.com/JagexAsh/status/1791472651623370843):
@@ -1661,7 +1649,7 @@ func handlePOpNpcT(s *ScriptState) error {
 	return nil
 }
 
-// handlePOpPlayer (P_OPPLAYER, opcode 2081) anchors the active player on the
+// handlePOpPlayer (P_OPPLAYER, opcode 2084) anchors the active player on the
 // secondary active player (Self2) with the APPLAYER<op>/OPPLAYER<op> trigger
 // family. Mirrors TS PlayerOps.ts:1009-1020
 // (https://x.com/JagexAsh/status/1791472651623370843):
@@ -1699,7 +1687,7 @@ func handlePOpPlayer(s *ScriptState) error {
 	return nil
 }
 
-// handleFindHero (FINDHERO, opcode 2018) returns the player with the
+// handleFindHero (FINDHERO, opcode 2119) returns the player with the
 // largest HeroPoints credit on the OPERAND-RESOLVED active player's ledger,
 // binding the result to the raw SECONDARY active-player slot. Pushes 1 on
 // success, 0 if the ledger is empty, the resolved player has logged out, or
@@ -1737,7 +1725,7 @@ func handleFindHero(s *ScriptState) error {
 	return nil
 }
 
-// handleBothHeroPoints (BOTH_HEROPOINTS, opcode 2003) credits `damage`
+// handleBothHeroPoints (BOTH_HEROPOINTS, opcode 2120) credits `damage`
 // to the receiving player's HeroPoints ledger, attributed to the
 // sending player's UID. IntOperand selects the swap direction:
 //

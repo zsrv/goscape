@@ -3,7 +3,7 @@ package script
 import "fmt"
 
 // MapFindSquareType selects the line-of-walk / line-of-sight gate for
-// MAP_FINDSQUARE (opcode 1009). Mirrors TS MapFindSquareType enum at
+// MAP_FINDSQUARE (opcode 1015). Mirrors TS MapFindSquareType enum at
 // Engine-TS/src/engine/entity/MapFindSquareType.ts. NAI-35-T6.
 type MapFindSquareType int
 

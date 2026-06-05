@@ -41,7 +41,7 @@ func handleClearSoftTimer(s *ScriptState) error {
 	return nil
 }
 
-// handleGetTimer (GETTIMER, opcode 2022) pops scriptID, validates it
+// handleGetTimer (GETTIMER, opcode 2019) pops scriptID, validates it
 // resolves to a registered script (TS PlayerOps.ts:852-854), and pushes
 // the absolute clock tick (TS PlayerOps.ts:858) of the matching timer
 // or -1 if no timer is registered (TS PlayerOps.ts:863).

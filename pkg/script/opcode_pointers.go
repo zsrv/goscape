@@ -94,13 +94,13 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		Require:  []string{"active_player"},
 		Require2: []string{"active_player2"},
 	},
-	OpReadyAnim:       {Require: []string{"active_player"}},
-	OpRunAnim:         {Require: []string{"active_player"}},
-	OpTurnAnim:        {Require: []string{"active_player"}},
-	OpWalkAnimB:       {Require: []string{"active_player"}},
-	OpWalkAnim:        {Require: []string{"active_player"}},
-	OpWalkAnimL:       {Require: []string{"active_player"}},
-	OpWalkAnimR:       {Require: []string{"active_player"}},
+	OpBasReadyAnim:  {Require: []string{"active_player"}},
+	OpBasRunning:    {Require: []string{"active_player"}},
+	OpBasTurnOnSpot: {Require: []string{"active_player"}},
+	OpBasWalkB:      {Require: []string{"active_player"}},
+	OpBasWalkF:      {Require: []string{"active_player"}},
+	OpBasWalkL:      {Require: []string{"active_player"}},
+	OpBasWalkR:      {Require: []string{"active_player"}},
 	OpBuildAppearance: {Require: []string{"active_player"}},
 	OpBusy: {
 		Require:  []string{"active_player"},
@@ -174,7 +174,7 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 	OpHealEnergy:   {Require: []string{"active_player"}},
 	OpHintCoord:    {Require: []string{"active_player"}},
 	OpHintNpc:      {Require: []string{"active_player", "active_npc"}},
-	OpHintPl:       {Require: []string{"active_player", "active_player2"}},
+	OpHintPlayer:   {Require: []string{"active_player", "active_player2"}},
 	OpHintStop:     {Require: []string{"active_player"}},
 	OpHuntAll:      {Set: []string{"find_player"}},
 	OpHuntNext: {
@@ -220,7 +220,7 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 	OpIfSetObject:        {Require: []string{"active_player"}},
 	OpIfSetPlayerHead:    {Require: []string{"active_player"}},
 	OpIfSetPosition:      {Require: []string{"active_player"}},
-	OpIfSetRecol:         {Require: []string{"active_player"}},
+	// OpIfSetRecol deleted in 244 (ScriptOpcode.ts); row removed.
 	OpIfSetResumeButtons: {Require: []string{"active_player"}},
 	OpIfSetTab:           {Require: []string{"active_player"}},
 	OpIfSetTabActive: {
@@ -248,7 +248,7 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		Require:  []string{"active_player"},
 		Require2: []string{"active_player2"},
 	},
-	OpLowMem: {Require: []string{"active_player"}},
+	OpLowMemory: {Require: []string{"active_player"}},
 	OpMes: {
 		Require:  []string{"active_player"},
 		Require2: []string{"active_player2"},
@@ -459,6 +459,18 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		Require:  []string{"active_player"},
 		Require2: []string{"active_player2"},
 	},
+	// New in 244: BUFFER_FULL, NPC_HUNTNEXT, IF_OPENOVERLAY, LAST_COORD.
+	// ScriptOpcodePointers.ts lines cited from TS pin 9aadcec4.
+	OpBufferFull: {Require: []string{"active_player"}},
+	OpNpcHuntNext: {
+		Require:     []string{"find_npc"},
+		Require2:    []string{"find_npc"},
+		Set:         []string{"active_npc"},
+		Set2:        []string{"active_npc2"},
+		Conditional: true,
+	},
+	OpIfOpenOverlay: {Require: []string{"active_player"}, Require2: []string{"active_player2"}},
+	OpLastCoord:     {Require: []string{"active_player"}, Require2: []string{"active_player2"}},
 
 	// Npc ops
 	OpNpcAdd: {

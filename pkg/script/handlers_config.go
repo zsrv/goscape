@@ -179,7 +179,7 @@ func handleEnumGetOutputCount(s *ScriptState) error {
 
 // -- StructOps --
 
-// handleStructParam (STRUCT_PARAM, opcode 4700) pops [structID, paramID]
+// handleStructParam (STRUCT_PARAM, opcode 1028) pops [structID, paramID]
 // (paramID is stack top) and delegates to paramLookup.
 func handleStructParam(s *ScriptState) error {
 	if err := requireConfigs(s, "STRUCT_PARAM"); err != nil {
@@ -347,7 +347,7 @@ func handleNcParam(s *ScriptState) error {
 	return paramLookup(s, nt.Params, paramID, "NC_PARAM")
 }
 
-// handleNpcParam (NPC_PARAM, opcode 2529) reads a param from the
+// handleNpcParam (NPC_PARAM, opcode 2523) reads a param from the
 // ACTIVE npc's NpcType (vs. NC_PARAM which pops an explicit npcID).
 // Pop order: paramID. Mirrors TS NpcOps.ts:132-141 — checkedHandler
 // (ActiveNpc) + ParamHelper.getIntParam / getStringParam.

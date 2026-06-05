@@ -36,16 +36,6 @@ func handleMapMembers(s *ScriptState) error {
 	return nil
 }
 
-// handleMapLive pushes 1 if the server is in production, else 0.
-// TS: state.pushInt(Environment.NODE_PRODUCTION ? 1 : 0).
-func handleMapLive(s *ScriptState) error {
-	if s.World == nil {
-		return fmt.Errorf("MAP_LIVE: %w", ErrNoWorld)
-	}
-	s.PushInt(s.World.MapLive())
-	return nil
-}
-
 // handleInZone pops [from, to, pos] (pos on top) and pushes 1 if pos
 // is inside the box [from..to] on all of x/z/level, else 0. Matches
 // TS ServerOps.ts INZONE (axis-aligned inclusive bounds).
@@ -147,7 +137,7 @@ func handleMapIndoors(s *ScriptState) error {
 	return nil
 }
 
-// handleWorldDelay (WORLD_DELAY, opcode 1021) suspends the active
+// handleWorldDelay (WORLD_DELAY, opcode 1029) suspends the active
 // script to the world-script queue. The wakeup-tick value is NOT
 // popped here — it remains on the script's int stack and is popped by
 // the suspending caller (resumeOrFinish for player path, resumeOrFinishNpc

@@ -86,7 +86,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPlayerCount: handlePlayerCount,
 	OpMoveCoord:   handleMoveCoord,
 	OpMapMembers:  handleMapMembers,
-	OpMapLive:     handleMapLive,
+	// MAP_LIVE deleted in 244 (ScriptOpcode.ts); MAP_PRODUCTION lands in Task 12.
 	OpInZone:      handleInZone,
 	OpSeqLength:   handleSeqLength,
 	OpMapIndoors:  handleMapIndoors,
@@ -133,8 +133,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLineOfWalk:     handleLineOfWalk,
 	OpInvDropAll:     handleInvDropAll,
 	OpInvDropSlot:    handleInvDropSlot,
-	// NAI-115 stretch: LOWMEM surfaced by Tutorial Island smoke.
-	OpLowMem: handleLowMem,
+	// NAI-115 stretch: LOWMEMORY (renamed from LOWMEM in 244).
+	OpLowMemory: handleLowMemory,
 	// NAI-149 T2: PLAYERMEMBER.
 	OpPlayerMember: handlePlayerMember,
 	// NAI-149 T3: AFK_EVENT.
@@ -177,7 +177,6 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLocChange:   handleLocChange,
 	OpLocDel:      handleLocDel,
 	OpLocName:     handleLocName,
-	OpLocOp:       handleLocOp,
 	OpLocParam:    handleLocParam,
 	OpLocShape:    handleLocShape,
 	OpLocType:     handleLocType,
@@ -238,10 +237,10 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// S5c: player stat/coord/facing/anim.
 	// Stat read + mutation ops.
-	OpStat:        handleStat,
-	OpStatBase:    handleStatBase,
-	OpStatTotal:   handleStatTotal,
-	OpStatAdd:     handleStatAdd,
+	// STAT_TOTAL deleted in 244 (ScriptOpcode.ts).
+	OpStat:     handleStat,
+	OpStatBase: handleStatBase,
+	OpStatAdd:  handleStatAdd,
 	OpStatSub:     handleStatSub,
 	OpStatBoost:   handleStatBoost,
 	OpStatDrain:   handleStatDrain,
@@ -258,17 +257,17 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPTeleJump:   handlePTeleJump,
 	// NAI-160 T4: P_EXACTMOVE.
 	OpPExactMove: handlePExactMove,
-	// Animation.
+	// Animation. BAS_* family renamed from READYANIM/RUNANIM/TURNANIM/WALKANIM_* in 244.
 	OpAnim:           handleAnim,
 	OpBothHeroPoints: handleBothHeroPoints,
 	OpSpotAnimPl:     handleSpotAnimPl,
-	OpReadyAnim:      handleReadyAnim,
-	OpTurnAnim:       handleTurnAnim,
-	OpWalkAnim:       handleWalkAnim,
-	OpWalkAnimB:      handleWalkAnimB,
-	OpWalkAnimL:      handleWalkAnimL,
-	OpWalkAnimR:      handleWalkAnimR,
-	OpRunAnim:        handleRunAnim,
+	OpBasReadyAnim:   handleBasReadyAnim,
+	OpBasTurnOnSpot:  handleBasTurnOnSpot,
+	OpBasWalkF:       handleBasWalkF,
+	OpBasWalkB:       handleBasWalkB,
+	OpBasWalkL:       handleBasWalkL,
+	OpBasWalkR:       handleBasWalkR,
+	OpBasRunning:     handleBasRunning,
 	// NAI-51: walktrigger consumer ops (Player side).
 	OpWalkTrigger:    handleWalkTrigger,
 	OpGetWalkTrigger: handleGetWalkTrigger,
@@ -342,7 +341,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpInvAllStock:   handleInvAllStock,
 	OpSetSkinColour: handleSetSkinColour,
 	// SETGENDER body port + GenderValid validator slice (T4).
-	OpSetGender: handleSetGender, // opcode 2099
+	OpSetGender: handleSetGender, // opcode 2121 (244)
 	// Mutations (8).
 	OpInvAdd:             handleInvAdd,
 	OpInvDel:             handleInvDel,
@@ -372,7 +371,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpTutOpen:        handleTutOpen,
 	OpTutClose:       handleTutClose,
 	OpTutFlash:       handleTutFlash,
-	// Per-component setters (12).
+	// Per-component setters (11). IF_SETRECOL deleted in 244 (ScriptOpcode.ts).
 	OpIfSetText:       handleIfSetText,
 	OpIfSetModel:      handleIfSetModel,
 	OpIfSetNpcHead:    handleIfSetNpcHead,
@@ -383,7 +382,6 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpIfSetObject:     handleIfSetObject,
 	OpIfSetColour:     handleIfSetColour,
 	OpIfSetPosition:   handleIfSetPosition,
-	OpIfSetRecol:      handleIfSetRecol,
 	// Misc (2).
 	OpIfSetTabActive:     handleIfSetTabActive,
 	OpIfSetResumeButtons: handleIfSetResumeButtons,
@@ -533,10 +531,10 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	//   - HINT_COORD (type=2..6)  — NAI-39
 	//   - HINT_PL    (type=10)    — NAI-39
 	//   - HINT_STOP  (type=-1)    — NAI-39
-	OpHintNpc:   handleHintNpc,
-	OpHintCoord: handleHintCoord,
-	OpHintPl:    handleHintPl,
-	OpHintStop:  handleHintStop,
+	OpHintNpc:    handleHintNpc,
+	OpHintCoord:  handleHintCoord,
+	OpHintPlayer: handleHintPlayer, // renamed from HINT_PL in 244
+	OpHintStop:   handleHintStop,
 
 	// NAI-37 T7: world-script delay — WORLD_DELAY (handler-only; consumer wiring T8-T12).
 	OpWorldDelay: handleWorldDelay,
@@ -562,23 +560,27 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// NAI-161 T6: P_OPHELD (TS-faithful unimplemented stub).
 	OpPOpHeld: handlePOpHeld,
 
-	// NAI-162 B0: 5 TS-unimplemented opcode stubs (stub-with-pin pattern).
-	// TS declares all 5 in ScriptOpcode.ts but has no handlers/* case-label
-	// entries. Deviations NAI-162-D-STUB-* per §3. Audit: 18 → 12.
-	OpPushVarbit: handlePushVarbit, // opcode 25
-	OpPopVarbit:  handlePopVarbit,  // opcode 27
-	OpLcOp:       handleLcOp,       // opcode 4105
-	OpOcIop:      handleOcIop,      // opcode 4205
-	OpOcOp:       handleOcOp,       // opcode 4208
+	// Stubs: TS-declared opcodes with no handlers/* implementation.
+	// PUSH_VARBIT (25) and POP_VARBIT (27) deleted from 244 enum (ScriptOpcode.ts:20-21).
+	// LC_OP (4104), OC_IOP (4205), OC_OP (4208): TS-unimplemented per NAI-162.
+	OpLcOp:  handleLcOp,  // opcode 4104
+	OpOcIop: handleOcIop, // opcode 4205
+	OpOcOp:  handleOcOp,  // opcode 4208
+	// 5 new 244 stubs (TS-declared, no handler body — rev-244 B4 posture per NAI-162).
+	OpIfMultizone:       handleIfMultizone,       // opcode 2037
+	OpIfOpenMainOverlay: handleIfOpenMainOverlay, // opcode 2112
+	OpPlayerFindAllZone: handlePlayerFindAllZone, // opcode 2091
+	OpPlayerFindNext:    handlePlayerFindNext,    // opcode 2092
+	OpLastCoord:         handleLastCoord,         // opcode 2126
 
 	// NAI-162 B1: trivial-handler sweep #4.
-	OpLastLoginInfo:      handleLastLoginInfo,      // opcode 2054
-	OpInvTotalParamStack: handleInvTotalParamStack, // opcode 4329
+	OpLastLoginInfo:      handleLastLoginInfo,      // opcode 2057 (244)
+	OpInvTotalParamStack: handleInvTotalParamStack, // opcode 4331 (244)
 
 	// NAI-162 B2: WealthEvent + player-interaction + NAI-115-D1 retirement.
-	OpWealthEvent: handleWealthEvent, // opcode 2131
-	OpPLocMerge:   handlePLocMerge,   // opcode 2074
-	OpPOpPlayerT:  handlePOpPlayerT,  // opcode 2082
+	OpWealthEvent: handleWealthEvent, // opcode 2128 (244)
+	OpPLocMerge:   handlePLocMerge,   // opcode 2076 (244)
+	OpPOpPlayerT:  handlePOpPlayerT,  // opcode 2085 (244)
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
@@ -810,7 +812,7 @@ func handleConsole(s *ScriptState) error {
 	return nil
 }
 
-// handlePDelay implements P_DELAY (opcode 2071): pop int n
+// handlePDelay implements P_DELAY (opcode 2073): pop int n
 // (NumberNotNull-checked), delay the active player by n+1 ticks, and
 // suspend execution. TS PlayerOps.ts:375-379 sets
 // state.delayedUntil = currentTick + 1 + check(state.popInt(),
@@ -833,7 +835,7 @@ func handlePDelay(s *ScriptState) error {
 	return nil
 }
 
-// handlePArriveDelay implements P_ARRIVEDELAY (opcode 2068): if the
+// handlePArriveDelay implements P_ARRIVEDELAY (opcode 2071): if the
 // active player has moved within the past 2 ticks, mark them delayed for
 // 1 tick and suspend the script; otherwise no-op. TS PlayerOps.ts:357-366.
 //
@@ -917,7 +919,7 @@ func popScriptArgs(s *ScriptState) (intArgs []int, stringArgs []string) {
 	return intArgs, stringArgs
 }
 
-// handleQueue implements QUEUE (opcode 2092): pop scriptID, delay, arg
+// handleQueue implements QUEUE (opcode 2093): pop scriptID, delay, arg
 // (3 ints) and enqueue a NORMAL-typed queue request with [arg] as the
 // args array. Mirrors TS PlayerOps.ts:148-157 line-by-line.
 //
@@ -936,7 +938,7 @@ func handleQueue(s *ScriptState) error {
 	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, QueueNormal)
 }
 
-// handleWeakQueue implements WEAKQUEUE (opcode 2129): pop scriptID,
+// handleWeakQueue implements WEAKQUEUE (opcode 2111): pop scriptID,
 // delay, arg (3 ints) and enqueue a WEAK-typed queue request with [arg]
 // as the args array. Mirrors TS PlayerOps.ts:123-132 line-by-line.
 //
@@ -954,7 +956,7 @@ func handleWeakQueue(s *ScriptState) error {
 	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, QueueWeak)
 }
 
-// handleStrongQueue implements STRONGQUEUE (opcode 2117): pop variadic
+// handleStrongQueue implements STRONGQUEUE (opcode 2109): pop variadic
 // typed args via popScriptArgs (which itself first pops the type-tags
 // string and then pops each typed value in tag-reverse order), then
 // pop delay (NumberNotNull-checked), then pop scriptID, and enqueue a
@@ -978,7 +980,7 @@ func handleStrongQueue(s *ScriptState) error {
 	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueStrong)
 }
 
-// handleLongQueue implements LONGQUEUE (opcode 2059): pop scriptID,
+// handleLongQueue implements LONGQUEUE (opcode 2065): pop scriptID,
 // delay, arg, logoutAction (4 ints) and enqueue a LONG-typed queue
 // request with [logoutAction, arg] as the args array (logoutAction-
 // first per TS PlayerOps.ts:179). Mirrors TS PlayerOps.ts:171-180

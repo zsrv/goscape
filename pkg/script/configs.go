@@ -62,7 +62,7 @@ type Configs interface {
 	VarsType(id int) objtype.ScriptVarType
 
 	// ObjByName resolves an ObjType by debugname. Used by WEALTH_EVENT
-	// (opcode 2131) to mirror TS ObjType.getByName. Returns nil when the
+	// (opcode 2128) to mirror TS ObjType.getByName. Returns nil when the
 	// name is unknown. NAI-162 B2.
 	ObjByName(name string) *objtype.ObjType
 

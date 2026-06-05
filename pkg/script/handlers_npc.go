@@ -437,7 +437,7 @@ func handleNpcDamage(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcDel (NPC_DEL, opcode 2510) removes the active NPC. The
+// handleNpcDel (NPC_DEL, opcode 2508) removes the active NPC. The
 // duration passed to World.RemoveNpc is the active NPC type's
 // respawnrate; Server.removeNpc scales it by player count and writes
 // it to lifecycleTick (RESPAWN-lifecycle) or, on DESPAWN-lifecycle,
@@ -466,7 +466,7 @@ func handleNpcDel(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcDelay (NPC_DELAY, opcode 2511) suspends the active NPC's
+// handleNpcDelay (NPC_DELAY, opcode 2509) suspends the active NPC's
 // script for N ticks. Transitions the script to NpcSuspended and
 // records the wake tick on the NPC via SetDelayed. The tick loop
 // resumes the script from Npc.turn() when delayedUntil expires.
@@ -485,7 +485,7 @@ func handleNpcDelay(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcArriveDelay implements NPC_ARRIVEDELAY (opcode 2502): if the
+// handleNpcArriveDelay implements NPC_ARRIVEDELAY (opcode 2546): if the
 // active NPC has moved within the past 3 ticks (this tick, last tick, or
 // 2 ticks ago), suspend the script with a delay computed from the
 // movement recency; otherwise no-op. TS NpcOps.ts:542-555.
@@ -531,7 +531,7 @@ func handleNpcArriveDelay(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcQueue (NPC_QUEUE, opcode 2530) enqueues an ai_queueN
+// handleNpcQueue (NPC_QUEUE, opcode 2524) enqueues an ai_queueN
 // dispatch on the active NPC. Pop order: delay (top), arg, queueId
 // (bottom). queueId ∈ [1, 20] (goscape deviation from TS-literal —
 // see checkQueue doc) maps to TriggerAiQueue1..20 via arithmetic:
@@ -556,7 +556,7 @@ func handleNpcQueue(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcSetTimer (NPC_SETTIMER, opcode 2536) sets the active
+// handleNpcSetTimer (NPC_SETTIMER, opcode 2534) sets the active
 // NPC's ai_timer tick interval. Pop order: interval. Mirrors TS
 // NpcOps.ts:278-280, including the NumberNotNull check (closed in S7b).
 func handleNpcSetTimer(s *ScriptState) error {
@@ -571,7 +571,7 @@ func handleNpcSetTimer(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcTele (NPC_TELE, opcode 2541) teleports the active NPC to
+// handleNpcTele (NPC_TELE, opcode 2539) teleports the active NPC to
 // the packed coord. Pop order: coord (single int). Mirrors TS
 // NpcOps.ts:443 — checkedHandler(ActiveNpc) + CoordValid +
 // activeNpc.teleport(x, z, level).
@@ -588,7 +588,7 @@ func handleNpcTele(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcWalk (NPC_WALK, opcode 2544) queues a single waypoint for the
+// handleNpcWalk (NPC_WALK, opcode 2543) queues a single waypoint for the
 // active NPC at the unpacked coord. Pop order: coord (single int). Mirrors
 // TS NpcOps.ts:451-455 — checkedHandler(ActiveNpc) + CoordValid +
 // activeNpc.queueWaypoint(x, z). NOTE: level is dropped TS-faithfully; the
@@ -606,7 +606,7 @@ func handleNpcWalk(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcWalkTrigger (NPC_WALKTRIGGER, opcode 2545) sets a deferred
+// handleNpcWalkTrigger (NPC_WALKTRIGGER, opcode 2533) sets a deferred
 // AI-queue trigger and arg on the active NPC; the trigger fires when
 // the NPC completes a walk step. Pop order: arg (top), queueID
 // (bottom). queueId ∈ [1, 20] (goscape deviation from TS-literal —
@@ -629,7 +629,7 @@ func handleNpcWalkTrigger(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcGetMode (NPC_GETMODE, opcode 2522) pushes the active NPC's
+// handleNpcGetMode (NPC_GETMODE, opcode 2520) pushes the active NPC's
 // targetOp value (the mode set by NPC_SETMODE / interaction binding).
 // Mirrors TS NpcOps.ts:473-475 — checkedHandler(ActiveNpc) + pushInt.
 func handleNpcGetMode(s *ScriptState) error {
@@ -640,7 +640,7 @@ func handleNpcGetMode(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcSetMode (NPC_SETMODE, opcode 2535) sets the active NPC's mode
+// handleNpcSetMode (NPC_SETMODE, opcode 2532) sets the active NPC's mode
 // (targetOp). 3-branch dispatch:
 //
 //  1. clear-target modes (NONE/WANDER/PATROL): clearInteraction +
@@ -708,7 +708,7 @@ func handleNpcSetMode(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcSetHunt (NPC_SETHUNT, opcode 2533) sets the NPC's hunt
+// handleNpcSetHunt (NPC_SETHUNT, opcode 2530) sets the NPC's hunt
 // search range. Despite the opcode name, this sets RANGE only —
 // hunt mode is set via the separate NPC_SETHUNTMODE opcode.
 // Mirrors TS NpcOps.ts:174-176, including the NumberNotNull check
@@ -725,7 +725,7 @@ func handleNpcSetHunt(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcSetHuntMode (NPC_SETHUNTMODE, opcode 2534) sets the NPC's
+// handleNpcSetHuntMode (NPC_SETHUNTMODE, opcode 2531) sets the NPC's
 // HuntType id. -1 clears the hunt mode (valid input, bypasses the
 // registry check). Any other id is validated against Configs.HuntType
 // before being assigned — an unknown id aborts the script. Mirrors TS
@@ -744,7 +744,7 @@ func handleNpcSetHuntMode(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcFind (NPC_FIND, opcode 2513) pops (coord, npc, distance,
+// handleNpcFind (NPC_FIND, opcode 2511) pops (coord, npc, distance,
 // huntvis), validates each, asks NpcLookup for the closest NPC of that
 // type within square-bounded distance, and either sets the active NPC
 // slot + pushes 1 or pushes 0. Mirrors TS NpcOps.ts:336-367. Gate:
@@ -783,7 +783,7 @@ func handleNpcFind(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcFindCat (NPC_FINDCAT, opcode 2517) pops (coord, category,
+// handleNpcFindCat (NPC_FINDCAT, opcode 2512) pops (coord, category,
 // distance, huntvis). Same spine as handleNpcFind but filter is by
 // NpcType.Category == category (handled in the world-side impl).
 // Mirrors TS NpcOps.ts:369-400.
@@ -820,7 +820,7 @@ func handleNpcFindCat(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcFindExact (NPC_FINDEXACT, opcode 2518) pops (coord, npcType).
+// handleNpcFindExact (NPC_FINDEXACT, opcode 2515) pops (coord, npcType).
 // Iterates NPCs at exactly (level, x, z) of the popped coord whose type
 // matches. Mirrors TS NpcOps.ts:94-112. Pointer-set conditional on hit.
 func handleNpcFindExact(s *ScriptState) error {
@@ -848,7 +848,7 @@ func handleNpcFindExact(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcFindAllAny (NPC_FINDALLANY, opcode 2515) pops (coord, distance,
+// handleNpcFindAllAny (NPC_FINDALLANY, opcode 2513) pops (coord, distance,
 // huntvis), validates, and stores a DISTANCE-mode NpcIterator on
 // state.npcIterator with no type filter. Mirrors TS NpcOps.ts:403-411.
 // Pointer-set is `set ['find_npc']` (ScriptOpcodePointers.ts:586-588);
@@ -921,7 +921,7 @@ func handleNpcFindAll(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcFindAllZone (NPC_FINDALLZONE, opcode 2516) pops a coord,
+// handleNpcFindAllZone (NPC_FINDALLZONE, opcode 2517) pops a coord,
 // validates, and stores a ZONE-mode NpcIterator targeting the single
 // zone containing that coord. Mirrors TS NpcOps.ts:424-428. No
 // distance/huntvis/type validation (TS doesn't do them either).
@@ -938,7 +938,7 @@ func handleNpcFindAllZone(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcHuntAll (NPC_HUNTALL, opcode 2526) pops [coord, distance,
+// handleNpcHuntAll (NPC_HUNTALL, opcode 2528) pops [coord, distance,
 // huntvis] and stores a HuntAll-mode NpcIterator in s.npcIterator
 // (consumed by NPC_FINDNEXT 2520). Mirrors TS NpcOps.ts:325-333.
 //
@@ -975,7 +975,7 @@ func handleNpcHuntAll(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcHunt (NPC_HUNT, opcode 2525) pops [coord, distance, huntvis] and
+// handleNpcHunt (NPC_HUNT, opcode 2527) pops [coord, distance, huntvis] and
 // selects the closest NPC by euclidean² distance from a HuntAll-mode
 // iterator over zone-sweep candidates, then sets ActiveNpc + pushes 1. On
 // empty iterator (no candidates), nil-Npcs, or no in-range NPCs, pushes 0.
@@ -1043,7 +1043,7 @@ func handleNpcHunt(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcFindNext (NPC_FINDNEXT, opcode 2520) advances the active
+// handleNpcFindNext (NPC_FINDNEXT, opcode 2518) advances the active
 // NpcIterator and either sets active_npc + pushes 1 on hit, or pushes 0
 // on miss / nil-iterator. Mirrors TS NpcOps.ts:430-441. Pointer-set is
 // `require ['find_npc']`, `set ['active_npc']`, conditional
@@ -1082,7 +1082,7 @@ func handleNpcFindNext(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcFindUID (NPC_FINDUID, opcode 2521) pops a packed NPC UID and
+// handleNpcFindUID (NPC_FINDUID, opcode 2519) pops a packed NPC UID and
 // binds the matching live NPC to the active slot dictated by the bytecode
 // IntOperand (.npc → primary, .npc2 → secondary). Pushes 1 on hit, 0 on
 // miss. Does NOT set the Protect bit. Mirrors TS NpcOps.ts:26-40:
@@ -1116,7 +1116,7 @@ func handleNpcFindUID(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcRange (NPC_RANGE, opcode 2531) pops a packed coord and pushes the
+// handleNpcRange (NPC_RANGE, opcode 2525) pops a packed coord and pushes the
 // Chebyshev distance from the active NPC to that 1x1 tile. Returns -1 when
 // the coord's level differs from the NPC's level (TS sentinel). Mirrors TS
 // NpcOps.ts:152-168:
@@ -1193,7 +1193,7 @@ func handleNpcRange(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcStatAdd (NPC_STATADD, opcode 2538) boosts the active NPC's stat.
+// handleNpcStatAdd (NPC_STATADD, opcode 2536) boosts the active NPC's stat.
 // Pop order: percent (top), constant, stat (bottom). All three are popped
 // before any validation runs so that validation order matches TS exactly:
 // stat → constant → percent (TS NpcOps.ts:495-497, popInts(3) destructured).
@@ -1227,7 +1227,7 @@ func handleNpcStatAdd(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcStatSub (NPC_STATSUB, opcode 2540) drains the active NPC's stat.
+// handleNpcStatSub (NPC_STATSUB, opcode 2538) drains the active NPC's stat.
 // Pop order matches NPC_STATADD; validation order is stat → constant →
 // percent to match TS NpcOps.ts:509-511 exactly. Formula clamped at 0:
 //
@@ -1259,7 +1259,7 @@ func handleNpcStatSub(s *ScriptState) error {
 	return nil
 }
 
-// handleSpotAnimNpc (SPOTANIM_NPC, opcode 2547) queues a spotanim on the
+// handleSpotAnimNpc (SPOTANIM_NPC, opcode 2542) queues a spotanim on the
 // active NPC. Pop order: delay (top), height, spotanim id (bottom). Mirrors
 // TS NpcOps.ts:282-288:
 //
@@ -1289,7 +1289,7 @@ func handleSpotAnimNpc(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcHeroPoints (NPC_HEROPOINTS, opcode 2524) credits the active
+// handleNpcHeroPoints (NPC_HEROPOINTS, opcode 2521) credits the active
 // player's UID with `amount` hero points on the active NPC's ledger. Used
 // for damage-contribution loot routing on NPC death. Mirrors TS
 // NpcOps.ts:477-480 (https://x.com/JagexAsh/status/1704492467226091853):
@@ -1321,7 +1321,7 @@ func handleNpcHeroPoints(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcFindHero (NPC_FINDHERO, opcode 2519) returns the player
+// handleNpcFindHero (NPC_FINDHERO, opcode 2516) returns the player
 // with the largest HeroPoints credit on this NPC's ledger and binds
 // them to the primary or secondary active-player slot per IntOperand.
 // Pushes 1 on success, 0 if the ledger is empty, the resolved player
@@ -1408,7 +1408,7 @@ func handleNpcAttackRange(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcStatHeal (NPC_STATHEAL, opcode 2539) heals the active NPC's
+// handleNpcStatHeal (NPC_STATHEAL, opcode 2537) heals the active NPC's
 // stat by `constant + (base*percent/100)`, capped at base. When the
 // healed value reaches base and the stat is HITPOINTS, the NPC's HeroPoints
 // ledger is cleared. Mirrors TS NpcOps.ts:241-257.

@@ -46,14 +46,13 @@ func TestPointers_ZeroValue(t *testing.T) {
 	}
 }
 
-// TestScriptOpcodePointers_LengthParity pins spec §7.7: 237 entries
-// verified at plan-write via
-//
-//	grep -c "\[ScriptOpcode\." src/engine/script/ScriptOpcodePointers.ts
+// TestScriptOpcodePointers_LengthParity pins 240 entries at 244 pin 9aadcec4.
+// Was 237 at 225; 244 adds BUFFER_FULL, NPC_HUNTNEXT, IF_OPENOVERLAY, LAST_COORD
+// (+4) and removes IF_SETRECOL (-1) = 240.
 func TestScriptOpcodePointers_LengthParity(t *testing.T) {
-	const wantLen = 237
+	const wantLen = 240
 	if got := len(ScriptOpcodePointers); got != wantLen {
-		t.Fatalf("len(ScriptOpcodePointers) = %d, want %d (re-verify against TS ScriptOpcodePointers.ts)", got, wantLen)
+		t.Fatalf("len(ScriptOpcodePointers) = %d, want %d (re-verify against TS ScriptOpcodePointers.ts at pin 9aadcec4)", got, wantLen)
 	}
 }
 
@@ -181,13 +180,13 @@ func TestScriptOpcodePointers_SpotChecks(t *testing.T) {
 // ScriptOpcodePointers key is in the valid Opcode range — i.e. ≤ the
 // max Op* constant defined in pkg/script/opcode.go. Enumerating all
 // Op* constants in this test would be brittle; the weaker bound
-// (≤ OpTimeSpent, the highest goscape constant at HEAD `7d41e25`)
+// (≤ OpConsole, the highest goscape constant at 244 B4)
 // catches typo cases that would assign a wildly-out-of-range value.
 //
 // If pkg/script/opcode.go adds a new Op* constant with value >
-// OpTimeSpent, update this constant.
+// OpConsole, update this constant.
 func TestScriptOpcodePointers_KeysAreBoundedOpcodes(t *testing.T) {
-	const maxOp = OpTimeSpent // 10003 at HEAD 7d41e25
+	const maxOp = OpConsole // 10016 at 244 B4
 	for op := range ScriptOpcodePointers {
 		if op > maxOp {
 			t.Errorf("ScriptOpcodePointers[op=%d]: exceeds known max Op* = %d", op, maxOp)
@@ -263,6 +262,80 @@ func TestScriptOpcodePointers_CorruptExceptActiveCallSites(t *testing.T) {
 		entry := ScriptOpcodePointers[op]
 		if !reflect.DeepEqual(entry.Corrupt, wantExtendedCorrupt) {
 			t.Errorf("Op=%d extended-spread Corrupt: got %v, want %v", op, entry.Corrupt, wantExtendedCorrupt)
+		}
+	}
+}
+
+// TestScriptOpcodePointers_244NewRows pins the four new rows added in rev-244 B4.
+// Each shape is verified against TS ScriptOpcodePointers.ts at pin 9aadcec4.
+func TestScriptOpcodePointers_244NewRows(t *testing.T) {
+	cases := []struct {
+		op   Opcode
+		want Pointers
+		desc string
+	}{
+		{
+			op:   OpBufferFull,
+			want: Pointers{Require: []string{"active_player"}},
+			desc: "BUFFER_FULL: Require active_player",
+		},
+		{
+			op: OpNpcHuntNext,
+			want: Pointers{
+				Require:     []string{"find_npc"},
+				Require2:    []string{"find_npc"},
+				Set:         []string{"active_npc"},
+				Set2:        []string{"active_npc2"},
+				Conditional: true,
+			},
+			desc: "NPC_HUNTNEXT: full quartet + Conditional=true",
+		},
+		{
+			op: OpIfOpenOverlay,
+			want: Pointers{
+				Require:  []string{"active_player"},
+				Require2: []string{"active_player2"},
+			},
+			desc: "IF_OPENOVERLAY: Require + Require2",
+		},
+		{
+			op: OpLastCoord,
+			want: Pointers{
+				Require:  []string{"active_player"},
+				Require2: []string{"active_player2"},
+			},
+			desc: "LAST_COORD: Require + Require2",
+		},
+	}
+	for _, c := range cases {
+		got, present := ScriptOpcodePointers[c.op]
+		if !present {
+			t.Errorf("%s: ScriptOpcodePointers[op=%d]: missing", c.desc, c.op)
+			continue
+		}
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s:\n got = %+v\nwant = %+v", c.desc, got, c.want)
+		}
+	}
+}
+
+// TestScriptOpcodePointers_NoOrphans verifies that every key in
+// ScriptOpcodePointers round-trips through ScriptOpcodeMap — i.e. no
+// leftover row exists for a deleted opcode. An orphan key surfaces when an
+// opcode is removed from ScriptOpcodeMap but its pointer row is not cleaned up
+// (e.g. IF_SETRECOL was deleted in 244).
+func TestScriptOpcodePointers_NoOrphans(t *testing.T) {
+	// Build the reverse lookup: value → name from ScriptOpcodeMap.
+	valueToName := make(map[Opcode]string, len(ScriptOpcodeMap))
+	for name, op := range ScriptOpcodeMap {
+		valueToName[op] = name
+	}
+	for op := range ScriptOpcodePointers {
+		if _, inMap := valueToName[op]; !inMap {
+			// Also accept ops whose String() is in scriptOpcodeMap244Pin —
+			// new stubs that have pointer rows but are not yet in map would fail.
+			// For now any opcode key must be in ScriptOpcodeMap.
+			t.Errorf("ScriptOpcodePointers has orphan key op=%d (%s): not present in ScriptOpcodeMap", op, op.String())
 		}
 	}
 }

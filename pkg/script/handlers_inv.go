@@ -401,7 +401,7 @@ func handleInvTotalCat(s *ScriptState) error {
 
 // -- Mutations --
 
-// handleInvAdd ports TS InvOps.ts:57-83 (INV_ADD, opcode 4302). Pops
+// handleInvAdd ports TS InvOps.ts:57-83 (INV_ADD, opcode 4303). Pops
 // [inv, obj, count]; validates each via TS check chain (InvTypeValid,
 // ObjTypeValid, ObjStackValid), enforces the protect/scope gate, and
 // rejects dummy items in non-dummy invs. Adds count units of obj to
@@ -941,7 +941,7 @@ func handleInvStopTransmit(s *ScriptState) error {
 	return nil
 }
 
-// handleInvOtherTransmit implements INVOTHER_TRANSMIT (opcode 4332).
+// handleInvOtherTransmit implements INVOTHER_TRANSMIT (opcode 4326).
 // 3-arg variant of INV_TRANSMIT: registers a listener on the active
 // player at UI component `com` tracking inv type `invType` with source
 // = `uid` (another player's server slot). Used by trade/shop/bank-view
@@ -972,7 +972,7 @@ func handleInvOtherTransmit(s *ScriptState) error {
 	return nil
 }
 
-// handleInvDropSlot (INV_DROPSLOT, opcode 4312) drops the entire stack at
+// handleInvDropSlot (INV_DROPSLOT, opcode 4310) drops the entire stack at
 // slot from inv onto the ground at coord with private (caller-only)
 // visibility for duration ticks. Mirrors TS InvOps.ts:213-260.
 //
@@ -1553,7 +1553,7 @@ func handleInvDropItem(s *ScriptState) error {
 	return nil
 }
 
-// handleBothMoveInv ports TS InvOps.ts:373-495 (BOTH_MOVEINV, opcode 4301).
+// handleBothMoveInv ports TS InvOps.ts:373-495 (BOTH_MOVEINV, opcode 4318).
 //
 // Dispatch shape: state.intOperand selects primary (0) vs secondary (1).
 // Primary:    from = active_player (Self), to = .active_player (Self2).
@@ -1814,7 +1814,7 @@ func wealthItemsToStacks(items []WealthItem) []*eventspb.ItemStack {
 	return out
 }
 
-// handleInvDropItemDelayed (INV_DROPITEM_DELAYED, opcode 4310) ports
+// handleInvDropItemDelayed (INV_DROPITEM_DELAYED, opcode 4309) ports
 // TS InvOps.ts:188-209. Pops [inv, coord, obj, count, duration, delay].
 // Removes count of obj from inv; if completed > 0, enqueues an
 // ObjDelayedRequest onto World.objDelayedQueue (drained per-tick by
@@ -1894,7 +1894,7 @@ func handleInvDropItemDelayed(s *ScriptState) error {
 	return nil
 }
 
-// handleInvStockBase (INV_STOCKBASE, opcode 4325) returns the configured
+// handleInvStockBase (INV_STOCKBASE, opcode 4302) returns the configured
 // stock count for an object in an inventory's stock list, or -1 if the
 // inventory has no stock or the object is not in the stock list.
 // Pop order: obj on top (popped first), inv below (popped second) —
@@ -1966,7 +1966,7 @@ func handleInvDebugName(s *ScriptState) error {
 	return nil
 }
 
-// handleBothDropSlot (BOTH_DROPSLOT, opcode 4300). Drops the entire stack
+// handleBothDropSlot (BOTH_DROPSLOT, opcode 4328). Drops the entire stack
 // at slot from fromPlayer's inv at coord with private visibility for
 // duration ticks. fromPlayer/toPlayer swap is driven by the intOperand:
 // 0 → fromPlayer=Self, toPlayer=Self2 (primary / "both_dropslot");
@@ -2119,7 +2119,7 @@ func handleBothDropSlot(s *ScriptState) error {
 	return nil
 }
 
-// handleInvDropAll (INV_DROPALL, opcode 4309). Walks every slot of the
+// handleInvDropAll (INV_DROPALL, opcode 4329). Walks every slot of the
 // named inv, dropping each obj to the world. SCOPE_PERM accumulates a
 // per-objID wealth log keyed by objID with running count; after the
 // loop, if any items were seen, emits a single Death-type WealthEvent
@@ -2268,7 +2268,7 @@ func handleInvDropAll(s *ScriptState) error {
 	return nil
 }
 
-// handleInvTotalParamStack (INV_TOTALPARAM_STACK, opcode 4329). Pops
+// handleInvTotalParamStack (INV_TOTALPARAM_STACK, opcode 4331). Pops
 // param then inv (LIFO; TS popInts(2) → [inv, param] means param is on
 // top). Delegates to Self.InvTotalParamStack and pushes the result.
 // Mirrors TS InvOps.ts:792-796.

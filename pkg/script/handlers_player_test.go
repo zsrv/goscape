@@ -148,19 +148,7 @@ func TestStatBaseReadsSeededBase(t *testing.T) {
 	}
 }
 
-func TestStatTotalSumsAllBases(t *testing.T) {
-	mp := &mockPlayer{}
-	for i := range NumStats {
-		mp.baseLevels[i] = i + 1 // 1..21 → total 231
-	}
-	state := Init(newSingleOp("stat_total", OpStatTotal), mp, false, nil, nil)
-	if err := Execute(state); err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if got, want := state.PopInt(), 231; got != want {
-		t.Errorf("STAT_TOTAL: got %d, want %d", got, want)
-	}
-}
+// TestStatTotalSumsAllBases was deleted: STAT_TOTAL removed from 244 enum.
 
 // -- Stat mutation tests -------------------------------------------------
 
@@ -1404,13 +1392,13 @@ func TestBASSetters(t *testing.T) {
 		op   Opcode
 		get  func(*mockPlayer) int
 	}{
-		{"READYANIM", OpReadyAnim, func(m *mockPlayer) int { return m.lastReadyAnim }},
-		{"TURNANIM", OpTurnAnim, func(m *mockPlayer) int { return m.lastTurnAnim }},
-		{"WALKANIM", OpWalkAnim, func(m *mockPlayer) int { return m.lastWalkAnim }},
-		{"WALKANIM_B", OpWalkAnimB, func(m *mockPlayer) int { return m.lastWalkAnimB }},
-		{"WALKANIM_L", OpWalkAnimL, func(m *mockPlayer) int { return m.lastWalkAnimL }},
-		{"WALKANIM_R", OpWalkAnimR, func(m *mockPlayer) int { return m.lastWalkAnimR }},
-		{"RUNANIM", OpRunAnim, func(m *mockPlayer) int { return m.lastRunAnim }},
+		{"BAS_READYANIM", OpBasReadyAnim, func(m *mockPlayer) int { return m.lastReadyAnim }},
+		{"BAS_TURNONSPOT", OpBasTurnOnSpot, func(m *mockPlayer) int { return m.lastTurnAnim }},
+		{"BAS_WALK_F", OpBasWalkF, func(m *mockPlayer) int { return m.lastWalkAnim }},
+		{"BAS_WALK_B", OpBasWalkB, func(m *mockPlayer) int { return m.lastWalkAnimB }},
+		{"BAS_WALK_L", OpBasWalkL, func(m *mockPlayer) int { return m.lastWalkAnimL }},
+		{"BAS_WALK_R", OpBasWalkR, func(m *mockPlayer) int { return m.lastWalkAnimR }},
+		{"BAS_RUNNING", OpBasRunning, func(m *mockPlayer) int { return m.lastRunAnim }},
 	}
 	mc := &mockConfigs{
 		seqs: map[int]*objtype.SeqType{
@@ -1451,13 +1439,13 @@ func TestBASSettersRejectInvalidSeq(t *testing.T) {
 		name string
 		op   Opcode
 	}{
-		{"READYANIM", OpReadyAnim},
-		{"TURNANIM", OpTurnAnim},
-		{"WALKANIM", OpWalkAnim},
-		{"WALKANIM_B", OpWalkAnimB},
-		{"WALKANIM_L", OpWalkAnimL},
-		{"WALKANIM_R", OpWalkAnimR},
-		{"RUNANIM", OpRunAnim},
+		{"BAS_READYANIM", OpBasReadyAnim},
+		{"BAS_TURNONSPOT", OpBasTurnOnSpot},
+		{"BAS_WALK_F", OpBasWalkF},
+		{"BAS_WALK_B", OpBasWalkB},
+		{"BAS_WALK_L", OpBasWalkL},
+		{"BAS_WALK_R", OpBasWalkR},
+		{"BAS_RUNNING", OpBasRunning},
 	}
 	mc := &mockConfigs{seqs: map[int]*objtype.SeqType{}} // empty registry
 	for _, tc := range cases {
@@ -1492,16 +1480,16 @@ func TestBASSettersRejectInvalidSeq(t *testing.T) {
 	}
 }
 
-// TestRunAnimAcceptsMinusOne pins TS PlayerOps.ts:961-964 — -1 is a
+// TestBasRunningAcceptsMinusOne pins TS PlayerOps.ts:961-964 — -1 is a
 // clear-sentinel that bypasses SeqTypeValid and is forwarded directly
 // to SetRunAnim. Tested with an empty seq registry to confirm the -1
-// branch does NOT consult Configs.
-func TestRunAnimAcceptsMinusOne(t *testing.T) {
+// branch does NOT consult Configs. (BAS_RUNNING renamed from RUNANIM in 244.)
+func TestBasRunningAcceptsMinusOne(t *testing.T) {
 	mp := &mockPlayer{}
 	sf := &ScriptFile{
-		Name: "runanim_clear",
+		Name: "bas_running_clear",
 		Opcodes: []Opcode{
-			OpPushConstantInt, OpRunAnim, OpReturn,
+			OpPushConstantInt, OpBasRunning, OpReturn,
 		},
 		IntOperands:      []int32{-1, 0, 0},
 		StringOperands:   []string{"", "", ""},
@@ -1513,19 +1501,19 @@ func TestRunAnimAcceptsMinusOne(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 	if mp.lastRunAnim != -1 {
-		t.Errorf("RUNANIM -1: got %d, want -1", mp.lastRunAnim)
+		t.Errorf("BAS_RUNNING -1: got %d, want -1", mp.lastRunAnim)
 	}
 }
 
-// TestRunAnimRejectsInvalidSeq pins TS PlayerOps.ts:965 — any non-(-1)
+// TestBasRunningRejectsInvalidSeq pins TS PlayerOps.ts:965 — any non-(-1)
 // seq id is validated against SeqTypeValid and aborts the script on
-// miss.
-func TestRunAnimRejectsInvalidSeq(t *testing.T) {
+// miss. (BAS_RUNNING renamed from RUNANIM in 244.)
+func TestBasRunningRejectsInvalidSeq(t *testing.T) {
 	mp := &mockPlayer{lastRunAnim: -2} // sentinel to detect spurious write
 	sf := &ScriptFile{
-		Name: "runanim_invalid",
+		Name: "bas_running_invalid",
 		Opcodes: []Opcode{
-			OpPushConstantInt, OpRunAnim, OpReturn,
+			OpPushConstantInt, OpBasRunning, OpReturn,
 		},
 		IntOperands:      []int32{99, 0, 0},
 		StringOperands:   []string{"", "", ""},
@@ -1535,10 +1523,10 @@ func TestRunAnimRejectsInvalidSeq(t *testing.T) {
 	state.Configs = &mockConfigs{seqs: map[int]*objtype.SeqType{}}
 	err := Execute(state)
 	if err == nil {
-		t.Fatal("RUNANIM with unknown seq: Execute returned nil, want error")
+		t.Fatal("BAS_RUNNING with unknown seq: Execute returned nil, want error")
 	}
-	if !strings.Contains(err.Error(), "RUNANIM") {
-		t.Errorf("error %q does not mention RUNANIM", err.Error())
+	if !strings.Contains(err.Error(), "BAS_RUNNING") {
+		t.Errorf("error %q does not mention BAS_RUNNING", err.Error())
 	}
 	if mp.lastRunAnim != -2 {
 		t.Errorf("SetRunAnim should not be called on validation failure (lastRunAnim=%d)", mp.lastRunAnim)
@@ -1740,7 +1728,7 @@ func TestHandlersRequireActivePlayer(t *testing.T) {
 	}{
 		{"STAT", OpStat},
 		{"STAT_BASE", OpStatBase},
-		{"STAT_TOTAL", OpStatTotal},
+		// STAT_TOTAL deleted in 244.
 		{"STAT_ADD", OpStatAdd},
 		{"STAT_SUB", OpStatSub},
 		{"STAT_BOOST", OpStatBoost},
@@ -1754,13 +1742,13 @@ func TestHandlersRequireActivePlayer(t *testing.T) {
 		{"P_TELEJUMP", OpPTeleJump},
 		{"ANIM", OpAnim},
 		{"SPOTANIM_PL", OpSpotAnimPl},
-		{"READYANIM", OpReadyAnim},
-		{"TURNANIM", OpTurnAnim},
-		{"WALKANIM", OpWalkAnim},
-		{"WALKANIM_B", OpWalkAnimB},
-		{"WALKANIM_L", OpWalkAnimL},
-		{"WALKANIM_R", OpWalkAnimR},
-		{"RUNANIM", OpRunAnim},
+		{"BAS_READYANIM", OpBasReadyAnim},
+		{"BAS_TURNONSPOT", OpBasTurnOnSpot},
+		{"BAS_WALK_F", OpBasWalkF},
+		{"BAS_WALK_B", OpBasWalkB},
+		{"BAS_WALK_L", OpBasWalkL},
+		{"BAS_WALK_R", OpBasWalkR},
+		{"BAS_RUNNING", OpBasRunning},
 		// NAI-117 T1.
 		{"P_RUN", OpPRun},
 		// NAI-117 T2.
@@ -4737,7 +4725,7 @@ func TestHintPl_NoActivePlayer_Errors(t *testing.T) {
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	} // no Self, no Self2
-	if err := handleHintPl(s); err == nil {
+	if err := handleHintPlayer(s); err == nil {
 		t.Fatal("expected error for no active player")
 	}
 }
@@ -4752,7 +4740,7 @@ func TestHintPl_NoActivePlayer2_Errors(t *testing.T) {
 		Self:        pl,
 		Pointers:    PtrActivePlayer, // PtrActivePlayer2 NOT set
 	}
-	if err := handleHintPl(s); err == nil {
+	if err := handleHintPlayer(s); err == nil {
 		t.Fatal("expected error for no active player2")
 	}
 	if len(pl.hintPlayerCalls) != 0 {
@@ -4770,7 +4758,7 @@ func TestHintPl_Success_RecordsSlot(t *testing.T) {
 		Self2:       pl2,
 		Pointers:    PtrActivePlayer | PtrActivePlayer2,
 	}
-	if err := handleHintPl(s); err != nil {
+	if err := handleHintPlayer(s); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if want := []int{7}; !slices.Equal(pl.hintPlayerCalls, want) {
@@ -5553,11 +5541,11 @@ func TestHandleLowMemReturnsZeroWhenHighMem(t *testing.T) {
 	s.Self = &mockPlayer{}
 	s.Pointers |= PtrActivePlayer
 
-	if err := handleLowMem(s); err != nil {
-		t.Fatalf("LOWMEM returned error: %v", err)
+	if err := handleLowMemory(s); err != nil {
+		t.Fatalf("LOWMEMORY returned error: %v", err)
 	}
 	if got := s.PopInt(); got != 0 {
-		t.Errorf("LOWMEM high-mem: got %d, want 0", got)
+		t.Errorf("LOWMEMORY high-mem: got %d, want 0", got)
 	}
 }
 
@@ -5567,18 +5555,18 @@ func TestHandleLowMemReturnsOneWhenLowMem(t *testing.T) {
 	s.Self = pl
 	s.Pointers |= PtrActivePlayer
 
-	if err := handleLowMem(s); err != nil {
-		t.Fatalf("LOWMEM returned error: %v", err)
+	if err := handleLowMemory(s); err != nil {
+		t.Fatalf("LOWMEMORY returned error: %v", err)
 	}
 	if got := s.PopInt(); got != 1 {
-		t.Errorf("LOWMEM low-mem: got %d, want 1", got)
+		t.Errorf("LOWMEMORY low-mem: got %d, want 1", got)
 	}
 }
 
 func TestHandleLowMemNoActivePlayer(t *testing.T) {
 	s := newTestState(minimalScript(OpReturn))
-	if err := handleLowMem(s); err == nil {
-		t.Errorf("LOWMEM no active player: expected error, got nil")
+	if err := handleLowMemory(s); err == nil {
+		t.Errorf("LOWMEMORY no active player: expected error, got nil")
 	}
 }
 

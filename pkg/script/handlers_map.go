@@ -12,7 +12,7 @@ import (
 	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 )
 
-// handleMapPlayerCount (MAP_PLAYERCOUNT, opcode 1015) pops two coords
+// handleMapPlayerCount (MAP_PLAYERCOUNT, opcode 1014) pops two coords
 // (rect bounds) and pushes the count of players whose (x, z) falls
 // inside the rect on from.level. Mirrors TS ServerOps.ts:27-45.
 //
@@ -55,7 +55,7 @@ func handleMapPlayerCount(s *ScriptState) error {
 	return nil
 }
 
-// handleMapFindSquare (MAP_FINDSQUARE, opcode 1009) finds a free walkable
+// handleMapFindSquare (MAP_FINDSQUARE, opcode 1015) finds a free walkable
 // square near origin, optionally gated by line-of-walk or line-of-sight.
 // Mirrors TS ServerOps.ts:254-374.
 //
@@ -197,7 +197,7 @@ func isLineOfSight(s *ScriptState, level, srcX, srcZ, destX, destZ int) bool {
 	return s.LineValidator.HasLineOfSight(level, srcX, srcZ, destX, destZ, 1, 1, 1, 0)
 }
 
-// handleLineOfSight (LINEOFSIGHT, opcode 1005) pops [from, to] coords and
+// handleLineOfSight (LINEOFSIGHT, opcode 1007) pops [from, to] coords and
 // pushes 1 iff a line-of-sight ray from `from` to `to` is clear. Mirrors TS
 // ServerOps.ts:144-162:
 //
@@ -242,7 +242,7 @@ func handleLineOfSight(s *ScriptState) error {
 	return nil
 }
 
-// handleMapBlocked (MAP_BLOCKED, opcode 1007) reports whether the tile at
+// handleMapBlocked (MAP_BLOCKED, opcode 1009) reports whether the tile at
 // the unpacked coord blocks walking. F2P-world short-circuit: any tile
 // that's not F2P-zoned pushes 1 (effectively "blocked" for non-members
 // content). Mirrors TS ServerOps.ts:129-138.
@@ -278,7 +278,7 @@ func checkSpotAnimType(s *ScriptState, id int, op string) error {
 	return nil
 }
 
-// handleSpotAnimMap (SPOTANIM_MAP, opcode 1020) broadcasts a tile-anchored
+// handleSpotAnimMap (SPOTANIM_MAP, opcode 1027) broadcasts a tile-anchored
 // spotanim event at the unpacked coord. Pop order: 4 ints (spotanim, coord,
 // height, delay) — TS uses popInts(4) which destructures top-down.
 // Mirrors TS ServerOps.ts:84-90.
@@ -393,7 +393,7 @@ func handleMapLocAddUnsafe(s *ScriptState) error {
 	return nil
 }
 
-// handleLineOfWalk (LINEOFWALK, opcode 1006) reports whether a 1-tile
+// handleLineOfWalk (LINEOFWALK, opcode 1008) reports whether a 1-tile
 // entity at c1 has line-of-walk to c2. Pop order: top-of-stack is c2,
 // c1 below. Pushes 1 on success, 0 on fail.
 //
@@ -436,7 +436,7 @@ func handleLineOfWalk(s *ScriptState) error {
 	return nil
 }
 
-// handleMapMultiway (MAP_MULTIWAY, opcode 1014) reports whether the tile at
+// handleMapMultiway (MAP_MULTIWAY, opcode 1034) reports whether the tile at
 // the popped coord is in a multi-combat zone. Mirrors TS ServerOps.ts:376-380:
 //
 //	state.pushInt(World.gameMap.isMulti(coord) ? 1 : 0);

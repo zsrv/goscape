@@ -37,7 +37,7 @@ func handleProjAnimMap(s *ScriptState) error {
 	return nil
 }
 
-// handleProjAnimNpc (PROJANIM_NPC, opcode 2546) queues a tile→NPC
+// handleProjAnimNpc (PROJANIM_NPC, opcode 1019) queues a tile→NPC
 // projectile event with the NPC encoded as receiver via npc.Nid()+1.
 // Slot-only NPC lookup — does NOT verify the high-16 expectedType
 // bits (mirrors TS comment-out at ServerOps.ts:192). Mirrors TS
@@ -73,7 +73,7 @@ func handleProjAnimNpc(s *ScriptState) error {
 	return nil
 }
 
-// handleProjAnimPl (PROJANIM_PL, opcode 2091) queues a tile→player
+// handleProjAnimPl (PROJANIM_PL, opcode 1020) queues a tile→player
 // projectile event with the player encoded as receiver via
 // -player.Slot()-1. Mirrors TS ServerOps.ts:171-183.
 func handleProjAnimPl(s *ScriptState) error {

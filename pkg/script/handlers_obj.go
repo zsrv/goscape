@@ -228,7 +228,7 @@ func handleObjCount(s *ScriptState) error {
 	return nil
 }
 
-// handleObjTakeItem (OBJ_TAKEITEM, opcode 3510) pops invType, validates,
+// handleObjTakeItem (OBJ_TAKEITEM, opcode 3507) pops invType, validates,
 // guards on isValid, adds the obj to the player's inv via performInvAdd,
 // emits a PICKUP wealth event, and removes the obj from the world.
 // Mirrors TS ObjOps.ts:137-161.
@@ -339,7 +339,7 @@ func handleObjTakeItem(s *ScriptState) error {
 	return nil
 }
 
-// handleObjFind (OBJ_FIND, opcode 3505) pops [coord, objId], resolves
+// handleObjFind (OBJ_FIND, opcode 3509) pops [coord, objId], resolves
 // the obj via WorldVars.GetObj, and either slot-routes it via
 // setActiveObjSlot + pushes 1 on hit, or pushes 0 on miss. Mirrors TS
 // ObjOps.ts:168-183.
@@ -381,7 +381,7 @@ func handleObjFind(s *ScriptState) error {
 	return nil
 }
 
-// handleObjFindAllZone (OBJ_FINDALLZONE, opcode 3506) pops a coord and
+// handleObjFindAllZone (OBJ_FINDALLZONE, opcode 3510) pops a coord and
 // stores a single-zone ObjIterator targeting the zone containing that
 // coord. Mirrors TS ObjOps.ts:185-189.
 //
@@ -400,7 +400,7 @@ func handleObjFindAllZone(s *ScriptState) error {
 	return nil
 }
 
-// handleObjFindNext (OBJ_FINDNEXT, opcode 3507) advances the active
+// handleObjFindNext (OBJ_FINDNEXT, opcode 3511) advances the active
 // ObjIterator and either sets the active obj slot + pushes 1 on hit, or
 // pushes 0 on miss / nil-iterator. Mirrors TS ObjOps.ts:191-201.
 //
@@ -426,7 +426,7 @@ func handleObjFindNext(s *ScriptState) error {
 	return nil
 }
 
-// handleObjName (OBJ_NAME, opcode 3508) pushes the active obj's name
+// handleObjName (OBJ_NAME, opcode 3505) pushes the active obj's name
 // (or debugname fallback; "null" when both are empty). Mirrors TS
 // ObjOps.ts:106-110 and the existing handleOcName at
 // handlers_config.go:429.

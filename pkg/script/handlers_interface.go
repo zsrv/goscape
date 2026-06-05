@@ -343,23 +343,8 @@ func handleIfSetPosition(s *ScriptState) error {
 	return nil
 }
 
-// handleIfSetRecol implements IF_SETRECOL.
-// TS PlayerOps.ts:686-692 — popInts(3) → [com, src, dest], dest on top.
-// com wrapped with check(com, NumberNotNull); src and dest NOT wrapped (NAI-23 Bundle 4c).
-func handleIfSetRecol(s *ScriptState) error {
-	if err := requireActivePlayer(s, "IF_SETRECOL"); err != nil {
-		return err
-	}
-	dest := s.PopInt()
-	src := s.PopInt()
-	com := s.PopInt()
-	if err := checkNotNull(com, "IF_SETRECOL"); err != nil {
-		return err
-	}
-	// src and dest are NOT wrapped with NumberNotNull in TS (PlayerOps.ts:686-692) (NAI-23 Bundle 4c).
-	s.activePlayer().IfSetRecol(com, src, dest)
-	return nil
-}
+// IF_SETRECOL deleted in 244 (ScriptOpcode.ts); handleIfSetRecol removed.
+// The seam method ActivePlayer.IfSetRecol + wire row are removed in Task 2.
 
 // -- Misc ---------------------------------------------------------------
 

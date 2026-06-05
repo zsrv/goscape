@@ -80,12 +80,12 @@ type WorldVars interface {
 
 	// IsMulti reports whether the tile at (level, x, z) is in a multi-combat
 	// zone. Mirrors TS World.gameMap.isMulti at Engine-TS/.../GameMap.ts.
-	// Used by MAP_MULTIWAY (opcode 1014).
+	// Used by MAP_MULTIWAY (opcode 1034).
 	IsMulti(level, x, z int) bool
 
 	// AnimMap broadcasts a tile-anchored spotanim event to every player in
 	// the affected zone. Mirrors TS World.animMap at Engine-TS/.../World.ts.
-	// Used by SPOTANIM_MAP (opcode 1020).
+	// Used by SPOTANIM_MAP (opcode 1027).
 	AnimMap(level, x, z, spotanim, height, delay int)
 
 	// MapProjAnim broadcasts a projectile event from (level, srcX, srcZ)
