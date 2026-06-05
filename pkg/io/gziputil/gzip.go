@@ -9,20 +9,12 @@ import (
 )
 
 // CompressGz mirrors TS compressGz (GZip.ts:3-18). Byte 9 of the gzip
-// header (OS) is zeroed for deterministic output. Returns nil on error
-// (TS catches and logs; goscape returns nil).
+// header (OS) is zeroed for deterministic output.
+// Implemented via CompressCFGz — the bit-exact cf-zlib deflate port —
+// so output is byte-identical to the reference corpus produced by
+// bun 1.2.20 node:zlib.gzipSync (Cloudflare zlib fork, commit 886098f3).
 func CompressGz(src []byte, off, length int) []byte {
-	var buf bytes.Buffer
-	zw := gzip.NewWriter(&buf)
-	if _, err := zw.Write(src[off : off+length]); err != nil {
-		return nil
-	}
-	if err := zw.Close(); err != nil {
-		return nil
-	}
-	data := buf.Bytes()
-	data[9] = 0
-	return data
+	return CompressCFGz(src, off, length)
 }
 
 // DecompressGz mirrors TS decompressGz (GZip.ts:20-31). Returns nil on error.
