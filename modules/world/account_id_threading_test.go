@@ -190,7 +190,7 @@ func TestWealthEvent_RecipientIDPresent(t *testing.T) {
 func TestSlogBridgeSessionLog_EmitsAccountID(t *testing.T) {
 	var buf bytes.Buffer
 	parent := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	b := NewSlogLoggerBridge(parent)
+	b := NewSlogLoggerBridge(parent, 10, "main")
 
 	b.SubmitSessionLogs([]SessionLog{
 		{AccountID: 42, SessionUUID: "s", Event: "e", EventType: LoggerEventTypeModerator},

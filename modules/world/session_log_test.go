@@ -15,7 +15,7 @@ import (
 func TestSlogLoggerBridgeSubmitSessionLogs(t *testing.T) {
 	var buf bytes.Buffer
 	parent := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	b := NewSlogLoggerBridge(parent)
+	b := NewSlogLoggerBridge(parent, 10, "main")
 
 	logs := []SessionLog{
 		{SessionUUID: "sess-a", Timestamp: 111, Coord: 222, Event: "foo", EventType: LoggerEventTypeModerator},

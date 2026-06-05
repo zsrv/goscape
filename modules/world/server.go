@@ -438,7 +438,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		go sub.run(ctx)
 	}
 	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.bridgesCtx, s.log)
-	s.loggerBridge = NewSlogLoggerBridge(s.log)
+	s.loggerBridge = NewSlogLoggerBridge(s.log, s.cfg.NodeID, s.cfg.NodeProfile)
 	s.locOps = &serverLocOps{s: s}
 	s.tcpWg.Add(1)
 

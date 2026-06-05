@@ -2,6 +2,7 @@ package world
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
 )
@@ -12,21 +13,34 @@ import (
 // shipping this default; tests still bind recordingBridges via
 // installRecordingBridges(s).
 type slogLoggerBridge struct {
-	log *slog.Logger
+	log     *slog.Logger
+	nodeID  int
+	profile string
 }
 
 // NewSlogLoggerBridge wraps parent in a child logger keyed
-// component=logger_bridge.
-func NewSlogLoggerBridge(parent *slog.Logger) LoggerBridge {
-	return &slogLoggerBridge{log: parent.With("component", "logger_bridge")}
+// component=logger_bridge. nodeID/profile are stamped on records whose
+// TS message shapes carry world/profile (LoggerClient.ts:48-87).
+func NewSlogLoggerBridge(parent *slog.Logger, nodeID int, profile string) LoggerBridge {
+	return &slogLoggerBridge{
+		log:     parent.With("component", "logger_bridge"),
+		nodeID:  nodeID,
+		profile: profile,
+	}
 }
 
 // NotifyPlayerReport emits a 'report' record. Mirrors TS
-// World.notifyPlayerReport's loggerThread.postMessage call (World.ts:2305).
+// World.notifyPlayerReport's loggerThread.postMessage call. rev-244
+// re-shape: keyed by username + world + profile + timestamp instead of
+// the 225 session uuid (LoggerClient.ts:48-67). Proto message shapes
+// stay with the private sibling; this is the dev/debug slog seam only.
 func (b *slogLoggerBridge) NotifyPlayerReport(p *Player, offender, reason string) {
 	b.log.Info("player_report",
 		"type", "report",
-		"session", p.session,
+		"world", b.nodeID,
+		"profile", b.profile,
+		"username", p.username,
+		"timestamp_ms", time.Now().UnixMilli(),
 		"coord", coordgrid.PackCoord(p.level, p.x, p.z),
 		"offender", offender,
 		"reason", reason,
@@ -43,6 +57,11 @@ func (b *slogLoggerBridge) NotifyPlayerReport(p *Player, offender, reason string
 // emitted as a JSON-serialisable []any slice for slog structured output.
 // Proto message shapes are owned by B5/private-sibling; this slog seam
 // is adapted for 244 without touching .proto files.
+//
+// rev-244 B5: world/profile stamped per the 244 inputTrack envelope
+// (LoggerClient.ts:76-86). The TS `timestamp` param is not modeled —
+// goscape's seam has no caller-supplied timestamp (the slog record
+// carries its own time); recorded with the B5 logger rows in PORTING.md.
 func (b *slogLoggerBridge) SubmitInputTracking(username, sessionUUID string, blobs []InputTrackingBlob) {
 	blobsAny := make([]any, len(blobs))
 	for i, bl := range blobs {
@@ -54,6 +73,8 @@ func (b *slogLoggerBridge) SubmitInputTracking(username, sessionUUID string, blo
 	}
 	b.log.Info("input_track",
 		"type", "input_track",
+		"world", b.nodeID,
+		"profile", b.profile,
 		"username", username,
 		"session_uuid", sessionUUID,
 		"blob_count", len(blobs),

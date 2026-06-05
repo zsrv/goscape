@@ -7,15 +7,16 @@ import (
 	"testing"
 )
 
-// TestSlogLoggerBridgeNotifyPlayerReport pins that NotifyPlayerReport
-// emits a structured slog record with the expected keys: type=report,
-// session, offender, reason, coord.
+// TestSlogLoggerBridgeNotifyPlayerReport pins the rev-244 report shape
+// (TS LoggerClient.ts:48-67): type=report, world, profile, username,
+// timestamp, coord, offender, reason — the 225-era session uuid key is
+// GONE (re-keyed to username at 244).
 func TestSlogLoggerBridgeNotifyPlayerReport(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&buf, nil))
-	bridge := NewSlogLoggerBridge(logger)
+	bridge := NewSlogLoggerBridge(logger, 10, "main")
 
-	p := &Player{session: "test-session"}
+	p := &Player{username: "alice", session: "test-session"}
 	p.x = 3200
 	p.z = 3200
 	// p.level defaults to 0
@@ -25,7 +26,10 @@ func TestSlogLoggerBridgeNotifyPlayerReport(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		"type=report",
-		"session=test-session",
+		"world=10",
+		"profile=main",
+		"username=alice",
+		"timestamp_ms=",
 		"offender=evilbob",
 		"reason=MACROING",
 		"coord=", // packed value; exact value asserted separately
@@ -33,6 +37,9 @@ func TestSlogLoggerBridgeNotifyPlayerReport(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("log output missing %q: %s", want, out)
 		}
+	}
+	if strings.Contains(out, "session=") {
+		t.Errorf("report still carries the 225 session key (re-keyed to username at 244): %s", out)
 	}
 }
 
@@ -43,7 +50,7 @@ func TestSlogLoggerBridgeNotifyPlayerReport(t *testing.T) {
 func TestSlogLoggerBridgeSubmitInputTracking(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&buf, nil))
-	bridge := NewSlogLoggerBridge(logger)
+	bridge := NewSlogLoggerBridge(logger, 10, "main")
 
 	blobs := []InputTrackingBlob{
 		NewInputTrackingBlob([]byte{0x00, 0x01, 0x02}, 1, 0xC0DE),
@@ -54,6 +61,8 @@ func TestSlogLoggerBridgeSubmitInputTracking(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		"type=input_track",
+		"world=10",
+		"profile=main",
 		"username=alice",
 		"session_uuid=test-session-uuid",
 		"blob_count=2",
