@@ -380,6 +380,21 @@ func (p *Player) UID() int { return p.uid }
 // NAI-Phase2 backfill of telemetry account_id.
 func (p *Player) AccountID() int64 { return p.accountID }
 
+// RecipientSession implements script.ActivePlayer.RecipientSession.
+// Returns this player's per-login session UUID when a client is attached,
+// else "disconnected". Used when this player is the COUNTERPARTY of a
+// wealth event. Mirrors TS InvOps.ts:446 /
+// NetworkPlayer isClientConnected — connected → session UUID, else
+// 'disconnected'. Distinct from AddSessionLog's 'headless' fallback
+// (Player.ts:641), which covers the never-had-a-client path.
+// rev-244 B4 closes the NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY Session-not-exposed deferral.
+func (p *Player) RecipientSession() string {
+	if p.client != nil {
+		return p.session
+	}
+	return "disconnected"
+}
+
 // CanAccess implements script.ActivePlayer.CanAccess — the P_FINDUID
 // protected-binding gate. False when delayed, when a modal main/chat
 // is open, or when a protected script is stored on activeScript.

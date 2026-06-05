@@ -3397,7 +3397,10 @@ func newBothDropState(operand int32, self, self2 *mockPlayer, mc *mockConfigs, l
 }
 
 // TestHandleBothDropSlot_PrimaryFromSelf_Untradeable: secondary=0,
-// inv.protect=false, untradeable obj → addObj.receiverID = self.UID().
+// inv.protect=false, untradeable obj → NO AddObj call (rev-244 B4 delta:
+// untradeables stop after delete). TS InvOps.ts:722-724.
+// Prior to rev-244 this asserted receiverID=self.UID (225 behaviour, now
+// removed: 244 stops the drop entirely after invDel for untradeables).
 func TestHandleBothDropSlot_PrimaryFromSelf_Untradeable(t *testing.T) {
 	mc := newBothDropSlotConfigs()
 	self := &mockPlayer{uidValue: 11}
@@ -3420,12 +3423,9 @@ func TestHandleBothDropSlot_PrimaryFromSelf_Untradeable(t *testing.T) {
 	if err := handleBothDropSlot(s); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(world.addedCalls) != 1 {
-		t.Fatalf("addObj: got %d, want 1", len(world.addedCalls))
-	}
-	// Untradeable: receiver = fromPlayer (self) UID
-	if world.addedCalls[0].receiverID != 11 {
-		t.Errorf("untradeable receiver: got %d, want 11 (self.UID)", world.addedCalls[0].receiverID)
+	// 244 delta: untradeables stop after delete — NO AddObj call.
+	if len(world.addedCalls) != 0 {
+		t.Errorf("244 untradeable-stop: got %d AddObj calls, want 0", len(world.addedCalls))
 	}
 }
 
@@ -3462,7 +3462,9 @@ func TestHandleBothDropSlot_PrimaryFromSelf_Tradeable(t *testing.T) {
 }
 
 // TestHandleBothDropSlot_SecondaryFromSelf2_Untradeable: secondary=1 →
-// fromPlayer = Self2, toPlayer = Self. Untradeable → receiver = self2.UID.
+// fromPlayer = Self2, toPlayer = Self. Untradeable → NO AddObj call
+// (rev-244 B4 delta). TS InvOps.ts:722-724. Prior to rev-244 this
+// asserted receiverID=self2.UID (225 behaviour, now removed).
 func TestHandleBothDropSlot_SecondaryFromSelf2_Untradeable(t *testing.T) {
 	mc := newBothDropSlotConfigs()
 	self := &mockPlayer{uidValue: 11}
@@ -3485,12 +3487,9 @@ func TestHandleBothDropSlot_SecondaryFromSelf2_Untradeable(t *testing.T) {
 	if err := handleBothDropSlot(s); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(world.addedCalls) != 1 {
-		t.Fatalf("addObj: got %d, want 1", len(world.addedCalls))
-	}
-	// untradeable: receiver = fromPlayer (self2) UID
-	if world.addedCalls[0].receiverID != 22 {
-		t.Errorf("secondary untradeable receiver: got %d, want 22 (self2.UID)", world.addedCalls[0].receiverID)
+	// 244 delta: untradeables stop after delete — NO AddObj call.
+	if len(world.addedCalls) != 0 {
+		t.Errorf("244 secondary untradeable-stop: got %d AddObj calls, want 0", len(world.addedCalls))
 	}
 }
 
@@ -3528,8 +3527,9 @@ func TestHandleBothDropSlot_SecondaryFromSelf2_Tradeable(t *testing.T) {
 }
 
 // TestHandleBothDropSlot_ScopePerm_EmitsPVPWealthEvent: SCOPE_PERM →
-// AddWealthEvent(PVP) on state.activePlayer (Self). RecipientSession=""
-// per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY (Session() not on interface).
+// AddWealthEvent(PVP) on state.activePlayer (Self). RecipientID and
+// RecipientSession are filled from toPlayer (rev-244 B4). This test
+// uses a zero-value self2 so RecipientSession="" and RecipientID=0.
 func TestHandleBothDropSlot_ScopePerm_EmitsPVPWealthEvent(t *testing.T) {
 	mc := newBothDropSlotConfigs()
 	self := &mockPlayer{uidValue: 11}
@@ -3834,7 +3834,9 @@ func TestHandleInvDropAll_EmptyInv(t *testing.T) {
 }
 
 // TestHandleInvDropAll_MixedSlots_ScopeNormal: 3 non-empty slots, SCOPE_NORMAL
-// → 3 addObj calls, no wealth event.
+// → 1 addObj call (tradeable only), no wealth event. rev-244 B4 delta:
+// untradeables stop after delete. TS InvOps.ts:773-775.
+// Prior to rev-244 this expected 3 AddObj calls (225 behaviour, now removed).
 func TestHandleInvDropAll_MixedSlots_ScopeNormal(t *testing.T) {
 	mc := newBothDropSlotConfigs()
 	self := &mockPlayer{uidValue: 11}
@@ -3853,8 +3855,12 @@ func TestHandleInvDropAll_MixedSlots_ScopeNormal(t *testing.T) {
 	if err := Execute(s); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(world.addedCalls) != 3 {
-		t.Fatalf("addObj: got %d, want 3", len(world.addedCalls))
+	// 244 delta: only tradeable (id=20) produces an AddObj call.
+	if len(world.addedCalls) != 1 {
+		t.Fatalf("addObj: got %d, want 1 (tradeable only)", len(world.addedCalls))
+	}
+	if world.addedCalls[0].typeID != 20 {
+		t.Errorf("addObj typeID: got %d, want 20 (tradeable)", world.addedCalls[0].typeID)
 	}
 	if len(self.addWealthEventCalls) != 0 {
 		t.Errorf("AddWealthEvent: got %d, want 0 (non-SCOPE_PERM)", len(self.addWealthEventCalls))
@@ -3862,8 +3868,9 @@ func TestHandleInvDropAll_MixedSlots_ScopeNormal(t *testing.T) {
 }
 
 // TestHandleInvDropAll_TradeableSplit: tradeable obj → addObj.receiverID=-1
-// (PublicReceiver). Untradeable → addObj.receiverID=self.UID(). Mirrors TS
-// InvOps.ts:773-778.
+// (PublicReceiver / Obj.NO_RECEIVER). Untradeable → NO AddObj (rev-244 B4
+// delta). TS InvOps.ts:773-777. Prior to rev-244 this expected 2 AddObj calls
+// with the untradeable having receiverID=self.UID (225 behaviour, now removed).
 func TestHandleInvDropAll_TradeableSplit(t *testing.T) {
 	mc := newBothDropSlotConfigs()
 	self := &mockPlayer{uidValue: 11}
@@ -3880,29 +3887,32 @@ func TestHandleInvDropAll_TradeableSplit(t *testing.T) {
 	if err := Execute(s); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(world.addedCalls) != 2 {
-		t.Fatalf("addObj: got %d, want 2", len(world.addedCalls))
+	// 244 delta: untradeable stops after delete; only 1 AddObj (tradeable).
+	if len(world.addedCalls) != 1 {
+		t.Fatalf("addObj: got %d, want 1 (tradeable only)", len(world.addedCalls))
 	}
-	// slot 0 (untradeable): receiverID = self.UID
-	if world.addedCalls[0].receiverID != 11 {
-		t.Errorf("untradeable receiver: got %d, want 11 (self.UID)", world.addedCalls[0].receiverID)
+	// The single call is for the tradeable (id=20) with NO_RECEIVER.
+	if world.addedCalls[0].typeID != 20 {
+		t.Errorf("tradeable typeID: got %d, want 20", world.addedCalls[0].typeID)
 	}
-	// slot 1 (tradeable): receiverID = -1 (PublicReceiver / Obj.NO_RECEIVER)
-	if world.addedCalls[1].receiverID != -1 {
-		t.Errorf("tradeable receiver: got %d, want -1 (PublicReceiver)", world.addedCalls[1].receiverID)
+	if world.addedCalls[0].receiverID != -1 {
+		t.Errorf("tradeable receiver: got %d, want -1 (PublicReceiver)", world.addedCalls[0].receiverID)
 	}
 }
 
 // TestHandleInvDropAll_ScopePerm_AccumulatesWealthLog: SCOPE_PERM with
-// 3 non-empty slots (ids 10, 20, 10) → 3 addObj + 1 wealth event with
-// 2 line items (id=10 has accumulated count) and summed AccountValue.
-// Mirrors TS InvOps.ts:750-763 Map accumulation (R8: keyed by objID).
+// 3 non-empty slots (ids 10, 20, 10) → 1 addObj (tradeable id=20 only) +
+// 1 wealth event with 2 line items (id=10 has accumulated count) and summed
+// AccountValue. rev-244 B4: untradeables (id=10) stop after delete; wealth
+// log still accumulates ALL items before the tradeable gate.
+// Mirrors TS InvOps.ts:750-787 (accumulate ALL → delete → tradeable gate).
+// Prior to rev-244 this expected 3 AddObj calls (225 behaviour, now removed).
 func TestHandleInvDropAll_ScopePerm_AccumulatesWealthLog(t *testing.T) {
 	mc := newBothDropSlotConfigs()
 	self := &mockPlayer{uidValue: 11}
 	inv := inventory.New(6, 28, inventory.StackNormal)
-	inv.Set(0, &inventory.Item{Id: 10, Count: 3}) // cost=100 → 300
-	inv.Set(1, &inventory.Item{Id: 20, Count: 2}) // cost=50  → 100
+	inv.Set(0, &inventory.Item{Id: 10, Count: 3}) // cost=100 → 300 (untradeable)
+	inv.Set(1, &inventory.Item{Id: 20, Count: 2}) // cost=50  → 100 (tradeable)
 	inv.Set(2, &inventory.Item{Id: 10, Count: 5}) // cost=100 → 500; merges into id=10 → total count=8
 	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
 
@@ -3914,8 +3924,12 @@ func TestHandleInvDropAll_ScopePerm_AccumulatesWealthLog(t *testing.T) {
 	if err := Execute(s); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(world.addedCalls) != 3 {
-		t.Fatalf("addObj: got %d, want 3", len(world.addedCalls))
+	// 244 delta: only tradeable (id=20) produces an AddObj call.
+	if len(world.addedCalls) != 1 {
+		t.Fatalf("addObj: got %d, want 1 (tradeable id=20 only)", len(world.addedCalls))
+	}
+	if world.addedCalls[0].typeID != 20 {
+		t.Errorf("addObj typeID: got %d, want 20", world.addedCalls[0].typeID)
 	}
 	if len(self.addWealthEventCalls) != 1 {
 		t.Fatalf("AddWealthEvent: got %d, want 1 (SCOPE_PERM death)", len(self.addWealthEventCalls))
@@ -4389,5 +4403,221 @@ func TestTradeEmitsWealthEvent(t *testing.T) {
 	}
 	if e.ValueReceived != 5 {
 		t.Errorf("ValueReceived: got %d, want 5", e.ValueReceived)
+	}
+}
+
+// ── rev-244 B4 InvOps delta tests ────────────────────────────────────────────
+
+// TestBothDropSlot_UntradeableStops244 verifies the 244 BOTH_DROPSLOT change:
+// after invDel, untradeables must NOT produce an AddObj call — the opcode
+// returns early. TS 244 InvOps.ts:722-724 `if (!objType.tradeable) { return; }`.
+// Extends TestHandleBothDropSlot_PrimaryFromSelf_Untradeable (which tested the
+// old 225 fromPlayer-receiver behaviour); the inv slot IS cleared by invDel.
+func TestBothDropSlot_UntradeableStops244(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	self2 := &mockPlayer{uidValue: 22}
+	lookup, _, _ := newTwoPlayerInvFixture()
+	lookup.self = self
+	lookup.self2 = self2
+	lookup.selfInvs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.self2Invs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.selfInvs[5].Set(0, &inventory.Item{Id: 10, Count: 3}) // untradeable obj
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	s := newBothDropState(0, self, self2, mc, lookup, world)
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	if err := handleBothDropSlot(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// 244 delta: untradeables stop after delete — NO AddObj call.
+	if len(world.addedCalls) != 0 {
+		t.Errorf("244 untradeable-stop: got %d AddObj calls, want 0", len(world.addedCalls))
+	}
+	// The inv slot must have been cleared (invDel happened before the gate).
+	if it := lookup.selfInvs[5].Get(0); it != nil {
+		t.Errorf("244 untradeable-stop: inv slot should be cleared, got %+v", it)
+	}
+}
+
+// TestBothDropSlot_SecondaryFromSelf2_UntradeableStops244 mirrors
+// TestBothDropSlot_UntradeableStops244 for the secondary (operand=1) path
+// where fromPlayer=Self2. TS InvOps.ts:722-724 applies regardless of operand.
+func TestBothDropSlot_SecondaryFromSelf2_UntradeableStops244(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	self2 := &mockPlayer{uidValue: 22}
+	lookup, _, _ := newTwoPlayerInvFixture()
+	lookup.self = self
+	lookup.self2 = self2
+	lookup.selfInvs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.self2Invs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.self2Invs[5].Set(0, &inventory.Item{Id: 10, Count: 2}) // untradeable on self2
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	s := newBothDropState(1, self, self2, mc, lookup, world) // operand=1 (secondary)
+	s.Pointers |= PtrProtectedActivePlayer2
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	if err := handleBothDropSlot(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// 244 delta: untradeables stop after delete — NO AddObj call.
+	if len(world.addedCalls) != 0 {
+		t.Errorf("244 secondary untradeable-stop: got %d AddObj calls, want 0", len(world.addedCalls))
+	}
+}
+
+// TestInvDropAll_UntradeableStops244 verifies the 244 INV_DROPALL change:
+// after inventory.delete, untradeables must NOT produce an AddObj call —
+// the loop continues. TS 244 InvOps.ts:773-775:
+// `if (!objType.tradeable) { continue; }`.
+// inv with one untradeable (id=10) + one tradeable (id=20) → exactly ONE AddObj
+// call (for the tradeable, with NO_RECEIVER=-1), and both slots cleared.
+func TestInvDropAll_UntradeableStops244(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	inv := inventory.New(5, 28, inventory.StackNormal)
+	inv.Set(0, &inventory.Item{Id: 10, Count: 1}) // untradeable
+	inv.Set(1, &inventory.Item{Id: 20, Count: 1}) // tradeable
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	s := newInvDropAllState(0, self, mc, inv, 5, world)
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(50)
+
+	if err := Execute(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// 244 delta: untradeable stops after delete, tradeable drops normally.
+	if len(world.addedCalls) != 1 {
+		t.Fatalf("244 untradeable-stop: got %d AddObj calls, want 1 (tradeable only)", len(world.addedCalls))
+	}
+	// The single call must be for the tradeable (id=20) with NO_RECEIVER.
+	if world.addedCalls[0].typeID != 20 {
+		t.Errorf("244 tradeable call: got typeID=%d, want 20", world.addedCalls[0].typeID)
+	}
+	if world.addedCalls[0].receiverID != -1 {
+		t.Errorf("244 tradeable NO_RECEIVER: got receiverID=%d, want -1", world.addedCalls[0].receiverID)
+	}
+	// Both slots must be cleared.
+	if it := inv.Get(0); it != nil {
+		t.Errorf("244 untradeable slot 0 should be cleared, got %+v", it)
+	}
+	if it := inv.Get(1); it != nil {
+		t.Errorf("244 tradeable slot 1 should be cleared, got %+v", it)
+	}
+}
+
+// TestBothDropSlot_WealthRecipientRekey244 verifies the 244 BOTH_DROPSLOT
+// SCOPE_PERM wealth event carries recipient_id + recipient_session.
+// TS InvOps.ts:706-714: `recipient_id: toPlayer.account_id`,
+// `recipient_session: isClientConnected(toPlayer) ? toPlayer.client.uuid : 'disconnected'`
+// (line 707 from TS InvOps.ts:706-714 verified).
+// toPlayer fake has AccountID()=42 and RecipientSession()="disconnected" (not connected).
+func TestBothDropSlot_WealthRecipientRekey244(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	// Use tradeable obj in SCOPE_PERM inv so the wealth event fires.
+	// obj 20 is tradeable, inv 6 is SCOPE_PERM.
+	self := &mockPlayer{uidValue: 11}
+	self2 := &mockPlayer{uidValue: 22, accountIDValue: 42, recipientSessionValue: "disconnected"}
+	lookup, _, _ := newTwoPlayerInvFixture()
+	lookup.self = self
+	lookup.self2 = self2
+	lookup.selfInvs[6] = inventory.New(6, 28, inventory.StackNormal)
+	lookup.self2Invs[6] = inventory.New(6, 28, inventory.StackNormal)
+	lookup.selfInvs[6].Set(0, &inventory.Item{Id: 20, Count: 5}) // tradeable, cost=50 → value=250
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	s := newBothDropState(0, self, self2, mc, lookup, world)
+	s.PushInt(6) // perm inv
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	if err := handleBothDropSlot(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(self.addWealthEventCalls) != 1 {
+		t.Fatalf("AddWealthEvent: got %d calls, want 1 (PVP)", len(self.addWealthEventCalls))
+	}
+	evt := self.addWealthEventCalls[0]
+	if evt.EventType != WealthEventTypePVP {
+		t.Errorf("EventType: got %d, want %d (PVP)", evt.EventType, WealthEventTypePVP)
+	}
+	// 244 re-key: recipient_id must be toPlayer.AccountID().
+	if evt.RecipientID != 42 {
+		t.Errorf("RecipientID: got %d, want 42 (toPlayer.AccountID)", evt.RecipientID)
+	}
+	// 244 re-key: recipient_session from toPlayer.RecipientSession().
+	if evt.RecipientSession != "disconnected" {
+		t.Errorf("RecipientSession: got %q, want %q", evt.RecipientSession, "disconnected")
+	}
+}
+
+// TestBothMoveInv_StakeRecipientRekey244 verifies the 244 STAKE wealth event
+// carries recipient_id + recipient_session. TS InvOps.ts:453-458.
+// Extends TestBothMoveInv_StakePositive_EmitsWealthEvent with the new fields.
+func TestBothMoveInv_StakeRecipientRekey244(t *testing.T) {
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].DebugName = "dueloffer"
+	mc.invs[testInvMain].Protect = false
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	self2.accountIDValue = 99
+	self2.recipientSessionValue = "disconnected"
+	lookup.selfInvs[testInvMain].Items[0] = &inventory.Item{Id: testObjCoin, Count: 100}
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	_ = runBothMoveInv(t, 0, []int{testInvMain, testInvMain}, lookup, mc, world, self, self2, false)
+
+	if len(self.addWealthEventCalls) != 1 {
+		t.Fatalf("AddWealthEvent: got %d calls, want 1 (STAKE)", len(self.addWealthEventCalls))
+	}
+	evt := self.addWealthEventCalls[0]
+	if evt.EventType != WealthEventTypeStake {
+		t.Errorf("EventType: got %d, want %d (STAKE)", evt.EventType, WealthEventTypeStake)
+	}
+	if evt.RecipientID != 99 {
+		t.Errorf("244 STAKE RecipientID: got %d, want 99", evt.RecipientID)
+	}
+	if evt.RecipientSession != "disconnected" {
+		t.Errorf("244 STAKE RecipientSession: got %q, want %q", evt.RecipientSession, "disconnected")
+	}
+}
+
+// TestBothMoveInv_TradeRecipientRekey244 verifies the 244 TRADE wealth event
+// carries recipient_id + recipient_session. TS InvOps.ts:488-495.
+// Extends TestBothMoveInv_TradePositive_EmitsWealthEvent with the new fields.
+func TestBothMoveInv_TradeRecipientRekey244(t *testing.T) {
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Protect = false
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	self2.accountIDValue = 77
+	self2.recipientSessionValue = "some-uuid-abc"
+	lookup.selfInvs[testInvMain].Items[0] = &inventory.Item{Id: testObjCoin, Count: 200}
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	_ = runBothMoveInv(t, 0, []int{testInvMain, testInvMain}, lookup, mc, world, self, self2, false)
+
+	if len(self.addWealthEventCalls) != 1 {
+		t.Fatalf("AddWealthEvent: got %d calls, want 1 (TRADE)", len(self.addWealthEventCalls))
+	}
+	evt := self.addWealthEventCalls[0]
+	if evt.EventType != WealthEventTypeTrade {
+		t.Errorf("EventType: got %d, want %d (TRADE)", evt.EventType, WealthEventTypeTrade)
+	}
+	if evt.RecipientID != 77 {
+		t.Errorf("244 TRADE RecipientID: got %d, want 77", evt.RecipientID)
+	}
+	if evt.RecipientSession != "some-uuid-abc" {
+		t.Errorf("244 TRADE RecipientSession: got %q, want %q", evt.RecipientSession, "some-uuid-abc")
 	}
 }

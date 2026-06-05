@@ -1718,13 +1718,16 @@ func handleBothMoveInv(s *ScriptState) error {
 	}
 
 	if fromInvType.DebugName == "dueloffer" {
-		// STAKE event (mirrors TS InvOps.ts:447-453).
+		// STAKE event (mirrors TS InvOps.ts:447-458).
+		// rev-244 B4: RecipientID + RecipientSession from toPlayer.
+		// Closes NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY deferral.
 		if len(fromLogs) > 0 {
 			fromPlayer.AddWealthEvent(WealthEvent{
-				EventType:    WealthEventTypeStake,
-				AccountItems: fromItems,
-				AccountValue: fromTotal,
-				// RecipientSession: toPlayer.Session() — deferred (NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY).
+				EventType:        WealthEventTypeStake,
+				AccountItems:     fromItems,
+				AccountValue:     fromTotal,
+				RecipientID:      toPlayer.AccountID(),
+				RecipientSession: toPlayer.RecipientSession(),
 			})
 			if s.NodeDebug && s.Log != nil {
 				s.Log.Info("nai162.wealth.bothmoveinv_stake",
@@ -1761,13 +1764,16 @@ func handleBothMoveInv(s *ScriptState) error {
 				toTotal += toObjType.Cost * it.Count
 			}
 		}
-		// TS InvOps.ts:483: emit when fromItems OR toItems non-empty.
+		// TS InvOps.ts:483-495: emit when fromItems OR toItems non-empty.
+		// rev-244 B4: RecipientID + RecipientSession from toPlayer.
+		// Closes NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY deferral.
 		if len(fromLogs) > 0 || len(toItems) > 0 {
 			fromPlayer.AddWealthEvent(WealthEvent{
-				EventType:    WealthEventTypeTrade,
-				AccountItems: fromItems,
-				AccountValue: fromTotal,
-				// RecipientSession: toPlayer.Session() — deferred (NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY).
+				EventType:        WealthEventTypeTrade,
+				AccountItems:     fromItems,
+				AccountValue:     fromTotal,
+				RecipientID:      toPlayer.AccountID(),
+				RecipientSession: toPlayer.RecipientSession(),
 			})
 			var tradeWorldID int32
 			if s.World != nil {
@@ -1980,12 +1986,13 @@ func handleInvDebugName(s *ScriptState) error {
 // (secondary). Gate checked after validators, before slot lookup.
 //
 // SCOPE_PERM drops emit a PVP WealthEvent on state.activePlayer (Self)
-// with RecipientSession="" per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY
-// (Session() not exposed through the ActivePlayer interface; deferred).
+// with RecipientID=toPlayer.AccountID() and RecipientSession from
+// toPlayer.RecipientSession(). rev-244 B4 closes the
+// NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY Session-not-exposed deferral.
 //
-// Untradeable objs stay with fromPlayer (receiverID = fromPlayer.UID());
-// tradeable objs go to toPlayer (receiverID = toPlayer.UID()).
-// Mirrors TS InvOps.ts:672-723.
+// rev-244 B4 delta: untradeables stop after invDel (no AddObj); tradeable
+// objs go to toPlayer (receiverID = toPlayer.UID()).
+// Mirrors TS InvOps.ts:672-727.
 func handleBothDropSlot(s *ScriptState) error {
 	if err := requireActivePlayer(s, "BOTH_DROPSLOT"); err != nil {
 		return err
@@ -2074,15 +2081,16 @@ func handleBothDropSlot(s *ScriptState) error {
 	}
 
 	// SCOPE_PERM → PVP WealthEvent on state.activePlayer (Self).
-	// RecipientSession="" per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY:
-	// toPlayer.Session() is not exposed through the ActivePlayer interface.
-	// (goscape adaptation; TS has toPlayer.session field access here.)
+	// rev-244 B4: RecipientID + RecipientSession filled from toPlayer.
+	// Mirrors TS InvOps.ts:706-714 (recipient_id, recipient_session keying).
+	// Closes NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY Session-not-exposed deferral.
 	if invType.Scope == objtype.InvTypeScopePerm {
 		s.activePlayer().AddWealthEvent(WealthEvent{
 			EventType:        WealthEventTypePVP,
 			AccountItems:     []WealthItem{{ID: objID, Name: objType.DebugName, Count: count}},
 			AccountValue:     count * objType.Cost,
-			RecipientSession: "", // deferred per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY
+			RecipientID:      toPlayer.AccountID(),
+			RecipientSession: toPlayer.RecipientSession(),
 		})
 		if s.NodeDebug && s.Log != nil {
 			s.Log.Info("nai162.wealth.bothdropslot",
@@ -2106,16 +2114,13 @@ func handleBothDropSlot(s *ScriptState) error {
 		return nil
 	}
 
-	// Untradeable → fromPlayer; tradeable → toPlayer. Mirrors TS
-	// InvOps.ts:717-721: `!objType.tradeable ? fromPlayer.hash64 : toPlayer.hash64`.
-	var receiverID int
+	// rev-244 B4 delta: untradeables stop after delete — no AddObj call.
+	// Tradeable objs go to toPlayer. TS InvOps.ts:722-726.
 	if !objType.Tradeable {
-		receiverID = fromPlayer.UID()
-	} else {
-		receiverID = toPlayer.UID()
+		return nil // TS 244 InvOps.ts:722-724 — stop untradables after delete.
 	}
 
-	s.World.AddObj(level, x, z, objID, completed, duration, receiverID, s.activePlayer().AccountID())
+	s.World.AddObj(level, x, z, objID, completed, duration, toPlayer.UID(), s.activePlayer().AccountID())
 	return nil
 }
 
@@ -2123,7 +2128,7 @@ func handleBothDropSlot(s *ScriptState) error {
 // named inv, dropping each obj to the world. SCOPE_PERM accumulates a
 // per-objID wealth log keyed by objID with running count; after the
 // loop, if any items were seen, emits a single Death-type WealthEvent
-// with aggregated items and total value. Mirrors TS InvOps.ts:726-790.
+// with aggregated items and total value. Mirrors TS InvOps.ts:726-788.
 //
 // Pop order (LIFO): duration, coord, invID
 // (TS popInts(3) → [inv, coord, duration]; duration on top).
@@ -2132,9 +2137,11 @@ func handleBothDropSlot(s *ScriptState) error {
 // PtrProtectedActivePlayer (intOperand=0) or PtrProtectedActivePlayer2
 // (intOperand=1). Gate checked after validators, before slot walk.
 //
-// Per-slot receiver: untradeable → self.UID() (private); tradeable →
-// -1 (PublicReceiver / Obj.NO_RECEIVER). Mirrors TS InvOps.ts:773-778:
-// `!objType.tradeable ? state.activePlayer.hash64 : Obj.NO_RECEIVER`.
+// rev-244 B4 delta: after inventory.delete(slot), untradeables continue
+// (no AddObj). Tradeable objs go to NO_RECEIVER (-1).
+// TS InvOps.ts:773-775: `if (!objType.tradeable) { continue; }`.
+// Wealth log accumulates ALL items (including untradeables) before the
+// tradeable gate — matches TS InvOps.ts:758-769.
 func handleInvDropAll(s *ScriptState) error {
 	if err := requireActivePlayer(s, "INV_DROPALL"); err != nil {
 		return err
@@ -2234,16 +2241,14 @@ func handleInvDropAll(s *ScriptState) error {
 
 		inv.Delete(slot)
 
-		// Untradeable stays with the player (private); tradeable goes to
-		// PublicReceiver (-1). Mirrors TS InvOps.ts:773-778.
-		var receiverID int
+		// rev-244 B4: untradeables stop after delete — no AddObj.
+		// Tradeable objs go to PublicReceiver (-1 / Obj.NO_RECEIVER).
+		// TS InvOps.ts:773-777.
 		if !tradeable {
-			receiverID = s.activePlayer().UID()
-		} else {
-			receiverID = -1 // Obj.NO_RECEIVER / PublicReceiver
+			continue // TS 244 InvOps.ts:773-775 — stop untradables after delete.
 		}
 
-		s.World.AddObj(level, x, z, objID, count, duration, receiverID, s.activePlayer().AccountID())
+		s.World.AddObj(level, x, z, objID, count, duration, -1, s.activePlayer().AccountID())
 	}
 
 	// Post-loop: emit single Death event if anything was accumulated.

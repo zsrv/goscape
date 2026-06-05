@@ -581,6 +581,13 @@ type ActivePlayer interface {
 	// players whose session bypassed the login bridge. NAI-Phase2.
 	AccountID() int64
 
+	// RecipientSession returns this player's per-login session UUID when a
+	// client is attached, else "disconnected". Used when this player is
+	// the COUNTERPARTY of a wealth event. Mirrors TS InvOps.ts:446
+	// `isClientConnected(toPlayer) ? toPlayer.client.uuid : 'disconnected'`
+	// (single-Player-type adaptation, rev-244 B3 row).
+	RecipientSession() string
+
 	// X returns the player's current absolute world X coord. Used by
 	// MAP_PLAYERCOUNT (NAI-35-T2) for rect-filter checks; will also be
 	// used by PlayerIterator.passesFilter (NAI-35-T4).
