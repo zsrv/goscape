@@ -939,16 +939,17 @@ func handleNpcFindAllZone(s *ScriptState) error {
 }
 
 // handleNpcHuntAll (NPC_HUNTALL, opcode 2528) pops [coord, distance,
-// huntvis] and stores a HuntAll-mode NpcIterator in s.npcIterator
-// (consumed by NPC_FINDNEXT 2520). Mirrors TS NpcOps.ts:325-333.
+// huntvis] and stores a HuntAll-mode NpcIterator in s.huntIterator
+// (consumed by NPC_HUNTNEXT 2529). Mirrors TS ServerOps.ts:114-122
+// at pin 9aadcec4. NPC_FINDNEXT (which reads npcIterator) no longer
+// sees these results — the split is intentional (rev-244 B4).
 //
 // Pop order (top-of-stack first): huntvis, distance, coord.
 // Validation: checkCoord, checkNotNull(distance), checkHuntVis.
 // Nil-Npcs degrades silently (matches NPC_FINDALL convention).
 //
 // NAI-35-T3: HuntAll-mode iterator activated LoS/LoW filtering at the
-// passesFilter HuntAll branch. Distance mode and FindClosestNpc* were
-// closed at NAI-33-D1 retire (TS ScriptIterators.ts:348-352).
+// passesFilter HuntAll branch.
 func handleNpcHuntAll(s *ScriptState) error {
 	checkVis := s.PopInt()
 	distance := s.PopInt()
@@ -968,10 +969,39 @@ func handleNpcHuntAll(s *ScriptState) error {
 	if s.Npcs == nil {
 		return nil
 	}
-	s.npcIterator = NewHuntAllNpcIterator(
+	s.huntIterator = NewHuntAllNpcIterator(
 		s.Npcs, s.LineValidator, s.Configs, s.World.CurrentTick(),
 		level, x, z, distance, checkVis,
 	)
+	return nil
+}
+
+// handleNpcHuntNext (NPC_HUNTNEXT, opcode 2529) advances the unified hunt
+// iterator and binds the next NPC to the operand-selected active slot.
+// Mirrors TS ServerOps.ts:124-138 at pin 9aadcec4. Errors when the iterator
+// holds players (TS instanceof Npc guard, ServerOps.ts:131).
+//
+// Exhaustion does NOT clear s.huntIterator (mirrors NPC_FINDNEXT semantics
+// and the HUNTNEXT convention at iterator_state_pattern.md element 7).
+func handleNpcHuntNext(s *ScriptState) error {
+	it, ok := s.huntIterator.(*NpcIterator)
+	if s.huntIterator != nil && !ok {
+		return fmt.Errorf("NPC_HUNTNEXT: command must result instance of Npc") // TS ServerOps.ts:132
+	}
+	if it == nil {
+		s.PushInt(0)
+		return nil
+	}
+	if it.Stale(s.World.CurrentTick()) {
+		return fmt.Errorf("NPC_HUNTNEXT: tried to use an old iterator. Create a new iterator instead.")
+	}
+	npc, ok2 := it.Next()
+	if !ok2 {
+		s.PushInt(0)
+		return nil
+	}
+	setActiveNpcSlot(s, npc)
+	s.PushInt(1)
 	return nil
 }
 
@@ -979,7 +1009,7 @@ func handleNpcHuntAll(s *ScriptState) error {
 // selects the closest NPC by euclidean² distance from a HuntAll-mode
 // iterator over zone-sweep candidates, then sets ActiveNpc + pushes 1. On
 // empty iterator (no candidates), nil-Npcs, or no in-range NPCs, pushes 0.
-// Mirrors TS NpcOps.ts:290-321.
+// Mirrors TS ServerOps.ts:79-110 at pin 9aadcec4.
 //
 // Pop order (top first): huntvis, distance, coord.
 // Validation: checkCoord, checkNotNull(distance), checkHuntVis.

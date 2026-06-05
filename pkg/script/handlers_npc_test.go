@@ -2734,27 +2734,29 @@ func TestHandleNpcHuntAll_StoresHuntAllIterator(t *testing.T) {
 	if err := handleNpcHuntAll(s); err != nil {
 		t.Fatalf("handleNpcHuntAll: %v", err)
 	}
-	if s.npcIterator == nil {
-		t.Fatal("npcIterator should be non-nil after NPC_HUNTALL")
+	// rev-244: NPC_HUNTALL stores into huntIterator (not npcIterator).
+	it, ok := s.huntIterator.(*NpcIterator)
+	if !ok || it == nil {
+		t.Fatal("huntIterator should hold a *NpcIterator after NPC_HUNTALL")
 	}
-	if s.npcIterator.mode != NpcIteratorHuntAll {
-		t.Errorf("mode: got %v, want NpcIteratorHuntAll", s.npcIterator.mode)
+	if it.mode != NpcIteratorHuntAll {
+		t.Errorf("mode: got %v, want NpcIteratorHuntAll", it.mode)
 	}
-	if s.npcIterator.huntvis != objtype.HuntVisLineOfSight {
-		t.Errorf("huntvis: got %d, want HuntVisLineOfSight (%d)", s.npcIterator.huntvis, objtype.HuntVisLineOfSight)
+	if it.huntvis != objtype.HuntVisLineOfSight {
+		t.Errorf("huntvis: got %d, want HuntVisLineOfSight (%d)", it.huntvis, objtype.HuntVisLineOfSight)
 	}
-	if s.npcIterator.creationTick != 100 {
-		t.Errorf("creationTick: got %d, want 100 (from World.CurrentTick)", s.npcIterator.creationTick)
+	if it.creationTick != 100 {
+		t.Errorf("creationTick: got %d, want 100 (from World.CurrentTick)", it.creationTick)
 	}
-	if s.npcIterator.level != 2 || s.npcIterator.x != 3200 || s.npcIterator.z != 3300 {
+	if it.level != 2 || it.x != 3200 || it.z != 3300 {
 		t.Errorf("center: got (level=%d, x=%d, z=%d), want (2, 3200, 3300)",
-			s.npcIterator.level, s.npcIterator.x, s.npcIterator.z)
+			it.level, it.x, it.z)
 	}
-	if s.npcIterator.distance != 10 {
-		t.Errorf("distance: got %d, want 10", s.npcIterator.distance)
+	if it.distance != 10 {
+		t.Errorf("distance: got %d, want 10", it.distance)
 	}
-	if s.npcIterator.typeID != -1 {
-		t.Errorf("typeID: got %d, want -1 (HuntAll has no type filter)", s.npcIterator.typeID)
+	if it.typeID != -1 {
+		t.Errorf("typeID: got %d, want -1 (HuntAll has no type filter)", it.typeID)
 	}
 	if s.ISP != 0 {
 		t.Errorf("NPC_HUNTALL should not push; ISP=%d", s.ISP)
@@ -2768,8 +2770,9 @@ func TestHandleNpcHuntAll_NilNpcsDegrades(t *testing.T) {
 	if err := handleNpcHuntAll(s); err != nil {
 		t.Fatalf("handleNpcHuntAll with nil Npcs: %v", err)
 	}
-	if s.npcIterator != nil {
-		t.Error("npcIterator should remain nil when Npcs is nil (degrades to FINDNEXT push-0)")
+	// rev-244: NPC_HUNTALL stores into huntIterator.
+	if s.huntIterator != nil {
+		t.Error("huntIterator should remain nil when Npcs is nil (degrades to NPC_HUNTNEXT push-0)")
 	}
 }
 
@@ -2781,8 +2784,9 @@ func TestHandleNpcHuntAll_InvalidHuntVisRejected(t *testing.T) {
 	} else if !strings.Contains(err.Error(), "NPC_HUNTALL") {
 		t.Errorf("error should be tagged NPC_HUNTALL: %v", err)
 	}
-	if s.npcIterator != nil {
-		t.Error("npcIterator should remain nil after validation error")
+	// rev-244: NPC_HUNTALL stores into huntIterator.
+	if s.huntIterator != nil {
+		t.Error("huntIterator should remain nil after validation error")
 	}
 }
 
@@ -5062,5 +5066,143 @@ func TestHandleNpcFindAllAny_PlumbsLineValidatorToIterator(t *testing.T) {
 	}
 	if yielded != 0 {
 		t.Errorf("LineValidator returns false + LoW huntvis: expected 0 yields, got %d", yielded)
+	}
+}
+
+// --- rev-244 B4 Task 3: unified huntIterator + NPC_HUNTNEXT -------------
+
+// newNpcHuntAllStateWithNpc builds on newNpcHuntAllState with a single
+// matching NPC seeded into the lookup so that NPC_HUNTNEXT can yield it.
+// Zone math: center=(0, 3200, 3300), distance=5 → centerX=400, centerZ=412,
+// radius=1 → zones [399..401]×[411..413]. Iterator starts at (401,413),
+// first ZoneNpcs call: (0, 401*8=3208, 413*8=3304) → key mockZoneKey(0, 3208, 3304).
+// NPC at (3201, 3300): zone (400, 412) → key mockZoneKey(0, 3200, 3296);
+// distance to SW: max(|3201-3200|, |3300-3300|) = 1 ≤ 5 → passes.
+func newNpcHuntAllStateWithNpc(t *testing.T) *ScriptState {
+	t.Helper()
+	coord := (0 << 28) | (3200 << 14) | 3300
+	target := &mockNpc{typeID: 1, x: 3201, z: 3300}
+	lookup := &mockNpcLookup{
+		byZone: map[uint64][]ActiveNpc{
+			mockZoneKey(0, 3200, 3296): {target},
+		},
+	}
+	s := newNpcHuntAllState(t, coord, 5, objtype.HuntVisOff, lookup)
+	return s
+}
+
+// TestNpcHuntAll_NoLongerFeedsNpcFindNext pins the rev-244 split:
+// NPC_HUNTALL now feeds state.huntIterator (not npcIterator), so
+// NPC_FINDNEXT (which reads npcIterator) must push 0 after NPC_HUNTALL.
+// Mirrors TS ScriptState.ts:124-125 — huntIterator and npcIterator are
+// SEPARATE fields at 244 pin 9aadcec4; ServerOps.ts:121 stores the
+// result into huntIterator, not npcIterator.
+func TestNpcHuntAll_NoLongerFeedsNpcFindNext(t *testing.T) {
+	s := newNpcHuntAllStateWithNpc(t)
+	if err := handleNpcHuntAll(s); err != nil {
+		t.Fatal(err)
+	}
+	if err := handleNpcFindNext(s); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Fatalf("NPC_FINDNEXT after NPC_HUNTALL = %d, want 0 (huntIterator split)", got)
+	}
+}
+
+// TestNpcHuntNext_ConsumesHuntIterator pins the happy path of NPC_HUNTNEXT:
+// after NPC_HUNTALL feeds huntIterator, NPC_HUNTNEXT yields 1 and binds
+// active_npc. Mirrors TS ServerOps.ts:124-138 at pin 9aadcec4.
+func TestNpcHuntNext_ConsumesHuntIterator(t *testing.T) {
+	s := newNpcHuntAllStateWithNpc(t)
+	if err := handleNpcHuntAll(s); err != nil {
+		t.Fatal(err)
+	}
+	if err := handleNpcHuntNext(s); err != nil {
+		t.Fatalf("NPC_HUNTNEXT: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Fatalf("NPC_HUNTNEXT = %d, want 1", got)
+	}
+	if s.ActiveNpc == nil {
+		t.Fatal("NPC_HUNTNEXT did not bind active_npc")
+	}
+}
+
+// TestNpcHuntNext_NilIteratorPushesZero pins that NPC_HUNTNEXT with a nil
+// huntIterator safely pushes 0. Mirrors NPC_FINDNEXT nil-iterator semantics.
+func TestNpcHuntNext_NilIteratorPushesZero(t *testing.T) {
+	mw := newMockWorld()
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// huntIterator is nil by default.
+	if err := handleNpcHuntNext(s); err != nil {
+		t.Fatalf("nil huntIterator: unexpected error: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Fatalf("nil huntIterator: got %d, want 0", got)
+	}
+}
+
+// TestNpcHuntNext_StaleIteratorErrors pins the stale-tick guard on
+// NPC_HUNTNEXT: an iterator created at tick=3 is stale at tick=5.
+func TestNpcHuntNext_StaleIteratorErrors(t *testing.T) {
+	mw := newMockWorld()
+	mw.tick = 5
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		World:       mw,
+		Configs:     newTestConfigsWithNpcTypes(map[int]bool{}),
+		Npcs:        &mockNpcLookup{},
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Directly seed a stale NpcIterator into huntIterator.
+	s.huntIterator = NewHuntAllNpcIterator(
+		&mockNpcLookup{}, nil, nil, 3, 0, 3200, 3200, 10, objtype.HuntVisOff,
+	)
+	err := handleNpcHuntNext(s)
+	if err == nil {
+		t.Fatal("stale iterator: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "NPC_HUNTNEXT") {
+		t.Errorf("error should be tagged NPC_HUNTNEXT: %v", err)
+	}
+	if !strings.Contains(err.Error(), "old iterator") {
+		t.Errorf("error message should mention old iterator: %v", err)
+	}
+}
+
+// TestHuntNext_TypeMismatchErrors pins the TS instanceof guard (ServerOps.ts:70-72):
+// when huntIterator holds a *NpcIterator, HUNTNEXT must return an error.
+func TestHuntNext_TypeMismatchErrors(t *testing.T) {
+	s := newNpcHuntAllStateWithNpc(t)
+	if err := handleNpcHuntAll(s); err != nil {
+		t.Fatal(err)
+	}
+	// huntIterator now holds *NpcIterator; HUNTNEXT expects *PlayerIterator.
+	if err := handleHuntNext(s); err == nil {
+		t.Fatal("HUNTNEXT over an npc iterator: want error, got nil")
+	}
+}
+
+// TestNpcHuntNext_TypeMismatchErrors pins the inverse guard (ServerOps.ts:131):
+// when huntIterator holds a *PlayerIterator, NPC_HUNTNEXT must return an error.
+func TestNpcHuntNext_TypeMismatchErrors(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3200
+	lookup := &mockPlayerLookup{}
+	s := newHuntAllState(t, coord, 10, objtype.HuntVisOff, lookup)
+	if err := handleHuntAll(s); err != nil {
+		t.Fatal(err)
+	}
+	// huntIterator now holds *PlayerIterator; NPC_HUNTNEXT expects *NpcIterator.
+	if err := handleNpcHuntNext(s); err == nil {
+		t.Fatal("NPC_HUNTNEXT over a player iterator: want error, got nil")
 	}
 }

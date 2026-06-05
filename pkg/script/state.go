@@ -412,11 +412,14 @@ type ScriptState struct {
 	// Nil = no active iterator. Mirrors TS ScriptState.objIterator. NAI-154.
 	objIterator *ObjIterator
 
-	// playerIterator holds the active player-iterator state. Set by
-	// HUNTALL; consumed by HUNTNEXT (T5). Single-tick lifetime — Stale()
-	// check at HUNTNEXT against s.World.CurrentTick(). Nil = no active
-	// iterator. NAI-35-T4.
-	playerIterator *PlayerIterator
+	// huntIterator holds the active hunt-command iterator: *PlayerIterator
+	// (set by HUNTALL) or *NpcIterator (set by NPC_HUNTALL). Consumers
+	// type-switch and error on mismatch, reproducing TS's instanceof
+	// guards (ServerOps.ts:71-73,129-131). Single-tick lifetime — Stale()
+	// enforced by the consumers. Mirrors TS ScriptState.huntIterator
+	// (ScriptState.ts:124, IterableIterator<Entity>); replaces the 225
+	// playerIterator field. rev-244 B4.
+	huntIterator any
 
 	// DB cursor state — populated by DB_LISTALL* (and DB_FIND*, deferred to a
 	// later sub-spec); consumed by DB_FINDNEXT, DB_FINDBYINDEX. DbTable == nil

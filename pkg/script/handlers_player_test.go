@@ -4235,24 +4235,25 @@ func TestHandleHuntAll_StoresHuntAllPlayerIterator(t *testing.T) {
 	if err := handleHuntAll(s); err != nil {
 		t.Fatalf("handleHuntAll: %v", err)
 	}
-	if s.playerIterator == nil {
-		t.Fatal("playerIterator should be non-nil after HUNTALL")
+	it, ok := s.huntIterator.(*PlayerIterator)
+	if !ok || it == nil {
+		t.Fatal("huntIterator should hold a *PlayerIterator after HUNTALL")
 	}
-	if s.playerIterator.mode != PlayerIteratorHuntAll {
-		t.Errorf("mode: got %v, want PlayerIteratorHuntAll", s.playerIterator.mode)
+	if it.mode != PlayerIteratorHuntAll {
+		t.Errorf("mode: got %v, want PlayerIteratorHuntAll", it.mode)
 	}
-	if s.playerIterator.huntvis != objtype.HuntVisLineOfSight {
-		t.Errorf("huntvis: got %d, want HuntVisLineOfSight (%d)", s.playerIterator.huntvis, objtype.HuntVisLineOfSight)
+	if it.huntvis != objtype.HuntVisLineOfSight {
+		t.Errorf("huntvis: got %d, want HuntVisLineOfSight (%d)", it.huntvis, objtype.HuntVisLineOfSight)
 	}
-	if s.playerIterator.creationTick != 100 {
-		t.Errorf("creationTick: got %d, want 100 (from World.CurrentTick)", s.playerIterator.creationTick)
+	if it.creationTick != 100 {
+		t.Errorf("creationTick: got %d, want 100 (from World.CurrentTick)", it.creationTick)
 	}
-	if s.playerIterator.level != 2 || s.playerIterator.x != 3200 || s.playerIterator.z != 3300 {
+	if it.level != 2 || it.x != 3200 || it.z != 3300 {
 		t.Errorf("center: got (level=%d, x=%d, z=%d), want (2, 3200, 3300)",
-			s.playerIterator.level, s.playerIterator.x, s.playerIterator.z)
+			it.level, it.x, it.z)
 	}
-	if s.playerIterator.distance != 10 {
-		t.Errorf("distance: got %d, want 10", s.playerIterator.distance)
+	if it.distance != 10 {
+		t.Errorf("distance: got %d, want 10", it.distance)
 	}
 	if s.ISP != 0 {
 		t.Errorf("HUNTALL should not push; ISP=%d", s.ISP)
@@ -4266,8 +4267,8 @@ func TestHandleHuntAll_NilLookupDegrades(t *testing.T) {
 	if err := handleHuntAll(s); err != nil {
 		t.Fatalf("handleHuntAll with nil PlayerLookup: %v", err)
 	}
-	if s.playerIterator != nil {
-		t.Error("playerIterator should remain nil when PlayerLookup is nil (degrades to HUNTNEXT push-0)")
+	if s.huntIterator != nil {
+		t.Error("huntIterator should remain nil when PlayerLookup is nil (degrades to HUNTNEXT push-0)")
 	}
 }
 
@@ -4279,16 +4280,16 @@ func TestHandleHuntAll_InvalidHuntVisRejected(t *testing.T) {
 	} else if !strings.Contains(err.Error(), "HUNTALL") {
 		t.Errorf("error should be tagged HUNTALL: %v", err)
 	}
-	if s.playerIterator != nil {
-		t.Error("playerIterator should remain nil after validation error")
+	if s.huntIterator != nil {
+		t.Error("huntIterator should remain nil after validation error")
 	}
 }
 
 // --- NAI-35-T5: HUNTNEXT handler tests ---------------------------------
 
 // newHuntNextState mirrors newNpcFindNextState (handlers_npc_test.go:1860):
-// builds a ScriptState with a pre-set playerIterator and configurable
-// World tick. Tests use this for direct handler-level coverage.
+// builds a ScriptState with a pre-set huntIterator (*PlayerIterator) and
+// configurable World tick. Tests use this for direct handler-level coverage.
 func newHuntNextState(t *testing.T, tick int, iter *PlayerIterator) *ScriptState {
 	t.Helper()
 	mw := newMockWorld()
@@ -4300,7 +4301,9 @@ func newHuntNextState(t *testing.T, tick int, iter *PlayerIterator) *ScriptState
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
-	s.playerIterator = iter
+	if iter != nil {
+		s.huntIterator = iter
+	}
 	return s
 }
 
@@ -4395,7 +4398,7 @@ func TestHandleHuntNext_ExhaustionPushesZero(t *testing.T) {
 
 // TestHandleHuntNext_ExhaustionDoesNotClearIterator pins
 // iterator_state_pattern.md element 7: exhaustion does NOT nil out
-// s.playerIterator. Mirrors NPC parity at handlers_npc_test.go:1926.
+// s.huntIterator. Mirrors NPC parity at handlers_npc_test.go:1926.
 func TestHandleHuntNext_ExhaustionDoesNotClearIterator(t *testing.T) {
 	lookup := &mockPlayerLookup{}
 	iter := NewHuntAllPlayerIterator(
@@ -4407,8 +4410,8 @@ func TestHandleHuntNext_ExhaustionDoesNotClearIterator(t *testing.T) {
 		t.Fatalf("first handleHuntNext: %v", err)
 	}
 	_ = s.PopInt() // discard first push
-	if s.playerIterator == nil {
-		t.Fatal("playerIterator should NOT be cleared on exhaustion (TS parity)")
+	if s.huntIterator == nil {
+		t.Fatal("huntIterator should NOT be cleared on exhaustion (TS parity)")
 	}
 
 	// Second call on the now-exhausted iterator must also push 0
@@ -4419,8 +4422,8 @@ func TestHandleHuntNext_ExhaustionDoesNotClearIterator(t *testing.T) {
 	if got := s.PopInt(); got != 0 {
 		t.Errorf("second exhaustion: got push %d, want 0", got)
 	}
-	if s.playerIterator == nil {
-		t.Error("playerIterator should still be non-nil after second call")
+	if s.huntIterator == nil {
+		t.Error("huntIterator should still be non-nil after second call")
 	}
 }
 
@@ -4444,7 +4447,9 @@ func newHuntNextStateWithOperand(t *testing.T, tick int, iter *PlayerIterator, o
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
-	s.playerIterator = iter
+	if iter != nil {
+		s.huntIterator = iter
+	}
 	return s
 }
 
@@ -7381,5 +7386,50 @@ func TestHandlePWalk_DispatchesWalkWithUnpackedXZ(t *testing.T) {
 	c := mp.walkCalls[0]
 	if c.destX != 3210 || c.destZ != 3220 {
 		t.Errorf("Walk dispatch: got (destX=%d, destZ=%d), want (3210, 3220)", c.destX, c.destZ)
+	}
+}
+
+// --- rev-244 B4 Task 3: HUNTALL/HUNTNEXT re-pointed to huntIterator ------
+
+// TestHuntAll_StoresIntoHuntIterator pins that HUNTALL writes to
+// s.huntIterator (not the old playerIterator field) after the rev-244
+// unification. Mirrors TS ServerOps.ts:53-61 at pin 9aadcec4.
+func TestHuntAll_StoresIntoHuntIterator(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3200
+	s := newHuntAllState(t, coord, 10, objtype.HuntVisLineOfSight, &mockPlayerLookup{})
+	if err := handleHuntAll(s); err != nil {
+		t.Fatalf("handleHuntAll: %v", err)
+	}
+	it, ok := s.huntIterator.(*PlayerIterator)
+	if !ok || it == nil {
+		t.Fatal("huntIterator should hold a *PlayerIterator after HUNTALL")
+	}
+	if it.mode != PlayerIteratorHuntAll {
+		t.Errorf("mode: got %v, want PlayerIteratorHuntAll", it.mode)
+	}
+}
+
+// TestHuntNext_ConsumesHuntIterator verifies the HUNTALL→HUNTNEXT happy path
+// against the unified huntIterator. A seeded player is expected to be yielded.
+func TestHuntNext_ConsumesHuntIterator(t *testing.T) {
+	target := &mockPlayer{username: "Hit2", x: 3204, z: 3204}
+	lookup := &mockPlayerLookup{
+		byZone: map[zoneKey][]ActivePlayer{
+			{0, 3216, 3216}: {target},
+		},
+	}
+	coord := (0 << 28) | (3200 << 14) | 3200
+	s := newHuntAllState(t, coord, 10, objtype.HuntVisOff, lookup)
+	if err := handleHuntAll(s); err != nil {
+		t.Fatalf("handleHuntAll: %v", err)
+	}
+	if err := handleHuntNext(s); err != nil {
+		t.Fatalf("handleHuntNext: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Fatalf("HUNTNEXT = %d, want 1", got)
+	}
+	if s.Self != target {
+		t.Fatalf("Self: got %v, want target %v", s.Self, target)
 	}
 }

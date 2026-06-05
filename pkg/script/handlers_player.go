@@ -1358,12 +1358,16 @@ func handleSoundSynth(s *ScriptState) error {
 }
 
 // handleHuntAll (HUNTALL, opcode 1004) pops [coord, distance, huntvis]
-// and stores a HuntAll-mode PlayerIterator in s.playerIterator
-// (consumed by HUNTNEXT 2032 in T5). Mirrors TS PlayerOps.ts:1215-1223.
+// and stores a HuntAll-mode PlayerIterator in s.huntIterator
+// (consumed by HUNTNEXT). Mirrors TS ServerOps.ts:53-61 at pin 9aadcec4.
 //
 // Pop order (top-of-stack first): huntvis, distance, coord.
 // Validation: checkCoord, checkNotNull(distance), checkHuntVis.
 // Nil-PlayerLookup degrades silently (matches NPC_HUNTALL convention).
+//
+// PlayerIterator is equivalent to the PLAYER branch of TS's HuntIterator
+// (ScriptIterators.ts:77-97 at pin 9aadcec4): same descending zone scan,
+// same getAllPlayersSafe, same player-as-src LoS argument order.
 func handleHuntAll(s *ScriptState) error {
 	checkVis := s.PopInt()
 	distance := s.PopInt()
@@ -1383,7 +1387,7 @@ func handleHuntAll(s *ScriptState) error {
 	if s.PlayerLookup == nil {
 		return nil
 	}
-	s.playerIterator = NewHuntAllPlayerIterator(
+	s.huntIterator = NewHuntAllPlayerIterator(
 		s.PlayerLookup, s.LineValidator, s.World.CurrentTick(),
 		level, x, z, distance, checkVis,
 	)
@@ -1391,24 +1395,26 @@ func handleHuntAll(s *ScriptState) error {
 }
 
 // handleHuntNext (HUNTNEXT, opcode 1005) advances the active
-// PlayerIterator and either sets active_player + pushes 1 on hit, or
-// pushes 0 on miss / nil-iterator. Mirrors TS PlayerOps.ts:1226-1233
-// and the analogous NPC handler at handlers_npc.go:641 (handleNpcFindNext).
+// PlayerIterator from s.huntIterator and either sets active_player +
+// pushes 1 on hit, or pushes 0 on miss / nil-iterator. Mirrors TS
+// ServerOps.ts:63-77 at pin 9aadcec4. Errors when huntIterator holds
+// a non-Player iterator (TS instanceof Player guard, ServerOps.ts:70-72).
 //
 // Active-player slot is selected by intOperand: 0 → Self + PtrActivePlayer,
-// 1 → Self2 + PtrActivePlayer2. Mirrors TS PlayerOps.ts:1236-1237
-// (`state.activePlayer = result.value; state.pointerAdd(ActivePlayer[state.intOperand])`)
-// and the FINDUID slot pattern at handlers_player.go:1047-1053. Stale check
-// uses strict-greater-than per iterator_state_pattern.md element 3.
+// 1 → Self2 + PtrActivePlayer2. Stale check uses strict-greater-than per
+// iterator_state_pattern.md element 3.
 //
-// Exhaustion does NOT clear s.playerIterator (matches NPC_FINDNEXT
-// behavior; iterator_state_pattern.md element 7). NAI-35-T5.
+// Exhaustion does NOT clear s.huntIterator (iterator_state_pattern.md
+// element 7). NAI-35-T5.
 func handleHuntNext(s *ScriptState) error {
 	operand := s.Script.IntOperands[s.PC]
 	if operand != 0 && operand != 1 {
 		return fmt.Errorf("HUNTNEXT: invalid intOperand %d", operand)
 	}
-	it := s.playerIterator
+	it, ok := s.huntIterator.(*PlayerIterator)
+	if s.huntIterator != nil && !ok {
+		return fmt.Errorf("HUNTNEXT: command must result instance of Player") // TS ServerOps.ts:71
+	}
 	if it == nil {
 		s.PushInt(0)
 		return nil
@@ -1416,8 +1422,8 @@ func handleHuntNext(s *ScriptState) error {
 	if it.Stale(s.World.CurrentTick()) {
 		return fmt.Errorf("HUNTNEXT: tried to use an old iterator. Create a new iterator instead.")
 	}
-	p, ok := it.Next()
-	if !ok {
+	p, ok2 := it.Next()
+	if !ok2 {
 		s.PushInt(0)
 		return nil
 	}
