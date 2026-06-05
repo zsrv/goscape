@@ -47,7 +47,7 @@ func seedSmokeFixture(t *testing.T, dir string) {
 }
 
 // TestRunSmokePack_AllStagesRunBestEffort verifies that against the
-// synthetic fixture, the driver runs all 12 stages (no early return)
+// synthetic fixture, the driver runs all 16 stages (no early return)
 // and returns 0 if all stages succeed.
 func TestRunSmokePack_AllStagesRunBestEffort(t *testing.T) {
 	dir := t.TempDir()
@@ -65,14 +65,14 @@ func TestRunSmokePack_AllStagesRunBestEffort(t *testing.T) {
 
 	// We don't pin "all stages pass" — that depends on stage-specific
 	// behavior against a minimal fixture, which is exactly what the
-	// smoke surfaces. We DO pin: the driver ran all 12 stages and exit
+	// smoke surfaces. We DO pin: the driver ran all 16 stages and exit
 	// is 0 or 1 (not panic, not 3).
 	if code != 0 && code != 1 {
 		t.Fatalf("runSmokePack returned %d, want 0 or 1", code)
 	}
 	// Stage-start log for each stage must appear (one per stage).
 	for _, name := range []string{
-		"PackConfigs", "ClientInterface", "RunServerCompiler",
+		"PackConfigs", "ClientInterface", "CompilerSymbols", "RunServerCompiler",
 		"Title", "Media", "Texture", "Wordenc", "Sound", "Graphics", "Midi",
 		"Maps", "VersionList", "BuildStamp", "OndemandZip", "Worldmap",
 	} {
@@ -289,8 +289,8 @@ func TestRunSmokePack_OperatorOutDirPreserved(t *testing.T) {
 // TestRunSmokePack_StopOnError verifies --stop-on-error causes every
 // stage after the first ERR to render as SKIP. We induce a
 // non-PackConfigs failure by passing a regular file as --datapack-dir,
-// which causes RunServerCompiler (stage 3, after PackConfigs +
-// ClientInterface) to fail when loadConfigs tries to read
+// which causes RunServerCompiler (stage 4, after PackConfigs +
+// ClientInterface + CompilerSymbols) to fail when loadConfigs tries to read
 // <datapack-dir>/server/inv.dat. PackConfigs writes to outDir
 // independently, so it still succeeds — exercising the cascade path
 // distinct from the PackConfigs special-case SKIPs.
@@ -320,7 +320,7 @@ func TestRunSmokePack_StopOnError(t *testing.T) {
 	// Find the Result line and assert SKIP count > 0. The Result line
 	// has the form "Result: N OK, M ERR, K SKIP ..." where a working
 	// --stop-on-error must produce K >= 1 (every stage after the
-	// RunServerCompiler ERR — 9 downstream stages — should SKIP).
+	// RunServerCompiler ERR — 12 downstream stages — should SKIP).
 	var resultLine string
 	for _, line := range strings.Split(out, "\n") {
 		if strings.HasPrefix(line, "Result:") {

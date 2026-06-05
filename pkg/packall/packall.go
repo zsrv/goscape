@@ -88,7 +88,7 @@ func PackAll(srcDir, outDir, dataPackDir, rawDir string) error {
 	if err := clientinterface.Pack(reg, srcDir, outDir, cache); err != nil {
 		return fmt.Errorf("PackAll: ClientInterface: %w", err)
 	}
-	// TS PackAll.ts:57 @ 9aadcec4: generateCompilerSymbols() runs BEFORE
+	// TS PackAll.ts:49 @ 9aadcec4: generateCompilerSymbols() runs BEFORE
 	// the RuneScriptCompiler jar invocation. Go: WriteCompilerSymbols writes
 	// the 32 .sym files that the jar would consume; RunServerCompiler then
 	// runs the native Go compiler. symbolsDir is a sibling of outDir named

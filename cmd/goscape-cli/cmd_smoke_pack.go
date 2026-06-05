@@ -379,7 +379,7 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 		logger.Error("stage_err", "stage", "PackConfigs", "elapsed_ms", pcElapsed.Milliseconds(), "files", pcFiles, "bytes", pcBytes, "err", pcErr)
 		results = append(results, stageResult{Name: "PackConfigs", Status: stageErr, Elapsed: pcElapsed, OutputFiles: pcFiles, OutputBytes: pcBytes, Err: pcErr})
 		for _, name := range []string{
-			"ClientInterface", "RunServerCompiler", "Title", "Media", "Texture",
+			"ClientInterface", "CompilerSymbols", "RunServerCompiler", "Title", "Media", "Texture",
 			"Wordenc", "Sound", "Graphics", "Midi", "Maps",
 			"VersionList", "BuildStamp", "OndemandZip", "Worldmap",
 		} {
@@ -398,6 +398,10 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 	}
 	rest := []stage{
 		{"ClientInterface", func() error { return clientinterface.Pack(reg, srcDir, outDir, cache) }},
+		{"CompilerSymbols", func() error {
+			symbolsDir := filepath.Join(filepath.Dir(outDir), "symbols")
+			return compiler.WriteCompilerSymbols(srcDir, outDir, symbolsDir)
+		}},
 		{"RunServerCompiler", func() error { return compiler.RunServerCompiler(srcDir, outDir, dataPackDir) }},
 		{"Title", func() error { return sprites.PackTitle(srcDir, outDir, cache) }},
 		{"Media", func() error { return sprites.PackMedia(srcDir, outDir, cache) }},
