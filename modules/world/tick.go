@@ -91,11 +91,22 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		}
 
 		// Cycle-stat instrumentation: zero the ten timing entries at tick
-		// start. Bandwidth counters are reset at their own TS-cited points
-		// (World.ts:629 for BANDWIDTH_IN, :1111 for BANDWIDTH_OUT).
-		// Mirrors the implicit zero that TS achieves by assigning
-		// cycleStats[X] = Date.now() - start once per section.
+		// start. BANDWIDTH_IN is reset at its own TS-cited point
+		// (World.ts:629). Mirrors the implicit zero that TS achieves by
+		// assigning cycleStats[X] = Date.now() - start once per section.
 		s.resetCycleTimes()
+
+		// PORTING-EXCEPTION (rev244-b4-bwout-reset, BANDWIDTH_OUT reset
+		// moved to tick start): TS resets at World.ts:1111 — the head of
+		// processClientsOut, which is TS's ONLY write pass, so the stat
+		// covers every byte written that cycle. goscape emits packets
+		// incrementally THROUGHOUT the tick (login resync, script-driven
+		// sends, relay-action friends/PM packets), so resetting at the TS
+		// line would silently drop everything written before client-out.
+		// Resetting here preserves the stat's TS-INTENT ("bytes out this
+		// cycle") at the cost of the literal reset-line position. See
+		// PORTING.md §B4.
+		s.cycleStats[statBandwidthOut] = 0
 
 		// ── CLIENT_IN (TS World.ts:626-691) ──────────────────────────────
 		// BANDWIDTH_IN reset matches TS World.ts:629 (before the player
@@ -253,10 +264,10 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.addCycleTime(statZone, t0)
 
 		// ── CLIENT_OUT (TS World.ts:1108-1145) ───────────────────────────
-		// BANDWIDTH_OUT reset matches TS World.ts:1111 (head of
-		// processClientsOut; per-player writeOut accumulates into it).
+		// BANDWIDTH_OUT reset: moved to tick start — see the
+		// PORTING-EXCEPTION (rev244-b4-bwout-reset) note there (TS resets
+		// at World.ts:1111, but goscape writes throughout the tick).
 		t0 = time.Now()
-		s.cycleStats[statBandwidthOut] = 0 // TS World.ts:1111
 		s.processClientsOut()
 		s.addCycleTime(statClientOut, t0)
 
@@ -276,7 +287,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		// the MAP_LAST* debug script ops always see a consistent prior-tick
 		// snapshot rather than a partially-updated current tick.
 		s.cycleStats[statCycle] = uint16(time.Since(start).Milliseconds()) // TS W.ts:487
-		s.snapshotCycleStats()                                              // TS W.ts:489-500
+		s.snapshotCycleStats()                                             // TS W.ts:489-500
 
 		s.currentTick++
 
