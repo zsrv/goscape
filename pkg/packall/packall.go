@@ -87,7 +87,9 @@ func PackAll(srcDir, outDir, dataPackDir, rawDir string) error {
 	if err := audio.PackMidi(reg, srcDir, nil); err != nil {
 		return fmt.Errorf("PackAll: Midi: %w", err)
 	}
-	if err := maps.Pack(srcDir, outDir); err != nil {
+	// nil mapPack/cache: real FileStream handle and map PackFile wired in T15.
+	// modelFlags threaded from PackConfigs (TS PackAll.ts:69 @ 9aadcec4).
+	if err := maps.Pack(srcDir, outDir, nil, nil, modelFlags); err != nil {
 		return fmt.Errorf("PackAll: Maps: %w", err)
 	}
 	return nil

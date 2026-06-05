@@ -392,7 +392,9 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 		{"Sound", func() error { return audio.PackSound(reg, srcDir, outDir, nil) }},
 		{"Graphics", func() error { return graphics.Pack(reg, srcDir, modelFlags, nil, nil) }},
 		{"Midi", func() error { return audio.PackMidi(reg, srcDir, nil) }},
-		{"Maps", func() error { return maps.Pack(srcDir, outDir) }},
+		// nil mapPack/cache: cache wiring deferred to T15 (TS PackAll.ts:69 @ 9aadcec4).
+		// modelFlags threaded from PackConfigs above.
+		{"Maps", func() error { return maps.Pack(srcDir, outDir, nil, nil, modelFlags) }},
 		{"Worldmap", func() error { return worldmap.Pack(srcDir, outDir) }},
 	}
 	for i, st := range rest {

@@ -34,7 +34,8 @@ func TestPack_BytePinned(t *testing.T) {
 	}
 
 	out := filepath.Join(tmp, "out")
-	if err := Pack(src, out); err != nil {
+	// nil mapPack/cache/modelFlags: no cache writes, no NPC type validation.
+	if err := Pack(src, out, nil, nil, nil); err != nil {
 		t.Fatalf("Pack: %v", err)
 	}
 
@@ -63,7 +64,7 @@ func TestPack_BytePinned(t *testing.T) {
 // <srcDir>/maps doesn't exist.
 func TestPack_MissingMapsDirNoOp(t *testing.T) {
 	tmp := t.TempDir()
-	if err := Pack(filepath.Join(tmp, "src"), filepath.Join(tmp, "out")); err != nil {
+	if err := Pack(filepath.Join(tmp, "src"), filepath.Join(tmp, "out"), nil, nil, nil); err != nil {
 		t.Errorf("Pack: %v, want nil", err)
 	}
 }
@@ -88,7 +89,7 @@ func TestPack_CopiesMultiwayAndFree2play(t *testing.T) {
 	}
 
 	out := filepath.Join(tmp, "out")
-	if err := Pack(src, out); err != nil {
+	if err := Pack(src, out, nil, nil, nil); err != nil {
 		t.Fatalf("Pack: %v", err)
 	}
 
