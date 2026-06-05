@@ -151,9 +151,14 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 		// 244 delta: TS ScriptRunner.ts:187 adds pid+name to the player
 		// error console line: `printError("Player script error -
 		// pid:${pid} name:${username}")`. Goscape folds these into the
-		// structured warn log attrs via the variadic extra path.
-		s.logScriptExecuteError("script execute error", state, err,
-			"pid", self.Slot(), "name", self.Username())
+		// structured warn log attrs via the variadic extra path. Nil
+		// guard mirrors handlePlayerScriptError's (production callers
+		// always pass a live player; defensive only).
+		var extra []any
+		if self != nil {
+			extra = []any{"pid", self.Slot(), "name", self.Username()}
+		}
+		s.logScriptExecuteError("script execute error", state, err, extra...)
 		s.handlePlayerScriptError(state, self, err)
 		// NAI-55: fall through. script.Execute sets state.Execution =
 		// Aborted on every error path (pkg/script/runner.go:54-83),
@@ -239,7 +244,14 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 // NAI-44 closure of NAI-37-D-WORLDQUEUE-CROSS-CONTEXT-DROP.
 func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 	if err := script.Execute(state); err != nil {
-		s.logScriptExecuteError("world script execute error", state, err)
+		// 244 delta: TS's pid+name printError (ScriptRunner.ts:187) sits
+		// in the SHARED catch and fires for any player-anchored script —
+		// including world-queue resumes routed through here.
+		var extra []any
+		if state.Self != nil {
+			extra = []any{"pid", state.Self.Slot(), "name", state.Self.Username()}
+		}
+		s.logScriptExecuteError("world script execute error", state, err, extra...)
 		// World-queue scripts can be either player- or npc-anchored
 		// (resumeOrFinishWorld is the shared post-Execute path for both
 		// suspension classes). Route the side-effects on the anchor
