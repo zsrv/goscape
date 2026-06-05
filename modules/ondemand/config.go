@@ -41,6 +41,20 @@ type Config struct {
 	// connections and hands them off to the world module's TCP connection
 	// handler. Mirrors web.ts:125-127 in Engine-TS.
 	WebSocket WebSocketConfig `yaml:"websocket"`
+
+	// WsTokenProtection enables the per-deployment token gate for rs2.cgi.
+	// When true, Rs2CgiHandler computes the public per-deployment token from
+	// PubPEM (via pkg/util/pemtoken) and injects it into the client.html
+	// template so the browser sets a cookie before opening a WebSocket
+	// connection. Mirrors web.ts:105 + Environment.ts:21
+	// WEB_SOCKET_TOKEN_PROTECTION (default false).
+	WsTokenProtection bool `yaml:"ws_token_protection"`
+
+	// PubPEM is the RSA public key in PKIX PEM form used to derive the
+	// per-deployment token when WsTokenProtection is true. Loaded from the
+	// same RSA public key file that the world module uses for login RSA.
+	// YAML-only (no CLI flag — PEM path is operator configuration).
+	PubPEM []byte `yaml:"pub_pem,omitempty"`
 }
 
 // WebSocketConfig configures the OnDemand module's WebSocket → world bridge.
@@ -58,6 +72,23 @@ type WebSocketConfig struct {
 	// MaxPayloadBytes caps inbound WS message size. Mirrors TS
 	// maxPayloadLength: 2_000 at web.ts:125.
 	MaxPayloadBytes int64 `yaml:"max_payload_bytes"`
+
+	// WsOndemand mirrors NODE_WS_ONDEMAND (Environment.ts:62, default false).
+	// When true, WS-originated connections are permitted to enter the OnDemand
+	// (state-2) path in the world connection state machine. TS gates this at
+	// the message handler (web.ts:171-175); in goscape the WS proxy bridges
+	// raw bytes to the world conn handler which owns state dispatch, so the
+	// gate cannot be enforced at the proxy layer without WS-origin tracking
+	// plumbing. The field is recorded here for operational parity and future
+	// use — see PORTING-EXCEPTION (rev244-b3-ws-ondemand-gate).
+	// PORTING-EXCEPTION (rev244-b3-ws-ondemand-gate): TS web.ts:165-176 gates
+	// state-2 OnDemand routing on NODE_WS_ONDEMAND at the WS message layer.
+	// goscape's WS proxy delegates to worldConn.HandleConn which owns the state
+	// machine; the proxy has no visibility into client.state. Enforcing the gate
+	// world-side requires a WS-origin marker on the client struct (out of scope
+	// for B3). Config field recorded for documentation; gate is not enforced
+	// until a WS-origin marker is added to the world client. See PORTING.md.
+	WsOndemand bool `yaml:"ws_ondemand"`
 }
 
 // RegisterFlagsAndApplyDefaults registers flags and applies defaults.
@@ -106,6 +137,13 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	// default matches TS WEB_CORS_ALLOWED_ORIGINS empty default (allow all).
 	f.BoolVar(&c.WebSocket.Enable, "ondemand.websocket-enable", true, "Serve a WebSocket bridge at / that forwards binary frames to the world module's TCP connection handler.")
 	f.Int64Var(&c.WebSocket.MaxPayloadBytes, "ondemand.websocket-max-payload-bytes", 2000, "Maximum size of a single inbound WebSocket message (bytes). Matches TS web.ts:125 maxPayloadLength: 2_000.")
+	// NODE_WS_ONDEMAND (Environment.ts:62, default false). See WsOndemand doc
+	// comment above for the gate-enforcement limitation.
+	f.BoolVar(&c.WebSocket.WsOndemand, "ondemand.websocket-ws-ondemand", false, "Mirror of TS NODE_WS_ONDEMAND: permits WS-originated connections to enter the OnDemand (state-2) path. See config doc for enforcement limitation.")
+
+	// WEB_SOCKET_TOKEN_PROTECTION (Environment.ts:21, default false). PubPEM
+	// is YAML-only (operator-supplied PEM bytes; no CLI equivalent).
+	f.BoolVar(&c.WsTokenProtection, "ondemand.websocket-token-protection", false, "Mirror of TS WEB_SOCKET_TOKEN_PROTECTION: injects a per-deployment token cookie into the rs2.cgi client page. Requires pub_pem to be set in config YAML.")
 }
 
 func (c *Config) Validate() error {

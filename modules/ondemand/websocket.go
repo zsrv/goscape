@@ -14,13 +14,18 @@ import (
 //
 // # Origin allowlist
 //
+// PORTING-EXCEPTION (rev244-b3-ws-origin): TS 244 (9aadcec4) has the entire
+// open/origin-check block commented out as a TODO (web.ts:125-154). goscape
+// retains its pre-existing origin check (AllowedOrigins allowlist enforced
+// before upgrade handshake) as a deliberate security improvement — the TS
+// upstream TODO acknowledges this is important but defers implementation.
 // The configured AllowedOrigins slice is enforced BEFORE the upgrade
 // handshake. An empty slice ⇒ allow all (mirrors TS WEB_CORS_ALLOWED_ORIGINS
 // empty-default at Environment.ts:13). A non-empty slice ⇒ the request's
 // Origin header must exactly match one entry; otherwise the request is
 // rejected with 403 before any upgrade is attempted. TS terminates the
-// connection AFTER the upgrade (web.ts:127-129); rejecting pre-upgrade is a
-// strict superset of TS behaviour and saves the round-trip.
+// connection AFTER the upgrade (web.ts:127-129) in the 225 baseline; the
+// 244 pin comments this out entirely. See PORTING.md.
 //
 // # Fallthrough
 //

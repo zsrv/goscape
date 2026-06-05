@@ -5,14 +5,24 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/zsrv/goscape/pkg/util/pemtoken"
 )
 
 // rs2cgiClientData is the template payload for templates/client.html
-// (port of view/client.ejs). Mirrors the EJS locals at web.ts:104-107.
+// (port of view/client.ejs). Mirrors the EJS locals at web.ts:101-106.
+// Token is the per-deployment public token (non-empty only when
+// WsTokenProtection is true); the template conditionally emits a
+// document.cookie setter mirroring view/client.ejs:322-324.
 type rs2cgiClientData struct {
 	NodeID  int
 	Lowmem  int
 	Members bool
+	// Token is the per-deployment public token. Empty string means the gate is
+	// off (WEB_SOCKET_TOKEN_PROTECTION false, default). Non-empty means the
+	// template should emit the document.cookie setter. Mirrors
+	// web.ts:105 + view/client.ejs:322-324.
+	Token string
 }
 
 // rs2cgiJavaData is the template payload for templates/java.html
@@ -37,6 +47,12 @@ const rs2cgiPortBase = 43594
 // `Environment.NODE_DEBUG && plugin === 1` gate at web.ts:92. All other
 // requests render the JS/WebSocket client bootstrap (client.html). Invalid
 // numeric query params silently fall back to 0, matching tryParseInt.
+//
+// When WsTokenProtection is true (mirrors WEB_SOCKET_TOKEN_PROTECTION,
+// Environment.ts:21 default false), the public per-deployment token is
+// computed from PubPEM via pkg/util/pemtoken and injected into the client
+// template (mirrors web.ts:105 + view/client.ejs:322-324). A bad PEM
+// returns 500.
 //
 // DEVIATION: Go's html/template auto-escapes substitutions for the surrounding
 // HTML/JS context. Numeric/boolean substitutions inside <script> are rendered
@@ -67,10 +83,28 @@ func (a *OnDemand) Rs2CgiHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
+		// Compute the per-deployment token when WsTokenProtection is on.
+		// Mirrors web.ts:105: WEB_SOCKET_TOKEN_PROTECTION ? getPublicPerDeploymentToken() : ''
+		var token string
+		if a.cfg.WsTokenProtection {
+			var err error
+			// hostname is intentionally empty string: the TS
+			// getPublicPerDeploymentToken() calls Token(pubPEM, hostname) where
+			// hostname comes from Environment.NODE_HOSTNAME (default '').
+			// We pass "" to match the default TS behaviour; operators that set a
+			// hostname should supply it via YAML (future extension).
+			token, err = pemtoken.Token(a.cfg.PubPEM, "")
+			if err != nil {
+				a.log.Error("rs2.cgi: per-deployment token computation failed", "err", err)
+				http.Error(w, "token error", http.StatusInternalServerError)
+				return
+			}
+		}
 		data := rs2cgiClientData{
 			NodeID:  a.cfg.NodeID,
 			Lowmem:  lowmem,
 			Members: a.cfg.Members,
+			Token:   token,
 		}
 		if err := rs2cgiTemplates.ExecuteTemplate(&buf, "client.html", data); err != nil {
 			a.log.Error("rs2.cgi: client template render failed", "err", err)

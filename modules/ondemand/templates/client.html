@@ -318,6 +318,10 @@
     <script type="module">
         import { Client } from './client/client.js';
 
+        {{- if .Token}}
+        document.cookie = 'per_deployment_token="{{.Token}}"; Domain=' + window.location.hostname;
+        {{- end}}
+
         (() => {
             new Client({{.NodeID}}, {{.Lowmem}}, {{.Members}});
         })();
