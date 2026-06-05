@@ -1145,6 +1145,93 @@ func TestPlayerLogin_RateLimit_WindowExpiry(t *testing.T) {
 	}
 }
 
+// hopTimerFixture registers `bob` (password "pw"), force-logs-out, then
+// directly seeds account_login.logged_out/logout_time to simulate a
+// graceful logout from another node. Returns the handler.
+func hopTimerFixture(t *testing.T, loggedOut int, logoutAge time.Duration, staffLvl int) *handler {
+	t.Helper()
+	h, savePath := newTestHandler(t)
+	if _, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 11, Profile: "main", Username: "bob", Password: "pw",
+		RemoteAddress: "1.2.3.4:5", Uid: 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.PlayerForceLogout(t.Context(), &loginpb.PlayerForceLogoutRequest{
+		NodeId: 11, Profile: "main", Username: "bob",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	lt := time.Now().UTC().Add(-logoutAge).Format(dbTimeFormat)
+	if _, err := h.db.Exec(`UPDATE account_login SET logged_out = ?, logout_time = ?
+	                        WHERE account_id = 1 AND profile = 'main'`, loggedOut, lt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.db.Exec(`UPDATE account SET staff_mod_level = ? WHERE id = 1`, staffLvl); err != nil {
+		t.Fatal(err)
+	}
+	// A valid save must exist or the M25 missing-save reject fires first
+	// (logout_time is set by this fixture).
+	saveDir := filepath.Join(savePath, "main")
+	if err := os.MkdirAll(saveDir, 0o755); err != nil {
+		t.Fatalf("hopTimerFixture mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(saveDir, "bob.sav"), makeValidSave(100), 0o644); err != nil {
+		t.Fatalf("hopTimerFixture write save: %v", err)
+	}
+	return h
+}
+
+// TestPlayerLogin_HopTimer pins TS LoginServer.ts:366-379: a non-staff
+// account that gracefully logged out of ANOTHER world < 45s ago is
+// rejected with response 6 (LOGIN_RESULT_HOP_TIMER).
+// Each sub-test runs in its own t.Run so createTestDB picks a unique
+// in-memory DSN (keyed by t.Name()); without sub-tests all calls to
+// hopTimerFixture would share the same DB and accumulate rate-limit rows.
+func TestPlayerLogin_HopTimer(t *testing.T) {
+	attempt := func(t *testing.T, h *handler) loginpb.LoginResult {
+		t.Helper()
+		resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+			NodeId: 10, Profile: "main", Username: "bob", Password: "pw",
+			RemoteAddress: "5.6.7.8:5", Uid: 1, // distinct IP — stays under the rate limit
+		})
+		if err != nil {
+			t.Fatalf("PlayerLogin: %v", err)
+		}
+		return resp.Result
+	}
+	// Fires: other node (11 != 10), 10s ago, staff 0.
+	t.Run("fires", func(t *testing.T) {
+		if got := attempt(t, hopTimerFixture(t, 11, 10*time.Second, 0)); got != loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER {
+			t.Errorf("hop case: got %v, want HOP_TIMER", got)
+		}
+	})
+	// Bypass: same node (logged_out == nodeId 10).
+	t.Run("same_node", func(t *testing.T) {
+		if got := attempt(t, hopTimerFixture(t, 10, 10*time.Second, 0)); got != loginpb.LoginResult_LOGIN_RESULT_OK {
+			t.Errorf("same-node case: got %v, want OK", got)
+		}
+	})
+	// Bypass: logged_out == 0 (no recorded origin; backfill posture).
+	t.Run("logged_out_zero", func(t *testing.T) {
+		if got := attempt(t, hopTimerFixture(t, 0, 10*time.Second, 0)); got != loginpb.LoginResult_LOGIN_RESULT_OK {
+			t.Errorf("logged_out=0 case: got %v, want OK", got)
+		}
+	})
+	// Bypass: outside the 45s window.
+	t.Run("window_expired", func(t *testing.T) {
+		if got := attempt(t, hopTimerFixture(t, 11, 46*time.Second, 0)); got != loginpb.LoginResult_LOGIN_RESULT_OK {
+			t.Errorf(">45s case: got %v, want OK", got)
+		}
+	})
+	// Bypass: staffmodlevel >= 2 (supermod tier, B3 T18).
+	t.Run("staff_bypass", func(t *testing.T) {
+		if got := attempt(t, hopTimerFixture(t, 11, 10*time.Second, 2)); got != loginpb.LoginResult_LOGIN_RESULT_OK {
+			t.Errorf("staff case: got %v, want OK", got)
+		}
+	})
+}
+
 // TestPlayerLogin_M25_PerProfileLogoutTime pins the re-pointed M25
 // safety reject (login-server-7 closure step iv): a missing save with a
 // PER-PROFILE logout_time set rejects, while a different profile with

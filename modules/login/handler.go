@@ -193,6 +193,22 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		} else {
 			return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_ALREADY_LOGGED_IN, account, nil, sessionUUID), nil
 		}
+	} else if account.StaffModLevel < 2 &&
+		account.LoggedOut != 0 &&
+		account.LoggedOut != int(req.NodeId) &&
+		account.LogoutTime.Valid {
+		// 45s hop timer — TS LoginServer.ts:366-379: a non-staff account
+		// that gracefully logged out of a DIFFERENT world less than 45s
+		// ago is rejected with response 6. logged_out/logout_time are the
+		// per-profile columns from migration 000005 (login-server-7
+		// closure). TS's `logged_out !== null` collapses into != 0 (the
+		// column is NOT NULL DEFAULT 0).
+		if hopT, err := time.Parse(dbTimeFormat, account.LogoutTime.String); err == nil &&
+			!hopT.Before(time.Now().UTC().Add(-45*time.Second)) {
+			return &loginpb.PlayerLoginResponse{
+				Result: loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER,
+			}, nil
+		}
 	}
 
 	// 9. Reconnect (TS LoginServer.ts:271-317): record a session row, and when
