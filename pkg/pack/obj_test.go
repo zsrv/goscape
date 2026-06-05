@@ -848,3 +848,185 @@ func TestPackObjConfigs_DebugnameEmpty(t *testing.T) {
 		t.Fatalf("got % x, want % x", server.Dat.Data, want)
 	}
 }
+
+// ── Task 8: resize/ambient/contrast + modelFlags ─────────────────────────────
+
+// TestParseObjConfig_ResizeAmbientContrast verifies that the five new
+// number-keyed fields are accepted by the parser.
+// TS source: ObjConfig.ts:18-23 (244).
+func TestParseObjConfig_ResizeAmbientContrast(t *testing.T) {
+	mp, cp, sp, op, pt, lk := objTestRegistries(t)
+	parse := parseObjConfigFor(mp, cp, sp, op, lk, pt)
+
+	cases := []struct {
+		key   string
+		input string
+		want  int
+	}{
+		{"resizex", "100", 100},
+		{"resizey", "200", 200},
+		{"resizez", "300", 300},
+		{"ambient", "10", 10},
+		{"contrast", "20", 20},
+	}
+	for _, tc := range cases {
+		val, accepted, err := parse(tc.key, tc.input)
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", tc.key, err)
+		}
+		if !accepted {
+			t.Fatalf("%s: key should be accepted", tc.key)
+		}
+		n, ok := val.(int)
+		if !ok || n != tc.want {
+			t.Fatalf("%s: got %#v, want int %d", tc.key, val, tc.want)
+		}
+	}
+}
+
+// TestPackObjConfigs_ResizeAmbientContrast verifies that the five new fields
+// emit the correct opcodes and wire widths:
+//
+//	resizex  → p1(0x6E) p2(v)  (opcode 110)
+//	resizey  → p1(0x6F) p2(v)  (opcode 111)
+//	resizez  → p1(0x70) p2(v)  (opcode 112)
+//	ambient  → p1(0x71) p1(v)  (opcode 113)
+//	contrast → p1(0x72) p1(v)  (opcode 114)
+//
+// TS source: ObjConfig.ts:400-414 (244).
+func TestPackObjConfigs_ResizeAmbientContrast(t *testing.T) {
+	objPack := objOneSlotPack("x")
+	configs := map[string][]ConfigLine{
+		"x": {
+			{Key: "resizex", Value: 0x0102},
+			{Key: "resizey", Value: 0x0304},
+			{Key: "resizez", Value: 0x0506},
+			{Key: "ambient", Value: 7},
+			{Key: "contrast", Value: 8},
+		},
+	}
+	_, client, err := packObjConfigs(configs, objPack, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []byte{
+		0x00, 0x01,
+		0x6E, 0x01, 0x02, // resizex p2
+		0x6F, 0x03, 0x04, // resizey p2
+		0x70, 0x05, 0x06, // resizez p2
+		0x71, 0x07,       // ambient p1
+		0x72, 0x08,       // contrast p1
+		0x00,
+	}
+	if !bytes.Equal(client.Dat.Data, want) {
+		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
+	}
+}
+
+// TestPackObjConfigs_ModelFlags_Members verifies that after the per-key loop
+// a members obj sets modelFlags[modelID] |= 0x40 and modelFlags[wornID] |= 0x10.
+// TS source: ObjConfig.ts:421-428 (244).
+func TestPackObjConfigs_ModelFlags_Members(t *testing.T) {
+	objPack := objOneSlotPack("ring")
+	// model id=5, manwear first-tuple id=7, members=true
+	configs := map[string][]ConfigLine{
+		"ring": {
+			{Key: "model", Value: 5},
+			{Key: "manwear", Value: objManWomanWearPair{Model: 7, Offset: 0}},
+			{Key: "members", Value: true},
+		},
+	}
+	// modelFlags needs enough slots for the highest id referenced.
+	modelFlags := make([]int, 10)
+	_, _, err := packObjConfigs(configs, objPack, modelFlags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// model id=5 → members → 0x40
+	if modelFlags[5] != 0x40 {
+		t.Errorf("modelFlags[5] = 0x%02X, want 0x40", modelFlags[5])
+	}
+	// worn id=7 → members worn → 0x10
+	if modelFlags[7] != 0x10 {
+		t.Errorf("modelFlags[7] = 0x%02X, want 0x10", modelFlags[7])
+	}
+}
+
+// TestPackObjConfigs_ModelFlags_NonMembers verifies that a non-members obj
+// sets modelFlags[modelID] |= 0x20 and modelFlags[wornID] |= 0x08.
+// TS source: ObjConfig.ts:429-437 (244).
+func TestPackObjConfigs_ModelFlags_NonMembers(t *testing.T) {
+	objPack := objOneSlotPack("dagger")
+	configs := map[string][]ConfigLine{
+		"dagger": {
+			{Key: "model", Value: 3},
+			{Key: "manwear", Value: objManWomanWearPair{Model: 4, Offset: 0}},
+			// members omitted → false
+		},
+	}
+	modelFlags := make([]int, 10)
+	_, _, err := packObjConfigs(configs, objPack, modelFlags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// model id=3 → non-members → 0x20
+	if modelFlags[3] != 0x20 {
+		t.Errorf("modelFlags[3] = 0x%02X, want 0x20", modelFlags[3])
+	}
+	// worn id=4 → non-members worn → 0x08
+	if modelFlags[4] != 0x08 {
+		t.Errorf("modelFlags[4] = 0x%02X, want 0x08", modelFlags[4])
+	}
+}
+
+// TestPackObjConfigs_ModelFlags_ManheadInline verifies that manhead/womanhead/
+// manhead2/womanhead2 set modelFlags[id] |= 0x80 INLINE during key emit.
+// TS source: ObjConfig.ts:363-377 (244).
+func TestPackObjConfigs_ModelFlags_ManheadInline(t *testing.T) {
+	objPack := objOneSlotPack("helm")
+	configs := map[string][]ConfigLine{
+		"helm": {
+			{Key: "manhead", Value: 2},
+			{Key: "womanhead", Value: 3},
+			{Key: "manhead2", Value: 4},
+			{Key: "womanhead2", Value: 5},
+		},
+	}
+	modelFlags := make([]int, 10)
+	_, _, err := packObjConfigs(configs, objPack, modelFlags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, flag := range []int{2, 3, 4, 5} {
+		if modelFlags[flag] != 0x80 {
+			t.Errorf("modelFlags[%d] = 0x%02X, want 0x80", id+2, modelFlags[flag])
+		}
+	}
+}
+
+// TestPackObjConfigs_ModelFlags_ManwearTupleFirstElement verifies that for
+// manwear (a tuple), the FIRST element (the model id) is tracked for worn[],
+// not the offset. TS source: ObjConfig.ts:325 (244) worn.push(values[0]).
+func TestPackObjConfigs_ModelFlags_ManwearTupleFirstElement(t *testing.T) {
+	objPack := objOneSlotPack("cape")
+	// manwear pair: Model=6, Offset=2. Only id=6 should appear in worn[].
+	configs := map[string][]ConfigLine{
+		"cape": {
+			{Key: "manwear", Value: objManWomanWearPair{Model: 6, Offset: 2}},
+			{Key: "members", Value: true},
+		},
+	}
+	modelFlags := make([]int, 10)
+	_, _, err := packObjConfigs(configs, objPack, modelFlags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Only id=6 (the model, not the offset=2) gets 0x10.
+	if modelFlags[6] != 0x10 {
+		t.Errorf("modelFlags[6] = 0x%02X, want 0x10", modelFlags[6])
+	}
+	// id=2 (offset) must NOT be set.
+	if modelFlags[2] != 0 {
+		t.Errorf("modelFlags[2] = 0x%02X, want 0x00 (offset must not be tracked)", modelFlags[2])
+	}
+}

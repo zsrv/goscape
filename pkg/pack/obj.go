@@ -19,7 +19,7 @@ var objStringKeys = map[string]struct{}{
 }
 
 // objNumberKeys is the set of keys parsed as signed/unsigned integers
-// via TS parseInt (accepts 0x-prefixed hex). TS source: ObjConfig.ts:18-21.
+// via TS parseInt (accepts 0x-prefixed hex). TS source: ObjConfig.ts:18-23 (244).
 var objNumberKeys = map[string]struct{}{
 	"2dzoom":      {},
 	"2dxan":       {},
@@ -29,6 +29,11 @@ var objNumberKeys = map[string]struct{}{
 	"2dzan":       {},
 	"cost":        {},
 	"respawnrate": {},
+	"resizex":     {},
+	"resizey":     {},
+	"resizez":     {},
+	"ambient":     {},
+	"contrast":    {},
 }
 
 // objBooleanKeys is the set of keys parsed as IsConfigBoolean-gated
@@ -307,25 +312,28 @@ func parseObjConfigFor(modelPack, categoryPack, seqPack, objPack *PackFile, lk *
 
 // packObjConfigs walks each id ∈ [0, objPack.Max), emitting per-id
 // bodies into separate server + client PackedData buffers per
-// ObjConfig.ts:195-444.
+// ObjConfig.ts:197-444 (244).
 //
 // Cert/uncert pairing: when debugname starts with "cert_", the config
 // slice is REPLACED with [{certlink, uncertID}, {certtemplate,
 // template_for_cert_ID}] before per-key emit. Reverse-lookup ("cert_"+
 // debugname → opcode 97 on server) runs at the end of the per-id loop
-// for non-cert names (TS:389-394).
+// for non-cert names (TS:439-444).
 //
 // Server gets: opcodes 13/14/15/27 (wearpos/tradeable), 75 (weight),
 // 94 (category), 96 (dummyitem), 97-reverse-lookup, 201 (respawnrate),
 // 249 (params), 250 (debugname). Client gets all other client-facing
 // fields including the certlink/certtemplate emits at 97/98.
 //
-// modelFlags is indexed by model id (size = Model PackFile max). The obj
-// packer writes 0x80/0x40/0x10/0x20/0x08 flags for model references (T6+).
-// The parameter is accepted here for plumbing parity with TS
-// PackShared.ts:137-141; no writes land in T5.
+// modelFlags (indexed by model id, len = ModelPack.Max) is written by the
+// packer during the per-id loop (T8, ObjConfig.ts:250-437, 244):
+//   - manhead/womanhead/manhead2/womanhead2 → modelFlags[id] |= 0x80 inline
+//   - after the key loop: members objs → model ids |= 0x40, worn ids |= 0x10
+//   - non-members objs → model ids |= 0x20, worn ids |= 0x08
 //
-// TS source: tools/pack/config/ObjConfig.ts:195-444.
+// modelFlags may be nil (tests, callers that don't need the index).
+//
+// TS source: tools/pack/config/ObjConfig.ts:197-444 (244).
 func packObjConfigs(configs map[string][]ConfigLine, objPack *PackFile, modelFlags []int) (server, client *PackedData, err error) {
 	server = NewPackedData(objPack.Max)
 	client = NewPackedData(objPack.Max)
@@ -372,12 +380,17 @@ func packObjConfigs(configs map[string][]ConfigLine, objPack *PackFile, modelFla
 		}
 
 		if cfg != nil {
-			// First-pass collectors (mirror TS L245-248).
+			// First-pass collectors (mirror TS L245-253).
 			var (
 				recolS []int
 				recolD []int
 				name   *string
 				params []ParamValue
+
+				// model_index tracking (TS ObjConfig.ts:250-253, 244).
+				modelIDs []int
+				wornIDs  []int
+				members  bool
 			)
 
 			for _, line := range cfg {
@@ -409,6 +422,7 @@ func packObjConfigs(configs map[string][]ConfigLine, objPack *PackFile, modelFla
 				case key == "model":
 					client.P1(1)
 					client.P2(uint16(line.Value.(int)))
+					modelIDs = append(modelIDs, line.Value.(int))
 				case key == "desc":
 					client.P1(3)
 					client.PJStr(line.Value.(string))
@@ -454,23 +468,28 @@ func packObjConfigs(configs map[string][]ConfigLine, objPack *PackFile, modelFla
 				case key == "members":
 					if line.Value.(bool) {
 						client.P1(16)
+						members = true
 					}
 				case key == "manwear":
 					pair := line.Value.(objManWomanWearPair)
 					client.P1(23)
 					client.P2(uint16(pair.Model))
 					client.P1(uint8(pair.Offset))
+					wornIDs = append(wornIDs, pair.Model) // first tuple element (TS:325)
 				case key == "manwear2":
 					client.P1(24)
 					client.P2(uint16(line.Value.(int)))
+					wornIDs = append(wornIDs, line.Value.(int))
 				case key == "womanwear":
 					pair := line.Value.(objManWomanWearPair)
 					client.P1(25)
 					client.P2(uint16(pair.Model))
 					client.P1(uint8(pair.Offset))
+					wornIDs = append(wornIDs, pair.Model) // first tuple element (TS:335)
 				case key == "womanwear2":
 					client.P1(26)
 					client.P2(uint16(line.Value.(int)))
+					wornIDs = append(wornIDs, line.Value.(int))
 				case key == "wearpos3":
 					server.P1(27)
 					server.P1(uint8(line.Value.(int)))
@@ -494,21 +513,35 @@ func packObjConfigs(configs map[string][]ConfigLine, objPack *PackFile, modelFla
 				case key == "manwear3":
 					client.P1(78)
 					client.P2(uint16(line.Value.(int)))
+					wornIDs = append(wornIDs, line.Value.(int))
 				case key == "womanwear3":
 					client.P1(79)
 					client.P2(uint16(line.Value.(int)))
+					wornIDs = append(wornIDs, line.Value.(int))
 				case key == "manhead":
 					client.P1(90)
 					client.P2(uint16(line.Value.(int)))
+					if modelFlags != nil {
+						modelFlags[line.Value.(int)] |= 0x80 // TS:365 inline
+					}
 				case key == "womanhead":
 					client.P1(91)
 					client.P2(uint16(line.Value.(int)))
+					if modelFlags != nil {
+						modelFlags[line.Value.(int)] |= 0x80 // TS:369 inline
+					}
 				case key == "manhead2":
 					client.P1(92)
 					client.P2(uint16(line.Value.(int)))
+					if modelFlags != nil {
+						modelFlags[line.Value.(int)] |= 0x80 // TS:373 inline
+					}
 				case key == "womanhead2":
 					client.P1(93)
 					client.P2(uint16(line.Value.(int)))
+					if modelFlags != nil {
+						modelFlags[line.Value.(int)] |= 0x80 // TS:377 inline
+					}
 				case key == "category":
 					server.P1(94)
 					server.P2(uint16(line.Value.(int)))
@@ -533,13 +566,54 @@ func packObjConfigs(configs map[string][]ConfigLine, objPack *PackFile, modelFla
 					client.P1(uint8(100 + n - 1))
 					client.P2(uint16(pair.Obj))
 					client.P2(uint16(pair.Count))
+				case key == "resizex":
+					// TS ObjConfig.ts:400-402 (244): p1(110) p2(v)
+					client.P1(110)
+					client.P2(uint16(line.Value.(int)))
+				case key == "resizey":
+					// TS ObjConfig.ts:403-405 (244): p1(111) p2(v)
+					client.P1(111)
+					client.P2(uint16(line.Value.(int)))
+				case key == "resizez":
+					// TS ObjConfig.ts:406-408 (244): p1(112) p2(v)
+					client.P1(112)
+					client.P2(uint16(line.Value.(int)))
+				case key == "ambient":
+					// TS ObjConfig.ts:409-411 (244): p1(113) p1(v)
+					client.P1(113)
+					client.P1(uint8(line.Value.(int)))
+				case key == "contrast":
+					// TS ObjConfig.ts:412-414 (244): p1(114) p1(v)
+					client.P1(114)
+					client.P1(uint8(line.Value.(int)))
 				case key == "respawnrate":
 					server.P1(201)
 					server.P2(uint16(line.Value.(int)))
 				}
 			}
 
-			// Reverse-lookup the certificate (TS L389-394). Only fires for
+			// Post-loop modelFlags application (TS ObjConfig.ts:421-437, 244).
+			// After iterating all keys, apply flag bits based on members status.
+			// manhead/womanhead inline bits already written above during key emit.
+			if modelFlags != nil {
+				if members {
+					for _, id := range modelIDs {
+						modelFlags[id] |= 0x40
+					}
+					for _, id := range wornIDs {
+						modelFlags[id] |= 0x10
+					}
+				} else {
+					for _, id := range modelIDs {
+						modelFlags[id] |= 0x20
+					}
+					for _, id := range wornIDs {
+						modelFlags[id] |= 0x08
+					}
+				}
+			}
+
+			// Reverse-lookup the certificate (TS L439-444). Only fires for
 			// NON-cert names (cfg above is the synthesised pair for cert_).
 			//
 			// NAI-196-D-CERT-REVLOOKUP: TS enters the reverse-lookup block for
