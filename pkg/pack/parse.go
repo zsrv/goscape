@@ -10,17 +10,16 @@ import (
 // LoadDirExt / LoadDirExtFull.
 type LoadDirCallback func(lines []string, file string)
 
-// LoadFile returns the file's lines (split on \r?\n), or nil if the
-// path is missing.
+// LoadFile returns the file's lines with all \r stripped (split on \n),
+// or nil if the path is missing.
+//
+// TS source: Parse.ts:17-23 (9aadcec4). Routes through readTextNormalize
+// so mid-line \r bytes are stripped before splitting.
 func LoadFile(path string) []string {
 	if !FileExists(path) {
 		return nil
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil
-	}
-	return splitLinesCRLF(string(data))
+	return strings.Split(readTextNormalize(path), "\n")
 }
 
 // LoadFileFull returns LoadFile's output with single-line ("//") and
@@ -216,12 +215,30 @@ func ReadConfigs(srcDir, ext string) (map[string][]string, error) {
 	return configs, nil
 }
 
-func splitLinesCRLF(s string) []string {
-	// TS splits on /\r?\n/. strings.Split on "\n" then trim trailing \r
-	// matches.
-	raw := strings.Split(s, "\n")
-	for i, line := range raw {
-		raw[i] = strings.TrimSuffix(line, "\r")
+// readTextNormalize returns the file content with ALL \r stripped, or
+// "" if the file does not exist.
+//
+// TS source: Parse.ts:6-12 (9aadcec4). Behavioural delta vs the 225
+// contract: a stray \r NOT followed by \n (mid-line or trailing on
+// the last line) is stripped rather than preserved in the line content.
+func readTextNormalize(path string) string {
+	if !FileExists(path) {
+		return ""
 	}
-	return raw
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return strings.ReplaceAll(string(data), "\r", "")
+}
+
+func splitLinesCRLF(s string) []string {
+	// TS 244: .replace(/\r/g, '').split('\n') — strip ALL \r first,
+	// then split on \n.  The previous contract (split /\r?\n/ via
+	// TrimSuffix) only handled \r\n pairs; a mid-line \r was
+	// preserved in the line content.
+	//
+	// TS source: Parse.ts:6-12 + NameMap.ts:11-12,26-27,44-45,59
+	// (9aadcec4).
+	return strings.Split(strings.ReplaceAll(s, "\r", ""), "\n")
 }

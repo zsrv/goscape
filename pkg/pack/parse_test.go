@@ -195,3 +195,54 @@ func TestListFilesExtFiltersByExtension(t *testing.T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
+
+// TestLoadFile_CRNormalization pins the TS 244 behaviour of
+// readTextNormalize (Parse.ts:6-12): ALL \r in the file content are
+// stripped before splitting on \n, so a mid-line \r (not part of a
+// \r\n pair) is removed from the line content rather than preserved.
+//
+// Fixture: "x\ry\nz"
+//
+//	Before fix (split /\r?\n/ / TrimSuffix \r): lines = ["x\ry", "z"]
+//	After  fix (.replace(/\r/g,'').split('\n')):  lines = ["xy", "z"]
+func TestLoadFile_CRNormalization(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "cr.txt")
+	// Write literal bytes: 'x', CR(0x0D), 'y', LF(0x0A), 'z'
+	if err := os.WriteFile(p, []byte("x\ry\nz"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ClearFsCache()
+	lines := LoadFile(p)
+	if len(lines) != 2 {
+		t.Fatalf("want 2 lines, got %d: %q", len(lines), lines)
+	}
+	if lines[0] != "xy" {
+		t.Errorf("lines[0] = %q, want %q (mid-line \\r must be stripped)", lines[0], "xy")
+	}
+	if lines[1] != "z" {
+		t.Errorf("lines[1] = %q, want %q", lines[1], "z")
+	}
+}
+
+// TestReadTextNormalize_CRNormalization pins the readTextNormalize helper
+// (Parse.ts:6-12): missing file returns "", present file has all \r stripped.
+func TestReadTextNormalize_CRNormalization(t *testing.T) {
+	// Missing file → empty string.
+	got := readTextNormalize("/nonexistent/__cr_norm_test__.txt")
+	if got != "" {
+		t.Fatalf("missing file: want %q, got %q", "", got)
+	}
+
+	// Present file: "a\rb\r\nc" → all \r stripped → "ab\nc"
+	dir := t.TempDir()
+	p := filepath.Join(dir, "cr2.txt")
+	if err := os.WriteFile(p, []byte("a\rb\r\nc"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got = readTextNormalize(p)
+	const want = "ab\nc"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
