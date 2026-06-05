@@ -324,6 +324,9 @@ func TestPackConfigs_ParamWithTypedDefault(t *testing.T) {
 	for _, kind := range []string{"enum", "obj", "loc", "interface", "struct", "category", "spotanim", "inv", "synth", "seq", "dbrow"} {
 		writeFile(t, filepath.Join(srcDir, "pack", kind+".pack"), "")
 	}
+	// npc.pack carries entry "kalphite_queen"; the unconditional packAndSaveNpc
+	// enforces the 244 invariant so a matching .npc source stub is required.
+	writeFile(t, filepath.Join(srcDir, "scripts", "stub.npc"), "[kalphite_queen]\n")
 
 	if err := PackConfigs(srcDir, outDir); err != nil {
 		t.Fatalf("PackConfigs: %v", err)
@@ -573,5 +576,42 @@ func TestPackConfigs_TwentyConfigsLand(t *testing.T) {
 	}
 	if !slices.Equal(jag.FileName, wantOrder) {
 		t.Errorf("client jag entry order: got %v, want %v", jag.FileName, wantOrder)
+	}
+}
+
+// TestPackConfigs_OrphanPackNameRejected is the RED→GREEN integration test
+// for wiring ValidateConfigPackNames into the live pack path.
+//
+// CONTRACT (TS PackFile.ts:117-121 @ 9aadcec4): during config packing,
+// every name registered in a .pack file must appear in at least one source
+// config file of the matching extension. An orphan pack name (present in
+// the .pack but absent from all source files) must cause PackConfigs to
+// return an error containing the TS-shaped phrase "was not found in any".
+//
+// Test uses .varp (unconditional branch — fires on every PackConfigs call
+// regardless of freshness gate) so the check is guaranteed to run.
+func TestPackConfigs_OrphanPackNameRejected(t *testing.T) {
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+
+	// .varp source defines "real_varp" only.
+	writeFile(t, filepath.Join(srcDir, "scripts", "a.varp"),
+		"[real_varp]\nscope=perm\ntype=int\n")
+	// .pack registers "real_varp" AND the orphan "ghost_varp" (no source).
+	writeFile(t, filepath.Join(srcDir, "pack", "varp.pack"),
+		"0=real_varp\n1=ghost_varp\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "varn.pack"), "")
+	writeFile(t, filepath.Join(srcDir, "pack", "vars.pack"), "")
+	ClearFsCache()
+
+	err := PackConfigs(srcDir, outDir)
+	if err == nil {
+		t.Fatal("want error for orphan pack name, got nil")
+	}
+	if !strings.Contains(err.Error(), "was not found in any") {
+		t.Errorf("error should contain TS-shaped phrase 'was not found in any'; got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "ghost_varp") {
+		t.Errorf("error should name the orphan entry; got: %v", err)
 	}
 }

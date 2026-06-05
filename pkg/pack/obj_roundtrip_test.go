@@ -12,6 +12,9 @@ func TestPackObjRoundTrip(t *testing.T) {
 	outDir := t.TempDir()
 	setupPackRoots(t, srcDir)
 
+	// obj.pack is not provided by setupPackRoots (empty there); supply it
+	// here along with the matching .obj source (244 invariant).
+	writeFile(t, filepath.Join(srcDir, "pack", "obj.pack"), "0=sword\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "loc.pack"), "0=table\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "model.pack"), "0=sword_model\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "category.pack"), "0=weapon\n")
@@ -22,6 +25,9 @@ func TestPackObjRoundTrip(t *testing.T) {
 	writeFile(t, filepath.Join(srcDir, "scripts", "test.param"), "[damage]\ntype=int\ndefault=0\n")
 	writeFile(t, filepath.Join(srcDir, "scripts", "test.obj"),
 		"[sword]\nname=Sword\ncost=10\nparam=damage,42\n")
+	// seq.pack and loc.pack have entries that must match source (244 invariant):
+	writeFile(t, filepath.Join(srcDir, "scripts", "test.seq"), "[idle]\n")
+	writeFile(t, filepath.Join(srcDir, "scripts", "test.loc"), "[table]\n")
 
 	ClearFsCache()
 	if err := PackConfigs(srcDir, outDir); err != nil {

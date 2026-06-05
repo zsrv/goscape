@@ -17,10 +17,10 @@ import (
 // this file holds compiler type signatures for built-in commands and
 // must NOT be treated as a packable config.
 //
-// NAI-191-D-VALIDATE-FLAGS-DEFERRED: TS BUILD_VERIFY_FOLDER also
-// enforces directory-structure rules (configs must live under
-// configs/, scripts under scripts/). This validator-side check defers
-// to NAI-192+ alongside the env-flag plumbing.
+// NAI-191-D-VALIDATE-FLAGS: the config-name presence check is wired
+// via validatePackNamesAgainstCfgs in pack_configs.go (rev-244 B6).
+// TS BUILD_VERIFY_FOLDER directory-structure enforcement remains
+// out-of-scope (goscape does not model BUILD_VERIFY_FOLDER).
 //
 // TS source: tools/pack/PackFile.ts:crawlConfigNames.
 func CrawlConfigNames(srcDir, ext string, includeBrackets bool) ([]string, error) {

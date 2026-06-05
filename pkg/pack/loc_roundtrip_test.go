@@ -23,6 +23,8 @@ func TestPackLocRoundTrip(t *testing.T) {
 	writeFile(t, filepath.Join(srcDir, "scripts", "test.param"), "[flammable]\ntype=int\ndefault=0\n")
 	writeFile(t, filepath.Join(srcDir, "scripts", "test.loc"),
 		"[table]\nname=Table\nwidth=2\nlength=3\nparam=flammable,1\n")
+	// seq.pack has entries that must match source (244 invariant):
+	writeFile(t, filepath.Join(srcDir, "scripts", "test.seq"), "[idle]\n")
 
 	ClearFsCache()
 	if err := PackConfigs(srcDir, outDir); err != nil {
@@ -57,9 +59,21 @@ func TestPackLocRoundTrip(t *testing.T) {
 	}
 }
 
-// setupPackRoots is a shared helper used by all three roundtrip tests.
+// setupPackRoots is a shared helper used by all roundtrip tests.
 // Creates scripts/ and pack/ directories, then writes minimal stub .pack
 // files for every registry that PackConfigs (and loadParamLookups) touches.
+//
+// Pack entries that are subject to the rev-244 universal config-name
+// verification (ValidateConfigPackNames) require a matching source file
+// in scripts/. Entries that are NOT needed as cross-reference lookups in
+// the roundtrip fixtures are written as empty stubs to avoid 244-invariant
+// violations. Per-test overrides (e.g. npc.pack=0=rat in TestPackNpcRoundTrip)
+// must write both the pack entry AND a matching source stub.
+//
+// Freshness-gated packs (varn, vars, hunt) may carry entries safely because
+// their packAndSave* branches only fire when GetLatestModified > 0, which
+// requires at least one matching source file in scripts/ — absent source
+// means the branch is skipped entirely and no validation runs.
 func setupPackRoots(t *testing.T, srcDir string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(srcDir, "scripts"), 0o755); err != nil {
@@ -68,13 +82,20 @@ func setupPackRoots(t *testing.T, srcDir string) {
 	if err := os.MkdirAll(filepath.Join(srcDir, "pack"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	// var-domain trio (required by PackConfigs up-front uniqueness check)
-	writeFile(t, filepath.Join(srcDir, "pack", "varp.pack"), "0=quest_points\n")
+	// var-domain trio (required by PackConfigs up-front uniqueness check).
+	// varp is unconditional → pack must be empty (no source stubs here) so
+	// ValidateConfigPackNames has nothing to check. Per-test fixtures that
+	// need varp names write both the pack entry and a .varp source stub.
+	writeFile(t, filepath.Join(srcDir, "pack", "varp.pack"), "")
+	// varn/vars are freshness-gated → safe to carry entries without source.
 	writeFile(t, filepath.Join(srcDir, "pack", "varn.pack"), "0=npc_state\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "vars.pack"), "0=login_msg\n")
-	// entity packs (required by loadParamLookups and pack*For helpers)
-	writeFile(t, filepath.Join(srcDir, "pack", "obj.pack"), "0=sword\n")
-	writeFile(t, filepath.Join(srcDir, "pack", "npc.pack"), "0=rat\n")
+	// entity packs (loadParamLookups + pack*For helpers).
+	// npc and obj are unconditional → empty stubs; per-test overrides must
+	// supply both pack entries and matching source stubs.
+	writeFile(t, filepath.Join(srcDir, "pack", "obj.pack"), "")
+	writeFile(t, filepath.Join(srcDir, "pack", "npc.pack"), "")
+	// hunt is freshness-gated → safe to carry entries without source.
 	writeFile(t, filepath.Join(srcDir, "pack", "hunt.pack"), "0=default_hunt\n")
 	// remaining loadParamLookups stubs (not provided per-test)
 	writeFile(t, filepath.Join(srcDir, "pack", "enum.pack"), "")

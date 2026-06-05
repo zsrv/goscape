@@ -25,6 +25,8 @@ func TestPackConfigs_MesanimRoundTrip(t *testing.T) {
 	writeFile(t, filepath.Join(scripts, "test.mesanim"),
 		"[hero_chat]\nlen0=walk\nlen2=death\n",
 	)
+	// seq.pack has entries that must match source (244 invariant):
+	writeFile(t, filepath.Join(scripts, "test.seq"), "[idle]\n[walk]\n[death]\n")
 
 	ClearFsCache()
 	if err := PackConfigs(srcDir, outDir); err != nil {

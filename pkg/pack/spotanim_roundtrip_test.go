@@ -25,6 +25,8 @@ func TestPackSpotAnimRoundTrip(t *testing.T) {
 
 	writeFile(t, filepath.Join(srcDir, "scripts", "test.spotanim"),
 		"[flame]\nmodel=flame_model\nanim=flame_anim\nangle=180\n")
+	// seq.pack has entries that must match source (244 invariant):
+	writeFile(t, filepath.Join(srcDir, "scripts", "test.seq"), "[flame_anim]\n")
 
 	ClearFsCache()
 	if err := PackConfigs(srcDir, outDir); err != nil {

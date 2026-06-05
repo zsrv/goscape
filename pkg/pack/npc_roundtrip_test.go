@@ -12,6 +12,9 @@ func TestPackNpcRoundTrip(t *testing.T) {
 	outDir := t.TempDir()
 	setupPackRoots(t, srcDir)
 
+	// npc.pack is not provided by setupPackRoots (empty there); supply it
+	// here along with the matching .npc source (244 invariant).
+	writeFile(t, filepath.Join(srcDir, "pack", "npc.pack"), "0=rat\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "loc.pack"), "0=table\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "model.pack"), "0=rat_model\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "category.pack"), "0=monster\n")
@@ -22,6 +25,9 @@ func TestPackNpcRoundTrip(t *testing.T) {
 	writeFile(t, filepath.Join(srcDir, "scripts", "test.param"), "[aggression]\ntype=int\ndefault=0\n")
 	writeFile(t, filepath.Join(srcDir, "scripts", "test.npc"),
 		"[rat]\nname=Giant Rat\nsize=2\nhuntmode=default_hunt\nparam=aggression,3\n")
+	// seq.pack and loc.pack have entries that must match source (244 invariant):
+	writeFile(t, filepath.Join(srcDir, "scripts", "test.seq"), "[walk]\n")
+	writeFile(t, filepath.Join(srcDir, "scripts", "test.loc"), "[table]\n")
 
 	ClearFsCache()
 	if err := PackConfigs(srcDir, outDir); err != nil {

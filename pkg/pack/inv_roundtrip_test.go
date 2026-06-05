@@ -28,6 +28,8 @@ func TestPackConfigs_InvRoundTrip(t *testing.T) {
 			"stackall=yes\n"+
 			"stock1=egg,5,100\n",
 	)
+	// obj.pack has entries that must match source (244 invariant):
+	writeFile(t, filepath.Join(scripts, "test.obj"), "[egg]\n[bone]\n")
 
 	ClearFsCache()
 	if err := PackConfigs(srcDir, outDir); err != nil {

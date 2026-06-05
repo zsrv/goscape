@@ -615,6 +615,9 @@ autodisable=yes
 	for _, kind := range []string{"varp", "varn", "vars", "enum", "obj", "loc", "interface", "struct", "category", "spotanim", "inv", "synth", "seq", "dbrow"} {
 		writeFile(t, filepath.Join(packDir, kind+".pack"), "")
 	}
+	// npc.pack carries entry "man"; the unconditional packAndSaveNpc enforces
+	// the 244 invariant so a matching .npc source stub is required.
+	writeFile(t, filepath.Join(scriptsDir, "stub.npc"), "[man]\n")
 
 	if err := PackConfigs(srcDir, outDir); err != nil {
 		t.Fatalf("PackConfigs: %v", err)
