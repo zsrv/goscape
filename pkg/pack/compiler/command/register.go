@@ -91,11 +91,18 @@ func RegisterAllDynCommands(
 	}
 
 	// db_find / db_find_refine / db_find_with_count / db_find_refine_with_count /
-	// db_getfield. Mirrors TS L129-L155.
+	// db_getfield. Mirrors RuneScriptKt-26 ClientScriptCompiler.kt L88-89.
+	//
+	// RuneScriptKt-26 uses withCount=true for BOTH db_find and db_find_refine
+	// (DbFindCommandHandler(true)), making them return PrimitiveInt. When used
+	// as expression-statements the codegen emits Discard(BaseVarInteger) →
+	// POP_INT_DISCARD. The old TS lineage used withCount=false (MetaUnit return,
+	// no Discard), producing -3 bytes per occurrence vs the reference (B6 Class-2).
+	//
 	// Gated on features.DisableDBTables per TS L129-155.
 	if !features.DisableDBTables {
-		register("db_find", NewDbFindCommandHandler(false))
-		register("db_find_refine", NewDbFindCommandHandler(false))
+		register("db_find", NewDbFindCommandHandler(true))
+		register("db_find_refine", NewDbFindCommandHandler(true))
 		register("db_find_with_count", NewDbFindCommandHandler(true))
 		register("db_find_refine_with_count", NewDbFindCommandHandler(true))
 		register("db_getfield", &DbGetFieldCommandHandler{})

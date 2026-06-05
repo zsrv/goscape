@@ -37,6 +37,58 @@ func TestDbFindCommandHandler_EmitsStackTypeBeforeCommand(t *testing.T) {
 	t.Skip("requires full codegen + symbol fixture; covered by T14 smoke")
 }
 
+// TestDbFind_WithCount_MatchesRuneScriptKt pins that db_find and db_find_refine
+// are registered with withCount=true, matching RuneScriptKt-26's
+// DbFindCommandHandler(true) for these names (ClientScriptCompiler.kt L88-89).
+//
+// RuneScriptKt-26 uses withCount=true for db_find / db_find_refine, which
+// makes them return PrimitiveInt. When used as expression-statements the
+// codegen emits Discard(BaseVarInteger) → POP_INT_DISCARD. goscape was
+// previously using withCount=false (MetaUnit return) so no POP_INT_DISCARD
+// was emitted, producing -3 bytes per occurrence in 41 scripts (B6 Class-2).
+func TestDbFind_WithCount_MatchesRuneScriptKt(t *testing.T) {
+	// verify that the handlers registered for db_find / db_find_refine have
+	// withCount=true (return PrimitiveInt, not MetaUnit).
+	for _, name := range []string{"db_find", "db_find_refine"} {
+		h := dbFindHandlerForName(name)
+		if h == nil {
+			t.Fatalf("%s: handler not registered", name)
+		}
+		if !h.withCount {
+			t.Errorf("%s: withCount=false, want true (RuneScriptKt-26 parity: returns int, emits POP_INT_DISCARD in statement context)", name)
+		}
+	}
+	// verify that db_find_with_count / db_find_refine_with_count still use withCount=true.
+	for _, name := range []string{"db_find_with_count", "db_find_refine_with_count"} {
+		h := dbFindHandlerForName(name)
+		if h == nil {
+			t.Fatalf("%s: handler not registered", name)
+		}
+		if !h.withCount {
+			t.Errorf("%s: withCount=false, want true", name)
+		}
+	}
+}
+
+// dbFindHandlerForName registers all dynamic commands and returns the
+// DbFindCommandHandler registered under name, or nil.
+func dbFindHandlerForName(name string) *DbFindCommandHandler {
+	// Build a minimal type manager with the three MetaScript types RegisterAllDynCommands looks up.
+	tm := typ.NewTypeManager()
+	for _, n := range []string{"queue", "timer", "softtimer"} {
+		_ = tm.Register(n, typ.NewMetaScript(n, typ.MetaAny, typ.MetaNothing))
+	}
+	var found *DbFindCommandHandler
+	RegisterAllDynCommands(tm, semantics.StrictFeatureLevel{}, func(n string, h semantics.DynamicCommandHandler) {
+		if n == name {
+			if dbh, ok := h.(*DbFindCommandHandler); ok {
+				found = dbh
+			}
+		}
+	})
+	return found
+}
+
 // TestQueueVarArgCommandHandler_EmitsTypecodeString pins that QueueVarArg
 // emits a typecode string built from Arguments2 types.
 // Per TS QueueVarArgCommandHandler.ts L36-L53.
