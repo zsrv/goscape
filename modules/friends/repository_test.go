@@ -7,6 +7,10 @@ import (
 	"slices"
 	"sync"
 	"testing"
+
+	"github.com/golang-migrate/migrate/v4"
+	sqlitedriver "github.com/golang-migrate/migrate/v4/database/sqlite"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
 // noopLogger returns a *slog.Logger that discards all output.
@@ -915,13 +919,51 @@ func TestLogPublicMessage_Rev244Shape(t *testing.T) {
 }
 
 // TestMigration000004_PreservesLegacyRows pins the legacy-table rename:
-// pre-244 session_uuid-keyed rows survive in public_chat_legacy_225.
+// a genuinely PRE-244 session_uuid-keyed row (seeded at migration
+// version 3) survives the 000004 rename into public_chat_legacy_225.
+// Two-phase setup mirrors modules/login's TestMigration000005_Backfill.
 func TestMigration000004_PreservesLegacyRows(t *testing.T) {
-	// createTestDB runs ALL migrations, so seed via the legacy table.
-	db := createTestDB(t)
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	src, err := iofs.New(migrations, "migrations")
+	if err != nil {
+		t.Fatalf("iofs: %v", err)
+	}
+	drv, err := sqlitedriver.WithInstance(db, &sqlitedriver.Config{})
+	if err != nil {
+		t.Fatalf("driver: %v", err)
+	}
+	m, err := migrate.NewWithInstance("iofs", src, "sqlite", drv)
+	if err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if err := m.Migrate(3); err != nil {
+		t.Fatalf("migrate to 3: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO public_chat (profile, session_uuid, coord, message)
+	                      VALUES ('main', 'uuid-legacy-1', 7, 'old row')`); err != nil {
+		t.Fatalf("seed pre-244 row: %v", err)
+	}
+	if err := m.Migrate(4); err != nil {
+		t.Fatalf("migrate to 4: %v", err)
+	}
 	var n int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM public_chat_legacy_225`).Scan(&n); err != nil {
-		t.Fatalf("legacy table missing: %v", err)
+	if err := db.QueryRow(`SELECT COUNT(*) FROM public_chat_legacy_225
+	                       WHERE session_uuid = 'uuid-legacy-1'`).Scan(&n); err != nil {
+		t.Fatalf("legacy table query: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("legacy row count = %d, want 1 (pre-244 rows must survive the rename)", n)
+	}
+	// And the NEW public_chat is the re-keyed shape, empty.
+	if err := db.QueryRow(`SELECT COUNT(*) FROM public_chat`).Scan(&n); err != nil {
+		t.Fatalf("new public_chat query: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("new public_chat rows = %d, want 0", n)
 	}
 }
 
