@@ -219,9 +219,15 @@ func TestFireOpTriggerObjClearsWaypoints(t *testing.T) {
 func TestFireOpTriggerPlayerCapturesNextTargetFromScript(t *testing.T) {
 	s, clicker, target, _, _ := newPlayerTriggerFixture(t)
 
-	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
+	// 244: HINT_PLAYER resolves target by uid. Register target so
+	// LookupPlayerByUID can find it.
+	const targetUID = 42
+	target.uid = targetUID
+	target.active = true
 
-	// Make target visible to rsbuf so the HINT_PL dispatch doesn't fail.
+	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1, targetUID))
+
+	// Make target visible to rsbuf so the HINT_PLAYER dispatch doesn't fail.
 	s.players.set(target.pid, target)
 	s.rsbuf.AddPlayer(int32(target.pid))
 	s.players.set(clicker.pid, clicker)
@@ -233,7 +239,7 @@ func TestFireOpTriggerPlayerCapturesNextTargetFromScript(t *testing.T) {
 	if clicker.target != target {
 		t.Errorf("clicker.target: got %v, want target (restored after OP-Player fire)", clicker.target)
 	}
-	// nextTarget: HINT_PL doesn't call p_op_player, so no capture expected.
+	// nextTarget: HINT_PLAYER doesn't call p_op_player, so no capture expected.
 	if clicker.nextTarget != nil {
 		t.Errorf("clicker.nextTarget: got %v, want nil (no p_op_player in script)", clicker.nextTarget)
 	}
@@ -248,12 +254,18 @@ func TestFireOpTriggerPlayerClearsWaypoints(t *testing.T) {
 	clicker.waypointIndex = 4
 	clicker.waypoints[4] = 0x0EADBEEF
 
+	// 244: HINT_PLAYER resolves target by uid. Register target so
+	// LookupPlayerByUID can find it.
+	const targetUID = 42
+	target.uid = targetUID
+	target.active = true
+
 	s.players.set(target.pid, target)
 	s.rsbuf.AddPlayer(int32(target.pid))
 	s.players.set(clicker.pid, clicker)
 	s.rsbuf.AddPlayer(int32(clicker.pid))
 
-	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
+	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1, targetUID))
 
 	fireOpTriggerPlayer(clicker, s, target)
 

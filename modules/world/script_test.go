@@ -1711,12 +1711,16 @@ func TestBuildPlayerScriptState_ObjTarget(t *testing.T) {
 // client packet → handleOpPlayer1 sets interaction → tryFireOpTrigger
 // fires fireOpTriggerPlayer → runScript routes through
 // buildPlayerScriptState's case-ActivePlayer arm → script runs with
-// Self=clicker, Self2=target → HINT_PL emits to clicker's outbound
+// Self=clicker, Self2=target → HINT_PLAYER emits to clicker's outbound
 // (TS Player.ts:1129 + ScriptRunner.ts:84-87 binding; NAI-70).
+//
+// 244 contract: HINT_PLAYER pops a uid from the int stack and resolves it
+// via World.getPlayerByUid (PlayerOps.ts:967-974). The script fixture
+// pushes target.uid as a constant so the lookup resolves to target.
 //
 // Closes NAI-39-D-ACTIVEPLAYER2-NO-OPPLAYER-PRODUCER by adding
 // handler-entry coverage on top of the direct fire-helper pin in
-// TestFireOpTriggerPlayer_BindsSelf2ToTarget.
+// TestFireOpTriggerPlayer_ScriptFiresAndHintsTarget.
 //
 // Approach: Option A — drive handleOpPlayer1 with an OPPLAYER1 payload,
 // then mark clicker.interacted = true (the gate processInteraction
@@ -1727,12 +1731,19 @@ func TestOpPlayer1_E2E_HintPlOnClicker(t *testing.T) {
 	s, clicker, target, clickerConn := makeOpPlayerFixture(t)
 	rsbufSeesPlayer(t, s, clicker.pid, target.pid)
 
+	// 244: HINT_PLAYER resolves target by uid. makeOpPlayerFixture already
+	// adds target to s.players; mark it active and assign a uid so
+	// LookupPlayerByUID can find it.
+	const targetUID = 42
+	target.uid = targetUID
+	target.active = true
+
 	// Compute expected first wire byte using a parallel encryptor seeded
 	// identically to clicker.client.encryptor (set by makeOpPlayerFixture).
 	wantEnc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
+	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1, targetUID))
 
 	// Drive the OPPLAYER1 wire packet through the handler.
 	if err := handleOpPlayer1(clicker, p2Payload(target.pid)); err != nil {

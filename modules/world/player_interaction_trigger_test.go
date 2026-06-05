@@ -42,19 +42,20 @@ func TestApPlayerTriggerForOp(t *testing.T) {
 	}
 }
 
-// buildOpPlayerHintPlScript produces a tiny `[opplayer<op>,_]` script
-// whose body is [HINT_PL, RETURN]. HINT_PL pulls Self2.Slot() directly
-// out of ScriptState, so no operand stack push is needed.
+// buildOpPlayerHintPlScript returns an [opplayer1,_]-style script that
+// hints the player whose uid is targetUID. 244 contract: HINT_PLAYER pops
+// a uid and resolves it via World.getPlayerByUid (PlayerOps.ts:967-974);
+// the script pushes the uid as a constant.
 //
 // trigger should be the OPPLAYER trigger (TriggerOpPlayer1..4 / T / U).
-func buildOpPlayerHintPlScript(trigger script.ServerTriggerType) *script.ScriptFile {
+func buildOpPlayerHintPlScript(trigger script.ServerTriggerType, targetUID int) *script.ScriptFile {
 	return &script.ScriptFile{
 		Name:             "[opplayer1,_]",
 		LookupKey:        script.LookupKeyForGlobal(trigger),
-		Opcodes:          []script.Opcode{script.OpHintPlayer, script.OpReturn},
-		IntOperands:      []int32{0, 0},
-		StringOperands:   []string{"", ""},
-		InstructionCount: 2,
+		Opcodes:          []script.Opcode{script.OpPushConstantInt, script.OpHintPlayer, script.OpReturn},
+		IntOperands:      []int32{int32(targetUID), 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
 	}
 }
 
@@ -84,30 +85,40 @@ func newPlayerTriggerFixture(t *testing.T) (s *Server, clicker, target *Player, 
 	return
 }
 
-// TestFireOpTriggerPlayer_BindsSelf2ToTarget pins the TS-true binding
-// for the OPPLAYER trigger family (NAI-70).
+// TestFireOpTriggerPlayer_ScriptFiresAndHintsTarget pins the fireOpTriggerPlayer
+// dispatch pipeline for the OPPLAYER trigger family (NAI-70).
 //
-// Registering an [opplayer1,_] script that runs HINT_PL (which dereferences
-// state.Self2.Slot()) and observing the resulting HINT_ARROW packet on the
+// Registering an [opplayer1,_] script that pushes target.uid and runs
+// HINT_PLAYER (244 contract: pops uid, resolves via PlayerLookup,
+// PlayerOps.ts:967-974) and observing the resulting HINT_ARROW packet on the
 // CLICKER's wire proves:
-//   - srv.runScript routed `target` (clicked player) into
-//     buildPlayerScriptState's case-ActivePlayer arm at script.go:55-59,
-//     which set state.Self2 = target and OR-d in PtrActivePlayer2.
+//   - fireOpTriggerPlayer invoked runScript, which in turn executed the script.
 //   - state.Self = clicker (`p`), since HintPlayer is dispatched on
 //     state.Self's *Player and the wire packet lands on clicker's conn.
+//   - The uid→pid lookup resolved target correctly (slot on the wire = target.pid).
 //
-// The slot on the wire is the target's slot, confirming the Self2 link.
+// Note (244): HINT_PLAYER no longer reads Self2; uid is popped from the int
+// stack. Self2 binding (buildPlayerScriptState sets activePlayer2 = target,
+// script.go:55-59, mirroring ScriptRunner.ts:84-87) is preserved by the engine
+// but is no longer directly observable via this opcode. The pipeline coverage
+// (trigger→script→wire on clicker) remains the meaningful pin.
 //
-// Mirrors TS Player.ts:1129 + ScriptRunner.ts:84-87 (self=clicker,
-// target=target → _activePlayer=clicker, _activePlayer2=target).
-func TestFireOpTriggerPlayer_BindsSelf2ToTarget(t *testing.T) {
+// Mirrors TS Player.ts:1129 + ScriptRunner.ts:84-87.
+func TestFireOpTriggerPlayer_ScriptFiresAndHintsTarget(t *testing.T) {
 	s, clicker, target, clickerConn, _ := newPlayerTriggerFixture(t)
+
+	// 244: HINT_PLAYER resolves target by uid. Register target so
+	// LookupPlayerByUID can find it.
+	const targetUID = 42
+	target.uid = targetUID
+	target.active = true
+	s.players.set(target.pid, target)
 
 	// Compute expected first wire byte using a parallel encryptor seeded
 	// identically to clicker.client.encryptor (NAI-70 fixture seed).
 	wantEnc, _ := isaacPair([4]uint32{5, 6, 7, 8})
 
-	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
+	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1, targetUID))
 
 	received := drainConn(t, clickerConn)
 	tryFireOpTrigger(clicker)
@@ -163,8 +174,16 @@ func TestFireApTriggerPlayer_NoScriptSetsApRangeMinusOne(t *testing.T) {
 // the *Player arm were missing, the default arm would mark fired=true
 // without invoking any script and no HINT_ARROW would arrive.
 func TestTryFireOpTrigger_PlayerArm(t *testing.T) {
-	s, clicker, _, clickerConn, _ := newPlayerTriggerFixture(t)
-	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
+	s, clicker, target, clickerConn, _ := newPlayerTriggerFixture(t)
+
+	// 244: HINT_PLAYER resolves target by uid. Register target so
+	// LookupPlayerByUID can find it.
+	const targetUID = 42
+	target.uid = targetUID
+	target.active = true
+	s.players.set(target.pid, target)
+
+	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1, targetUID))
 
 	received := drainConn(t, clickerConn)
 	tryFireOpTrigger(clicker)
@@ -175,7 +194,7 @@ func TestTryFireOpTrigger_PlayerArm(t *testing.T) {
 		t.Fatal("no wire packet on clicker — Player arm did not fire")
 	}
 	// First byte is the encrypted HINT_ARROW opcode; we don't pin the
-	// exact value here (covered by BindsSelf2ToTarget above) — just
+	// exact value here (covered by ScriptFiresAndHintsTarget above) — just
 	// confirm a packet arrived.
 }
 
