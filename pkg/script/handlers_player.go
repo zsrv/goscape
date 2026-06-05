@@ -2048,7 +2048,7 @@ func handleHeadIconsSet(s *ScriptState) error {
 }
 
 // handleClearQueue implements OpClearQueue (TS CLEARQUEUE at
-// PlayerOps.ts:1045-1048). Pops a scriptID, delegates to
+// PlayerOps.ts:1060-1063 at pin 9aadcec4). Pops a scriptID, delegates to
 // ActivePlayer.UnlinkQueuedScript — which (per NAI-161 T1) walks the
 // player's p.queue and drops every entry whose Script resolves to that
 // scriptID. NAI-161 T4.
@@ -2061,10 +2061,11 @@ func handleClearQueue(s *ScriptState) error {
 }
 
 // handleGetQueue implements OpGetQueue (TS GETQUEUE at
-// PlayerOps.ts:903-912). Pops a scriptID, pushes
-// ActivePlayer.QueueCount(scriptID) — the count of non-Weak queue
-// entries whose Script matches. The for-loop in the TS body lives
-// inside QueueCount per NAI-161 T2. NAI-161 T5.
+// PlayerOps.ts:915-930 at pin 9aadcec4). Pops a scriptID, pushes
+// ActivePlayer.QueueCount(scriptID) — the count of queued entries whose
+// Script matches. TS 244 walks BOTH queue and weakQueue (PlayerOps.ts:
+// 919-928); goscape's unified p.queue holds both, so the single loop in
+// QueueCount covers them per NAI-161 T2. NAI-161 T5.
 func handleGetQueue(s *ScriptState) error {
 	if err := requireActivePlayer(s, "GETQUEUE"); err != nil {
 		return err

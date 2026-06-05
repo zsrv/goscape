@@ -177,10 +177,12 @@ func handleEnumGetOutputCount(s *ScriptState) error {
 	return nil
 }
 
-// -- StructOps --
+// -- STRUCT_PARAM (244: ServerOps; StructOps.ts deleted upstream) --
 
 // handleStructParam (STRUCT_PARAM, opcode 1028) pops [structID, paramID]
-// (paramID is stack top) and delegates to paramLookup.
+// (paramID is stack top) and delegates to paramLookup. 244 deleted
+// StructOps.ts and moved STRUCT_PARAM into the server block
+// (ServerOps.ts:254-264 at pin 9aadcec4).
 func handleStructParam(s *ScriptState) error {
 	if err := requireConfigs(s, "STRUCT_PARAM"); err != nil {
 		return err

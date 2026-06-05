@@ -1030,7 +1030,8 @@ func handleNpcHuntNext(s *ScriptState) error {
 //
 // Pop order (top first): huntvis, distance, coord.
 // Validation: checkCoord, checkNotNull(distance), checkHuntVis.
-// Tie-break: TS uses `<=` (NpcOps.ts:307), so later iterator yields win
+// Tie-break: TS uses `<=` (ServerOps.ts:96 at pin 9aadcec4 — NPC_HUNT
+// moved from NpcOps to ServerOps), so later iterator yields win
 // equidistant comparisons; pinned by TestHandleNpcHunt_TieBreak_*.
 //
 // Iterator lifetime: LOCAL to this handler — not stored in s.npcIterator

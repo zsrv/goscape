@@ -215,7 +215,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpStringIndexOfString: handleStringIndexOfString,
 	OpTextSwitch:          handleTextSwitch,
 
-	// SPLIT_* dialog pagination. Mirrors TS StringOps.ts:75-127.
+	// SPLIT_* dialog pagination. Mirrors TS ServerOps.ts:206-252 (244
+	// moved the SPLIT_* family from StringOps to ServerOps).
 	OpSplitInit:      handleSplitInit,
 	OpSplitGet:       handleSplitGet,
 	OpSplitGetAnim:   handleSplitGetAnim,

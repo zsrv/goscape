@@ -144,11 +144,12 @@ func (p *Player) UnlinkQueuedScript(scriptID int) {
 
 // QueueCount returns the number of p.queue entries whose Script
 // resolves to the script at scriptID. Mirrors TS GETQUEUE at
-// PlayerOps.ts:903-920 which walks BOTH `state.activePlayer.queue.all()`
-// AND `state.activePlayer.weakQueue.all()`, counting any match in either.
-// Goscape's unified p.queue holds Normal/Strong/Long/Weak entries, so a
-// single loop over p.queue covers both TS queues. p.engineQueue is a
-// separate slice and is intentionally excluded.
+// PlayerOps.ts:915-930 (pin 9aadcec4) which walks BOTH
+// `state.activePlayer.queue` AND `state.activePlayer.weakQueue` via
+// head()/next() iteration, counting any match in either. Goscape's
+// unified p.queue holds Normal/Strong/Long/Weak entries, so a single
+// loop over p.queue covers both TS queues. p.engineQueue is a separate
+// slice and is intentionally excluded.
 //
 // (goscape defensive; TS skips this check) See UnlinkQueuedScript.
 //

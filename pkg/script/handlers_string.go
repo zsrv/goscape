@@ -195,7 +195,9 @@ func handleTextSwitch(s *ScriptState) error {
 // -- SPLIT_* dialog pagination handlers (NAI-75 light-fidelity port;
 // NAI-179 wired font.Split + MesanimType resolution).
 
-// handleSplitInit ports TS SPLIT_INIT (StringOps.ts:76-96). Pops
+// handleSplitInit ports TS SPLIT_INIT (ServerOps.ts:206-226 at pin
+// 9aadcec4 — 244 moved the SPLIT_* family from StringOps to ServerOps).
+// Pops
 // (text, maxWidth, linesPerPage, fontId), parses any leading <p,name>
 // mesanim prefix (resolving NAME to a MesanimType id via
 // Configs.MesanimByName), splits the prefix-stripped text into lines
@@ -250,7 +252,7 @@ func handleSplitInit(s *ScriptState) error {
 	return nil
 }
 
-// handleSplitGet ports TS SPLIT_GET (StringOps.ts:98-102). Pops
+// handleSplitGet ports TS SPLIT_GET (ServerOps.ts:228-232). Pops
 // (page, line); pushes s.SplitPages[page][line]. Out-of-bounds pushes
 // empty string (goscape defensive; TS throws — labelled per
 // defensive_gate_doc_comment_label.md).
@@ -274,7 +276,7 @@ func handleSplitGet(s *ScriptState) error {
 	return nil
 }
 
-// handleSplitGetAnim ports TS SPLIT_GETANIM (StringOps.ts:114-122).
+// handleSplitGetAnim ports TS SPLIT_GETANIM (ServerOps.ts:244-252).
 // Pops page; pushes MesanimType.Len[lineCount-1] where lineCount =
 // len(SplitPages[page]). When SplitMesanim is negative (no prefix),
 // MesanimType lookup is nil, or any index is out-of-range, pushes -1
@@ -304,7 +306,7 @@ func handleSplitGetAnim(s *ScriptState) error {
 	return nil
 }
 
-// handleSplitLineCount ports TS SPLIT_LINECOUNT (StringOps.ts:108-112).
+// handleSplitLineCount ports TS SPLIT_LINECOUNT (ServerOps.ts:238-242).
 // Pops page; pushes len(s.SplitPages[page]). Out-of-bounds pushes 0
 // (goscape defensive; TS throws — labelled per
 // defensive_gate_doc_comment_label.md).
@@ -320,7 +322,7 @@ func handleSplitLineCount(s *ScriptState) error {
 	return nil
 }
 
-// handleSplitPageCount ports TS SPLIT_PAGECOUNT (StringOps.ts:104-106).
+// handleSplitPageCount ports TS SPLIT_PAGECOUNT (ServerOps.ts:234-236).
 // Pushes len(s.SplitPages). Returns 0 before any SPLIT_INIT call
 // (Go zero-value: SplitPages is nil, len(nil) == 0).
 func handleSplitPageCount(s *ScriptState) error {

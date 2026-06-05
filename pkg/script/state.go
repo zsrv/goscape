@@ -457,7 +457,8 @@ type ScriptState struct {
 	// produced by SPLIT_INIT and consumed by SPLIT_GET / SPLIT_PAGECOUNT
 	// / SPLIT_LINECOUNT. Nil before any SPLIT_INIT call. Each call to
 	// SPLIT_INIT replaces (not appends) the slice. Mirrors TS
-	// ScriptState.splitPages (StringOps.ts:91). NAI-75.
+	// ScriptState.splitPages (ScriptState.ts; SPLIT_INIT lives at
+	// ServerOps.ts:206-226 at pin 9aadcec4). NAI-75.
 	SplitPages [][]string
 
 	// SplitMesanim is the MesanimType id parsed from a leading <p,name>

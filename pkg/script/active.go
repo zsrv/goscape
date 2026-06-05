@@ -849,14 +849,16 @@ type ActivePlayer interface {
 	// resolves to scriptID. Mirrors TS Player.unlinkQueuedScript with
 	// the default NORMAL arm (walks queue + weakQueue; engineQueue
 	// untouched). Backing impl at modules/world/player_script.go.
-	// NAI-161 T3 — wired by CLEARQUEUE (OpClearQueue, PlayerOps.ts:1045-1048).
+	// NAI-161 T3 — wired by CLEARQUEUE (OpClearQueue, PlayerOps.ts:1060-1063
+	// at pin 9aadcec4).
 	UnlinkQueuedScript(scriptID int)
 
-	// QueueCount returns the count of non-Weak queued requests whose
-	// script resolves to scriptID. Mirrors TS GETQUEUE iteration over
-	// queue.all() (PlayerOps.ts:907-911). Backing impl at
-	// modules/world/player_script.go. NAI-161 T3 — wired by GETQUEUE
-	// (OpGetQueue).
+	// QueueCount returns the count of queued requests whose script
+	// resolves to scriptID. Mirrors TS GETQUEUE iteration over BOTH
+	// queue and weakQueue (PlayerOps.ts:919-928 at pin 9aadcec4); the
+	// unified p.queue holds both, so the single loop covers them.
+	// Backing impl at modules/world/player_script.go. NAI-161 T3 —
+	// wired by GETQUEUE (OpGetQueue).
 	QueueCount(scriptID int) int
 
 	// NAI-162 B1: trivial-handler sweep #4 widenings.
