@@ -1318,3 +1318,48 @@ func TestPlayerLogin_M25_PerProfileLogoutTime(t *testing.T) {
 		t.Errorf("beta first login: resp=%v err=%v; want NEW_PLAYER", resp, err)
 	}
 }
+
+// TestPlayerLogin_MessageCountWired_Reconnect pins the reconnect-path
+// half of the messageCount wiring (TS LoginServer.ts:322): a
+// RECONNECT_OK reply carries the unread count too.
+func TestPlayerLogin_MessageCountWired_Reconnect(t *testing.T) {
+	h, _ := newTestHandler(t)
+	id := insertTestAccount(t, h.db, "reconuser", "pw")
+	// Login row on the SAME node we'll reconnect from.
+	if _, err := h.db.ExecContext(t.Context(),
+		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		id, "main", 1, 1,
+	); err != nil {
+		t.Fatalf("insert account_login: %v", err)
+	}
+	// One unread thread to the account from account 99.
+	if _, err := h.db.Exec(`INSERT INTO message_thread (to_account_id, from_account_id, last_message_from, subject)
+	                        VALUES (?, 99, 99, 's')`, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.db.Exec(`INSERT INTO message (thread_id, sender_id, sender_ip, content)
+	                        VALUES (1, 99, '', 'm')`); err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "reconuser",
+		Password:      "pw",
+		Uid:           42,
+		RemoteAddress: "192.168.1.1:12345",
+		Reconnecting:  true,
+		HasSave:       true,
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK {
+		t.Fatalf("Result: got %v, want LOGIN_RESULT_RECONNECT_OK", resp.Result)
+	}
+	if resp.MessageCount != 1 {
+		t.Errorf("MessageCount on reconnect: got %d, want 1", resp.MessageCount)
+	}
+}

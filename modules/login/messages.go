@@ -30,6 +30,9 @@ WHERE (thd.from_account_id = ? OR thd.to_account_id = ?)
   AND (s."read" IS NULL OR s."read" < last_message.last_message_date)
   AND thd.last_message_from != ?`
 	var n int
+	// accountID binds 4×: status-JOIN scope, from/to participant filter,
+	// own-last-message exclusion — keep the arg count in lockstep with
+	// the query's `?` placeholders when editing.
 	if err := db.QueryRowContext(ctx, query, accountID, accountID, accountID, accountID).Scan(&n); err != nil {
 		return 0, fmt.Errorf("getUnreadMessageCount: %w", err)
 	}
