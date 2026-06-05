@@ -8,9 +8,9 @@ import (
 
 func TestSubscriptions_RegisterDeregister(t *testing.T) {
 	s := newSubscriptions(noopLogger())
-	sub := newSubscriber(1, 100)
+	sub := newSubscriber("main", 1, 100)
 	s.register(sub)
-	s.send(100, &friendspb.FriendsUpdate{})
+	s.send("main", 100, &friendspb.FriendsUpdate{})
 	select {
 	case u := <-sub.ch:
 		if u == nil {
@@ -20,7 +20,7 @@ func TestSubscriptions_RegisterDeregister(t *testing.T) {
 		t.Fatalf("expected update on sub.ch")
 	}
 	s.deregister(sub)
-	s.send(100, &friendspb.FriendsUpdate{}) // no-op now
+	s.send("main", 100, &friendspb.FriendsUpdate{}) // no-op now
 	select {
 	case <-sub.ch:
 		t.Fatalf("expected no update after deregister")
@@ -30,8 +30,8 @@ func TestSubscriptions_RegisterDeregister(t *testing.T) {
 
 func TestSubscriptions_DupRegisterKicksPrior(t *testing.T) {
 	s := newSubscriptions(noopLogger())
-	a := newSubscriber(1, 100)
-	b := newSubscriber(1, 100)
+	a := newSubscriber("main", 1, 100)
+	b := newSubscriber("main", 1, 100)
 	s.register(a)
 	s.register(b)
 	select {
@@ -40,7 +40,7 @@ func TestSubscriptions_DupRegisterKicksPrior(t *testing.T) {
 		t.Fatalf("expected prior subscriber done to be closed")
 	}
 	// b should still be in registry; send routes to b
-	s.send(100, &friendspb.FriendsUpdate{})
+	s.send("main", 100, &friendspb.FriendsUpdate{})
 	select {
 	case <-b.ch:
 	default:
@@ -56,14 +56,14 @@ func TestSubscriptions_DupRegisterKicksPrior(t *testing.T) {
 
 func TestSubscriptions_DropOnFull(t *testing.T) {
 	s := newSubscriptions(noopLogger())
-	sub := newSubscriber(1, 100)
+	sub := newSubscriber("main", 1, 100)
 	s.register(sub)
 	// Fill buffer.
 	for range subscriberBufferSize {
-		s.send(100, &friendspb.FriendsUpdate{})
+		s.send("main", 100, &friendspb.FriendsUpdate{})
 	}
 	// Next send drops (no panic, no block).
-	s.send(100, &friendspb.FriendsUpdate{})
+	s.send("main", 100, &friendspb.FriendsUpdate{})
 	// Drain to verify exactly subscriberBufferSize updates queued.
 	got := 0
 	for {
@@ -82,12 +82,12 @@ func TestSubscriptions_DropOnFull(t *testing.T) {
 
 func TestSubscriptions_DeregisterIgnoresStale(t *testing.T) {
 	s := newSubscriptions(noopLogger())
-	a := newSubscriber(1, 100)
-	b := newSubscriber(1, 100)
+	a := newSubscriber("main", 1, 100)
+	b := newSubscriber("main", 1, 100)
 	s.register(a)
 	s.register(b)   // kicks a
 	s.deregister(a) // a is stale; b should remain
-	s.send(100, &friendspb.FriendsUpdate{})
+	s.send("main", 100, &friendspb.FriendsUpdate{})
 	select {
 	case <-b.ch:
 	default:
@@ -98,5 +98,5 @@ func TestSubscriptions_DeregisterIgnoresStale(t *testing.T) {
 func TestSubscriptions_SendUnknownNoop(t *testing.T) {
 	s := newSubscriptions(noopLogger())
 	// No panic, no block.
-	s.send(999, &friendspb.FriendsUpdate{})
+	s.send("main", 999, &friendspb.FriendsUpdate{})
 }

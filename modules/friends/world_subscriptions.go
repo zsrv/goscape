@@ -16,69 +16,84 @@ import (
 // newest event with a Warn log instead of blocking the RPC handler.
 const worldSubscriberBufferSize = 64
 
+// wsubKey is the composite key for the worldSubscriptions registry.
+// Rev-244 multi-profile: socketByWorld[profile][world] at
+// FriendServer.ts:69-75 scopes world subscriptions per profile.
+type wsubKey struct {
+	profile string
+	worldId int32
+}
+
 // worldSubscriber owns one open SubscribeWorldEvents stream for one
-// world ID. ch is written by RELAY_* handler methods; the gRPC stream
-// goroutine drains ch and calls stream.Send. done is closed by a
-// duplicate register to signal the prior stream goroutine to exit.
+// (profile, worldId) pair. ch is written by RELAY_* handler methods;
+// the gRPC stream goroutine drains ch and calls stream.Send. done is
+// closed by a duplicate register to signal the prior stream goroutine
+// to exit.
 type worldSubscriber struct {
+	profile string
 	worldId int32
 	ch      chan *friendspb.WorldEvent
 	done    chan struct{}
 }
 
-func newWorldSubscriber(worldId int32) *worldSubscriber {
+func newWorldSubscriber(profile string, worldId int32) *worldSubscriber {
 	return &worldSubscriber{
+		profile: profile,
 		worldId: worldId,
 		ch:      make(chan *friendspb.WorldEvent, worldSubscriberBufferSize),
 		done:    make(chan struct{}),
 	}
 }
 
-// worldSubscriptions is the per-world subscriber registry. All methods
-// are goroutine-safe. Exactly one subscriber per worldId; re-subscribe
-// kicks the prior (matches TS FriendServer.initializeWorld at
-// FriendServer.ts:412-419 — `socket.terminate()` on re-WORLD_CONNECT).
+// worldSubscriptions is the per-(profile, world) subscriber registry.
+// All methods are goroutine-safe. Exactly one subscriber per (profile,
+// worldId); re-subscribe kicks the prior (matches TS
+// FriendServer.initializeWorld at FriendServer.ts:436-440 —
+// `socketByWorld[profile][world].terminate()` on re-WORLD_CONNECT).
 type worldSubscriptions struct {
 	mu  sync.Mutex
-	by  map[int32]*worldSubscriber // worldId -> subscriber
+	by  map[wsubKey]*worldSubscriber
 	log *slog.Logger
 }
 
 func newWorldSubscriptions(log *slog.Logger) *worldSubscriptions {
 	return &worldSubscriptions{
-		by:  make(map[int32]*worldSubscriber),
+		by:  make(map[wsubKey]*worldSubscriber),
 		log: log,
 	}
 }
 
-// register installs sub under sub.worldId. If a prior subscriber exists
-// for the same worldId, it is kicked (its done is closed) before sub
-// replaces it.
+// register installs sub under its (profile, worldId) key. If a prior
+// subscriber exists for the same key, it is kicked (its done is closed)
+// before sub replaces it.
 func (s *worldSubscriptions) register(sub *worldSubscriber) {
+	key := wsubKey{profile: sub.profile, worldId: sub.worldId}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if prior, ok := s.by[sub.worldId]; ok {
+	if prior, ok := s.by[key]; ok {
 		close(prior.done)
 	}
-	s.by[sub.worldId] = sub
+	s.by[key] = sub
 }
 
 // deregister removes sub from the registry IFF it is still the currently
-// registered subscriber for sub.worldId (a rapid re-subscribe may have
-// replaced it under register).
+// registered subscriber for its (profile, worldId) key (a rapid
+// re-subscribe may have replaced it under register).
 func (s *worldSubscriptions) deregister(sub *worldSubscriber) {
+	key := wsubKey{profile: sub.profile, worldId: sub.worldId}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if cur, ok := s.by[sub.worldId]; ok && cur == sub {
-		delete(s.by, sub.worldId)
+	if cur, ok := s.by[key]; ok && cur == sub {
+		delete(s.by, key)
 	}
 }
 
-// send pushes ev to the subscriber for worldId (no-op if none).
+// send pushes ev to the subscriber for (profile, worldId) (no-op if none).
 // Non-blocking; on full channel, logs warn and drops the event.
-func (s *worldSubscriptions) send(worldId int32, ev *friendspb.WorldEvent) {
+func (s *worldSubscriptions) send(profile string, worldId int32, ev *friendspb.WorldEvent) {
+	key := wsubKey{profile: profile, worldId: worldId}
 	s.mu.Lock()
-	sub, ok := s.by[worldId]
+	sub, ok := s.by[key]
 	s.mu.Unlock()
 	if !ok {
 		return
@@ -87,6 +102,7 @@ func (s *worldSubscriptions) send(worldId int32, ev *friendspb.WorldEvent) {
 	case sub.ch <- ev:
 	default:
 		s.log.Warn("world events subscriber buffer full; dropping event",
+			slog.String("profile", profile),
 			slog.Int("world_id", int(worldId)))
 	}
 }

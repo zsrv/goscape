@@ -11,6 +11,34 @@ import (
 	"sync"
 )
 
+// repositories is the lazily-populated per-profile Repository registry.
+// Mirrors TS 244 FriendServer.repositories[profile]
+// (FriendServer.ts:64-67 declaration, :439-447 lazy creation in
+// initializeWorld). All Repositories share one *sql.DB; profile scoping
+// happens inside each Repository's SQL (r.profile) and in-memory maps.
+type repositories struct {
+	mu sync.Mutex
+	db *sql.DB
+	by map[string]*Repository
+}
+
+func newRepositories(db *sql.DB) *repositories {
+	return &repositories{db: db, by: make(map[string]*Repository)}
+}
+
+// get returns the profile's Repository, creating it on first use
+// (TS FriendServer.ts:443-445 `if (!this.repositories[profile])`).
+func (rs *repositories) get(profile string) *Repository {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	r, ok := rs.by[profile]
+	if !ok {
+		r = NewRepository(rs.db, profile)
+		rs.by[profile] = r
+	}
+	return r
+}
+
 // friendListLimit caps both the friend list and the ignore list per owner,
 // matching the hardcoded 100 in TS FriendServerRepository (addFriend/addIgnore).
 const friendListLimit = 100

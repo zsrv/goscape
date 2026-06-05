@@ -8,11 +8,11 @@ import (
 
 func TestWorldSubscriptions_RegisterDeregister(t *testing.T) {
 	s := newWorldSubscriptions(noopLogger())
-	sub := newWorldSubscriber(1)
+	sub := newWorldSubscriber("main", 1)
 	s.register(sub)
 	// Send routes to the registered subscriber.
 	ev := &friendspb.WorldEvent{Event: &friendspb.WorldEvent_Reload{Reload: &friendspb.ReloadEvent{}}}
-	s.send(1, ev)
+	s.send("main", 1, ev)
 	select {
 	case got := <-sub.ch:
 		if got != ev {
@@ -23,7 +23,7 @@ func TestWorldSubscriptions_RegisterDeregister(t *testing.T) {
 	}
 	s.deregister(sub)
 	// Now send is a silent no-op (no subscriber).
-	s.send(1, ev)
+	s.send("main", 1, ev)
 	select {
 	case <-sub.ch:
 		t.Fatal("expected no event after deregister")
@@ -33,9 +33,9 @@ func TestWorldSubscriptions_RegisterDeregister(t *testing.T) {
 
 func TestWorldSubscriptions_DupRegisterKicksPrior(t *testing.T) {
 	s := newWorldSubscriptions(noopLogger())
-	prior := newWorldSubscriber(1)
+	prior := newWorldSubscriber("main", 1)
 	s.register(prior)
-	next := newWorldSubscriber(1)
+	next := newWorldSubscriber("main", 1)
 	s.register(next)
 	// Prior's done is closed; next is current.
 	select {
@@ -44,7 +44,7 @@ func TestWorldSubscriptions_DupRegisterKicksPrior(t *testing.T) {
 		t.Fatal("expected prior.done to be closed by register-on-conflict")
 	}
 	ev := &friendspb.WorldEvent{Event: &friendspb.WorldEvent_Reload{Reload: &friendspb.ReloadEvent{}}}
-	s.send(1, ev)
+	s.send("main", 1, ev)
 	select {
 	case <-next.ch:
 	default:
@@ -59,15 +59,15 @@ func TestWorldSubscriptions_DupRegisterKicksPrior(t *testing.T) {
 
 func TestWorldSubscriptions_DeregisterIdentityChecked(t *testing.T) {
 	s := newWorldSubscriptions(noopLogger())
-	prior := newWorldSubscriber(1)
+	prior := newWorldSubscriber("main", 1)
 	s.register(prior)
-	next := newWorldSubscriber(1)
+	next := newWorldSubscriber("main", 1)
 	s.register(next) // kicks prior
 	// Deregistering the (now-stale) prior must NOT remove next.
 	s.deregister(prior)
 	// next must still be registered: send routes to it.
 	ev := &friendspb.WorldEvent{Event: &friendspb.WorldEvent_Reload{Reload: &friendspb.ReloadEvent{}}}
-	s.send(1, ev)
+	s.send("main", 1, ev)
 	select {
 	case <-next.ch:
 	default:
@@ -79,20 +79,20 @@ func TestWorldSubscriptions_SendNoSubscriberSilent(t *testing.T) {
 	s := newWorldSubscriptions(noopLogger())
 	ev := &friendspb.WorldEvent{Event: &friendspb.WorldEvent_Reload{Reload: &friendspb.ReloadEvent{}}}
 	// Should not panic, should not block.
-	s.send(42, ev)
+	s.send("main", 42, ev)
 }
 
 func TestWorldSubscriptions_DropOnFull(t *testing.T) {
 	s := newWorldSubscriptions(noopLogger())
-	sub := newWorldSubscriber(1)
+	sub := newWorldSubscriber("main", 1)
 	s.register(sub)
 	ev := &friendspb.WorldEvent{Event: &friendspb.WorldEvent_Reload{Reload: &friendspb.ReloadEvent{}}}
 	// Fill the buffer.
 	for range worldSubscriberBufferSize {
-		s.send(1, ev)
+		s.send("main", 1, ev)
 	}
 	// Overflow event is dropped (not blocking the caller).
-	s.send(1, ev)
+	s.send("main", 1, ev)
 	// Drain to verify exactly worldSubscriberBufferSize events queued.
 	got := 0
 drain:

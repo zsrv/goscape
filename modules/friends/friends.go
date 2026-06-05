@@ -11,7 +11,7 @@ import (
 )
 
 // Friends is the friends-server module. It owns the gRPC server and the
-// in-memory repository.
+// per-profile repository registry.
 type Friends struct {
 	services.Service
 
@@ -19,7 +19,7 @@ type Friends struct {
 	log *slog.Logger
 
 	db        *sql.DB
-	repo      *Repository
+	repos     *repositories
 	subs      *subscriptions
 	worldSubs *worldSubscriptions
 	srv       *grpcServer
@@ -46,17 +46,17 @@ func (f *Friends) starting(_ context.Context) error {
 	if err != nil {
 		return fmt.Errorf("open friends db: %w", err)
 	}
-	repo := NewRepository(db, f.cfg.NodeProfile)
+	repos := newRepositories(db)
 	subs := newSubscriptions(f.log)
 	worldSubs := newWorldSubscriptions(f.log)
-	srv := newGRPCServer(f.cfg, repo, subs, worldSubs, f.log)
+	srv := newGRPCServer(f.cfg, repos, subs, worldSubs, f.log)
 	lis, err := srv.listen(f.cfg)
 	if err != nil {
 		db.Close()
 		return err
 	}
 	f.db = db
-	f.repo = repo
+	f.repos = repos
 	f.subs = subs
 	f.worldSubs = worldSubs
 	f.srv = srv

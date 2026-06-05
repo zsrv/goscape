@@ -18,10 +18,10 @@ type grpcServer struct {
 	log    *slog.Logger
 }
 
-func newGRPCServer(cfg Config, repo *Repository, subs *subscriptions, worldSubs *worldSubscriptions, log *slog.Logger) *grpcServer {
+func newGRPCServer(cfg Config, repos *repositories, subs *subscriptions, worldSubs *worldSubscriptions, log *slog.Logger) *grpcServer {
 	s := grpc.NewServer()
 	friendspb.RegisterFriendsServiceServer(s, &handler{
-		repo:      repo,
+		repos:     repos,
 		subs:      subs,
 		worldSubs: worldSubs,
 		cfg:       cfg,

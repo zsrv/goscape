@@ -50,7 +50,6 @@ func TestFriendsClient_E2E_SmokeAgainstFriendsServer(t *testing.T) {
 	cfg := friends.Config{
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
-		NodeProfile:             "main",
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
@@ -141,7 +140,6 @@ func TestFriendsClient_E2E_SubscribeUpdatesStream(t *testing.T) {
 	cfg := friends.Config{
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
-		NodeProfile:             "main",
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
@@ -275,7 +273,6 @@ func TestFriendsClient_E2E_PrivateMessageDelivery(t *testing.T) {
 	cfg := friends.Config{
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
-		NodeProfile:             "main",
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
@@ -363,7 +360,6 @@ func TestFriendsClient_E2E_PrivateMessagePersistsRow(t *testing.T) {
 	cfg := friends.Config{
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
-		NodeProfile:             "main",
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
@@ -404,6 +400,7 @@ func TestFriendsClient_E2E_PrivateMessagePersistsRow(t *testing.T) {
 
 	client.PrivateMessage(ctx, &friendspb.PrivateMessageRequest{
 		WorldId:          10,
+		Profile:          "main",
 		Username37:       1111,
 		TargetUsername37: 2222,
 		StaffLvl:         0,
@@ -458,7 +455,6 @@ func TestFriendsClient_E2E_PlayerLoginCapRejected(t *testing.T) {
 	cfg := friends.Config{
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
-		NodeProfile:             "main",
 		WorldPlayerLimit:        1,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
@@ -536,7 +532,6 @@ func TestFriendsClient_E2E_RelayWorldEventsRoundTrip(t *testing.T) {
 	cfg := friends.Config{
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
-		NodeProfile:             "main",
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
@@ -685,7 +680,6 @@ func TestFriendsClient_E2E_RelayShutdownAppliesAction(t *testing.T) {
 	cfg := friends.Config{
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
-		NodeProfile:             "main",
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
@@ -806,7 +800,6 @@ func TestLoginClient_E2E_PlayerSessionIsUUID(t *testing.T) {
 	cfg := login.Config{
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
-		NodeProfile:             "main",
 		SQLiteDSN:               dbPath,
 		SavePath:                savePath,
 		AutoRegister:            true,
@@ -895,7 +888,6 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 	cfg := friends.Config{
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
-		NodeProfile:             "main",
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
@@ -929,10 +921,11 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 	client.WorldConnect(ctx, 10, "main")
 
 	client.PublicMessage(ctx, &friendspb.PublicMessageRequest{
-		WorldId:     10,
+		WorldId:  10,
+		Profile:  "main",
 		Username: "uuid-e2e-1",
-		Coord:       42,
-		Chat:        "persisted publicly",
+		Coord:    42,
+		Chat:     "persisted publicly",
 	})
 
 	// Open a second *sql.DB against the same file. Poll up to 2s for
@@ -990,7 +983,6 @@ func TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket(t *testing.T) {
 	cfg := friends.Config{
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
-		NodeProfile:             "main",
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
@@ -1140,7 +1132,6 @@ func TestFriendsClient_E2E_RelayQueueScriptAppliesAction(t *testing.T) {
 	cfg := friends.Config{
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
-		NodeProfile:             "main",
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,

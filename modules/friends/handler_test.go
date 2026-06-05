@@ -18,16 +18,15 @@ import (
 // routing layer; the value is opaque uint64.
 func nameToBase37(s string) uint64 { return util.ToBase37(s) }
 
-// newTestHandler returns a handler wired to a fresh in-memory repo,
-// configured with NodeProfile="main" and WorldPlayerLimit=10.
+// newTestHandler returns a handler wired to a fresh in-memory repos,
+// configured with WorldPlayerLimit=10.
 func newTestHandler(t *testing.T) *handler {
 	t.Helper()
 	log := noopLogger()
 	return &handler{
-		repo: NewRepository(createTestDB(t), "test"),
-		subs: newSubscriptions(log),
+		repos: newRepositories(createTestDB(t)),
+		subs:  newSubscriptions(log),
 		cfg: Config{
-			NodeProfile:      "main",
 			WorldPlayerLimit: 10,
 		},
 		log: log,
@@ -43,22 +42,24 @@ func TestHandler_WorldConnect_OK(t *testing.T) {
 		t.Fatalf("WorldConnect: %v", err)
 	}
 	// Indirect verification: a Register on world 1 must now succeed.
-	if !h.repo.Register(1, 0xAAAA, 0, 0) {
+	if !h.repos.get("main").Register(1, 0xAAAA, 0, 0) {
 		t.Errorf("Register after WorldConnect: got false, want true")
 	}
 }
 
-func TestHandler_WorldConnect_ProfileMismatch(t *testing.T) {
+// TestHandler_WorldConnect_AnyProfileAccepted verifies that TS 244 removed
+// the server-side profile-mismatch reject: any profile string is accepted.
+// (The 225 reject against cfg.NodeProfile was deleted upstream; verified at
+// FriendServer.ts:92-103 in commit 9aadcec4.)
+func TestHandler_WorldConnect_AnyProfileAccepted(t *testing.T) {
 	h := newTestHandler(t)
-	_, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{
-		WorldId: 1,
-		Profile: "wrong",
-	})
-	if err == nil {
-		t.Fatalf("WorldConnect with bad profile: got nil error")
-	}
-	if got := status.Code(err); got != codes.InvalidArgument {
-		t.Errorf("status code: got %v, want InvalidArgument", got)
+	for _, profile := range []string{"main", "beta", "dev", ""} {
+		if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{
+			WorldId: 1,
+			Profile: profile,
+		}); err != nil {
+			t.Errorf("WorldConnect profile %q: got error %v, want nil", profile, err)
+		}
 	}
 }
 
@@ -66,6 +67,7 @@ func TestHandler_PlayerLogin_BeforeWorldConnect_LazyInit(t *testing.T) {
 	h := newTestHandler(t)
 	resp, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{
 		WorldId:     1,
+		Profile:     "main",
 		Username37:  0xAAAA,
 		PrivateChat: 0,
 		StaffLvl:    0,
@@ -76,7 +78,7 @@ func TestHandler_PlayerLogin_BeforeWorldConnect_LazyInit(t *testing.T) {
 	if !resp.Accepted {
 		t.Errorf("Accepted: got false, want true")
 	}
-	if got := h.repo.GetWorld(0xAAAA); got != 1 {
+	if got := h.repos.get("main").GetWorld(0xAAAA); got != 1 {
 		t.Errorf("GetWorld after lazy-init login: got %d, want 1", got)
 	}
 }
@@ -88,13 +90,14 @@ func TestHandler_PlayerLogin_PrivateChatCoercion(t *testing.T) {
 	}
 	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{
 		WorldId:     1,
+		Profile:     "main",
 		Username37:  0xAAAA,
 		PrivateChat: 99, // invalid -> coerce to 0 (ON)
 		StaffLvl:    0,
 	}); err != nil {
 		t.Fatalf("PlayerLogin: %v", err)
 	}
-	if got := h.repo.GetChatMode(0xAAAA); got != 0 {
+	if got := h.repos.get("main").GetChatMode(0xAAAA); got != 0 {
 		t.Errorf("GetChatMode after invalid coercion: got %d, want 0", got)
 	}
 }
@@ -106,7 +109,7 @@ func TestHandler_PlayerLogin_PlayerCapAccepted_False(t *testing.T) {
 		t.Fatalf("WorldConnect: %v", err)
 	}
 	for i := uint64(1); i <= 2; i++ {
-		resp, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Username37: i})
+		resp, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Profile: "main", Username37: i})
 		if err != nil {
 			t.Fatalf("PlayerLogin %d: %v", i, err)
 		}
@@ -114,7 +117,7 @@ func TestHandler_PlayerLogin_PlayerCapAccepted_False(t *testing.T) {
 			t.Errorf("Accepted #%d: got false, want true", i)
 		}
 	}
-	resp, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Username37: 3})
+	resp, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Profile: "main", Username37: 3})
 	if err != nil {
 		t.Fatalf("PlayerLogin beyond cap: %v", err)
 	}
@@ -127,6 +130,7 @@ func TestHandler_PlayerLogout_Idempotent(t *testing.T) {
 	h := newTestHandler(t)
 	if _, err := h.PlayerLogout(t.Context(), &friendspb.PlayerLogoutRequest{
 		WorldId:    1,
+		Profile:    "main",
 		Username37: 0xDEADBEEF,
 	}); err != nil {
 		t.Fatalf("PlayerLogout on unknown player: %v", err)
@@ -138,13 +142,13 @@ func TestHandler_PlayerLogout_RemovesPlayer(t *testing.T) {
 	if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{WorldId: 1, Profile: "main"}); err != nil {
 		t.Fatalf("WorldConnect: %v", err)
 	}
-	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Username37: 0xAAAA}); err != nil {
+	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Profile: "main", Username37: 0xAAAA}); err != nil {
 		t.Fatalf("PlayerLogin: %v", err)
 	}
-	if _, err := h.PlayerLogout(t.Context(), &friendspb.PlayerLogoutRequest{WorldId: 1, Username37: 0xAAAA}); err != nil {
+	if _, err := h.PlayerLogout(t.Context(), &friendspb.PlayerLogoutRequest{WorldId: 1, Profile: "main", Username37: 0xAAAA}); err != nil {
 		t.Fatalf("PlayerLogout: %v", err)
 	}
-	if got := h.repo.GetWorld(0xAAAA); got != 0 {
+	if got := h.repos.get("main").GetWorld(0xAAAA); got != 0 {
 		t.Errorf("GetWorld after logout: got %d, want 0", got)
 	}
 }
@@ -154,17 +158,18 @@ func TestHandler_ChatSetMode_UpdatesState(t *testing.T) {
 	if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{WorldId: 1, Profile: "main"}); err != nil {
 		t.Fatalf("WorldConnect: %v", err)
 	}
-	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Username37: 0xAAAA, PrivateChat: 0}); err != nil {
+	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Profile: "main", Username37: 0xAAAA, PrivateChat: 0}); err != nil {
 		t.Fatalf("PlayerLogin: %v", err)
 	}
 	if _, err := h.ChatSetMode(t.Context(), &friendspb.ChatSetModeRequest{
 		WorldId:     1,
+		Profile:     "main",
 		Username37:  0xAAAA,
 		PrivateChat: 2,
 	}); err != nil {
 		t.Fatalf("ChatSetMode: %v", err)
 	}
-	if got := h.repo.GetChatMode(0xAAAA); got != 2 {
+	if got := h.repos.get("main").GetChatMode(0xAAAA); got != 2 {
 		t.Errorf("GetChatMode after ChatSetMode(OFF): got %d, want 2", got)
 	}
 }
@@ -174,17 +179,18 @@ func TestHandler_ChatSetMode_PrivateChatCoercion(t *testing.T) {
 	if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{WorldId: 1, Profile: "main"}); err != nil {
 		t.Fatalf("WorldConnect: %v", err)
 	}
-	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Username37: 0xAAAA, PrivateChat: 0}); err != nil {
+	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Profile: "main", Username37: 0xAAAA, PrivateChat: 0}); err != nil {
 		t.Fatalf("PlayerLogin: %v", err)
 	}
 	if _, err := h.ChatSetMode(t.Context(), &friendspb.ChatSetModeRequest{
 		WorldId:     1,
+		Profile:     "main",
 		Username37:  0xAAAA,
 		PrivateChat: 99,
 	}); err != nil {
 		t.Fatalf("ChatSetMode: %v", err)
 	}
-	if got := h.repo.GetChatMode(0xAAAA); got != 0 {
+	if got := h.repos.get("main").GetChatMode(0xAAAA); got != 0 {
 		t.Errorf("GetChatMode after coercion: got %d, want 0", got)
 	}
 }
@@ -194,12 +200,13 @@ func TestHandler_FriendlistAdd_Persists(t *testing.T) {
 	ctx := t.Context()
 	if _, err := h.FriendlistAdd(ctx, &friendspb.FriendlistAddRequest{
 		WorldId:          1,
+		Profile:          "main",
 		Username37:       0xAAAA,
 		TargetUsername37: 0xBBBB,
 	}); err != nil {
 		t.Fatalf("FriendlistAdd: %v", err)
 	}
-	got, err := h.repo.GetFriends(ctx, 0xAAAA)
+	got, err := h.repos.get("main").GetFriends(ctx, 0xAAAA)
 	if err != nil {
 		t.Fatalf("GetFriends: %v", err)
 	}
@@ -211,17 +218,18 @@ func TestHandler_FriendlistAdd_Persists(t *testing.T) {
 func TestHandler_FriendlistDel_RemovesEntry(t *testing.T) {
 	h := newTestHandler(t)
 	ctx := t.Context()
-	if err := h.repo.AddFriend(ctx, 0xAAAA, 0xBBBB); err != nil {
+	if err := h.repos.get("main").AddFriend(ctx, 0xAAAA, 0xBBBB); err != nil {
 		t.Fatalf("AddFriend: %v", err)
 	}
 	if _, err := h.FriendlistDel(ctx, &friendspb.FriendlistDelRequest{
 		WorldId:          1,
+		Profile:          "main",
 		Username37:       0xAAAA,
 		TargetUsername37: 0xBBBB,
 	}); err != nil {
 		t.Fatalf("FriendlistDel: %v", err)
 	}
-	got, err := h.repo.GetFriends(ctx, 0xAAAA)
+	got, err := h.repos.get("main").GetFriends(ctx, 0xAAAA)
 	if err != nil {
 		t.Fatalf("GetFriends: %v", err)
 	}
@@ -235,12 +243,13 @@ func TestHandler_IgnorelistAdd_Persists(t *testing.T) {
 	ctx := t.Context()
 	if _, err := h.IgnorelistAdd(ctx, &friendspb.IgnorelistAddRequest{
 		WorldId:          1,
+		Profile:          "main",
 		Username37:       0xAAAA,
 		TargetUsername37: 0xBBBB,
 	}); err != nil {
 		t.Fatalf("IgnorelistAdd: %v", err)
 	}
-	got, err := h.repo.GetIgnores(ctx, 0xAAAA)
+	got, err := h.repos.get("main").GetIgnores(ctx, 0xAAAA)
 	if err != nil {
 		t.Fatalf("GetIgnores: %v", err)
 	}
@@ -252,17 +261,18 @@ func TestHandler_IgnorelistAdd_Persists(t *testing.T) {
 func TestHandler_IgnorelistDel_RemovesEntry(t *testing.T) {
 	h := newTestHandler(t)
 	ctx := t.Context()
-	if err := h.repo.AddIgnore(ctx, 0xAAAA, 0xBBBB); err != nil {
+	if err := h.repos.get("main").AddIgnore(ctx, 0xAAAA, 0xBBBB); err != nil {
 		t.Fatalf("AddIgnore: %v", err)
 	}
 	if _, err := h.IgnorelistDel(ctx, &friendspb.IgnorelistDelRequest{
 		WorldId:          1,
+		Profile:          "main",
 		Username37:       0xAAAA,
 		TargetUsername37: 0xBBBB,
 	}); err != nil {
 		t.Fatalf("IgnorelistDel: %v", err)
 	}
-	got, err := h.repo.GetIgnores(ctx, 0xAAAA)
+	got, err := h.repos.get("main").GetIgnores(ctx, 0xAAAA)
 	if err != nil {
 		t.Fatalf("GetIgnores: %v", err)
 	}
@@ -281,6 +291,7 @@ func TestPrivateMessage_NoSubscription(t *testing.T) {
 	// username37=0xBBBB.
 	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
 		WorldId:          1,
+		Profile:          "main",
 		Username37:       0xAAAA,
 		TargetUsername37: 0xBBBB,
 		StaffLvl:         0,
@@ -331,10 +342,12 @@ func (s *testStream) recvWithin(t *testing.T, d time.Duration) *friendspb.Friend
 }
 
 func TestSubscribeUpdates_InitialSnapshots(t *testing.T) {
-	r, _ := newTestRepo(t)
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
-	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.Register(1, 100, 0, 0)
 	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
@@ -347,7 +360,7 @@ func TestSubscribeUpdates_InitialSnapshots(t *testing.T) {
 	stream := newTestStream(t)
 	errc := make(chan error, 1)
 	go func() {
-		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 100}, stream)
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Profile: "main", Username37: 100}, stream)
 	}()
 	t.Cleanup(func() {
 		stream.cancel()
@@ -376,10 +389,12 @@ func TestSubscribeUpdates_InitialSnapshots(t *testing.T) {
 }
 
 func TestPlayerLogin_BroadcastsToFollowers(t *testing.T) {
-	r, _ := newTestRepo(t)
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
-	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	// Follower 100 friended target 200.
 	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
@@ -392,7 +407,7 @@ func TestPlayerLogin_BroadcastsToFollowers(t *testing.T) {
 	stream := newTestStream(t)
 	errc := make(chan error, 1)
 	go func() {
-		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 100}, stream)
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Profile: "main", Username37: 100}, stream)
 	}()
 	t.Cleanup(func() {
 		stream.cancel()
@@ -405,6 +420,7 @@ func TestPlayerLogin_BroadcastsToFollowers(t *testing.T) {
 	// 200 logs in on world 1.
 	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{
 		WorldId:     1,
+		Profile:     "main",
 		Username37:  200,
 		PrivateChat: 0,
 		StaffLvl:    0,
@@ -428,10 +444,12 @@ func TestPlayerLogin_BroadcastsToFollowers(t *testing.T) {
 }
 
 func TestBroadcast_ChatModeOffHidesWorld(t *testing.T) {
-	r, _ := newTestRepo(t)
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
-	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
 		t.Fatalf("AddFriend: %v", err)
@@ -441,7 +459,7 @@ func TestBroadcast_ChatModeOffHidesWorld(t *testing.T) {
 	stream := newTestStream(t)
 	errc := make(chan error, 1)
 	go func() {
-		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 100}, stream)
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Profile: "main", Username37: 100}, stream)
 	}()
 	t.Cleanup(func() {
 		stream.cancel()
@@ -453,6 +471,7 @@ func TestBroadcast_ChatModeOffHidesWorld(t *testing.T) {
 	// 200 logs in with privateChat OFF.
 	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{
 		WorldId:     1,
+		Profile:     "main",
 		Username37:  200,
 		PrivateChat: 2, // OFF
 		StaffLvl:    0,
@@ -468,10 +487,12 @@ func TestBroadcast_ChatModeOffHidesWorld(t *testing.T) {
 }
 
 func TestPlayerLogout_BroadcastsZeroWorld(t *testing.T) {
-	r, _ := newTestRepo(t)
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
-	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
 		t.Fatalf("AddFriend: %v", err)
@@ -482,7 +503,7 @@ func TestPlayerLogout_BroadcastsZeroWorld(t *testing.T) {
 	stream := newTestStream(t)
 	errc := make(chan error, 1)
 	go func() {
-		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 100}, stream)
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Profile: "main", Username37: 100}, stream)
 	}()
 	t.Cleanup(func() {
 		stream.cancel()
@@ -493,6 +514,7 @@ func TestPlayerLogout_BroadcastsZeroWorld(t *testing.T) {
 
 	if _, err := h.PlayerLogout(t.Context(), &friendspb.PlayerLogoutRequest{
 		WorldId:    1,
+		Profile:    "main",
 		Username37: 200,
 	}); err != nil {
 		t.Fatalf("PlayerLogout: %v", err)
@@ -506,10 +528,12 @@ func TestPlayerLogout_BroadcastsZeroWorld(t *testing.T) {
 }
 
 func TestFriendlistAdd_AdderGetsTargetWorldAndFollowersBroadcast(t *testing.T) {
-	r, _ := newTestRepo(t)
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
-	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	// Pre-existing: adder 100 has a follower 50 who already friended 100.
 	if err := r.AddFriend(t.Context(), 50, 100); err != nil {
@@ -525,10 +549,10 @@ func TestFriendlistAdd_AdderGetsTargetWorldAndFollowersBroadcast(t *testing.T) {
 	errAdder := make(chan error, 1)
 	errFollower := make(chan error, 1)
 	go func() {
-		errAdder <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 100}, adderStream)
+		errAdder <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Profile: "main", Username37: 100}, adderStream)
 	}()
 	go func() {
-		errFollower <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 50}, followerStream)
+		errFollower <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Profile: "main", Username37: 50}, followerStream)
 	}()
 	t.Cleanup(func() {
 		adderStream.cancel()
@@ -545,6 +569,7 @@ func TestFriendlistAdd_AdderGetsTargetWorldAndFollowersBroadcast(t *testing.T) {
 	// 100 adds 200 as a friend.
 	if _, err := h.FriendlistAdd(t.Context(), &friendspb.FriendlistAddRequest{
 		WorldId:          1,
+		Profile:          "main",
 		Username37:       100,
 		TargetUsername37: 200,
 	}); err != nil {
@@ -572,10 +597,12 @@ func TestFriendlistAdd_AdderGetsTargetWorldAndFollowersBroadcast(t *testing.T) {
 // open SubscribeUpdates stream as a PrivateMessageDelivery update.
 // Mirrors TS FriendServer.sendPrivateMessage (FriendServer.ts:480-497).
 func TestPrivateMessage_DeliveredToRecipient(t *testing.T) {
-	r, _ := newTestRepo(t)
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
-	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.Register(1, 200, 0, 0) // recipient online so the subscription can attach
 
@@ -583,7 +610,7 @@ func TestPrivateMessage_DeliveredToRecipient(t *testing.T) {
 	stream := newTestStream(t)
 	errc := make(chan error, 1)
 	go func() {
-		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 200}, stream)
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Profile: "main", Username37: 200}, stream)
 	}()
 	t.Cleanup(func() {
 		stream.cancel()
@@ -595,6 +622,7 @@ func TestPrivateMessage_DeliveredToRecipient(t *testing.T) {
 	// Sender (100) PMs recipient (200).
 	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
 		WorldId:          1,
+		Profile:          "main",
 		Username37:       100,
 		TargetUsername37: 200,
 		StaffLvl:         2,
@@ -627,13 +655,15 @@ func TestPrivateMessage_DeliveredToRecipient(t *testing.T) {
 }
 
 // TestPrivateMessage_CrossWorld pins that registry routing is keyed
-// solely by username37, so a PM from a sender on world 1 reaches a
-// recipient subscribed on world 20.
+// solely by (profile, username37), so a PM from a sender on world 1
+// reaches a recipient subscribed on world 20.
 func TestPrivateMessage_CrossWorld(t *testing.T) {
-	r, _ := newTestRepo(t)
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
-	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.InitializeWorld(20, 100)
 	r.Register(1, 100, 0, 0)  // sender on world 1
@@ -642,7 +672,7 @@ func TestPrivateMessage_CrossWorld(t *testing.T) {
 	stream := newTestStream(t)
 	errc := make(chan error, 1)
 	go func() {
-		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 20, Username37: 200}, stream)
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 20, Profile: "main", Username37: 200}, stream)
 	}()
 	t.Cleanup(func() {
 		stream.cancel()
@@ -653,6 +683,7 @@ func TestPrivateMessage_CrossWorld(t *testing.T) {
 
 	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
 		WorldId:          1, // sender's world
+		Profile:          "main",
 		Username37:       100,
 		TargetUsername37: 200,
 		StaffLvl:         0,
@@ -681,17 +712,19 @@ func TestPrivateMessage_CrossWorld(t *testing.T) {
 // before pushing PrivateMessageDelivery to the recipient's stream.
 // Mirrors TS FriendServer.ts:273-285.
 func TestHandler_PrivateMessage_PersistsBeforeSending(t *testing.T) {
-	r, db := newTestRepo(t)
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
-	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.Register(1, 200, 0, 0) // recipient online
 
 	stream := newTestStream(t)
 	errc := make(chan error, 1)
 	go func() {
-		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 200}, stream)
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Profile: "main", Username37: 200}, stream)
 	}()
 	t.Cleanup(func() {
 		stream.cancel()
@@ -702,6 +735,7 @@ func TestHandler_PrivateMessage_PersistsBeforeSending(t *testing.T) {
 
 	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
 		WorldId:          1,
+		Profile:          "main",
 		Username37:       100,
 		TargetUsername37: 200,
 		StaffLvl:         0,
@@ -743,17 +777,19 @@ func TestHandler_PrivateMessage_PersistsBeforeSending(t *testing.T) {
 // the initial-snapshot reads complete. Mirrors the TS thrown-await
 // pattern.
 func TestHandler_PrivateMessage_InsertErrorBlocksSend(t *testing.T) {
-	r, db := newTestRepo(t)
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
-	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.Register(1, 200, 0, 0)
 
 	stream := newTestStream(t)
 	errc := make(chan error, 1)
 	go func() {
-		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 200}, stream)
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Profile: "main", Username37: 200}, stream)
 	}()
 	t.Cleanup(func() {
 		stream.cancel()
@@ -773,6 +809,7 @@ func TestHandler_PrivateMessage_InsertErrorBlocksSend(t *testing.T) {
 
 	_, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
 		WorldId:          1,
+		Profile:          "main",
 		Username37:       100,
 		TargetUsername37: 200,
 		PmId:             0xDEADBEEF,
@@ -799,11 +836,12 @@ func TestHandler_PrivateMessage_InsertErrorBlocksSend(t *testing.T) {
 
 func TestHandler_RelayKick_RoutesToSubscriber(t *testing.T) {
 	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
-	sub := newWorldSubscriber(2)
+	sub := newWorldSubscriber("main", 2)
 	worldSubs.register(sub)
 	defer worldSubs.deregister(sub)
 
 	_, err := h.RelayKick(context.Background(), &friendspb.RelayKickRequest{
+		Profile:       "main",
 		TargetWorldId: 2,
 		Username37:    nameToBase37("alice"),
 	})
@@ -828,6 +866,7 @@ func TestHandler_RelayKick_NoSubscriberSilent(t *testing.T) {
 	h, _, _ := newTestHandlerWithWorldSubs(t)
 	// No subscriber registered for world 99.
 	_, err := h.RelayKick(context.Background(), &friendspb.RelayKickRequest{
+		Profile:       "main",
 		TargetWorldId: 99,
 		Username37:    nameToBase37("alice"),
 	})
@@ -838,11 +877,11 @@ func TestHandler_RelayKick_NoSubscriberSilent(t *testing.T) {
 
 func TestHandler_RelayMute_RoutesPayload(t *testing.T) {
 	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
-	sub := newWorldSubscriber(2)
+	sub := newWorldSubscriber("main", 2)
 	worldSubs.register(sub)
 	defer worldSubs.deregister(sub)
 	_, err := h.RelayMute(context.Background(), &friendspb.RelayMuteRequest{
-		TargetWorldId: 2, Username37: nameToBase37("bob"), MutedUntilMs: 12345,
+		Profile: "main", TargetWorldId: 2, Username37: nameToBase37("bob"), MutedUntilMs: 12345,
 	})
 	if err != nil {
 		t.Fatalf("RelayMute: %v", err)
@@ -856,11 +895,11 @@ func TestHandler_RelayMute_RoutesPayload(t *testing.T) {
 
 func TestHandler_RelayShutdown_RoutesPayload(t *testing.T) {
 	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
-	sub := newWorldSubscriber(2)
+	sub := newWorldSubscriber("main", 2)
 	worldSubs.register(sub)
 	defer worldSubs.deregister(sub)
 	_, err := h.RelayShutdown(context.Background(), &friendspb.RelayShutdownRequest{
-		TargetWorldId: 2, DurationTicks: 50,
+		Profile: "main", TargetWorldId: 2, DurationTicks: 50,
 	})
 	if err != nil {
 		t.Fatalf("RelayShutdown: %v", err)
@@ -873,11 +912,11 @@ func TestHandler_RelayShutdown_RoutesPayload(t *testing.T) {
 
 func TestHandler_RelayBroadcast_RoutesPayload(t *testing.T) {
 	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
-	sub := newWorldSubscriber(2)
+	sub := newWorldSubscriber("main", 2)
 	worldSubs.register(sub)
 	defer worldSubs.deregister(sub)
 	_, err := h.RelayBroadcast(context.Background(), &friendspb.RelayBroadcastRequest{
-		TargetWorldId: 2, Message: "hello world",
+		Profile: "main", TargetWorldId: 2, Message: "hello world",
 	})
 	if err != nil {
 		t.Fatalf("RelayBroadcast: %v", err)
@@ -890,11 +929,11 @@ func TestHandler_RelayBroadcast_RoutesPayload(t *testing.T) {
 
 func TestHandler_RelayTrack_RoutesPayload(t *testing.T) {
 	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
-	sub := newWorldSubscriber(2)
+	sub := newWorldSubscriber("main", 2)
 	worldSubs.register(sub)
 	defer worldSubs.deregister(sub)
 	_, err := h.RelayTrack(context.Background(), &friendspb.RelayTrackRequest{
-		TargetWorldId: 2, Username37: nameToBase37("carol"), State: 1,
+		Profile: "main", TargetWorldId: 2, Username37: nameToBase37("carol"), State: 1,
 	})
 	if err != nil {
 		t.Fatalf("RelayTrack: %v", err)
@@ -908,10 +947,10 @@ func TestHandler_RelayTrack_RoutesPayload(t *testing.T) {
 
 func TestHandler_RelayReload_RoutesEmpty(t *testing.T) {
 	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
-	sub := newWorldSubscriber(2)
+	sub := newWorldSubscriber("main", 2)
 	worldSubs.register(sub)
 	defer worldSubs.deregister(sub)
-	_, err := h.RelayReload(context.Background(), &friendspb.RelayReloadRequest{TargetWorldId: 2})
+	_, err := h.RelayReload(context.Background(), &friendspb.RelayReloadRequest{Profile: "main", TargetWorldId: 2})
 	if err != nil {
 		t.Fatalf("RelayReload: %v", err)
 	}
@@ -923,10 +962,10 @@ func TestHandler_RelayReload_RoutesEmpty(t *testing.T) {
 
 func TestHandler_RelayClearLogins_RoutesEmpty(t *testing.T) {
 	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
-	sub := newWorldSubscriber(2)
+	sub := newWorldSubscriber("main", 2)
 	worldSubs.register(sub)
 	defer worldSubs.deregister(sub)
-	_, err := h.RelayClearLogins(context.Background(), &friendspb.RelayClearLoginsRequest{TargetWorldId: 2})
+	_, err := h.RelayClearLogins(context.Background(), &friendspb.RelayClearLoginsRequest{Profile: "main", TargetWorldId: 2})
 	if err != nil {
 		t.Fatalf("RelayClearLogins: %v", err)
 	}
@@ -937,10 +976,10 @@ func TestHandler_RelayClearLogins_RoutesEmpty(t *testing.T) {
 
 func TestHandler_RelayClearLogouts_RoutesEmpty(t *testing.T) {
 	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
-	sub := newWorldSubscriber(2)
+	sub := newWorldSubscriber("main", 2)
 	worldSubs.register(sub)
 	defer worldSubs.deregister(sub)
-	_, err := h.RelayClearLogouts(context.Background(), &friendspb.RelayClearLogoutsRequest{TargetWorldId: 2})
+	_, err := h.RelayClearLogouts(context.Background(), &friendspb.RelayClearLogoutsRequest{Profile: "main", TargetWorldId: 2})
 	if err != nil {
 		t.Fatalf("RelayClearLogouts: %v", err)
 	}
@@ -951,11 +990,11 @@ func TestHandler_RelayClearLogouts_RoutesEmpty(t *testing.T) {
 
 func TestHandler_RelayQueueScript_RoutesPayload(t *testing.T) {
 	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
-	sub := newWorldSubscriber(2)
+	sub := newWorldSubscriber("main", 2)
 	worldSubs.register(sub)
 	defer worldSubs.deregister(sub)
 	_, err := h.RelayQueueScript(context.Background(), &friendspb.RelayQueueScriptRequest{
-		TargetWorldId: 2, ScriptName: "debug:dump", Username37: nameToBase37("dan"),
+		Profile: "main", TargetWorldId: 2, ScriptName: "debug:dump", Username37: nameToBase37("dan"),
 	})
 	if err != nil {
 		t.Fatalf("RelayQueueScript: %v", err)
@@ -974,19 +1013,23 @@ func TestHandler_SubscribeWorldEvents_DupKicksPrior(t *testing.T) {
 	// the stream's err return.
 	srv1 := newFakeWorldEventsServerStream(t)
 	done1 := make(chan error, 1)
-	go func() { done1 <- h.SubscribeWorldEvents(&friendspb.SubscribeWorldEventsRequest{WorldId: 7}, srv1) }()
+	go func() {
+		done1 <- h.SubscribeWorldEvents(&friendspb.SubscribeWorldEventsRequest{WorldId: 7, Profile: "main"}, srv1)
+	}()
 
 	// Spin until srv1 has installed its subscriber (registry has entry).
 	waitFor(t, func() bool {
 		h.worldSubs.mu.Lock()
 		defer h.worldSubs.mu.Unlock()
-		return h.worldSubs.by[7] != nil
+		return h.worldSubs.by[wsubKey{profile: "main", worldId: 7}] != nil
 	})
 
-	// Open a second subscription for the same worldId.
+	// Open a second subscription for the same (profile, worldId).
 	srv2 := newFakeWorldEventsServerStream(t)
 	done2 := make(chan error, 1)
-	go func() { done2 <- h.SubscribeWorldEvents(&friendspb.SubscribeWorldEventsRequest{WorldId: 7}, srv2) }()
+	go func() {
+		done2 <- h.SubscribeWorldEvents(&friendspb.SubscribeWorldEventsRequest{WorldId: 7, Profile: "main"}, srv2)
+	}()
 
 	// srv1's stream goroutine sees done closed and returns nil.
 	select {
@@ -1010,14 +1053,14 @@ func TestHandler_SubscribeWorldEvents_DupKicksPrior(t *testing.T) {
 func newTestHandlerWithWorldSubs(t *testing.T) (*handler, *subscriptions, *worldSubscriptions) {
 	t.Helper()
 	log := noopLogger()
-	repo := NewRepository(createTestDB(t), "main")
+	repos := newRepositories(createTestDB(t))
 	subs := newSubscriptions(log)
 	worldSubs := newWorldSubscriptions(log)
 	h := &handler{
-		repo:      repo,
+		repos:     repos,
 		subs:      subs,
 		worldSubs: worldSubs,
-		cfg:       Config{NodeProfile: "main", WorldPlayerLimit: 2000},
+		cfg:       Config{WorldPlayerLimit: 2000},
 		log:       log,
 	}
 	return h, subs, worldSubs
@@ -1075,6 +1118,42 @@ func waitFor(t *testing.T, cond func() bool) {
 	t.Fatal("waitFor: condition not met within 2s")
 }
 
+// TestMultiProfile_WorldIsolation pins the 244 multi-profile server
+// (FriendServer.ts:61-75 repositories[profile] +
+// socketByWorld[profile][world]): the same world id under two profiles
+// is two independent registries — registration, presence, and the
+// player cap are all profile-scoped, and the WorldConnect
+// profile-mismatch reject is GONE (TS deleted it at 244).
+func TestMultiProfile_WorldIsolation(t *testing.T) {
+	h := newTestHandler(t)
+	for _, profile := range []string{"main", "beta"} {
+		if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{
+			WorldId: 1, Profile: profile,
+		}); err != nil {
+			t.Fatalf("WorldConnect %s: %v", profile, err)
+		}
+	}
+	for _, profile := range []string{"main", "beta"} {
+		resp, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{
+			WorldId: 1, Profile: profile, Username37: 0xB0B,
+		})
+		if err != nil || !resp.Accepted {
+			t.Fatalf("PlayerLogin %s: %v / %v", profile, resp, err)
+		}
+	}
+	if _, err := h.PlayerLogout(t.Context(), &friendspb.PlayerLogoutRequest{
+		WorldId: 1, Profile: "beta", Username37: 0xB0B,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.repos.get("main").GetWorld(0xB0B); got != 1 {
+		t.Errorf("main presence after beta logout: world %d, want 1", got)
+	}
+	if got := h.repos.get("beta").GetWorld(0xB0B); got != 0 {
+		t.Errorf("beta presence after beta logout: world %d, want 0", got)
+	}
+}
+
 // --- public_chat audit (follow-up post-slice-7) ---
 
 // TestHandler_PublicMessage_PersistsRow pins the happy path: a valid
@@ -1082,16 +1161,18 @@ func waitFor(t *testing.T, cond func() bool) {
 // public_chat under r.profile. No delivery, no subscription, no
 // validation. Mirrors TS FriendServer.ts:286-297.
 func TestHandler_PublicMessage_PersistsRow(t *testing.T) {
-	r, db := newTestRepo(t)
+	db := createTestDB(t)
+	repos := newRepositories(db)
 	log := noopLogger()
-	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
-	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 
 	resp, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
-		WorldId:     10,
+		WorldId:  10,
+		Profile:  "main",
 		Username: "uuid-pub-1",
-		Coord:       9876,
-		Chat:        "audit me",
+		Coord:    9876,
+		Chat:     "audit me",
 	})
 	if err != nil {
 		t.Fatalf("PublicMessage: %v", err)
@@ -1118,20 +1199,22 @@ func TestHandler_PublicMessage_PersistsRow(t *testing.T) {
 // TestHandler_PrivateMessage_InsertErrorBlocksSend pattern (minus the
 // delivery half, which doesn't exist for public_chat).
 func TestHandler_PublicMessage_InsertErrorReturnsInternal(t *testing.T) {
-	r, db := newTestRepo(t)
+	db := createTestDB(t)
+	repos := newRepositories(db)
 	log := noopLogger()
-	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
-	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 
 	if err := db.Close(); err != nil {
 		t.Fatalf("db.Close: %v", err)
 	}
 
 	resp, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
-		WorldId:     10,
+		WorldId:  10,
+		Profile:  "main",
 		Username: "uuid-pub-err",
-		Coord:       0,
-		Chat:        "should not persist",
+		Coord:    0,
+		Chat:     "should not persist",
 	})
 	if err == nil {
 		t.Fatalf("PublicMessage on closed DB: got nil error, want Internal")
