@@ -100,3 +100,37 @@ func TestSubscriptions_SendUnknownNoop(t *testing.T) {
 	// No panic, no block.
 	s.send("main", 999, &friendspb.FriendsUpdate{})
 }
+
+// TestSubscriptions_ProfileIsolation pins the (profile, username37) re-key
+// introduced for rev-244 multi-profile: sending to "beta"/username37 must
+// reach only the beta subscriber, leaving the "main" subscriber's channel
+// empty. The test fails if the map is re-keyed back to plain username37.
+func TestSubscriptions_ProfileIsolation(t *testing.T) {
+	s := newSubscriptions(noopLogger())
+	const username37 uint64 = 0xAAAA
+
+	mainSub := newSubscriber("main", 1, username37)
+	betaSub := newSubscriber("beta", 1, username37)
+	s.register(mainSub)
+	s.register(betaSub)
+
+	update := &friendspb.FriendsUpdate{}
+	s.send("beta", username37, update)
+
+	// betaSub must receive the update.
+	select {
+	case got := <-betaSub.ch:
+		if got != update {
+			t.Fatalf("betaSub: got %v, want %v", got, update)
+		}
+	default:
+		t.Fatal("betaSub: expected update; got none")
+	}
+
+	// mainSub must remain empty — profiles are isolated.
+	select {
+	case <-mainSub.ch:
+		t.Fatal("mainSub: received update targeted at beta profile; profiles are not isolated")
+	default:
+	}
+}

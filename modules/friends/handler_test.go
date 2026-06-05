@@ -49,8 +49,9 @@ func TestHandler_WorldConnect_OK(t *testing.T) {
 
 // TestHandler_WorldConnect_AnyProfileAccepted verifies that TS 244 removed
 // the server-side profile-mismatch reject: any profile string is accepted.
-// (The 225 reject against cfg.NodeProfile was deleted upstream; verified at
-// FriendServer.ts:92-103 in commit 9aadcec4.)
+// The 225 server gated WorldConnect on a configured NodeProfile; TS 244
+// removed that field and the server accepts any profile string (verified at
+// FriendServer.ts:92-103, pin 9aadcec4).
 func TestHandler_WorldConnect_AnyProfileAccepted(t *testing.T) {
 	h := newTestHandler(t)
 	for _, profile := range []string{"main", "beta", "dev", ""} {

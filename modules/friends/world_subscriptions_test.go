@@ -82,6 +82,40 @@ func TestWorldSubscriptions_SendNoSubscriberSilent(t *testing.T) {
 	s.send("main", 42, ev)
 }
 
+// TestWorldSubscriptions_ProfileIsolation pins the (profile, worldId) re-key
+// introduced for rev-244 multi-profile: sending to "beta"/worldId must reach
+// only the beta worldSubscriber, leaving the "main" subscriber's channel
+// empty. The test fails if the map is re-keyed back to plain worldId.
+func TestWorldSubscriptions_ProfileIsolation(t *testing.T) {
+	s := newWorldSubscriptions(noopLogger())
+	const worldId int32 = 1
+
+	mainSub := newWorldSubscriber("main", worldId)
+	betaSub := newWorldSubscriber("beta", worldId)
+	s.register(mainSub)
+	s.register(betaSub)
+
+	ev := &friendspb.WorldEvent{Event: &friendspb.WorldEvent_Reload{Reload: &friendspb.ReloadEvent{}}}
+	s.send("beta", worldId, ev)
+
+	// betaSub must receive the event.
+	select {
+	case got := <-betaSub.ch:
+		if got != ev {
+			t.Fatalf("betaSub: got %v, want %v", got, ev)
+		}
+	default:
+		t.Fatal("betaSub: expected event; got none")
+	}
+
+	// mainSub must remain empty — profiles are isolated.
+	select {
+	case <-mainSub.ch:
+		t.Fatal("mainSub: received event targeted at beta profile; profiles are not isolated")
+	default:
+	}
+}
+
 func TestWorldSubscriptions_DropOnFull(t *testing.T) {
 	s := newWorldSubscriptions(noopLogger())
 	sub := newWorldSubscriber("main", 1)
