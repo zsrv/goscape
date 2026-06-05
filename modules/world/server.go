@@ -423,9 +423,9 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// Arc 18 R3 — bridges parent context; canceled by Shutdown so
 	// in-flight fire-and-forget gRPC calls observe shutdown promptly.
 	s.bridgesCtx, s.bridgesCancel = context.WithCancel(context.Background())
-	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), s.bridgesCtx, s.log)
+	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.bridgesCtx, s.log)
 	s.friendsDispatcher = newEmitFriendsDispatcher(s, s.log)
-	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, s.log)
+	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, cfg.NodeProfile, s.log)
 	// Slice 5b: production dispatcher composes the slice-5a slog
 	// dispatcher with WorldStateOps so each RELAY_* event both logs
 	// AND applies its world-state effect.
@@ -434,7 +434,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	if friendsClient != nil {
 		ctx, cancel := context.WithCancel(context.Background())
 		s.worldEventsCancel = cancel
-		sub := newWorldEventsSubscriber(friendsClient, int32(cfg.NodeID), s.worldEventsDispatcher, s.log)
+		sub := newWorldEventsSubscriber(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.worldEventsDispatcher, s.log)
 		go sub.run(ctx)
 	}
 	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.bridgesCtx, s.log)
@@ -1513,6 +1513,7 @@ func (s *Server) removePlayerOnTick(p *Player) {
 	if s.friendsClient != nil && p.username != "" {
 		username37 := p.username37
 		worldID := int32(s.cfg.NodeID)
+		profile := s.cfg.NodeProfile
 		// Arc 18 R3 — per-call timeout + shutdown-derived parent so a hung
 		// friends-server cannot pile up goroutines.
 		go func() {
@@ -1520,6 +1521,7 @@ func (s *Server) removePlayerOnTick(p *Player) {
 			defer cancel()
 			s.friendsClient.PlayerLogout(ctx, &friendspb.PlayerLogoutRequest{
 				WorldId:    worldID,
+				Profile:    profile,
 				Username37: username37,
 			})
 		}()

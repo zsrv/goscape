@@ -87,6 +87,7 @@ func TestFriendsClient_E2E_SmokeAgainstFriendsServer(t *testing.T) {
 	// 2. PlayerLogin — registers a player on world 10.
 	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
 		WorldId:     10,
+		Profile:     "main",
 		Username37:  1234,
 		PrivateChat: 0,
 		StaffLvl:    0,
@@ -95,6 +96,7 @@ func TestFriendsClient_E2E_SmokeAgainstFriendsServer(t *testing.T) {
 	// 3. FriendlistAdd — adds target 5678 to player 1234's friend set.
 	client.FriendlistAdd(ctx, &friendspb.FriendlistAddRequest{
 		WorldId:          10,
+		Profile:          "main",
 		Username37:       1234,
 		TargetUsername37: 5678,
 	})
@@ -102,6 +104,7 @@ func TestFriendsClient_E2E_SmokeAgainstFriendsServer(t *testing.T) {
 	// 4. ChatSetMode — coerces in-range value.
 	client.ChatSetMode(ctx, &friendspb.ChatSetModeRequest{
 		WorldId:     10,
+		Profile:     "main",
 		Username37:  1234,
 		PrivateChat: 1, // FRIENDS
 	})
@@ -109,6 +112,7 @@ func TestFriendsClient_E2E_SmokeAgainstFriendsServer(t *testing.T) {
 	// 5. PrivateMessage — accepted-and-logged slice 1 contract.
 	client.PrivateMessage(ctx, &friendspb.PrivateMessageRequest{
 		WorldId:          10,
+		Profile:          "main",
 		Username37:       1234,
 		TargetUsername37: 5678,
 		StaffLvl:         0,
@@ -120,6 +124,7 @@ func TestFriendsClient_E2E_SmokeAgainstFriendsServer(t *testing.T) {
 	// 6. PlayerLogout — cleanup.
 	client.PlayerLogout(ctx, &friendspb.PlayerLogoutRequest{
 		WorldId:    10,
+		Profile:    "main",
 		Username37: 1234,
 	})
 
@@ -175,16 +180,16 @@ func TestFriendsClient_E2E_SubscribeUpdatesStream(t *testing.T) {
 
 	// A logs in.
 	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
-		WorldId: 10, Username37: 1111, PrivateChat: 0, StaffLvl: 0,
+		WorldId: 10, Profile: "main", Username37: 1111, PrivateChat: 0, StaffLvl: 0,
 	}, nil)
 	// A friends B.
 	client.FriendlistAdd(ctx, &friendspb.FriendlistAddRequest{
-		WorldId: 10, Username37: 1111, TargetUsername37: 2222,
+		WorldId: 10, Profile: "main", Username37: 1111, TargetUsername37: 2222,
 	})
 
 	// A subscribes via the world-side subscriber.
 	disp := &recordingFriendsDispatcher{}
-	sub := newFriendsSubscriber(client, 10, 1111, disp, log)
+	sub := newFriendsSubscriber(client, 10, "main", 1111, disp, log)
 	subCtx, subCancel := context.WithCancel(ctx)
 	t.Cleanup(subCancel)
 	go sub.run(subCtx)
@@ -196,7 +201,7 @@ func TestFriendsClient_E2E_SubscribeUpdatesStream(t *testing.T) {
 
 	// B logs in. A should see B's world.
 	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
-		WorldId: 10, Username37: 2222, PrivateChat: 0, StaffLvl: 0,
+		WorldId: 10, Profile: "main", Username37: 2222, PrivateChat: 0, StaffLvl: 0,
 	}, nil)
 	if !waitForFriendlistEntryWithWorld(t, disp, 2*time.Second, 2222, 10) {
 		t.Fatalf("expected FriendlistUpdate naming 2222 on world 10")
@@ -204,7 +209,7 @@ func TestFriendsClient_E2E_SubscribeUpdatesStream(t *testing.T) {
 
 	// B logs out. A should see world=0.
 	client.PlayerLogout(ctx, &friendspb.PlayerLogoutRequest{
-		WorldId: 10, Username37: 2222,
+		WorldId: 10, Profile: "main", Username37: 2222,
 	})
 	if !waitForFriendlistEntryWithWorld(t, disp, 2*time.Second, 2222, 0) {
 		t.Fatalf("expected FriendlistUpdate naming 2222 on world 0 after logout")
@@ -307,23 +312,24 @@ func TestFriendsClient_E2E_PrivateMessageDelivery(t *testing.T) {
 
 	// Recipient (2222) logs in and subscribes.
 	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
-		WorldId: 10, Username37: 2222, PrivateChat: 0, StaffLvl: 0,
+		WorldId: 10, Profile: "main", Username37: 2222, PrivateChat: 0, StaffLvl: 0,
 	}, nil)
 
 	disp := &recordingFriendsDispatcher{}
-	sub := newFriendsSubscriber(client, 10, 2222, disp, log)
+	sub := newFriendsSubscriber(client, 10, "main", 2222, disp, log)
 	subCtx, subCancel := context.WithCancel(ctx)
 	t.Cleanup(subCancel)
 	go sub.run(subCtx)
 
 	// Sender (1111) logs in.
 	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
-		WorldId: 10, Username37: 1111, PrivateChat: 0, StaffLvl: 0,
+		WorldId: 10, Profile: "main", Username37: 1111, PrivateChat: 0, StaffLvl: 0,
 	}, nil)
 
 	// Sender PMs recipient.
 	client.PrivateMessage(ctx, &friendspb.PrivateMessageRequest{
 		WorldId:          10,
+		Profile:          "main",
 		Username37:       1111,
 		TargetUsername37: 2222,
 		StaffLvl:         0,
@@ -392,10 +398,10 @@ func TestFriendsClient_E2E_PrivateMessagePersistsRow(t *testing.T) {
 
 	client.WorldConnect(ctx, 10, "main")
 	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
-		WorldId: 10, Username37: 2222, PrivateChat: 0, StaffLvl: 0,
+		WorldId: 10, Profile: "main", Username37: 2222, PrivateChat: 0, StaffLvl: 0,
 	}, nil)
 	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
-		WorldId: 10, Username37: 1111, PrivateChat: 0, StaffLvl: 0,
+		WorldId: 10, Profile: "main", Username37: 1111, PrivateChat: 0, StaffLvl: 0,
 	}, nil)
 
 	client.PrivateMessage(ctx, &friendspb.PrivateMessageRequest{
@@ -565,8 +571,8 @@ func TestFriendsClient_E2E_RelayWorldEventsRoundTrip(t *testing.T) {
 	dispA := newRecordingWorldEventsDispatcher()
 	dispB := newRecordingWorldEventsDispatcher()
 
-	subA := newWorldEventsSubscriber(client, 1, dispA, log)
-	subB := newWorldEventsSubscriber(client, 2, dispB, log)
+	subA := newWorldEventsSubscriber(client, 1, "main", dispA, log)
+	subB := newWorldEventsSubscriber(client, 2, "main", dispB, log)
 
 	ctxA, cancelA := context.WithCancel(context.Background())
 	ctxB, cancelB := context.WithCancel(context.Background())
@@ -594,7 +600,7 @@ func TestFriendsClient_E2E_RelayWorldEventsRoundTrip(t *testing.T) {
 	probeDelivered := false
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) && !probeDelivered {
-		client.RelayKick(context.Background(), &friendspb.RelayKickRequest{TargetWorldId: 2, Username37: 9999})
+		client.RelayKick(context.Background(), &friendspb.RelayKickRequest{TargetWorldId: 2, Username37: 9999, Profile: "main"})
 		select {
 		case <-dispB.kick:
 			probeDelivered = true
@@ -608,7 +614,7 @@ func TestFriendsClient_E2E_RelayWorldEventsRoundTrip(t *testing.T) {
 
 	// Now issue cross-world events targeting world B and assert they arrive.
 	client.RelayMute(context.Background(), &friendspb.RelayMuteRequest{
-		TargetWorldId: 2, Username37: 123, MutedUntilMs: 4567,
+		TargetWorldId: 2, Username37: 123, MutedUntilMs: 4567, Profile: "main",
 	})
 	select {
 	case got := <-dispB.mute:
@@ -620,7 +626,7 @@ func TestFriendsClient_E2E_RelayWorldEventsRoundTrip(t *testing.T) {
 	}
 
 	client.RelayShutdown(context.Background(), &friendspb.RelayShutdownRequest{
-		TargetWorldId: 2, DurationTicks: 50,
+		TargetWorldId: 2, DurationTicks: 50, Profile: "main",
 	})
 	select {
 	case d := <-dispB.shutdown:
@@ -631,7 +637,7 @@ func TestFriendsClient_E2E_RelayWorldEventsRoundTrip(t *testing.T) {
 		t.Fatal("timeout waiting for shutdown on world B")
 	}
 
-	client.RelayReload(context.Background(), &friendspb.RelayReloadRequest{TargetWorldId: 2})
+	client.RelayReload(context.Background(), &friendspb.RelayReloadRequest{TargetWorldId: 2, Profile: "main"})
 	select {
 	case <-dispB.reload:
 	case <-time.After(2 * time.Second):
@@ -658,7 +664,7 @@ func TestFriendsClient_E2E_RelayWorldEventsRoundTrip(t *testing.T) {
 
 	// Cross-direction sanity: target world A → arrives on world A.
 	client.RelayBroadcast(context.Background(), &friendspb.RelayBroadcastRequest{
-		TargetWorldId: 1, Message: "hello-A",
+		TargetWorldId: 1, Message: "hello-A", Profile: "main",
 	})
 	select {
 	case msg := <-dispA.broadcast:
@@ -717,7 +723,7 @@ func TestFriendsClient_E2E_RelayShutdownAppliesAction(t *testing.T) {
 	inner := newSlogWorldEventsDispatcher(log)
 	dispatcher := newActionWorldEventsDispatcher(inner, s)
 	const targetWorldID = 7
-	sub := newWorldEventsSubscriber(client, targetWorldID, dispatcher, log)
+	sub := newWorldEventsSubscriber(client, targetWorldID, "main", dispatcher, log)
 	subCtx, subCancel := context.WithCancel(context.Background())
 	subDone := make(chan struct{})
 	go func() { sub.run(subCtx); close(subDone) }()
@@ -737,7 +743,7 @@ func TestFriendsClient_E2E_RelayShutdownAppliesAction(t *testing.T) {
 	// Issue RelayShutdown(duration=50) and assert shutdownTick advances.
 	wantTick := s.currentTick + 50
 	client.RelayShutdown(context.Background(), &friendspb.RelayShutdownRequest{
-		TargetWorldId: targetWorldID, DurationTicks: 50,
+		TargetWorldId: targetWorldID, DurationTicks: 50, Profile: "main",
 	})
 
 	// Poll up to 2s for the closure to land + drain.
@@ -764,7 +770,7 @@ func TestFriendsClient_E2E_RelayShutdownAppliesAction(t *testing.T) {
 		}
 		return nil
 	}
-	client.RelayReload(context.Background(), &friendspb.RelayReloadRequest{TargetWorldId: targetWorldID})
+	client.RelayReload(context.Background(), &friendspb.RelayReloadRequest{TargetWorldId: targetWorldID, Profile: "main"})
 	deadline = time.Now().Add(2 * time.Second)
 	var gotClearInvs bool
 	delivered := false
@@ -920,10 +926,12 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 
 	client.WorldConnect(ctx, 10, "main")
 
+	// rev-244 re-key: Username is a player username (not session UUID).
+	// TS World.ts:1620-1628 logPublicChat keys by player.username.
 	client.PublicMessage(ctx, &friendspb.PublicMessageRequest{
 		WorldId:  10,
 		Profile:  "main",
-		Username: "uuid-e2e-1",
+		Username: "alice",
 		Coord:    42,
 		Chat:     "persisted publicly",
 	})
@@ -957,8 +965,8 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	if username != "uuid-e2e-1" || coord != 42 || msg != "persisted publicly" {
-		t.Errorf("public_chat row = (%q, %d, %q), want (uuid-e2e-1, 42, %q)",
+	if username != "alice" || coord != 42 || msg != "persisted publicly" {
+		t.Errorf("public_chat row = (%q, %d, %q), want (alice, 42, %q)",
 			username, coord, msg, "persisted publicly")
 	}
 }
@@ -1032,16 +1040,16 @@ func TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket(t *testing.T) {
 
 	// Recipient logs in and subscribes via the real gRPC stream.
 	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
-		WorldId: 10, Username37: recipient, PrivateChat: 0, StaffLvl: 0,
+		WorldId: 10, Profile: "main", Username37: recipient, PrivateChat: 0, StaffLvl: 0,
 	}, nil)
-	sub := newFriendsSubscriber(client, 10, recipient, disp, log)
+	sub := newFriendsSubscriber(client, 10, "main", recipient, disp, log)
 	subCtx, subCancel := context.WithCancel(ctx)
 	t.Cleanup(subCancel)
 	go sub.run(subCtx)
 
 	// Sender logs in.
 	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
-		WorldId: 10, Username37: 1111, PrivateChat: 0, StaffLvl: 0,
+		WorldId: 10, Profile: "main", Username37: 1111, PrivateChat: 0, StaffLvl: 0,
 	}, nil)
 
 	// accumulated collects all wire bytes across multiple reads. The
@@ -1068,6 +1076,7 @@ func TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket(t *testing.T) {
 	// Sender PMs recipient.
 	client.PrivateMessage(ctx, &friendspb.PrivateMessageRequest{
 		WorldId:          10,
+		Profile:          "main",
 		Username37:       1111,
 		TargetUsername37: recipient,
 		StaffLvl:         0,
@@ -1173,7 +1182,7 @@ func TestFriendsClient_E2E_RelayQueueScriptAppliesAction(t *testing.T) {
 	inner := newSlogWorldEventsDispatcher(log)
 	dispatcher := newActionWorldEventsDispatcher(inner, s)
 	const targetWorldID = 7
-	sub := newWorldEventsSubscriber(client, targetWorldID, dispatcher, log)
+	sub := newWorldEventsSubscriber(client, targetWorldID, "main", dispatcher, log)
 	subCtx, subCancel := context.WithCancel(context.Background())
 	subDone := make(chan struct{})
 	go func() { sub.run(subCtx); close(subDone) }()
@@ -1189,6 +1198,7 @@ func TestFriendsClient_E2E_RelayQueueScriptAppliesAction(t *testing.T) {
 	// Issue RelayQueueScript and poll for the closure to land.
 	client.RelayQueueScript(context.Background(), &friendspb.RelayQueueScriptRequest{
 		TargetWorldId: targetWorldID,
+		Profile:       "main",
 		ScriptName:    "e2e_dispatch",
 		Username37:    u37,
 	})

@@ -33,14 +33,16 @@ const (
 type worldEventsSubscriber struct {
 	client     FriendsClient
 	worldID    int32
+	profile    string
 	dispatcher WorldEventsDispatcher
 	log        *slog.Logger
 }
 
-func newWorldEventsSubscriber(client FriendsClient, worldID int32, dispatcher WorldEventsDispatcher, log *slog.Logger) *worldEventsSubscriber {
+func newWorldEventsSubscriber(client FriendsClient, worldID int32, profile string, dispatcher WorldEventsDispatcher, log *slog.Logger) *worldEventsSubscriber {
 	return &worldEventsSubscriber{
 		client:     client,
 		worldID:    worldID,
+		profile:    profile,
 		dispatcher: dispatcher,
 		log:        log,
 	}
@@ -94,6 +96,7 @@ func nextWorldEventsBackoff(d time.Duration) time.Duration {
 func (s *worldEventsSubscriber) runOnce(ctx context.Context) error {
 	stream, err := s.client.SubscribeWorldEvents(ctx, &friendspb.SubscribeWorldEventsRequest{
 		WorldId: s.worldID,
+		Profile: s.profile,
 	})
 	if err != nil {
 		return err

@@ -31,15 +31,17 @@ const (
 type friendsSubscriber struct {
 	client     FriendsClient
 	worldID    int32
+	profile    string
 	username37 uint64
 	dispatcher FriendsDispatcher
 	log        *slog.Logger
 }
 
-func newFriendsSubscriber(client FriendsClient, worldID int32, username37 uint64, dispatcher FriendsDispatcher, log *slog.Logger) *friendsSubscriber {
+func newFriendsSubscriber(client FriendsClient, worldID int32, profile string, username37 uint64, dispatcher FriendsDispatcher, log *slog.Logger) *friendsSubscriber {
 	return &friendsSubscriber{
 		client:     client,
 		worldID:    worldID,
+		profile:    profile,
 		username37: username37,
 		dispatcher: dispatcher,
 		log:        log,
@@ -100,6 +102,7 @@ func nextBackoff(d time.Duration) time.Duration {
 func (s *friendsSubscriber) runOnce(ctx context.Context) error {
 	stream, err := s.client.SubscribeUpdates(ctx, &friendspb.SubscribeUpdatesRequest{
 		WorldId:    s.worldID,
+		Profile:    s.profile,
 		Username37: s.username37,
 	})
 	if err != nil {

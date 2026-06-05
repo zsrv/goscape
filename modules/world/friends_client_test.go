@@ -194,7 +194,7 @@ func TestGRPCFriendsBridge_FireAndForget_DoesNotBlock(t *testing.T) {
 }
 
 func TestDefaultFriendsBridge_NonNilClient_ReturnsGRPCBridge(t *testing.T) {
-	got := defaultFriendsBridge(newFakeFriendsClient(), testWorldID, context.Background(), discardLogger())
+	got := defaultFriendsBridge(newFakeFriendsClient(), testWorldID, "main", context.Background(), discardLogger())
 	b, ok := got.(*grpcFriendsBridge)
 	if !ok {
 		t.Fatalf("defaultFriendsBridge: got %T, want *grpcFriendsBridge", got)
@@ -202,10 +202,13 @@ func TestDefaultFriendsBridge_NonNilClient_ReturnsGRPCBridge(t *testing.T) {
 	if b.worldID != testWorldID {
 		t.Errorf("worldID: got %d, want %d", b.worldID, testWorldID)
 	}
+	if b.profile != "main" {
+		t.Errorf("profile: got %q, want main (rev-244 B5)", b.profile)
+	}
 }
 
 func TestDefaultFriendsBridge_NilClient_ReturnsNoop(t *testing.T) {
-	got := defaultFriendsBridge(nil, testWorldID, context.Background(), discardLogger())
+	got := defaultFriendsBridge(nil, testWorldID, "main", context.Background(), discardLogger())
 	if _, ok := got.(noopBridges); !ok {
 		t.Fatalf("defaultFriendsBridge: got %T, want noopBridges", got)
 	}

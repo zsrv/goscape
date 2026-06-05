@@ -35,8 +35,10 @@ func packPublicChatPayload(color, effect byte, message string) []byte {
 
 // TestHandleMessagePublic_FiresFriendsBridge pins that a valid
 // public-chat utterance triggers FriendsBridge.PublicMessage with the
-// expected (sessionUUID, coord, decoded message) tuple. Coord is the
-// packed coordgrid.PackCoord(level, x, z) value at utterance.
+// expected (username, coord, decoded message) tuple.
+// rev-244 re-key: Username is player.username, not session UUID.
+// TS World.ts:1620-1628 logPublicChat keys by player.username.
+// Coord is the packed coordgrid.PackCoord(level, x, z) value at utterance.
 func TestHandleMessagePublic_FiresFriendsBridge(t *testing.T) {
 	p, rec := commonMessagePublicSetup(t)
 	// Move the player to a known coord so PackCoord output is deterministic.
@@ -51,8 +53,9 @@ func TestHandleMessagePublic_FiresFriendsBridge(t *testing.T) {
 		t.Fatalf("publicMsgs: got %d, want 1", len(rec.publicMsgs))
 	}
 	got := rec.publicMsgs[0]
-	if got.sessionUUID != "uuid-sess-1" {
-		t.Errorf("sessionUUID: got %q, want uuid-sess-1", got.sessionUUID)
+	// rev-244: username, not session UUID
+	if got.username != "alice" {
+		t.Errorf("username: got %q, want alice (rev-244 re-key: keyed by username, not session UUID; TS World.ts:1620-1628)", got.username)
 	}
 	wantCoord := coordgrid.PackCoord(0, 3210, 3210)
 	if got.coord != wantCoord {
@@ -63,41 +66,60 @@ func TestHandleMessagePublic_FiresFriendsBridge(t *testing.T) {
 	}
 }
 
-// TestHandleMessagePublic_SkipsWhenSessionHeadless pins that the audit
-// hook is skipped when p.session == "headless" (unbridged path; tick
-// fallback from slice 7 — audit row would be meaningless).
-func TestHandleMessagePublic_SkipsWhenSessionHeadless(t *testing.T) {
-	p, rec := commonMessagePublicSetup(t)
-	p.session = "headless"
+// TestPublicChatLog_UsernameKeyed pins the rev-244 B5 contract:
+// (1) PublicMessage carries Username == p.username (not session UUID),
+// (2) a player with empty session STILL logs (225-era session gate is gone;
+//
+//	TS 244 gates only on logMessage != null, World.ts:677-679),
+//
+// (3) a player with "headless" session STILL logs (same gate removal).
+func TestPublicChatLog_UsernameKeyed(t *testing.T) {
+	t.Run("username_carried", func(t *testing.T) {
+		p, rec := commonMessagePublicSetup(t)
+		p.level, p.x, p.z = 0, 3200, 3200
+		payload := packPublicChatPayload(0, 0, "hello")
+		if err := handleMessagePublic(p, payload); err != nil {
+			t.Fatalf("handleMessagePublic: %v", err)
+		}
+		if len(rec.publicMsgs) != 1 {
+			t.Fatalf("publicMsgs: got %d, want 1", len(rec.publicMsgs))
+		}
+		if rec.publicMsgs[0].username != "alice" {
+			t.Errorf("Username: got %q, want alice (keyed by username, not session UUID)", rec.publicMsgs[0].username)
+		}
+	})
 
-	payload := packPublicChatPayload(0, 0, "hi")
-	if err := handleMessagePublic(p, payload); err != nil {
-		t.Fatalf("handleMessagePublic: %v", err)
-	}
-	if len(rec.publicMsgs) != 0 {
-		t.Errorf("publicMsgs: got %d, want 0 (skipped due to headless session)", len(rec.publicMsgs))
-	}
-	// In-world propagation must still fire.
-	if p.chatBytes == nil {
-		t.Errorf("p.chatBytes: got nil, want non-nil (Chat must fire regardless of session)")
-	}
-}
+	t.Run("empty_session_still_logs", func(t *testing.T) {
+		// 225-era gate `p.session != ""` is removed. Player with empty session
+		// must still emit a PublicMessage row (TS only gates on logMessage != null).
+		p, rec := commonMessagePublicSetup(t)
+		p.session = "" // was skipped in 225; must fire in 244
+		payload := packPublicChatPayload(0, 0, "hi")
+		if err := handleMessagePublic(p, payload); err != nil {
+			t.Fatalf("handleMessagePublic: %v", err)
+		}
+		if len(rec.publicMsgs) != 1 {
+			t.Errorf("publicMsgs: got %d, want 1 (session gate removed in rev-244, TS World.ts:677-679)", len(rec.publicMsgs))
+		}
+		// In-world propagation must still fire.
+		if p.chatBytes == nil {
+			t.Errorf("p.chatBytes: got nil, want non-nil (Chat must fire regardless of session)")
+		}
+	})
 
-// TestHandleMessagePublic_SkipsWhenSessionEmpty pins the defensive skip
-// when p.session == "". Slice 7 stamps p.session at newPlayer(c) so
-// this should never happen in production, but the guard is defensive
-// against test paths and future regressions.
-func TestHandleMessagePublic_SkipsWhenSessionEmpty(t *testing.T) {
-	p, rec := commonMessagePublicSetup(t)
-	p.session = ""
-
-	payload := packPublicChatPayload(0, 0, "hi")
-	if err := handleMessagePublic(p, payload); err != nil {
-		t.Fatalf("handleMessagePublic: %v", err)
-	}
-	if len(rec.publicMsgs) != 0 {
-		t.Errorf("publicMsgs: got %d, want 0 (skipped due to empty session)", len(rec.publicMsgs))
-	}
+	t.Run("headless_session_still_logs", func(t *testing.T) {
+		// 225-era gate `p.session != "headless"` is removed. Player with
+		// "headless" session must still emit a PublicMessage row.
+		p, rec := commonMessagePublicSetup(t)
+		p.session = "headless" // was skipped in 225; must fire in 244
+		payload := packPublicChatPayload(0, 0, "hi")
+		if err := handleMessagePublic(p, payload); err != nil {
+			t.Fatalf("handleMessagePublic: %v", err)
+		}
+		if len(rec.publicMsgs) != 1 {
+			t.Errorf("publicMsgs: got %d, want 1 (headless session gate removed in rev-244)", len(rec.publicMsgs))
+		}
+	})
 }
 
 // TestHandleMessagePublic_AppliesWordEncFilterToChatBytes pins that

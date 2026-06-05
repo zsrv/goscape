@@ -83,7 +83,7 @@ func waitForStream(t *testing.T, fc *fakeFriendsClient, deadline time.Time) *fak
 func TestFriendsSubscriber_DispatchesFriendlist(t *testing.T) {
 	fc := newFakeFriendsClient()
 	disp := &recordingFriendsDispatcher{}
-	sub := newFriendsSubscriber(fc, 1, 42, disp, discardLogger())
+	sub := newFriendsSubscriber(fc, 1, "main", 42, disp, discardLogger())
 
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan struct{})
@@ -128,7 +128,7 @@ func TestFriendsSubscriber_DispatchesFriendlist(t *testing.T) {
 func TestFriendsSubscriber_CtxCancelStopsCleanly(t *testing.T) {
 	fc := newFakeFriendsClient()
 	disp := &recordingFriendsDispatcher{}
-	sub := newFriendsSubscriber(fc, 1, 42, disp, discardLogger())
+	sub := newFriendsSubscriber(fc, 1, "main", 42, disp, discardLogger())
 
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan struct{})
@@ -149,7 +149,7 @@ func TestFriendsSubscriber_CtxCancelStopsCleanly(t *testing.T) {
 func TestFriendsSubscriber_EOFTriggersReconnect(t *testing.T) {
 	fc := newFakeFriendsClient()
 	disp := &recordingFriendsDispatcher{}
-	sub := newFriendsSubscriber(fc, 1, 42, disp, discardLogger())
+	sub := newFriendsSubscriber(fc, 1, "main", 42, disp, discardLogger())
 
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan struct{})
@@ -200,7 +200,7 @@ func TestNextBackoff_DoublesAndCaps(t *testing.T) {
 func TestFriendsSubscriber_DispatchesIgnorelist(t *testing.T) {
 	fc := newFakeFriendsClient()
 	disp := &recordingFriendsDispatcher{}
-	sub := newFriendsSubscriber(fc, 1, 42, disp, discardLogger())
+	sub := newFriendsSubscriber(fc, 1, "main", 42, disp, discardLogger())
 
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan struct{})
@@ -247,7 +247,7 @@ func TestFriendsSubscriber_DispatchesIgnorelist(t *testing.T) {
 func TestFriendsSubscriber_RunOnce_DialErrorPropagates(t *testing.T) {
 	fc := newFakeFriendsClient()
 	fc.subscribeErr = io.ErrUnexpectedEOF
-	sub := newFriendsSubscriber(fc, 1, 42, &recordingFriendsDispatcher{}, discardLogger())
+	sub := newFriendsSubscriber(fc, 1, "main", 42, &recordingFriendsDispatcher{}, discardLogger())
 
 	err := sub.runOnce(t.Context())
 	if !errors.Is(err, io.ErrUnexpectedEOF) {

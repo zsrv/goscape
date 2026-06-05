@@ -388,6 +388,7 @@ func (s *Server) processLogins() {
 		if s.friendsClient != nil && p.username != "" {
 			username37 := p.username37
 			worldID := int32(s.cfg.NodeID)
+			profile := s.cfg.NodeProfile
 			privateChat := int32(p.privateChat)
 			staffLvl := p.staffModLevel
 			// Arc 18 R3 — per-call timeout + shutdown-derived parent so a
@@ -397,6 +398,7 @@ func (s *Server) processLogins() {
 				defer cancel()
 				s.friendsClient.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
 					WorldId:     worldID,
+					Profile:     profile,
 					Username37:  username37,
 					PrivateChat: privateChat,
 					StaffLvl:    staffLvl,
@@ -416,7 +418,7 @@ func (s *Server) processLogins() {
 		if s.friendsClient != nil && p.username != "" {
 			subCtx, subCancel := context.WithCancel(context.Background())
 			p.friendsSubCancel = subCancel
-			p.friendsSub = newFriendsSubscriber(s.friendsClient, int32(s.cfg.NodeID), p.username37, s.friendsDispatcher, s.log)
+			p.friendsSub = newFriendsSubscriber(s.friendsClient, int32(s.cfg.NodeID), s.cfg.NodeProfile, p.username37, s.friendsDispatcher, s.log)
 			go p.friendsSub.run(subCtx)
 		}
 

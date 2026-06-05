@@ -31,6 +31,9 @@ func TestRemovePlayerOnTick_FiresFriendsPlayerLogout(t *testing.T) {
 		if got.Username37 != 1234 {
 			t.Errorf("Username37: got %d, want 1234", got.Username37)
 		}
+		if got.Profile != "main" {
+			t.Errorf("Profile: got %q, want main (rev-244 B5 multi-profile carriage)", got.Profile)
+		}
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for PlayerLogout RPC")
 	}
@@ -61,6 +64,9 @@ func TestRemovePlayerOnDisconnect_FiresFriendsPlayerLogout(t *testing.T) {
 		}
 		if got.Username37 != 1234 {
 			t.Errorf("Username37: got %d, want 1234", got.Username37)
+		}
+		if got.Profile != "main" {
+			t.Errorf("Profile: got %q, want main (rev-244 B5 multi-profile carriage)", got.Profile)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for PlayerLogout RPC")

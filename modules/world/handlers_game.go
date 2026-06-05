@@ -425,15 +425,17 @@ func handleMessagePublic(p *Player, payload []byte) error {
 	// TS defers this: the handler only stores logMessage, then World.ts:648
 	// drains it once per tick via logPublicChat (resetPathingEntity nils it).
 	// Go has no logMessage field; it logs inline here instead — same sink
-	// (friendsBridge.PublicMessage), same session+coord+text. Structural-only
+	// (friendsBridge.PublicMessage), same username+coord+text. Structural-only
 	// divergence (see docs/PORTING-CLOSED.md "logMessage closed").
-	// Skip when p.session is empty or the unbridged "headless" sentinel —
-	// audit logging is meaningless without a real per-login UUID. The bridge
-	// goroutine-wraps the underlying RPC so the tick never blocks.
-	if p.session != "" && p.session != "headless" {
+	// rev-244 re-key: keyed by username, not session UUID
+	// (TS World.ts:1620-1628 logPublicChat). TS's only gate is
+	// logMessage != null (World.ts:677-679); the 225-era session gate
+	// is removed with the re-key. The bridge goroutine-wraps the
+	// underlying RPC so the tick never blocks.
+	{
 		s := p.client.server
 		coord := coordgrid.PackCoord(p.level, p.x, p.z)
-		s.friendsBridge.PublicMessage(p.session, coord, decoded)
+		s.friendsBridge.PublicMessage(p.username, coord, decoded)
 	}
 
 	// TS MessagePublicHandler.ts:42 — set socialProtect after a successful

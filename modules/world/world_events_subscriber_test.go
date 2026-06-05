@@ -84,7 +84,7 @@ func (r *recordingWorldEventsDispatcher) OnQueueScript(n string, u uint64) {
 func TestWorldEventsSubscriber_DispatchRouting(t *testing.T) {
 	fake := newFakeFriendsClient()
 	disp := newRecordingWorldEventsDispatcher()
-	sub := newWorldEventsSubscriber(fake, 7, disp, discardLogger())
+	sub := newWorldEventsSubscriber(fake, 7, "main", disp, discardLogger())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -147,7 +147,7 @@ func TestWorldEventsSubscriber_EOFLogsAtInfo(t *testing.T) {
 	disp := newRecordingWorldEventsDispatcher()
 	buf := &syncBuffer{}
 	log := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	sub := newWorldEventsSubscriber(fake, 7, disp, log)
+	sub := newWorldEventsSubscriber(fake, 7, "main", disp, log)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -176,7 +176,7 @@ func TestWorldEventsSubscriber_ReconnectBackoff(t *testing.T) {
 
 	buf := &syncBuffer{}
 	log := slog.New(slog.NewTextHandler(buf, nil))
-	sub := newWorldEventsSubscriber(fake, 7, disp, log)
+	sub := newWorldEventsSubscriber(fake, 7, "main", disp, log)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
