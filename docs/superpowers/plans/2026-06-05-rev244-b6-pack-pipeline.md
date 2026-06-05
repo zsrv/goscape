@@ -430,6 +430,50 @@ Two halves:
 - [ ] **Step 4: Real-data check (not yet the gate):** `goscape-cli pack` is not byte-ready yet, but the exporter can run against the REFERENCE's own data/pack inputs — defer the full diff to Task 17; unit tests PASS now.
 - [ ] **Step 5: Commit** `feat(pack/compiler): CompilerSymbols port — .sym export + symbol-table semantics rebaseline (TS CompilerSymbols.ts 244) [rev-244 B6]`.
 
+### Task 16.5: Bit-exact gzip — Cloudflare-zlib deflate L6 port (USER DECISION 2026-06-05)
+
+**Discovery (controller, during T12):** the reference cache's gzip streams are
+NOT reproducible by Go stdlib flate, stock madler zlib, zlib-ng, or libdeflate
+at any level. Bun's `node:zlib.gzipSync` routes to its vendored **Cloudflare
+zlib fork** (process.versions zlib = `886098f3f339617b4243b286f5ed364b9989e245`).
+Empirically verified: CF-zlib@886098f3 deflate level 6 / memLevel 8 /
+Z_DEFAULT_STRATEGY / gzip wrapper / OS-byte zeroed reproduces **4,764/4,764**
+ondemand.zip entries byte-identically (the full reference corpus). libdeflate
+(also vendored by bun) is a red herring — used by other bun APIs, not
+zlib.gzipSync. Stock zlib L6 = 237 bytes vs CF 238 on the probe entry —
+CF's match-finder genuinely differs.
+
+**User decision:** bit-exact port (full-tree byte parity preserved; no
+content-level gzip exemption).
+
+**References on disk:** `/home/owner/Code/github.com/cloudflare/cf-zlib` @
+`886098f3` (pin to record in REFERENCES.md at T20); probe harness
+`/tmp/claude-1000/cfztest.c` + corpus checker `corpus_check.sh`.
+
+**Files:**
+- Create: `pkg/io/gziputil/deflate_cf.go` (+ helpers) — CF-zlib deflate
+  level-6 path in pure Go: deflate_slow lazy loop, CF longest_match, CF hash
+  (crc-folding hash where output-affecting — CRC-32C is reproducible in
+  software), fill_window, trees.c bit emission (lit/dist/code-length huffman,
+  block split on flush logic at Z_FINISH for one-shot gzipSync input).
+- Modify: `pkg/io/gziputil/gzip.go` — CompressGz routes through the new
+  encoder (same signature; stdlib stays for Decompress).
+- Test: corpus oracle — env-gated (`GOSCAPE_REF244_DIR`) test recompressing
+  every ondemand.zip entry + every client/maps file in the reference and
+  asserting byte-equality; plus small deterministic unit fixtures pinning
+  known CF-vs-stock divergence cases (the 2.0 probe entry's bytes as
+  testdata).
+
+Port discipline: work from the C source at the pin
+(`lib/deflate.c`, `trees.c`, `deflate.h`); cite C function/line landmarks in
+comments (`// cf-zlib deflate.c:NNNN`) the way TS ports cite TS. The corpus
+test is the acceptance gate. One-shot semantics only (gzipSync = single
+deflate(Z_FINISH) call) — do NOT port streaming/flush states beyond what
+Z_FINISH one-shot exercises, YAGNI.
+
+- [ ] Steps: corpus harness test (RED — stdlib fails it) → port → iterate
+  against corpus → GREEN → commit(s).
+
 ### Task 17: Phase 2 — determinism, then the full-tree byte-diff loop
 
 Controller-led diagnostic loop (Arc-26 method, ~5-10 min/cycle); subagents for fixes it surfaces. **Strict order.**
