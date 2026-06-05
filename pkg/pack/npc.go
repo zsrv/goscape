@@ -340,7 +340,7 @@ func parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack *PackFile, lk 
 //
 // TS source: tools/pack/config/NpcConfig.ts:267-510.
 // modelFlags is indexed by model id (size = Model PackFile max). Every
-// model1..N and head1..N value sets modelFlags[v]|=0x2 (TS NpcConfig.ts:293,297).
+// model1..N and head1..N value sets modelFlags[v]|=0x2 (TS NpcConfig.ts:296,300).
 // May be nil (existing callers pass nil; nil is a safe no-op).
 //
 // TS source: tools/pack/config/NpcConfig.ts:267-510.
@@ -499,10 +499,9 @@ func packNpcConfigs(configs map[string][]ConfigLine, npcPack *PackFile, modelFla
 					client.P1(98)
 					client.P2(uint16(line.Value.(int)))
 				case key == "alwaysontop":
-					// TS NpcConfig.ts:379-381: presence-only opcode, no value byte.
-					if line.Value.(bool) {
-						client.P1(99)
-					}
+					// TS NpcConfig.ts:382-383: presence-only opcode, no value byte,
+					// no value guard — emits unconditionally when key is present.
+					client.P1(99)
 				case key == "ambient":
 					// TS NpcConfig.ts:382-384.
 					client.P1(100)

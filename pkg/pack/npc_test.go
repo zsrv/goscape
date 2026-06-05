@@ -1079,9 +1079,10 @@ func TestPackNpcConfigs_Alwaysontop(t *testing.T) {
 	}
 }
 
-// TestPackNpcConfigs_AlwaysontopFalse pins that alwaysontop=false emits
-// nothing (mirrors hasalpha/members/minimap pattern — presence-only flags
-// are only written when the value is true/non-default).
+// TestPackNpcConfigs_AlwaysontopFalse pins the TS contract: alwaysontop=no
+// DOES emit opcode 99, unconditionally. TS NpcConfig.ts:382-383 contains only
+// `client.p1(99)` with no value check — unlike hasalpha/members/minimap which
+// ARE guarded by `if (value)`. Presence in the config file is sufficient.
 func TestPackNpcConfigs_AlwaysontopFalse(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "alwaysontop", Value: false}}}
@@ -1089,8 +1090,8 @@ func TestPackNpcConfigs_AlwaysontopFalse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// No body bytes — only the mandatory trailer.
-	want := expectClient("x")
+	// opcode 99 (0x63) only — no value byte — even when value is false.
+	want := expectClient("x", 0x63)
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
 	}
