@@ -98,7 +98,7 @@ func TestWroteSince(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "old.txt"), []byte("old"))
 	writeFile(t, filepath.Join(dir, "also_old.txt"), []byte("also old"))
 
-	marker := Marker(t, dir)
+	marker := Marker(t)
 
 	// Rewrite one, create one after the marker.
 	writeFile(t, filepath.Join(dir, "old.txt"), []byte("rewritten"))
@@ -120,7 +120,7 @@ func TestWroteSince_Subdirs(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(dir, "sub", "old.txt"), []byte("old"))
 
-	marker := Marker(t, dir)
+	marker := Marker(t)
 
 	writeFile(t, filepath.Join(dir, "sub", "old.txt"), []byte("new content"))
 
@@ -523,6 +523,9 @@ func TestAssertManifest_CachePNGPixelEquality(t *testing.T) {
 		mismatchesB := assertManifestFile(t, manifestPathB, refRoot, "test", rB)
 		if !anyContains(mismatchesB, pngPathB) {
 			t.Errorf("differing pixel in cache PNG: expected mismatch mentioning %s, got: %v", pngPathB, mismatchesB)
+		}
+		if !anyContains(mismatchesB, "cache ") {
+			t.Errorf("differing pixel in cache PNG: expected mismatch to contain \"cache \", got: %v", mismatchesB)
 		}
 	})
 }

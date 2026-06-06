@@ -105,15 +105,14 @@ func CacheDir(t *testing.T) string {
 	return dst
 }
 
-// Marker returns a time strictly after every existing file's mtime in the given
-// dirs. It writes a probe file into a temporary directory, reads back its mtime,
-// and returns (mtime - 1ns) — guaranteeing the marker is strictly before any
-// file written at or after the probe moment.
-//
-// The 10ms sleep before the probe ensures the probe's mtime is strictly after
-// any files that existed when Marker was called (filesystem mtime resolution on
-// Linux tmpfs is ~1ms; 10ms gives comfortable headroom).
-func Marker(t *testing.T, dirs ...string) time.Time {
+// Marker returns a time strictly after every file written before the call.
+// It sleeps 10ms then writes a probe file into a temporary directory, reads
+// back its mtime, and returns (mtime - 1ns). Any file written at or after
+// the probe moment will have a mtime strictly after the returned value; any
+// file that existed before the 10ms sleep will have a mtime strictly before it.
+// (Filesystem mtime resolution on Linux tmpfs is ~1ms; 10ms gives comfortable
+// headroom.)
+func Marker(t *testing.T) time.Time {
 	t.Helper()
 	time.Sleep(10 * time.Millisecond)
 	probeDir := t.TempDir()
@@ -264,7 +263,7 @@ func assertManifestFile(t *testing.T, manifestPath, refRoot, family string, r Re
 			continue
 		}
 		if me.kind != "DELETED" {
-			compareSha(me, got.Sum, r.PostDir, refRoot, family+".post", &mismatches)
+			compareSha(me, got.Sum, r.PostDir, refRoot, family+".post", "content", &mismatches)
 		}
 	}
 
@@ -293,7 +292,7 @@ func assertManifestFile(t *testing.T, manifestPath, refRoot, family string, r Re
 			continue
 		}
 		if me.kind != "DELETED" {
-			compareSha(me, got.Sum, r.CachePostDir, refRoot, family+".cachepost", &mismatches)
+			compareSha(me, got.Sum, r.CachePostDir, refRoot, family+".cachepost", "cache", &mismatches)
 		}
 	}
 
@@ -338,14 +337,16 @@ func assertManifestFile(t *testing.T, manifestPath, refRoot, family string, r Re
 
 // compareSha checks sha equality for a single manifest entry, applying the PNG
 // pixel-equality exception for paths ending in ".png".
+// section is the human-readable section label ("content" or "cache") included
+// in every mismatch string.
 // postDir is the directory containing the Go-produced file for this entry.
 // refSubdir is the subdirectory name under "<refRoot>/unpack-ref/" that holds the
 // reference snapshot (e.g. "test.post" for content, "test.cachepost" for cache).
-func compareSha(me manifestEntry, gotSum, postDir, refRoot, refSubdir string, mismatches *[]string) {
+func compareSha(me manifestEntry, gotSum, postDir, refRoot, refSubdir, section string, mismatches *[]string) {
 	if !strings.HasSuffix(me.path, ".png") {
 		// Exact hex sha match.
 		if me.sum != gotSum {
-			*mismatches = append(*mismatches, fmt.Sprintf("content %s %s: sha want %s got %s", me.kind, me.path, me.sum, gotSum))
+			*mismatches = append(*mismatches, fmt.Sprintf("%s %s %s: sha want %s got %s", section, me.kind, me.path, me.sum, gotSum))
 		}
 		return
 	}
@@ -356,19 +357,19 @@ func compareSha(me manifestEntry, gotSum, postDir, refRoot, refSubdir string, mi
 
 	goImg, err := decodeImageFile(goFile)
 	if err != nil {
-		*mismatches = append(*mismatches, fmt.Sprintf("content %s %s: decode go PNG %q: %v", me.kind, me.path, goFile, err))
+		*mismatches = append(*mismatches, fmt.Sprintf("%s %s %s: decode go PNG %q: %v", section, me.kind, me.path, goFile, err))
 		return
 	}
 	refImg, err := decodeImageFile(refFile)
 	if err != nil {
-		*mismatches = append(*mismatches, fmt.Sprintf("content %s %s: decode ref PNG %q: %v", me.kind, me.path, refFile, err))
+		*mismatches = append(*mismatches, fmt.Sprintf("%s %s %s: decode ref PNG %q: %v", section, me.kind, me.path, refFile, err))
 		return
 	}
 
 	goBounds := goImg.Bounds()
 	refBounds := refImg.Bounds()
 	if goBounds != refBounds {
-		*mismatches = append(*mismatches, fmt.Sprintf("content %s %s: PNG bounds differ: go=%v ref=%v", me.kind, me.path, goBounds, refBounds))
+		*mismatches = append(*mismatches, fmt.Sprintf("%s %s %s: PNG bounds differ: go=%v ref=%v", section, me.kind, me.path, goBounds, refBounds))
 		return
 	}
 
@@ -377,8 +378,8 @@ func compareSha(me manifestEntry, gotSum, postDir, refRoot, refSubdir string, mi
 			gr, gg, gb, ga := goImg.At(x, y).RGBA()
 			rr, rg, rb, ra := refImg.At(x, y).RGBA()
 			if gr != rr || gg != rg || gb != rb || ga != ra {
-				*mismatches = append(*mismatches, fmt.Sprintf("content %s %s: pixel (%d,%d) differs: go=(%d,%d,%d,%d) ref=(%d,%d,%d,%d)",
-					me.kind, me.path, x, y, gr, gg, gb, ga, rr, rg, rb, ra))
+				*mismatches = append(*mismatches, fmt.Sprintf("%s %s %s: pixel (%d,%d) differs: go=(%d,%d,%d,%d) ref=(%d,%d,%d,%d)",
+					section, me.kind, me.path, x, y, gr, gg, gb, ga, rr, rg, rb, ra))
 				return // report first differing pixel only
 			}
 		}
