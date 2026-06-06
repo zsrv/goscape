@@ -723,3 +723,85 @@ func TestExportSrc_FatalCondition(t *testing.T) {
 		t.Error("expected fatal error for child with non-colon name, got nil")
 	}
 }
+
+// -----------------------------------------------------------------------
+// Hardening: cycle guard + out-of-range stat names
+// -----------------------------------------------------------------------
+
+// TestExportComponent_CycleGuard verifies that a two-node A→B→A cycle
+// terminates without a stack overflow and still emits the non-cyclic output
+// (B's header) that precedes the revisit.
+func TestExportComponent_CycleGuard(t *testing.T) {
+	ifPack := makeIfPack(t)
+	// Root A: id=0, name="ui"
+	ifPack.Register(0, "ui")
+	// Child B: id=1, name="ui:com_0"
+	ifPack.Register(1, "ui:com_0")
+	ifPack.RefreshNames()
+
+	// A (root, TypeLayer) → child B (TypeLayer) → child A (cycle back to root)
+	compA := &Component{
+		ID:        0,
+		RootLayer: 0,
+		ComType:   TypeLayer,
+		ChildID:   []int{1},
+		ChildX:    []int{0},
+		ChildY:    []int{0},
+	}
+	compB := &Component{
+		ID:        1,
+		RootLayer: 0,
+		ComType:   TypeLayer,
+		ChildID:   []int{0}, // points back to A — creates A→B→A cycle
+		ChildX:    []int{0},
+		ChildY:    []int{0},
+	}
+	components := []*Component{compA, compB}
+
+	// Must terminate (no stack overflow).
+	lines := exportComponent(compA, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	joined := strings.Join(lines, "\n")
+
+	// B's header must be present (non-cyclic output was still emitted).
+	if !strings.Contains(joined, "[com_0]") {
+		t.Errorf("expected [com_0] in output before cycle skip:\n%s", joined)
+	}
+}
+
+// TestExportComponent_StatNameOutOfRange verifies that a script op with a
+// stat index ≥ 21 emits "undefined" rather than panicking, faithfully
+// mirroring JS's STATS[stat] → undefined stringification.
+func TestExportComponent_StatNameOutOfRange(t *testing.T) {
+	ifPack := makeIfPack(t)
+	ifPack.Register(0, "ui")
+	ifPack.Register(1, "ui:com_0")
+	ifPack.RefreshNames()
+
+	// Script: op=1 (stat_level), stat=99 (out of range), end sentinel at index 2.
+	// The loop runs while j < len(sc)-1 = 2, so j=0: op=sc[0]=1, popStack()→sc[1]=99.
+	child := &Component{
+		ID:        1,
+		RootLayer: 0,
+		ComType:   TypeRect,
+		Script:    [][]uint16{{1, 99, 0}}, // op1, stat=99, sentinel
+	}
+	root := &Component{
+		ID:        0,
+		RootLayer: 0,
+		ComType:   TypeLayer,
+		ChildID:   []int{1},
+		ChildX:    []int{0},
+		ChildY:    []int{0},
+	}
+	components := []*Component{root, child}
+
+	// Must not panic.
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	joined := strings.Join(lines, "\n")
+
+	// TS STATS[99] → undefined → string coercion "undefined".
+	want := "stat_level,undefined"
+	if !strings.Contains(joined, want) {
+		t.Errorf("expected %q in output for out-of-range stat:\n%s", want, joined)
+	}
+}

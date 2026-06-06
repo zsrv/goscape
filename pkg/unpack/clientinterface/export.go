@@ -36,6 +36,16 @@ var stats = [...]string{
 	"runecraft",
 }
 
+// statName returns the stat name for the given index, or "undefined" when the
+// index is out of range. This mirrors JS's STATS[stat] returning undefined (and
+// its coercion to the string "undefined") when stat is out of bounds.
+func statName(stat int) string {
+	if stat >= 0 && stat < len(stats) {
+		return stats[stat]
+	}
+	return "undefined"
+}
+
 // renameModelFull is the fs-side wrapper used at run time. It performs the
 // filesystem rename (if the file is found) and then updates the pack, returning
 // the stable name. Mirrors TS Unpack.ts:11-35 fully.
@@ -257,6 +267,11 @@ func ExportSrc(
 //   - parent: parent's comName part (empty for top-level, comName for sub-layers)
 //
 // TS source: tools/unpack/interface/Unpack.ts:359-807.
+//
+// Cycle guard: TS has the same gap (cyclic child references would also overflow
+// the TS call stack). A visited set is threaded internally so Go does not panic;
+// on a revisit the child is silently skipped (same observable output as TS would
+// produce before the non-cyclic children, just without the stack overflow).
 func exportComponent(
 	com *Component,
 	components []*Component,
@@ -269,9 +284,34 @@ func exportComponent(
 	x, y int,
 	parent string,
 ) []string {
+	visited := make(map[int]struct{})
+	return exportComponentInner(com, components, ifPack, objPack, seqPack, varpPack, rmFn, temp, x, y, parent, visited)
+}
+
+func exportComponentInner(
+	com *Component,
+	components []*Component,
+	ifPack *pack.PackFile,
+	objPack *pack.PackFile,
+	seqPack *pack.PackFile,
+	varpPack *pack.PackFile,
+	rmFn func(int) string,
+	temp []string,
+	x, y int,
+	parent string,
+	visited map[int]struct{},
+) []string {
 	if temp == nil {
 		temp = []string{}
 	}
+
+	// Cycle guard: mark this component as in-progress; if already visited,
+	// skip to prevent infinite recursion (same posture as pkg/unpack/config
+	// loc.go unknown-opcode bail).
+	if _, seen := visited[com.ID]; seen {
+		return temp
+	}
+	visited[com.ID] = struct{}{}
 
 	comName := ifPack.GetByID(com.ID)
 
@@ -380,13 +420,13 @@ func exportComponent(
 				switch op {
 				case 1:
 					stat := int(popStack())
-					str += fmt.Sprintf("stat_level,%s", stats[stat])
+					str += fmt.Sprintf("stat_level,%s", statName(stat))
 				case 2:
 					stat := int(popStack())
-					str += fmt.Sprintf("stat_base_level,%s", stats[stat])
+					str += fmt.Sprintf("stat_base_level,%s", statName(stat))
 				case 3:
 					stat := int(popStack())
-					str += fmt.Sprintf("stat_xp,%s", stats[stat])
+					str += fmt.Sprintf("stat_xp,%s", statName(stat))
 				case 4:
 					inv := int(popStack())
 					obj := int(popStack())
@@ -408,7 +448,7 @@ func exportComponent(
 					str += fmt.Sprintf("pushvar,%s", varpName)
 				case 6:
 					stat := int(popStack())
-					str += fmt.Sprintf("stat_xp_remaining,%s", stats[stat])
+					str += fmt.Sprintf("stat_xp_remaining,%s", statName(stat))
 				case 7:
 					str += "op7"
 				case 8:
@@ -719,7 +759,7 @@ func exportComponent(
 				}
 			}
 
-			temp = exportComponent(child, components, ifPack, objPack, seqPack, varpPack, rmFn, temp, com.ChildX[i], com.ChildY[i], parentName)
+			temp = exportComponentInner(child, components, ifPack, objPack, seqPack, varpPack, rmFn, temp, com.ChildX[i], com.ChildY[i], parentName, visited)
 		}
 	}
 
