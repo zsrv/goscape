@@ -28,3 +28,6 @@ world:
   tcp_keepalive_period: 30s
   node_debug: false
   friends_server_enabled: true
+  # Source content root: enables the midi name->id registry (in-game music)
+  # and the ::rebuild cheat. Mirrors TS BUILD_SRC_DIR (../content).
+  content_path: /home/owner/Code/github.com/LostCityRS/Server244-ref/content

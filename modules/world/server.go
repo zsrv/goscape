@@ -617,6 +617,11 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		} else {
 			s.log.Info("midi.pack loaded", "count", len(s.midiPack))
 		}
+	} else {
+		// B6 live-smoke finding: an empty ContentPath used to skip this
+		// block silently — in-game music degraded to nothing with no log
+		// (the client keeps looping title music). Surface it.
+		s.log.Warn("world.content-path unset; midi name registry unavailable — PlaySong/PlayJingle will be silent no-ops")
 	}
 
 	for _, spawn := range s.gamemap.NpcSpawns() {
