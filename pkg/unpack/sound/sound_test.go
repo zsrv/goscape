@@ -2,10 +2,8 @@ package sound
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -652,7 +650,3 @@ func TestUnpack_LargeSmartValues(t *testing.T) {
 		t.Errorf("sound_55.synth bytes differ\n  want len=%d\n   got len=%d", len(wantBytes), len(got))
 	}
 }
-
-// Compile-time check that the fmt, strconv packages are used (suppress lint).
-var _ = fmt.Sprintf
-var _ = strconv.Itoa
