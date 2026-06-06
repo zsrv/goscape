@@ -36,61 +36,6 @@ var stats = [...]string{
 	"runecraft",
 }
 
-// renameModel renames a model_* file to a stable com_iN name, mirroring TS
-// Unpack.ts:11-35. existingFiles is the full listing of .ob2 files under
-// srcDir/models (obtained once per run). modelPack must not be nil.
-// Returns the final model name (either already-stable or the newly assigned
-// com_iN name). errorf is the console.error sink.
-//
-// TS source: tools/unpack/interface/Unpack.ts:11-35.
-func renameModel(
-	id int,
-	modelPack *pack.PackFile,
-	srcDir string,
-	existingFiles []string,
-	errorf func(format string, args ...any),
-) string {
-	model := modelPack.GetByID(id)
-	if !strings.HasPrefix(model, "model_") {
-		return model
-	}
-
-	// Collision loop: start at com_i1, increment from i=2.
-	// TS Unpack.ts:16-21.
-	name := "com_i1"
-	i := 2
-	for modelPack.GetByName(name) != -1 {
-		name = fmt.Sprintf("com_i%d", i)
-		i++
-	}
-
-	// TS Unpack.ts:23-28: rename on filesystem if file found.
-	filePath := ""
-	for _, f := range existingFiles {
-		if strings.HasSuffix(f, "/"+model+".ob2") {
-			filePath = f
-			break
-		}
-	}
-	if filePath != "" {
-		dest := filepath.Join(srcDir, "models", "com", name+".ob2")
-		// os.Rename is called by the caller via renameFile hook (injected for
-		// testability); use the embedded field on the run context.
-		// Direct call here — callers pass a renameFn.
-		_ = filePath // used below by the caller's hook
-		// We return the rename details for the caller to execute.
-		// This function is pure-logic; the caller's renameModel wrapper does the fs op.
-		// See unpack.go for the run-time wrapper.
-		_ = dest
-	}
-
-	model = name
-	// TS Unpack.ts:31: ModelPack.register(id, model)
-	modelPack.Register(id, model)
-
-	return model
-}
-
 // renameModelFull is the fs-side wrapper used at run time. It performs the
 // filesystem rename (if the file is found) and then updates the pack, returning
 // the stable name. Mirrors TS Unpack.ts:11-35 fully.
@@ -411,7 +356,10 @@ func exportComponent(
 			opcount := 1
 
 			if len(sc) == 1 {
-				// TS line 450: empty script
+				// TS line 450: empty script.
+				// NOTE: TS uses `script${i + i}op1=` — i+i, NOT i+1 (the
+				// non-empty branch at TS:454 uses i+1). Verbatim TS quirk;
+				// do not "fix".
 				temp = append(temp, fmt.Sprintf("script%dop1=", i+i))
 			}
 
