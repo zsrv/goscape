@@ -417,6 +417,116 @@ func TestAssertManifest_PNGPixelEquality(t *testing.T) {
 	})
 }
 
+// TestAssertManifest_CachePNGPixelEquality verifies that the PNG pixel-equality
+// exception is applied in the cache changed-set section (CACHE-ADDED / CACHE-MODIFIED)
+// and that CachePostDir is used to resolve the Go-produced file while
+// "<refRoot>/unpack-ref/<family>.cachepost/<path>" is used for the reference file.
+func TestAssertManifest_CachePNGPixelEquality(t *testing.T) {
+	dir := t.TempDir()
+	refRoot := t.TempDir()
+	postDir := t.TempDir()    // content post dir — not touched by this test
+	cachePostDir := t.TempDir() // cache post dir — holds Go-produced cache PNGs
+
+	const pngPath = "textures/tile.png"
+
+	// Create directory trees in cachePostDir and the cachepost ref snapshot.
+	if err := os.MkdirAll(filepath.Join(cachePostDir, "textures"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(refRoot, "unpack-ref", "test.cachepost", "textures"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Build a small 2x2 RGBA image.
+	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	img.SetRGBA(0, 0, color.RGBA{R: 10, G: 20, B: 30, A: 255})
+	img.SetRGBA(1, 0, color.RGBA{R: 40, G: 50, B: 60, A: 255})
+	img.SetRGBA(0, 1, color.RGBA{R: 70, G: 80, B: 90, A: 255})
+	img.SetRGBA(1, 1, color.RGBA{R: 100, G: 110, B: 120, A: 255})
+
+	// Encode Go cache file with DefaultCompression, reference with BestCompression
+	// so the raw bytes differ while pixels are identical.
+	cachePNGPath := filepath.Join(cachePostDir, "textures", "tile.png")
+	encodePNG(t, cachePNGPath, img, png.DefaultCompression)
+
+	refCachePNGPath := filepath.Join(refRoot, "unpack-ref", "test.cachepost", "textures", "tile.png")
+	encodePNG(t, refCachePNGPath, img, png.BestCompression)
+
+	cacheBytes, _ := os.ReadFile(cachePNGPath)
+	refBytes, _ := os.ReadFile(refCachePNGPath)
+	if string(cacheBytes) == string(refBytes) {
+		t.Log("note: cache PNG bytes happened to be equal; pixel path still exercised")
+	}
+
+	// Manifest uses the sha of the Go file (which differs from the ref sha).
+	manifestContent := fmt.Sprintf(
+		"CACHE-ADDED %s %s\nSTDOUT-NORM %s\n",
+		pngPath, hashBytes(cacheBytes),
+		hashBytes([]byte{}),
+	)
+	manifestPath := filepath.Join(dir, "test.manifest.txt")
+	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := Result{
+		Content:      nil,
+		Cache:        []Entry{{Kind: "ADDED", Path: pngPath, Sum: hashBytes(cacheBytes)}},
+		Wrote:        nil,
+		Stdout:       []byte{},
+		PostDir:      postDir,
+		CachePostDir: cachePostDir,
+	}
+
+	// Same pixels — must produce no mismatches.
+	mismatches := assertManifestFile(t, manifestPath, refRoot, "test", r)
+	if len(mismatches) != 0 {
+		t.Errorf("same-pixel cache PNGs: want 0 mismatches, got: %v", mismatches)
+	}
+
+	t.Run("differing pixel", func(t *testing.T) {
+		// Build an image with one pixel changed.
+		imgB := image.NewRGBA(image.Rect(0, 0, 2, 2))
+		imgB.SetRGBA(0, 0, color.RGBA{R: 10, G: 20, B: 30, A: 255})
+		imgB.SetRGBA(1, 0, color.RGBA{R: 40, G: 50, B: 60, A: 255})
+		imgB.SetRGBA(0, 1, color.RGBA{R: 70, G: 80, B: 90, A: 255})
+		imgB.SetRGBA(1, 1, color.RGBA{R: 1, G: 2, B: 3, A: 255}) // differs from img
+
+		cachePNGPathB := filepath.Join(cachePostDir, "textures", "tile_b.png")
+		encodePNG(t, cachePNGPathB, imgB, png.DefaultCompression)
+		cacheBytesB, _ := os.ReadFile(cachePNGPathB)
+
+		// Reference still has original img pixels.
+		refCachePNGPathB := filepath.Join(refRoot, "unpack-ref", "test.cachepost", "textures", "tile_b.png")
+		encodePNG(t, refCachePNGPathB, img, png.BestCompression)
+
+		const pngPathB = "textures/tile_b.png"
+		manifestB := fmt.Sprintf(
+			"CACHE-ADDED %s %s\nSTDOUT-NORM %s\n",
+			pngPathB, hashBytes(cacheBytesB),
+			hashBytes([]byte{}),
+		)
+		manifestPathB := filepath.Join(dir, "test_cache_b.manifest.txt")
+		if err := os.WriteFile(manifestPathB, []byte(manifestB), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		rB := Result{
+			Content:      nil,
+			Cache:        []Entry{{Kind: "ADDED", Path: pngPathB, Sum: hashBytes(cacheBytesB)}},
+			Wrote:        nil,
+			Stdout:       []byte{},
+			PostDir:      postDir,
+			CachePostDir: cachePostDir,
+		}
+
+		mismatchesB := assertManifestFile(t, manifestPathB, refRoot, "test", rB)
+		if !anyContains(mismatchesB, pngPathB) {
+			t.Errorf("differing pixel in cache PNG: expected mismatch mentioning %s, got: %v", pngPathB, mismatchesB)
+		}
+	})
+}
+
 // writeFile is a test helper to write content to path.
 func writeFile(t *testing.T, path string, content []byte) {
 	t.Helper()

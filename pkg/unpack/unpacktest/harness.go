@@ -264,7 +264,7 @@ func assertManifestFile(t *testing.T, manifestPath, refRoot, family string, r Re
 			continue
 		}
 		if me.kind != "DELETED" {
-			compareSha(me, got.Sum, r.PostDir, refRoot, family, &mismatches)
+			compareSha(me, got.Sum, r.PostDir, refRoot, family+".post", &mismatches)
 		}
 	}
 
@@ -293,10 +293,7 @@ func assertManifestFile(t *testing.T, manifestPath, refRoot, family string, r Re
 			continue
 		}
 		if me.kind != "DELETED" {
-			// Cache files are not PNGs; always exact sha comparison.
-			if me.sum != got.Sum {
-				mismatches = append(mismatches, fmt.Sprintf("cache %s %s: sha want %s got %s", me.kind, me.path, me.sum, got.Sum))
-			}
+			compareSha(me, got.Sum, r.CachePostDir, refRoot, family+".cachepost", &mismatches)
 		}
 	}
 
@@ -341,7 +338,10 @@ func assertManifestFile(t *testing.T, manifestPath, refRoot, family string, r Re
 
 // compareSha checks sha equality for a single manifest entry, applying the PNG
 // pixel-equality exception for paths ending in ".png".
-func compareSha(me manifestEntry, gotSum, postDir, refRoot, family string, mismatches *[]string) {
+// postDir is the directory containing the Go-produced file for this entry.
+// refSubdir is the subdirectory name under "<refRoot>/unpack-ref/" that holds the
+// reference snapshot (e.g. "test.post" for content, "test.cachepost" for cache).
+func compareSha(me manifestEntry, gotSum, postDir, refRoot, refSubdir string, mismatches *[]string) {
 	if !strings.HasSuffix(me.path, ".png") {
 		// Exact hex sha match.
 		if me.sum != gotSum {
@@ -352,7 +352,7 @@ func compareSha(me manifestEntry, gotSum, postDir, refRoot, family string, misma
 
 	// PNG: pixel equality.
 	goFile := filepath.Join(postDir, me.path)
-	refFile := filepath.Join(refRoot, "unpack-ref", family+".post", me.path)
+	refFile := filepath.Join(refRoot, "unpack-ref", refSubdir, me.path)
 
 	goImg, err := decodeImageFile(goFile)
 	if err != nil {
