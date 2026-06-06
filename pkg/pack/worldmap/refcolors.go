@@ -3,13 +3,14 @@
 // CSV/font/sprite assets.
 package worldmap
 
-// refColors is the 79-entry hardcoded floor-color palette from TS
-// Worldmap.ts:533-613 (lines 534-612 inclusive carry one [edge, fill]
-// pair each). Each row is [edgeColor, fillColor] as u32.
+// refColors is the 89-entry hardcoded floor-color palette from TS
+// Worldmap.ts:533-623 (lines 534-622 inclusive carry one [edge, fill]
+// pair each; rev-244 / 9aadcec4 added 10 entries: agility …
+// viking_mud_overlay). Each row is [edgeColor, fillColor] as u32.
 // Ordering matches FloType id ordering — if Content adds a new
 // flo before this is in sync, the packer will panic on out-of-
 // range access. Update both Content and this table together.
-var refColors = [79][2]uint32{
+var refColors = [89][2]uint32{
 	{0x00000038, 0x009c8f8e}, // cliff
 	{0x00000016, 0x004a4242}, // cliff2
 	{0x00000022, 0x004a4242}, // cliff3
@@ -89,4 +90,14 @@ var refColors = [79][2]uint32{
 	{0x0080782f, 0x00886b4d}, // duel_arena
 	{0x0080283c, 0x00b47a4e}, // duelarena
 	{0x00b06826, 0x0071673f}, // hive
+	{0x0080a41c, 0x00654c20}, // agility
+	{0x00909012, 0x003c3013}, // brownmud
+	{0x0090301a, 0x00594f3f}, // mountain_overlay
+	{0x00903014, 0x00383632}, // mountain_dark_overlay
+	{0x00000000, 0x007d6a3c}, // elfbrick
+	{0x01203c0f, 0x00171912}, // elf_wastelands
+	{0x00015407, 0x00440601}, // dark_red
+	{0x0390601d, 0x00514c6a}, // grey_blue
+	{0x00a04417, 0x00433f30}, // viking_town_overlay
+	{0x0090b814, 0x00625416}, // viking_mud_overlay
 }

@@ -97,7 +97,8 @@ func processCsv(lines []string, name string, lg *slog.Logger) map[int]struct{} {
 // trailing extras are absorbed into the last field (TS destructure
 // discards them after parseInt-on-leading-digits coercion).
 func parseLabels(src string) []label {
-	rawLines := strings.Split(strings.ReplaceAll(src, "\r\n", "\n"), "\n")
+	// TS 244 Worldmap.ts: .replace(/\r/g, '').split('\n') — strip ALL \r.
+	rawLines := strings.Split(strings.ReplaceAll(src, "\r", ""), "\n")
 	out := make([]label, 0, len(rawLines))
 	for _, line := range rawLines {
 		if !strings.HasPrefix(line, "=") {

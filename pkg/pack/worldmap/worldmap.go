@@ -19,9 +19,20 @@ import (
 )
 
 // Pack builds outDir/mapview/worldmap.jag from server-side map
-// outputs (outDir/server/maps/{m,l,o,n}*) plus fonts/sprites/CSVs
+// outputs (outDir/server/maps/{m,l,o,n}*) plus sprites/CSVs/labels
 // in srcDir. Returns nil if outDir/server/maps is missing (TS
 // parity with Worldmap.ts:31-33).
+//
+// 244 delta (TS Worldmap.ts @ 9aadcec4):
+//   - packWater helper + its 16 call sites commented out upstream →
+//     deleted here (no dead code).
+//   - Underground-pass level exception removed; actualLevel is
+//     now always bridged ? 1 : 0.
+//   - 10 new floorcol refColor entries (agility … viking_mud_overlay).
+//   - f11-f30 font members removed from the jag.
+//   - Jag member write order changed to interleaved (see below).
+//   - CSV + labels reads use the \r-strip idiom (.replace(/\r/g,'')
+//     before .split('\n')).
 //
 // Tag NAI-WORLDMAP-D-READDIR-SORTED: os.ReadDir returns lexically
 // sorted entries; TS fs.readdirSync is filesystem-order. The per-
@@ -61,10 +72,18 @@ func Pack(srcDir, outDir string) error {
 	readCsv := func(name string) ([]string, error) {
 		path := filepath.Join(srcDir, "maps", name)
 		raw, err := os.ReadFile(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			// Missing CSV → empty set (no entries). TS fs.readFileSync
+			// would throw here, but treating an absent file the same as
+			// an empty one is a safe tolerance — no maps are
+			// multi-way/free/ignored.
+			return nil, nil
+		}
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", path, err)
 		}
-		return strings.Split(strings.ReplaceAll(string(raw), "\r\n", "\n"), "\n"), nil
+		// TS 244 Worldmap.ts: .replace(/\r/g, '').split('\n') — strip ALL \r.
+		return strings.Split(strings.ReplaceAll(string(raw), "\r", ""), "\n"), nil
 	}
 
 	multilines, err := readCsv("multiway.csv")
@@ -146,19 +165,12 @@ func Pack(srcDir, outDir string) error {
 		}
 	}
 
-	// Hardcoded water tiles (TS:513-528).
-	for _, mxmz := range [][2]int{
-		{39, 56}, {40, 56},
-		{42, 44}, {42, 45}, {42, 46}, {42, 47}, {42, 48},
-		{43, 44}, {44, 44}, {45, 44}, {46, 44}, {47, 44},
-		{47, 45}, {47, 46}, {48, 45}, {48, 46},
-	} {
-		packWater(flo, out.underlay, out.overlay, mxmz[0], mxmz[1])
-	}
+	// packWater calls removed: TS Worldmap.ts commented out the 16
+	// packWater call sites and the helper itself at rev-244 (9aadcec4).
 
 	// floorcol
 	if len(flo.Configs) > len(refColors) {
-		return fmt.Errorf("floorcol: flo.Configs has %d entries but refColors only covers %d; update refcolors.go to add the new rows in TS Worldmap.ts:534-612 order", len(flo.Configs), len(refColors))
+		return fmt.Errorf("floorcol: flo.Configs has %d entries but refColors only covers %d; update refcolors.go to add the new rows in TS Worldmap.ts:534-622 order", len(flo.Configs), len(refColors))
 	}
 	floorcol := packet2.Alloc(1)
 	defer floorcol.Release()
@@ -168,7 +180,8 @@ func Pack(srcDir, outDir string) error {
 		floorcol.P4(refColors[i][1])
 	}
 
-	// Sprites + fonts.
+	// Sprites.
+	// Note: f11-f30 font members removed from jag at rev-244 (TS 9aadcec4).
 	spriteDir := filepath.Join(srcDir, "sprites")
 	fontDir := filepath.Join(srcDir, "fonts")
 	index := packet2.Alloc(1)
@@ -203,27 +216,8 @@ func Pack(srcDir, outDir string) error {
 	}
 	defer mapdots.Release()
 
-	loadFM := func(name string) (*packet2.Packet, error) {
-		p, err := packet2.Load(filepath.Join(fontDir, name), false)
-		if err != nil {
-			return nil, fmt.Errorf("load font %s: %w", name, err)
-		}
-		return p, nil
-	}
-	fontNames := []string{"f11.fm", "f12.fm", "f14.fm", "f17.fm", "f19.fm", "f22.fm", "f26.fm", "f30.fm"}
-	fonts := make(map[string]*packet2.Packet, len(fontNames))
-	for _, n := range fontNames {
-		p, err := loadFM(n)
-		if err != nil {
-			return err
-		}
-		fonts[n] = p
-		// Deferred Release; accumulates until function return, which is
-		// safe since fonts are referenced by the jagfile until Save().
-		defer p.Release()
-	}
-
 	// labels
+	// TS 244 Worldmap.ts: .replace(/\r/g, '').split('\n') — strip ALL \r.
 	labelsRaw, err := os.ReadFile(filepath.Join(srcDir, "maps", "labels.txt"))
 	if err != nil {
 		return fmt.Errorf("read labels.txt: %w", err)
@@ -239,7 +233,13 @@ func Pack(srcDir, outDir string) error {
 		labelsPkt.P1(uint8(lab.Type))
 	}
 
-	// Assemble jagfile (22 entries, TS:657-678 order).
+	// Assemble jagfile: interleaved write order per TS Worldmap.ts:506-685
+	// (rev-244 / 9aadcec4). Each jag.write call is emitted inline after its
+	// packet is constructed; f11-f30 entries are gone.
+	//
+	// Order: underlay → overlay → loc → obj → npc → multi → free →
+	//        floorcol → mapscene → mapfunction → b12 → mapdots →
+	//        index → labels
 	jag := jagfile.NewEmptyJagfile(false)
 	jag.Write("underlay.dat", out.underlay)
 	jag.Write("overlay.dat", out.overlay)
@@ -252,14 +252,6 @@ func Pack(srcDir, outDir string) error {
 	jag.Write("mapscene.dat", mapscene)
 	jag.Write("mapfunction.dat", mapfunction)
 	jag.Write("b12.dat", b12)
-	jag.Write("f11.dat", fonts["f11.fm"])
-	jag.Write("f12.dat", fonts["f12.fm"])
-	jag.Write("f14.dat", fonts["f14.fm"])
-	jag.Write("f17.dat", fonts["f17.fm"])
-	jag.Write("f19.dat", fonts["f19.fm"])
-	jag.Write("f22.dat", fonts["f22.fm"])
-	jag.Write("f26.dat", fonts["f26.fm"])
-	jag.Write("f30.dat", fonts["f30.fm"])
 	jag.Write("mapdots.dat", mapdots)
 	jag.Write("index.dat", index)
 	jag.Write("labels.dat", labelsPkt)
@@ -274,26 +266,8 @@ func Pack(srcDir, outDir string) error {
 	return nil
 }
 
-// packWater appends one "ocean" map square (mx, mz) to underlay
-// and overlay. Mirrors TS Worldmap.ts:15-28.
-//
-// underlay grows by 2 + 4096 = 4098 bytes.
-// overlay  grows by 2 + 4096*2 = 8194 bytes.
-func packWater(flo *objtype.FloTypeConfigs, underlay, overlay *packet2.Packet, mx, mz int) {
-	muddyId := uint8(1 + flo.GetId("muddygrass"))
-	waterId := uint8(1 + flo.GetId("water"))
-
-	underlay.P1(uint8(mx))
-	underlay.P1(uint8(mz))
-	overlay.P1(uint8(mx))
-	overlay.P1(uint8(mz))
-
-	for range 4096 {
-		underlay.P1(muddyId)
-		overlay.P1(waterId)
-		overlay.P1(0)
-	}
-}
+// packWater deleted: TS Worldmap.ts commented out the helper and all
+// 16 call sites at rev-244 (9aadcec4, lines 13-31 / 507-527).
 
 // unpackCoord extracts (level, x, z) from a packed local-coord
 // int. x and z are LOCAL mapsquare coords (0..63). Mirrors TS
@@ -370,10 +344,9 @@ type mapCtx struct {
 // loaded via os.ReadFile (cap can exceed len by 1, producing a
 // one-byte off-by-one).
 func processMap(ctx mapCtx, out *mapPackets, mx, mz int, land, loc, obj, npc *packet2.Packet) error {
-	level := 0
-	if mx == 33 && mz >= 71 && mz <= 73 {
-		level = 1 // exception for underground pass
-	}
+	// Underground-pass level exception removed at rev-244 (TS 9aadcec4):
+	// the mx==33 && mz>=71..73 level=1 override is gone; actualLevel is
+	// now always bridged ? 1 : 0.
 
 	// --- land file decode ---
 	var (
@@ -426,9 +399,9 @@ func processMap(ctx mapCtx, out *mapPackets, mx, mz int, land, loc, obj, npc *pa
 	for x := range 64 {
 		for z := range 64 {
 			bridged := (flags[1][x][z] & 0x2) == 2
-			actualLevel := level
+			actualLevel := 0
 			if bridged {
-				actualLevel = 1 + level
+				actualLevel = 1
 			}
 			if actualLevel < 0 || actualLevel > 3 {
 				out.overlay.P1(0)
@@ -548,14 +521,14 @@ func processMap(ctx mapCtx, out *mapPackets, mx, mz int, land, loc, obj, npc *pa
 	out.loc.P1(uint8(mz))
 	for x := range 64 {
 		for z := range 64 {
-			if walls[level][x][z] != -1 {
-				out.loc.P1(uint8(walls[level][x][z]))
+			if walls[0][x][z] != -1 {
+				out.loc.P1(uint8(walls[0][x][z]))
 			}
-			if mapscenes[level][x][z] != -1 {
-				out.loc.P1(uint8(29 + mapscenes[level][x][z]))
+			if mapscenes[0][x][z] != -1 {
+				out.loc.P1(uint8(29 + mapscenes[0][x][z]))
 			}
-			if mapfunctions[level][x][z] != -1 {
-				out.loc.P1(uint8(160 + mapfunctions[level][x][z]))
+			if mapfunctions[0][x][z] != -1 {
+				out.loc.P1(uint8(160 + mapfunctions[0][x][z]))
 			}
 			out.loc.P1(0)
 		}
@@ -587,7 +560,7 @@ func processMap(ctx mapCtx, out *mapPackets, mx, mz int, land, loc, obj, npc *pa
 		out.obj.P1(uint8(mz))
 		for x := range 64 {
 			for z := range 64 {
-				out.obj.PBool(objs[level][x][z] != -1)
+				out.obj.PBool(objs[0][x][z] != -1)
 			}
 		}
 	}
@@ -619,7 +592,7 @@ func processMap(ctx mapCtx, out *mapPackets, mx, mz int, land, loc, obj, npc *pa
 		out.npc.P1(uint8(mz))
 		for x := range 64 {
 			for z := range 64 {
-				out.npc.PBool(npcs[level][x][z] != -1)
+				out.npc.PBool(npcs[0][x][z] != -1)
 			}
 		}
 	}

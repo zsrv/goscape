@@ -72,12 +72,11 @@ func TestPack_RealContent_Integration(t *testing.T) {
 		t.Fatalf("LoadJagfile: %v", err)
 	}
 
+	// f11-f30 font members removed from jag at rev-244 (TS 9aadcec4).
 	expectedNames := []string{
 		"underlay.dat", "overlay.dat", "loc.dat", "obj.dat", "npc.dat",
 		"multi.dat", "free.dat", "floorcol.dat",
 		"mapscene.dat", "mapfunction.dat", "b12.dat",
-		"f11.dat", "f12.dat", "f14.dat", "f17.dat", "f19.dat",
-		"f22.dat", "f26.dat", "f30.dat",
 		"mapdots.dat", "index.dat", "labels.dat",
 	}
 	for _, n := range expectedNames {
@@ -114,52 +113,9 @@ func TestUnpackCoord(t *testing.T) {
 	}
 }
 
-func TestPackWater_ByteLayout(t *testing.T) {
-	t.Parallel()
-
-	flo := &objtype.FloTypeConfigs{
-		ConfigNames: map[string]int{
-			"muddygrass": 7,
-			"water":      11,
-		},
-	}
-
-	underlay := packet2.Alloc(1)
-	defer underlay.Release()
-	overlay := packet2.Alloc(1)
-	defer overlay.Release()
-
-	packWater(flo, underlay, overlay, 42, 56)
-
-	if got, want := underlay.Length(), 2+4096; got != want {
-		t.Errorf("underlay length = %d, want %d", got, want)
-	}
-	if got, want := overlay.Length(), 2+4096*2; got != want {
-		t.Errorf("overlay length = %d, want %d", got, want)
-	}
-
-	underlay.Pos = 0
-	if underlay.G1() != 42 || underlay.G1() != 56 {
-		t.Errorf("underlay header bytes wrong")
-	}
-	for i := range 4096 {
-		if got := underlay.G1(); got != 8 {
-			t.Fatalf("underlay body byte %d = %d, want 8", i, got)
-		}
-	}
-
-	overlay.Pos = 0
-	if overlay.G1() != 42 || overlay.G1() != 56 {
-		t.Errorf("overlay header bytes wrong")
-	}
-	for i := range 4096 {
-		v := overlay.G1()
-		z := overlay.G1()
-		if v != 12 || z != 0 {
-			t.Fatalf("overlay body pair %d = (%d, %d), want (12, 0)", i, v, z)
-		}
-	}
-}
+// TestPackWater_ByteLayout removed: packWater helper and all 16 call
+// sites were commented out upstream at rev-244 (TS Worldmap.ts @ 9aadcec4)
+// and deleted here. No test coverage needed for deleted code.
 
 func TestProcessMap_EmptyLandFile_ProducesHeaderOnlyBytes(t *testing.T) {
 	t.Parallel()
@@ -500,7 +456,12 @@ func TestProcessMap_MapScene22SkipsLoc(t *testing.T) {
 	}
 }
 
-func TestProcessMap_UndergroundPassLevelOverride(t *testing.T) {
+// TestProcessMap_UndergroundPassExceptionRemoved pins the rev-244 change:
+// the mx==33 && mz>=71..73 level=1 override is gone (TS Worldmap.ts @ 9aadcec4).
+// actualLevel is now always bridged ? 1 : 0. A non-bridged tile at (0,0)
+// reads underlayIds[0][0][0]; placing an underlay opcode at level=1 should
+// NOT influence the output — the value emitted must be 0.
+func TestProcessMap_UndergroundPassExceptionRemoved(t *testing.T) {
 	t.Parallel()
 	land := packet2.Alloc(1)
 	defer land.Release()
@@ -508,6 +469,9 @@ func TestProcessMap_UndergroundPassLevelOverride(t *testing.T) {
 		for x := range 64 {
 			for z := range 64 {
 				if level == 1 && x == 0 && z == 0 {
+					// Underlay opcode (>81) placed at level=1, tile (0,0).
+					// Pre-244 this was the level used for underground-pass
+					// squares; post-244 level-0 is used exclusively.
 					land.P1(82) // underlay opcode (>81)
 					land.P1(0)
 				} else {
@@ -538,8 +502,11 @@ func TestProcessMap_UndergroundPassLevelOverride(t *testing.T) {
 		t.Fatalf("processMap: %v", err)
 	}
 
+	// Level-1 underlay at (0,0) must NOT bleed into the output since
+	// actualLevel is bridged?1:0 and this tile is not bridged.
+	// underlayIds[0][0][0] == -1 → emits 0.
 	out.underlay.Pos = 2 // skip header
-	if got := out.underlay.G1(); got != 1 {
-		t.Errorf("underlay[0][0] = %d, want 1", got)
+	if got := out.underlay.G1(); got != 0 {
+		t.Errorf("underlay[0][0] = %d, want 0 (underground-pass exception removed at rev-244)", got)
 	}
 }
