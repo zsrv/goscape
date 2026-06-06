@@ -8,12 +8,21 @@ import (
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 )
 
-// FloType is a minimal binary view of a floor-type entry. The full
-// TS FloType has many more fields; goscape's worldmap packer only
-// needs the debugname → id mapping and the total count.
+// FloType is a floor-type entry decoded from the flo.dat client stream.
+// Mirrors the instance fields of TS FloType (src/cache/config/FloType.ts):
+//
+//	rgb: number = 0          (opcode 1 — G3)
+//	texture: number = -1     (opcode 2 — G1; -1 = no texture)
+//	overlay: bool = false    (opcode 3 — flag, no payload)
+//	occlude: bool = true     (opcode 5 sets occlude = false; default true)
+//	debugname: string = ""   (opcode 6 — GJStrLF)
 type FloType struct {
 	Id        int
 	DebugName string
+	RGB       int  // 24-bit colour; default 0
+	Texture   int  // texture id; -1 = none (TS default)
+	Overlay   bool // true when opcode 3 was present
+	Occlude   bool // false when opcode 5 was present; TS default = true
 }
 
 type FloTypeConfigs struct {
@@ -61,7 +70,8 @@ func parseFloTypes(server *packet2.Packet, clientJag *jagfile.Jagfile) (*FloType
 	names := make(map[string]int, count)
 
 	for id := range count {
-		ft := &FloType{Id: id}
+		// TS FloType constructor defaults: texture = -1, occlude = true.
+		ft := &FloType{Id: id, Texture: -1, Occlude: true}
 		if err := decodeFloStream(server, ft, id); err != nil {
 			return nil, fmt.Errorf("flo id %d (server): %w", id, err)
 		}
@@ -87,13 +97,13 @@ func decodeFloStream(p *packet2.Packet, ft *FloType, id int) error {
 		}
 		switch code {
 		case 1:
-			_ = p.G3() // rgb
+			ft.RGB = int(p.G3()) // 24-bit colour
 		case 2:
-			_ = p.G1() // texture
+			ft.Texture = int(p.G1()) // texture id (0-based)
 		case 3:
-			// overlay = true; no payload
+			ft.Overlay = true // flag; no payload
 		case 5:
-			// occlude = false; no payload
+			ft.Occlude = false // flag; no payload (TS default is true, opcode 5 clears it)
 		case 6:
 			ft.DebugName = p.GJStrLF()
 		default:
