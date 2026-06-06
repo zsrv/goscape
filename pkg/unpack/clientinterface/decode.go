@@ -69,15 +69,15 @@ type Component struct {
 	ChildY  []int // TS: childY g2s[] (signed)
 
 	// TYPE_INV tail — TS lines 168-196
-	Draggable      bool       // TS: draggable gbool
-	Interactable   bool       // TS: interactable gbool
-	Usable         bool       // TS: usable gbool
-	MarginX        int        // TS: marginX g1 (or g2s for TYPE_INV_TEXT)
-	MarginY        int        // TS: marginY g1 (or g2s for TYPE_INV_TEXT)
-	InvSlotOffsetX []int      // TS: invSlotOffsetX Int16Array (20 elements when set)
-	InvSlotOffsetY []int      // TS: invSlotOffsetY Int16Array (20 elements when set)
-	InvSlotSprite  []*string  // TS: invSlotSprite string[] (20 elements; nil slot = not set)
-	Iops           []*string  // TS: iops (string|null)[] length 5; nil = was empty string
+	Draggable      bool      // TS: draggable gbool
+	Interactable   bool      // TS: interactable gbool
+	Usable         bool      // TS: usable gbool
+	MarginX        int       // TS: marginX g1 (or g2s for TYPE_INV_TEXT)
+	MarginY        int       // TS: marginY g1 (or g2s for TYPE_INV_TEXT)
+	InvSlotOffsetX []int     // TS: invSlotOffsetX Int16Array (20 elements when set)
+	InvSlotOffsetY []int     // TS: invSlotOffsetY Int16Array (20 elements when set)
+	InvSlotSprite  []*string // TS: invSlotSprite string[] (20 elements; nil slot = not set)
+	Iops           []*string // TS: iops (string|null)[] length 5; nil = was empty string
 
 	// TYPE_RECT tail — TS line 199
 	Fill bool // TS: fill gbool
@@ -92,7 +92,7 @@ type Component struct {
 	ActiveText string // TS: activeText gjstr (initialized null → Go empty string)
 
 	// Colour fields — TS g4s (signed 32-bit)
-	Colour      int // TS: colour g4s (initialized 0)
+	Colour       int // TS: colour g4s (initialized 0)
 	ActiveColour int // TS: activeColour g4s (initialized 0)
 	OverColour   int // TS: overColour g4s (initialized 0)
 

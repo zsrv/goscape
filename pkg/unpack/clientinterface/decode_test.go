@@ -158,13 +158,13 @@ func TestDecode_TypeLayer(t *testing.T) {
 	// TYPE_LAYER tail: scroll, hide, children
 	b.p2(99) // scroll
 	b.pbool(true)
-	b.p2(2)          // childCount = 2
-	b.p2(11)         // childId[0]
-	b.p2s(-5)        // childX[0] negative — signedness test
-	b.p2s(20)        // childY[0]
-	b.p2(12)         // childId[1]
-	b.p2s(100)       // childX[1]
-	b.p2s(-300)      // childY[1] negative
+	b.p2(2)     // childCount = 2
+	b.p2(11)    // childId[0]
+	b.p2s(-5)   // childX[0] negative — signedness test
+	b.p2s(20)   // childY[0]
+	b.p2(12)    // childId[1]
+	b.p2s(100)  // childX[1]
+	b.p2s(-300) // childY[1] negative
 
 	pkt := makePacket(11, b.data)
 	dec, err := DecodePacket(pkt)
@@ -600,9 +600,9 @@ func TestDecode_TypeInvText(t *testing.T) {
 	b.pOverLayer(-1)
 	b.pNoComparatorsNoScripts()
 
-	b.pbool(false)  // center
-	b.p1(1)         // font = 1 (p12)
-	b.pbool(false)  // shadowed
+	b.pbool(false)   // center
+	b.p1(1)          // font = 1 (p12)
+	b.pbool(false)   // shadowed
 	b.p4s(-16711936) // colour = -16711936 (negative test)
 	b.p2s(-2)        // marginX negative
 	b.p2s(3)         // marginY
@@ -673,9 +673,9 @@ func TestDecode_OverLayerEncoding(t *testing.T) {
 	b2.p1(8) // skipped byte 2
 	b2.p1(9) // skipped byte 3
 	// TYPE_TEXT or TYPE_UNUSED header
-	b2.pbool(true)  // center
-	b2.p1(3)        // font
-	b2.pbool(true)  // shadowed
+	b2.pbool(true) // center
+	b2.p1(3)       // font
+	b2.pbool(true) // shadowed
 	// colour (g4s)
 	b2.p4s(12345)
 
@@ -728,9 +728,9 @@ func TestDecode_ScriptsAndComparators(t *testing.T) {
 	})
 
 	// TYPE_LAYER tail
-	b.p2(0)    // scroll
+	b.p2(0) // scroll
 	b.pbool(false)
-	b.p2(0)    // childCount
+	b.p2(0) // childCount
 
 	// ButtonToggle → option
 	b.pjstr("Toggle me")
@@ -913,7 +913,7 @@ func TestDecode_Defaults(t *testing.T) {
 	b.pCommonHeader(TypeLayer, 0, 0, 0, 0, 0)
 	b.pOverLayer(-1)
 	b.pNoComparatorsNoScripts()
-	b.p2(0)    // scroll = 0
+	b.p2(0) // scroll = 0
 	b.pbool(false)
 	b.p2(0) // childCount = 0
 
