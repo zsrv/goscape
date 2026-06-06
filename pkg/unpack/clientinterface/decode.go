@@ -157,6 +157,9 @@ type Decoded struct {
 
 	// Count is the component count read from the file header.
 	// TS: IfType.count = dat.g2() at line 92.
+	// NOTE: len(Components) may exceed Count when stream IDs are >= Count
+	// (sparse layout — the slice grows to fit). Always range over Components
+	// directly; do not use Count as an upper bound.
 	Count int
 }
 

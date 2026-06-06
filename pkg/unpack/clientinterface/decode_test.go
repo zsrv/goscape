@@ -660,27 +660,6 @@ func TestDecode_OverLayerEncoding(t *testing.T) {
 	// E.g. overLayer = 0x0105 = 261:
 	//   hi = (261>>8)+1 = 2, lo = 261&0xFF = 5
 
-	b := &buf{}
-	b.p2(1)
-	b.pCommonHeader(TypeUnused, 0, 0, 10, 10, 0)
-	b.p1(2) // hi = 2 → overLayer hi part = 1
-	b.p1(5) // lo = 5 → overLayer = (1<<8) + 5 = 261
-
-	// TYPE_UNUSED: skip 3 bytes
-	// TYPE_TEXT or TYPE_UNUSED header (center, font, shadowed)
-	b.p1(0) // skip byte 1
-	b.p1(0) // skip byte 2
-	b.p1(0) // skip byte 3
-	b.pbool(false) // center
-	b.p1(0)        // font
-	b.pbool(false) // shadowed
-	// colour (TYPE_UNUSED | TYPE_RECT | TYPE_TEXT)
-	b.p4s(0)
-	// no comparators/scripts
-	b.p1(0) // comparatorCount
-	b.p1(0) // scriptCount
-
-	// Rebuild properly for TYPE_UNUSED
 	b2 := &buf{}
 	b2.p2(1) // id = 1
 	b2.pCommonHeader(TypeUnused, 0, 0, 10, 10, 0)
