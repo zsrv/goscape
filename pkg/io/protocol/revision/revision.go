@@ -9,4 +9,9 @@ package revision
 // Untyped on purpose: the world server compares it against a uint8 read off
 // the wire, while other consumers may carry the revision as a wider integer
 // (e.g. uint16). An untyped constant fits both without forcing a cast.
-const Expected = 225
+//
+// rev-244: TS Environment.ts:27 defaults ENGINE_REVISION to 244 and
+// World.ts:2158 rejects any other client revision with login reply 6
+// ("RuneScape has been updated!"). Found live in the B6 client smoke —
+// the pinned 244 client was rejected while this constant still said 225.
+const Expected = 244
