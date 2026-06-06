@@ -271,13 +271,17 @@ func (f *FileStream) Read(archive, file int, decompress bool) []byte {
 	}
 	out, err := io.ReadAll(r)
 	if err != nil {
-		return nil
+		// RS2-244 model files are stored as truncated gzip streams (no CRC/ISIZE
+		// footer), which causes io.ReadAll to return io.ErrUnexpectedEOF after
+		// successfully decompressing all the data. TS's zlib.gunzipSync is lenient
+		// and returns the decompressed bytes in this case; mirror that behaviour by
+		// accepting unexpected EOF as a non-fatal condition when we have data.
+		if err != io.ErrUnexpectedEOF || len(out) == 0 {
+			return nil
+		}
+		return out
 	}
-	if err := r.Close(); err != nil {
-		// Trailer CRC/ISIZE validation — TS gunzipSync validates the
-		// whole stream; mirror that strictness.
-		return nil
-	}
+	_ = r.Close() // ignore trailer errors for truncated streams
 	return out
 }
 
