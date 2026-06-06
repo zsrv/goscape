@@ -39,6 +39,7 @@ Notes:
 | Content | game content packed and served by the server | https://github.com/LostCityRS/Content | `244` | `e5d0282e03b383efd3b2a81e63090e703ffb5399` |
 | Client-Java | the client this server speaks to; wire-protocol cross-check | https://github.com/LostCityRS/Client-Java | `244` | `01f1608842acb12901f7e4f3df25553f641cc86e` |
 | RuneScriptKt | RuneScript compiler — **replaces RuneScriptTS in 244** (see note) | https://github.com/LostCityRS/RuneScriptKt | release tag `26` | jar sha256 `38e16e2c375cfdb0179cce1cab9c06d279cc7c30b0cbc298c97a37c4dca1851a` (the release-26 `RuneScriptCompiler.jar` is the effective pin — captured 2026-06-05 from the upstream-auto-downloaded, checksum-verified jar; local source checkout sits at tag `22` and is not used) |
+| cloudflare/zlib | gzip byte-parity reference — bun's `node:zlib.gzipSync` (the upstream pack toolchain's gzip) is this vendored fork; goscape's `pkg/io/gziputil` ports its level-6 deflate bit-exactly (B6) | https://github.com/cloudflare/zlib | `gcc.amd64` lineage | `886098f3f339617b4243b286f5ed364b9989e245` (bun 1.2.20 `process.versions.zlib`; verified to reproduce all 4,764 reference cache gzip members byte-identically — stock zlib/zlib-ng/libdeflate do NOT) |
 
 (Commits captured 2026-06-03 from the local reference checkouts, matching the
 goscape-client `REFERENCES.md` rev-244 pins. Go branch `rev-244` is cut from
