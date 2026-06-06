@@ -282,10 +282,6 @@ func assertManifestFile(t *testing.T, manifestPath, refRoot, family string, r Re
 				// Apply pixel-equality exemption: compare against the reference post snapshot.
 				goFile := filepath.Join(r.PostDir, got.Path)
 				refFile := filepath.Join(refRoot, "unpack-ref", family+".post", got.Path)
-				var pixMismatch []string
-				compareSha(manifestEntry{kind: got.Kind, path: got.Path, sum: got.Sum}, got.Sum, r.PostDir, refRoot, family+".post", "content", &pixMismatch)
-				// compareSha with matching sums will not add a mismatch for non-PNG.
-				// For PNG we need to do the pixel check directly.
 				goImg, goErr := decodeImageFile(goFile)
 				refImg, refErr := decodeImageFile(refFile)
 				if goErr != nil || refErr != nil {

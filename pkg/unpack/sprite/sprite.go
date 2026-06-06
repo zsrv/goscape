@@ -68,9 +68,12 @@ func Media(opts Options) error {
 	}
 
 	// TS media.ts:15-17 — iterate all jag members; strip extension for name.
-	// media.fileName may contain "index.dat" — passing "index" to UnpackFull
-	// produces 0 sprites (null return in TS), so it is silently skipped.
+	// media.fileName contains "index.dat" too — passing "index" to UnpackFull
+	// produces 0 sprites (null return in TS), so it contributes nothing.
 	// TS path.basename(name, path.extname(name)) strips the file extension.
+	// The name == "" guard below differs from TS only for a hypothetical
+	// bare-dot member (".dat"): Go's path.Ext(".dat")==".dat" strips to "",
+	// where Node's extname(".dat")=="" keeps it. No real member is bare-dot.
 	for _, fullName := range media.FileName {
 		name := stripExt(fullName)
 		if name == "" {
