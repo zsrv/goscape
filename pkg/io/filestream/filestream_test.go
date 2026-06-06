@@ -129,6 +129,36 @@ func TestReadDecompress(t *testing.T) {
 	}
 }
 
+// Entries written WITH a version store gzip + a 2-byte trailer (every 244
+// packer archive 1-4 entry). node gunzipSync decompresses the member and
+// ignores the trailing bytes; Read(decompress=true) must do the same
+// (Multistream(false)), not fail on them. A corrupt member still returns nil
+// (gunzipSync throws).
+func TestReadDecompressVersionTrailer(t *testing.T) {
+	fs := New(t.TempDir(), true, false)
+	defer fs.Close()
+
+	plain := []byte("model bytes behind a version trailer")
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	zw.Write(plain)
+	zw.Close()
+
+	if !fs.Write(1, 0, buf.Bytes(), 1) {
+		t.Fatal("versioned Write returned false")
+	}
+	if got := fs.Read(1, 0, true); !bytes.Equal(got, plain) {
+		t.Fatalf("versioned decompressed read mismatch: %q", got)
+	}
+
+	// Truncated member (CRC/ISIZE cut off) — node gunzipSync throws → nil.
+	trunc := buf.Bytes()[:buf.Len()-6]
+	fs.Write(1, 1, trunc, 0)
+	if got := fs.Read(1, 1, true); got != nil {
+		t.Fatalf("truncated member must read nil, got %d bytes", len(got))
+	}
+}
+
 // TS FileStream.ts:14-32: createNew=false on an existing dir preserves content;
 // the constructor creates dat + idx0..idx4 when missing.
 func TestPersistenceAcrossOpens(t *testing.T) {

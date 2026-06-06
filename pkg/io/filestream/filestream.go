@@ -265,23 +265,29 @@ func (f *FileStream) Read(archive, file int, decompress bool) []byte {
 
 	// TS: return new Uint8Array(zlib.gunzipSync(data.data));
 	// TS throws here (gunzipSync) on bad data; nil is goscape's panic-free analog.
+	//
+	// Entries written with a version (Write's 2-byte trailer — e.g. every
+	// archive 1-4 entry the 244 packer emits) store a COMPLETE gzip member
+	// followed by two non-gzip bytes. node's gunzipSync decompresses the
+	// member (validating its own CRC/ISIZE) and ignores the trailing
+	// garbage; Go's default multistream reader instead tries to parse the
+	// trailing bytes as another member and fails. Multistream(false) decodes
+	// exactly one member — strict on the member itself, indifferent to what
+	// follows — matching gunzipSync.
 	r, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil
 	}
+	r.Multistream(false)
 	out, err := io.ReadAll(r)
 	if err != nil {
-		// RS2-244 model files are stored as truncated gzip streams (no CRC/ISIZE
-		// footer), which causes io.ReadAll to return io.ErrUnexpectedEOF after
-		// successfully decompressing all the data. TS's zlib.gunzipSync is lenient
-		// and returns the decompressed bytes in this case; mirror that behaviour by
-		// accepting unexpected EOF as a non-fatal condition when we have data.
-		if err != io.ErrUnexpectedEOF || len(out) == 0 {
-			return nil
-		}
-		return out
+		// Corrupt or truncated member — gunzipSync throws here too.
+		return nil
 	}
-	_ = r.Close() // ignore trailer errors for truncated streams
+	if err := r.Close(); err != nil {
+		// Member CRC/ISIZE validation, mirroring gunzipSync strictness.
+		return nil
+	}
 	return out
 }
 
