@@ -114,8 +114,9 @@ func unpackUsage(w io.Writer) {
 	fmt.Fprintln(w, "  -cache-dir  string   Client cache directory (default: data/unpack).")
 	fmt.Fprintln(w, "  -src-dir    string   Content source tree root (default: data/src).")
 	fmt.Fprintln(w, "  -pack-dir   string   Pack output directory for compare/worldmap/config (default: data/pack).")
+	fmt.Fprintln(w, "                       For config: merge-compare path used only when <pack-dir>/main_file_cache.dat exists.")
 	fmt.Fprintln(w, "  -revision   string   Revision tag embedded in config output path (default: 244; config only).")
-	fmt.Fprintln(w, "  -type       string   Config type for compare (e.g. npc, obj; compare only).")
+	fmt.Fprintln(w, "  -type       string   Config type for compare (default: npc; compare only).")
 	fmt.Fprintln(w, "  -log.level  string   Log severity (debug|info|warn|error; default: info).")
 	fmt.Fprintln(w, "  -log.format string   Log format (text|json; default: text).")
 	fmt.Fprintln(w)
@@ -149,15 +150,15 @@ func parseUnpackFlags(name string, args []string, stderr io.Writer, showPackDir,
 		"Content source tree root (output files written here).")
 	if showPackDir {
 		fs.StringVar(&f.packDir, "pack-dir", "data/pack",
-			"Pack output directory (compare/worldmap/config merge path).")
+			"Pack output directory (compare/worldmap/config merge path).\n\t\tFor config: the merge-compare path is used only when <pack-dir>/main_file_cache.dat exists.")
 	}
 	if showRevision {
 		fs.StringVar(&f.revision, "revision", "244",
 			"Revision tag embedded in config output path (scripts/_unpack/<revision>/…).")
 	}
 	if showType {
-		fs.StringVar(&f.typ, "type", "",
-			"Config type to compare (e.g. npc, obj, loc).")
+		fs.StringVar(&f.typ, "type", "npc",
+			"Config type to compare (e.g. npc, obj, loc); default: npc.")
 	}
 
 	f.logLevel = slog.LevelInfo
@@ -515,11 +516,6 @@ func runUnpackCompare(args []string, stdout, stderr io.Writer) int {
 	logger, code := newUnpackLogger(f, stderr)
 	if code != -1 {
 		return code
-	}
-
-	if f.typ == "" {
-		fmt.Fprintln(stderr, "unpack compare: -type is required (e.g. -type npc)")
-		return 2
 	}
 
 	if err := config.Compare(f.cacheDir, f.packDir, f.typ, stdout); err != nil {

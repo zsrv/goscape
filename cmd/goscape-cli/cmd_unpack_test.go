@@ -267,21 +267,22 @@ func TestRunUnpack_Config_FlagPlumbing(t *testing.T) {
 	}
 }
 
-// TestRunUnpack_Compare_MissingType verifies that -type is required and its
-// absence returns exit 2.
-func TestRunUnpack_Compare_MissingType(t *testing.T) {
+// TestRunUnpack_Compare_DefaultType verifies that omitting -type defaults to
+// "npc" (TS Compare.ts:52 hardcodes 'npc') and that the run proceeds past flag
+// validation into the library — evidenced by exit 1 with a library-level error
+// about a missing or unreadable cache, not a flag-validation error (exit 2).
+func TestRunUnpack_Compare_DefaultType(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
 	code := runUnpack([]string{
 		"compare",
-		"-cache-dir", t.TempDir(),
+		"-cache-dir", filepath.Join(t.TempDir(), "no-such-cache"),
 		"-pack-dir", t.TempDir(),
+		"-log.level", "error",
 	}, &stdout, &stderr)
-	if code != 2 {
-		t.Fatalf("exit = %d, want 2", code)
-	}
-	if !strings.Contains(stderr.String(), "-type") {
-		t.Errorf("stderr %q: want '-type' mention", stderr.String())
+	// Must be exit 1 (library error), not exit 2 (flag validation).
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1 (library error proving -type defaulted to npc); stderr=%q", code, stderr.String())
 	}
 }
 
