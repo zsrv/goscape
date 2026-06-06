@@ -13,4 +13,18 @@
 // The encode half (packHeader, pack, packPng) is intentionally NOT ported here.
 // Encoding is YAGNI for the unpack tool; the existing Go pack pipeline
 // (pkg/pack/sprites) owns the encode side for production use.
+//
+// Dropped TS parameters and dead branches (no caller at the pinned revision uses them):
+//
+//   - unpackFull overrideName (TS Pix.ts:33, `overrideName?: string`): optional parameter
+//     that renames the output files; omitted because no call site in Server244-ref passes it.
+//
+//   - unpackJagToPng explicit sheetWidth/sheetHeight args (TS Pix.ts:141,
+//     `sheetWidth: number = 0, sheetHeight: number = 0`): the non-zero branch lets callers
+//     supply fixed dimensions instead of using the auto-computed layout; all call sites use
+//     the defaulted zeros so only the auto-layout path is ported.
+//
+//   - unpackJagToPng preferHorizontal=false branch (TS Pix.ts:182-186): the else branch of
+//     the widen loop that decrements width / increments height; all call sites default to
+//     preferHorizontal=true so only the increment-width path is ported.
 package pix

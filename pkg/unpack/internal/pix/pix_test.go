@@ -1,11 +1,13 @@
 package pix
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -546,6 +548,110 @@ func TestUnpackFull_WritesFile(t *testing.T) {
 				"all pixels must be blue at (%d,%d)", x, y)
 		}
 	}
+}
+
+// TestSheetDimensionsReachability — exhaustive proof that sheetDimensions(ok=false)
+// IS reachable for counts in 2..1000 (first failure: count=14).
+//
+// The TS preferHorizontal widen-loop (10 attempts) cannot fix every composite
+// count; 14 is the smallest failure: ceil(sqrt(14))=4, ceil(14/4)=4, 4*4=16>14,
+// widening produces (5,3)=15, (6,2)=12, (7,1)=7 — none equal 14.
+// This test pins the contract for sheetDimensions AND verifies the exhaustive list.
+func TestSheetDimensionsReachability(t *testing.T) {
+	// The first failure in 2..1000 must be 14.
+	_, _, ok14 := sheetDimensions(14)
+	assert.False(t, ok14, "count=14 must produce ok=false (unreachable sheet dims)")
+
+	// Count how many failures exist in 2..1000 (must be > 0).
+	failureCount := 0
+	for count := 2; count <= 1000; count++ {
+		_, _, ok := sheetDimensions(count)
+		if !ok {
+			failureCount++
+		}
+	}
+	assert.Greater(t, failureCount, 0, "sheetDimensions failure IS reachable for sprite counts in 2..1000")
+}
+
+// TestUnpackFull_SheetDimFailure_WritesOptSkipsPNG — mirrors TS Pix.ts:191-194 + Pix.ts:52-69.
+// When sheetDimensions fails (e.g. 14 sprites), unpackJagToPng returns null in TS.
+// TS unpackFull then: skips the PNG write (Pix.ts:52 `if (png)`), still writes .opt
+// (Pix.ts:56-69), and returns without error.
+// Go must do the same: Errorf called, no PNG on disk, .opt written, nil error returned.
+func TestUnpackFull_SheetDimFailure_WritesOptSkipsPNG(t *testing.T) {
+	// 14 sprites is the smallest count where sheetDimensions returns ok=false.
+	const spriteCount = 14
+
+	// Verify the precondition: sheetDimensions(14) must fail.
+	_, _, ok := sheetDimensions(spriteCount)
+	require.False(t, ok, "precondition: sheetDimensions(14) must return ok=false")
+
+	palette := []int32{0, 0xFF0000}
+	specs := make([]spriteSpec, spriteCount)
+	for i := range specs {
+		specs[i] = spriteSpec{
+			width: 4, height: 4,
+			cropLeft: 1, cropTop: 1, cropRight: 2, cropBottom: 2,
+			pixelOrder: 0,
+			pixels:     []uint8{1, 1, 1, 1},
+			palette:    palette,
+		}
+	}
+	jag := buildJag(t, "fourteen", specs)
+
+	// Wire Errorf to capture the warning; restore after test.
+	var gotMsg string
+	orig := Errorf
+	t.Cleanup(func() { Errorf = orig })
+	Errorf = func(format string, args ...any) {
+		gotMsg = fmt.Sprintf(format, args...)
+	}
+
+	dir := t.TempDir()
+	err := UnpackFull(jag, dir, "fourteen")
+
+	// TS returns without error. TS Pix.ts:52-54 skips PNG when png==null.
+	require.NoError(t, err, "dimension mismatch must not return an error (mirrors TS)")
+
+	// Errorf must have been called. TS Pix.ts:192: printError("wrong spritesheet size! ...")
+	assert.NotEmpty(t, gotMsg, "Errorf must be called on dimension mismatch")
+	assert.Contains(t, gotMsg, "wrong spritesheet size", "Errorf message must mention spritesheet size")
+
+	// No PNG must be written. TS Pix.ts:52: `if (png)` → skipped.
+	_, statErr := os.Stat(filepath.Join(dir, "fourteen.png"))
+	assert.True(t, os.IsNotExist(statErr), "PNG must NOT be written on dimension mismatch")
+
+	// .opt MUST be written. TS Pix.ts:56-69 runs regardless of `if (png)`.
+	optPath := filepath.Join(dir, "meta", "fourteen.opt")
+	require.FileExists(t, optPath, ".opt must still be written on dimension mismatch")
+
+	optBytes, err := os.ReadFile(optPath)
+	require.NoError(t, err)
+	// 14 sprites, all with same cell dims 4×4 and crop 1,1,2,2.
+	// First line: "4x4\n"; then 14 crop lines "1,1,2,2\n".
+	lines := string(optBytes)
+	assert.True(t, strings.HasPrefix(lines, "4x4\n"), "first .opt line must be cell dims")
+	assert.Equal(t, 15, len(splitLines(lines)), ".opt must have 1 header + 14 crop lines")
+}
+
+// splitLines splits a string on "\n", ignoring a final trailing newline.
+func splitLines(s string) []string {
+	if len(s) > 0 && s[len(s)-1] == '\n' {
+		s = s[:len(s)-1]
+	}
+	if s == "" {
+		return nil
+	}
+	result := []string{}
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\n' {
+			result = append(result, s[start:i])
+			start = i + 1
+		}
+	}
+	result = append(result, s[start:])
+	return result
 }
 
 // TestUnpackFull_4Sprite2x2Sheet — 4 sprites produces a 2×2 sheet. TS Pix.ts:167-169.

@@ -17,6 +17,12 @@ import (
 // TS Pix.ts:198-203 (sheet) and TS Pix.ts:260-264 (packPng single sprite).
 var background = color.NRGBA{R: 0xFF, G: 0x00, B: 0xFF, A: 0xFF}
 
+// Errorf is called when a spritesheet dimension mismatch is detected
+// (TS Pix.ts:192 — printError("wrong spritesheet size! ...")).
+// By default it is a no-op; the CLI wires it to its logger.
+// Signature matches fmt.Errorf / log.Printf to allow direct assignment.
+var Errorf = func(format string, args ...any) {}
+
 // Sprite holds the decoded fields of a single RS2 sprite.
 // Mirrors the TS Pix constructor parameters (TS Pix.ts:20-31).
 type Sprite struct {
@@ -270,6 +276,12 @@ func UnpackFull(jag *jagfile.Jagfile, dir, name string) error {
 
 	// Build the PNG image. TS Pix.ts:48 calls unpackJagToPng which handles
 	// both single and multi-sprite cases.
+	//
+	// TS Pix.ts:191-194: when sheetWidth*sheetHeight != count, unpackJagToPng
+	// calls printError and returns null.  TS Pix.ts:52 then skips the PNG write
+	// because `if (png)` is false, but the .opt write at Pix.ts:56-69 still runs.
+	// We mirror that: on dimension failure we call Errorf (wired by the CLI),
+	// set img=nil (skip PNG), and fall through to the .opt section.
 	var img *image.NRGBA
 	if len(all) == 1 {
 		// TS Pix.ts:157-159 — single sprite: return all[0].packPng() directly.
@@ -279,52 +291,57 @@ func UnpackFull(jag *jagfile.Jagfile, dir, name string) error {
 		count := len(all)
 		sheetWidth, sheetHeight, ok := sheetDimensions(count)
 		if !ok {
-			return fmt.Errorf("pix: wrong spritesheet size: %dx%d != %d sprites", sheetWidth, sheetHeight, count)
-		}
+			// TS Pix.ts:191-194 — dimension mismatch: log and return null (skip PNG).
+			Errorf("wrong spritesheet size! you may have to manually define its dimensions: %dx%d != %d", sheetWidth, sheetHeight, count)
+			// img stays nil — PNG write is skipped below (TS Pix.ts:52 `if (png)`).
+		} else {
+			cellWidth := all[0].Width
+			cellHeight := all[0].Height
 
-		cellWidth := all[0].Width
-		cellHeight := all[0].Height
+			// TS Pix.ts:198-202 — create sheet filled with opaque magenta.
+			sheet := image.NewNRGBA(image.Rect(0, 0, sheetWidth*cellWidth, sheetHeight*cellHeight))
+			for i := 0; i < len(sheet.Pix); i += 4 {
+				sheet.Pix[i] = background.R
+				sheet.Pix[i+1] = background.G
+				sheet.Pix[i+2] = background.B
+				sheet.Pix[i+3] = background.A
+			}
 
-		// TS Pix.ts:198-202 — create sheet filled with opaque magenta.
-		sheet := image.NewNRGBA(image.Rect(0, 0, sheetWidth*cellWidth, sheetHeight*cellHeight))
-		for i := 0; i < len(sheet.Pix); i += 4 {
-			sheet.Pix[i] = background.R
-			sheet.Pix[i+1] = background.G
-			sheet.Pix[i+2] = background.B
-			sheet.Pix[i+3] = background.A
-		}
+			// TS Pix.ts:204-221 — blit each sprite onto the sheet.
+			for idx, s := range all {
+				// TS Pix.ts:208-209 — sheet cell coordinates.
+				cellX := idx % sheetWidth
+				cellY := idx / sheetWidth
+				destX := cellX * cellWidth
+				destY := cellY * cellHeight
 
-		// TS Pix.ts:204-221 — blit each sprite onto the sheet.
-		for idx, s := range all {
-			// TS Pix.ts:208-209 — sheet cell coordinates.
-			cellX := idx % sheetWidth
-			cellY := idx / sheetWidth
-			destX := cellX * cellWidth
-			destY := cellY * cellHeight
-
-			// Render each sprite into its own image then blit it.
-			// TS Pix.ts:206 — pix.packPng()
-			// TS Pix.ts:211-219 — sheet.blit({src: img, x, y, srcX:0, srcY:0, srcW:cellWidth, srcH:cellHeight})
-			// Jimp blit copies srcW×srcH pixels from (srcX,srcY) of src to (x,y) of dst.
-			sprite := s.packPng()
-			for py := range cellHeight {
-				for px := range cellWidth {
-					srcOff := sprite.PixOffset(px, py)
-					dstOff := sheet.PixOffset(destX+px, destY+py)
-					sheet.Pix[dstOff] = sprite.Pix[srcOff]
-					sheet.Pix[dstOff+1] = sprite.Pix[srcOff+1]
-					sheet.Pix[dstOff+2] = sprite.Pix[srcOff+2]
-					sheet.Pix[dstOff+3] = sprite.Pix[srcOff+3]
+				// Render each sprite into its own image then blit it.
+				// TS Pix.ts:206 — pix.packPng()
+				// TS Pix.ts:211-219 — sheet.blit({src: img, x, y, srcX:0, srcY:0, srcW:cellWidth, srcH:cellHeight})
+				// Jimp blit copies srcW×srcH pixels from (srcX,srcY) of src to (x,y) of dst.
+				sprite := s.packPng()
+				for py := range cellHeight {
+					for px := range cellWidth {
+						srcOff := sprite.PixOffset(px, py)
+						dstOff := sheet.PixOffset(destX+px, destY+py)
+						sheet.Pix[dstOff] = sprite.Pix[srcOff]
+						sheet.Pix[dstOff+1] = sprite.Pix[srcOff+1]
+						sheet.Pix[dstOff+2] = sprite.Pix[srcOff+2]
+						sheet.Pix[dstOff+3] = sprite.Pix[srcOff+3]
+					}
 				}
 			}
+			img = sheet
 		}
-		img = sheet
 	}
 
-	// TS Pix.ts:52-54 — write PNG file.
-	pngPath := filepath.Join(dir, name+".png")
-	if err := writePNG(pngPath, img); err != nil {
-		return fmt.Errorf("pix: write PNG: %w", err)
+	// TS Pix.ts:52-54 — write PNG file only when unpackJagToPng returned non-null.
+	// On dimension failure img is nil and we skip the write (mirrors `if (png)` guard).
+	if img != nil {
+		pngPath := filepath.Join(dir, name+".png")
+		if err := writePNG(pngPath, img); err != nil {
+			return fmt.Errorf("pix: write PNG: %w", err)
+		}
 	}
 
 	// TS Pix.ts:56-58 — ensure meta/ directory exists.
