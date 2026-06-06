@@ -174,11 +174,16 @@ func waveUnpack(buf *packet.Packet, synthPack *pack.PackFile, srcDir, synthDir s
 	if err != nil {
 		return fmt.Errorf("sound: list existing synth files: %w", err)
 	}
-	// Map: basename-without-ext → full path (last entry wins if duplicate basenames).
+	// Map: basename-without-ext → full path. FIRST entry wins on duplicate
+	// basenames, mirroring TS existingFiles.find(endsWith) which returns the
+	// first match in listing order (TS Unpack.ts:85). The reference tree has
+	// no duplicate basenames today; this keeps the divergence theoretical.
 	existingByName := make(map[string]string, len(existingFiles))
 	for _, f := range existingFiles {
 		base := strings.TrimSuffix(filepath.Base(f), ".synth")
-		existingByName[base] = f
+		if _, ok := existingByName[base]; !ok {
+			existingByName[base] = f
+		}
 	}
 
 	var order []int
