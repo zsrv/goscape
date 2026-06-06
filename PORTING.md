@@ -528,7 +528,8 @@ HintArrow keep-slot row — see that row's strike-note below).
   TS-faithful quirk reproduced as-is: the real midi.pack keys multi-word
   songs WITH SPACES while playSong normalizes to underscores → multi-word
   songs silently no-op in TS 244 too (upstream's own todo at Player.ts:1918).
-  Live verification rides B6.
+  Live verification rides B6 — **CLOSED** (B6 live smoke PASSED; in-game music
+  verified; midi registry silence fixed `b26d8dd5`).
 - ✅ **`PORTING-EXCEPTION (gap-db-datastruct-4)` CLOSED** (`94f40331`) — the
   225-era playerLoop flat-slice exception is superseded by the faithful 244
   `PlayerList` port: pid-keyed registry, pid-order tick iteration,
@@ -1037,6 +1038,95 @@ B6 cleanup commit); net 0 vs B5 actual. Prior B6 audit entry claimed 20 —
 corrected here: the actual `grep -rn "PORTING-EXCEPTION (" modules pkg cmd
 internal | wc -l` count post-cleanup is **22**.
 
+**Correspondence audit** — `tools/pack/*` B6 scope → commit / decision:
+
+| TS surface (e1dea19f..9aadcec4) | goscape commit / decision |
+|---|---|
+| `tools/pack/Build.ts` orchestration deltas | `c812b781` (PackAll orchestration); BUILD_STARTUP_UPDATE **NOT-PORTED** row above |
+| `tools/pack/Compiler.ts` (deleted at pin) | superseded by native compiler; semantic deltas: `fee9d9f1` (constant case), `8ac35749` (bridge deltas 1-3), `effb79f2` (db_find withCount), `7bdd56e7` (local slot recycling per RuneScriptKt LocalTable) |
+| `tools/pack/CompilerSymbols.ts` (new at pin) | `8ac35749` (WriteCompilerSymbols, 32/32 ref-parity) + `0c8a9e0c` (smoke-pack stage) |
+| `tools/pack/NameMap.ts` + `tools/pack/Parse.ts` | `481ea70b` (CR normalisation) + `8e0beec0` (pal.png) + `d3cf8ec0` (4-field sprite meta) + `ccf1133a` (citation fixes) |
+| `tools/pack/PixPack.ts` | `d3cf8ec0` (4-field sprite meta tolerance) + `ccf1133a` (citation fix) |
+| `tools/pack/PackAll.ts` | `c812b781` (orchestration, 15 stages) + `a69634e7` (byte-parity gate) |
+| `tools/pack/PackAll.ts:73-75` build stamp | `rev244-b6-build-stamp` EXCEPTION (see decision row) |
+| `tools/pack/PackAll.ts:77-90` ondemand.zip | `rev244-b6-ondemand-zip` EXCEPTION (see decision row) |
+| `tools/pack/PackFile.ts` registries + name verify | `2cfec7ea` (animset/map/midi registries, universal config-name verification) + `58619dbc` (wire name-verify into live pack path) |
+| `tools/pack/chat/pack.ts` | `8e0beec0` (raw wordenc blob replaces four-txt Jagfile) |
+| `tools/pack/config/IdkConfig.ts` | `9e3f0d5b` (model/head modelFlags bits) |
+| `tools/pack/config/LocConfig.ts` | `9e3f0d5b` (model/origin/offset/scale modelFlags bits) |
+| `tools/pack/config/SpotAnimConfig.ts` | `9e3f0d5b` (modelFlags bits) |
+| `tools/pack/config/PackShared.ts` (modelFlags plumbing) | `b692e78b` (thread modelFlags through all packXxxConfigs) |
+| `tools/pack/config/InvConfig.ts` | `b1d1ce01` (dense stock order, remove sparse-stock 225 pass) |
+| `tools/pack/config/NpcConfig.ts` | `b1cb4832` (ambient/contrast/headicon/alwaysontop + model flags) + `658f2f3f` (alwaysontop unconditional emit fix) |
+| `tools/pack/config/ObjConfig.ts` | `88a01023` (resize/ambient/contrast + model_index flags) |
+| `tools/pack/config/SeqConfig.ts` | `619bd681` (preanim_move/postanim_move/duplicatebehavior) |
+| `tools/pack/config/PackShared.ts` (8 CRC verifications) | `c812b781` (eight BuildVerify callbacks wired in pack_configs.go) |
+| `tools/pack/graphics/pack.ts` | `27cfb146` (per-file gzip model/animset archives, drop 225 jag aggregation) |
+| `tools/pack/midi/pack.ts` | `27cfb146` (per-file gzip midi archives, drop 225 jag aggregation) |
+| `tools/pack/interface/PackClient.ts` + `PackShared.ts` | `d3cf8ec0` (CRC 316858560, `!layerId`, modelFlags; B1 `e4e881d8` hunks NOT double-applied — pre-244 hunks verified by-SHA) |
+| `tools/pack/map/Pack.js` | `a824e218` (maps to gzip + archive 4, level/x/z npc-obj emission, npc-type validation) |
+| `tools/pack/map/Worldmap.ts` | `3abb07a9` (packWater retired, underground-pass exception removed, floorcol additions, font members dropped, interleaved jag order) |
+| `tools/pack/sound/pack.ts` | `8e0beec0` (+ `ccf1133a` citation fixes; sound CONFIRMED-EXCEPTION documented) |
+| `tools/pack/sprites/media.ts` | `8e0beec0` (+ `ccf1133a` citation fix) |
+| `tools/pack/sprites/textures.ts` | `8e0beec0` (+ `ccf1133a` citation fix) |
+| `tools/pack/sprites/title.ts` | `8e0beec0` (+ `ccf1133a` citation fix) |
+| `tools/pack/versionlist/pack.ts` (new at pin) | `0f348913` (new pkg/pack/versionlist, closes B4 script.dat numbering window) |
+| **External:** `src/cache/DevThread.ts` | `c812b781` decision row — B1/B3 deferrals CLOSED via `rev244-b6-packall-modelflags` NO-OP boundary; `a977dd5a` flips B1 format window |
+| **External:** `src/app.ts` | decision rows above (BUILD_STARTUP_UPDATE / createWorker / printError NOT-PORTED; packAll NO-OP row) |
+| **External:** `src/util/RuneScriptCompiler.ts` (new at pin) | **NOT-PORTED** — TS wrapper for RuneScriptKt JAR invocation; goscape uses native Go compiler `pkg/pack/compiler/`; no JAR invocation needed |
+
+Every hunk of the tools/pack scope diff (+ 3 externals) maps to a commit or decision above — no unmapped hunks.
+
+**Gzip parity discovery (2026-06-05):** The B6 reference run revealed that TS's
+`node:zlib.gzipSync` (bun 1.2.20) produces byte-identical output to Cloudflare's
+zlib fork at commit `886098f3`, not to standard zlib. Go's `compress/gzip` at
+default level produces divergent deflate streams. User decision: ship a bit-exact
+port of `cf-zlib` deflate level 6 (`cfdeflate.go` / `cftrees.go`) as
+`pkg/io/gziputil/`. CompressGz re-routed through `CompressCFGz`. Corpus
+verification: 5,626/5,626 files byte-identical. `pkg/io/gziputil/` quality-review
+cleanup `79b7bdd8`. REFERENCES.md pin `f43bfe85` on `main`.
+
+**Live smoke record (2026-06-05/06; Client-Java @ pin `01f1608` via
+`Server244-ref/javaclient` worktree):** Login, walking, shop/bank interaction,
+in-game music, map crossing, NPC kill + despawn + respawn all PASSED. Three live
+findings discovered and fixed during the smoke session:
+
+| Finding | Fix SHA | Root cause |
+|---|---|---|
+| Client login rejected with reply 6 ("RuneScape has been updated!") | `4606660a` | Wire revision constant `225` not updated to `244`; goscape-specific constant with no TS counterpart file — its test pinned the stale value (PORTING-LESSONS §3: a test can pin a bug) |
+| No in-game music (every midi_song/midi_jingle no-opped) | `b26d8dd5` | Empty `world.content_path` silently disabled the midi registry load with no log line; warn added + config pointed at pinned 244 content |
+| NPC corpses never visually despawned from client view | `973e221b` | `processInfo` NPC compute loop had `if n.dead { continue }` guard preventing `ComputeNpc(active=false)` for dead RESPAWN-lifecycle NPCs; TS `World.ts:1066-1096` iterates dead NPCs deliberately |
+
+**Reference cache:** `ebc46c05` — sha256 manifest (Engine-TS `9aadcec4` + Content
+`e5d0282e` + RuneScriptKt-26 jar `38e16e2c`). 2,641 pack files + 32 `.sym` files.
+
+**Byte-parity verdict:** FULL TREE — 2,671/2,671 reference files byte-identical
+(acceptance test `pkg/packall/parity_test.go`, env `GOSCAPE_REF244_DIR`; `a69634e7`).
+`ondemand.zip` 4,764/4,764 content-identical (container bytes differ per
+`rev244-b6-ondemand-zip` EXCEPTION). goscape-extra server/maps csvs documented as
+runtime-consumer copies.
+
+**Windows closed by B6:**
+
+1. **B1 format window (`rev244-b1-format-window`)** — `a977dd5a`; seqtype.go
+   closure-note replaces the exception comment; `TestLoadSeqTypes_FromPack` and
+   `TestNewServer_LoadsWordencFilter` un-skipped, passing green against 244 cache.
+2. **B2 map window** — `a977dd5a`; 244 reference cache supplied.
+3. **B3 midi window** — `a977dd5a`; 244 reference cache supplied.
+4. **B4 script.dat numbering window** — `0f348913` (versionlist closes it) +
+   `a977dd5a` confirmation.
+5. **B1 DevThread deferral** — `c812b781` via `rev244-b6-packall-modelflags` NO-OP.
+6. **B3 `app.ts` packAll row** — same NO-OP boundary.
+7. **B3 client-smoke deferral** — live smoke PASSED (see above).
+8. **All format windows** — full 244 cache shipped by PackAll.
+
+**Definition-of-done checklist:**
+
+- [x] (a) Correspondence audit — every scope file mapped above (no unmapped hunks)
+- [x] (b) Live client smoke — PASSED (Client-Java `01f1608`; login/walk/shop/bank/music/map/npc all green; 3 live findings fixed)
+- [x] (c) Byte-parity — FULL TREE 2,671/2,671 reference files identical; ondemand.zip content-identical
+- [x] (d) Final gates (2026-06-06): `CGO_ENABLED=0 go build -trimpath ./...` exit 0; `go vet ./...` pre-existing-only (`pkg/util/build` self-assign, B1/B3/B4/B5 precedent); full `go test ./... -count=1 -timeout 20m` exit 0; `-race` (CGO_ENABLED=1) on pack/packall/gziputil/pixpack/script/protocol/world exit 0
+
 ---
 
 ## Recent audit history (full log in `docs/PORTING-CLOSED.md`)
@@ -1054,4 +1144,4 @@ internal | wc -l` count post-cleanup is **22**.
 - rev-244 B3 — engine core ported (Engine-TS `e1dea19f..9aadcec4`): PlayerList+pid `94f40331`/`fcc7e212`, entity deltas (setAnim>= `2f10deb6`, regen `dc33a57b`, modals `d5a70fb1`, overlay `ebce9706`), account_id `07e44a61`, InputTrackingBlob `2f67fed2`, rate-limit removal `f4e7571e`, OnDemand `b2e7adac`+`02ce3929`, handshake `1f69f708`, CrcTable `23cbbc02`, PreloadedPacks deleted `59240b70`, HTTP routes `1de71136`, token/WS `130f6583`, MidiPack `0f1ea964` (closes rev244-b2-midi-window), buildArea.clear `7797c9f7`. gap-db-datastruct-4 CLOSED; 3 new PORTING-EXCEPTION ids (crc-compare, ws-origin, ws-ondemand-gate); client smoke + all windows → B6 (user decision). Full correspondence audit in §rev-244 Bundle audit trail above.
 - rev-244 B4 — script runtime ported (Engine-TS `e1dea19f..9aadcec4`, 15 script files + 3 externals): opcode renumber `b663bf63`, huntIterator unify `84b8ea2a`/`491822b8` (NPC_FINDNEXT/npc_huntall split), HINT_NPC/PLAYER `631737b7`, DB_GETFIELD full-column `da896c1a`, InvOps untradeable-stop + wealth re-key `de628f37`, NPC_STATHEAL/MAP_BLOCKED/P_OPOBJ `cb4fab32`, BUFFER_FULL + IF_OPENOVERLAY `0d9f0ad4`, runner deltas `294f5c24`/`c6005b60`, count ops `4268ba95`, cycle stats `c321e11d`+`9a4d9b96`+`aeb70ba7`, MAP_PRODUCTION + MAP_LAST* `5cebb3e9`, IF_SETRECOL wire removal `b7c9d08f`, moved-handler citations `f093d4e6`. CLOSED: B2 IF_SETRECOL deferral, B2→B3→B4 overlay chain, NAI-162-D varbit stubs. 1 new PORTING-EXCEPTION id (`rev244-b4-bwout-reset`); cycle-stats 225-era gap closed (user decision); script.dat numbering window → B6. Full correspondence audit in §rev-244 Bundle audit trail above.
 - rev-244 B5 — server/login/db ported (Engine-TS `e1dea19f..9aadcec4`, 14 server files + 2 prisma schemas + 2 externals): login schema 000005 `8fddfb4d` (+`d08963c0` — attempts table, per-profile logged_out/logout_time backfill, message + dormant account_session/wealth_event tables, account.logout_time dropped), RATE_LIMITED/HOP_TIMER enum + bytes 16/9 `7eb38361`, 3-in-5s rate limit `53715e4d` (+`6804c746`), 45s hop timer `d5240e66`, getUnreadMessageCount `83a8e6d6` (+`5c05394a`), friends profile proto `704dad98`, multi-profile server `a7234653` (+`30d65a1e`), public_chat username re-key `062a3293` (+`550bade5`), world-side profile carriage + username public-chat log `1d173abc` (+`96e5fa60`), logger report/input_track seam re-key `4e4f8192`. CLOSED: PORTING-EXCEPTION login-server-7, B3 tracker rows 1/2/4/5 (rate limit, world_heartbeat dead-at-pin NO-OP, logger/friends shapes public-half, messageCount). 1 new PORTING-EXCEPTION id (`rev244-b5-startup-profile`); worker files + website-only schema models formally NOT-PORTED. Full correspondence audit in §rev-244 Bundle audit trail above.
-- rev-244 B6 — pack pipeline re-baseline (Engine-TS `e1dea19f..9aadcec4`, tools/pack/* + src/app.ts orchestration): per-type config packing with modelFlags (SeqConfig/LocConfig/ObjConfig/NpcConfig/SpotAnimConfig/FloConfig/IdkConfig/VarpConfig 244 shape) `b692e78b` ff., animset/map/midi registries `2cfec7ea`, seq preanim/postanim/duplicatebehavior `619bd681`, npc ambient/contrast/headicon/alwaysontop `b1cb4832`, obj resize/ambient/contrast `88a01023`, inv dense order `b1d1ce01`, idk/loc/spotanim model flags + 244 CRC pins `9e3f0d5b`, raw wordenc blob + client jags into cache archive 0 `8e0beec0`, per-file gzip model/animset/midi archives `27cfb146`, maps gzip + archive 4 `a824e218`, versionlist `0f348913`, PackAll orchestration (cache handle, build stamp, ondemand.zip) this commit. CLOSED: B1 DevThread row (NO-OP boundary `rev244-b6-packall-modelflags`), B3 app.ts packAll row (same), B4 script.dat numbering window (versionlist closes it), B3 client-smoke + all format windows (full cache shipped). `rev244-b1-format-window` exception in seqtype.go is NOW removable (244 cache supplied by PackAll). 2 new PORTING-EXCEPTION ids (`rev244-b6-build-stamp`, `rev244-b6-ondemand-zip`). 3 NOT-PORTED rows: `updateCompiler()`/BUILD_STARTUP_UPDATE (RuneScriptKt jar download — goscape uses native compiler); `createWorker()` hunks in app.ts (dskit-mapped); `printError` catch blocks (dskit error propagation). Marker audit: **20** `PORTING-EXCEPTION` mentions (was 22 at B5; net -2 reflects login-server-7 retirement marker removal + 3 B6 adds). Full correspondence audit in §rev-244 Bundle audit trail above.
+- rev-244 B6 — pack pipeline re-baseline (Engine-TS `e1dea19f..9aadcec4`, 31 tools/pack files + 3 externals): modelFlags plumbing `b692e78b`, PackFile registries `2cfec7ea`+`58619dbc`, CR normalisation `481ea70b`, SeqConfig `619bd681`, NpcConfig `b1cb4832`+`658f2f3f`, ObjConfig `88a01023`, InvConfig `b1d1ce01`, IdkConfig/LocConfig/SpotAnimConfig+CRC pins `9e3f0d5b`, wordenc blob+pal.png+cache-arch-0 `8e0beec0`, gzip model/animset/midi archives `27cfb146`, maps gzip+archive-4 `a824e218`, versionlist `0f348913`, PackAll orchestration `c812b781`, clientinterface CRC/!layerId/modelFlags `d3cf8ec0`, Worldmap 244 `3abb07a9`, CompilerSymbols `8ac35749`, compiler deltas `fee9d9f1`+`effb79f2`+`7bdd56e7`, cf-zlib bit-exact port `5e3cbef4`+`79b7bdd8`, byte-parity gate `a69634e7`, windows closed `a977dd5a`, review cleanup `ccf1133a`. Live smoke PASSED (Client-Java `01f1608`): 3 live-finds fixed `4606660a`/`b26d8dd5`/`973e221b`. Byte-parity: 2,671/2,671 reference files identical. CLOSED: B1 DevThread/format-window, B2 map, B3 midi/app.ts/client-smoke, B4 script.dat — all format windows. NOT-PORTED: `updateCompiler()`/BUILD_STARTUP_UPDATE, `createWorker()`, `printError`, `RuneScriptCompiler.ts`. 2 new PORTING-EXCEPTION ids (`rev244-b6-build-stamp`, `rev244-b6-ondemand-zip`); marker count **22** (confirmed). Full correspondence audit in §rev-244 Bundle audit trail above.
