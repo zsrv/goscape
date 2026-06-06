@@ -1129,14 +1129,118 @@ runtime-consumer copies.
 
 ### B7 — goscape-cli unpack (2026-06-06)
 
-Scope: `tools/unpack/sprite/media.ts`, `tools/unpack/sprite/textures.ts`, `tools/unpack/sprite/title.ts`.
-Plan: [`docs/superpowers/plans/handoffs/2026-06-06-RESUME-rev244-port-b7.md`](docs/superpowers/plans/handoffs/2026-06-06-RESUME-rev244-port-b7.md).
+Scope diff = `git -C ../Engine-TS diff --numstat e1dea19f..9aadcec4 -- tools/unpack`
+(31 files, +3,793 — all new at the pin) plus two out-of-slice src/ dependencies
+ported on first Go consumption (`src/cache/graphics/Model.ts`, `Pix.ts` —
+unchanged across the pin gap, invisible to diff slicing).
+Spec: [`docs/superpowers/specs/2026-06-06-rev244-b7-unpack-design.md`](docs/superpowers/specs/2026-06-06-rev244-b7-unpack-design.md).
+Plan: [`docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md`](docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md).
+46 commits, `bcbeb72a..677da8e6` (+ this audit).
 
-#### B7 decision rows (in progress)
+**Verification method — TS-output byte parity.** Each in-scope TS entrypoint
+was run AT THE PIN (bun, Server244-ref/engine) against a scratch copy of the
+pinned Content tree + the B6 byte-parity client cache copied to `data/unpack`;
+the resulting changed-sets (sha256), positive write-sets (mtime-marker), and
+normalized stdout were committed as per-family manifests
+(`pkg/unpack/testdata/ref244/`, `bcbeb72a`). Every Go family carries an
+env-gated parity test (`GOSCAPE_REF244_DIR`) replaying identical inputs through
+the shared `pkg/unpack/unpacktest` harness — ALL 16 GREEN. Notable inputs
+finding: `maps/ignore.csv` is MISSING at the Content pin, so the `worldmap.jag`
+unpack input was generated at the pin via `tools/pack/map/Worldmap.ts` with an
+empty `ignore.csv` shim (provenance immaterial to unpack parity — both sides
+consume the same jag). TS-Logger stdout timestamps are normalized away
+(`STDOUT-NORM`); stderr (console.time timings, console.error diagnostics) is
+not a parity channel.
+
+**Gates (2026-06-06):** `CGO_ENABLED=0 go build -trimpath ./...` exit 0;
+`go vet ./...` pre-existing-only (`pkg/util/build` self-assign); full
+`go test ./... -count=1` exit 0; `-race` (CGO_ENABLED=1) on
+pkg/unpack/cmd/goscape-cli/filestream/objtype exit 0; env-gated parity:
+all 16 unpack families + the B6 `pkg/packall` full-tree pack gate + the
+gziputil corpus exit 0 (B7 did not disturb B6 parity).
+
+#### B7 decision rows
 
 | Decision ID | Description | Commit |
 |---|---|---|
-| `rev244-b7-png-bytes` | Jimp-vs-image/png encoder byte divergence — parity is decoded-pixel-level. Go's `image/png` encoder produces different bytes than Jimp for identical pixel data; the `unpacktest` harness exempts result-side MODIFIED/ADDED `.png` entries from the exact-sha check and applies pixel-level comparison against the `<family>.post` reference snapshot instead. | Task-2 (`pkg/unpack/sprite`) |
+| `rev244-b7-png-bytes` | Jimp-vs-image/png encoder byte divergence — parity is decoded-pixel-level. The `unpacktest` harness pixel-compares `.png` files (manifest-side AND result-side extras) against the `<family>.post` reference snapshot instead of sha equality. Marker at the `pkg/unpack/internal/pix` PNG write site. | `f5f6667c` |
+| `rev244-b7-synth-curation` | **NOT-PORTED ×6:** `sound/{Generate,Match,Reorganize,RenameFile,PrintDirectory,PrintOrderDirectory}.ts` (~267 lines) — one-off dev-machine curation utilities depending on artifacts goscape does not have (`Generate` shells out to `java -cp data/pack/rs2client.jar jagex2.client.SoundSynth` over a `data/pack/377-synth` dump; the rest read/curate a hand-made `data/pack/synths.json`). Same closure shape as B1's `DoublyLinkList` row. Revisit only if those artifacts enter the tree. | spec §Scope (user-approved) |
+| `rev244-b7-pix-encode-half` | Pix.ts `packHeader`/`pack` (sprite ENCODE) intentionally unported — `pkg/pack/sprites` owns encoding (YAGNI; documented in `pkg/unpack/internal/pix/doc.go`, with the dropped `unpackJagToPng` explicit-dims / `preferHorizontal=false` dead branches). | `7ce5d54c` |
+| `rev244-b7-sound-keepnames` | sound `Wave.unpack` keepNames=false branch (CRC pre-scan + reuse path, TS ~27-38/60-78) unported — unreachable from the entrypoint (default `keepNames=true`); documented in `pkg/unpack/sound/sound.go`. | `abd2a247` |
+
+**Correspondence audit** — every B7-scope file → Go commit / decision:
+
+| TS file (e1dea19f..9aadcec4) | lines | goscape commit / decision |
+|---|---|---|
+| `tools/unpack/checksum.ts` | +18 | `2a2aa92f` pkg/unpack/checksum |
+| `tools/unpack/config/Common.ts` | +3 | `5031dd67` ConfigIdx |
+| `tools/unpack/config/Compare.ts` | +69 | `2a2aa92f` config.Compare |
+| `tools/unpack/config/FloConfig.ts` | +47 | `5031dd67` |
+| `tools/unpack/config/IdkConfig.ts` | +149 | `3106b0b2` |
+| `tools/unpack/config/LocConfig.ts` | +330 | `3106b0b2` (+ `726bd71c` active gbool fix, `2792322b` review fixes) |
+| `tools/unpack/config/NpcConfig.ts` | +188 | `3106b0b2` |
+| `tools/unpack/config/ObjConfig.ts` | +258 | `3106b0b2` |
+| `tools/unpack/config/SeqConfig.ts` | +138 | `5031dd67` (+ `66b3c782` notes) |
+| `tools/unpack/config/SpotAnimConfig.ts` | +142 | `3106b0b2` |
+| `tools/unpack/config/Unpack.ts` | +368 | `5031dd67` (readConfigIdx) + `6c5ebdb5` (driver/names/reorder/merge/locmodels; + `acb15df9` review fixes) |
+| `tools/unpack/config/VarpConfig.ts` | +33 | `5031dd67` |
+| `tools/unpack/graphics/UnpackAnims.ts` | +117 | `4ea12286` (+ `9989046e` review fixes) |
+| `tools/unpack/graphics/UnpackModels.ts` | +57 | `4ea12286` |
+| `tools/unpack/interface/Unpack.ts` | +875 | `13e53d60` (binary decode) + `cc1426d8` (naming/.if export; + `006a6c10`/`be6e36ad` review fixes) |
+| `tools/unpack/map/Unpack.ts` | +264 | `07c5e205` (+ `478b06e4` shared-harness parity test) |
+| `tools/unpack/midi/Unpack.ts` | +43 | `dd618b46` |
+| `tools/unpack/sound/Generate.ts` | +24 | **NOT-PORTED** (`rev244-b7-synth-curation`) |
+| `tools/unpack/sound/Match.ts` | +99 | **NOT-PORTED** (`rev244-b7-synth-curation`) |
+| `tools/unpack/sound/PrintDirectory.ts` | +30 | **NOT-PORTED** (`rev244-b7-synth-curation`) |
+| `tools/unpack/sound/PrintOrderDirectory.ts` | +44 | **NOT-PORTED** (`rev244-b7-synth-curation`) |
+| `tools/unpack/sound/RenameFile.ts` | +26 | **NOT-PORTED** (`rev244-b7-synth-curation`) |
+| `tools/unpack/sound/Reorganize.ts` | +44 | **NOT-PORTED** (`rev244-b7-synth-curation`) |
+| `tools/unpack/sound/Unpack.ts` | +230 | `abd2a247` (+ `c2581295` first-wins lookup) |
+| `tools/unpack/sprite/media.ts` | +17 | `f5f6667c` |
+| `tools/unpack/sprite/textures.ts` | +19 | `f5f6667c` |
+| `tools/unpack/sprite/title.ts` | +39 | `f5f6667c` |
+| `tools/unpack/versionlist/anim_index.ts` | +13 | `dd618b46` |
+| `tools/unpack/versionlist/midi_index.ts` | +14 | `dd618b46` |
+| `tools/unpack/versionlist/model_index.ts` | +62 | `dd618b46` (+ `f26df389` close-error fix) |
+| `tools/unpack/worldmap/Unpack.ts` | +33 | `f955613d` (+ `da5d70ca` test cleanup) |
+| `src/cache/graphics/Model.ts` | (dep) | `9020486e` pkg/unpack/internal/model (+ `e762a947` review fixes) — first Go consumer |
+| `src/cache/graphics/Pix.ts` | (dep) | `7ce5d54c` pkg/unpack/internal/pix (+ `e67b9ea9`/`8d711f52`/`cee67343` — sheet-failure path, errorf threading, degenerate-data TS-equivalence) — first Go consumer; encode half `rev244-b7-pix-encode-half` |
+
+Supporting infrastructure (no TS counterpart): parity manifests `bcbeb72a`;
+`pkg/unpack/unpacktest` harness `9d87daa5`+`bf5ec7eb`+`6d87932e`+`d14a82c8`
+(+spaced-path fix in `dd618b46`, png changed-set exemption in `f5f6667c`);
+`cmd_unpack.go` CLI verb `f21fb0e0`+`2ff21fff` (every family wired —
+call-site rule satisfied). Two shared-file changes rode along: `pkg/io/filestream`
+decompress now decodes exactly one gzip member (`20b61dc5`, supersedes
+`6c5ebdb5`'s broad tolerance — versioned cache entries are a complete member +
+2-byte version trailer; node `gunzipSync` ignores trailing garbage =
+`Multistream(false)`); `pkg/objtype/flotype.go` gained RGB/Texture/Overlay/
+Occlude decode (additive, TS FloType.ts-faithful defaults, `f955613d`).
+
+Every file of the B7 scope maps to a commit or decision row above — no
+unmapped hunks.
+
+#### rev-244 umbrella close-out (2026-06-06)
+
+B7 was the LAST bundle. With it, every umbrella definition-of-done item
+(spec `docs/superpowers/specs/2026-06-03-rev244-port-design.md`) is met:
+
+- [x] (a) Change-for-change correspondence — per-bundle audit trails B1..B7
+  above cover the full cross-pin diff `e1dea19f..9aadcec4`; B7 closes the
+  final surface (`tools/unpack`).
+- [x] (b) Live 244-client smoke — PASSED at B6.
+- [x] (c) Pack byte-parity — FULL TREE at B6; re-verified green after B7.
+- [x] (d) Suite green incl. `-race` — B7 final gates above.
+- [x] Scope decisions: `tools/unpack` → `goscape-cli unpack` (B7); worker
+  evaluation delivered (B5 early deliverable); B7 final integration review:
+  READY.
+
+**The rev-244 port is COMPLETE.** Non-blocking residuals carried forward
+(not bundle work): `config.yaml` hardcodes the absolute Server244-ref
+content path (B6 live-smoke local override); `TestDecodeRealCacheBlob`
+Arc-26 residual decoder bug in `pkg/script/file.go` (B7's unpack scope never
+reads script blobs — unchanged); `ValidateConfigPackNames` multi-orphan
+error is map-iteration-ordered (T4-era minor).
 
 ---
 

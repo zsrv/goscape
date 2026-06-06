@@ -1,7 +1,8 @@
 # rev-244 port — 225→244 server delta — umbrella design
 
 **Date:** 2026-06-03
-**Status:** Approved
+**Status:** COMPLETE (2026-06-06 — B1..B7 all shipped; definition-of-done
+(a)-(d) met; see PORTING.md §rev-244 Bundle audit trail §B7 close-out)
 **Branch:** all work lands on `rev-244` (cut from `rev-225` at `bf073fcc`)
 
 ## Goal
