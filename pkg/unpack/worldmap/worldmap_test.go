@@ -12,83 +12,6 @@ import (
 	"github.com/zsrv/goscape/pkg/unpack/unpacktest"
 )
 
-// buildWorldmapJag writes a worldmap.jag containing floorcol.dat and
-// labels.dat built from the provided flo entries and label entries.
-//
-// floEntries: each entry is (underlay uint32, overlay uint32, rgb int,
-// texture int (-1 = none), overlay bool, occlude bool, debugname string).
-// Labels: each entry is (text string, x, y uint16, font uint8).
-func buildWorldmapJag(t *testing.T,
-	floEntries []floEntry,
-	labelEntries []labelEntry,
-	serverFlo *packet.Packet,
-	clientJag *jagfile.Jagfile,
-	packDir string,
-) string {
-	t.Helper()
-
-	// Build floorcol.dat:
-	// g2 = count, then per entry: g4 underlay, g4 overlay.
-	floorcol := packet.Alloc(1)
-	defer floorcol.Release()
-	floorcol.P2(uint16(len(floEntries)))
-	for _, fe := range floEntries {
-		floorcol.P4(fe.underlay)
-		floorcol.P4(fe.overlay)
-	}
-
-	// Build labels.dat:
-	// g2 = count, then per label: gjstr(text), g2(x), g2(y), g1(font).
-	labelsP := packet.Alloc(1)
-	defer labelsP.Release()
-	labelsP.P2(uint16(len(labelEntries)))
-	for _, le := range labelEntries {
-		labelsP.PJStrLF(le.text)
-		labelsP.P2(le.x)
-		labelsP.P2(le.y)
-		labelsP.P1(le.font)
-	}
-
-	// Construct worldmap.jag.
-	wm := jagfile.NewEmptyJagfile(false)
-	wm.Write("floorcol.dat", floorcol)
-	wm.Write("labels.dat", labelsP)
-
-	dir := t.TempDir()
-	wmPath := filepath.Join(dir, "worldmap.jag")
-	if err := wm.Save(wmPath); err != nil {
-		t.Fatalf("Save worldmap.jag: %v", err)
-	}
-
-	// Build server flo.dat.
-	if err := os.MkdirAll(filepath.Join(packDir, "server"), 0o755); err != nil {
-		t.Fatalf("mkdir server: %v", err)
-	}
-	if err := serverFlo.Save(filepath.Join(packDir, "server", "flo.dat"), serverFlo.Length(), 0); err != nil {
-		t.Fatalf("Save server/flo.dat: %v", err)
-	}
-
-	// Build client/config jagfile with flo.dat inside.
-	if err := os.MkdirAll(filepath.Join(packDir, "client"), 0o755); err != nil {
-		t.Fatalf("mkdir client: %v", err)
-	}
-	if err := clientJag.Save(filepath.Join(packDir, "client", "config")); err != nil {
-		t.Fatalf("Save client/config: %v", err)
-	}
-
-	return dir
-}
-
-type floEntry struct {
-	underlay, overlay uint32
-}
-
-type labelEntry struct {
-	text string
-	x, y uint16
-	font uint8
-}
-
 // buildFloPackets constructs the server and client flo packets for a list of
 // flo configs. Each config is (rgb int, texture int, overlay bool, occlude bool, debugname string).
 type floConfig struct {
@@ -144,52 +67,6 @@ func buildFloPackets(t *testing.T, cfgs []floConfig) (*packet.Packet, *jagfile.J
 		t.Fatalf("LoadJagfile client/config: %v", err)
 	}
 	return server, loaded
-}
-
-// writeTexturePack writes <srcDir>/pack/texture.pack with the given id=name entries.
-func writeTexturePack(t *testing.T, srcDir string, entries map[int]string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Join(srcDir, "pack"), 0o755); err != nil {
-		t.Fatalf("mkdir pack: %v", err)
-	}
-	var sb strings.Builder
-	for id, name := range entries {
-		sb.WriteString(strings.Join([]string{string(rune('0' + id)), "=", name, "\n"}, ""))
-		_ = id // suppress lint; we reconstruct manually below
-	}
-	// Write entries properly.
-	var lines []string
-	for id, name := range entries {
-		lines = append(lines, strings.Join([]string{itoa(id), "=", name}, ""))
-	}
-	content := strings.Join(lines, "\n") + "\n"
-	if err := os.WriteFile(filepath.Join(srcDir, "pack", "texture.pack"), []byte(content), 0o644); err != nil {
-		t.Fatalf("Write texture.pack: %v", err)
-	}
-	_ = sb
-}
-
-func itoa(n int) string {
-	buf := make([]byte, 0, 10)
-	if n < 0 {
-		buf = append(buf, '-')
-		n = -n
-	}
-	if n == 0 {
-		return "0"
-	}
-	var digits [10]byte
-	i := 0
-	for n > 0 {
-		digits[i] = byte('0' + n%10)
-		n /= 10
-		i++
-	}
-	for i > 0 {
-		i--
-		buf = append(buf, digits[i])
-	}
-	return string(buf)
 }
 
 // TestUnpack_NoTexture verifies the no-texture output line format.
