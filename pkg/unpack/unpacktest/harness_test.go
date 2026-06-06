@@ -274,6 +274,66 @@ func TestAssertManifest_Mismatches(t *testing.T) {
 		}
 	})
 
+	t.Run("spaced paths happy path", func(t *testing.T) {
+		// Pin that the manifest parser handles paths containing spaces.
+		// Commit dd618b46 fixed parseManifest to use parts[1:len-1] join for
+		// ADDED/MODIFIED and parts[1:] join for DELETED/WROTE, so a path like
+		// "data/with space.txt" is reconstructed correctly instead of being split.
+		spacedContent := []byte("spaced file content")
+		spacedBinContent := []byte("binary content")
+
+		spacedManifest := fmt.Sprintf(
+			"ADDED data/with space.txt %s\nDELETED old file.txt\nWROTE data/with space.txt\nWROTE CACHE:pack dir/file two.bin\nSTDOUT-NORM %s\n",
+			hashBytes(spacedContent),
+			hashBytes(stdoutBytes),
+		)
+		p := writeManifest(spacedManifest)
+
+		// postDir already has data/a.txt; create the spaced file.
+		writeFile(t, filepath.Join(postDir, "data", "with space.txt"), spacedContent)
+		_ = spacedBinContent // not checked by WROTE (registry-pack exempt path)
+
+		r := Result{
+			Content: []Entry{
+				{Kind: "ADDED", Path: "data/with space.txt", Sum: hashBytes(spacedContent)},
+				{Kind: "DELETED", Path: "old file.txt"},
+			},
+			Wrote:        []string{"data/with space.txt", "CACHE:pack dir/file two.bin"},
+			Stdout:       stdoutBytes,
+			PostDir:      postDir,
+			CachePostDir: cachePostDir,
+		}
+		mismatches := assertManifestFile(t, p, refRoot, "test", r)
+		if len(mismatches) != 0 {
+			t.Errorf("spaced paths happy path: want 0 mismatches, got %d: %v", len(mismatches), mismatches)
+		}
+	})
+
+	t.Run("spaced path wrong sha", func(t *testing.T) {
+		// Ensure a wrong sha is still detected when the path contains spaces.
+		spacedContent := []byte("spaced file content")
+		spacedManifest := fmt.Sprintf(
+			"ADDED data/with space.txt %s\nSTDOUT-NORM %s\n",
+			hashBytes(spacedContent),
+			hashBytes(stdoutBytes),
+		)
+		p := writeManifest(spacedManifest)
+
+		r := Result{
+			Content: []Entry{
+				{Kind: "ADDED", Path: "data/with space.txt", Sum: hashBytes([]byte("wrong content"))},
+			},
+			Wrote:        nil,
+			Stdout:       stdoutBytes,
+			PostDir:      postDir,
+			CachePostDir: cachePostDir,
+		}
+		mismatches := assertManifestFile(t, p, refRoot, "test", r)
+		if !anyContains(mismatches, "data/with space.txt") {
+			t.Errorf("spaced path wrong sha: expected mismatch mentioning \"data/with space.txt\", got: %v", mismatches)
+		}
+	})
+
 	t.Run("extra WROTE in result", func(t *testing.T) {
 		p := writeManifest(baseManifest)
 		r := Result{

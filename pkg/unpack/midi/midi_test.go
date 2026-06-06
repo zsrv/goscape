@@ -109,16 +109,26 @@ func TestUnpack_SongsAndJingles(t *testing.T) {
 // TestUnpack_MissingDataWarning verifies that a missing cache entry emits the
 // exact warning "Missing midi id=<i>" and that g1() is consumed before the check
 // (i.e., the loop does not desync).
+//
+// The desync guard works as follows: id=1 is MISSING and has flag=1 (jingles).
+// id=2 is PRESENT and has flag=0 (songs).  If Unpack consumed the flag byte
+// AFTER the missing-data check (i.e., skipped the g1 on the missing path) the
+// loop would desync: id=2 would read id=1's flag byte (1 = jingles) and write
+// to jingles/ instead of songs/.  The assertion that id=2 lands in songs/
+// therefore only passes when g1 is consumed unconditionally before the check.
 func TestUnpack_MissingDataWarning(t *testing.T) {
 	cacheDir := t.TempDir()
 	srcDir := t.TempDir()
 
-	// Three midis: id=0 present, id=1 missing, id=2 present.
-	// jingle flags all 0 (songs).
-	midiIndex := []byte{0, 0, 0}
+	// Three midis: id=0 present (flag=0, song), id=1 missing (flag=1, jingle),
+	// id=2 present (flag=0, song).
+	// Distinct flags make the desync assertion load-bearing: if g1 is NOT consumed
+	// for the missing id, id=2 would read id=1's flag byte (1) and land in
+	// jingles/ instead of songs/.
+	midiIndex := []byte{0, 1, 0}
 	data0 := []byte("MThd-0")
 	data2 := []byte("MThd-2")
-	// Pass nil for id=1 to leave it absent.
+	// Pass nil for id=1 to leave it absent in the cache.
 	buildTestCache(t, cacheDir, midiIndex, [][]byte{data0, nil, data2})
 
 	var out bytes.Buffer
@@ -132,12 +142,20 @@ func TestUnpack_MissingDataWarning(t *testing.T) {
 		t.Errorf("warnings: got %v, want [Missing midi id=1]", warnLines)
 	}
 
-	// id=0 and id=2 must have been written correctly.
+	// id=0 must be in songs/ (flag=0).
 	if got, err := os.ReadFile(filepath.Join(srcDir, "songs", "midi_0.mid")); err != nil || !bytes.Equal(got, data0) {
 		t.Errorf("songs/midi_0.mid: got %q err %v", got, err)
 	}
+
+	// id=2 must be in songs/ (flag=0).
+	// If g1 was NOT consumed for the missing id=1, id=2 would read id=1's flag
+	// byte (1 = jingles) and land in jingles/ — this assertion catches that desync.
 	if got, err := os.ReadFile(filepath.Join(srcDir, "songs", "midi_2.mid")); err != nil || !bytes.Equal(got, data2) {
-		t.Errorf("songs/midi_2.mid: got %q err %v", got, err)
+		t.Errorf("songs/midi_2.mid: got %q err %v (desync: check if it landed in jingles/ instead)", got, err)
+	}
+	// Confirm id=2 did NOT land in jingles/ (belt-and-suspenders desync check).
+	if _, err := os.Stat(filepath.Join(srcDir, "jingles", "midi_2.mid")); err == nil {
+		t.Errorf("jingles/midi_2.mid exists: g1 flag byte was not consumed for missing id=1, causing index desync")
 	}
 }
 
