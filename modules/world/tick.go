@@ -1072,13 +1072,19 @@ func (s *Server) processInfo() {
 		}
 
 		// NAI-29 Bundle 4 Task 4.5 — parallel-write npc state push.
-		// Iterates s.npcLoop (active list, parallel to T4.4's per-player
-		// iteration over s.players.all()); skips slots where n is nil or
-		// n.dead is true (goscape "dead-bool divergence" — dead npcs
-		// remain in npcLoop until the existing dead-cleanup pass prunes
-		// them; we don't push their state to rsbuf).
+		// Iterates s.npcLoop (all NPCs, alive and dead) mirroring TS
+		// World.ts:1066-1096 which iterates this.npcs unconditionally and
+		// passes npc.isActive (= !dead) to rsbuf.computeNpc. RESPAWN-lifecycle
+		// dead NPCs must receive ComputeNpc(active=false) each tick so the rsbuf
+		// flips Active=false and writeNpcs removes the corpse from client
+		// tracking. Skipping dead NPCs (pre-fix "dead-bool divergence") left
+		// Active=true in the rsbuf, pinning the corpse indefinitely on clients
+		// (B6 live-smoke: "corpse remains on ground after death" — rev-244 B6).
+		// DESPAWN-lifecycle dead NPCs have nid=-1 (set by Cleanup in removeNpc)
+		// or a valid nid with b.npcs[nid]==nil (set by rsbuf.RemoveNpc) — both
+		// cause ComputeNpc to no-op safely (nid<0 guard / nil-slot guard).
 		for _, n := range s.npcLoop {
-			if n == nil || n.dead {
+			if n == nil {
 				continue
 			}
 			var sayPtr *string

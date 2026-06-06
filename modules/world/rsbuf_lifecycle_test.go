@@ -2,6 +2,8 @@ package world
 
 import (
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
 // Smoke test for NAI-29 Bundle 4 Task 4.2 — AddPlayer / RemovePlayer
@@ -87,5 +89,68 @@ func TestServer_RemoveNpcCleansRsbufSlot(t *testing.T) {
 	// Smoke: post-remove queries must not panic.
 	if got := s.rsbuf.GetNpcObservers(int32(n.nid)); got != 0 {
 		t.Errorf("GetNpcObservers post-remove: got %d, want 0", got)
+	}
+}
+
+// TestDeadRespawnNpcPushesActiveFalseToRsbuf is the regression gate for the
+// B6 live-smoke bug: "NPC corpse remains on ground indefinitely after death."
+//
+// Root cause (tick.go processInfo compute loop): the loop skipped dead NPCs
+// with `if n.dead { continue }`, never calling ComputeNpc with active=false.
+// The rsbuf retained the NPC's last-alive Active=true state. Clients kept
+// tracking the corpse indefinitely.
+//
+// TS reference: World.ts:1066-1096 iterates all NPCs (including dead) and
+// calls rsbuf.computeNpc(..., npc.isActive, ...) unconditionally. Dead NPCs
+// (isActive=false) therefore receive Active=false each tick, causing
+// writeNpcs to remove them from client tracking on the first dead tick.
+//
+// Fix: remove the n.dead guard from the compute loop so RESPAWN-lifecycle
+// dead NPCs receive ComputeNpc(active=false) each tick until respawn.
+func TestDeadRespawnNpcPushesActiveFalseToRsbuf(t *testing.T) {
+	s := newTestServer(t)
+	s.renderer = rsbuf.NewRenderer()
+
+	// Spawn a RESPAWN-lifecycle NPC (default for NewNpc).
+	n := newTestNpc(0)
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	nid := int32(n.nid)
+
+	// Simulate an "alive" tick: push Active=true into rsbuf, as processInfo
+	// would do when the NPC is alive. This mirrors the state before death.
+	s.rsbuf.ComputeNpc(
+		nid, int32(n.typeId),
+		n.x, n.level, n.z,
+		n.tele,
+		int8(n.runDir), int8(n.walkDir),
+		true, // active
+		0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
+	)
+	if entry := s.rsbuf.NpcForTest(nid); entry == nil || !entry.Active {
+		t.Fatal("pre-condition: rsbuf NPC should be Active=true while alive")
+	}
+
+	// Mark NPC dead (as npc_del → removeNpc does for RESPAWN-lifecycle NPCs).
+	n.dead = true
+
+	// Drive one processInfo call. Before the fix, the dead-NPC guard skips
+	// ComputeNpc, leaving Active=true. After the fix, ComputeNpc is called
+	// with active=false, setting Active=false in the rsbuf — causing clients
+	// to stop tracking the corpse (writeNpcs removes any tracked NPC whose
+	// rsbuf entry has Active=false).
+	s.processInfo()
+
+	entry := s.rsbuf.NpcForTest(nid)
+	if entry == nil {
+		t.Fatal("rsbuf NPC slot should not be nil for RESPAWN-lifecycle dead NPC (only DESPAWN nils the slot)")
+	}
+	if entry.Active {
+		t.Errorf("rsbuf NPC Active = true after NPC marked dead; want false. "+
+			"Root cause: processInfo skipped ComputeNpc(active=false) for dead NPC "+
+			"(tick.go dead-bool guard), leaving corpse visible to clients indefinitely. "+
+			"Fix: remove n.dead guard so dead RESPAWN NPCs get ComputeNpc(active=false). "+
+			"TS ref: World.ts:1066-1096 iterates ALL npcs with npc.isActive.")
 	}
 }
