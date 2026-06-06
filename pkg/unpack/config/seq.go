@@ -103,6 +103,8 @@ func unpackSeq(cfg *ConfigIdx, id int, seqPack, animPack, objPack *pack.PackFile
 			// TS lines 72-78: replaceheldleft
 			// replaceheldleft = dat.g2(); if === 0 → "hide" else ObjPack.getById(replaceheldleft - 512)
 			// NOTE: the value subtracted is the raw wire value, not id. This is what TS does.
+			// NOTE: deliberately NO obj_N fallback and NO warning — TS emits the bare
+			// getById result, which is '' for an unregistered id. Parity over politeness.
 			replaceheldleft := int(dat.G2())
 			if replaceheldleft == 0 {
 				def = append(def, "replaceheldleft=hide")

@@ -25,6 +25,15 @@ type ConfigIdx struct {
 // count = g2 from idx; per-entry len = g2, pos accumulates starting at 2.
 // TS calls printFatalError on missing idx/dat; Go returns an error instead.
 //
+// dat must be the RAW <type>.dat archive blob: its first two bytes are the
+// entry count, so entry data starts at offset 2 — that is why pos accumulates
+// from 2. Passing an already-sliced (post-header) blob shifts every position
+// and trips the per-entry incomplete-read warnings.
+//
+// The returned ConfigIdx is NOT safe for concurrent use: every unpacker seeks
+// the shared Dat packet (Dat.Pos) before reading. Unpack sequentially, or
+// build one ConfigIdx per goroutine.
+//
 // TS source: tools/unpack/config/Unpack.ts:22-45.
 func ReadConfigIdx(idx, dat *packet.Packet) (*ConfigIdx, error) {
 	if idx == nil || dat == nil {
