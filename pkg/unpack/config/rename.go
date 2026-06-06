@@ -42,11 +42,27 @@ func renameModelIdk(modelID int, name string, modelPack *pack.PackFile, srcDir s
 
 	// Move the file on disk (or report missing).
 	// TS IdkConfig.ts:27-32.
+	// listFilesExt is called per-invocation (intentionally): renames mutate the tree,
+	// so a cached listing would go stale. O(N×M) is accepted (TS does the same).
 	filePath := findFileInList(existingFiles, current+".ob2")
 	if filePath != "" {
 		dest := filepath.Join(srcDir, "models", "idk", name+".ob2")
-		_ = os.MkdirAll(filepath.Dir(dest), 0o755)
-		_ = os.Rename(filePath, dest)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			if errorf != nil {
+				errorf("rename idk %s -> %s failed (mkdir): %v", current, name, err)
+			}
+			// TS fs.renameSync throws, making registration unreachable.
+			// Go degrades: skip registry update and return the OLD name so the
+			// caller still has a valid (stale) name to emit rather than an empty string.
+			return current
+		}
+		if err := os.Rename(filePath, dest); err != nil {
+			if errorf != nil {
+				errorf("rename idk %s -> %s failed: %v", current, name, err)
+			}
+			// Same degradation: return old name, skip registry update.
+			return current
+		}
 	} else if errorf != nil {
 		errorf("Model not found on filesystem idk %s", current)
 	}
@@ -87,11 +103,27 @@ func renameModelNpc(modelID int, name string, modelPack *pack.PackFile, srcDir s
 
 	// Move the file on disk (or report missing).
 	// TS NpcConfig.ts:27-32.
+	// listFilesExt is called per-invocation (intentionally): renames mutate the tree,
+	// so a cached listing would go stale. O(N×M) is accepted (TS does the same).
 	filePath := findFileInList(existingFiles, current+".ob2")
 	if filePath != "" {
 		dest := filepath.Join(srcDir, "models", "npc", name+".ob2")
-		_ = os.MkdirAll(filepath.Dir(dest), 0o755)
-		_ = os.Rename(filePath, dest)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			if errorf != nil {
+				errorf("rename npc %s -> %s failed (mkdir): %v", current, name, err)
+			}
+			// TS fs.renameSync throws, making registration unreachable.
+			// Go degrades: skip registry update and return the OLD name so the
+			// caller still has a valid (stale) name to emit rather than an empty string.
+			return current
+		}
+		if err := os.Rename(filePath, dest); err != nil {
+			if errorf != nil {
+				errorf("rename npc %s -> %s failed: %v", current, name, err)
+			}
+			// Same degradation: return old name, skip registry update.
+			return current
+		}
 	} else if errorf != nil {
 		errorf("Model not found on filesystem npc %s", current)
 	}
@@ -132,11 +164,27 @@ func renameModelObj(modelID int, name string, modelPack *pack.PackFile, srcDir s
 
 	// Move the file on disk (or report missing).
 	// TS ObjConfig.ts:27-32.
+	// listFilesExt is called per-invocation (intentionally): renames mutate the tree,
+	// so a cached listing would go stale. O(N×M) is accepted (TS does the same).
 	filePath := findFileInList(existingFiles, current+".ob2")
 	if filePath != "" {
 		dest := filepath.Join(srcDir, "models", "obj", name+".ob2")
-		_ = os.MkdirAll(filepath.Dir(dest), 0o755)
-		_ = os.Rename(filePath, dest)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			if errorf != nil {
+				errorf("rename obj %s -> %s failed (mkdir): %v", current, name, err)
+			}
+			// TS fs.renameSync throws, making registration unreachable.
+			// Go degrades: skip registry update and return the OLD name so the
+			// caller still has a valid (stale) name to emit rather than an empty string.
+			return current
+		}
+		if err := os.Rename(filePath, dest); err != nil {
+			if errorf != nil {
+				errorf("rename obj %s -> %s failed: %v", current, name, err)
+			}
+			// Same degradation: return old name, skip registry update.
+			return current
+		}
 	} else if errorf != nil {
 		errorf("Model not found on filesystem obj %s", current)
 	}
@@ -177,11 +225,27 @@ func renameModelSpot(modelID int, name string, modelPack *pack.PackFile, srcDir 
 
 	// Move the file on disk (or report missing).
 	// TS SpotAnimConfig.ts:27-32.
+	// listFilesExt is called per-invocation (intentionally): renames mutate the tree,
+	// so a cached listing would go stale. O(N×M) is accepted (TS does the same).
 	filePath := findFileInList(existingFiles, current+".ob2")
 	if filePath != "" {
 		dest := filepath.Join(srcDir, "models", "spot", name+".ob2")
-		_ = os.MkdirAll(filepath.Dir(dest), 0o755)
-		_ = os.Rename(filePath, dest)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			if errorf != nil {
+				errorf("rename spot %s -> %s failed (mkdir): %v", current, name, err)
+			}
+			// TS fs.renameSync throws, making registration unreachable.
+			// Go degrades: skip registry update and return the OLD name so the
+			// caller still has a valid (stale) name to emit rather than an empty string.
+			return current
+		}
+		if err := os.Rename(filePath, dest); err != nil {
+			if errorf != nil {
+				errorf("rename spot %s -> %s failed: %v", current, name, err)
+			}
+			// Same degradation: return old name, skip registry update.
+			return current
+		}
 	} else if errorf != nil {
 		errorf("Model not found on filesystem spot %s", current)
 	}

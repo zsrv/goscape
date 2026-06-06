@@ -57,7 +57,7 @@ type LocModels struct {
 // Called by Env.UnpackLocModels; also directly by tests.
 //
 // TS source: tools/unpack/config/LocConfig.ts:25-129.
-func unpackLocModels(cfg *ConfigIdx, id int) LocModels {
+func unpackLocModels(cfg *ConfigIdx, id int, warnf func(string, ...any)) LocModels {
 	dat := cfg.Dat
 	dat.Pos = cfg.Pos[id]
 
@@ -155,6 +155,13 @@ func unpackLocModels(cfg *ConfigIdx, id int) LocModels {
 			for range states + 1 {
 				dat.G2()
 			}
+		default:
+			// TS LocConfig.ts has no default either and would loop forever on unknown
+			// opcodes here (unlike unpackLoc which calls printFatalError). Go bails
+			// instead — cannot affect parity because no reference output exists for
+			// data that hangs TS.
+			warnf("unknown loc model code %d", code)
+			return LocModels{Models: models, LdModels: ldModels}
 		}
 	}
 

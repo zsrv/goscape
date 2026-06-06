@@ -167,6 +167,6 @@ func (e *Env) UnpackLoc(cfg *ConfigIdx, id int) ([]string, error) {
 //
 // TS source: tools/unpack/config/LocConfig.ts:25-129.
 func (e *Env) UnpackLocModels(cfg *ConfigIdx, id int) LocModels {
-	return unpackLocModels(cfg, id)
+	return unpackLocModels(cfg, id, e.warnf)
 }
 

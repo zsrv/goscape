@@ -289,6 +289,54 @@ func TestUnpackIdk_ModelFileMissing_Errorf(t *testing.T) {
 	}
 }
 
+// TestRenameModelIdk_MkdirFail_ErrorfFiredRegistryUnchanged verifies that when the
+// destination subdirectory cannot be created (models/idk is a plain file, so MkdirAll
+// cannot create models/idk/ as a directory), errorf is called and the registry is NOT
+// updated — the old name (model_5) is returned so the caller still has a valid name.
+// TS fs.renameSync would throw (process-fatal); Go degrades gracefully.
+func TestRenameModelIdk_MkdirFail_ErrorfFiredRegistryUnchanged(t *testing.T) {
+	srcDir := t.TempDir()
+
+	// Create models/ as a real directory containing the source .ob2 so that
+	// findFileInList can locate it during the listing pass.
+	modelsDir := filepath.Join(srcDir, "models")
+	if err := os.MkdirAll(modelsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modelsDir, "model_5.ob2"), []byte("fake"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Block MkdirAll(models/idk/) by placing a regular FILE named "idk" inside models/.
+	// os.MkdirAll will fail because it cannot convert a file into a directory.
+	if err := os.WriteFile(filepath.Join(modelsDir, "idk"), []byte("blocker"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	modelPack := makePackFile(5, "model_5")
+
+	var errs []string
+	errorf := func(f string, a ...any) { errs = append(errs, fmt.Sprintf(f, a...)) }
+
+	// renameModelIdk directly: id=5, name="myhair"
+	got := renameModelIdk(5, "myhair", modelPack, srcDir, errorf)
+
+	// errorf must have been called
+	if len(errs) == 0 {
+		t.Error("expected errorf call on MkdirAll failure, got none")
+	}
+
+	// registry must still hold the old name
+	if modelPack.GetByID(5) != "model_5" {
+		t.Errorf("registry changed unexpectedly: want model_5, got %q", modelPack.GetByID(5))
+	}
+
+	// returned name must be the old name (not the attempted new name)
+	if got != "model_5" {
+		t.Errorf("want old name model_5, got %q", got)
+	}
+}
+
 // buildTexturedModelBlob builds a minimal model binary blob that reports
 // a single textured face with faceColour == textureID.
 // This is the minimum viable structure to make modelsHaveTexture return true.

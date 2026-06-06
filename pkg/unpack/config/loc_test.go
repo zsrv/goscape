@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -51,7 +52,7 @@ func TestUnpackLocModels_Opcode1_CollectsModels(t *testing.T) {
 	// opcode 1, count=2, (model=100,shape=0), (model=101,shape=4), terminator
 	body := []byte{1, 2, 0x00, 100, 0, 0x00, 101, 4, 0}
 	cfg := buildLocCfgIdx(body)
-	result := unpackLocModels(cfg, 0)
+	result := unpackLocModels(cfg, 0, nil)
 	if len(result.Models) != 2 {
 		t.Fatalf("want 2 models, got %d", len(result.Models))
 	}
@@ -67,7 +68,7 @@ func TestUnpackLocModels_Opcode1_CollectsModels(t *testing.T) {
 func TestUnpackLocModels_LdModels_AlwaysEmpty(t *testing.T) {
 	body := []byte{1, 1, 0x00, 5, 0, 0}
 	cfg := buildLocCfgIdx(body)
-	result := unpackLocModels(cfg, 0)
+	result := unpackLocModels(cfg, 0, nil)
 	if len(result.LdModels) != 0 {
 		t.Errorf("expected empty ldModels, got %d entries", len(result.LdModels))
 	}
@@ -110,9 +111,45 @@ func TestUnpackLocModels_SkipAllOpcodes(t *testing.T) {
 	}
 	cfg := buildLocCfgIdx(body)
 	// Should not panic; models should be empty.
-	result := unpackLocModels(cfg, 0)
+	result := unpackLocModels(cfg, 0, nil)
 	if len(result.Models) != 0 {
 		t.Errorf("expected no models, got %d", len(result.Models))
+	}
+}
+
+// TestUnpackLocModels_UnknownOpcode_BailsAndWarns verifies that an unknown opcode in
+// unpackLocModels triggers warnf, returns models collected so far, and does not hang.
+// TS has no default case and would loop forever; Go bails (no parity implication —
+// no reference output exists for data that hangs TS).
+func TestUnpackLocModels_UnknownOpcode_BailsAndWarns(t *testing.T) {
+	// opcode 1 with one model, then unknown opcode 200, then a terminator that would
+	// never be reached in TS (infinite loop). Go must return before the terminator.
+	body := []byte{
+		1, 1, 0x00, 42, 5, // opcode 1: count=1, model=42, shape=5
+		200,               // unknown opcode — triggers bail
+		0,                 // terminator (unreachable in TS; Go bails before this)
+	}
+	cfg := buildLocCfgIdx(body)
+
+	var warns []string
+	warnf := func(f string, a ...any) { warns = append(warns, fmt.Sprintf(f, a...)) }
+
+	result := unpackLocModels(cfg, 0, warnf)
+
+	// warning must be fired
+	if len(warns) == 0 {
+		t.Fatal("expected warnf call for unknown opcode, got none")
+	}
+	if warns[0] != "unknown loc model code 200" {
+		t.Errorf("warning mismatch: want %q got %q", "unknown loc model code 200", warns[0])
+	}
+
+	// models collected BEFORE the unknown opcode must be returned
+	if len(result.Models) != 1 {
+		t.Fatalf("want 1 model collected before bail, got %d", len(result.Models))
+	}
+	if result.Models[0].Model != 42 || result.Models[0].Shape != 5 {
+		t.Errorf("model mismatch: want {42,5} got %+v", result.Models[0])
 	}
 }
 
