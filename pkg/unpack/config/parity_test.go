@@ -29,6 +29,9 @@ func TestConfigParity(t *testing.T) {
 	marker := unpacktest.Marker(t)
 
 	var out bytes.Buffer
+	// PackDir is intentionally omitted: the reference manifest was captured from
+	// the plain (non-merge) unpack path. The merge path (compareIdx != nil) is
+	// exercised by TestUnpackConfig_MergeEmission in driver_test.go.
 	err := Unpack(Options{
 		CacheDir:      cacheDir,
 		SrcDir:        scratch,

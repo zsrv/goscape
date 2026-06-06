@@ -275,14 +275,8 @@ func unpackConfig(
 					block1 := "// --------\n" + strings.Join(unpacked, "\n") + "\n"
 					// TS line 174: appendFileSync(`${out}.merge`, unpacked2.join('\n') + '\n')
 					block2 := strings.Join(unpacked2, "\n") + "\n"
-					f, ferr := os.OpenFile(mergePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-					if ferr != nil {
-						return fmt.Errorf("open %s: %w", mergePath, ferr)
-					}
-					_, werr := f.WriteString(block1 + block2)
-					f.Close()
-					if werr != nil {
-						return fmt.Errorf("write %s: %w", mergePath, werr)
+					if err := appendString(mergePath, block1+block2); err != nil {
+						return err
 					}
 				}
 				// When compareIdx exists AND id < compareIdx.Size AND entries are the same,
@@ -290,26 +284,14 @@ func unpackConfig(
 				// when id >= compareIdx.Size).
 			} else {
 				// TS lines 192-193: id >= compareIdx.Size → append to out
-				f, ferr := os.OpenFile(outPath, os.O_APPEND|os.O_WRONLY, 0o644)
-				if ferr != nil {
-					return fmt.Errorf("open %s: %w", outPath, ferr)
-				}
-				_, werr := f.WriteString(strings.Join(unpacked, "\n") + "\n")
-				f.Close()
-				if werr != nil {
-					return fmt.Errorf("write %s: %w", outPath, werr)
+				if err := appendString(outPath, strings.Join(unpacked, "\n")+"\n"); err != nil {
+					return err
 				}
 			}
 		} else {
 			// TS lines 194-196: no compareIdx → always append to out
-			f, ferr := os.OpenFile(outPath, os.O_APPEND|os.O_WRONLY, 0o644)
-			if ferr != nil {
-				return fmt.Errorf("open %s: %w", outPath, ferr)
-			}
-			_, werr := f.WriteString(strings.Join(unpacked, "\n") + "\n")
-			f.Close()
-			if werr != nil {
-				return fmt.Errorf("write %s: %w", outPath, werr)
+			if err := appendString(outPath, strings.Join(unpacked, "\n")+"\n"); err != nil {
+				return err
 			}
 		}
 	}
@@ -497,6 +479,26 @@ func unpackModelNames(jag *jagfile.Jagfile, env *Env, srcDir string) error {
 		}
 	}
 
+	return nil
+}
+
+// appendString opens path for append (creating if absent), writes s, and
+// closes the file. The close error is merged with the write error so that
+// a buffered-write failure (e.g. full disk) is never silently dropped.
+//
+// Used by unpackConfig for the three O_APPEND write sites.
+func appendString(path, s string) error {
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", path, err)
+	}
+	_, werr := f.WriteString(s)
+	if cerr := f.Close(); werr == nil {
+		werr = cerr
+	}
+	if werr != nil {
+		return fmt.Errorf("write %s: %w", path, werr)
+	}
 	return nil
 }
 

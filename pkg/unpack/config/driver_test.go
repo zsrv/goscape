@@ -318,42 +318,42 @@ func TestUnpackConfig_MergeEmission(t *testing.T) {
 	outPath := filepath.Join(srcDir, "scripts", "_unpack", "244", "all.flo")
 	mergePath := outPath + ".merge"
 
-	// Main file: id 0 was in compareIdx.Size so it goes to merge, not main.
-	// id 1 was same on both sides so it also goes to merge (but not written there).
-	// Actually: when compareIdx != nil AND id < compareIdx.Size AND entries same → nothing written to main.
-	// So main file should be empty (just the initial WriteFile(out, '')).
+	// Main file (all.flo): init-empty (WriteFile(out, '')) plus any non-merge appends.
+	// When compareIdx != nil AND id < compareIdx.Size:
+	//   - differs  → goes to .merge only (not main)
+	//   - same     → nothing written to main
+	// Both id 0 and id 1 satisfy id < compareIdx.Size, so the main file stays empty.
+	// Expected exact bytes: empty (0 bytes).
 	mainBytes, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatalf("read main file: %v", err)
 	}
-	if len(mainBytes) != 0 {
-		t.Errorf("main file should be empty when all entries have compareIdx; got %d bytes: %q", len(mainBytes), mainBytes)
+	if wantMain := []byte{}; !bytes.Equal(mainBytes, wantMain) {
+		t.Errorf("main file exact bytes:\n got  %q\n want %q", mainBytes, wantMain)
 	}
 
-	// Merge file: id 0 differs → should have:
-	//   "// --------\n[flo_0]\ncolour=1\n\n"
-	//   "[flo_0]\ncolour=2\n\n"
-	// id 1 is the same → not in merge.
+	// Merge file (.merge): id 0 differs → appended as two TS blocks (Unpack.ts:173-174).
+	//
+	// unpacked  = ["[flo_0]", "colour=1", ""]  (after push(''))
+	// unpacked2 = ["[flo_0]", "colour=2", ""]  (after push(''))
+	//
+	// TS line 173: '// --------\n' + unpacked.join('\n')  + '\n'
+	//   → "// --------\n[flo_0]\ncolour=1\n\n"
+	//     (join produces "[flo_0]\ncolour=1\n", trailing '\n' from the '' element)
+	// TS line 174: unpacked2.join('\n') + '\n'
+	//   → "[flo_0]\ncolour=2\n\n"
+	//
+	// id 1 is same on both sides → not appended to merge at all.
+	wantMerge := []byte(
+		"// --------\n[flo_0]\ncolour=1\n\n" +
+			"[flo_0]\ncolour=2\n\n",
+	)
 	mergeBytes, err := os.ReadFile(mergePath)
 	if err != nil {
 		t.Fatalf("read merge file: %v", err)
 	}
-	mergeStr := string(mergeBytes)
-
-	// The separator block.
-	if !bytes.Contains(mergeBytes, []byte("// --------\n")) {
-		t.Errorf("merge missing separator; content: %q", mergeStr)
-	}
-	// Both versions of id 0 must appear.
-	if !bytes.Contains(mergeBytes, []byte("colour=1")) {
-		t.Errorf("merge missing primary colour=1; content: %q", mergeStr)
-	}
-	if !bytes.Contains(mergeBytes, []byte("colour=2")) {
-		t.Errorf("merge missing compare colour=2; content: %q", mergeStr)
-	}
-	// id 1 same on both sides → must NOT appear in merge.
-	if bytes.Contains(mergeBytes, []byte("colour=99")) {
-		t.Errorf("merge should NOT contain id 1 (same on both sides); content: %q", mergeStr)
+	if !bytes.Equal(mergeBytes, wantMerge) {
+		t.Errorf("merge file exact bytes:\n got  %q\n want %q", mergeBytes, wantMerge)
 	}
 }
 
