@@ -619,6 +619,139 @@ func TestAssertManifest_CachePNGPixelEquality(t *testing.T) {
 	})
 }
 
+// TestAssertManifest_ExtraPNGChangedSetExemption verifies the result-side PNG
+// byte-divergence exemption: when the manifest has NO content entries for a
+// .png file but the Go result has a MODIFIED (or ADDED) entry for it, the
+// harness compares pixels against the reference post-tree snapshot and only
+// fails if pixels differ.  This covers the common case where TS rewrites PNGs
+// with identical bytes (so no changed-set entry in the manifest) but Go's
+// image/png encoder produces different bytes for the same pixels.
+func TestAssertManifest_ExtraPNGChangedSetExemption(t *testing.T) {
+	dir := t.TempDir()
+	refRoot := t.TempDir()
+	postDir := t.TempDir()
+	cachePostDir := t.TempDir()
+
+	const pngPath = "sprites/icon.png"
+
+	// Create the Go-produced file in postDir.
+	if err := os.MkdirAll(filepath.Join(postDir, "sprites"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Create the reference post snapshot under refRoot/unpack-ref/test.post.
+	if err := os.MkdirAll(filepath.Join(refRoot, "unpack-ref", "test.post", "sprites"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Build a small 2x2 RGBA image (same pixels, different encoder settings).
+	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	img.SetRGBA(0, 0, color.RGBA{R: 10, G: 20, B: 30, A: 255})
+	img.SetRGBA(1, 0, color.RGBA{R: 40, G: 50, B: 60, A: 255})
+	img.SetRGBA(0, 1, color.RGBA{R: 70, G: 80, B: 90, A: 255})
+	img.SetRGBA(1, 1, color.RGBA{R: 100, G: 110, B: 120, A: 255})
+
+	// Go file: default compression.
+	goPNGPath := filepath.Join(postDir, "sprites", "icon.png")
+	encodePNG(t, goPNGPath, img, png.DefaultCompression)
+	goBytes, _ := os.ReadFile(goPNGPath)
+
+	// Reference snapshot: best compression (different bytes, same pixels).
+	refPNGPath := filepath.Join(refRoot, "unpack-ref", "test.post", "sprites", "icon.png")
+	encodePNG(t, refPNGPath, img, png.BestCompression)
+
+	// Empty manifest — no content entries.
+	manifestContent := fmt.Sprintf("STDOUT-NORM %s\n", hashBytes([]byte{}))
+	manifestPath := filepath.Join(dir, "test.manifest.txt")
+	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Result has a MODIFIED entry for the PNG (Go bytes differ from pristine).
+	r := Result{
+		Content: []Entry{
+			{Kind: "MODIFIED", Path: pngPath, Sum: hashBytes(goBytes)},
+		},
+		Wrote:        nil,
+		Stdout:       []byte{},
+		PostDir:      postDir,
+		CachePostDir: cachePostDir,
+	}
+
+	// Same pixels → no mismatch.
+	mismatches := assertManifestFile(t, manifestPath, refRoot, "test", r)
+	if len(mismatches) != 0 {
+		t.Errorf("pixel-identical extra MODIFIED PNG: want 0 mismatches, got: %v", mismatches)
+	}
+
+	t.Run("pixel-differing extra MODIFIED PNG is a mismatch", func(t *testing.T) {
+		// Change one pixel in the Go output.
+		imgB := image.NewRGBA(image.Rect(0, 0, 2, 2))
+		imgB.SetRGBA(0, 0, color.RGBA{R: 10, G: 20, B: 30, A: 255})
+		imgB.SetRGBA(1, 0, color.RGBA{R: 40, G: 50, B: 60, A: 255})
+		imgB.SetRGBA(0, 1, color.RGBA{R: 70, G: 80, B: 90, A: 255})
+		imgB.SetRGBA(1, 1, color.RGBA{R: 1, G: 2, B: 3, A: 255}) // differs
+
+		goPNGPathB := filepath.Join(postDir, "sprites", "icon_diff.png")
+		encodePNG(t, goPNGPathB, imgB, png.DefaultCompression)
+		goBytesB, _ := os.ReadFile(goPNGPathB)
+
+		const pngPathB = "sprites/icon_diff.png"
+		refPNGPathB := filepath.Join(refRoot, "unpack-ref", "test.post", "sprites", "icon_diff.png")
+		encodePNG(t, refPNGPathB, img, png.BestCompression) // ref has original pixels
+
+		manifestB := fmt.Sprintf("STDOUT-NORM %s\n", hashBytes([]byte{}))
+		manifestPathB := filepath.Join(dir, "test_b.manifest.txt")
+		if err := os.WriteFile(manifestPathB, []byte(manifestB), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		rB := Result{
+			Content: []Entry{
+				{Kind: "MODIFIED", Path: pngPathB, Sum: hashBytes(goBytesB)},
+			},
+			Wrote:        nil,
+			Stdout:       []byte{},
+			PostDir:      postDir,
+			CachePostDir: cachePostDir,
+		}
+		mismatchesB := assertManifestFile(t, manifestPathB, refRoot, "test", rB)
+		if !anyContains(mismatchesB, pngPathB) {
+			t.Errorf("pixel-differing extra MODIFIED PNG: expected mismatch mentioning %s, got: %v", pngPathB, mismatchesB)
+		}
+	})
+
+	t.Run("extra ADDED PNG pixel-identical is also exempt", func(t *testing.T) {
+		const pngPathC = "sprites/icon_added.png"
+
+		goPNGPathC := filepath.Join(postDir, "sprites", "icon_added.png")
+		encodePNG(t, goPNGPathC, img, png.DefaultCompression)
+		goBytesC, _ := os.ReadFile(goPNGPathC)
+
+		refPNGPathC := filepath.Join(refRoot, "unpack-ref", "test.post", "sprites", "icon_added.png")
+		encodePNG(t, refPNGPathC, img, png.BestCompression)
+
+		manifestC := fmt.Sprintf("STDOUT-NORM %s\n", hashBytes([]byte{}))
+		manifestPathC := filepath.Join(dir, "test_c.manifest.txt")
+		if err := os.WriteFile(manifestPathC, []byte(manifestC), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		rC := Result{
+			Content: []Entry{
+				{Kind: "ADDED", Path: pngPathC, Sum: hashBytes(goBytesC)},
+			},
+			Wrote:        nil,
+			Stdout:       []byte{},
+			PostDir:      postDir,
+			CachePostDir: cachePostDir,
+		}
+		mismatchesC := assertManifestFile(t, manifestPathC, refRoot, "test", rC)
+		if len(mismatchesC) != 0 {
+			t.Errorf("pixel-identical extra ADDED PNG: want 0 mismatches, got: %v", mismatchesC)
+		}
+	})
+}
+
 // writeFile is a test helper to write content to path.
 func writeFile(t *testing.T, path string, content []byte) {
 	t.Helper()

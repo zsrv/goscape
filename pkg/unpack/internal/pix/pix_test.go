@@ -307,7 +307,7 @@ func TestUnpackFull_MultiSprite(t *testing.T) {
 	jag := buildJag(t, "sprites", specs)
 
 	dir := t.TempDir()
-	err := UnpackFull(jag, dir, "sprites", nil)
+	err := UnpackFull(jag, dir, "sprites", "", nil)
 	require.NoError(t, err)
 
 	// PNG must exist.
@@ -369,7 +369,7 @@ func TestUnpackFull_OptBytes(t *testing.T) {
 		}
 		jag := buildJag(t, "multi", specs)
 		dir := t.TempDir()
-		require.NoError(t, UnpackFull(jag, dir, "multi", nil))
+		require.NoError(t, UnpackFull(jag, dir, "multi", "", nil))
 
 		optBytes, err := os.ReadFile(filepath.Join(dir, "meta", "multi.opt"))
 		require.NoError(t, err)
@@ -390,7 +390,7 @@ func TestUnpackFull_OptBytes(t *testing.T) {
 		}
 		jag := buildJag(t, "cropped", []spriteSpec{spec})
 		dir := t.TempDir()
-		require.NoError(t, UnpackFull(jag, dir, "cropped", nil))
+		require.NoError(t, UnpackFull(jag, dir, "cropped", "", nil))
 
 		optBytes, err := os.ReadFile(filepath.Join(dir, "meta", "cropped.opt"))
 		require.NoError(t, err)
@@ -410,7 +410,7 @@ func TestUnpackFull_OptBytes(t *testing.T) {
 		}
 		jag := buildJag(t, "full", []spriteSpec{spec})
 		dir := t.TempDir()
-		require.NoError(t, UnpackFull(jag, dir, "full", nil))
+		require.NoError(t, UnpackFull(jag, dir, "full", "", nil))
 
 		// .opt must NOT exist. TS Pix.ts:67 condition:
 		//   cropLeft!=0 || cropTop!=0 || cropRight!=width || cropBottom!=height
@@ -444,7 +444,7 @@ func TestUnpackFull_NoMoreSprites(t *testing.T) {
 
 	// UnpackFull must not error either.
 	dir := t.TempDir()
-	require.NoError(t, UnpackFull(jag, dir, "one", nil))
+	require.NoError(t, UnpackFull(jag, dir, "one", "", nil))
 	require.FileExists(t, filepath.Join(dir, "one.png"))
 }
 
@@ -463,17 +463,17 @@ func TestIsPrime(t *testing.T) {
 // TestSheetDimensions pins the sheet layout algorithm. TS Pix.ts:161-194.
 func TestSheetDimensions(t *testing.T) {
 	cases := []struct {
-		count         int
-		wantW, wantH  int
-		wantOk        bool
+		count        int
+		wantW, wantH int
+		wantOk       bool
 	}{
 		// prime counts → sheetWidth=count, sheetHeight=1.
-		{count: 1, wantW: 1, wantH: 1, wantOk: true},  // 1 is not prime; sqrt(1)=1 → ceil(1)=1, 1×1=1
-		{count: 2, wantW: 2, wantH: 1, wantOk: true},  // 2 is prime
-		{count: 3, wantW: 3, wantH: 1, wantOk: true},  // 3 is prime
-		{count: 4, wantW: 2, wantH: 2, wantOk: true},  // sqrt(4)=2, 2×2=4
-		{count: 9, wantW: 3, wantH: 3, wantOk: true},  // sqrt(9)=3, 3×3=9
-		{count: 6, wantW: 3, wantH: 2, wantOk: true},  // sqrt(6)≈2.45→3, ceil(6/3)=2; 3*2=6 ✓ but need adjust check
+		{count: 1, wantW: 1, wantH: 1, wantOk: true}, // 1 is not prime; sqrt(1)=1 → ceil(1)=1, 1×1=1
+		{count: 2, wantW: 2, wantH: 1, wantOk: true}, // 2 is prime
+		{count: 3, wantW: 3, wantH: 1, wantOk: true}, // 3 is prime
+		{count: 4, wantW: 2, wantH: 2, wantOk: true}, // sqrt(4)=2, 2×2=4
+		{count: 9, wantW: 3, wantH: 3, wantOk: true}, // sqrt(9)=3, 3×3=9
+		{count: 6, wantW: 3, wantH: 2, wantOk: true}, // sqrt(6)≈2.45→3, ceil(6/3)=2; 3*2=6 ✓ but need adjust check
 	}
 	for _, tc := range cases {
 		w, h, ok := sheetDimensions(tc.count)
@@ -511,7 +511,7 @@ func TestUnpackFull_ZeroSprites(t *testing.T) {
 	require.NoError(t, err)
 
 	outDir := t.TempDir()
-	err = UnpackFull(loaded, outDir, "nothing", nil)
+	err = UnpackFull(loaded, outDir, "nothing", "", nil)
 	require.NoError(t, err, "zero sprites must not error")
 
 	// No PNG should have been written.
@@ -536,7 +536,7 @@ func TestUnpackFull_WritesFile(t *testing.T) {
 	}
 	jag := buildJag(t, "blue", []spriteSpec{spec})
 	dir := t.TempDir()
-	require.NoError(t, UnpackFull(jag, dir, "blue", nil))
+	require.NoError(t, UnpackFull(jag, dir, "blue", "", nil))
 
 	img := loadPNG(t, filepath.Join(dir, "blue.png"))
 	bounds := img.Bounds()
@@ -606,7 +606,7 @@ func TestUnpackFull_SheetDimFailure_WritesOptSkipsPNG(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	err := UnpackFull(jag, dir, "fourteen", captureErrorf)
+	err := UnpackFull(jag, dir, "fourteen", "", captureErrorf)
 
 	// TS returns without error. TS Pix.ts:52-54 skips PNG when png==null.
 	require.NoError(t, err, "dimension mismatch must not return an error (mirrors TS)")
@@ -664,7 +664,7 @@ func TestUnpackFull_4Sprite2x2Sheet(t *testing.T) {
 	}
 	jag := buildJag(t, "quad", specs)
 	dir := t.TempDir()
-	require.NoError(t, UnpackFull(jag, dir, "quad", nil))
+	require.NoError(t, UnpackFull(jag, dir, "quad", "", nil))
 
 	img := loadPNG(t, filepath.Join(dir, "quad.png"))
 	bounds := img.Bounds()
@@ -680,4 +680,3 @@ func TestUnpackFull_4Sprite2x2Sheet(t *testing.T) {
 	// sprite3 (yellow) at (2,2)..(3,3)
 	assert.Equal(t, color.NRGBA{R: 0xFF, G: 0xFF, B: 0x00, A: 0xFF}, pixelAt(img, 2, 2))
 }
-

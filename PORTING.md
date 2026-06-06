@@ -1127,6 +1127,17 @@ runtime-consumer copies.
 - [x] (c) Byte-parity — FULL TREE 2,671/2,671 reference files identical; ondemand.zip content-identical
 - [x] (d) Final gates (2026-06-06): `CGO_ENABLED=0 go build -trimpath ./...` exit 0; `go vet ./...` pre-existing-only (`pkg/util/build` self-assign, B1/B3/B4/B5 precedent); full `go test ./... -count=1 -timeout 20m` exit 0; `-race` (CGO_ENABLED=1) on pack/packall/gziputil/pixpack/script/protocol/world exit 0
 
+### B7 — goscape-cli unpack (2026-06-06)
+
+Scope: `tools/unpack/sprite/media.ts`, `tools/unpack/sprite/textures.ts`, `tools/unpack/sprite/title.ts`.
+Plan: [`docs/superpowers/plans/handoffs/2026-06-06-RESUME-rev244-port-b7.md`](docs/superpowers/plans/handoffs/2026-06-06-RESUME-rev244-port-b7.md).
+
+#### B7 decision rows (in progress)
+
+| Decision ID | Description | Commit |
+|---|---|---|
+| `rev244-b7-png-bytes` | Jimp-vs-image/png encoder byte divergence — parity is decoded-pixel-level. Go's `image/png` encoder produces different bytes than Jimp for identical pixel data; the `unpacktest` harness exempts result-side MODIFIED/ADDED `.png` entries from the exact-sha check and applies pixel-level comparison against the `<family>.post` reference snapshot instead. | Task-2 (`pkg/unpack/sprite`) |
+
 ---
 
 ## Recent audit history (full log in `docs/PORTING-CLOSED.md`)

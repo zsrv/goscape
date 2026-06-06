@@ -17,7 +17,8 @@
 // Dropped TS parameters and dead branches (no caller at the pinned revision uses them):
 //
 //   - unpackFull overrideName (TS Pix.ts:33, `overrideName?: string`): optional parameter
-//     that renames the output files; omitted because no call site in Server244-ref passes it.
+//     that renames the output files; ported as the outputName parameter of [UnpackFull]
+//     (used by the textures unpack path which passes TexturePack names as output stems).
 //
 //   - unpackJagToPng explicit sheetWidth/sheetHeight args (TS Pix.ts:141,
 //     `sheetWidth: number = 0, sheetHeight: number = 0`): the non-zero branch lets callers

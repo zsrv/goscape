@@ -145,7 +145,10 @@ func UnpackJag(jag *jagfile.Jagfile, name string, index int) (*Sprite, error) {
 			}
 		}
 	} else {
-		return nil, fmt.Errorf("pix: unknown pixelOrder %d", pixelOrder)
+		// TS Pix.ts:126-136: unknown pixelOrder falls through if-else with pixels
+		// staying all-zero, then returns a valid Pix.  We mirror by returning nil
+		// (no-op) rather than erroring, since no real sprite data can be decoded.
+		return nil, nil //nolint:nilerr // mirror TS: unrecognised pixelOrder → null-like
 	}
 
 	// TS Pix.ts:138
@@ -246,17 +249,26 @@ func sheetDimensions(count int) (sheetWidth, sheetHeight int, ok bool) {
 	return sheetWidth, sheetHeight, true
 }
 
-// UnpackFull decodes all sprites from jag[name], writes <dir>/<name>.png,
-// and writes <dir>/meta/<name>.opt when the .opt conditions are met.
+// UnpackFull decodes all sprites from jag[name], writes <dir>/<outputName>.png,
+// and writes <dir>/meta/<outputName>.opt when the .opt conditions are met.
 // No-op when zero sprites found. TS Pix.ts:33-70.
+//
+// outputName overrides the output file stem (PNG + .opt) while name still
+// selects the jag entry.  When outputName is "", name is used for output too.
+// This mirrors TS Pix.ts:49-51 — `if (typeof overrideName !== 'undefined') name = overrideName`.
 //
 // errorf is called when a spritesheet dimension mismatch is detected
 // (TS Pix.ts:192 — printError("wrong spritesheet size! ...")).
 // A nil errorf is treated as a no-op; the CLI passes its logger.
 // Signature matches fmt.Printf to allow direct forwarding.
-func UnpackFull(jag *jagfile.Jagfile, dir, name string, errorf func(format string, args ...any)) error {
+func UnpackFull(jag *jagfile.Jagfile, dir, name, outputName string, errorf func(format string, args ...any)) error {
 	if errorf == nil {
 		errorf = func(format string, args ...any) {}
+	}
+	// TS Pix.ts:49-51 — apply overrideName before writing.
+	outName := outputName
+	if outName == "" {
+		outName = name
 	}
 	// TS Pix.ts:34-41 — collect all sprites up to 1000.
 	var all []*Sprite
@@ -340,7 +352,8 @@ func UnpackFull(jag *jagfile.Jagfile, dir, name string, errorf func(format strin
 	// TS Pix.ts:52-54 — write PNG file only when unpackJagToPng returned non-null.
 	// On dimension failure img is nil and we skip the write (mirrors `if (png)` guard).
 	if img != nil {
-		pngPath := filepath.Join(dir, name+".png")
+		// PORTING-EXCEPTION (rev244-b7-png-bytes, Jimp-vs-image/png encoder — parity is decoded-pixel-level). See PORTING.md.
+		pngPath := filepath.Join(dir, outName+".png")
 		if err := writePNG(pngPath, img); err != nil {
 			return fmt.Errorf("pix: write PNG: %w", err)
 		}
@@ -353,7 +366,7 @@ func UnpackFull(jag *jagfile.Jagfile, dir, name string, errorf func(format strin
 	}
 
 	// TS Pix.ts:60-69 — write .opt file under the appropriate conditions.
-	optPath := filepath.Join(metaDir, name+".opt")
+	optPath := filepath.Join(metaDir, outName+".opt")
 	if len(all) > 1 {
 		// TS Pix.ts:61-64 — multi-sprite: sheet cell dims + per-sprite crop lines.
 		var opt []byte

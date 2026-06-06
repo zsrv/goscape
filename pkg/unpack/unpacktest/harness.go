@@ -269,8 +269,55 @@ func assertManifestFile(t *testing.T, manifestPath, refRoot, family string, r Re
 	}
 
 	// Every result content entry must appear in the manifest.
+	// Exception: result-side ADDED or MODIFIED entries whose path ends in ".png"
+	// are exempt from the "missing from manifest" failure when the decoded pixels
+	// of the Go-produced file match the reference post-tree snapshot
+	// (<refRoot>/unpack-ref/<family>.post/<path>).  This covers the case where TS
+	// emitted PNG bytes byte-identically with the committed content tree (so no
+	// changed-set entry was generated), but Go's image/png encoder produces
+	// different bytes for the same pixel data.
 	for key, got := range contentByPath {
 		if _, ok := manifestContentByPath[key]; !ok {
+			if (got.Kind == "ADDED" || got.Kind == "MODIFIED") && strings.HasSuffix(got.Path, ".png") {
+				// Apply pixel-equality exemption: compare against the reference post snapshot.
+				goFile := filepath.Join(r.PostDir, got.Path)
+				refFile := filepath.Join(refRoot, "unpack-ref", family+".post", got.Path)
+				var pixMismatch []string
+				compareSha(manifestEntry{kind: got.Kind, path: got.Path, sum: got.Sum}, got.Sum, r.PostDir, refRoot, family+".post", "content", &pixMismatch)
+				// compareSha with matching sums will not add a mismatch for non-PNG.
+				// For PNG we need to do the pixel check directly.
+				goImg, goErr := decodeImageFile(goFile)
+				refImg, refErr := decodeImageFile(refFile)
+				if goErr != nil || refErr != nil {
+					// Cannot decode → treat as real mismatch.
+					mismatches = append(mismatches, fmt.Sprintf("content %s %s: in result but missing from manifest (PNG decode error: go=%v ref=%v)", got.Kind, got.Path, goErr, refErr))
+					continue
+				}
+				goBounds := goImg.Bounds()
+				refBounds := refImg.Bounds()
+				if goBounds != refBounds {
+					mismatches = append(mismatches, fmt.Sprintf("content %s %s: in result but missing from manifest (PNG bounds differ: go=%v ref=%v)", got.Kind, got.Path, goBounds, refBounds))
+					continue
+				}
+				pixelMatch := true
+				for y := goBounds.Min.Y; y < goBounds.Max.Y; y++ {
+					for x := goBounds.Min.X; x < goBounds.Max.X; x++ {
+						gr, gg, gb, ga := goImg.At(x, y).RGBA()
+						rr, rg, rb, ra := refImg.At(x, y).RGBA()
+						if gr != rr || gg != rg || gb != rb || ga != ra {
+							mismatches = append(mismatches, fmt.Sprintf("content %s %s: in result but missing from manifest (pixel (%d,%d) differs: go=(%d,%d,%d,%d) ref=(%d,%d,%d,%d))",
+								got.Kind, got.Path, x, y, gr, gg, gb, ga, rr, rg, rb, ra))
+							pixelMatch = false
+							break
+						}
+					}
+					if !pixelMatch {
+						break
+					}
+				}
+				// If pixels match, the PNG byte-divergence is expected — no mismatch.
+				continue
+			}
 			mismatches = append(mismatches, fmt.Sprintf("content %s %s: in result but missing from manifest", got.Kind, got.Path))
 		}
 	}
