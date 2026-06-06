@@ -118,6 +118,18 @@ func (s *Store) Unpack(id int, data []byte) {
 		return
 	}
 
+	// Guard against truncated data. TS Model.ts:63 sets buf.pos = data.length - 18;
+	// a Uint8Array with data.length < 18 would yield a negative Packet.pos and read
+	// garbage metadata rather than throwing (Uint8Array.subarray clamps negative
+	// starts to 0). No upstream caller feeds truncated entries, so Go treats this
+	// as empty/nil and stores a zeroed entry instead of panicking.
+	if len(data) < 18 {
+		info := &metadata{}
+		info.facePrioritiesOffset = 0 // TS default
+		s.meta[id] = info
+		return
+	}
+
 	// Parse 18-byte trailer at data.length - 18. TS Model.ts:63-79.
 	pos := len(data) - 18
 
@@ -228,7 +240,9 @@ func (s *Store) FromID(id int) *Model {
 		return &Model{}
 	}
 
-	// TS Model.loaded++. TS Model.ts:148.
+	// TS Model.loaded++. TS Model.ts:148 increments unconditionally per fromId call,
+	// including cache hits. With the Go-side decode cache this no longer equals
+	// unique decodes, but it faithfully counts calls (matching TS call-count semantics).
 	s.loaded++
 
 	info := s.meta[id]
@@ -433,7 +447,9 @@ func gsmart(data []byte, pos int) (int32, int) {
 // TS Model.ts:330-343 (modelHasTexture).
 func (s *Store) modelHasTexture(modelID int, textureID int) bool {
 	model := s.FromID(modelID)
-	if model == nil || model.FaceColour == nil || model.TexturedFaceCount == 0 {
+	// TS Model.ts:332 checks `!model` because TS fromId can return null;
+	// Go FromID always returns a non-nil *Model, so the nil clause is dropped.
+	if model.FaceColour == nil || model.TexturedFaceCount == 0 {
 		return false
 	}
 	for i := 0; i < model.FaceCount; i++ {

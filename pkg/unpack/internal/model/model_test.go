@@ -291,6 +291,27 @@ func TestTrailerParse(t *testing.T) {
 	assert.Equal(t, 16, info.vertexZOffset, "vertexZOffset")
 }
 
+// TestTruncatedData verifies that a data slice shorter than 18 bytes produces a zeroed
+// metadata entry without panicking.
+//
+// TS Model.ts:63 sets buf.pos = data.length - 18; for data.length < 18 the Uint8Array
+// Packet would receive a negative pos, clamp it to 0 via subarray, and silently read
+// garbage metadata. No upstream caller feeds truncated entries; Go stores a zeroed entry
+// instead of panicking (cf. the nil-data path).
+func TestTruncatedData(t *testing.T) {
+	truncated := make([]byte, 17) // one byte short of the 18-byte trailer
+	s := New()
+	s.Unpack(0, truncated) // must not panic
+
+	require.Len(t, s.meta, 1)
+	info := s.meta[0]
+	require.NotNil(t, info, "truncated data must produce zeroed entry, not nil")
+	assert.Equal(t, 0, info.vertexCount, "vertexCount must be zero")
+	assert.Equal(t, 0, info.faceCount, "faceCount must be zero")
+	assert.Equal(t, 0, info.texturedFaceCount, "texturedFaceCount must be zero")
+	assert.Nil(t, info.data, "data field must be nil for zeroed entry")
+}
+
 // TestNilData verifies nil/empty data produces a zeroed metadata entry with no panic.
 // TS Model.ts:50-56.
 func TestNilData(t *testing.T) {
@@ -371,6 +392,74 @@ func TestFullDecode(t *testing.T) {
 	assert.Equal(t, int32(0), m.FaceVertexA[1])
 	assert.Equal(t, int32(1), m.FaceVertexB[1])
 	assert.Equal(t, int32(1), m.FaceVertexC[1])
+}
+
+// TestGsmartTwoByte verifies the 2-byte gsmart path for vertex deltas outside -64..63.
+//
+// smartU2 encodes (v + 49152) as two bytes with the high byte ≥ 128.  The gsmart
+// decoder subtracts 49152 to recover v.  This branch was previously covered only by
+// the real-cache smoke test; this synthetic test pins the decoded vertex value for
+// deterministic CI coverage.
+//
+// Vertex layout: 1 vertex, flags=0x7 (all axes), deltas X=100, Y=-100, Z=0.
+// Expected positions after decode: VertexX[0]=100, VertexY[0]=-100, VertexZ[0]=0.
+func TestGsmartTwoByte(t *testing.T) {
+	var buf []byte
+
+	// --- vertexFlags section (1 vertex) ---
+	buf = u1(buf, 0x7) // flags: X|Y|Z present
+
+	// --- faceOrientations section (1 face, orientation=1) ---
+	buf = u1(buf, 1)
+
+	// no optional sections (priority=7, hasInfo=0, hasAlpha=0, hasFaceLabels=0, hasVertexLabels=0)
+
+	// --- faceVertices section: orientation=1 reads 3 deltas: d1=0, d2=0, d3=0 ---
+	// a=0, b=0, c=0
+	faceVertsStart := len(buf)
+	buf = u1b(buf, smartByte(0))
+	buf = u1b(buf, smartByte(0))
+	buf = u1b(buf, smartByte(0))
+	faceVertsLen := len(buf) - faceVertsStart
+
+	// --- faceColours section: 1 face × 2 bytes ---
+	buf = u2be(buf, 0x0001)
+
+	// --- vertexX section: 1 vertex, delta=100 (requires 2-byte gsmart) ---
+	vertXStart := len(buf)
+	buf = smartU2(buf, 100)
+	vertXLen := len(buf) - vertXStart
+
+	// --- vertexY section: 1 vertex, delta=-100 (requires 2-byte gsmart) ---
+	vertYStart := len(buf)
+	buf = smartU2(buf, -100)
+	vertYLen := len(buf) - vertYStart
+
+	// --- vertexZ section: 1 vertex, delta=0 (1-byte gsmart) ---
+	vertZStart := len(buf)
+	buf = u1b(buf, smartByte(0))
+	vertZLen := len(buf) - vertZStart
+
+	// --- 18-byte trailer ---
+	buf = buildTrailer(buf,
+		1, 1, 0, // vertexCount=1, faceCount=1, texturedFaceCount=0
+		0, // hasInfo=0
+		7, // priority=7 (not 255)
+		0, // hasAlpha=0
+		0, // hasFaceLabels=0
+		0, // hasVertexLabels=0
+		vertXLen, vertYLen, vertZLen, faceVertsLen,
+	)
+
+	s := New()
+	s.Unpack(0, buf)
+	m := s.FromID(0)
+	require.NotNil(t, m)
+
+	require.Len(t, m.VertexX, 1)
+	assert.Equal(t, int32(100), m.VertexX[0], "2-byte gsmart positive delta X=100")
+	assert.Equal(t, int32(-100), m.VertexY[0], "2-byte gsmart negative delta Y=-100")
+	assert.Equal(t, int32(0), m.VertexZ[0], "1-byte gsmart delta Z=0")
 }
 
 // TestModelsHaveTexture exercises the modelsHaveTexture/modelHasTexture matrix.
