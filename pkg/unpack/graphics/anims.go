@@ -142,6 +142,15 @@ func Anims(opts Options) error {
 			continue
 		}
 
+		// Go-side guard with no TS counterpart: a decompressed set shorter
+		// than the 8-byte offset table would panic the section walker below
+		// (TS NaN-reads through it instead). Real 244 sets are never this
+		// short; bail with a warning rather than crash on corrupt data.
+		if len(set) < 8 {
+			printWarning(fmt.Sprintf("Truncated anim set %d (len=%d)", baseId, len(set)))
+			continue
+		}
+
 		// TS line 27-29: setName + AnimSetPack.register + write .anim file.
 		setName := fmt.Sprintf("anim_%d", baseId)
 		animSetPack.Register(baseId, setName)
@@ -211,6 +220,7 @@ func Anims(opts Options) error {
 			if err := os.Remove(existingBase); err != nil && !os.IsNotExist(err) {
 				return fmt.Errorf("graphics/anims: remove stale base %s: %w", existingBase, err)
 			}
+			delete(existingBases, baseName) // deleted (or gone) — drop the map entry
 		}
 
 		// TS lines 78-112: frame-table walk.
@@ -230,6 +240,7 @@ func Anims(opts Options) error {
 				if err := os.Remove(existingFrame); err != nil && !os.IsNotExist(err) {
 					return fmt.Errorf("graphics/anims: remove stale frame %s: %w", existingFrame, err)
 				}
+				delete(existingFrames, frameName) // deleted (or gone) — drop the map entry
 			}
 
 			// TS lines 93-111: per-label tran1/tran2 consumption.
