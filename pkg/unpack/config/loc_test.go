@@ -166,7 +166,7 @@ func TestUnpackLoc_Opcode19_Active(t *testing.T) {
 		t.Errorf("want active=yes got %q", got[1])
 	}
 
-	// active=false
+	// active=false (byte 0)
 	body2 := []byte{19, 0, 0}
 	cfg2 := buildLocCfgIdx(body2)
 	got2, err := unpackLoc(cfg2, 0, makePackFile(0, "door"), nil, nil, nil, nil, nil)
@@ -175,6 +175,18 @@ func TestUnpackLoc_Opcode19_Active(t *testing.T) {
 	}
 	if got2[1] != "active=no" {
 		t.Errorf("want active=no got %q", got2[1])
+	}
+
+	// active=false (byte 2): GBool uses ===1 semantics; value 2 must be treated as false.
+	// This pins the fix vs the former g1 != 0 implementation (TS LocConfig.ts:213 gbool).
+	body3 := []byte{19, 2, 0}
+	cfg3 := buildLocCfgIdx(body3)
+	got3, err := unpackLoc(cfg3, 0, makePackFile(0, "door"), nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got3[1] != "active=no" {
+		t.Errorf("byte-value-2: want active=no got %q", got3[1])
 	}
 }
 

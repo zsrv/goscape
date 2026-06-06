@@ -203,6 +203,10 @@ func unpackLoc(
 		case code == 1:
 			// TS lines 177-195: model list with shape suffixes + duplicate-name skip.
 			// written tracks 1-based output model index; lastName deduplicates consecutive names.
+			// DIVERGENCE: TS `let lastName` starts undefined, so an empty-string first name would
+			// emit (TS `lastName !== name` is true when lastName=undefined, name=""). Go's
+			// `var lastName string` (zero="") skips such an entry. Unreachable with well-formed
+			// data — renameModel never returns "" for a real model (TS LocConfig.ts:181-193).
 			count := int(dat.G1())
 			written := 1
 			var lastName string
@@ -256,8 +260,8 @@ func unpackLoc(
 			def = append(def, "blockrange=no")
 
 		case code == 19:
-			// TS lines 212-214: active = gbool (g1 != 0)
-			active := dat.G1() != 0
+			// TS line 213: active = gbool (g1 === 1, not merely != 0)
+			active := dat.GBool()
 			if active {
 				def = append(def, "active=yes")
 			} else {

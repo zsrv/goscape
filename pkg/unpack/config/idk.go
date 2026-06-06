@@ -65,6 +65,9 @@ func unpackIdk(
 		switch {
 		case code == 1:
 			// TS lines 76-79: type = g1; def.push(`type=${IdkPartType[type]}`)
+			// DIVERGENCE: for part-type >= 14 (out-of-bounds enum), TS emits `type=undefined`
+			// (JS enum reverse-lookup returns undefined); Go emits the decimal number instead.
+			// Unreachable with valid data — TS output would be degenerate anyway (IdkConfig.ts:79).
 			typ := int(dat.G1())
 			name := ""
 			if typ < len(idkPartTypeName) {
