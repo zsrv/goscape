@@ -436,30 +436,37 @@ func parseManifest(path string) (*parsedManifest, error) {
 			if len(parts) < 3 {
 				return nil, fmt.Errorf("bad line: %q", line)
 			}
-			m.content = append(m.content, manifestEntry{kind: parts[0], path: parts[1], sum: parts[2]})
+			// Format: KIND <path-may-have-spaces> <sha256>
+			// sha256 is always the last field; path is parts[1:len-1] joined.
+			sum := parts[len(parts)-1]
+			p := strings.Join(parts[1:len(parts)-1], " ")
+			m.content = append(m.content, manifestEntry{kind: parts[0], path: p, sum: sum})
 		case "DELETED":
 			if len(parts) < 2 {
 				return nil, fmt.Errorf("bad line: %q", line)
 			}
-			m.content = append(m.content, manifestEntry{kind: "DELETED", path: parts[1]})
+			// Format: DELETED <path-may-have-spaces>
+			m.content = append(m.content, manifestEntry{kind: "DELETED", path: strings.Join(parts[1:], " ")})
 		case "CACHE-ADDED", "CACHE-MODIFIED":
 			if len(parts) < 3 {
 				return nil, fmt.Errorf("bad line: %q", line)
 			}
 			kind := strings.TrimPrefix(parts[0], "CACHE-")
-			m.cache = append(m.cache, manifestEntry{kind: kind, path: parts[1], sum: parts[2]})
+			sum := parts[len(parts)-1]
+			p := strings.Join(parts[1:len(parts)-1], " ")
+			m.cache = append(m.cache, manifestEntry{kind: kind, path: p, sum: sum})
 		case "CACHE-DELETED":
 			if len(parts) < 2 {
 				return nil, fmt.Errorf("bad line: %q", line)
 			}
-			m.cache = append(m.cache, manifestEntry{kind: "DELETED", path: parts[1]})
+			m.cache = append(m.cache, manifestEntry{kind: "DELETED", path: strings.Join(parts[1:], " ")})
 		case "WROTE":
 			if len(parts) < 2 {
 				return nil, fmt.Errorf("bad line: %q", line)
 			}
 			// WROTE <relpath> or WROTE CACHE:<relpath>
-			// Both forms are recorded as-is in the Wrote slice.
-			m.wrote = append(m.wrote, parts[1])
+			// Path may contain spaces; join all parts after the keyword.
+			m.wrote = append(m.wrote, strings.Join(parts[1:], " "))
 		case "STDOUT-NORM":
 			if len(parts) < 2 {
 				return nil, fmt.Errorf("bad line: %q", line)
