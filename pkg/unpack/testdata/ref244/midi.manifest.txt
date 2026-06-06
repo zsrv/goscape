@@ -1,0 +1,273 @@
+# rev-244 B7 TS-reference unpack changed-set manifest - family: midi
+# Engine-TS pin 9aadcec4 + Content pin e5d0282e; inputs: B6 byte-parity
+# client cache (main_file_cache.dat/idx0-4) + worldmap.jag (generated at the
+# pin by tools/pack/map/Worldmap.ts with an empty maps/ignore.csv shim).
+# config family ran with engine/data/pack moved aside (plain emission path,
+# not the merge-compare path). See plan Task-1 findings.
+# Generated 2026-06-06. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
+# (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
+# prefix = cache dir; PackFile module-load registry rewrites subtracted;
+# renameSync moves preserve mtime so renames appear in ADDED/DELETED only);
+# STDOUT-NORM = sha256 of stdout with per-line 'M/D/YYYY H:MM:SS AM\t LEVEL\t '
+# TS-Logger prefixes stripped.
+WROTE jingles/advance agility.mid
+WROTE jingles/advance attack2.mid
+WROTE jingles/advance attack.mid
+WROTE jingles/advance cooking2.mid
+WROTE jingles/advance cooking.mid
+WROTE jingles/advance crafting2.mid
+WROTE jingles/advance crafting.mid
+WROTE jingles/advance defense2.mid
+WROTE jingles/advance defense.mid
+WROTE jingles/advance firemarking.mid
+WROTE jingles/advance fishing2.mid
+WROTE jingles/advance fishing.mid
+WROTE jingles/advance fletching2.mid
+WROTE jingles/advance fletching.mid
+WROTE jingles/advance herblaw2.mid
+WROTE jingles/advance herblaw.mid
+WROTE jingles/advance hitpoints2.mid
+WROTE jingles/advance hitpoints.mid
+WROTE jingles/advance magic2.mid
+WROTE jingles/advance magic.mid
+WROTE jingles/advance mining2.mid
+WROTE jingles/advance mining.mid
+WROTE jingles/advance prayer2.mid
+WROTE jingles/advance prayer.mid
+WROTE jingles/advance ranged2.mid
+WROTE jingles/advance ranged.mid
+WROTE jingles/advance runecraft2.mid
+WROTE jingles/advance runecraft.mid
+WROTE jingles/advance smithing2.mid
+WROTE jingles/advance smithing.mid
+WROTE jingles/advance strength2.mid
+WROTE jingles/advance strength.mid
+WROTE jingles/advance thieving2.mid
+WROTE jingles/advance thieving.mid
+WROTE jingles/advance woodcutting2.mid
+WROTE jingles/advance woodcutting.mid
+WROTE jingles/death2.mid
+WROTE jingles/death.mid
+WROTE jingles/dice lose.mid
+WROTE jingles/dice win.mid
+WROTE jingles/duel start.mid
+WROTE jingles/duel win2.mid
+WROTE jingles/midi_249.mid
+WROTE jingles/midi_250.mid
+WROTE jingles/quest complete 1.mid
+WROTE jingles/quest complete 2.mid
+WROTE jingles/quest complete 3.mid
+WROTE jingles/sailing journey.mid
+WROTE jingles/treasure hunt win.mid
+WROTE songs/adventure.mid
+WROTE songs/al_kharid.mid
+WROTE songs/alone.mid
+WROTE songs/ambience_2.mid
+WROTE songs/ambience_3.mid
+WROTE songs/ambience_4.mid
+WROTE songs/ambient_jungle.mid
+WROTE songs/arabian2.mid
+WROTE songs/arabian3.mid
+WROTE songs/arabian.mid
+WROTE songs/arabique.mid
+WROTE songs/army_of_darkness.mid
+WROTE songs/arrival.mid
+WROTE songs/artistry.mid
+WROTE songs/attack1.mid
+WROTE songs/attack2.mid
+WROTE songs/attack3.mid
+WROTE songs/attack4.mid
+WROTE songs/attack5.mid
+WROTE songs/attack6.mid
+WROTE songs/attention.mid
+WROTE songs/autumn_voyage.mid
+WROTE songs/background2.mid
+WROTE songs/ballad_of_enchantment.mid
+WROTE songs/baroque.mid
+WROTE songs/beyond.mid
+WROTE songs/big_chords.mid
+WROTE songs/bone_dance.mid
+WROTE songs/book_of_spells.mid
+WROTE songs/breeze.mid
+WROTE songs/camelot.mid
+WROTE songs/cave_background1.mid
+WROTE songs/cavern.mid
+WROTE songs/cellar_song1.mid
+WROTE songs/chain_of_command.mid
+WROTE songs/chompy_hunt.mid
+WROTE songs/close_quarters.mid
+WROTE songs/contest.mid
+WROTE songs/crystal_castle.mid
+WROTE songs/crystal_cave.mid
+WROTE songs/crystal_sword.mid
+WROTE songs/cursed.mid
+WROTE songs/dangerous.mid
+WROTE songs/dark2.mid
+WROTE songs/dead_quiet.mid
+WROTE songs/deep_wildy.mid
+WROTE songs/desert_voyage.mid
+WROTE songs/doorways.mid
+WROTE songs/dream1.mid
+WROTE songs/duel_arena.mid
+WROTE songs/dunjun.mid
+WROTE songs/egypt.mid
+WROTE songs/elven_mist.mid
+WROTE songs/emotion.mid
+WROTE songs/emperor.mid
+WROTE songs/escape.mid
+WROTE songs/expanse.mid
+WROTE songs/expecting.mid
+WROTE songs/expedition.mid
+WROTE songs/fade_test.mid
+WROTE songs/faerie.mid
+WROTE songs/fanfare2.mid
+WROTE songs/fanfare3.mid
+WROTE songs/fanfare.mid
+WROTE songs/fishing.mid
+WROTE songs/flute_salad.mid
+WROTE songs/forbidden.mid
+WROTE songs/forest.mid
+WROTE songs/forever.mid
+WROTE songs/game_intro_1.mid
+WROTE songs/gaol.mid
+WROTE songs/garden.mid
+WROTE songs/gnomeball.mid
+WROTE songs/gnome_king.mid
+WROTE songs/gnome.mid
+WROTE songs/gnome_theme.mid
+WROTE songs/gnome_village2.mid
+WROTE songs/gnome_village.mid
+WROTE songs/greatness.mid
+WROTE songs/grotto.mid
+WROTE songs/grumpy.mid
+WROTE songs/harmony2.mid
+WROTE songs/harmony.mid
+WROTE songs/heart_and_mind.mid
+WROTE songs/hermit.mid
+WROTE songs/high_seas.mid
+WROTE songs/horizon.mid
+WROTE songs/iban.mid
+WROTE songs/ice_melody.mid
+WROTE songs/inspiration.mid
+WROTE songs/in_the_manor.mid
+WROTE songs/intrepid.mid
+WROTE songs/jolly-r.mid
+WROTE songs/jungle_island.mid
+WROTE songs/jungly1.mid
+WROTE songs/jungly2.mid
+WROTE songs/jungly3.mid
+WROTE songs/kingdom.mid
+WROTE songs/knightly.mid
+WROTE songs/la_mort.mid
+WROTE songs/landlubber.mid
+WROTE songs/lasting.mid
+WROTE songs/legion.mid
+WROTE songs/lightness.mid
+WROTE songs/lightwalk.mid
+WROTE songs/lonesome.mid
+WROTE songs/long_ago.mid
+WROTE songs/long_way_home.mid
+WROTE songs/lost_soul.mid
+WROTE songs/lullaby.mid
+WROTE songs/mage_arena.mid
+WROTE songs/magical_journey.mid
+WROTE songs/magic_dance.mid
+WROTE songs/march2.mid
+WROTE songs/mausoleum.mid
+WROTE songs/medieval.mid
+WROTE songs/mellow.mid
+WROTE songs/meridian.mid
+WROTE songs/miles_away.mid
+WROTE songs/miracle_dance.mid
+WROTE songs/monarch_waltz.mid
+WROTE songs/moody.mid
+WROTE songs/morytania.mid
+WROTE songs/natural.mid
+WROTE songs/neverland.mid
+WROTE songs/newbie_melody.mid
+WROTE songs/nightfall.mid
+WROTE songs/nomad.mid
+WROTE songs/null.mid
+WROTE songs/organ_music_1.mid
+WROTE songs/organ_music_2.mid
+WROTE songs/oriental.mid
+WROTE songs/overpass.mid
+WROTE songs/overture.mid
+WROTE songs/parade.mid
+WROTE songs/principality.mid
+WROTE songs/quest.mid
+WROTE songs/regal2.mid
+WROTE songs/reggae2.mid
+WROTE songs/reggae.mid
+WROTE songs/riverside.mid
+WROTE songs/royale.mid
+WROTE songs/rune_essence.mid
+WROTE songs/sad_meadow.mid
+WROTE songs/scape_cave.mid
+WROTE songs/scape_main.mid
+WROTE songs/scape_sad1.mid
+WROTE songs/scape_soft.mid
+WROTE songs/scape_wild1.mid
+WROTE songs/sea_shanty2.mid
+WROTE songs/sea_shanty.mid
+WROTE songs/serenade.mid
+WROTE songs/serene.mid
+WROTE songs/shine.mid
+WROTE songs/shining.mid
+WROTE songs/silence.mid
+WROTE songs/sojourn.mid
+WROTE songs/soundscape.mid
+WROTE songs/spirit.mid
+WROTE songs/splendour.mid
+WROTE songs/spooky2.mid
+WROTE songs/spooky_jungle.mid
+WROTE songs/stagnant.mid
+WROTE songs/starlight.mid
+WROTE songs/start.mid
+WROTE songs/still_night.mid
+WROTE songs/stratosphere.mid
+WROTE songs/talking_forest.mid
+WROTE songs/the_desert.mid
+WROTE songs/theme.mid
+WROTE songs/the_shadow.mid
+WROTE songs/the_tower.mid
+WROTE songs/time_out.mid
+WROTE songs/tomorrow.mid
+WROTE songs/trawler.mid
+WROTE songs/trawler_minor.mid
+WROTE songs/tree_spirits.mid
+WROTE songs/tremble.mid
+WROTE songs/tribal2.mid
+WROTE songs/tribal_background.mid
+WROTE songs/tribal.mid
+WROTE songs/trinity.mid
+WROTE songs/troubled.mid
+WROTE songs/twilight.mid
+WROTE songs/undercurrent.mid
+WROTE songs/underground.mid
+WROTE songs/underground_pass.mid
+WROTE songs/understanding.mid
+WROTE songs/unknown_land.mid
+WROTE songs/upcoming.mid
+WROTE songs/venture2.mid
+WROTE songs/venture.mid
+WROTE songs/village.mid
+WROTE songs/vision.mid
+WROTE songs/voodoo_cult.mid
+WROTE songs/voyage.mid
+WROTE songs/wander.mid
+WROTE songs/waterfall.mid
+WROTE songs/waterlogged.mid
+WROTE songs/wilderness2.mid
+WROTE songs/wilderness3.mid
+WROTE songs/wilderness4.mid
+WROTE songs/witching.mid
+WROTE songs/wolf_mountain.mid
+WROTE songs/wonder.mid
+WROTE songs/wonderous.mid
+WROTE songs/woodland.mid
+WROTE songs/workshop.mid
+WROTE songs/yesteryear.mid
+WROTE songs/zealot.mid
+STDOUT-NORM 4dec8820922b087a259be6452e0cbde710ef93a57fc7c828430b6733abe548b3

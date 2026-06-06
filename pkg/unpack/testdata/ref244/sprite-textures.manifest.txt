@@ -1,0 +1,75 @@
+# rev-244 B7 TS-reference unpack changed-set manifest - family: sprite-textures
+# Engine-TS pin 9aadcec4 + Content pin e5d0282e; inputs: B6 byte-parity
+# client cache (main_file_cache.dat/idx0-4) + worldmap.jag (generated at the
+# pin by tools/pack/map/Worldmap.ts with an empty maps/ignore.csv shim).
+# config family ran with engine/data/pack moved aside (plain emission path,
+# not the merge-compare path). See plan Task-1 findings.
+# Generated 2026-06-06. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
+# (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
+# prefix = cache dir; PackFile module-load registry rewrites subtracted;
+# renameSync moves preserve mtime so renames appear in ADDED/DELETED only);
+# STDOUT-NORM = sha256 of stdout with per-line 'M/D/YYYY H:MM:SS AM\t LEVEL\t '
+# TS-Logger prefixes stripped.
+WROTE textures/bamboo.png
+WROTE textures/bark.png
+WROTE textures/books.png
+WROTE textures/canvas.png
+WROTE textures/cargonet.png
+WROTE textures/chainmail.png
+WROTE textures/damage.png
+WROTE textures/darkwood.png
+WROTE textures/door2.png
+WROTE textures/door.png
+WROTE textures/elfdoor.png
+WROTE textures/elfpainting.png
+WROTE textures/elfroof2.png
+WROTE textures/elfroof.png
+WROTE textures/elfwall.png
+WROTE textures/elfwood.png
+WROTE textures/empty.png
+WROTE textures/fountain.png
+WROTE textures/glyphs.png
+WROTE textures/gungywater.png
+WROTE textures/jungleleaf2.png
+WROTE textures/jungleleaf4.png
+WROTE textures/lava.png
+WROTE textures/leafybase.png
+WROTE textures/leafytree.png
+WROTE textures/mapletree.png
+WROTE textures/marble.png
+WROTE textures/meta/bamboo.opt
+WROTE textures/meta/elfroof2.opt
+WROTE textures/meta/fountain.opt
+WROTE textures/meta/jungleleaf2.opt
+WROTE textures/meta/jungleleaf4.opt
+WROTE textures/meta/leafytree.opt
+WROTE textures/meta/mapletree.opt
+WROTE textures/meta/mossydamage.opt
+WROTE textures/meta/plant2.opt
+WROTE textures/meta/plant.opt
+WROTE textures/meta/yewtree.opt
+WROTE textures/mossybricks.png
+WROTE textures/mossydamage.png
+WROTE textures/mossy.png
+WROTE textures/mummy.png
+WROTE textures/painting1.png
+WROTE textures/painting2.png
+WROTE textures/pebblefloor.png
+WROTE textures/planks.png
+WROTE textures/plant2.png
+WROTE textures/plant.png
+WROTE textures/railings.png
+WROTE textures/rockwall.png
+WROTE textures/roof2.png
+WROTE textures/roof.png
+WROTE textures/thatched.png
+WROTE textures/treestump.png
+WROTE textures/wall.png
+WROTE textures/water_animated.png
+WROTE textures/water.png
+WROTE textures/web.png
+WROTE textures/willowtex3.png
+WROTE textures/wood2.png
+WROTE textures/yewtree.png
+STDOUT-NORM e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

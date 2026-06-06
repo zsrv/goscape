@@ -1,0 +1,99 @@
+# rev-244 B7 TS-reference unpack changed-set manifest - family: sprite-media
+# Engine-TS pin 9aadcec4 + Content pin e5d0282e; inputs: B6 byte-parity
+# client cache (main_file_cache.dat/idx0-4) + worldmap.jag (generated at the
+# pin by tools/pack/map/Worldmap.ts with an empty maps/ignore.csv shim).
+# config family ran with engine/data/pack moved aside (plain emission path,
+# not the merge-compare path). See plan Task-1 findings.
+# Generated 2026-06-06. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
+# (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
+# prefix = cache dir; PackFile module-load registry rewrites subtracted;
+# renameSync moves preserve mtime so renames appear in ADDED/DELETED only);
+# STDOUT-NORM = sha256 of stdout with per-line 'M/D/YYYY H:MM:SS AM\t LEVEL\t '
+# TS-Logger prefixes stripped.
+WROTE sprites/backbase1.png
+WROTE sprites/backbase2.png
+WROTE sprites/backhmid1.png
+WROTE sprites/backhmid2.png
+WROTE sprites/backleft1.png
+WROTE sprites/backleft2.png
+WROTE sprites/backright1.png
+WROTE sprites/backright2.png
+WROTE sprites/backtop1.png
+WROTE sprites/backvmid1.png
+WROTE sprites/backvmid2.png
+WROTE sprites/backvmid3.png
+WROTE sprites/chatback.png
+WROTE sprites/combatboxes.png
+WROTE sprites/combaticons2.png
+WROTE sprites/combaticons3.png
+WROTE sprites/combaticons.png
+WROTE sprites/compass.png
+WROTE sprites/cross.png
+WROTE sprites/gnomeball_buttons.png
+WROTE sprites/headicons.png
+WROTE sprites/hitmarks.png
+WROTE sprites/invback.png
+WROTE sprites/leftarrow.png
+WROTE sprites/magicoff2.png
+WROTE sprites/magicoff.png
+WROTE sprites/magicon2.png
+WROTE sprites/magicon.png
+WROTE sprites/mapback.png
+WROTE sprites/mapdots.png
+WROTE sprites/mapedge.png
+WROTE sprites/mapfunction.png
+WROTE sprites/mapmarker.png
+WROTE sprites/mapscene.png
+WROTE sprites/meta/combatboxes.opt
+WROTE sprites/meta/combaticons2.opt
+WROTE sprites/meta/combaticons3.opt
+WROTE sprites/meta/combaticons.opt
+WROTE sprites/meta/cross.opt
+WROTE sprites/meta/gnomeball_buttons.opt
+WROTE sprites/meta/headicons.opt
+WROTE sprites/meta/hitmarks.opt
+WROTE sprites/meta/magicoff2.opt
+WROTE sprites/meta/magicoff.opt
+WROTE sprites/meta/magicon2.opt
+WROTE sprites/meta/magicon.opt
+WROTE sprites/meta/mapdots.opt
+WROTE sprites/meta/mapedge.opt
+WROTE sprites/meta/mapfunction.opt
+WROTE sprites/meta/mapmarker.opt
+WROTE sprites/meta/mapscene.opt
+WROTE sprites/meta/miscgraphics2.opt
+WROTE sprites/meta/miscgraphics3.opt
+WROTE sprites/meta/miscgraphics.opt
+WROTE sprites/meta/mod_icons.opt
+WROTE sprites/meta/prayeroff.opt
+WROTE sprites/meta/prayeron.opt
+WROTE sprites/meta/scrollbar.opt
+WROTE sprites/meta/sideicons.opt
+WROTE sprites/meta/staticons2.opt
+WROTE sprites/meta/staticons.opt
+WROTE sprites/meta/steelborder2.opt
+WROTE sprites/meta/steelborder.opt
+WROTE sprites/meta/sworddecor.opt
+WROTE sprites/meta/wornicons.opt
+WROTE sprites/miscgraphics2.png
+WROTE sprites/miscgraphics3.png
+WROTE sprites/miscgraphics.png
+WROTE sprites/mod_icons.png
+WROTE sprites/prayerglow.png
+WROTE sprites/prayeroff.png
+WROTE sprites/prayeron.png
+WROTE sprites/redstone1.png
+WROTE sprites/redstone2.png
+WROTE sprites/redstone3.png
+WROTE sprites/rightarrow.png
+WROTE sprites/scrollbar.png
+WROTE sprites/sideicons.png
+WROTE sprites/staticons2.png
+WROTE sprites/staticons.png
+WROTE sprites/steelborder2.png
+WROTE sprites/steelborder.png
+WROTE sprites/sworddecor.png
+WROTE sprites/tradebacking.png
+WROTE sprites/wornicons.png
+STDOUT-NORM e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
