@@ -63,6 +63,7 @@ func ReadConfigIdx(idx, dat *packet.Packet) (*ConfigIdx, error) {
 // Env carries the name-registries and sinks that per-type unpackers consult.
 // Fields cover all config types; later tasks extend usage of Models and SrcDir.
 // Warnf is the TS printWarning sink; nil = no-op.
+// Errorf is the TS console.error sink (used by renameModel on file-not-found); nil = no-op.
 type Env struct {
 	Flo      *pack.PackFile
 	Texture  *pack.PackFile
@@ -79,13 +80,21 @@ type Env struct {
 	Models *model.Store // pkg/unpack/internal/model; unused by flo/varp/seq
 	SrcDir string       // content tree root; unused by flo/varp/seq
 
-	Warnf func(format string, args ...any) // nil = no-op
+	Warnf  func(format string, args ...any) // nil = no-op; TS printWarning
+	Errorf func(format string, args ...any) // nil = no-op; TS console.error
 }
 
 // warnf calls e.Warnf when non-nil.
 func (e *Env) warnf(format string, args ...any) {
 	if e.Warnf != nil {
 		e.Warnf(format, args...)
+	}
+}
+
+// errorf calls e.Errorf when non-nil.
+func (e *Env) errorf(format string, args ...any) {
+	if e.Errorf != nil {
+		e.Errorf(format, args...)
 	}
 }
 
@@ -116,5 +125,48 @@ func (e *Env) UnpackVarp(cfg *ConfigIdx, id int) []string {
 // TS source: tools/unpack/config/SeqConfig.ts:6-138.
 func (e *Env) UnpackSeq(cfg *ConfigIdx, id int) []string {
 	return unpackSeq(cfg, id, e.Seq, e.Anim, e.Obj, e.warnf)
+}
+
+// UnpackIdk mirrors tools/unpack/config/IdkConfig.ts:unpackIdkConfig.
+//
+// TS source: tools/unpack/config/IdkConfig.ts:58-149.
+func (e *Env) UnpackIdk(cfg *ConfigIdx, id int) []string {
+	return unpackIdk(cfg, id, e.Idk, e.Texture, e.Model, e.Models, e.SrcDir, e.warnf, e.errorf)
+}
+
+// UnpackNpc mirrors tools/unpack/config/NpcConfig.ts:unpackNpcConfig.
+//
+// TS source: tools/unpack/config/NpcConfig.ts:41-188.
+func (e *Env) UnpackNpc(cfg *ConfigIdx, id int) []string {
+	return unpackNpc(cfg, id, e.Npc, e.Texture, e.Seq, e.Model, e.Models, e.SrcDir, e.warnf, e.errorf)
+}
+
+// UnpackObj mirrors tools/unpack/config/ObjConfig.ts:unpackObjConfig.
+//
+// TS source: tools/unpack/config/ObjConfig.ts:41-258.
+func (e *Env) UnpackObj(cfg *ConfigIdx, id int) []string {
+	return unpackObj(cfg, id, e.Obj, e.Texture, e.Seq, e.Model, e.Models, e.SrcDir, e.warnf, e.errorf)
+}
+
+// UnpackSpotAnim mirrors tools/unpack/config/SpotAnimConfig.ts:unpackSpotAnimConfig.
+//
+// TS source: tools/unpack/config/SpotAnimConfig.ts:41-142.
+func (e *Env) UnpackSpotAnim(cfg *ConfigIdx, id int) []string {
+	return unpackSpotAnim(cfg, id, e.SpotAnim, e.Texture, e.Seq, e.Model, e.Models, e.SrcDir, e.warnf, e.errorf)
+}
+
+// UnpackLoc mirrors tools/unpack/config/LocConfig.ts:unpackLocConfig.
+// Returns an error when an unknown opcode is encountered (TS printFatalError).
+//
+// TS source: tools/unpack/config/LocConfig.ts:157-330.
+func (e *Env) UnpackLoc(cfg *ConfigIdx, id int) ([]string, error) {
+	return unpackLoc(cfg, id, e.Loc, e.Texture, e.Seq, e.Model, e.Models, e.warnf)
+}
+
+// UnpackLocModels mirrors tools/unpack/config/LocConfig.ts:unpackLocModels.
+//
+// TS source: tools/unpack/config/LocConfig.ts:25-129.
+func (e *Env) UnpackLocModels(cfg *ConfigIdx, id int) LocModels {
+	return unpackLocModels(cfg, id)
 }
 
