@@ -549,7 +549,6 @@ func sha256File(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// sha256Hex returns the lowercase hex sha256 of b.
 // isRegistryPack reports whether p is a name-registry file (pack/<type>.pack,
 // optionally CACHE:-prefixed) — the only paths exempt from the
 // extra-WROTE-entry check (see the WROTE comparison comment).
@@ -559,6 +558,7 @@ func isRegistryPack(p string) bool {
 	return dir == "pack/" && strings.HasSuffix(file, ".pack")
 }
 
+// sha256Hex returns the lowercase hex sha256 of b.
 func sha256Hex(b []byte) string {
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])

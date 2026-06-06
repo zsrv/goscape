@@ -281,5 +281,10 @@ func ModelIndex(cacheDir, srcDir string, out io.Writer) error {
 		}
 	}
 
+	// Explicit close: a flush-on-close failure must not be reported as success
+	// (the deferred close above still guards the error returns).
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("ModelIndex: close model_index.txt: %w", err)
+	}
 	return nil
 }
