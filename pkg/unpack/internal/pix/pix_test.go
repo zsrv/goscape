@@ -307,7 +307,7 @@ func TestUnpackFull_MultiSprite(t *testing.T) {
 	jag := buildJag(t, "sprites", specs)
 
 	dir := t.TempDir()
-	err := UnpackFull(jag, dir, "sprites")
+	err := UnpackFull(jag, dir, "sprites", nil)
 	require.NoError(t, err)
 
 	// PNG must exist.
@@ -369,7 +369,7 @@ func TestUnpackFull_OptBytes(t *testing.T) {
 		}
 		jag := buildJag(t, "multi", specs)
 		dir := t.TempDir()
-		require.NoError(t, UnpackFull(jag, dir, "multi"))
+		require.NoError(t, UnpackFull(jag, dir, "multi", nil))
 
 		optBytes, err := os.ReadFile(filepath.Join(dir, "meta", "multi.opt"))
 		require.NoError(t, err)
@@ -390,7 +390,7 @@ func TestUnpackFull_OptBytes(t *testing.T) {
 		}
 		jag := buildJag(t, "cropped", []spriteSpec{spec})
 		dir := t.TempDir()
-		require.NoError(t, UnpackFull(jag, dir, "cropped"))
+		require.NoError(t, UnpackFull(jag, dir, "cropped", nil))
 
 		optBytes, err := os.ReadFile(filepath.Join(dir, "meta", "cropped.opt"))
 		require.NoError(t, err)
@@ -410,7 +410,7 @@ func TestUnpackFull_OptBytes(t *testing.T) {
 		}
 		jag := buildJag(t, "full", []spriteSpec{spec})
 		dir := t.TempDir()
-		require.NoError(t, UnpackFull(jag, dir, "full"))
+		require.NoError(t, UnpackFull(jag, dir, "full", nil))
 
 		// .opt must NOT exist. TS Pix.ts:67 condition:
 		//   cropLeft!=0 || cropTop!=0 || cropRight!=width || cropBottom!=height
@@ -444,7 +444,7 @@ func TestUnpackFull_NoMoreSprites(t *testing.T) {
 
 	// UnpackFull must not error either.
 	dir := t.TempDir()
-	require.NoError(t, UnpackFull(jag, dir, "one"))
+	require.NoError(t, UnpackFull(jag, dir, "one", nil))
 	require.FileExists(t, filepath.Join(dir, "one.png"))
 }
 
@@ -511,7 +511,7 @@ func TestUnpackFull_ZeroSprites(t *testing.T) {
 	require.NoError(t, err)
 
 	outDir := t.TempDir()
-	err = UnpackFull(loaded, outDir, "nothing")
+	err = UnpackFull(loaded, outDir, "nothing", nil)
 	require.NoError(t, err, "zero sprites must not error")
 
 	// No PNG should have been written.
@@ -536,7 +536,7 @@ func TestUnpackFull_WritesFile(t *testing.T) {
 	}
 	jag := buildJag(t, "blue", []spriteSpec{spec})
 	dir := t.TempDir()
-	require.NoError(t, UnpackFull(jag, dir, "blue"))
+	require.NoError(t, UnpackFull(jag, dir, "blue", nil))
 
 	img := loadPNG(t, filepath.Join(dir, "blue.png"))
 	bounds := img.Bounds()
@@ -599,16 +599,14 @@ func TestUnpackFull_SheetDimFailure_WritesOptSkipsPNG(t *testing.T) {
 	}
 	jag := buildJag(t, "fourteen", specs)
 
-	// Wire Errorf to capture the warning; restore after test.
+	// Pass a capture func as the errorf parameter to observe the warning.
 	var gotMsg string
-	orig := Errorf
-	t.Cleanup(func() { Errorf = orig })
-	Errorf = func(format string, args ...any) {
+	captureErrorf := func(format string, args ...any) {
 		gotMsg = fmt.Sprintf(format, args...)
 	}
 
 	dir := t.TempDir()
-	err := UnpackFull(jag, dir, "fourteen")
+	err := UnpackFull(jag, dir, "fourteen", captureErrorf)
 
 	// TS returns without error. TS Pix.ts:52-54 skips PNG when png==null.
 	require.NoError(t, err, "dimension mismatch must not return an error (mirrors TS)")
@@ -666,7 +664,7 @@ func TestUnpackFull_4Sprite2x2Sheet(t *testing.T) {
 	}
 	jag := buildJag(t, "quad", specs)
 	dir := t.TempDir()
-	require.NoError(t, UnpackFull(jag, dir, "quad"))
+	require.NoError(t, UnpackFull(jag, dir, "quad", nil))
 
 	img := loadPNG(t, filepath.Join(dir, "quad.png"))
 	bounds := img.Bounds()

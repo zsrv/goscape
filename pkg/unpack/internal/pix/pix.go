@@ -17,12 +17,6 @@ import (
 // TS Pix.ts:198-203 (sheet) and TS Pix.ts:260-264 (packPng single sprite).
 var background = color.NRGBA{R: 0xFF, G: 0x00, B: 0xFF, A: 0xFF}
 
-// Errorf is called when a spritesheet dimension mismatch is detected
-// (TS Pix.ts:192 — printError("wrong spritesheet size! ...")).
-// By default it is a no-op; the CLI wires it to its logger.
-// Signature matches fmt.Errorf / log.Printf to allow direct assignment.
-var Errorf = func(format string, args ...any) {}
-
 // Sprite holds the decoded fields of a single RS2 sprite.
 // Mirrors the TS Pix constructor parameters (TS Pix.ts:20-31).
 type Sprite struct {
@@ -255,7 +249,15 @@ func sheetDimensions(count int) (sheetWidth, sheetHeight int, ok bool) {
 // UnpackFull decodes all sprites from jag[name], writes <dir>/<name>.png,
 // and writes <dir>/meta/<name>.opt when the .opt conditions are met.
 // No-op when zero sprites found. TS Pix.ts:33-70.
-func UnpackFull(jag *jagfile.Jagfile, dir, name string) error {
+//
+// errorf is called when a spritesheet dimension mismatch is detected
+// (TS Pix.ts:192 — printError("wrong spritesheet size! ...")).
+// A nil errorf is treated as a no-op; the CLI passes its logger.
+// Signature matches fmt.Printf to allow direct forwarding.
+func UnpackFull(jag *jagfile.Jagfile, dir, name string, errorf func(format string, args ...any)) error {
+	if errorf == nil {
+		errorf = func(format string, args ...any) {}
+	}
 	// TS Pix.ts:34-41 — collect all sprites up to 1000.
 	var all []*Sprite
 	for i := range 1000 {
@@ -292,7 +294,7 @@ func UnpackFull(jag *jagfile.Jagfile, dir, name string) error {
 		sheetWidth, sheetHeight, ok := sheetDimensions(count)
 		if !ok {
 			// TS Pix.ts:191-194 — dimension mismatch: log and return null (skip PNG).
-			Errorf("wrong spritesheet size! you may have to manually define its dimensions: %dx%d != %d", sheetWidth, sheetHeight, count)
+			errorf("wrong spritesheet size! you may have to manually define its dimensions: %dx%d != %d", sheetWidth, sheetHeight, count)
 			// img stays nil — PNG write is skipped below (TS Pix.ts:52 `if (png)`).
 		} else {
 			cellWidth := all[0].Width
@@ -377,7 +379,7 @@ func UnpackFull(jag *jagfile.Jagfile, dir, name string) error {
 }
 
 // writePNG encodes img as a PNG file at path, creating parent dirs as needed.
-func writePNG(path string, img image.Image) error {
+func writePNG(path string, img image.Image) (retErr error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
@@ -385,6 +387,10 @@ func writePNG(path string, img image.Image) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && retErr == nil {
+			retErr = cerr
+		}
+	}()
 	return png.Encode(f, img)
 }
