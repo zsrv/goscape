@@ -524,12 +524,21 @@ func TestRealCacheSmoke(t *testing.T) {
 	assert.Greater(t, count, 3000, "expected >3000 models in archive 1")
 
 	s := New()
+	decoded := 0
 	for id := 0; id < count; id++ {
 		data := fs.Read(1, id, true)
 		s.Unpack(id, data)
+		if len(data) > 0 {
+			decoded++
+		}
 	}
+	// Guard against silent degradation: a filestream decompress regression
+	// returning nil for every versioned entry used to pass this test (zeroed
+	// metadata is panic-free). The 244 reference cache holds ~3.4k models.
+	assert.Greater(t, decoded, 3000, "expected >3000 readable models (filestream decompress regression?)")
 
-	// FromID(0) must decode without panic
+	// FromID(0) must decode without panic — and actually decode something.
 	m := s.FromID(0)
 	require.NotNil(t, m)
+	assert.Greater(t, m.FaceCount, 0, "model 0 must decode real geometry")
 }
