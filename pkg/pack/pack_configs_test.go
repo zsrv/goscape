@@ -275,7 +275,7 @@ func setupParamFixture(t *testing.T, srcDir string, slotName, typeName, defaultV
 	for kind, entries := range extraPacks {
 		var body strings.Builder
 		for id, name := range entries {
-			body.WriteString(fmt.Sprintf("%d=%s\n", id, name))
+			fmt.Fprintf(&body, "%d=%s\n", id, name)
 		}
 		writeFile(t, filepath.Join(packDir, kind+".pack"), body.String())
 	}

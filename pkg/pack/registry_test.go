@@ -119,6 +119,17 @@ func TestRegistry_AnimSet_MapPack_Midi(t *testing.T) {
 	if mapPack.Type != "map" {
 		t.Errorf("Map.Type=%q, want %q", mapPack.Type, "map")
 	}
+	if mapPack.SrcDir != tmp {
+		t.Errorf("Map.SrcDir=%q, want %q", mapPack.SrcDir, tmp)
+	}
+	// Idempotent
+	mapSecond, err := reg.EnsureMap()
+	if err != nil {
+		t.Fatalf("EnsureMap (second): %v", err)
+	}
+	if mapSecond != mapPack {
+		t.Error("EnsureMap not idempotent: new *PackFile returned on second call")
+	}
 
 	// Midi
 	if reg.Midi != nil {

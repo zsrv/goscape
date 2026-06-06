@@ -30,7 +30,7 @@ import (
 //
 // cache is an optional *filestream.FileStream. When non-nil, the packed
 // client/title jagfile bytes are written to cache.Write(0, 1, data, 0),
-// mirroring TS title.ts:33: `cache.write(0, 1, fs.readFileSync('data/pack/client/title'))`.
+// mirroring TS title.ts:34: `cache.write(0, 1, fs.readFileSync('data/pack/client/title'))`.
 // Real handle is wired in T15.
 func PackTitle(srcDir, outDir string, cache *filestream.FileStream) error {
 	if _, err := os.Stat(filepath.Join(srcDir, "title")); os.IsNotExist(err) {
@@ -91,7 +91,7 @@ func PackTitle(srcDir, outDir string, cache *filestream.FileStream) error {
 //
 // cache is an optional *filestream.FileStream. When non-nil, the packed
 // client/media jagfile bytes are written to cache.Write(0, 4, data, 0),
-// mirroring TS media.ts:36: `cache.write(0, 4, fs.readFileSync('data/pack/client/media'))`.
+// mirroring TS media.ts:37: `cache.write(0, 4, fs.readFileSync('data/pack/client/media'))`.
 // Real handle is wired in T15.
 func PackMedia(srcDir, outDir string, cache *filestream.FileStream) error {
 	index := packet.Alloc(3)
@@ -160,7 +160,7 @@ func PackMedia(srcDir, outDir string, cache *filestream.FileStream) error {
 //
 // cache is an optional *filestream.FileStream. When non-nil, the packed
 // client/textures jagfile bytes are written to cache.Write(0, 6, data, 0),
-// mirroring TS textures.ts:24: `cache.write(0, 6, fs.readFileSync('data/pack/client/textures'))`.
+// mirroring TS textures.ts:25: `cache.write(0, 6, fs.readFileSync('data/pack/client/textures'))`.
 // Real handle is wired in T15.
 func PackTexture(reg *pack.Registry, srcDir, outDir string, cache *filestream.FileStream) error {
 	texturePack, err := reg.EnsureTexture()

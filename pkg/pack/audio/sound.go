@@ -78,9 +78,35 @@ func PackSound(reg *pack.Registry, srcDir, outDir string, cache *filestream.File
 	out.P2(0xffff) // TS out.p2(-1) terminator
 
 	// Build-verify: TS sound/pack.ts:47-49 at 9aadcec4.
-	// NAI-213-D-BUILDVERIFY-SOUND-MAY-DIVERGE: downgrade to informational
-	// stderr log and continue writing, mirroring clientinterface posture.
 	if err := pack.BuildVerify(out.Data, out.Length(), soundCRCMagic); err != nil {
+		// NAI-213-D-BUILDVERIFY-SOUND-MAY-DIVERGE — CONFIRMED-EXCEPTION
+		// (pack-media-compiler-13, rev-244 B6 audit closure):
+		//
+		// TS sound/pack.ts:47-49 hard-throws on CRC mismatch when the
+		// TS environment's build-verify toggle is set. goscape downgrades to an
+		// informational stderr log and continues writing. The downgrade
+		// is INTENTIONAL and STRUCTURAL — not a transient defer:
+		//
+		//   1. The soundCRCMagic constant is a hash of TS's synth pack
+		//      at a specific build moment. goscape's synth set derives
+		//      from the content tree being packed (which may be stock
+		//      LostCity, a custom content tree, or a synthetic test
+		//      fixture). Any name-id divergence — by design or accident
+		//      — produces a different CRC than the TS-stored magic.
+		//   2. Aborting on mismatch would make goscape unable to pack
+		//      ANY content tree whose synth set doesn't byte-match
+		//      LostCity's at the build that generated the magic. Custom
+		//      content trees and synthetic test fixtures are first-class
+		//      use cases in goscape's design; the log lets the operator
+		//      see the mismatch without breaking the pipeline.
+		//   3. The magic constant is retained so it CAN re-engage if
+		//      upstream pack consumers ever become TS-byte-faithful
+		//      end-to-end (an env-gate could promote the log to a throw
+		//      then), but that activation is not in scope for the
+		//      current 1:1 parity arc.
+		//
+		// Audit row pack-media-compiler-13 closed as ✅ EXCEPTION-
+		// DOCUMENTED — see docs/PORTING-CLOSED.md.
 		fmt.Fprintf(os.Stderr, "packClientSound: %v (NAI-213-D-BUILDVERIFY-SOUND-MAY-DIVERGE)\n", err)
 	}
 

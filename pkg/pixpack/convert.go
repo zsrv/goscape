@@ -43,7 +43,7 @@ func ConvertImage(index *packet.Packet, srcDir, name string) (*packet.Packet, er
 	index.P2(uint16(tileX))
 	index.P2(uint16(tileY))
 
-	// TS PixPack.ts:185-192 (9aadcec4): if <srcDir>/meta/<name>.pal.png exists,
+	// TS PixPack.ts:185-193 (9aadcec4): if <srcDir>/meta/<name>.pal.png exists,
 	// read its palette as a CRC-preserving workaround; otherwise use the source image.
 	var colors []int32
 	palPath := filepath.Join(srcDir, "meta", name+".pal.png")
