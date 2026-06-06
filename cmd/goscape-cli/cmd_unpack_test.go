@@ -78,7 +78,6 @@ func TestRunUnpack_FamilyHelpReturns0(t *testing.T) {
 		"worldmap", "checksum", "compare",
 	}
 	for _, fam := range families {
-		fam := fam
 		t.Run(fam, func(t *testing.T) {
 			t.Parallel()
 			var stdout, stderr bytes.Buffer
