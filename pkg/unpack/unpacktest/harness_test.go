@@ -291,6 +291,35 @@ func TestAssertManifest_Mismatches(t *testing.T) {
 		}
 	})
 
+	t.Run("extra WROTE registry .pack is exempt", func(t *testing.T) {
+		// TS PackFile module-load rewrites made registry saves un-attributable
+		// in the manifests, so result-side extra pack/*.pack writes (plain or
+		// CACHE:-prefixed) are allowed; anything else stays a mismatch.
+		p := writeManifest(baseManifest)
+		r := Result{
+			Content: []Entry{
+				{Kind: "ADDED", Path: "data/a.txt", Sum: hashBytes(addedContent)},
+			},
+			Wrote: []string{
+				"data/a.txt",
+				"pack/model.pack",      // exempt
+				"CACHE:pack/midi.pack", // exempt
+				"pack/sub/deep.pack",   // NOT exempt (not directly under pack/)
+				"scripts/all.pack.bak", // NOT exempt (wrong extension shape)
+			},
+			Stdout:       stdoutBytes,
+			PostDir:      postDir,
+			CachePostDir: cachePostDir,
+		}
+		mismatches := assertManifestFile(t, p, refRoot, "test", r)
+		if anyContains(mismatches, "pack/model.pack") || anyContains(mismatches, "pack/midi.pack") {
+			t.Errorf("registry .pack writes must be exempt, got: %v", mismatches)
+		}
+		if !anyContains(mismatches, "pack/sub/deep.pack") || !anyContains(mismatches, "scripts/all.pack.bak") {
+			t.Errorf("non-registry extras must still mismatch, got: %v", mismatches)
+		}
+	})
+
 	t.Run("wrong stdout sha", func(t *testing.T) {
 		p := writeManifest(baseManifest)
 		r := Result{
@@ -424,7 +453,7 @@ func TestAssertManifest_PNGPixelEquality(t *testing.T) {
 func TestAssertManifest_CachePNGPixelEquality(t *testing.T) {
 	dir := t.TempDir()
 	refRoot := t.TempDir()
-	postDir := t.TempDir()    // content post dir — not touched by this test
+	postDir := t.TempDir()      // content post dir — not touched by this test
 	cachePostDir := t.TempDir() // cache post dir — holds Go-produced cache PNGs
 
 	const pngPath = "textures/tile.png"

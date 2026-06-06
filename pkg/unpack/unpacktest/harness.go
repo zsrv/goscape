@@ -14,6 +14,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -303,6 +304,17 @@ func assertManifestFile(t *testing.T, manifestPath, refRoot, family string, r Re
 	}
 
 	// --- WROTE set comparison ---
+	// Manifest WROTE entries were captured from the TS reference runs with the
+	// PackFile module-load registry rewrites subtracted (importing
+	// tools/pack/PackFile.js rewrites 20 pack/*.pack files byte-identically in
+	// EVERY family, even print-only ones — see the manifest header). That
+	// subtraction makes genuine registry saves un-attributable when they land
+	// on a noise-listed path (e.g. config's ModelPack.save touches
+	// pack/model.pack, midi's MidiPack.save rewrites pack/midi.pack with
+	// identical bytes). So the WROTE check is asymmetric: every manifest WROTE
+	// must be present in the result, and result extras are failures UNLESS
+	// they are registry .pack files under pack/ (content correctness for those
+	// is still pinned by the ADDED/MODIFIED changed-set when bytes change).
 	wroteMani := make(map[string]bool, len(manifest.wrote))
 	for _, p := range manifest.wrote {
 		wroteMani[p] = true
@@ -318,7 +330,7 @@ func assertManifestFile(t *testing.T, manifestPath, refRoot, family string, r Re
 		}
 	}
 	for p := range wroteResult {
-		if !wroteMani[p] {
+		if !wroteMani[p] && !isRegistryPack(p) {
 			mismatches = append(mismatches, fmt.Sprintf("WROTE %s: in result but missing from manifest", p))
 		}
 	}
@@ -531,6 +543,15 @@ func sha256File(path string) (string, error) {
 }
 
 // sha256Hex returns the lowercase hex sha256 of b.
+// isRegistryPack reports whether p is a name-registry file (pack/<type>.pack,
+// optionally CACHE:-prefixed) — the only paths exempt from the
+// extra-WROTE-entry check (see the WROTE comparison comment).
+func isRegistryPack(p string) bool {
+	p = strings.TrimPrefix(p, "CACHE:")
+	dir, file := path.Split(p)
+	return dir == "pack/" && strings.HasSuffix(file, ".pack")
+}
+
 func sha256Hex(b []byte) string {
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
