@@ -316,15 +316,15 @@ Plan: [`docs/superpowers/plans/2026-06-03-rev244-b1-io-cache-primitives.md`](doc
   PreloadedPacks rewiring is coupled to the new OnDemand engine → **B3**;
   DevThread `packAll` signature change → **B6**. Do not touch
   `pkg/cache/crctable.go` / `pkg/cache/preloaded.go` in B1.
-- ⚠ **Format-inconsistency window.** The config decoders now read the 244 cache
-  format while `pkg/pack` still writes 225 format until B6. Recorded artifacts:
-  `PORTING-EXCEPTION (rev244-b1-format-window, …)` marker at
-  `pkg/objtype/seqtype.go:98` (empty-`Instances` delay fallback); and tests that
-  skip on a stale/absent 225-format cache —
-  `TestLoadSeqTypes_FromPack` (`pkg/objtype/seqtype_test.go:505`, skip-when-no-pack)
-  and `TestNewServer_LoadsWordencFilter` (`modules/world/server_wordenc_test.go:18`,
-  skips on the stale-225 `parseComponentTypes` panic + the missing raw `data/raw/wordenc`
-  fixture). All expire at the **B6** repack.
+- ✅ **Format-inconsistency window CLOSED at B6.** The config decoders now read
+  the 244 cache format and `pkg/pack` writes 244 format (B6 parity test
+  `pkg/packall/parity_test.go`, commit `a69634e7`). Closed artifacts:
+  `PORTING-EXCEPTION (rev244-b1-format-window)` marker removed from
+  `pkg/objtype/seqtype.go` (replaced with closure note, B6 cleanup commit);
+  `TestLoadSeqTypes_FromPack` now runs against the Server244-ref reference cache
+  (no longer skipped); `TestNewServer_LoadsWordencFilter` now uses the Server244-ref
+  244-format pack + `t.Chdir` to project root for `data/raw/wordenc` resolution
+  (no longer skipped).
 - ℹ `pkg/io/gziputil` divergence note — TS `Uint8Array.subarray(off, off+len)`
   **clamps** out-of-range offsets/lengths; Go's `src[off:off+length]` slicing
   **panics**. Every upstream `compressGz`/`decompressGz` caller passes exact
@@ -352,7 +352,7 @@ Plan: [`docs/superpowers/plans/2026-06-03-rev244-b1-io-cache-primitives.md`](doc
 | `src/cache/wordenc/WordEnc.ts` | +2/−8 | `e4eaec54` wordenc 244 load path — raw jag, unconditional |
 | `src/cache/CrcTable.ts` | +18/−20 | **DEFERRED → B3** (OnDemand-coupled) |
 | `src/cache/PreloadedPacks.ts` | 0/−41 | **DEFERRED → B3** (deleted upstream; OnDemand-coupled) |
-| `src/cache/DevThread.ts` | +3/−2 | **DEFERRED → B6** (packAll signature) |
+| `src/cache/DevThread.ts` | +3/−2 | ✅ **CLOSED in B6** — `rev244-b6-packall-modelflags` NO-OP (packAll out-param read by no caller at pin; Go keeps `PackAll` with the slice internally; B6 decision row) |
 | `src/util/DoublyLinkList.ts` | +32/0 | **NOT-PORTED** (dead-at-pin, zero consumers at `9aadcec4`) |
 
 Every line of the cross-pin diff maps to a commit or decision above — no unmapped hunks.
@@ -603,7 +603,7 @@ HintArrow keep-slot row — see that row's strike-note below).
 | `World.ts:863-892` reconnect handover hunks | **NO-LANDING-SITE** (architectural divergence row above) |
 | `World.ts:2276-2284` wealth dedup re-key | **NO-LANDING-SITE** (dedup never ported — row above) |
 | `World.ts:1607-1610` addPlayer; `Npc.ts:67` spawnTriggerPending | **NOT-PORTED** (dead-at-pin rows above) |
-| `src/app.ts` (16/19) | **NO-OP** (worker/exception lifecycle → dskit) except `BUILD_STARTUP_UPDATE`/`packAll(modelFlags)` → **B6** |
+| `src/app.ts` (16/19) | ✅ **CLOSED in B6** — NO-OP (worker/exception lifecycle → dskit); `BUILD_STARTUP_UPDATE` NOT-PORTED; `packAll(modelFlags)` → `rev244-b6-packall-modelflags` NO-OP; `createWorker` ×3 NOT-PORTED; `printError` catch NOT-PORTED (B6 correspondence audit) |
 | Small entity files (CameraInfo/Entity/LocObjEvent/ModalState/NpcEventRequest/NpcQueueRequest/ObjDelayedRequest/PlayerQueueRequest, 1-2 lines each) + `Zone.ts` list swap + `GameMap.ts` CSV split | **NO-OP** (import moves / Linkable swap / T24 verdicts 6-7) |
 | `entity/tracking/SessionLog.ts` (+1) / `WealthEvent.ts` (4/2) | covered by `07e44a61` |
 
@@ -621,6 +621,12 @@ Every hunk of the scope diff maps to a commit or decision above — no unmapped 
    post-B2+B3 client smoke is amended to B6 (user decision, spec §User
    decisions); the 244 reference-cache generation (missed B1 de-risk) is now a
    **B6 prerequisite**.
+   **✅ CLOSED in B6** — B6 parity test (`pkg/packall/parity_test.go`, `a69634e7`)
+   verified byte-identical output vs Server244-ref. Map delivery feeds live
+   OnDemand (T19 client smoke gate). Midi window closed by `0f1ea964` (B3,
+   already annotated above). B1 format window closed: seqtype marker removed,
+   `TestLoadSeqTypes_FromPack` + `TestNewServer_LoadsWordencFilter` un-skipped
+   (B6 cleanup commit).
 4. **Logger/friends message shapes** → B5/private-sibling (seams compiling,
    adapters in place).
    **✅ CLOSED in B5 for the public repo** (`4e4f8192`/`704dad98`/`1d173abc`;
@@ -786,6 +792,9 @@ Every hunk of the scope diff (+ the 3 externals) maps to a commit or decision ab
    `script.dat` opcode numbering shifts. Byte-parity verification rides **B6**
    against the 244 reference cache (extends `rev244-b1-format-window`; B3 user
    decision that ALL windows close at B6).
+   **✅ CLOSED in B6** — B6 parity test verified `script.dat` byte-identical vs
+   Server244-ref reference (`a69634e7`; convergence commits `fee9d9f1`,
+   `effb79f2`, `7bdd56e7`).
 2. **Cycle-stats pre-existing gap CLOSED** (user decision) — the 225-era
    WorldStat divergence is closed with real instrumentation; uint16-wrap
    fidelity + the bwout-reset / processInfo-attribution / CYCLE-exclusion
@@ -1003,13 +1012,11 @@ Plan: [`docs/superpowers/plans/2026-06-05-rev244-b6-pack-pipeline.md`](docs/supe
   with `zip.Store` method and fixed `ModTime=time.Unix(0,0).UTC()` for
   determinism. Entry content is byte-identical; zip container bytes differ.
   Content-level parity.
-- ℹ **`rev244-b1-format-window` exception NOW REMOVABLE** — the seqtype.go
-  `PORTING-EXCEPTION (rev244-b1-format-window)` comment ("removable after
-  B6 repack") is now addressable: B6 PackAll supplies a live 244 FileStream
-  cache. The marker removal (1-line comment delete in
-  `pkg/objtype/seqtype.go:98`) is deferred as a cleanup-pass candidate;
-  no behaviour change until a test exercises the SeqType empty-Instances
-  path with the real cache wired in.
+- ✅ **`rev244-b1-format-window` exception CLOSED** — the seqtype.go
+  `PORTING-EXCEPTION (rev244-b1-format-window)` comment replaced with a
+  closure note (B6 cleanup commit); `TestLoadSeqTypes_FromPack` and
+  `TestNewServer_LoadsWordencFilter` un-skipped and passing green against
+  the Server244-ref 244-format reference cache.
 
 **Correspondence audit** — `src/app.ts` B6 scope → commit / decision:
 
@@ -1023,10 +1030,12 @@ Plan: [`docs/superpowers/plans/2026-06-05-rev244-b6-pack-pipeline.md`](docs/supe
 | `tools/pack/PackAll.ts:73-75` build stamp | +3 | `rev244-b6-build-stamp` EXCEPTION |
 | `tools/pack/PackAll.ts:77-90` ondemand.zip | +14 | `rev244-b6-ondemand-zip` EXCEPTION |
 
-Marker audit: **20** `PORTING-EXCEPTION` mentions (was 22 at B5); +2 new ids
+Marker audit: **22** `PORTING-EXCEPTION` mentions (was 22 at B5); +2 new ids
 `rev244-b6-build-stamp` (1 mention) and `rev244-b6-ondemand-zip` (2 mentions);
-net −2 reflects the login-server-7 "former PORTING-EXCEPTION" comment removal
-between B5 and this audit. No B6 ids retired.
+`rev244-b1-format-window` retired (−1, seqtype.go closure-note replacement,
+B6 cleanup commit); net 0 vs B5 actual. Prior B6 audit entry claimed 20 —
+corrected here: the actual `grep -rn "PORTING-EXCEPTION (" modules pkg cmd
+internal | wc -l` count post-cleanup is **22**.
 
 ---
 

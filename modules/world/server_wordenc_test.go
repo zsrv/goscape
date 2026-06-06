@@ -2,49 +2,43 @@ package world
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
 // TestNewServer_LoadsWordencFilter pins that NewServer populates s.wordenc from
 // the raw wordenc jagfile. Rev-244: TS dropped the existence check and
 // hardcoded "data/raw/wordenc" — NewServer now fails when the jag is absent.
-// Test skips when either the raw wordenc jag or the Engine-TS pack (needed for
-// all other NewServer loads) is unavailable.
+// Test skips when the Server244-ref reference cache (needed for NewServer loads)
+// is unavailable.
 //
-// Skips on stale 225-format Engine-TS cache (EOF panic in parseComponentTypes);
-// mirrors world_test.go / nai101_fountain_test.go skip convention.
+// Uses the Server244-ref 244-format pack (not Engine-TS, which carries a
+// 225-format pack that panics in parseComponentTypes). B6 window closed.
+//
+// encfilter.Load() reads data/raw/wordenc relative to the working directory;
+// t.Chdir changes to the repo root so the committed data/raw/wordenc is reachable.
 //
 // TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:35-37 (static WordEnc.load).
 func TestNewServer_LoadsWordencFilter(t *testing.T) {
-	const tsCache = "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/pack"
-	const tsRaw = "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/raw"
-	if _, err := os.Stat(tsCache); err != nil {
-		t.Skipf("Engine-TS cache unavailable: %v", err)
+	const ref244Cache = "/home/owner/Code/github.com/LostCityRS/Server244-ref/engine/data/pack"
+	if _, err := os.Stat(ref244Cache); err != nil {
+		t.Skipf("Server244-ref cache unavailable: %v", err)
 	}
-	// Rev-244: Load() reads data/raw/wordenc relative to the working directory.
-	// Tests run from modules/world/, so the raw jag is not reachable there;
-	// skip instead of failing (binary runs from project root where it IS reachable).
-	if _, err := os.Stat(tsRaw); err != nil {
-		t.Skipf("Engine-TS data/raw unavailable: %v", err)
+	// encfilter.Load() resolves data/raw/wordenc relative to cwd. Switch to the
+	// repo root so the committed data/raw/wordenc jagfile is reachable.
+	repoRoot := filepath.Join("..", "..")
+	absRoot, err := filepath.Abs(repoRoot)
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
 	}
+	t.Chdir(absRoot)
 	cfg := Config{
-		CachePath:        tsCache,
+		CachePath:        ref244Cache,
 		TCPListenNetwork: "tcp",
 		TCPListenAddress: "127.0.0.1",
 		TCPListenPort:    0, // OS picks a free port
 	}
-	var (
-		s        *Server
-		err      error
-		panicVal any
-	)
-	func() {
-		defer func() { panicVal = recover() }()
-		s, err = NewServer(cfg, nil, nil, discardLogger(), nil)
-	}()
-	if panicVal != nil {
-		t.Skipf("NewServer panicked (likely stale 225-format Engine-TS cache; repack with 244 packer): %v", panicVal)
-	}
+	s, err := NewServer(cfg, nil, nil, discardLogger(), nil)
 	if err != nil {
 		t.Fatalf("NewServer failed: %v", err)
 	}

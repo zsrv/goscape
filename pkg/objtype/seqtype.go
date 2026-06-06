@@ -95,7 +95,9 @@ func (t *SeqType) Decode(code uint8, dat *packet.Packet) error {
 				//      cases are data errors. Production callers always have a
 				//      populated registry; the empty-Instances guard covers test
 				//      fixtures that use 225-format caches with 244 code.
-				// PORTING-EXCEPTION (rev244-b1-format-window, empty-Instances delay fallback — removable after B6 repack supplies a 244 FileStream cache)
+				// rev244-b1-format-window CLOSED at B6 parity (pkg/packall/parity_test.go,
+				// commit a69634e7). The two nil-guards below remain as CONFIRMED-EXCEPTION
+				// additive robustness for test fixtures using 225-format or absent caches.
 				if t.animFrames != nil && len(t.animFrames.Instances) > 0 {
 					d = int32(t.animFrames.Instances[t.Frames[i]].Delay)
 				}
