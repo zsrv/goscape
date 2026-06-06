@@ -58,7 +58,21 @@ func isPrime(n int) bool {
 // UnpackJag decodes sprite index from the named entry in jag.
 // Returns (nil, nil) when there is no sprite at that index (mirrors TS null return).
 // TS Pix.ts:72-139.
-func UnpackJag(jag *jagfile.Jagfile, name string, index int) (*Sprite, error) {
+func UnpackJag(jag *jagfile.Jagfile, name string, index int) (sprite *Sprite, err error) {
+	// TS reads past the end of dat/idx yield undefined (no throw) and a later
+	// position guard returns null. Go's packet reader panics on overrun
+	// instead — recover to the same no-sprite outcome. Real cache data is
+	// stopped by the explicit TS guards below; this only fires for malformed
+	// members (e.g. a jag's own index.dat being probed as a sprite).
+	defer func() {
+		if r := recover(); r != nil {
+			sprite, err = nil, nil
+		}
+	}()
+	return unpackJag(jag, name, index)
+}
+
+func unpackJag(jag *jagfile.Jagfile, name string, index int) (*Sprite, error) {
 	// TS Pix.ts:73-78 — read dat + idx, return null if missing.
 	dat, err := jag.Read(name + ".dat")
 	if err != nil {
@@ -144,12 +158,11 @@ func UnpackJag(jag *jagfile.Jagfile, name string, index int) (*Sprite, error) {
 				pixels[y*cropRight+x] = dat.G1()
 			}
 		}
-	} else {
-		// TS Pix.ts:126-136: unknown pixelOrder falls through if-else with pixels
-		// staying all-zero, then returns a valid Pix.  We mirror by returning nil
-		// (no-op) rather than erroring, since no real sprite data can be decoded.
-		return nil, nil //nolint:nilerr // mirror TS: unrecognised pixelOrder → null-like
 	}
+	// TS Pix.ts:126-136: an unrecognised pixelOrder falls through BOTH branches —
+	// pixels stay all-zero, dat.pos is NOT advanced, and a valid Pix is still
+	// returned (the sprite loop continues). Mirror that exactly; do not error or
+	// stop the loop here.
 
 	// TS Pix.ts:138
 	return &Sprite{
@@ -179,6 +192,21 @@ func (s *Sprite) packPng() *image.NRGBA {
 		img.Pix[i+3] = background.A
 	}
 
+	// setPx writes one opaque palette pixel, silently skipping out-of-bounds
+	// coordinates: TS writes through Jimp's bitmap Buffer, and a JS Buffer
+	// write past its length is a silent no-op — degenerate crop metadata
+	// (CropLeft+CropRight > Width etc.) must not panic here.
+	setPx := func(x, y int, rgb int32) {
+		if x < 0 || y < 0 || x >= s.Width || y >= s.Height {
+			return
+		}
+		off := img.PixOffset(x, y)
+		img.Pix[off] = uint8((rgb >> 16) & 0xFF)
+		img.Pix[off+1] = uint8((rgb >> 8) & 0xFF)
+		img.Pix[off+2] = uint8(rgb & 0xFF)
+		img.Pix[off+3] = 0xFF
+	}
+
 	// TS Pix.ts:267-285 (pixelOrder==0) / TS Pix.ts:286-304 (pixelOrder==1).
 	if s.PixelOrder == 0 {
 		pixLen := s.CropRight * s.CropBottom
@@ -187,14 +215,7 @@ func (s *Sprite) packPng() *image.NRGBA {
 			if paletteIdx == 0 {
 				continue // TS: index===0 → skip (leave magenta background)
 			}
-			startX := s.CropLeft + (i % s.CropRight)
-			startY := s.CropTop + (i / s.CropRight)
-			rgb := s.Palette[paletteIdx]
-			off := img.PixOffset(startX, startY)
-			img.Pix[off] = uint8((rgb >> 16) & 0xFF)
-			img.Pix[off+1] = uint8((rgb >> 8) & 0xFF)
-			img.Pix[off+2] = uint8(rgb & 0xFF)
-			img.Pix[off+3] = 0xFF
+			setPx(s.CropLeft+(i%s.CropRight), s.CropTop+(i/s.CropRight), s.Palette[paletteIdx])
 		}
 	} else {
 		for x := range s.CropRight {
@@ -203,14 +224,7 @@ func (s *Sprite) packPng() *image.NRGBA {
 				if paletteIdx == 0 {
 					continue // TS: index===0 → skip
 				}
-				startX := s.CropLeft + x
-				startY := s.CropTop + y
-				rgb := s.Palette[paletteIdx]
-				off := img.PixOffset(startX, startY)
-				img.Pix[off] = uint8((rgb >> 16) & 0xFF)
-				img.Pix[off+1] = uint8((rgb >> 8) & 0xFF)
-				img.Pix[off+2] = uint8(rgb & 0xFF)
-				img.Pix[off+3] = 0xFF
+				setPx(s.CropLeft+x, s.CropTop+y, s.Palette[paletteIdx])
 			}
 		}
 	}
