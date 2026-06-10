@@ -228,7 +228,9 @@ func (p *Player) applyStep(dest coordgrid.Position, dx, dz, dir int) (int, stepS
 	// where it walks for newly-visible observers, instead of a stale square.
 	p.focus(coordgrid.Fine(coordgrid.MoveX(p.x, coordgrid.Direction(dir)), 1), coordgrid.Fine(coordgrid.MoveZ(p.z, coordgrid.Direction(dir)), 1), false)
 	p.stepsTaken++
-	refreshPlayerZone(p, p.lastStepX, p.lastStepZ, p.level)
+	// Full zone presence (collision-follow + zone swap) per TS
+	// PathingEntity.ts:225 → refreshZonePresence(:163-188).
+	refreshPlayerZonePresence(p, p.lastStepX, p.lastStepZ, p.level)
 	if p.x == dest.X && p.z == dest.Z {
 		p.waypointIndex--
 	}

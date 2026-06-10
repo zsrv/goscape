@@ -477,7 +477,9 @@ func (n *Npc) applyStep(s *Server, dest coordgrid.Position, dx, dz, dir int) (in
 	// rendered orientation follows its walk for newly-visible observers.
 	n.focus(coordgrid.Fine(coordgrid.MoveX(n.x, coordgrid.Direction(dir)), n.size), coordgrid.Fine(coordgrid.MoveZ(n.z, coordgrid.Direction(dir)), n.size), false)
 	n.stepsTaken++
-	refreshNpcZone(s, n, prevX, prevZ, n.level)
+	// Full zone presence (collision-follow + zone swap) per TS
+	// PathingEntity.ts:225 → refreshZonePresence(:163-188).
+	refreshNpcZonePresence(s, n, prevX, prevZ, n.level)
 	if n.x == dest.X && n.z == dest.Z {
 		n.waypointIndex--
 	}
