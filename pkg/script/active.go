@@ -421,6 +421,12 @@ type ActivePlayer interface {
 	// server-side persistence. New in 245.2 (TS PlayerOps.ts:751-757).
 	IfSetScrollPos(com, y int)
 
+	// SetPlayerOp emits a SET_PLAYER_OP wire op setting right-click
+	// player-menu entry index (1-8) to text with primary state (0-7).
+	// Fire-and-forget; no server-side persistence. New in 254
+	// (TS PlayerOps.ts:1230-1239 @43e02957).
+	SetPlayerOp(index int, text string, primary int)
+
 	// IfSetTabActive emits an IF_SETTABACTIVE wire op making tab the
 	// currently-active tab. Fire-and-forget; no server-side persistence.
 	IfSetTabActive(tab int)
@@ -454,13 +460,13 @@ type ActivePlayer interface {
 	StopAction()
 
 	// HasInteraction reports whether the player has a current interaction
-	// target (i.e., `target != nil`). Used by BUSY2 (opcode 2118). Mirrors
+	// target (i.e., `target != nil`). Used by BUSY2 (opcode 2119). Mirrors
 	// TS Player.hasInteraction at Engine-TS/.../PathingEntity.ts. NAI-120
 	// Bundle 2B.
 	HasInteraction() bool
 
 	// HasWaypoints reports whether the player has waypoints queued
-	// (waypointIndex >= 0). Used by BUSY2 (opcode 2118). Mirrors TS
+	// (waypointIndex >= 0). Used by BUSY2 (opcode 2119). Mirrors TS
 	// Player.hasWaypoints. NAI-120 Bundle 2B.
 	HasWaypoints() bool
 
@@ -716,7 +722,7 @@ type ActivePlayer interface {
 	SetAnimProtect(v int)
 
 	// WalkTrigger returns the active player's queued walktrigger script
-	// id, or -1 if none. Read by GETWALKTRIGGER (opcode 2117) and by
+	// id, or -1 if none. Read by GETWALKTRIGGER (opcode 2118) and by
 	// (*Player).processWalktrigger before firing. Mirrors TS
 	// Player.walktrigger getter at Player.ts:1057-1070.
 	WalkTrigger() int

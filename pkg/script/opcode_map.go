@@ -97,7 +97,7 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"OBJCOUNT":         OpZoneObjCount,
 	"MAP_MULTIWAY":     OpMapMultiway,
 
-	// Player ops (2000–2135)
+	// Player ops (2000–2137)
 	"ALLOWDESIGN":          OpAllowDesign,
 	"ANIM":                 OpAnim,
 	"BAS_READYANIM":        OpBasReadyAnim,
@@ -203,6 +203,7 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"SPOTANIM_PL":          OpSpotAnimPl,
 	"STAFFMODLEVEL":        OpStaffModLevel,
 	"STAT":                 OpStat,
+	"STAT_TOTAL":           OpStatTotal,
 	"STAT_ADD":             OpStatAdd,
 	"STAT_BASE":            OpStatBase,
 	"STAT_HEAL":            OpStatHeal,
@@ -234,6 +235,7 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"WEALTH_EVENT":         OpWealthEvent,
 	"P_RUN":                OpPRun,
 	"PLAYERMEMBER":         OpPlayerMember,
+	"SET_PLAYER_OP":        OpSetPlayerOp,
 
 	// NPC ops (2500–2547)
 	"NPC_ADD":                OpNpcAdd,

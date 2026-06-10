@@ -116,6 +116,18 @@ func (p *Player) IfSetScrollPos(com, y int) {
 	p.writeOut(gameserver.OpIfSetScrollPos, buf.Bytes())
 }
 
+// SetPlayerOp emits SET_PLAYER_OP (index u8, primary u8, text jstr) —
+// sets right-click player-menu entry index (1-8) to text with primary
+// state. Dynamic payload size. TS SetPlayerOpEncoder.ts @43e02957:
+// p1(op) p1(primary) pjstr(value).
+func (p *Player) SetPlayerOp(index int, text string, primary int) {
+	buf := packet.NewPacket(nil)
+	buf.P1(uint8(index))
+	buf.P1(uint8(primary))
+	buf.PJStrLF(text)
+	p.writeOut(gameserver.OpSetPlayerOp, buf.Bytes())
+}
+
 // IfSetTabActive emits IF_SETTABACTIVE (tab u8). 1-byte payload.
 func (p *Player) IfSetTabActive(tab int) {
 	buf := packet.NewPacket(nil)

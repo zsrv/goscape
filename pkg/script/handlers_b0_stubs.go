@@ -31,7 +31,7 @@ func handleIfMultizone(s *ScriptState) error {
 	return fmt.Errorf("IF_MULTIZONE: unimplemented")
 }
 
-// handleIfOpenMainOverlay (IF_OPENMAINOVERLAY, opcode 2112) — TS-unimplemented at 244.
+// handleIfOpenMainOverlay (IF_OPENMAINOVERLAY, opcode 2113) — TS-unimplemented at 244.
 func handleIfOpenMainOverlay(s *ScriptState) error {
 	return fmt.Errorf("IF_OPENMAINOVERLAY: unimplemented")
 }
@@ -47,7 +47,7 @@ func handlePlayerFindNext(s *ScriptState) error {
 	return fmt.Errorf("PLAYER_FINDNEXT: unimplemented")
 }
 
-// handleLastCoord (LAST_COORD, opcode 2126) — TS-unimplemented at 244
+// handleLastCoord (LAST_COORD, opcode 2127) — TS-unimplemented at 244
 // (pointer row exists upstream, ScriptOpcodePointers.ts:528-531; handler does not).
 func handleLastCoord(s *ScriptState) error {
 	return fmt.Errorf("LAST_COORD: unimplemented")

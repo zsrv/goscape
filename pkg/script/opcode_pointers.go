@@ -221,6 +221,9 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 	OpIfSetPlayerHead: {Require: []string{"active_player"}},
 	OpIfSetPosition:   {Require: []string{"active_player"}},
 	OpIfSetScrollPos:  {Require: []string{"active_player"}},
+	// SET_PLAYER_OP new in 254 (TS ScriptOpcodePointers.ts @43e02957):
+	// require active_player only — no require2.
+	OpSetPlayerOp: {Require: []string{"active_player"}},
 	// OpIfSetRecol deleted in 244 (ScriptOpcode.ts); row removed.
 	OpIfSetResumeButtons: {Require: []string{"active_player"}},
 	OpIfSetTab:           {Require: []string{"active_player"}},
@@ -548,11 +551,13 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		Set2:        []string{"active_npc2"},
 		Conditional: true,
 	},
+	// 254 (TS ScriptOpcodePointers.ts @43e02957): require2 removed;
+	// set2 active_player2 → active_player (both set and set2 are
+	// active_player).
 	OpNpcFindHero: {
 		Require:     []string{"active_npc"},
-		Require2:    []string{"active_npc2"},
 		Set:         []string{"active_player"},
-		Set2:        []string{"active_player2"},
+		Set2:        []string{"active_player"},
 		Conditional: true,
 	},
 	OpNpcFindUID: {
@@ -727,9 +732,11 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 	},
 
 	// Obj ops
+	// 254 (TS ScriptOpcodePointers.ts @43e02957): require2
+	// active_player2 → active_player.
 	OpObjAdd: {
 		Require:  []string{"active_player"},
-		Require2: []string{"active_player2"},
+		Require2: []string{"active_player"},
 		Set:      []string{"active_obj"},
 		Set2:     []string{"active_obj2"},
 	},
@@ -757,9 +764,11 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		Require:  []string{"active_obj"},
 		Require2: []string{"active_obj2"},
 	},
+	// 254 (TS ScriptOpcodePointers.ts @43e02957): require2
+	// active_obj2 → active_obj (active_player2 unchanged).
 	OpObjTakeItem: {
 		Require:  []string{"active_obj", "active_player"},
-		Require2: []string{"active_obj2", "active_player2"},
+		Require2: []string{"active_obj", "active_player2"},
 	},
 	OpObjType: {
 		Require:  []string{"active_obj"},

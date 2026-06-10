@@ -118,10 +118,17 @@ const (
 // Renames: READYANIM→BAS_READYANIM, RUNANIM→BAS_RUNNING, TURNANIM→BAS_TURNONSPOT,
 // WALKANIM_B→BAS_WALK_B, WALKANIM→BAS_WALK_F, WALKANIM_L→BAS_WALK_L,
 // WALKANIM_R→BAS_WALK_R, HINT_PL→HINT_PLAYER, LOWMEM→LOWMEMORY.
-// Deleted: STAT_TOTAL, IF_SETRECOL.
+// Deleted: IF_SETRECOL (and STAT_TOTAL, restored at 254 — see below).
 // New: BUFFER_FULL, IF_MULTIZONE, IF_OPENOVERLAY, PLAYER_FINDALLZONE,
 // PLAYER_FINDNEXT, IF_OPENMAINOVERLAY, LAST_COORD, STRONGQUEUEVARARG
 // (vararg keys for queue ops also renumbered).
+//
+// 254 inserts STAT_TOTAL after STAT and SET_PLAYER_OP after
+// IF_SETSCROLLPOS (TS ScriptOpcode.ts:179,210 @43e02957): every
+// implicitly-numbered op after STAT shifts +1 (STAT_ADD 2102→2103 ...
+// IF_SETSCROLLPOS 2131→2132) and the four *QUEUEVARARG tail ops shift
+// +2 (2132-2135 → 2134-2137). NPC section anchors at NPC_ADD=2500 so
+// nothing else moves.
 const (
 	OpAllowDesign         Opcode = 2000
 	OpAnim                Opcode = 2001
@@ -225,40 +232,42 @@ const (
 	OpSpotAnimPl          Opcode = 2099
 	OpStaffModLevel       Opcode = 2100
 	OpStat                Opcode = 2101
-	OpStatAdd             Opcode = 2102
-	OpStatBase            Opcode = 2103
-	OpStatHeal            Opcode = 2104
-	OpStatSub             Opcode = 2105
-	OpStatBoost           Opcode = 2106
-	OpStatDrain           Opcode = 2107
-	OpStatRandom          Opcode = 2108
-	OpStrongQueue         Opcode = 2109
-	OpUID                 Opcode = 2110
-	OpWeakQueue           Opcode = 2111
-	OpIfOpenMainOverlay   Opcode = 2112
-	OpAfkEvent            Opcode = 2113
-	OpLowMemory           Opcode = 2114
-	OpSetIdKit            Opcode = 2115
-	OpPClearPendingAction Opcode = 2116
-	OpGetWalkTrigger      Opcode = 2117
-	OpBusy2               Opcode = 2118
-	OpFindHero            Opcode = 2119
-	OpBothHeroPoints      Opcode = 2120
-	OpSetGender           Opcode = 2121
-	OpSetSkinColour       Opcode = 2122
-	OpPAnimProtect        Opcode = 2123
-	OpRunEnergy           Opcode = 2124
-	OpWeight              Opcode = 2125
-	OpLastCoord           Opcode = 2126
-	OpSessionLog          Opcode = 2127
-	OpWealthEvent         Opcode = 2128
-	OpPRun                Opcode = 2129
-	OpPlayerMember        Opcode = 2130
-	OpIfSetScrollPos      Opcode = 2131 // new in 245.2 (TS ScriptOpcode.ts:208 @3c16994c)
-	OpQueueVarArg         Opcode = 2132 // 2131→2132 at 245.2 (IF_SETSCROLLPOS insert)
-	OpLongQueueVarArg     Opcode = 2133
-	OpWeakQueueVarArg     Opcode = 2134
-	OpStrongQueueVarArg   Opcode = 2135
+	OpStatTotal           Opcode = 2102 // new in 254 (TS ScriptOpcode.ts:179 @43e02957)
+	OpStatAdd             Opcode = 2103
+	OpStatBase            Opcode = 2104
+	OpStatHeal            Opcode = 2105
+	OpStatSub             Opcode = 2106
+	OpStatBoost           Opcode = 2107
+	OpStatDrain           Opcode = 2108
+	OpStatRandom          Opcode = 2109
+	OpStrongQueue         Opcode = 2110
+	OpUID                 Opcode = 2111
+	OpWeakQueue           Opcode = 2112
+	OpIfOpenMainOverlay   Opcode = 2113
+	OpAfkEvent            Opcode = 2114
+	OpLowMemory           Opcode = 2115
+	OpSetIdKit            Opcode = 2116
+	OpPClearPendingAction Opcode = 2117
+	OpGetWalkTrigger      Opcode = 2118
+	OpBusy2               Opcode = 2119
+	OpFindHero            Opcode = 2120
+	OpBothHeroPoints      Opcode = 2121
+	OpSetGender           Opcode = 2122
+	OpSetSkinColour       Opcode = 2123
+	OpPAnimProtect        Opcode = 2124
+	OpRunEnergy           Opcode = 2125
+	OpWeight              Opcode = 2126
+	OpLastCoord           Opcode = 2127
+	OpSessionLog          Opcode = 2128
+	OpWealthEvent         Opcode = 2129
+	OpPRun                Opcode = 2130
+	OpPlayerMember        Opcode = 2131
+	OpIfSetScrollPos      Opcode = 2132 // new in 245.2 (TS ScriptOpcode.ts:208 @3c16994c)
+	OpSetPlayerOp         Opcode = 2133 // new in 254 (TS ScriptOpcode.ts:210 @43e02957)
+	OpQueueVarArg         Opcode = 2134 // 2131→2132 at 245.2 (IF_SETSCROLLPOS insert); →2134 at 254
+	OpLongQueueVarArg     Opcode = 2135
+	OpWeakQueueVarArg     Opcode = 2136
+	OpStrongQueueVarArg   Opcode = 2137
 )
 
 // NPC ops (2500–2999)
@@ -880,6 +889,8 @@ func (o Opcode) String() string {
 		return "STAFFMODLEVEL"
 	case OpStat:
 		return "STAT"
+	case OpStatTotal:
+		return "STAT_TOTAL"
 	case OpStatAdd:
 		return "STAT_ADD"
 	case OpStatBase:
@@ -940,6 +951,8 @@ func (o Opcode) String() string {
 		return "PLAYERMEMBER"
 	case OpIfSetScrollPos:
 		return "IF_SETSCROLLPOS"
+	case OpSetPlayerOp:
+		return "SET_PLAYER_OP"
 	case OpQueueVarArg:
 		return "QUEUE*"
 	case OpLongQueueVarArg:

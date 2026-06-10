@@ -6,13 +6,14 @@ import (
 	"testing"
 )
 
-// TestScriptOpcodeMap_LengthParity pins spec §7.4: 416 entries —
+// TestScriptOpcodeMap_LengthParity pins spec §7.4: 418 entries —
 // 414 verified at 245.2 pin 3c16994c (rev-245.2 T5; was 413 at 244 pin
-// 9aadcec4; 245.2 adds IF_SETSCROLLPOS) plus PUSH_VARBIT/POP_VARBIT
-// restored at 254 (ScriptOpcode.ts:20-21 @43e02957). Task 9 re-verifies
-// the full map against the 254 pin.
+// 9aadcec4; 245.2 adds IF_SETSCROLLPOS) plus PUSH_VARBIT/POP_VARBIT/
+// STAT_TOTAL/SET_PLAYER_OP restored or added at 254 (ScriptOpcode.ts
+// :20-21,179,210 @43e02957). Full map verified against the 254 pin in
+// opcode_map_254_pin_test.go.
 func TestScriptOpcodeMap_LengthParity(t *testing.T) {
-	const wantLen = 416
+	const wantLen = 418
 	if got := len(ScriptOpcodeMap); got != wantLen {
 		t.Fatalf("len(ScriptOpcodeMap) = %d, want %d (re-verify against TS ScriptOpcode.ts at pin 43e02957)", got, wantLen)
 	}

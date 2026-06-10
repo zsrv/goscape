@@ -148,7 +148,40 @@ func TestStatBaseReadsSeededBase(t *testing.T) {
 	}
 }
 
-// TestStatTotalSumsAllBases was deleted: STAT_TOTAL removed from 244 enum.
+// TestStatTotalSumsAllBaseLevels pins STAT_TOTAL (restored at 254): sums
+// ALL of the player's base levels (NOT current levels) and pushes the
+// total; no pops. TS PlayerOps.ts:493-500 @43e02957 — checkedHandler
+// (ActivePlayer), loops state.activePlayer.baseLevels.
+func TestStatTotalSumsAllBaseLevels(t *testing.T) {
+	mp := &mockPlayer{}
+	mp.baseLevels[0] = 1   // attack
+	mp.baseLevels[3] = 10  // hitpoints
+	mp.baseLevels[20] = 44 // runecraft (last slot — all 21 entries summed)
+	mp.levels[0] = 99      // current levels must NOT contribute
+
+	sf := newSingleOp("stat_total", OpStatTotal)
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 55 {
+		t.Errorf("STAT_TOTAL: got %d, want 55", got)
+	}
+}
+
+// TestStatTotalNoActivePlayer pins the ActivePlayer guard
+// (TS checkedHandler(ActivePlayer, ...), PlayerOps.ts:493 @43e02957).
+func TestStatTotalNoActivePlayer(t *testing.T) {
+	sf := newSingleOp("stat_total_nap", OpStatTotal)
+	state := Init(sf, nil, false, nil, nil)
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("expected error from STAT_TOTAL with no active player, got nil")
+	}
+	if !strings.Contains(err.Error(), "STAT_TOTAL") {
+		t.Errorf("error: got %q, want to contain \"STAT_TOTAL\"", err.Error())
+	}
+}
 
 // -- Stat mutation tests -------------------------------------------------
 
@@ -6375,6 +6408,132 @@ func TestHandlePlayerMember_RequiresActivePlayer(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "PLAYERMEMBER") {
 		t.Errorf("error: got %q, want to contain \"PLAYERMEMBER\"", err.Error())
+	}
+}
+
+// -- SET_PLAYER_OP (rev-254) ---------------------------------------------
+
+// newSetPlayerOpState seeds a state with the SET_PLAYER_OP argument stack:
+// index pushed first (bottom), primary second (top of int stack), text last
+// (top of string stack). Mirrors TS PlayerOps.ts:1230-1239 @43e02957 —
+// `const text = state.popString(); const [index, primary] = state.popInts(2);`.
+func newSetPlayerOpState(mp *mockPlayer, index, primary int, text string) *ScriptState {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushInt(index)
+	s.PushInt(primary)
+	s.PushString(text)
+	return s
+}
+
+// TestHandleSetPlayerOp_RecordsIndexTextPrimary pins the SET_PLAYER_OP happy
+// path: index=3, primary=1, text="Attack" → activePlayer.write(new
+// SetPlayerOp(index, text, primary)). TS PlayerOps.ts:1230-1239 @43e02957.
+func TestHandleSetPlayerOp_RecordsIndexTextPrimary(t *testing.T) {
+	mp := &mockPlayer{}
+	s := newSetPlayerOpState(mp, 3, 1, "Attack")
+	if err := handleSetPlayerOp(s); err != nil {
+		t.Fatalf("handleSetPlayerOp: %v", err)
+	}
+	want := struct {
+		index, primary int
+		text           string
+	}{3, 1, "Attack"}
+	if mp.lastSetPlayerOp != want {
+		t.Errorf("SetPlayerOp: got %+v, want %+v", mp.lastSetPlayerOp, want)
+	}
+}
+
+// TestHandleSetPlayerOp_IndexOutOfRange pins PlayerOpIndexValid — TS
+// ScriptInputRangeValidator(1, 8, 'PlayerOpIndex'), ScriptValidators.ts:140
+// @43e02957. Index 0 and 9 both reject; the seam is never called.
+func TestHandleSetPlayerOp_IndexOutOfRange(t *testing.T) {
+	for _, index := range []int{0, 9} {
+		mp := &mockPlayer{}
+		s := newSetPlayerOpState(mp, index, 1, "Attack")
+		err := handleSetPlayerOp(s)
+		if err == nil {
+			t.Fatalf("index=%d: want error, got nil", index)
+		}
+		if !strings.Contains(err.Error(), "PlayerOpIndex") {
+			t.Errorf("index=%d: error %q, want to contain \"PlayerOpIndex\"", index, err.Error())
+		}
+		if mp.lastSetPlayerOp.text != "" {
+			t.Errorf("index=%d: SetPlayerOp should not have been called, got %+v", index, mp.lastSetPlayerOp)
+		}
+	}
+}
+
+// TestHandleSetPlayerOp_PrimaryOutOfRange pins PlayerOpStateValid — TS
+// ScriptInputRangeValidator(0, 7, 'PlayerOpState'), ScriptValidators.ts:141
+// @43e02957. primary=8 rejects.
+func TestHandleSetPlayerOp_PrimaryOutOfRange(t *testing.T) {
+	mp := &mockPlayer{}
+	s := newSetPlayerOpState(mp, 3, 8, "Attack")
+	err := handleSetPlayerOp(s)
+	if err == nil {
+		t.Fatal("primary=8: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "PlayerOpState") {
+		t.Errorf("error: got %q, want to contain \"PlayerOpState\"", err.Error())
+	}
+	if mp.lastSetPlayerOp.text != "" {
+		t.Errorf("SetPlayerOp should not have been called, got %+v", mp.lastSetPlayerOp)
+	}
+}
+
+// TestHandleSetPlayerOp_RequiresActivePlayer pins the ActivePlayer guard
+// (TS checkedHandler(ActivePlayer, ...), PlayerOps.ts:1230 @43e02957).
+func TestHandleSetPlayerOp_RequiresActivePlayer(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(3)
+	s.PushInt(1)
+	s.PushString("Attack")
+	err := handleSetPlayerOp(s)
+	if err == nil {
+		t.Fatal("handleSetPlayerOp: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "SET_PLAYER_OP") {
+		t.Errorf("error: got %q, want to contain \"SET_PLAYER_OP\"", err.Error())
+	}
+}
+
+// TestSetPlayerOp_PopOrderViaScript pins the wire-up end to end through
+// Execute: push index (2099 era const int), push primary, push string —
+// dispatch through OpSetPlayerOp must consume primary from the top of the
+// int stack and index from below it (TS popInts(2) → [index, primary]).
+func TestSetPlayerOp_PopOrderViaScript(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "set_player_op",
+		Opcodes: []Opcode{
+			OpPushConstantInt,    // index = 5 (bottom)
+			OpPushConstantInt,    // primary = 0 (top)
+			OpPushConstantString, // text
+			OpSetPlayerOp,
+			OpReturn,
+		},
+		IntOperands:      []int32{5, 0, 0, 0, 0},
+		StringOperands:   []string{"", "", "Follow", "", ""},
+		InstructionCount: 5,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	want := struct {
+		index, primary int
+		text           string
+	}{5, 0, "Follow"}
+	if mp.lastSetPlayerOp != want {
+		t.Errorf("SetPlayerOp: got %+v, want %+v", mp.lastSetPlayerOp, want)
 	}
 }
 

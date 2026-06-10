@@ -143,6 +143,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLowMemory: handleLowMemory,
 	// NAI-149 T2: PLAYERMEMBER.
 	OpPlayerMember: handlePlayerMember,
+	// SET_PLAYER_OP new in 254 (TS PlayerOps.ts:1230-1239 @43e02957).
+	OpSetPlayerOp: handleSetPlayerOp,
 	// NAI-149 T3: AFK_EVENT.
 	OpAfkEvent: handleAfkEvent,
 	// NAI-149 T4: WEIGHT.
@@ -262,8 +264,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// S5c: player stat/coord/facing/anim.
 	// Stat read + mutation ops.
-	// STAT_TOTAL deleted in 244 (ScriptOpcode.ts).
+	// STAT_TOTAL deleted in 244, restored in 254 (TS ScriptOpcode.ts:179 @43e02957).
 	OpStat:        handleStat,
+	OpStatTotal:   handleStatTotal,
 	OpStatBase:    handleStatBase,
 	OpStatAdd:     handleStatAdd,
 	OpStatSub:     handleStatSub,
@@ -366,7 +369,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpInvAllStock:   handleInvAllStock,
 	OpSetSkinColour: handleSetSkinColour,
 	// SETGENDER body port + GenderValid validator slice (T4).
-	OpSetGender: handleSetGender, // opcode 2121 (244)
+	OpSetGender: handleSetGender, // opcode 2122 (244, renumbered at 254)
 	// Mutations (8).
 	OpInvAdd:             handleInvAdd,
 	OpInvDel:             handleInvDel,
@@ -599,17 +602,17 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpOcOp:  handleOcOp,  // opcode 4208
 	// 5 new 244 stubs (TS-declared, no handler body — rev-244 B4 posture per NAI-162).
 	OpIfMultizone:       handleIfMultizone,       // opcode 2037
-	OpIfOpenMainOverlay: handleIfOpenMainOverlay, // opcode 2112
+	OpIfOpenMainOverlay: handleIfOpenMainOverlay, // opcode 2113
 	OpPlayerFindAllZone: handlePlayerFindAllZone, // opcode 2091
 	OpPlayerFindNext:    handlePlayerFindNext,    // opcode 2092
-	OpLastCoord:         handleLastCoord,         // opcode 2126
+	OpLastCoord:         handleLastCoord,         // opcode 2127
 
 	// NAI-162 B1: trivial-handler sweep #4.
 	OpLastLoginInfo:      handleLastLoginInfo,      // opcode 2057 (244)
 	OpInvTotalParamStack: handleInvTotalParamStack, // opcode 4331 (244)
 
 	// NAI-162 B2: WealthEvent + player-interaction + NAI-115-D1 retirement.
-	OpWealthEvent: handleWealthEvent, // opcode 2128 (244)
+	OpWealthEvent: handleWealthEvent, // opcode 2129 (244, renumbered at 254)
 	OpPLocMerge:   handlePLocMerge,   // opcode 2076 (244)
 	OpPOpPlayerT:  handlePOpPlayerT,  // opcode 2085 (244)
 
@@ -974,7 +977,7 @@ func handleQueue(s *ScriptState) error {
 	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, QueueNormal)
 }
 
-// handleWeakQueue implements WEAKQUEUE (opcode 2111): pop scriptID,
+// handleWeakQueue implements WEAKQUEUE (opcode 2112): pop scriptID,
 // delay, arg (3 ints) and enqueue a WEAK-typed queue request with [arg]
 // as the args array. Mirrors TS PlayerOps.ts:123-132 line-by-line.
 //
@@ -992,7 +995,7 @@ func handleWeakQueue(s *ScriptState) error {
 	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, QueueWeak)
 }
 
-// handleStrongQueue implements STRONGQUEUE (opcode 2109): pop variadic
+// handleStrongQueue implements STRONGQUEUE (opcode 2110): pop variadic
 // typed args via popScriptArgs (which itself first pops the type-tags
 // string and then pops each typed value in tag-reverse order), then
 // pop delay (NumberNotNull-checked), then pop scriptID, and enqueue a

@@ -123,6 +123,26 @@ func checkGender(v int, op string) error {
 	return nil
 }
 
+// checkPlayerOpIndex validates a right-click player-menu slot. Mirrors TS
+// PlayerOpIndexValid (ScriptValidators.ts:140 @43e02957) —
+// ScriptInputRangeValidator(1, 8, 'PlayerOpIndex'), inclusive range [1, 8].
+func checkPlayerOpIndex(v int, op string) error {
+	if v < 1 || v > 8 {
+		return fmt.Errorf("%s: PlayerOpIndex out of range (%d)", op, v)
+	}
+	return nil
+}
+
+// checkPlayerOpState validates a player-menu primary state. Mirrors TS
+// PlayerOpStateValid (ScriptValidators.ts:141 @43e02957) —
+// ScriptInputRangeValidator(0, 7, 'PlayerOpState'), inclusive range [0, 7].
+func checkPlayerOpState(v int, op string) error {
+	if v < 0 || v > 7 {
+		return fmt.Errorf("%s: PlayerOpState out of range (%d)", op, v)
+	}
+	return nil
+}
+
 // checkLocAngle mirrors TS LocAngleValid (ScriptValidators.ts:106) — a
 // ScriptInputRangeValidator over [LocAngle.WEST=0, LocAngle.SOUTH=3].
 // Rejects values outside that range.
@@ -200,7 +220,7 @@ func checkIdkType(s *ScriptState, id int, op string) error {
 	return nil
 }
 
-// handlePAnimProtect (P_ANIMPROTECT, opcode 2123) sets the active player's
+// handlePAnimProtect (P_ANIMPROTECT, opcode 2124) sets the active player's
 // animProtect flag. While nonzero, the (*Player).PlayAnim reader gate at
 // TS Player.ts:1842 suppresses in-engine animation requests (NAI-56).
 // Mirrors TS PlayerOps.ts:1171-1172.
@@ -252,7 +272,7 @@ func handleBuildAppearance(s *ScriptState) error {
 	return nil
 }
 
-// handleSetIdKit (SETIDKIT, opcode 2115) sets one body-part slot on the
+// handleSetIdKit (SETIDKIT, opcode 2116) sets one body-part slot on the
 // active player's appearance. Pops (idkit int, color int) from the stack.
 // Validates idkit via Configs.IdkType; writes body[slot] and
 // colors[colorSlot] (slot adjusted for gender). Script must call
@@ -328,7 +348,21 @@ func handleStatBase(s *ScriptState) error {
 	return nil
 }
 
-// STAT_TOTAL deleted in 244 (ScriptOpcode.ts); handleStatTotal removed.
+// handleStatTotal implements STAT_TOTAL (restored in 254). Sums ALL of the
+// player's base levels (NOT current levels) and pushes the total; no pops.
+// TS PlayerOps.ts:493-500 @43e02957 — checkedHandler(ActivePlayer), loops
+// over state.activePlayer.baseLevels.
+func handleStatTotal(s *ScriptState) error {
+	if err := requireActivePlayer(s, "STAT_TOTAL"); err != nil {
+		return err
+	}
+	total := 0
+	for id := range NumStats {
+		total += s.activePlayer().StatBase(id)
+	}
+	s.PushInt(total)
+	return nil
+}
 
 // -- Stat mutation ops ---------------------------------------------------
 //
@@ -812,7 +846,7 @@ func handlePWalk(s *ScriptState) error {
 	return nil
 }
 
-// handlePRun implements P_RUN (opcode 2129). Pops the run-mode int and
+// handlePRun implements P_RUN (opcode 2130). Pops the run-mode int and
 // writes it to the player's run field, then mirrors it to the
 // cache-resolved run-mode varp id (`RunVarpID()`, the config with
 // `ClientCode==7`). Mirrors TS PlayerOps.ts:1204-1209 line-for-line.
@@ -857,7 +891,7 @@ func handlePRun(s *ScriptState) error {
 	return nil
 }
 
-// handleRunEnergy implements RUNENERGY (opcode 2124). Pushes the active
+// handleRunEnergy implements RUNENERGY (opcode 2125). Pushes the active
 // player's current run-energy as an int (range [0, 10000]). Mirrors TS
 // PlayerOps.ts:1175-1178. Gate: ActivePlayer (no Protected requirement).
 //
@@ -1016,7 +1050,7 @@ func handleWalkTrigger(s *ScriptState) error {
 	return nil
 }
 
-// handleGetWalkTrigger (GETWALKTRIGGER, opcode 2117) pushes the active
+// handleGetWalkTrigger (GETWALKTRIGGER, opcode 2118) pushes the active
 // player's current walktrigger script id. Returns -1 when unset.
 // Mirrors TS PlayerOps.ts:1039-1042.
 func handleGetWalkTrigger(s *ScriptState) error {
@@ -1619,7 +1653,7 @@ func handleLowMemory(s *ScriptState) error {
 //	state.pushInt(state.activePlayer.busy() || state.activePlayer.loggingOut ? 1 : 0);
 //
 // Gate: ActivePlayer (no Protected requirement). Distinct from BUSY2
-// (opcode 2118) which uses HasInteraction()||HasWaypoints(). The
+// (opcode 2119) which uses HasInteraction()||HasWaypoints(). The
 // loggingOut arm is the conspicuous TS-asymmetry vs BUSY2. NAI-163 B0.
 func handleBusy(s *ScriptState) error {
 	if err := requireActivePlayer(s, "BUSY"); err != nil {
@@ -1633,7 +1667,7 @@ func handleBusy(s *ScriptState) error {
 	return nil
 }
 
-// handleBusy2 (BUSY2, opcode 2118) pushes 1 if the active player has either
+// handleBusy2 (BUSY2, opcode 2119) pushes 1 if the active player has either
 // an interaction target OR queued waypoints, else 0. Mirrors TS
 // PlayerOps.ts:898-900 (https://x.com/JagexAsh/status/1791053667228856563):
 //
@@ -1720,7 +1754,7 @@ func handlePOpPlayer(s *ScriptState) error {
 	return nil
 }
 
-// handleFindHero (FINDHERO, opcode 2119) returns the player with the
+// handleFindHero (FINDHERO, opcode 2120) returns the player with the
 // largest HeroPoints credit on the OPERAND-RESOLVED active player's ledger,
 // binding the result to the raw SECONDARY active-player slot. Pushes 1 on
 // success, 0 if the ledger is empty, the resolved player has logged out, or
@@ -1758,7 +1792,7 @@ func handleFindHero(s *ScriptState) error {
 	return nil
 }
 
-// handleBothHeroPoints (BOTH_HEROPOINTS, opcode 2120) credits `damage`
+// handleBothHeroPoints (BOTH_HEROPOINTS, opcode 2121) credits `damage`
 // to the receiving player's HeroPoints ledger, attributed to the
 // sending player's UID. IntOperand selects the swap direction:
 //
@@ -1837,7 +1871,7 @@ func handleGender(s *ScriptState) error {
 	return nil
 }
 
-// handlePlayerMember (PLAYERMEMBER, opcode 2130) pushes 1 if the active
+// handlePlayerMember (PLAYERMEMBER, opcode 2131) pushes 1 if the active
 // player has a members account, else 0. Mirrors TS
 // LostCityRS/Engine-TS/.../PlayerOps.ts:1211-1213 — checkedHandler(ActivePlayer).
 func handlePlayerMember(s *ScriptState) error {
@@ -1849,6 +1883,36 @@ func handlePlayerMember(s *ScriptState) error {
 	} else {
 		s.PushInt(0)
 	}
+	return nil
+}
+
+// handleSetPlayerOp (SET_PLAYER_OP, new in 254) sets right-click
+// player-menu entry `index` to `text` with primary state `primary`.
+// Mirrors TS PlayerOps.ts:1230-1239 @43e02957 —
+// checkedHandler(ActivePlayer):
+//
+//	const text = state.popString();
+//	const [index, primary] = state.popInts(2);  // index pushed first
+//	check(index, PlayerOpIndexValid);            // [1, 8]
+//	check(primary, PlayerOpStateValid);          // [0, 7]
+//	state.activePlayer.write(new SetPlayerOp(index, text, primary));
+//
+// Goscape's int and string stacks are independent, so only the int pop
+// order matters: primary is on top, index below it.
+func handleSetPlayerOp(s *ScriptState) error {
+	if err := requireActivePlayer(s, "SET_PLAYER_OP"); err != nil {
+		return err
+	}
+	text := s.PopString()
+	primary := s.PopInt()
+	index := s.PopInt()
+	if err := checkPlayerOpIndex(index, "SET_PLAYER_OP"); err != nil {
+		return err
+	}
+	if err := checkPlayerOpState(primary, "SET_PLAYER_OP"); err != nil {
+		return err
+	}
+	s.activePlayer().SetPlayerOp(index, text, primary)
 	return nil
 }
 
@@ -1883,7 +1947,7 @@ func handlePPreventLogout(s *ScriptState) error {
 	return nil
 }
 
-// handleAfkEvent (AFK_EVENT, opcode 2113) pushes 1 when the player is
+// handleAfkEvent (AFK_EVENT, opcode 2114) pushes 1 when the player is
 // eligible to receive an AFK-event prompt and clears the eligibility
 // flag. Mirrors TS LostCityRS/Engine-TS/.../PlayerOps.ts:1057-1062:
 //
@@ -1969,7 +2033,7 @@ func handleSetSkinColour(s *ScriptState) error {
 	return nil
 }
 
-// handleSetGender (SETGENDER, opcode 2121) rewrites the player's body[]
+// handleSetGender (SETGENDER, opcode 2122) rewrites the player's body[]
 // idkit array via gender lookup maps and writes the gender field.
 // Mirrors TS PlayerOps.ts:1104-1118:
 //
@@ -2155,7 +2219,7 @@ func handlePLocMerge(s *ScriptState) error {
 	return nil
 }
 
-// handleWealthEvent (WEALTH_EVENT, opcode 2128). Pops a string name from
+// handleWealthEvent (WEALTH_EVENT, opcode 2129). Pops a string name from
 // the string stack, then 3 ints (LIFO: value, count, eventType — matching
 // TS popInts(3) → [eventType, count, value]). Resolves the obj via
 // Configs.ObjByName; missing name → id=-1 (mirrors TS `objType?.id`

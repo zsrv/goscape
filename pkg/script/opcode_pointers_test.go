@@ -46,12 +46,13 @@ func TestPointers_ZeroValue(t *testing.T) {
 	}
 }
 
-// TestScriptOpcodePointers_LengthParity pins 241 entries at 245.2 pin 3c16994c.
-// Was 240 at 244 pin 9aadcec4; 245.2 adds IF_SETSCROLLPOS (+1) = 241.
+// TestScriptOpcodePointers_LengthParity pins 242 entries at 254 pin 43e02957.
+// Was 240 at 244 pin 9aadcec4; 245.2 adds IF_SETSCROLLPOS (+1) = 241;
+// 254 adds SET_PLAYER_OP (+1) = 242 (STAT_TOTAL has NO pointer row in TS).
 func TestScriptOpcodePointers_LengthParity(t *testing.T) {
-	const wantLen = 241
+	const wantLen = 242
 	if got := len(ScriptOpcodePointers); got != wantLen {
-		t.Fatalf("len(ScriptOpcodePointers) = %d, want %d (re-verify against TS ScriptOpcodePointers.ts at pin 3c16994c)", got, wantLen)
+		t.Fatalf("len(ScriptOpcodePointers) = %d, want %d (re-verify against TS ScriptOpcodePointers.ts at pin 43e02957)", got, wantLen)
 	}
 }
 

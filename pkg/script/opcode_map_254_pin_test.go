@@ -2,11 +2,15 @@ package script
 
 import "testing"
 
-// scriptOpcodeMap245Pin pins every compiler-visible opcode name to its 245.2
-// numeric value. Generated from TS ScriptOpcode.ts at pin 3c16994c (enum
+// scriptOpcodeMap254Pin pins every compiler-visible opcode name to its 254
+// numeric value. Generated from TS ScriptOpcode.ts at pin 43e02957 (enum
 // values + ScriptOpcodeMap keys, including the four '*' vararg keys).
-// Regenerate ONLY when REFERENCES.md moves the rev-245.2 pin.
-var scriptOpcodeMap245Pin = map[string]Opcode{
+// 254 inserts STAT_TOTAL (2102, after STAT) and SET_PLAYER_OP (2133, after
+// IF_SETSCROLLPOS): the implicitly-numbered player-ops run STAT_ADD..
+// IF_SETSCROLLPOS shifts +1 and the four *QUEUEVARARG tail ops shift +2
+// (2134-2137). PUSH_VARBIT (25) / POP_VARBIT (27) restored at 254.
+// Regenerate ONLY when REFERENCES.md moves the rev-254 pin.
+var scriptOpcodeMap254Pin = map[string]Opcode{
 	"PUSH_CONSTANT_INT":             0,
 	"PUSH_VARP":                     1,
 	"POP_VARP":                      2,
@@ -24,8 +28,8 @@ var scriptOpcodeMap245Pin = map[string]Opcode{
 	"GOSUB":                         22,
 	"JUMP":                          23,
 	"SWITCH":                        24,
-	"PUSH_VARBIT":                   25, // restored at 254 (ScriptOpcode.ts:20 @43e02957); Task 9 regenerates this file
-	"POP_VARBIT":                    27, // restored at 254 (ScriptOpcode.ts:21 @43e02957); Task 9 regenerates this file
+	"PUSH_VARBIT":                   25,
+	"POP_VARBIT":                    27,
 	"BRANCH_LESS_THAN_OR_EQUALS":    31,
 	"BRANCH_GREATER_THAN_OR_EQUALS": 32,
 	"PUSH_INT_LOCAL":                33,
@@ -116,8 +120,8 @@ var scriptOpcodeMap245Pin = map[string]Opcode{
 	"IF_OPENCHAT":                   2038,
 	"TUT_OPEN":                      2039,
 	"IF_OPENMAIN":                   2040,
-	"IF_OPENOVERLAY":                2041,
 	"IF_OPENMAIN_SIDE":              2042,
+	"IF_OPENOVERLAY":                2041,
 	"IF_OPENSIDE":                   2043,
 	"IF_SETANIM":                    2044,
 	"IF_SETCOLOUR":                  2045,
@@ -141,7 +145,7 @@ var scriptOpcodeMap245Pin = map[string]Opcode{
 	"LAST_USEITEM":                  2063,
 	"LAST_USESLOT":                  2064,
 	"LONGQUEUE":                     2065,
-	"LONGQUEUE*":                    2133,
+	"LONGQUEUE*":                    2135,
 	"MES":                           2066,
 	"MIDI_JINGLE":                   2067,
 	"MIDI_SONG":                     2068,
@@ -170,7 +174,7 @@ var scriptOpcodeMap245Pin = map[string]Opcode{
 	"PLAYER_FINDALLZONE":            2091,
 	"PLAYER_FINDNEXT":               2092,
 	"QUEUE":                         2093,
-	"QUEUE*":                        2132,
+	"QUEUE*":                        2134,
 	"SAY":                           2094,
 	"WALKTRIGGER":                   2095,
 	"SETTIMER":                      2096,
@@ -179,38 +183,40 @@ var scriptOpcodeMap245Pin = map[string]Opcode{
 	"SPOTANIM_PL":                   2099,
 	"STAFFMODLEVEL":                 2100,
 	"STAT":                          2101,
-	"STAT_ADD":                      2102,
-	"STAT_BASE":                     2103,
-	"STAT_HEAL":                     2104,
-	"STAT_SUB":                      2105,
-	"STAT_BOOST":                    2106,
-	"STAT_DRAIN":                    2107,
-	"STAT_RANDOM":                   2108,
-	"STRONGQUEUE":                   2109,
-	"STRONGQUEUE*":                  2135,
-	"UID":                           2110,
-	"WEAKQUEUE":                     2111,
-	"WEAKQUEUE*":                    2134,
-	"IF_OPENMAINOVERLAY":            2112,
-	"AFK_EVENT":                     2113,
-	"LOWMEMORY":                     2114,
-	"SETIDKIT":                      2115,
-	"P_CLEARPENDINGACTION":          2116,
-	"GETWALKTRIGGER":                2117,
-	"BUSY2":                         2118,
-	"FINDHERO":                      2119,
-	"BOTH_HEROPOINTS":               2120,
-	"SETGENDER":                     2121,
-	"SETSKINCOLOUR":                 2122,
-	"P_ANIMPROTECT":                 2123,
-	"RUNENERGY":                     2124,
-	"WEIGHT":                        2125,
-	"LAST_COORD":                    2126,
-	"SESSION_LOG":                   2127,
-	"WEALTH_EVENT":                  2128,
-	"P_RUN":                         2129,
-	"PLAYERMEMBER":                  2130,
-	"IF_SETSCROLLPOS":               2131,
+	"STAT_TOTAL":                    2102,
+	"STAT_ADD":                      2103,
+	"STAT_BASE":                     2104,
+	"STAT_HEAL":                     2105,
+	"STAT_SUB":                      2106,
+	"STAT_BOOST":                    2107,
+	"STAT_DRAIN":                    2108,
+	"STAT_RANDOM":                   2109,
+	"STRONGQUEUE":                   2110,
+	"STRONGQUEUE*":                  2137,
+	"UID":                           2111,
+	"WEAKQUEUE":                     2112,
+	"WEAKQUEUE*":                    2136,
+	"IF_OPENMAINOVERLAY":            2113,
+	"AFK_EVENT":                     2114,
+	"LOWMEMORY":                     2115,
+	"SETIDKIT":                      2116,
+	"P_CLEARPENDINGACTION":          2117,
+	"GETWALKTRIGGER":                2118,
+	"BUSY2":                         2119,
+	"FINDHERO":                      2120,
+	"BOTH_HEROPOINTS":               2121,
+	"SETGENDER":                     2122,
+	"SETSKINCOLOUR":                 2123,
+	"P_ANIMPROTECT":                 2124,
+	"RUNENERGY":                     2125,
+	"WEIGHT":                        2126,
+	"LAST_COORD":                    2127,
+	"SESSION_LOG":                   2128,
+	"WEALTH_EVENT":                  2129,
+	"P_RUN":                         2130,
+	"PLAYERMEMBER":                  2131,
+	"IF_SETSCROLLPOS":               2132,
+	"SET_PLAYER_OP":                 2133,
 	"NPC_ADD":                       2500,
 	"NPC_ANIM":                      2501,
 	"NPC_BASESTAT":                  2502,
@@ -425,19 +431,17 @@ var scriptOpcodeMap245Pin = map[string]Opcode{
 	"CONSOLE":                       10016,
 }
 
-// removed245Names were deleted/renamed upstream between e1dea19f and
-// 3c16994c and must NOT resolve. PUSH_VARBIT/POP_VARBIT left this list
-// at 254 — restored upstream (ScriptOpcode.ts:20-21 @43e02957).
-// STAT_TOTAL is also restored at 254 but lands in Task 9 with the full
-// regen of this file.
-var removed245Names = []string{
-	"MAP_LIVE", "STAT_TOTAL", "IF_SETRECOL",
+// removed254Names were deleted/renamed upstream and must NOT resolve.
+// PUSH_VARBIT/POP_VARBIT and STAT_TOTAL left this list at 254 — all three
+// restored upstream (ScriptOpcode.ts:20-21,179 @43e02957).
+var removed254Names = []string{
+	"MAP_LIVE", "IF_SETRECOL",
 	"HINT_PL", "LOWMEM", "READYANIM", "RUNANIM", "TURNANIM",
 	"WALKANIM", "WALKANIM_B", "WALKANIM_L", "WALKANIM_R",
 }
 
-func TestScriptOpcodeMap_245Pin(t *testing.T) {
-	for name, want := range scriptOpcodeMap245Pin {
+func TestScriptOpcodeMap_254Pin(t *testing.T) {
+	for name, want := range scriptOpcodeMap254Pin {
 		got, ok := ScriptOpcodeMap[name]
 		if !ok {
 			t.Errorf("ScriptOpcodeMap missing %q", name)
@@ -447,18 +451,18 @@ func TestScriptOpcodeMap_245Pin(t *testing.T) {
 			t.Errorf("ScriptOpcodeMap[%q] = %d, want %d", name, got, want)
 		}
 	}
-	if len(ScriptOpcodeMap) != len(scriptOpcodeMap245Pin) {
-		t.Errorf("ScriptOpcodeMap has %d entries, 245.2 pin has %d", len(ScriptOpcodeMap), len(scriptOpcodeMap245Pin))
+	if len(ScriptOpcodeMap) != len(scriptOpcodeMap254Pin) {
+		t.Errorf("ScriptOpcodeMap has %d entries, 254 pin has %d", len(ScriptOpcodeMap), len(scriptOpcodeMap254Pin))
 	}
-	for _, name := range removed245Names {
+	for _, name := range removed254Names {
 		if _, ok := ScriptOpcodeMap[name]; ok {
 			t.Errorf("ScriptOpcodeMap still contains removed name %q", name)
 		}
 	}
 }
 
-func TestOpcodeString_245Pin(t *testing.T) {
-	for name, op := range scriptOpcodeMap245Pin {
+func TestOpcodeString_254Pin(t *testing.T) {
+	for name, op := range scriptOpcodeMap254Pin {
 		if name[len(name)-1] == '*' {
 			continue // vararg map keys; String() keeps the enum spelling
 		}
