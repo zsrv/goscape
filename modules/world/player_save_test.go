@@ -185,6 +185,12 @@ func newTestPlayerForLoadSave(t *testing.T) (*Player, *objtype.InvTypeConfigs) {
 			0: inventory.New(0, 28, inventory.StackNormal),
 			1: inventory.New(1, 14, inventory.StackNormal),
 		},
+		// Production allocates p.varps registry-sized BEFORE LoadSave
+		// (initPlayerVarps; TS Player.ts:423) and LoadSave only overlays
+		// saved values in. Mirror that contract here: 295 slots = the
+		// varp count of the committed *.sav fixtures, so the v6
+		// byte-perfect round-trip sees registry count == saved count.
+		varps: make([]int32, 295),
 	}
 	return p, cfgs
 }
@@ -710,5 +716,66 @@ func TestLoadSave_LazyCreatesPermInvsMissingFromDestMap(t *testing.T) {
 	}
 	if it := bankGot.Get(42); it == nil || it.Id != 4151 || it.Count != 1 {
 		t.Errorf("bank slot 42: got %+v, want {Id:4151, Count:1}", it)
+	}
+}
+
+// TestLoadSave_SaveShorterThanRegistry_KeepsSeededTail pins the rev-245.2
+// live-smoke crash: a save written when the varp registry was smaller (a
+// rev-244-era save with 302 varps vs the 245.2 registry's 305) must load
+// into the registry-sized, pre-seeded p.varps WITHOUT resizing it — the
+// extra slots keep their initPlayerVarps seeds. TS contract: Player.ts:423
+// allocates vars registry-sized with per-type seeds (:429-435);
+// PlayerLoading.ts:98-101 only overlays saved values. The pre-fix goscape
+// LoadSave resized p.varps to the SAVE count, so the post-login varp
+// resync loop (tick.go processLogins, iterating the registry) indexed out
+// of range and panicked the tick goroutine.
+func TestLoadSave_SaveShorterThanRegistry_KeepsSeededTail(t *testing.T) {
+	src, cfgs := newTestPlayerForLoadSave(t)
+	src.varps = []int32{42, 99} // save carries exactly 2 varps
+	sav := src.Save(cfgs, nil)
+
+	dst, _ := newTestPlayerForLoadSave(t)
+	// Registry of 4: slots 2-3 seeded like initPlayerVarps would
+	// (slot 2: INT-typed → 0; slot 3: non-INT → -1).
+	dst.varps = []int32{0, 0, 0, -1}
+	if err := LoadSave(dst, sav, cfgs, nil); err != nil {
+		t.Fatalf("LoadSave: %v", err)
+	}
+	want := []int32{42, 99, 0, -1}
+	if len(dst.varps) != len(want) {
+		t.Fatalf("varps resized to %d, want %d (LoadSave must overlay, not resize)", len(dst.varps), len(want))
+	}
+	for i := range want {
+		if dst.varps[i] != want[i] {
+			t.Errorf("varps[%d]: got %d, want %d", i, dst.varps[i], want[i])
+		}
+	}
+}
+
+// TestLoadSave_SaveLongerThanRegistry_DropsExtras pins the inverse
+// direction: a save with MORE varps than the registry drops the extras
+// (TS Int32Array out-of-range writes are silent no-ops) while keeping the
+// stream aligned, so fields decoded after the varp block still land.
+func TestLoadSave_SaveLongerThanRegistry_DropsExtras(t *testing.T) {
+	src, cfgs := newTestPlayerForLoadSave(t)
+	src.varps = []int32{7, 8, 9, 10} // save carries 4 varps
+	src.playtime = 1234
+	sav := src.Save(cfgs, nil)
+
+	dst, _ := newTestPlayerForLoadSave(t)
+	dst.varps = make([]int32, 2) // registry shrank to 2
+	if err := LoadSave(dst, sav, cfgs, nil); err != nil {
+		t.Fatalf("LoadSave: %v", err)
+	}
+	if len(dst.varps) != 2 || dst.varps[0] != 7 || dst.varps[1] != 8 {
+		t.Errorf("varps: got %v, want [7 8] (extras dropped, no resize)", dst.varps)
+	}
+	// Stream-alignment proof: playtime is decoded BEFORE the varp block
+	// and the inventory block AFTER it; both must be intact.
+	if dst.playtime != 1234 {
+		t.Errorf("playtime: got %d, want 1234", dst.playtime)
+	}
+	if _, ok := dst.invs[0]; !ok {
+		t.Errorf("inv 0 missing after LoadSave — varp-block over/under-read desynced the stream")
 	}
 }
