@@ -1,22 +1,19 @@
 package world
 
 import (
-	"os"
 	"testing"
 )
 
 // TestNewServer_LoadsWordencFilter pins that NewServer populates s.wordenc from
-// the cache. Uses the canonical Engine-TS cache path; skips when the pack is
-// absent (mirrors world_test.go / nai101_fountain_test.go skip convention).
+// the cache. Uses the rev-225 reference cache via ref225CacheDir (defined in
+// testdata_path_test.go); the repo's own data/pack is not used because the
+// git common-dir fallback can resolve a different revision's pack (e.g.
+// 245.2-format) that rev-225's decoders can no longer read.
 //
 // TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:37-44 (static WordEnc.load).
 func TestNewServer_LoadsWordencFilter(t *testing.T) {
-	const tsCache = "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/pack"
-	if _, err := os.Stat(tsCache); err != nil {
-		t.Skipf("Engine-TS cache unavailable: %v", err)
-	}
 	cfg := Config{
-		CachePath:        tsCache,
+		CachePath:        ref225CacheDir(t),
 		TCPListenNetwork: "tcp",
 		TCPListenAddress: "127.0.0.1",
 		TCPListenPort:    0, // OS picks a free port

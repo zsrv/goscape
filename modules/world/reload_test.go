@@ -15,11 +15,14 @@ import (
 	"github.com/zsrv/goscape/pkg/script"
 )
 
-// realCacheDir is defined in testdata_path_test.go — it resolves the
-// project-root data/pack directory for both main checkouts and worktrees.
+// ref225CacheDir is defined in testdata_path_test.go — it resolves the
+// Server225_2 reference cache (rev-225 component layout) and skips when
+// the reference checkout is unavailable. The repo's own data/pack is not
+// used here: the git common-dir fallback can resolve a different revision's
+// cache (e.g. 245.2-format) that rev-225's decoders can no longer read.
 
 func TestReload_FreshLoad_PopulatesAllRegistries(t *testing.T) {
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	if err := s.Reload(true); err != nil {
 		t.Fatalf("Reload returned err: %v", err)
 	}
@@ -56,7 +59,7 @@ func TestReload_FreshLoad_PopulatesAllRegistries(t *testing.T) {
 }
 
 func TestReload_PreservesIdentitySwap(t *testing.T) {
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	if err := s.Reload(true); err != nil {
 		t.Fatalf("first Reload: %v", err)
 	}
@@ -225,7 +228,7 @@ func makeInvConfigs(n int, scopes map[int]int) []*objtype.InvType {
 }
 
 func TestReload_ScriptCount_NodeDebug_SuccessBroadcast(t *testing.T) {
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	s.cfg.NodeDebug = true
 	var captured []string
 	s.broadcastMesFunc = func(msg string) { captured = append(captured, msg) }
@@ -245,7 +248,7 @@ func TestReload_ScriptCount_NodeDebug_SuccessBroadcast(t *testing.T) {
 // every loader except scripts succeeds. Copy real cache without
 // server/script.{dat,idx}.
 func TestReload_ScriptCount_NodeDebug_FailureBroadcast_PartialCache(t *testing.T) {
-	cacheDir := copyCacheExcept(t, realCacheDir(t), "server/script.dat", "server/script.idx")
+	cacheDir := copyCacheExcept(t, ref225CacheDir(t), "server/script.dat", "server/script.idx")
 	s := newTestServerWithCachePath(t, cacheDir)
 	s.cfg.NodeDebug = true
 	s.scriptProvider = script.NewProvider()
@@ -262,7 +265,7 @@ func TestReload_ScriptCount_NodeDebug_FailureBroadcast_PartialCache(t *testing.T
 }
 
 func TestReload_NotNodeDebug_DoesNotBroadcast(t *testing.T) {
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	s.cfg.NodeDebug = false
 	var captured []string
 	s.broadcastMesFunc = func(msg string) { captured = append(captured, msg) }
@@ -275,7 +278,7 @@ func TestReload_NotNodeDebug_DoesNotBroadcast(t *testing.T) {
 }
 
 func TestReload_ClearInvsTrue_RebuildsSharedInvs(t *testing.T) {
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	sentinel := &inventory.Inventory{}
 	s.invs = map[int]*inventory.Inventory{0xDEAD: sentinel}
 	if err := s.Reload(true); err != nil {
@@ -302,7 +305,7 @@ func TestReload_ClearInvsTrue_RebuildsSharedInvs(t *testing.T) {
 }
 
 func TestReload_ClearInvsFalse_LeavesInvsUntouched(t *testing.T) {
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	sentinel := &inventory.Inventory{}
 	s.invs = map[int]*inventory.Inventory{42: sentinel}
 	if err := s.Reload(false); err != nil {
@@ -314,7 +317,7 @@ func TestReload_ClearInvsFalse_LeavesInvsUntouched(t *testing.T) {
 }
 
 func TestReload_ClearInvsTrue_DeletesTempScopeFromPlayer(t *testing.T) {
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	// Suppress BroadcastMes → writeOut path; players[1] has no encryptor.
 	s.broadcastMesFunc = func(string) {}
 	if err := s.Reload(false); err != nil {
@@ -341,7 +344,7 @@ func TestReload_ClearInvsTrue_DeletesTempScopeFromPlayer(t *testing.T) {
 }
 
 func TestReload_VarSharedStringSlot_PreservedAcrossReload(t *testing.T) {
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	if err := s.Reload(true); err != nil {
 		t.Fatalf("priming reload: %v", err)
 	}
@@ -369,7 +372,7 @@ func TestReload_VarSharedStringSlot_PreservedAcrossReload(t *testing.T) {
 }
 
 func TestReload_CRCRegen_OverwritesGlobalCrcBuffer(t *testing.T) {
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	// Pre-seed a sentinel snapshot. Reload's cache.MakeCRCs() must
 	// publish a fresh snapshot — the sentinel's pointer must no longer
 	// be observable via cache.CRC().
@@ -391,7 +394,7 @@ func TestReload_CRCRegen_OverwritesGlobalCrcBuffer(t *testing.T) {
 }
 
 func TestReload_GameMapTypesReInjected(t *testing.T) {
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	gm := gamemap.New(s.log)
 	s.gamemap = gm
 	if err := s.Reload(true); err != nil {
@@ -406,7 +409,7 @@ func TestReload_GameMapTypesReInjected(t *testing.T) {
 }
 
 func TestReload_PreStep3LoaderError_LeavesRegistriesUnmutated(t *testing.T) {
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	if err := s.Reload(true); err != nil {
 		t.Fatalf("priming reload: %v", err)
 	}
@@ -432,7 +435,7 @@ func TestReload_PreStep3LoaderError_LeavesRegistriesUnmutated(t *testing.T) {
 }
 
 func TestReload_MidPipelineLoaderError_LeavesHalfSwapped_SkipPin(t *testing.T) {
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	if err := s.Reload(true); err != nil {
 		t.Fatalf("priming reload: %v", err)
 	}
@@ -443,7 +446,7 @@ func TestReload_MidPipelineLoaderError_LeavesHalfSwapped_SkipPin(t *testing.T) {
 	// Reload will succeed through step 3 (swap) and fail at step 5.
 	// objTypes must be the NEW instance (mutated); locTypes also new.
 	// This documents DEVIATION-NAI-190-D2-HALF-SWAP.
-	cacheDir := copyCacheExcept(t, realCacheDir(t), "server/dbrow.dat")
+	cacheDir := copyCacheExcept(t, ref225CacheDir(t), "server/dbrow.dat")
 	s.cfg.CachePath = cacheDir
 	err := s.Reload(true)
 	if err == nil {
@@ -468,7 +471,7 @@ func TestReload_MidPipelineLoaderError_LeavesHalfSwapped_SkipPin(t *testing.T) {
 // TS ClientCheatHandler.ts:149-150.
 func TestHandleClientCheat_Reload_Dispatches(t *testing.T) {
 	p, _ := newTestPlayer(t)
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	p.client.server = s
 	s.cfg.NodeDebug = true
 	s.cfg.NodeProduction = false
@@ -516,7 +519,7 @@ func TestHandleClientCheat_Reload_ErrorPath_LogsAndPrivateMes(t *testing.T) {
 // inventory in s.invs must be absent after the call.
 func TestHandleClientCheat_Reload_DefaultsClearInvsTrue(t *testing.T) {
 	p, _ := newTestPlayer(t)
-	s := newTestServerWithCachePath(t, realCacheDir(t))
+	s := newTestServerWithCachePath(t, ref225CacheDir(t))
 	p.client.server = s
 	s.cfg.NodeProduction = false
 	p.staffModLevel = 4

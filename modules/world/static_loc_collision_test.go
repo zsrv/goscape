@@ -25,7 +25,7 @@ import (
 // Test exercises the real m48_50 / l48_50 cache. Skip-if-absent keeps the
 // test CI-portable; pattern mirrors pkg/objtype/loctype_realcache_test.go.
 func TestNAI95_StaticLocCollision_HansArea(t *testing.T) {
-	cacheDir := realCacheDir(t)
+	cacheDir := ref225CacheDir(t)
 	if _, err := os.Stat(filepath.Join(cacheDir, "server", "maps", "m48_50")); err != nil {
 		t.Skipf("data/pack/server/maps/m48_50 unavailable: %v", err)
 	}

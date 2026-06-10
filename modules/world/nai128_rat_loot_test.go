@@ -19,7 +19,7 @@ import (
 // skipReason != "" the test should t.Skipf to keep CI-portable.
 func nai128CacheFixture(t *testing.T) (*Server, string) {
 	t.Helper()
-	cacheDir := realCacheDir(t)
+	cacheDir := ref225CacheDir(t)
 	for _, p := range []string{
 		filepath.Join(cacheDir, "server", "script.dat"),
 		filepath.Join(cacheDir, "server", "npc.dat"),
