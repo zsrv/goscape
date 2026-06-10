@@ -64,6 +64,7 @@ func init() {
 	gameHandlers[gameclient.OpcOpPlayer2] = handleOpPlayer2 // OPPLAYER2
 	gameHandlers[gameclient.OpcOpPlayer3] = handleOpPlayer3 // OPPLAYER3
 	gameHandlers[gameclient.OpcOpPlayer4] = handleOpPlayer4 // OPPLAYER4
+	gameHandlers[gameclient.OpcOpPlayer5] = handleOpPlayer5 // OPPLAYER5 (254)
 	gameHandlers[gameclient.OpcOpPlayerT] = handleOpPlayerT // OPPLAYERT
 	gameHandlers[gameclient.OpcOpPlayerU] = handleOpPlayerU // OPPLAYERU
 

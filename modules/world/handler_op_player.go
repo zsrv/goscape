@@ -5,11 +5,11 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
-// handleOpPlayer is the shared implementation for OPPLAYER1..OPPLAYER4
-// (real client only sends ops 1..4 — no OPPLAYER5 wire packet).
+// handleOpPlayer is the shared implementation for OPPLAYER1..OPPLAYER5
+// (254 adds the OPPLAYER5 wire packet for SET_PLAYER_OP slot 5).
 //
-// Opcodes: OPPLAYER1=211, OPPLAYER2=219, OPPLAYER3=64, OPPLAYER4=43.
-// Op is 1..4. Payload = u2 pid.
+// Opcodes (254): OPPLAYER1=192, OPPLAYER2=17, OPPLAYER3=18, OPPLAYER4=72,
+// OPPLAYER5=230. Op is 1..5. Payload = u2 pid.
 //
 // Gates per TS OpPlayerHandler.ts (244):
 //  1. delayed player → UnsetMapFlag (no clearPendingAction). TS:15-18.
@@ -24,8 +24,9 @@ import (
 //
 // The trigger arithmetic (TriggerApPlayer<N>, +7 → TriggerOpPlayer<N>)
 // happens later in the trigger-fire path (player_interaction_trigger.go,
-// landed in NAI-40 T5). TS 244 expanded the dispatch from arithmetic to
-// explicit if/else (TS:33-42); the Go integer-op path is equivalent.
+// landed in NAI-40 T5). TS 254 dispatches via explicit if/else with the
+// final else mapping to APPLAYER5 (TS OpPlayerHandler.ts:35-46
+// @43e02957); the Go integer-op path is equivalent for ops 1..5.
 //
 // NAI-40-D-OPPLAYER3-FOLLOWOP-NOT-PORTED closed by NAI-44 T5
 // (processInteraction reshape with followOp + auto-clear).
@@ -74,6 +75,7 @@ func handleOpPlayer1(p *Player, payload []byte) error { return handleOpPlayer(p,
 func handleOpPlayer2(p *Player, payload []byte) error { return handleOpPlayer(p, payload, 2) }
 func handleOpPlayer3(p *Player, payload []byte) error { return handleOpPlayer(p, payload, 3) }
 func handleOpPlayer4(p *Player, payload []byte) error { return handleOpPlayer(p, payload, 4) }
+func handleOpPlayer5(p *Player, payload []byte) error { return handleOpPlayer(p, payload, 5) }
 
 // handleOpPlayerT is the handler for OPPLAYERT (opcode 73, 4-byte payload).
 // Spell-on-Player: player drags a spell icon onto another player.

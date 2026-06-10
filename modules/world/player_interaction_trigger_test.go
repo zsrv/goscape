@@ -25,10 +25,10 @@ func TestApPlayerTriggerForOp(t *testing.T) {
 		{2, script.TriggerApPlayer2, true},
 		{3, script.TriggerApPlayer3, true},
 		{4, script.TriggerApPlayer4, true},
+		{5, script.TriggerApPlayer5, true}, // 254: OPPLAYER5 wire packet (TS OpPlayerHandler.ts:44-46 @43e02957)
 		{targetOpPlayerT, script.TriggerApPlayerT, true},
 		{targetOpPlayerU, script.TriggerApPlayerU, true},
 		{0, 0, false},
-		{5, 0, false}, // no OPPLAYER5 wire packet from the client
 		{-1, 0, false},
 	}
 	for _, c := range cases {

@@ -3,21 +3,20 @@ package world
 import "github.com/zsrv/goscape/pkg/script"
 
 // apPlayerTriggerForOp returns the APPLAYER trigger for the player's
-// targetOp. Returns ok=false if op is neither 1..4 nor a T/U sentinel.
+// targetOp. Returns ok=false if op is neither 1..5 nor a T/U sentinel.
 // fireOpTriggerPlayer derives the OPPLAYER trigger by adding 7 to the
 // returned APPLAYER (TS Player.ts:~997 offset convention):
 //
-//	APPLAYER1..4 (87..90) + 7 → OPPLAYER1..4 (94..97)
+//	APPLAYER1..5 (87..91) + 7 → OPPLAYER1..5 (94..98)
 //	APPLAYERT    (93)     + 7 → OPPLAYERT    (100)
 //	APPLAYERU    (92)     + 7 → OPPLAYERU    (99)
 //
-// Note: ops are 1..4, NOT 1..5 — the real client only sends OPPLAYER1..4
-// (handler_op_player.go ports OPPLAYER1..4, OPPLAYERT, OPPLAYERU only).
-// The 5-slot TriggerOpPlayer<5> is reserved for the AI-side family
-// (TriggerAiOpPlayer1..5) and is not produced by player-actor dispatch.
+// 254: the client sends OPPLAYER5 (opcode 230) for SET_PLAYER_OP slot 5;
+// TS OpPlayerHandler.ts:35-46 @43e02957 maps the final else of the op
+// dispatch to APPLAYER5, so op 5 is now a player-actor producer.
 func apPlayerTriggerForOp(op int) (script.ServerTriggerType, bool) {
 	switch {
-	case op >= 1 && op <= 4:
+	case op >= 1 && op <= 5:
 		return script.TriggerApPlayer1 + script.ServerTriggerType(op-1), true
 	case op == targetOpPlayerT:
 		return script.TriggerApPlayerT, true

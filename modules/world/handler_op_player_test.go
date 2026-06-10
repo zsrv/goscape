@@ -7,6 +7,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -72,11 +73,12 @@ func rsbufSeesPlayer(t *testing.T, s *Server, observerSlot, targetSlot int) {
 	bp.Build.Players.Insert(int32(targetSlot))
 }
 
-// TestHandleOpPlayer_HappyPath_AllOps — for each of op 1..4, the handler
+// TestHandleOpPlayer_HappyPath_AllOps — for each of op 1..5, the handler
 // sets target = other, targetOp = op, targetSubject.com = -1, kind =
-// InteractionEngine.
+// InteractionEngine. 254 adds op 5 (TS OpPlayerHandler.ts:44-46 @43e02957:
+// the final else of the dispatch maps to APPLAYER5).
 func TestHandleOpPlayer_HappyPath_AllOps(t *testing.T) {
-	for op := 1; op <= 4; op++ {
+	for op := 1; op <= 5; op++ {
 		t.Run(fmt.Sprintf("op=%d", op), func(t *testing.T) {
 			s, clicker, other, _ := makeOpPlayerFixture(t)
 			rsbufSeesPlayer(t, s, clicker.pid, other.pid)
@@ -98,6 +100,36 @@ func TestHandleOpPlayer_HappyPath_AllOps(t *testing.T) {
 				t.Errorf("interactionKind: got %v, want InteractionEngine", clicker.interactionKind)
 			}
 		})
+	}
+}
+
+// TestHandleOpPlayer5_WireRegistration — 254 adds the OPPLAYER5 wire
+// packet (opcode 230, 2-byte payload). The registered gameHandlers entry
+// must route to interaction op 5, which the trigger fork later maps to
+// APPLAYER5/OPPLAYER5 (TS OpPlayerHandler.ts:44-46 @43e02957).
+func TestHandleOpPlayer5_WireRegistration(t *testing.T) {
+	h := gameHandlers[gameclient.OpcOpPlayer5]
+	if h == nil {
+		t.Fatal("gameHandlers[OpcOpPlayer5]: not registered (254 adds OPPLAYER5)")
+	}
+
+	s, clicker, other, _ := makeOpPlayerFixture(t)
+	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
+
+	if err := h(clicker, p2Payload(other.pid)); err != nil {
+		t.Fatalf("handleOpPlayer5: %v", err)
+	}
+	if clicker.target != other {
+		t.Errorf("target: got %v, want other (%p)", clicker.target, other)
+	}
+	if clicker.targetOp != 5 {
+		t.Errorf("targetOp: got %d, want 5", clicker.targetOp)
+	}
+	if clicker.interactionKind != InteractionEngine {
+		t.Errorf("interactionKind: got %v, want InteractionEngine", clicker.interactionKind)
+	}
+	if !clicker.opcalled {
+		t.Error("opcalled: want true after successful OPPLAYER5, got false")
 	}
 }
 
