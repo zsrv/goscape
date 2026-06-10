@@ -64,10 +64,12 @@ type LoggerBridge interface {
 	// of the ReportAbuseReason enum value (e.g. "MACROING").
 	NotifyPlayerReport(player *Player, offender, reason string)
 
-	// SubmitInputTracking posts per-player input-recording blobs from the
-	// anti-cheat tracking subsystem (TS World.submitInputTracking at
-	// World.ts:2343-2351). 244 re-shape: username + session UUID + ALL blobs
-	// (225 sent only recordedBlobs[0]; see InputTracking.ts:141-149).
+	// SubmitInputTracking posts per-player input-recording blobs from
+	// the input-tracking subsystem (TS World.submitInputTracking at
+	// World.ts:2346 @43e02957): username + session UUID + blobs. At 254
+	// each InputTracking.Flush submits exactly ONE blob
+	// (InputTracking.ts:47-48); the slice shape mirrors the TS
+	// signature (`blobs: InputTrackingBlob[]`).
 	SubmitInputTracking(username, sessionUUID string, blobs []InputTrackingBlob)
 
 	// SubmitSessionLogs posts the per-tick batch of session-log entries.

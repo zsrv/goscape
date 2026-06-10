@@ -1478,6 +1478,13 @@ func (s *Server) removePlayerInternal(p *Player) {
 	// path calls clear(true), which is a TS no-op (BuildArea.ts:24-28).
 	p.buildArea.clear(false)
 	p.appearanceInv = -1
+	// 254 delta: TS Player.cleanup (Player.ts:458 @43e02957) ends with
+	// this.input.flush() so a tracked player logging out mid-buffer
+	// still submits the partial accumulation blob. Nil-guard is
+	// goscape-defensive for direct struct-literal Players in tests.
+	if p.input != nil {
+		p.input.Flush()
+	}
 }
 
 // removePlayerOnTick handles graceful logout from the tick goroutine.

@@ -512,12 +512,12 @@ func (s *Server) processLogins() {
 		p.lastStepX = p.x - 1
 		p.lastStepZ = p.z
 
-		// NAI-73: allocate the InputTracking state machine.
+		// p.input is allocated in newPlayer (TS Player.ts:428 ctor
+		// parity; the 254 InputTracking has no tick-scheduled state).
 		// session is normally assigned in newPlayer() from the
 		// PlayerLoginResponse.session_uuid; the "headless" fallback
 		// below covers standalone-world and unit-test paths that bypass
 		// the login bridge.
-		p.input = NewInputTracking(p, s.currentTick)
 		if p.session == "" {
 			p.session = "headless"
 		}

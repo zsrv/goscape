@@ -329,55 +329,56 @@ func reportAbuseSetupWithOnlineOffender(t *testing.T, offenderName string) (*Pla
 	return reporter, offender, rec
 }
 
-// TestHandleReportAbuseMacroingFlipsSubmitInput pins that reason=
-// MACROING(6) on an online offender flips offender.submitInput=true.
-// Mirrors TS World.notifyPlayerReport (World.ts:2298-2304).
-func TestHandleReportAbuseMacroingFlipsSubmitInput(t *testing.T) {
+// TestHandleReportAbuseMacroingActivatesTracking pins that reason=
+// MACROING(6) on an online offender flips offender.input.Active=true.
+// Mirrors TS World.notifyPlayerReport (World.ts:2330-2336 @43e02957:
+// `offenderPlayer.input.active = true`).
+func TestHandleReportAbuseMacroingActivatesTracking(t *testing.T) {
 	reporter, offender, _ := reportAbuseSetupWithOnlineOffender(t, "evilbob")
-	if offender.submitInput {
-		t.Fatal("preflight: offender.submitInput should start false")
+	if offender.input.Active {
+		t.Fatal("preflight: offender.input.Active should start false")
 	}
 	payload := reportAbusePayload(util.ToBase37("evilbob"), ReportAbuseMacroing, false)
 
 	if err := handleReportAbuse(reporter, payload); err != nil {
 		t.Fatalf("handleReportAbuse: %v", err)
 	}
-	if !offender.submitInput {
-		t.Error("offender.submitInput: must be true after MACROING report")
+	if !offender.input.Active {
+		t.Error("offender.input.Active: must be true after MACROING report")
 	}
 }
 
-// TestHandleReportAbuseBugAbuseFlipsSubmitInput pins the same for BUG_ABUSE.
-func TestHandleReportAbuseBugAbuseFlipsSubmitInput(t *testing.T) {
+// TestHandleReportAbuseBugAbuseActivatesTracking pins the same for BUG_ABUSE.
+func TestHandleReportAbuseBugAbuseActivatesTracking(t *testing.T) {
 	reporter, offender, _ := reportAbuseSetupWithOnlineOffender(t, "evilbob")
 	payload := reportAbusePayload(util.ToBase37("evilbob"), ReportAbuseBugAbuse, false)
 
 	if err := handleReportAbuse(reporter, payload); err != nil {
 		t.Fatalf("handleReportAbuse: %v", err)
 	}
-	if !offender.submitInput {
-		t.Error("offender.submitInput: must be true after BUG_ABUSE report")
+	if !offender.input.Active {
+		t.Error("offender.input.Active: must be true after BUG_ABUSE report")
 	}
 }
 
-// TestHandleReportAbuseNonMacroingDoesNotFlipSubmitInput pins that
-// other reasons (e.g. OffensiveLanguage=0) do NOT flip submitInput.
-func TestHandleReportAbuseNonMacroingDoesNotFlipSubmitInput(t *testing.T) {
+// TestHandleReportAbuseNonMacroingDoesNotActivateTracking pins that
+// other reasons (e.g. OffensiveLanguage=0) do NOT activate tracking.
+func TestHandleReportAbuseNonMacroingDoesNotActivateTracking(t *testing.T) {
 	reporter, offender, _ := reportAbuseSetupWithOnlineOffender(t, "evilbob")
 	payload := reportAbusePayload(util.ToBase37("evilbob"), ReportAbuseOffensiveLanguage, false)
 
 	if err := handleReportAbuse(reporter, payload); err != nil {
 		t.Fatalf("handleReportAbuse: %v", err)
 	}
-	if offender.submitInput {
-		t.Error("offender.submitInput: must remain false for non-MACROING/BUG_ABUSE reasons")
+	if offender.input.Active {
+		t.Error("offender.input.Active: must remain false for non-MACROING/BUG_ABUSE reasons")
 	}
 }
 
 // TestHandleReportAbuseMacroingOfflineOffenderNoOp pins that MACROING
 // against an offline offender does not panic and does not affect any
 // other state. (TS getPlayerByUsername returns undefined; the handler
-// silently skips the submitInput flip.)
+// silently skips the input.active flip.)
 func TestHandleReportAbuseMacroingOfflineOffenderNoOp(t *testing.T) {
 	reporter, _ := reportAbuseSetup(t) // no offender added
 	payload := reportAbusePayload(util.ToBase37("ghost"), ReportAbuseMacroing, false)

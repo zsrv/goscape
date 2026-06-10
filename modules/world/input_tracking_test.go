@@ -1,358 +1,330 @@
 package world
 
 import (
+	"bytes"
 	"encoding/base64"
-	"net"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
-	io2 "github.com/zsrv/goscape/pkg/io/isaac"
-	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
 // inputTrackingTestSetup wires a Player against a Server with
-// recordingBridges. Returns the tracking entity, player, the
-// client-side test pipe, and the recorder.
-func inputTrackingTestSetup(t *testing.T) (*InputTracking, *Player, net.Conn, *recordingBridges) {
+// recordingBridges. Returns the tracking entity, player, and the
+// recorder. The InputTracking is built via NewInputTracking (the same
+// ctor newPlayer uses) with Active left false — tests flip it per-case.
+func inputTrackingTestSetup(t *testing.T) (*InputTracking, *Player, *recordingBridges) {
 	t.Helper()
 	s := newTestServer(t)
-	p, cc := newTestPlayer(t)
+	p, _ := newTestPlayer(t)
 	p.client.server = s
-	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	rec := installRecordingBridges(s)
-	tt := &InputTracking{player: p}
-	return tt, p, cc, rec
+	tt := NewInputTracking(p)
+	p.input = tt
+	return tt, p, rec
 }
 
-// TestInputTrackingIsActiveMatrix pins the 4 corners of IsActive.
-func TestInputTrackingIsActiveMatrix(t *testing.T) {
-	cases := []struct {
-		name        string
-		currentTick int
-		startAt     int
-		endAt       int
-		waiting     bool
-		want        bool
-	}{
-		{"pre-window", 99, 100, 200, false, false},
-		{"on-start", 100, 100, 200, false, true},
-		{"mid-window", 150, 100, 200, false, true},
-		{"on-end", 200, 100, 200, false, true},
-		{"post-window", 201, 100, 200, false, false},
-		{"post-window-but-waiting", 201, 100, 200, true, true},
-		{"pre-window-but-waiting", 99, 100, 200, true, true},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			tt, _, _, _ := inputTrackingTestSetup(t)
-			tt.startTrackingAt = tc.startAt
-			tt.endTrackingAt = tc.endAt
-			tt.waitingForRemainingData = tc.waiting
-			got := tt.IsActive(tc.currentTick)
-			if got != tc.want {
-				t.Errorf("IsActive(%d) startAt=%d endAt=%d waiting=%v: got %v, want %v",
-					tc.currentTick, tc.startAt, tc.endAt, tc.waiting, got, tc.want)
-			}
-		})
-	}
-}
-
-// TestInputTrackingShouldSubmitTrackingDetailsMatrix pins the 2x2 OR
-// of (player.submitInput, cfg.NodeSubmitInput).
-func TestInputTrackingShouldSubmitTrackingDetailsMatrix(t *testing.T) {
-	cases := []struct {
-		name         string
-		playerSubmit bool
-		cfgSubmit    bool
-		want         bool
-	}{
-		{"both-false", false, false, false},
-		{"player-only", true, false, true},
-		{"cfg-only", false, true, true},
-		{"both-true", true, true, true},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			tt, p, _, _ := inputTrackingTestSetup(t)
-			p.submitInput = tc.playerSubmit
-			p.client.server.cfg.NodeSubmitInput = tc.cfgSubmit
-			got := tt.ShouldSubmitTrackingDetails()
-			if got != tc.want {
-				t.Errorf("ShouldSubmitTrackingDetails: playerSubmit=%v cfgSubmit=%v: got %v, want %v",
-					tc.playerSubmit, tc.cfgSubmit, got, tc.want)
-			}
-		})
-	}
-}
-
-// TestInputTrackingRecord pins basic blob accumulation and size totalisation.
-// Detailed Record() shape (seq/coord/base64) is covered by
-// TestInputTrackingRecordWrapsBlobs.
-func TestInputTrackingRecord(t *testing.T) {
-	tt, _, _, _ := inputTrackingTestSetup(t)
-	tt.Record([]byte{1, 2, 3})
-	tt.Record([]byte{4, 5})
-	if got, want := len(tt.recordedBlobs), 2; got != want {
-		t.Errorf("recordedBlobs len: got %d, want %d", got, want)
-	}
-	if got, want := tt.recordedBlobsSizeTotal, 5; got != want {
-		t.Errorf("recordedBlobsSizeTotal: got %d, want %d", got, want)
-	}
-	wantData := base64.StdEncoding.EncodeToString([]byte{1, 2, 3})
-	if tt.recordedBlobs[0].Data != wantData {
-		t.Errorf("recordedBlobs[0].Data: got %q, want %q", tt.recordedBlobs[0].Data, wantData)
-	}
-}
-
-// TestInputTrackingEnable pins enable's state transitions and the
-// EnableTracking server-packet write.
-func TestInputTrackingEnable(t *testing.T) {
-	tt, p, cc, _ := inputTrackingTestSetup(t)
-	tt.enabled = false
-	tt.startTrackingAt = 1000 // will be overwritten to currentTick
-
-	received := drainConn(t, cc)
-	tt.enable(500)
-	p.client.flushWrite()
-	got := <-received
-
-	if !tt.enabled {
-		t.Error("enabled: must be true after enable()")
-	}
-	if want := 500; tt.startTrackingAt != want {
-		t.Errorf("startTrackingAt: got %d, want %d (currentTick at enable)", tt.startTrackingAt, want)
-	}
-	if want := 500 + inputTrackingTime; tt.endTrackingAt != want {
-		t.Errorf("endTrackingAt: got %d, want %d", tt.endTrackingAt, want)
-	}
-
-	// Verify EnableTracking packet was written. OpEnableTracking has 0 payload
-	// so the wire is a single ISAAC-encrypted byte.
-	if len(got) != 1 {
-		t.Fatalf("client out: got %d bytes, want 1 (EnableTracking opcode)", len(got))
-	}
-	// Decode the ISAAC-encrypted byte against a parallel encryptor seeded
-	// the same way to verify the opcode.
-	parallel := io2.New([4]uint32{1, 2, 3, 4})
-	wantByte := byte((uint32(gameserver.OpEnableTracking.Opcode) + parallel.GetNext()) & 0xff) // TS ServerGameProt.ts @43e02957 (254): ENABLE_TRACKING=251
-	if got[0] != wantByte {
-		t.Errorf("EnableTracking opcode (encrypted): got %d, want %d", got[0], wantByte)
-	}
-}
-
-// TestInputTrackingEnableIdempotent pins that calling enable() when
-// already enabled is a no-op.
-func TestInputTrackingEnableIdempotent(t *testing.T) {
-	tt, p, cc, _ := inputTrackingTestSetup(t)
-	tt.enabled = true
-	tt.startTrackingAt = 100
-	tt.endTrackingAt = 250
-
-	received := drainConn(t, cc)
-	tt.enable(500)
-	p.client.flushWrite()
-	got := <-received
-
-	if want := 100; tt.startTrackingAt != want {
-		t.Errorf("startTrackingAt should not change: got %d, want %d", tt.startTrackingAt, want)
-	}
-	if len(got) != 0 {
-		t.Errorf("idempotent enable should not write: got %d bytes", len(got))
-	}
-}
-
-// TestInputTrackingDisable pins disable's state transitions and the
-// FinishTracking server-packet write.
-func TestInputTrackingDisable(t *testing.T) {
-	tt, p, cc, _ := inputTrackingTestSetup(t)
-	tt.enabled = true
-	tt.startTrackingAt = 100
-	tt.endTrackingAt = 250
-
-	received := drainConn(t, cc)
-	tt.disable(300)
-	p.client.flushWrite()
-	got := <-received
-
-	if tt.enabled {
-		t.Error("enabled: must be false after disable()")
-	}
-	if !tt.waitingForRemainingData {
-		t.Error("waitingForRemainingData: must be true after disable()")
-	}
-	if want := 300; tt.endTrackingAt != want {
-		t.Errorf("endTrackingAt: got %d, want %d (currentTick at disable)", tt.endTrackingAt, want)
-	}
-	// startTrackingAt rescheduled to a future tick — exact value depends on
-	// jitter, but it must be in [300+inputTrackingRate-15, 300+inputTrackingRate+15].
-	wantMin := 300 + inputTrackingRate - inputTrackingJitterRange
-	wantMax := 300 + inputTrackingRate + inputTrackingJitterRange
-	if tt.startTrackingAt < wantMin || tt.startTrackingAt > wantMax {
-		t.Errorf("startTrackingAt: got %d, want in [%d, %d]", tt.startTrackingAt, wantMin, wantMax)
-	}
-
-	// FinishTracking packet was written (OpFinishTracking = 165, 0-payload = 1 wire byte).
-	if len(got) != 1 {
-		t.Fatalf("client out: got %d bytes, want 1 (FinishTracking opcode)", len(got))
-	}
-}
-
-// TestInputTrackingDisableIdempotent pins that disable() when already
-// disabled is a no-op.
-func TestInputTrackingDisableIdempotent(t *testing.T) {
-	tt, p, cc, _ := inputTrackingTestSetup(t)
-	tt.enabled = false
-
-	received := drainConn(t, cc)
-	tt.disable(300)
-	p.client.flushWrite()
-	got := <-received
-
-	if tt.waitingForRemainingData {
-		t.Error("waitingForRemainingData should not be set on no-op disable")
-	}
-	if len(got) != 0 {
-		t.Errorf("idempotent disable should not write: got %d bytes", len(got))
-	}
-}
-
-// TestInputTrackingSubmitEventsMatrix pins all 4 branches of
-// submitEvents (TS InputTracking.submitEvents at lines 140-158).
-func TestInputTrackingSubmitEventsMatrix(t *testing.T) {
-	// blobsFromRaw is a helper to build []InputTrackingBlob from raw slices,
-	// mirroring what Record() would produce (seq from 1, coord=0 for simplicity).
-	blobsFromRaw := func(raws [][]byte) []InputTrackingBlob {
-		if raws == nil {
-			return nil
+// TestInputTrackingCameraPosition pins event 1: p1(tag) p2(pitch) p2(yaw)
+// appended only while Active. TS InputTracking.ts:54-66 @43e02957.
+func TestInputTrackingCameraPosition(t *testing.T) {
+	t.Run("active-appends", func(t *testing.T) {
+		tt, _, _ := inputTrackingTestSetup(t)
+		tt.Active = true
+		tt.CameraPosition(0x1234, 0x5678)
+		want := []byte{0x01, 0x12, 0x34, 0x56, 0x78}
+		if got := tt.buf.Bytes(); !bytes.Equal(got, want) {
+			t.Errorf("buf: got % X, want % X", got, want)
 		}
-		out := make([]InputTrackingBlob, len(raws))
-		for i, r := range raws {
-			out[i] = NewInputTrackingBlob(r, i+1, 0)
+	})
+	t.Run("inactive-noop", func(t *testing.T) {
+		tt, _, _ := inputTrackingTestSetup(t)
+		tt.Active = false
+		tt.CameraPosition(0x1234, 0x5678)
+		if got := tt.buf.Len(); got != 0 {
+			t.Errorf("buf len: got %d, want 0 (inactive must not record)", got)
 		}
-		return out
+	})
+}
+
+// TestInputTrackingAppletFocus pins event 2: p1(tag) p1(focus).
+// TS InputTracking.ts:68-79.
+func TestInputTrackingAppletFocus(t *testing.T) {
+	tt, _, _ := inputTrackingTestSetup(t)
+	tt.Active = true
+	tt.AppletFocus(1)
+	want := []byte{0x02, 0x01}
+	if got := tt.buf.Bytes(); !bytes.Equal(got, want) {
+		t.Errorf("buf: got % X, want % X", got, want)
 	}
+}
+
+// TestInputTrackingMouseClick pins event 3: p1(tag) p4(info).
+// TS InputTracking.ts:81-92.
+func TestInputTrackingMouseClick(t *testing.T) {
+	tt, _, _ := inputTrackingTestSetup(t)
+	tt.Active = true
+	tt.MouseClick(0xDEADBEEF)
+	want := []byte{0x03, 0xDE, 0xAD, 0xBE, 0xEF}
+	if got := tt.buf.Bytes(); !bytes.Equal(got, want) {
+		t.Errorf("buf: got % X, want % X", got, want)
+	}
+}
+
+// TestInputTrackingMouseMove pins event 4: p1(tag) p1(len) pdata, with
+// the len==0 and len>160 rejections. TS InputTracking.ts:94-106.
+func TestInputTrackingMouseMove(t *testing.T) {
 	cases := []struct {
-		name               string
-		hasSeenReport      bool
-		shouldSubmit       bool
-		nodeDebug          bool
-		blobsRaw           [][]byte // raw bytes → converted to []InputTrackingBlob via helper
-		wantBridgeCalls    int
-		wantKick           bool
-		wantBlobCount      int  // 244: ALL blobs sent (not just blob[0])
-		wantSessionLogPush bool // NAI-74
+		name string
+		data []byte
+		want []byte // nil = no-op
 	}{
-		{
-			name:               "report+submit→bridge",
-			hasSeenReport:      true,
-			shouldSubmit:       true,
-			nodeDebug:          false,
-			blobsRaw:           [][]byte{{0xAA}, {0xBB}, {0xCC}},
-			wantBridgeCalls:    1,
-			wantKick:           false,
-			wantBlobCount:      3, // 244: all 3 blobs sent
-			wantSessionLogPush: false,
-		},
-		{
-			name:               "report+!submit→nothing",
-			hasSeenReport:      true,
-			shouldSubmit:       false,
-			nodeDebug:          false,
-			blobsRaw:           [][]byte{{0xAA}},
-			wantBridgeCalls:    0,
-			wantKick:           false,
-			wantSessionLogPush: false,
-		},
-		{
-			name:               "!report+!debug→kick",
-			hasSeenReport:      false,
-			shouldSubmit:       false,
-			nodeDebug:          false,
-			blobsRaw:           nil,
-			wantBridgeCalls:    0,
-			wantKick:           true,
-			wantSessionLogPush: true, // NAI-74: TS InputTracking.ts:150
-		},
-		{
-			name:               "!report+debug→nothing",
-			hasSeenReport:      false,
-			shouldSubmit:       false,
-			nodeDebug:          true,
-			blobsRaw:           nil,
-			wantBridgeCalls:    0,
-			wantKick:           false,
-			wantSessionLogPush: false,
-		},
+		{"len-0-noop", []byte{}, nil},
+		{"len-161-noop", make([]byte, 161), nil},
+		{"len-160-appends", make([]byte, 160), append([]byte{0x04, 160}, make([]byte, 160)...)},
+		{"len-3-appends", []byte{0xAA, 0xBB, 0xCC}, []byte{0x04, 0x03, 0xAA, 0xBB, 0xCC}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			tt, p, _, rec := inputTrackingTestSetup(t)
-			tt.hasSeenReport = tc.hasSeenReport
-			tt.recordedBlobs = blobsFromRaw(tc.blobsRaw)
-			tt.recordedBlobsSizeTotal = 0
-			for _, b := range tc.blobsRaw {
-				tt.recordedBlobsSizeTotal += len(b)
-			}
-			tt.waitingForRemainingData = true
-			p.submitInput = tc.shouldSubmit
-			p.client.server.cfg.NodeSubmitInput = false
-			p.client.server.cfg.NodeDebug = tc.nodeDebug
-			p.requestIdleLogout = false
-
-			tt.submitEvents()
-
-			if got := len(rec.inputTracks); got != tc.wantBridgeCalls {
-				t.Errorf("bridge calls: got %d, want %d", got, tc.wantBridgeCalls)
-			}
-			if tc.wantBridgeCalls > 0 {
-				if got := len(rec.inputTracks[0].blobs); got != tc.wantBlobCount {
-					t.Errorf("submitted blob count: got %d, want %d", got, tc.wantBlobCount)
+			tt, _, _ := inputTrackingTestSetup(t)
+			tt.Active = true
+			tt.MouseMove(tc.data)
+			got := tt.buf.Bytes()
+			if tc.want == nil {
+				if len(got) != 0 {
+					t.Errorf("buf: got % X, want empty (no-op)", got)
 				}
+				return
 			}
-			if got := p.requestIdleLogout; got != tc.wantKick {
-				t.Errorf("requestIdleLogout: got %v, want %v", got, tc.wantKick)
-			}
-
-			// NAI-74: NAI-73-D close — kick branch must push one ENGINE
-			// session-log "Client did not submit an input tracking report".
-			if tc.wantSessionLogPush {
-				if got := len(p.client.server.sessionLogs); got != 1 {
-					t.Errorf("sessionLogs: got %d, want 1", got)
-				} else {
-					lg := p.client.server.sessionLogs[0]
-					if lg.EventType != LoggerEventTypeEngine {
-						t.Errorf("EventType: got %d, want ENGINE(%d)", lg.EventType, LoggerEventTypeEngine)
-					}
-					if lg.Event != "Client did not submit an input tracking report" {
-						t.Errorf("Event: got %q, want %q", lg.Event,
-							"Client did not submit an input tracking report")
-					}
-				}
-			} else {
-				if got := len(p.client.server.sessionLogs); got != 0 {
-					t.Errorf("sessionLogs: got %d, want 0", got)
-				}
-			}
-
-			// Reset invariants — every branch must clear state.
-			if tt.waitingForRemainingData {
-				t.Error("waitingForRemainingData: must be false after submitEvents")
-			}
-			if tt.recordedBlobs != nil {
-				t.Errorf("recordedBlobs: must be nil after submitEvents, got %v", tt.recordedBlobs)
-			}
-			if tt.recordedBlobsSizeTotal != 0 {
-				t.Errorf("recordedBlobsSizeTotal: must be 0 after submitEvents, got %d", tt.recordedBlobsSizeTotal)
-			}
-			if tt.hasSeenReport {
-				t.Error("hasSeenReport: must be false after submitEvents")
+			if !bytes.Equal(got, tc.want) {
+				t.Errorf("buf: got % X, want % X", got, tc.want)
 			}
 		})
+	}
+}
+
+// TestInputTrackingMultiEventConcatenation hand-computes a
+// camera+focus+click buffer and asserts the exact concatenation —
+// the self-review byte-layout check.
+func TestInputTrackingMultiEventConcatenation(t *testing.T) {
+	tt, _, _ := inputTrackingTestSetup(t)
+	tt.Active = true
+	tt.CameraPosition(0x0102, 0x0304)
+	tt.AppletFocus(0)
+	tt.MouseClick(0x0A0B0C0D)
+	want := []byte{
+		0x01, 0x01, 0x02, 0x03, 0x04, // camera: tag p2(pitch) p2(yaw)
+		0x02, 0x00, // focus: tag p1(focus)
+		0x03, 0x0A, 0x0B, 0x0C, 0x0D, // click: tag p4(info)
+	}
+	if got := tt.buf.Bytes(); !bytes.Equal(got, want) {
+		t.Errorf("buf: got % X, want % X", got, want)
+	}
+}
+
+// TestInputTrackingOnCycleFlushThreshold pins OnCycle's >=500 flush:
+// one blob via the logger bridge with seq 0, then the NEXT flush uses
+// seq 1 — seq never resets. TS InputTracking.ts:34-38,47.
+func TestInputTrackingOnCycleFlushThreshold(t *testing.T) {
+	tt, p, rec := inputTrackingTestSetup(t)
+	tt.Active = true
+	p.username = "alice"
+	p.session = "sess-uuid-1"
+	p.level, p.x, p.z = 0, 3200, 3200
+
+	// 100 mouse clicks x 5 bytes = exactly 500 buffered bytes.
+	for range 100 {
+		tt.MouseClick(0x11223344)
+	}
+	if got := tt.buf.Len(); got != 500 {
+		t.Fatalf("preflight buf len: got %d, want 500", got)
+	}
+
+	tt.OnCycle()
+
+	if got := len(rec.inputTracks); got != 1 {
+		t.Fatalf("bridge calls after OnCycle at 500: got %d, want 1", got)
+	}
+	call := rec.inputTracks[0]
+	if call.username != "alice" {
+		t.Errorf("username: got %q, want alice", call.username)
+	}
+	if call.sessionUUID != "sess-uuid-1" {
+		t.Errorf("sessionUUID: got %q, want sess-uuid-1", call.sessionUUID)
+	}
+	if got := len(call.blobs); got != 1 {
+		t.Fatalf("blobs per flush: got %d, want 1 (ONE blob per flush at 254)", got)
+	}
+	b := call.blobs[0]
+	if b.Seq != 0 {
+		t.Errorf("first blob Seq: got %d, want 0 (254 is 0-based)", b.Seq)
+	}
+	wantCoord := coordgrid.PackCoord(0, 3200, 3200)
+	if b.Coord != wantCoord {
+		t.Errorf("Coord: got %d, want %d", b.Coord, wantCoord)
+	}
+	if wantLen := base64.StdEncoding.EncodedLen(500); len(b.Data) != wantLen {
+		t.Errorf("Data base64 len: got %d, want %d", len(b.Data), wantLen)
+	}
+	if got := tt.buf.Len(); got != 0 {
+		t.Errorf("buf len after flush: got %d, want 0", got)
+	}
+
+	// OnCycle below threshold is a no-op.
+	tt.MouseClick(0x11223344)
+	tt.OnCycle()
+	if got := len(rec.inputTracks); got != 1 {
+		t.Fatalf("bridge calls after sub-threshold OnCycle: got %d, want 1", got)
+	}
+
+	// Second explicit flush carries seq 1 — never reset.
+	tt.Flush()
+	if got := len(rec.inputTracks); got != 2 {
+		t.Fatalf("bridge calls after second flush: got %d, want 2", got)
+	}
+	if got := rec.inputTracks[1].blobs[0].Seq; got != 1 {
+		t.Errorf("second blob Seq: got %d, want 1 (monotonic, never reset)", got)
+	}
+}
+
+// TestInputTrackingAppendOverflowFlushesFirst pins the pre-append
+// overflow flush: when bufLen + n > 500 the buffer is flushed FIRST,
+// then the event appended. TS InputTracking.ts:59-61 (and the parallel
+// checks in each event method).
+func TestInputTrackingAppendOverflowFlushesFirst(t *testing.T) {
+	t.Run("496-plus-5-flushes", func(t *testing.T) {
+		tt, _, rec := inputTrackingTestSetup(t)
+		tt.Active = true
+		fillInputBuffer(t, tt, 496)
+		tt.MouseClick(0xCAFEBABE) // 496+5 > 500 → flush first, then append
+		if got := len(rec.inputTracks); got != 1 {
+			t.Fatalf("bridge calls: got %d, want 1 (overflow must flush first)", got)
+		}
+		if got := base64.StdEncoding.EncodedLen(496); len(rec.inputTracks[0].blobs[0].Data) != got {
+			t.Errorf("flushed blob carries pre-append bytes: data len got %d, want %d",
+				len(rec.inputTracks[0].blobs[0].Data), got)
+		}
+		want := []byte{0x03, 0xCA, 0xFE, 0xBA, 0xBE}
+		if got := tt.buf.Bytes(); !bytes.Equal(got, want) {
+			t.Errorf("buf after overflow append: got % X, want % X", got, want)
+		}
+	})
+	t.Run("495-plus-5-appends", func(t *testing.T) {
+		tt, _, rec := inputTrackingTestSetup(t)
+		tt.Active = true
+		fillInputBuffer(t, tt, 495)
+		tt.MouseClick(0xCAFEBABE) // 495+5 == 500, NOT > 500 → no flush
+		if got := len(rec.inputTracks); got != 0 {
+			t.Fatalf("bridge calls: got %d, want 0 (495+5==500 must append)", got)
+		}
+		if got := tt.buf.Len(); got != 500 {
+			t.Errorf("buf len: got %d, want 500", got)
+		}
+	})
+	t.Run("mousemove-overflow-counts-data-only", func(t *testing.T) {
+		// TS quirk: mouseMove's overflow check adds only data.length —
+		// NOT the 2 tag/len bytes. At bufLen=498 with len(data)=2,
+		// 498+2 == 500 is NOT > 500, so it appends WITHOUT flushing and
+		// the buffer overshoots to 502. TS InputTracking.ts:99.
+		tt, _, rec := inputTrackingTestSetup(t)
+		tt.Active = true
+		fillInputBuffer(t, tt, 498)
+		tt.MouseMove([]byte{0xEE, 0xFF})
+		if got := len(rec.inputTracks); got != 0 {
+			t.Fatalf("bridge calls: got %d, want 0 (quirk: tag/len bytes not counted)", got)
+		}
+		if got := tt.buf.Len(); got != 502 {
+			t.Errorf("buf len: got %d, want 502 (498 + tag + len + 2 data)", got)
+		}
+	})
+}
+
+// fillInputBuffer appends applet-focus events (2 bytes each) plus
+// mouse-move padding until the accumulation buffer holds exactly n bytes.
+func fillInputBuffer(t *testing.T, tt *InputTracking, n int) {
+	t.Helper()
+	for tt.buf.Len()+2 <= n {
+		tt.AppletFocus(1)
+	}
+	if rem := n - tt.buf.Len(); rem > 0 {
+		// Odd remainder: a 1-byte raw write keeps the exact target;
+		// only the length matters for threshold tests.
+		tt.buf.P1(0)
+	}
+	if tt.buf.Len() != n {
+		t.Fatalf("fillInputBuffer: got %d, want %d", tt.buf.Len(), n)
+	}
+}
+
+// TestInputTrackingFlushEmptyBuffer pins that Flush with an empty
+// buffer submits nothing and does NOT bump seq. TS InputTracking.ts:45
+// (`if (this.buf.pos > 0)` wraps both the submit and the seq++).
+func TestInputTrackingFlushEmptyBuffer(t *testing.T) {
+	tt, _, rec := inputTrackingTestSetup(t)
+	tt.Active = true
+
+	tt.Flush()
+	if got := len(rec.inputTracks); got != 0 {
+		t.Fatalf("bridge calls: got %d, want 0", got)
+	}
+	if tt.seq != 0 {
+		t.Errorf("seq after empty flush: got %d, want 0 (must not bump)", tt.seq)
+	}
+
+	// Next real flush still carries seq 0.
+	tt.MouseClick(1)
+	tt.Flush()
+	if got := len(rec.inputTracks); got != 1 {
+		t.Fatalf("bridge calls: got %d, want 1", got)
+	}
+	if got := rec.inputTracks[0].blobs[0].Seq; got != 0 {
+		t.Errorf("Seq: got %d, want 0", got)
+	}
+}
+
+// TestInputTrackingFlushInactiveNoop pins that Flush while !Active is a
+// complete no-op even with buffered bytes — TS checks active FIRST
+// (InputTracking.ts:41-43), so the buffer is neither submitted nor reset.
+func TestInputTrackingFlushInactiveNoop(t *testing.T) {
+	tt, _, rec := inputTrackingTestSetup(t)
+	tt.Active = true
+	tt.MouseClick(0x01020304)
+	tt.Active = false
+
+	tt.Flush()
+
+	if got := len(rec.inputTracks); got != 0 {
+		t.Errorf("bridge calls: got %d, want 0", got)
+	}
+	if got := tt.buf.Len(); got != 5 {
+		t.Errorf("buf len: got %d, want 5 (inactive flush must not reset)", got)
+	}
+	if tt.seq != 0 {
+		t.Errorf("seq: got %d, want 0", tt.seq)
+	}
+}
+
+// TestInputTrackingFlushHeadlessSession pins the empty-session →
+// "headless" fallback. TS InputTracking.ts:46
+// (`player instanceof NetworkPlayer ? player.client.uuid : 'headless'`).
+func TestInputTrackingFlushHeadlessSession(t *testing.T) {
+	tt, p, rec := inputTrackingTestSetup(t)
+	tt.Active = true
+	p.username = "headlessbot"
+	p.session = ""
+
+	tt.AppletFocus(1)
+	tt.Flush()
+
+	if got := len(rec.inputTracks); got != 1 {
+		t.Fatalf("bridge calls: got %d, want 1", got)
+	}
+	if got := rec.inputTracks[0].sessionUUID; got != "headless" {
+		t.Errorf("sessionUUID: got %q, want headless", got)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// rev-244 B3: InputTrackingBlob + submit re-shape (Task 14)
+// InputTrackingBlob (unchanged at 254 — InputTrackingBlob.ts identical
+// between pins 3c16994c and 43e02957)
 // ---------------------------------------------------------------------------
 
 // TestInputTrackingBlobCtor pins InputTrackingBlob construction:
@@ -382,178 +354,45 @@ func TestInputTrackingBlobCtorZeroCoord(t *testing.T) {
 	}
 }
 
-// TestInputTrackingRecordWrapsBlobs pins that Record() wraps each raw
-// payload into an InputTrackingBlob with:
-//   - seq starting at 1 and incrementing
-//   - coord = player's packed coord at record time
-//   - Data = base64 of the raw payload
-//   - sizeTotal accumulates RAW lengths (before push, per TS line 134)
-//
-// Moving the player between Record calls proves coord is captured per blob.
-// Mirrors InputTracking.ts:133-135.
-func TestInputTrackingRecordWrapsBlobs(t *testing.T) {
-	tt, p, _, _ := inputTrackingTestSetup(t)
+// ---------------------------------------------------------------------------
+// 254 event-packet handlers (handler_events.go)
+// ---------------------------------------------------------------------------
 
-	// First record: player at level=0, x=100, z=200.
-	p.level, p.x, p.z = 0, 100, 200
-	raw1 := []byte{0x01, 0x02, 0x03}
-	tt.Record(raw1)
-
-	// Move player before second record.
-	p.level, p.x, p.z = 1, 300, 400
-	raw2 := []byte{0x04, 0x05}
-	tt.Record(raw2)
-
-	// sizeTotal accumulates raw lengths.
-	if got, want := tt.recordedBlobsSizeTotal, 5; got != want {
-		t.Errorf("recordedBlobsSizeTotal: got %d, want %d", got, want)
-	}
-	if got := len(tt.recordedBlobs); got != 2 {
-		t.Fatalf("recordedBlobs len: got %d, want 2", got)
-	}
-
-	// First blob.
-	b0 := tt.recordedBlobs[0]
-	if b0.Seq != 1 {
-		t.Errorf("blob[0].Seq: got %d, want 1", b0.Seq)
-	}
-	wantData0 := base64.StdEncoding.EncodeToString(raw1)
-	if b0.Data != wantData0 {
-		t.Errorf("blob[0].Data: got %q, want %q", b0.Data, wantData0)
-	}
-	wantCoord0 := coordgrid.PackCoord(0, 100, 200)
-	if b0.Coord != wantCoord0 {
-		t.Errorf("blob[0].Coord: got %d, want %d (level=0 x=100 z=200)", b0.Coord, wantCoord0)
-	}
-
-	// Second blob — different coord.
-	b1 := tt.recordedBlobs[1]
-	if b1.Seq != 2 {
-		t.Errorf("blob[1].Seq: got %d, want 2", b1.Seq)
-	}
-	wantData1 := base64.StdEncoding.EncodeToString(raw2)
-	if b1.Data != wantData1 {
-		t.Errorf("blob[1].Data: got %q, want %q", b1.Data, wantData1)
-	}
-	wantCoord1 := coordgrid.PackCoord(1, 300, 400)
-	if b1.Coord != wantCoord1 {
-		t.Errorf("blob[1].Coord: got %d, want %d (level=1 x=300 z=400)", b1.Coord, wantCoord1)
-	}
-}
-
-// TestInputTrackingSubmitPassesAllBlobs pins the 244 submit re-shape:
-// the bridge receives username + session UUID + ALL recorded blobs (not
-// just blob[0] as in 225). Mirrors InputTracking.ts:147 +
-// World.ts:2343-2350.
-func TestInputTrackingSubmitPassesAllBlobs(t *testing.T) {
-	tt, p, _, rec := inputTrackingTestSetup(t)
-	p.username = "alice"
-	p.session = "test-session-uuid-1234"
-	p.level, p.x, p.z = 0, 100, 200
-
-	p.submitInput = true
-	tt.hasSeenReport = true
-	tt.waitingForRemainingData = true
-
-	// Record 3 blobs.
-	tt.Record([]byte{0xAA})
-	tt.Record([]byte{0xBB, 0xCC})
-	tt.Record([]byte{0xDD})
-
-	tt.submitEvents()
-
-	if got := len(rec.inputTracks); got != 1 {
-		t.Fatalf("bridge calls: got %d, want 1", got)
-	}
-	call := rec.inputTracks[0]
-	if call.username != "alice" {
-		t.Errorf("username: got %q, want alice", call.username)
-	}
-	if call.sessionUUID != "test-session-uuid-1234" {
-		t.Errorf("sessionUUID: got %q, want test-session-uuid-1234", call.sessionUUID)
-	}
-	if got := len(call.blobs); got != 3 {
-		t.Errorf("blobs count: got %d, want 3", got)
-	}
-}
-
-// TestInputTrackingSubmitSessionUUIDHeadless pins that a nil-client
-// (headless) player sends "headless" as the session UUID. Mirrors TS
-// InputTracking.ts:147 `player instanceof NetworkPlayer ? ... : 'headless'`.
-func TestInputTrackingSubmitSessionUUIDHeadless(t *testing.T) {
-	// "Headless" in goscape: p.session == "" (tick.go:394 sets "headless"
-	// on login if the session UUID from the login service is empty).
-	// submitEvents resolves the session string via:
-	//   sessionUUID := p.session; if sessionUUID == "" { sessionUUID = "headless" }
-	// which mirrors TS InputTracking.ts:147:
-	//   player instanceof NetworkPlayer ? player.client.uuid : 'headless'
-	s := newTestServer(t)
-	p2, _ := newTestPlayer(t)
-	p2.username = "headlessbot"
-	p2.session = "" // headless sentinel — empty session → submitEvents emits "headless"
-	p2.client.server = s
-	rec := installRecordingBridges(s)
-
-	tt := &InputTracking{player: p2}
-	tt.hasSeenReport = true
-	tt.waitingForRemainingData = true
-	p2.submitInput = true
-	tt.Record([]byte{0xFF})
-
-	tt.submitEvents()
-
-	if got := len(rec.inputTracks); got != 1 {
-		t.Fatalf("bridge calls: got %d, want 1", got)
-	}
-	// p2.session="" → session string resolves to "headless"
-	if call := rec.inputTracks[0]; call.sessionUUID != "headless" {
-		t.Errorf("sessionUUID for empty session: got %q, want headless", call.sessionUUID)
-	}
-}
-
-// TestInputTrackingOnCycleDispatch pins OnCycle's branch dispatch.
-// Each case pins one of: enable, disable, grace-expired-submit, or no-op.
-func TestInputTrackingOnCycleDispatch(t *testing.T) {
+// TestHandleEventPackets pins the four thin handlers' decode + dispatch
+// against the TS codec files @43e02957:
+//   - EVENT_MOUSE_CLICK:     info  = g4  (EventMouseClickDecoder.ts)
+//   - EVENT_MOUSE_MOVE:      data  = raw payload (EventMouseMoveDecoder.ts)
+//   - EVENT_APPLET_FOCUS:    focus = g1  (EventAppletFocusDecoder.ts)
+//   - EVENT_CAMERA_POSITION: pitch = g2, yaw = g2 (EventCameraPositionDecoder.ts)
+func TestHandleEventPackets(t *testing.T) {
 	cases := []struct {
-		name             string
-		startAt          int
-		endAt            int
-		enabled          bool
-		waiting          bool
-		currentTick      int
-		wantEnabled      bool
-		wantWaiting      bool
-		wantClearedBlobs bool
+		name    string
+		handler func(*Player, []byte) error
+		payload []byte
+		want    []byte
 	}{
-		{"pre-window-noop", 100, 250, false, false, 50, false, false, false},
-		{"on-start-enable", 100, 250, false, false, 100, true, false, false},
-		{"mid-window-noop", 100, 250, true, false, 175, true, false, false},
-		{"on-end-disable", 100, 250, true, false, 250, false, true, false},
-		{"waiting-grace-not-expired", 100, 250, false, true, 250 + inputTrackingRemainingDataUploadLeeway, false, true, false},
-		{"waiting-grace-expired-submit", 100, 250, false, true, 250 + inputTrackingRemainingDataUploadLeeway + 1, false, false, true},
+		{"mouse-click", handleEventMouseClick,
+			[]byte{0xDE, 0xAD, 0xBE, 0xEF},
+			[]byte{0x03, 0xDE, 0xAD, 0xBE, 0xEF}},
+		{"mouse-move", handleEventMouseMove,
+			[]byte{0x10, 0x20, 0x30},
+			[]byte{0x04, 0x03, 0x10, 0x20, 0x30}},
+		{"applet-focus", handleEventAppletFocus,
+			[]byte{0x01},
+			[]byte{0x02, 0x01}},
+		{"camera-position", handleEventCameraPosition,
+			[]byte{0x12, 0x34, 0x56, 0x78},
+			[]byte{0x01, 0x12, 0x34, 0x56, 0x78}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			tt, p, _, _ := inputTrackingTestSetup(t)
-			tt.startTrackingAt = tc.startAt
-			tt.endTrackingAt = tc.endAt
-			tt.enabled = tc.enabled
-			tt.waitingForRemainingData = tc.waiting
-			tt.recordedBlobs = []InputTrackingBlob{{Seq: 1, Data: "qg==", Coord: 0}} // populate so we can detect submitEvents reset
-			tt.recordedBlobsSizeTotal = 1
-			p.client.server.cfg.NodeDebug = true // suppress kick
-
-			tt.OnCycle(tc.currentTick)
-
-			if got := tt.enabled; got != tc.wantEnabled {
-				t.Errorf("enabled: got %v, want %v", got, tc.wantEnabled)
+			tt, p, _ := inputTrackingTestSetup(t)
+			tt.Active = true
+			if err := tc.handler(p, tc.payload); err != nil {
+				t.Fatalf("handler: %v", err)
 			}
-			if got := tt.waitingForRemainingData; got != tc.wantWaiting {
-				t.Errorf("waitingForRemainingData: got %v, want %v", got, tc.wantWaiting)
-			}
-			cleared := tt.recordedBlobs == nil
-			if cleared != tc.wantClearedBlobs {
-				t.Errorf("recordedBlobs cleared: got %v, want %v", cleared, tc.wantClearedBlobs)
+			if got := tt.buf.Bytes(); !bytes.Equal(got, tc.want) {
+				t.Errorf("buf: got % X, want % X", got, tc.want)
 			}
 		})
 	}

@@ -49,8 +49,9 @@ func (b *slogLoggerBridge) NotifyPlayerReport(p *Player, offender, reason string
 
 // SubmitInputTracking emits an 'input_track' record. Mirrors TS
 // World.submitInputTracking's loggerThread.postMessage call
-// (World.ts:2343-2351). 244 re-shape: username + session_uuid + ALL blobs
-// are emitted (225 sent only recordedBlobs[0]).
+// (World.ts:2346-2354 @43e02957): username + session_uuid + blobs. At
+// 254 each InputTracking.Flush submits exactly ONE blob; the slice
+// shape mirrors the TS signature.
 //
 // Each blob carries Seq, Data (base64), and Coord — matching the TS
 // InputTrackingBlob shape (InputTrackingBlob.ts:1-11). The blobs are

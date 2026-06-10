@@ -20,10 +20,10 @@ import (
 //  5. MessageGame ack.
 //  6. reportAbuseProtect = true.
 //
-// MACROING/BUG_ABUSE flips offenderPlayer.submitInput = true so the
-// next InputTracking window submits detailed events to the logger
-// bridge. Mirrors TS World.notifyPlayerReport at World.ts:2298-2304.
-// Closes NAI-73's retroactive REPORT_ABUSE polish.
+// MACROING/BUG_ABUSE flips offenderPlayer.input.Active = true so
+// subsequent client input events are recorded and flushed to the
+// logger bridge. Mirrors TS World.notifyPlayerReport at
+// World.ts:2330-2336 @43e02957.
 //
 // Friends bridge propagates via grpcFriendsBridge (bridges.go); wired
 // by NewServer at server.go:277 via defaultFriendsBridge. Login bridge
@@ -61,12 +61,13 @@ func handleReportAbuse(p *Player, payload []byte) error {
 		s.loginBridgeMod.NotifyPlayerMute(p.username, util.FromBase37(offender), time.Now().Add(48*time.Hour))
 	}
 
-	// NAI-73: MACROING/BUG_ABUSE → flip the offender's submitInput so
-	// the next InputTracking window submits detailed events for offline
-	// review. Mirrors TS World.notifyPlayerReport (World.ts:2298-2304).
+	// MACROING/BUG_ABUSE → immediately turn on tracking for the
+	// offender so subsequent client input events are recorded for
+	// offline review. Mirrors TS World.notifyPlayerReport
+	// (World.ts:2330-2336 @43e02957: `offenderPlayer.input.active = true`).
 	if reason == ReportAbuseMacroing || reason == ReportAbuseBugAbuse {
 		if offenderPlayer := s.LookupPlayerByUsername(util.FromBase37(offender)); offenderPlayer != nil {
-			offenderPlayer.submitInput = true
+			offenderPlayer.input.Active = true
 		}
 	}
 

@@ -279,11 +279,11 @@ func TestWorldStateOps_KickPlayer_FlipsLoggingOut(t *testing.T) {
 	}
 }
 
-// TestWorldStateOps_SetPlayerInputTracking_FlipsSubmitInput pins that
-// SetPlayerInputTracking(u37, 1) flips p.submitInput=true and
+// TestWorldStateOps_SetPlayerInputTracking_FlipsActive pins that
+// SetPlayerInputTracking(u37, 1) flips p.input.Active=true and
 // SetPlayerInputTracking(u37, 0) flips it back to false. Mirrors TS
-// Player.submitInput = state at World.ts:2033.
-func TestWorldStateOps_SetPlayerInputTracking_FlipsSubmitInput(t *testing.T) {
+// `player.input.active = state` at World.ts:2075 @43e02957 (RELAY_TRACK).
+func TestWorldStateOps_SetPlayerInputTracking_FlipsActive(t *testing.T) {
 	s := newTestServer(t)
 	p := registerActivePlayer(t, s, "carol", 1)
 
@@ -292,14 +292,14 @@ func TestWorldStateOps_SetPlayerInputTracking_FlipsSubmitInput(t *testing.T) {
 
 	ops.SetPlayerInputTracking(u37, 1)
 	s.drainRelayActions()
-	if !p.submitInput {
-		t.Fatal("submitInput: must be true after SetPlayerInputTracking(1)")
+	if !p.input.Active {
+		t.Fatal("input.Active: must be true after SetPlayerInputTracking(1)")
 	}
 
 	ops.SetPlayerInputTracking(u37, 0)
 	s.drainRelayActions()
-	if p.submitInput {
-		t.Fatal("submitInput: must be false after SetPlayerInputTracking(0)")
+	if p.input.Active {
+		t.Fatal("input.Active: must be false after SetPlayerInputTracking(0)")
 	}
 }
 

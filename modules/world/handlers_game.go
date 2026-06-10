@@ -90,7 +90,14 @@ func init() {
 	gameHandlers[gameclient.OpcIgnorelistDel] = handleIgnoreListDel // IGNORELIST_DEL
 	gameHandlers[gameclient.OpcReportAbuse] = handleReportAbuse     // REPORT_ABUSE
 
-	gameHandlers[gameclient.OpcEventTracking] = handleEventTracking // EVENT_TRACKING
+	// 254 client event packets (replace the EVENT_TRACKING upload; that
+	// opcode stays in Ops[] but has no handler — readPacket discards its
+	// payload, same as the ANTICHEAT_* rows, mirroring TS 254 which keeps
+	// the prot row with no decoder/handler registered).
+	gameHandlers[gameclient.OpcEventMouseClick] = handleEventMouseClick         // EVENT_MOUSE_CLICK
+	gameHandlers[gameclient.OpcEventMouseMove] = handleEventMouseMove           // EVENT_MOUSE_MOVE
+	gameHandlers[gameclient.OpcEventAppletFocus] = handleEventAppletFocus       // EVENT_APPLET_FOCUS
+	gameHandlers[gameclient.OpcEventCameraPosition] = handleEventCameraPosition // EVENT_CAMERA_POSITION
 
 	gameHandlers[gameclient.OpcMessagePrivate] = handleMessagePrivate // MESSAGE_PRIVATE
 	gameHandlers[gameclient.OpcMessagePublic] = handleMessagePublic   // MESSAGE_PUBLIC

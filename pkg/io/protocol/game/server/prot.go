@@ -150,9 +150,12 @@ var (
 	// script opcode via (*Player).PlaySynth.
 	OpSynthSound = Op{Opcode: 25, PayloadSize: 5}
 
-	// Input-tracking signals — server tells client to start/stop sending
-	// EVENT_TRACKING blobs (op 81). NAI-73; mirrors TS ServerGameProt.ts (254):
-	// ENABLE_TRACKING=251/0, FINISH_TRACKING=29/0.
+	// Input-tracking signals. Mirrors TS ServerGameProt.ts (254):
+	// ENABLE_TRACKING=251/0, FINISH_TRACKING=29/0. Sent by no 254 code
+	// path — the windowed InputTracking state machine that emitted them
+	// was replaced upstream by event-based accumulation (the client
+	// sends EVENT_* packets when the login reply's third byte is 1);
+	// TS keeps the encoders registered, so the wire rows stay.
 	OpEnableTracking = Op{Opcode: 251, PayloadSize: 0}
 	OpFinishTracking = Op{Opcode: 29, PayloadSize: 0}
 

@@ -1392,8 +1392,8 @@ func (p *Player) OpenOverlay(com int) {
 // PlayerOps.ts:694-696 + TutFlashEncoder.ts:9-11.
 //
 // No client-nil guard — matches goscape's direct-writer convention
-// (CamReset at line 189-191, HintNpc at line 201-209, WriteEnableTracking
-// at player.go:416-418); writeOut itself does not nil-guard either.
+// (CamReset at line 189-191, HintNpc at line 201-209); writeOut itself
+// does not nil-guard either.
 func (p *Player) FlashTutorial(tab int) {
 	p.writeOut(gameserver.OpTutFlash, []byte{byte(tab)})
 }

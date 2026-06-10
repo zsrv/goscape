@@ -9,8 +9,10 @@ import (
 )
 
 // TestProcessLoginsAllocatesInputTracking pins that newly logged-in
-// players have a non-nil InputTracking with a future-scheduled window.
-// NAI-73 T6.
+// players have a non-nil, inactive InputTracking (allocated in
+// newPlayer per TS Player.ts:428 ctor parity; the 254 model has no
+// scheduled window — Active starts false) and the "headless" session
+// fallback applied by processLogins.
 func TestProcessLoginsAllocatesInputTracking(t *testing.T) {
 	s := newTestServer(t)
 	p, conn := newTestPlayer(t)
@@ -28,13 +30,8 @@ func TestProcessLoginsAllocatesInputTracking(t *testing.T) {
 	if p.input.player != p {
 		t.Error("p.input.player back-pointer must equal p")
 	}
-	wantMin := 1000 + inputTrackingRate - inputTrackingJitterRange
-	wantMax := 1000 + inputTrackingRate + inputTrackingJitterRange
-	if p.input.startTrackingAt < wantMin || p.input.startTrackingAt > wantMax {
-		t.Errorf("startTrackingAt: got %d, want in [%d, %d]", p.input.startTrackingAt, wantMin, wantMax)
-	}
-	if got, want := p.input.endTrackingAt, p.input.startTrackingAt+inputTrackingTime; got != want {
-		t.Errorf("endTrackingAt: got %d, want %d (startTrackingAt + inputTrackingTime)", got, want)
+	if p.input.Active {
+		t.Error("p.input.Active: must start false (TS InputTracking.ts:26)")
 	}
 	if got, want := p.session, "headless"; got != want {
 		t.Errorf("p.session default: got %q, want %q", got, want)

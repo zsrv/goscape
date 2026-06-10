@@ -103,9 +103,9 @@ func (s *Server) KickPlayer(username37 uint64) {
 }
 
 // SetPlayerInputTracking flips the per-player input-tracking gate.
-// Mirrors TS Player.submitInput = state at World.ts:2033. Goscape
-// stores submitInput as bool; convert via state != 0. Lookup-miss is
-// silently dropped.
+// Mirrors TS `player.input.active = state` at World.ts:2075 @43e02957
+// (RELAY_TRACK). Goscape stores Active as bool; convert via
+// state != 0. Lookup-miss is silently dropped.
 //
 // NAI-S5A-D-DISPATCHER-NO-ACTION (TRACK bullet) — retired here.
 func (s *Server) SetPlayerInputTracking(username37 uint64, state int32) {
@@ -116,7 +116,7 @@ func (s *Server) SetPlayerInputTracking(username37 uint64, state int32) {
 				slog.Uint64("username37", username37))
 			return
 		}
-		p.submitInput = state != 0
+		p.input.Active = state != 0
 	})
 }
 

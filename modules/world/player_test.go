@@ -150,7 +150,7 @@ func TestReadPacketEventTrackingTwoByteLenPrefix(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	// EVENT_TRACKING: opcode 217 (244), -2 (2-byte length prefix)
+	// EVENT_TRACKING: opcode 142 (254), -2 (2-byte length prefix)
 	payload := []byte{0x01, 0x02, 0x03, 0x04}
 	var buf []byte
 	buf = append(buf, encryptOpcode(enc, gameclient.OpcEventTracking))
@@ -241,27 +241,33 @@ func TestProcessInClientEventRateLimit(t *testing.T) {
 	}
 }
 
-func TestProcessInRestrictedEventRateLimit(t *testing.T) {
+// TestProcessInEventTrackingDiscarded pins the 254 EVENT_TRACKING
+// posture: the opcode stays in Ops[] (RESTRICTED_EVENT, -2 size) but
+// has NO registered handler — readPacket consumes and discards the
+// payload (same path as the ANTICHEAT_* rows), and per player-net-7
+// an unhandled packet does not burn a rate-limit slot. Mirrors TS 254
+// (43e02957), which keeps the prot row with no decoder/handler.
+func TestProcessInEventTrackingDiscarded(t *testing.T) {
 	enc, dec := isaacPair([4]uint32{55, 44, 33, 22})
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	// EVENT_TRACKING: opcode 217 (244), RESTRICTED_EVENT, -2 (2-byte length prefix), 0 payload bytes
+	// EVENT_TRACKING: opcode 142 (254), RESTRICTED_EVENT, -2 (2-byte length prefix)
 	var buf []byte
 	for range 3 {
 		buf = append(buf, encryptOpcode(enc, gameclient.OpcEventTracking))
-		buf = append(buf, 0x00, 0x00) // 2-byte length = 0
+		buf = append(buf, 0x00, 0x02, 0xAA, 0xBB) // 2-byte length = 2, then payload
 	}
 	p.client.in.Write(buf)
 
 	p.processIn(0)
 
-	if p.restrictedLimit != 2 {
-		t.Errorf("restrictedLimit: got %d, want 2", p.restrictedLimit)
+	if p.restrictedLimit != 0 {
+		t.Errorf("restrictedLimit: got %d, want 0 (unhandled packets don't count)", p.restrictedLimit)
 	}
-	// 3rd packet (3 bytes) remains
-	if p.client.in.Len() != 3 {
-		t.Errorf("remaining bytes: got %d, want 3", p.client.in.Len())
+	// All 3 packets consumed and discarded.
+	if p.client.in.Len() != 0 {
+		t.Errorf("remaining bytes: got %d, want 0 (payloads must be discarded)", p.client.in.Len())
 	}
 }
 
@@ -932,8 +938,10 @@ func TestPlayer_ProtectedScriptActive_TruthTable(t *testing.T) {
 }
 
 // TestProcessInCallsInputTrackingOnCycle pins that the last line of
-// Player.processIn dispatches to InputTracking.OnCycle (TS World.ts:646
-// placement parity).
+// Player.processIn dispatches to InputTracking.OnCycle (TS World.ts:679
+// placement parity @43e02957). At 254 OnCycle flushes when the
+// accumulation buffer has reached 500 bytes; an over-threshold buffer
+// must be flushed to the logger bridge by processIn.
 func TestProcessInCallsInputTrackingOnCycle(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
@@ -941,16 +949,19 @@ func TestProcessInCallsInputTrackingOnCycle(t *testing.T) {
 	p.client.state = ClientStateGame
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = enc
-	p.input = &InputTracking{player: p}
-	// Position the window so OnCycle should fire enable() this tick.
-	p.input.startTrackingAt = 0
-	p.input.endTrackingAt = 1000
-	p.input.enabled = false
+	rec := installRecordingBridges(s)
+	p.input.Active = true
+	for range 100 { // 100 x 5 bytes = 500 ≥ threshold
+		p.input.MouseClick(0x01020304)
+	}
 
 	p.processIn(0)
 
-	if !p.input.enabled {
-		t.Error("input.enabled: must be true after processIn → OnCycle → enable()")
+	if got := len(rec.inputTracks); got != 1 {
+		t.Errorf("bridge calls: got %d, want 1 (processIn → OnCycle → Flush)", got)
+	}
+	if got := p.input.buf.Len(); got != 0 {
+		t.Errorf("buf len after processIn: got %d, want 0", got)
 	}
 }
 

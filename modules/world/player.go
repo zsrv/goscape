@@ -352,17 +352,15 @@ type Player struct {
 	// path unported (S7e-D1).
 	allowDesign bool
 
-	// === input tracking (NAI-73) ===
-	// input is the per-player anti-cheat input-recording state machine.
-	// Mirrors TS Player.input (Player.ts:305). Allocated in processLogins;
-	// nil before login transitions to ClientStateGame.
+	// === input tracking ===
+	// input is the per-player input-event accumulator (254 model; see
+	// input_tracking.go). Mirrors TS Player.input (Player.ts:307
+	// @43e02957). Allocated in newPlayer, mirroring the TS ctor
+	// (Player.ts:428 `this.input = new InputTracking(this)`). The
+	// 244-era Player.submitInput gate was removed upstream; the
+	// recording gate is p.input.Active (friends relay RELAY_TRACK,
+	// World.ts:2075; report-abuse offender flag, World.ts:2334).
 	input *InputTracking
-	// submitInput is the per-player gate for detailed tracking-event
-	// submission. Set true by REPORT_ABUSE when reason ∈ {MACROING,
-	// BUG_ABUSE} (TS World.notifyPlayerReport, World.ts:2298-2304).
-	// Read by InputTracking.shouldSubmitTrackingDetails together with
-	// cfg.NodeSubmitInput. Mirrors TS Player.submitInput (Player.ts:306).
-	submitInput bool
 	// session is the per-player session correlation key for the logger
 	// bridge. Assigned from PlayerLoginResponse.session_uuid via
 	// newPlayer(c.sessionUUID); falls back to "headless" in
@@ -616,20 +614,6 @@ func (p *Player) writeOut(op gameserver.Op, payload []byte) {
 	}
 }
 
-// WriteEnableTracking sends the EnableTracking server packet (op 226,
-// 0 payload). Mirrors TS InputTracking.enable() at InputTracking.ts:102.
-// Called only from InputTracking.enable().
-func (p *Player) WriteEnableTracking() {
-	p.writeOut(gameserver.OpEnableTracking, nil)
-}
-
-// WriteFinishTracking sends the FinishTracking server packet (op 133,
-// 0 payload). Mirrors TS InputTracking.disable() at InputTracking.ts:114.
-// Called only from InputTracking.disable().
-func (p *Player) WriteFinishTracking() {
-	p.writeOut(gameserver.OpFinishTracking, nil)
-}
-
 func newPlayer(c *client) *Player {
 	p := &Player{
 		client:       c,
@@ -736,6 +720,9 @@ func newPlayer(c *client) *Player {
 	// at the just-allocated *Player. Mirrors TS Player.ts:320
 	// `buildArea: BuildArea = new BuildArea(this);`.
 	p.buildArea = newBuildArea(p)
+	// Allocate the input-event accumulator with the back-pointer.
+	// Mirrors TS Player.ts:428 `this.input = new InputTracking(this)`.
+	p.input = NewInputTracking(p)
 	if c.server != nil {
 		// newPlayer is called from sendLoginOK on a per-connection
 		// goroutine; read seqTypes from the atomic snapshot to avoid a
@@ -1242,24 +1229,24 @@ func (p *Player) processIn(currentTick int) {
 
 	p.processPostDecode() // NAI-146 T3: TS World.ts:611-641
 
-	// NAI-73: per-tick input-tracking dispatch. Mirrors TS World.ts:646
+	// Per-tick input-tracking dispatch. Mirrors TS World.ts:679
 	// placement (last step of per-player client-input phase iteration).
-	p.processInputTracking(currentTick)
+	p.processInputTracking()
 }
 
-// processInputTracking dispatches per-tick input-recording state-machine
-// work. Mirrors TS Player.processInputTracking (Player.ts:1271-1273) →
-// this.input.onCycle(). Called from the end of processIn, mirroring TS
-// World.ts:646 placement (last step of the per-player iteration in the
-// client-input phase).
+// processInputTracking dispatches the per-tick input-tracking flush
+// check. Mirrors TS Player.processInputTracking (Player.ts:1289-1291
+// @43e02957) → this.input.onCycle(). Called from the end of processIn,
+// mirroring TS World.ts:679 placement (last step of the per-player
+// iteration in the client-input phase).
 //
-// Nil-guards p.input because newly-logged-in players may transition to
-// ClientStateGame before processLogins allocates their InputTracking.
-func (p *Player) processInputTracking(currentTick int) {
+// Nil-guard is goscape-defensive for direct struct-literal Players in
+// tests; newPlayer always allocates p.input (TS ctor parity).
+func (p *Player) processInputTracking() {
 	if p.input == nil {
 		return
 	}
-	p.input.OnCycle(currentTick)
+	p.input.OnCycle()
 }
 
 // readPacket reads, ISAAC-decrypts, and dispatches one complete packet from c.in.
