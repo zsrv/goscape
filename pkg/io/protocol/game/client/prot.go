@@ -13,94 +13,94 @@ const (
 	CategoryRestrictedEvent = 2 // limit 2/tick
 )
 
-// 244 wire opcodes. TS ClientGameProt.ts (244 pin) — the TS ctor's first arg (NXT packet index) has zero readers at the pin and is not modeled.
+// 245.2 wire opcodes. TS ClientGameProt.ts (245.2 pin 3c16994c) — the TS ctor's first arg (NXT packet index) has zero readers at the pin and is not modeled.
 const (
-	OpcNoTimeout     uint8 = 107
-	OpcIdleTimer     uint8 = 146
-	OpcEventTracking uint8 = 217
+	OpcNoTimeout     uint8 = 206
+	OpcIdleTimer     uint8 = 102
+	OpcEventTracking uint8 = 19
 
-	OpcAnticheatOplogic1 uint8 = 47
-	OpcAnticheatOplogic2 uint8 = 218
-	OpcAnticheatOplogic3 uint8 = 37
-	OpcAnticheatOplogic4 uint8 = 34
-	OpcAnticheatOplogic5 uint8 = 7
-	OpcAnticheatOplogic6 uint8 = 177
-	OpcAnticheatOplogic7 uint8 = 50
-	OpcAnticheatOplogic8 uint8 = 100
-	OpcAnticheatOplogic9 uint8 = 169
+	OpcAnticheatOplogic1 uint8 = 87
+	OpcAnticheatOplogic2 uint8 = 95
+	OpcAnticheatOplogic3 uint8 = 146
+	OpcAnticheatOplogic4 uint8 = 186
+	OpcAnticheatOplogic5 uint8 = 74
+	OpcAnticheatOplogic6 uint8 = 250
+	OpcAnticheatOplogic7 uint8 = 119
+	OpcAnticheatOplogic8 uint8 = 171
+	OpcAnticheatOplogic9 uint8 = 233
 
-	OpcAnticheatCyclelogic1 uint8 = 46
-	OpcAnticheatCyclelogic2 uint8 = 148
-	OpcAnticheatCyclelogic3 uint8 = 144
-	OpcAnticheatCyclelogic4 uint8 = 41
-	OpcAnticheatCyclelogic5 uint8 = 232
-	OpcAnticheatCyclelogic6 uint8 = 215
+	OpcAnticheatCyclelogic1 uint8 = 136
+	OpcAnticheatCyclelogic2 uint8 = 223
+	OpcAnticheatCyclelogic3 uint8 = 181
+	OpcAnticheatCyclelogic4 uint8 = 94
+	OpcAnticheatCyclelogic5 uint8 = 63
+	OpcAnticheatCyclelogic6 uint8 = 112
 
-	OpcOpObj1 uint8 = 231
-	OpcOpObj2 uint8 = 110
-	OpcOpObj3 uint8 = 27
+	OpcOpObj1 uint8 = 113
+	OpcOpObj2 uint8 = 238
+	OpcOpObj3 uint8 = 55
 	OpcOpObj4 uint8 = 17
-	OpcOpObj5 uint8 = 225
-	OpcOpObjT uint8 = 25
-	OpcOpObjU uint8 = 111
+	OpcOpObj5 uint8 = 247
+	OpcOpObjT uint8 = 122
+	OpcOpObjU uint8 = 143
 
-	OpcOpNpc1 uint8 = 222
-	OpcOpNpc2 uint8 = 84
-	OpcOpNpc3 uint8 = 132
-	OpcOpNpc4 uint8 = 229
-	OpcOpNpc5 uint8 = 102
-	OpcOpNpcT uint8 = 101
-	OpcOpNpcU uint8 = 52
+	OpcOpNpc1 uint8 = 180
+	OpcOpNpc2 uint8 = 252
+	OpcOpNpc3 uint8 = 196
+	OpcOpNpc4 uint8 = 107
+	OpcOpNpc5 uint8 = 43
+	OpcOpNpcT uint8 = 141
+	OpcOpNpcU uint8 = 14
 
-	OpcOpLoc1 uint8 = 238
-	OpcOpLoc2 uint8 = 38
-	OpcOpLoc3 uint8 = 19
-	OpcOpLoc4 uint8 = 55
-	OpcOpLoc5 uint8 = 243
-	OpcOpLocT uint8 = 182
-	OpcOpLocU uint8 = 106
+	OpcOpLoc1 uint8 = 1
+	OpcOpLoc2 uint8 = 219
+	OpcOpLoc3 uint8 = 226
+	OpcOpLoc4 uint8 = 204
+	OpcOpLoc5 uint8 = 86
+	OpcOpLocT uint8 = 208
+	OpcOpLocU uint8 = 147
 
-	OpcOpPlayer1 uint8 = 211
-	OpcOpPlayer2 uint8 = 219
-	OpcOpPlayer3 uint8 = 64
-	OpcOpPlayer4 uint8 = 43
-	OpcOpPlayerT uint8 = 73
-	OpcOpPlayerU uint8 = 48
+	OpcOpPlayer1 uint8 = 135
+	OpcOpPlayer2 uint8 = 165
+	OpcOpPlayer3 uint8 = 172
+	OpcOpPlayer4 uint8 = 54
+	OpcOpPlayerT uint8 = 52
+	OpcOpPlayerU uint8 = 210
 
-	OpcOpHeld1 uint8 = 228
-	OpcOpHeld2 uint8 = 166
-	OpcOpHeld3 uint8 = 221
-	OpcOpHeld4 uint8 = 6
-	OpcOpHeld5 uint8 = 133
-	OpcOpHeldT uint8 = 143
-	OpcOpHeldU uint8 = 58
+	OpcOpHeld1 uint8 = 104
+	OpcOpHeld2 uint8 = 193
+	OpcOpHeld3 uint8 = 115
+	OpcOpHeld4 uint8 = 194
+	OpcOpHeld5 uint8 = 9
+	OpcOpHeldT uint8 = 188
+	OpcOpHeldU uint8 = 126
 
-	OpcInvButton1 uint8 = 153
-	OpcInvButton2 uint8 = 193
-	OpcInvButton3 uint8 = 158
-	OpcInvButton4 uint8 = 204
-	OpcInvButton5 uint8 = 212
+	OpcInvButton1 uint8 = 13
+	OpcInvButton2 uint8 = 58
+	OpcInvButton3 uint8 = 48
+	OpcInvButton4 uint8 = 183
+	OpcInvButton5 uint8 = 242
 
-	OpcIfButton           uint8 = 39
-	OpcResumePauseButton  uint8 = 11
-	OpcCloseModal         uint8 = 187
-	OpcResumePCountdialog uint8 = 190
-	OpcTutorialClickSide  uint8 = 233
+	OpcIfButton           uint8 = 177
+	OpcResumePauseButton  uint8 = 239
+	OpcCloseModal         uint8 = 245
+	OpcResumePCountdialog uint8 = 241
+	OpcTutorialClickSide  uint8 = 243
 
-	OpcMoveOpClick      uint8 = 167
-	OpcReportAbuse      uint8 = 251
-	OpcMoveMinimapClick uint8 = 56
-	OpcInvButtonD       uint8 = 81
-	OpcIgnorelistDel    uint8 = 207
-	OpcIgnorelistAdd    uint8 = 203
-	OpcIfPlayerDesign   uint8 = 8
-	OpcChatSetmode      uint8 = 98
-	OpcMessagePrivate   uint8 = 170
-	OpcFriendlistDel    uint8 = 69
-	OpcFriendlistAdd    uint8 = 9
-	OpcClientCheat      uint8 = 76
-	OpcMessagePublic    uint8 = 171
-	OpcMoveGameClick    uint8 = 63
+	OpcMoveOpClick      uint8 = 216
+	OpcReportAbuse      uint8 = 205
+	OpcMoveMinimapClick uint8 = 198
+	OpcInvButtonD       uint8 = 7
+	OpcIgnorelistDel    uint8 = 4
+	OpcIgnorelistAdd    uint8 = 20
+	OpcIfPlayerDesign   uint8 = 150
+	OpcChatSetmode      uint8 = 8
+	OpcMessagePrivate   uint8 = 99
+	OpcFriendlistDel    uint8 = 61
+	OpcFriendlistAdd    uint8 = 116
+	OpcClientCheat      uint8 = 11
+	OpcMessagePublic    uint8 = 78
+	OpcMoveGameClick    uint8 = 182
 )
 
 // Ops is a 256-entry lookup table indexed by decrypted game opcode.

@@ -2,12 +2,12 @@ package client
 
 import "testing"
 
-// TestClientProt244 pins the full 244 client opcode table against the TS
-// ClientGameProt.ts contract at the 244 pin (9aadcec4). All 76 entries must
+// TestClientProt2452 pins the full 245.2 client opcode table against the TS
+// ClientGameProt.ts contract at the 245.2 pin (3c16994c). All 76 entries must
 // be present with correct opcode, name, size, and category. Removed entries
 // (REBUILD_GETMAPS, EVENT_CAMERA_POSITION) and renamed entries
 // (IDK_SAVEDESIGN, TUT_CLICKSIDE) must not appear.
-func TestClientProt244(t *testing.T) {
+func TestClientProt2452(t *testing.T) {
 	type row struct {
 		opcode   uint8
 		name     string
@@ -130,7 +130,7 @@ func TestClientProt244(t *testing.T) {
 		}
 	}
 	if count != 76 {
-		t.Errorf("Ops non-empty count = %d, want 76 (stale 225 entries or missing 244 entries)", count)
+		t.Errorf("Ops non-empty count = %d, want 76 (stale entries or missing 245.2 entries)", count)
 	}
 
 	// Removed entries must not appear.
@@ -154,7 +154,7 @@ func TestClientProt244(t *testing.T) {
 	}
 	for i := range Ops {
 		if oldNames[Ops[i].Name] {
-			t.Errorf("Ops[%d].Name = %q: old 225 name must not appear in 244 table", i, Ops[i].Name)
+			t.Errorf("Ops[%d].Name = %q: old 225 name must not appear in 245.2 table", i, Ops[i].Name)
 		}
 	}
 }
