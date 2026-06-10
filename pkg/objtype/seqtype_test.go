@@ -503,17 +503,17 @@ func TestLoadSeqTypes_MissingFile(t *testing.T) {
 }
 
 func TestLoadSeqTypes_FromPack(t *testing.T) {
-	// B6 window closed: use the Server244-ref reference cache which has the
-	// 244-format server/seq.dat and main_file_cache.dat (FileStream) required
-	// for LoadAnimFrames. Falls back to the repo's data/pack for future local
-	// regeneration. Skip when neither is available (CI / bare checkouts).
-	const ref244Pack = "/home/owner/Code/github.com/LostCityRS/Server244-ref/engine/data/pack"
+	// Prefers the repo's data/pack (regenerate with goscape-cli pack); falls
+	// back to the Server245.2-ref reference cache, which has the server/seq.dat
+	// and main_file_cache.dat (FileStream) required for LoadAnimFrames. The seq
+	// format is unchanged 244→245.2. Skip when neither is available.
+	const refPack = "/home/owner/Code/github.com/LostCityRS/Server245.2-ref/engine/data/pack"
 	cacheDir := filepath.Join("..", "..", "data", "pack")
 	if _, err := os.Stat(filepath.Join(cacheDir, "server", "seq.dat")); err != nil {
-		if _, err2 := os.Stat(filepath.Join(ref244Pack, "server", "seq.dat")); err2 != nil {
-			t.Skipf("no pack data: %v; ref244 also unavailable: %v", err, err2)
+		if _, err2 := os.Stat(filepath.Join(refPack, "server", "seq.dat")); err2 != nil {
+			t.Skipf("no pack data: %v; reference cache also unavailable: %v", err, err2)
 		}
-		cacheDir = ref244Pack
+		cacheDir = refPack
 	}
 	// 244: LoadAnimFrames replaces LoadSeqFrames.
 	animFrames, err := LoadAnimFrames(cacheDir)
