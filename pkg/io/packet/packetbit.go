@@ -1,6 +1,10 @@
 package packet
 
-var bitmask = []uint32{
+// Bitmask[n] has the low n bits set (n in [0,32]). Mirrors TS
+// Packet.bitmask at Packet.ts:17 @43e02957 — made public at revision 254
+// because Player.getVarBit/setVarBit compute varbit masks from it
+// (TS Player.ts:1757,1769).
+var Bitmask = []uint32{
 	0,
 	0x1, 0x3, 0x7, 0xF,
 	0x1F, 0x3F, 0x7F, 0xFF,
@@ -40,15 +44,15 @@ func (p *Packet) GBit(n int) int {
 	p.BitPos += n
 
 	for ; n > bitsRemaining; bitsRemaining = 8 {
-		value += int(p.Data[bytePos]&uint8(bitmask[bitsRemaining])) << (n - bitsRemaining)
+		value += int(p.Data[bytePos]&uint8(Bitmask[bitsRemaining])) << (n - bitsRemaining)
 		bytePos++
 		n -= bitsRemaining
 	}
 
 	if n == bitsRemaining {
-		value += int(p.Data[bytePos] & uint8(bitmask[bitsRemaining]))
+		value += int(p.Data[bytePos] & uint8(Bitmask[bitsRemaining]))
 	} else {
-		value += int((p.Data[bytePos] >> (bitsRemaining - n)) & uint8(bitmask[n]))
+		value += int((p.Data[bytePos] >> (bitsRemaining - n)) & uint8(Bitmask[n]))
 	}
 
 	return value
@@ -68,8 +72,8 @@ func (p *Packet) PBit(n int, value int) {
 	}
 
 	for ; n > remaining; remaining = 8 {
-		p.Data[bytePos] &= byte(^bitmask[remaining])
-		p.Data[bytePos] |= byte(uint32(value>>(n-remaining)) & bitmask[remaining])
+		p.Data[bytePos] &= byte(^Bitmask[remaining])
+		p.Data[bytePos] |= byte(uint32(value>>(n-remaining)) & Bitmask[remaining])
 		bytePos += 1
 		n -= remaining
 
@@ -81,10 +85,10 @@ func (p *Packet) PBit(n int, value int) {
 	}
 
 	if n == remaining {
-		p.Data[bytePos] &= byte(^bitmask[remaining])
-		p.Data[bytePos] |= byte(value) & byte(bitmask[remaining])
+		p.Data[bytePos] &= byte(^Bitmask[remaining])
+		p.Data[bytePos] |= byte(value) & byte(Bitmask[remaining])
 	} else {
-		p.Data[bytePos] &= byte(int(^bitmask[n]) << (remaining - n))
-		p.Data[bytePos] |= byte((uint32(value) & bitmask[n]) << (remaining - n))
+		p.Data[bytePos] &= byte(int(^Bitmask[n]) << (remaining - n))
+		p.Data[bytePos] |= byte((uint32(value) & Bitmask[n]) << (remaining - n))
 	}
 }

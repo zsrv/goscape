@@ -169,6 +169,7 @@ type Server struct {
 	dbRowTypes   *objtype.DbRowTypeConfigs
 	dbTableIndex *objtype.DbTableIndex
 	varpTypes    *objtype.VarpTypeConfigs
+	varbitTypes  *objtype.VarBitTypeConfigs
 	varsTypes    *objtype.VarsTypeConfigs
 	varnTypes    *objtype.VarnTypeConfigs
 	enumTypes    *objtype.EnumTypeConfigs
@@ -491,6 +492,13 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	if err != nil {
 		return nil, fmt.Errorf("load varp types: %w", err)
 	}
+	// TS World load order puts VarBitType right after VarPlayerType
+	// (World.ts:236). Empty registry (not an error) when the cache
+	// predates 254 and has no server/varbit.dat — see LoadVarBitTypes.
+	varbitTypes, err := objtype.LoadVarBitTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load varbit types: %w", err)
+	}
 	varsTypes, err := objtype.LoadVarsTypes(cfg.CachePath)
 	if err != nil {
 		return nil, fmt.Errorf("load vars types: %w", err)
@@ -500,6 +508,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		return nil, fmt.Errorf("load varn types: %w", err)
 	}
 	s.varpTypes = varpTypes
+	s.varbitTypes = varbitTypes
 	s.varsTypes = varsTypes
 	s.varnTypes = varnTypes
 	s.vars = make([]int32, len(varsTypes.Configs))

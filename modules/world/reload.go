@@ -123,6 +123,11 @@ func (s *Server) Reload(clearInvs bool) error {
 	if err != nil {
 		return fmt.Errorf("reload: varp types: %w", err)
 	}
+	// TS reload loads VarBitType right after VarPlayerType (World.ts:236).
+	varbitTypes_, err := objtype.LoadVarBitTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: varbit types: %w", err)
+	}
 	params_, err := objtype.LoadParams(cachePath)
 	if err != nil {
 		return fmt.Errorf("reload: params: %w", err)
@@ -176,6 +181,7 @@ func (s *Server) Reload(clearInvs bool) error {
 
 	// ─── Step 3: atomic swap of pre-inv registries ───
 	s.varpTypes = varpTypes_
+	s.varbitTypes = varbitTypes_
 	s.paramTypes = params_
 	s.objTypes = objTypes_
 	s.locTypes = locTypes_

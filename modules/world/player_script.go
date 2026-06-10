@@ -499,6 +499,68 @@ func (p *Player) SetVarpString(id int, val string) {
 	p.varpsString[id] = val
 }
 
+// varbitMask returns the bit-range mask for a configured varbit, or
+// ok=false for unconfigured/garbage ranges.
+//
+// PORTING-EXCEPTION (varbit-unconfigured-guard): TS getVarBit/setVarBit
+// index Packet.bitmask[endbit - startbit + 1] unguarded — a varbit that
+// only carries a debugname (code-1 fields left at their -1 initializers)
+// would compute bitmask[1] then shift by -1, yielding JS garbage. Go
+// panics on negative shifts and OOB indexing, so guard here: GetVarBit
+// reads 0 and SetVarBit no-ops for such varbits. Content never ships
+// debugname-only varbits; the guard is unreachable on real caches.
+func varbitMask(vb *objtype.VarBitType) (mask int32, ok bool) {
+	bits := vb.Endbit - vb.Startbit + 1
+	if vb.Startbit < 0 || bits < 0 || bits >= len(packet.Bitmask) {
+		return 0, false
+	}
+	return int32(packet.Bitmask[bits]), true
+}
+
+// GetVarBit reads the varbit's bit-range out of its base varp.
+// TS Player.ts:1750-1760 @43e02957. Reads through p.Varp so an OOB
+// basevar yields 0 — the int32 analog of TS's undefined>>n === 0.
+func (p *Player) GetVarBit(id int) int32 {
+	vb := p.varbitTypeConfig(id)
+	if vb == nil {
+		return 0
+	}
+	mask, ok := varbitMask(vb)
+	if !ok {
+		return 0
+	}
+	return p.Varp(vb.Basevar) >> vb.Startbit & mask
+}
+
+// SetVarBit writes value into the varbit's bit-range of its base varp,
+// preserving the other bits. Out-of-range values write 0 (TS clamps to
+// 0, NOT to mask — Player.ts:1771-1773). Routes through SetVarp so the
+// VARP_SMALL/LARGE resync fires for transmit varps (TS routes through
+// this.setVar at Player.ts:1776). TS Player.ts:1762-1777 @43e02957.
+//
+// The composed expression mirrors TS
+// `mask & value << startbit | this.vars[basevar] & ~mask` with JS
+// precedence made explicit: (mask & (value << startbit)) |
+// (vars & ^mask). The clamp compares against the unshifted mask as a
+// JS number (uint32-wide, so an endbit-startbit+1 == 32 varbit clamps
+// exactly like TS), while the bit math runs in int32 like JS's |0
+// coercion.
+func (p *Player) SetVarBit(id int, value int32) {
+	vb := p.varbitTypeConfig(id)
+	if vb == nil {
+		return
+	}
+	mask, ok := varbitMask(vb)
+	if !ok {
+		return
+	}
+	if int64(value) < 0 || int64(value) > int64(uint32(mask)) {
+		value = 0
+	}
+	mask <<= vb.Startbit
+	p.SetVarp(vb.Basevar, mask&(value<<vb.Startbit)|p.Varp(vb.Basevar)&^mask)
+}
+
 // SetRun implements script.ActivePlayer.SetRun. Writes the run-mode
 // toggle (0=walk, 1=run) to the player's run field. Mirrors TS field
 // write at PlayerOps.ts:1205. Backs the P_RUN opcode handler. NAI-117.

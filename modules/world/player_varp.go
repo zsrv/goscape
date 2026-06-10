@@ -53,3 +53,14 @@ func (p *Player) varpTypeConfig(id int) *objtype.VarPlayerType {
 	}
 	return p.client.server.varpTypes.Configs[id]
 }
+
+// varbitTypeConfig returns the VarBitType for id, or nil if the server
+// hasn't loaded configs (245.2-era cache without varbit.dat, or test
+// fixture) or the id is out of range. Symmetric with varpTypeConfig;
+// the registry's Get handles the nil/OOB cases.
+func (p *Player) varbitTypeConfig(id int) *objtype.VarBitType {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	return p.client.server.varbitTypes.Get(id)
+}

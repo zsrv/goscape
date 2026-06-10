@@ -1,11 +1,11 @@
 // DEVIATION-NAI-C-CONFIGS-ATOMIC-SWAP
 //
-// Server holds 20 type-config registry fields written by Reload (tick
+// Server holds 21 type-config registry fields written by Reload (tick
 // goroutine) and concurrently read by the per-connection login goroutine in
 // sendLoginOK (client.go: invTypes) and newPlayer (player.go: seqTypes).
 // Without synchronisation a reader can observe a partially-swapped pointer
 // during Reload. This file introduces serverConfigsSnapshot — an immutable
-// bundle of all 20 fields — held in Server.configsPtr (atomic.Pointer).
+// bundle of all 21 fields — held in Server.configsPtr (atomic.Pointer).
 // Reload and NewServer call storeConfigsSnapshot() after all raw fields are
 // assigned; per-connection goroutines read through loginConfigs().
 //
@@ -35,6 +35,7 @@ type serverConfigsSnapshot struct {
 	dbRowTypes     *objtype.DbRowTypeConfigs
 	dbTableIndex   *objtype.DbTableIndex
 	varpTypes      *objtype.VarpTypeConfigs
+	varbitTypes    *objtype.VarBitTypeConfigs
 	varsTypes      *objtype.VarsTypeConfigs
 	varnTypes      *objtype.VarnTypeConfigs
 	enumTypes      *objtype.EnumTypeConfigs
@@ -63,6 +64,7 @@ func (s *Server) storeConfigsSnapshot() {
 		dbRowTypes:     s.dbRowTypes,
 		dbTableIndex:   s.dbTableIndex,
 		varpTypes:      s.varpTypes,
+		varbitTypes:    s.varbitTypes,
 		varsTypes:      s.varsTypes,
 		varnTypes:      s.varnTypes,
 		enumTypes:      s.enumTypes,
