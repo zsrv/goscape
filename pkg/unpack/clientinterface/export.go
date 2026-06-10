@@ -376,6 +376,9 @@ func exportComponentInner(
 		if com.Height != 0 {
 			temp = append(temp, fmt.Sprintf("height=%d", com.Height))
 		}
+		if com.Trans != 0 { // TS Unpack.ts:437-439
+			temp = append(temp, fmt.Sprintf("trans=%d", com.Trans))
+		}
 
 		// TS line 435: if (this.overLayer !== -1)
 		if com.OverLayer != -1 {
@@ -527,6 +530,9 @@ func exportComponentInner(
 		if com.Usable {
 			temp = append(temp, "usable=yes")
 		}
+		if com.Swappable { // TS Unpack.ts:588-590
+			temp = append(temp, "swappable=yes")
+		}
 		if com.MarginX != 0 || com.MarginY != 0 {
 			temp = append(temp, fmt.Sprintf("margin=%d,%d", com.MarginX, com.MarginY))
 		}
@@ -603,6 +609,9 @@ func exportComponentInner(
 		}
 		if com.OverColour != 0 {
 			temp = append(temp, fmt.Sprintf("overcolour=0x%s", fmtHex6(com.OverColour)))
+		}
+		if com.ActiveOverColour != 0 { // TS Unpack.ts:673-675
+			temp = append(temp, fmt.Sprintf("activeovercolour=0x%s", fmtHex6(com.ActiveOverColour)))
 		}
 	}
 

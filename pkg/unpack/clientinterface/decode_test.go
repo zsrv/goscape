@@ -292,6 +292,7 @@ func TestDecode_TypeInv(t *testing.T) {
 	b.pbool(true)  // draggable
 	b.pbool(true)  // interactable
 	b.pbool(false) // usable
+	b.pbool(false) // swappable (TS Unpack.ts:172)
 	b.p1(3)        // marginX
 	b.p1(7)        // marginY
 
@@ -401,9 +402,10 @@ func TestDecode_TypeRect(t *testing.T) {
 	// colour (TYPE_UNUSED | TYPE_RECT | TYPE_TEXT): use a negative value
 	b.p4s(-1) // colour = -1 (0xFFFFFFFF in hex → signed -1)
 
-	// activeColour, overColour (TYPE_RECT | TYPE_TEXT)
+	// activeColour, overColour, activeOverColour (TYPE_RECT | TYPE_TEXT)
 	b.p4s(0xFF0000) // red
 	b.p4s(0)        // none
+	b.p4s(0)        // activeOverColour (TS Unpack.ts:221)
 
 	pkt := makePacket(10, b.data)
 	dec, err := DecodePacket(pkt)
@@ -451,9 +453,10 @@ func TestDecode_TypeText(t *testing.T) {
 	// colour (TYPE_UNUSED | TYPE_RECT | TYPE_TEXT)
 	b.p4s(0x00FF00)
 
-	// activeColour, overColour (TYPE_RECT | TYPE_TEXT)
+	// activeColour, overColour, activeOverColour (TYPE_RECT | TYPE_TEXT)
 	b.p4s(0xFF0000)
 	b.p4s(0x0000FF)
+	b.p4s(0) // activeOverColour (TS Unpack.ts:221)
 
 	// ButtonOK → option (lines 284-286)
 	b.pjstr("Click here")
@@ -791,9 +794,10 @@ func TestDecode_ButtonTarget(t *testing.T) {
 
 	// colour (TYPE_UNUSED | TYPE_RECT | TYPE_TEXT)
 	b.p4s(0)
-	// activeColour, overColour (TYPE_RECT | TYPE_TEXT)
+	// activeColour, overColour, activeOverColour (TYPE_RECT | TYPE_TEXT)
 	b.p4s(0)
 	b.p4s(0)
+	b.p4s(0) // activeOverColour (TS Unpack.ts:221)
 
 	// BUTTON_TARGET → actionVerb/action/actionTarget (TS line 278)
 	b.pjstr("Wield")
@@ -838,6 +842,7 @@ func TestDecode_ButtonContinue(t *testing.T) {
 	b.p4s(0) // colour
 	b.p4s(0) // activeColour
 	b.p4s(0) // overColour
+	b.p4s(0) // activeOverColour (TS Unpack.ts:221)
 
 	// ButtonContinue → option
 	b.pjstr("Click to continue")
@@ -996,6 +1001,135 @@ func TestDecode_ModelAnimEncodingBoundary(t *testing.T) {
 	}
 }
 
+// TestDecode_TypeInv_Swappable verifies that com.swappable is decoded after
+// com.usable in the TYPE_INV tail (TS Unpack.ts:172), and that MarginX (the
+// next field after swappable) still lands correctly.
+//
+// TS source: tools/unpack/interface/Unpack.ts:172 — com.swappable = dat.gbool()
+func TestDecode_TypeInv_Swappable(t *testing.T) {
+	b := &buf{}
+
+	b.p2(40) // id = 40
+	b.pCommonHeader(TypeInv, 0, 0, 64, 64, 0)
+	b.pOverLayer(-1)
+	b.pNoComparatorsNoScripts()
+
+	// TYPE_INV tail: draggable, interactable, usable, swappable, marginX, marginY
+	b.pbool(false) // draggable
+	b.pbool(false) // interactable
+	b.pbool(false) // usable
+	b.pbool(true)  // swappable ← new field
+	b.p1(9)        // marginX (post-swappable — must land correctly)
+	b.p1(4)        // marginY
+
+	// 20 inv slots — all unset
+	for range 20 {
+		b.pbool(false)
+	}
+	// 5 iops — all empty
+	for range 5 {
+		b.pjstr("")
+	}
+	// TYPE_INV always reads actionVerb/action/actionTarget
+	b.pjstr("")
+	b.pjstr("")
+	b.p2(0)
+
+	pkt := makePacket(41, b.data)
+	dec, err := DecodePacket(pkt)
+	if err != nil {
+		t.Fatalf("DecodePacket error: %v", err)
+	}
+
+	com := dec.Components[40]
+	if com == nil {
+		t.Fatal("Components[40] is nil")
+	}
+	if !com.Swappable {
+		t.Error("Swappable: want true")
+	}
+	// MarginX must still land at 9 (field immediately after swappable)
+	if com.MarginX != 9 {
+		t.Errorf("MarginX: got %d, want 9 (field after swappable must not be misread)", com.MarginX)
+	}
+}
+
+// TestDecode_TypeRect_ActiveOverColour verifies that com.activeOverColour is
+// decoded after com.overColour in the TYPE_RECT/TYPE_TEXT colour block
+// (TS Unpack.ts:221 — com.activeOverColour = dat.g4s()).
+//
+// TS source: tools/unpack/interface/Unpack.ts:221 — com.activeOverColour = dat.g4s()
+func TestDecode_TypeRect_ActiveOverColour(t *testing.T) {
+	b := &buf{}
+
+	b.p2(35) // id = 35
+	b.pCommonHeader(TypeRect, 0, 0, 10, 10, 0)
+	b.pOverLayer(-1)
+	b.pNoComparatorsNoScripts()
+
+	b.pbool(false)   // fill
+	b.p4s(0)         // colour
+	b.p4s(0)         // activeColour
+	b.p4s(0)         // overColour
+	b.p4s(0x00AABB) // activeOverColour sentinel
+
+	pkt := makePacket(36, b.data)
+	dec, err := DecodePacket(pkt)
+	if err != nil {
+		t.Fatalf("DecodePacket error: %v", err)
+	}
+
+	com := dec.Components[35]
+	if com == nil {
+		t.Fatal("Components[35] is nil")
+	}
+	if com.ActiveOverColour != 0x00AABB {
+		t.Errorf("ActiveOverColour: got 0x%X, want 0x00AABB", com.ActiveOverColour)
+	}
+}
+
+// TestDecode_TypeText_ActiveOverColour verifies activeOverColour decodes for
+// TYPE_TEXT as well as TYPE_RECT (both share the same colour block).
+//
+// TS source: tools/unpack/interface/Unpack.ts:218-222 — TYPE_RECT || TYPE_TEXT block
+func TestDecode_TypeText_ActiveOverColour(t *testing.T) {
+	b := &buf{}
+
+	b.p2(36) // id = 36
+	b.pCommonHeader(TypeText, 0, 0, 100, 14, 0)
+	b.pOverLayer(-1)
+	b.pNoComparatorsNoScripts()
+
+	// TYPE_TEXT/TYPE_UNUSED header
+	b.pbool(false) // center
+	b.p1(0)        // font
+	b.pbool(false) // shadowed
+
+	// TYPE_TEXT strings
+	b.pjstr("")
+	b.pjstr("")
+
+	// colour block
+	b.p4s(0)           // colour
+	b.p4s(0)           // activeColour
+	b.p4s(0)           // overColour
+	b.p4s(-0x00000001) // activeOverColour = -1 (sign test)
+
+	pkt := makePacket(37, b.data)
+	dec, err := DecodePacket(pkt)
+	if err != nil {
+		t.Fatalf("DecodePacket error: %v", err)
+	}
+
+	com := dec.Components[36]
+	if com == nil {
+		t.Fatal("Components[36] is nil")
+	}
+	if com.ActiveOverColour != -1 {
+		t.Errorf("ActiveOverColour: got %d, want -1 (signedness check)", com.ActiveOverColour)
+	}
+}
+
 // TestDecode_MultipleComponents verifies that two sequential components are
 // decoded and Order captures both IDs.
 func TestDecode_MultipleComponents(t *testing.T) {
@@ -1010,6 +1144,7 @@ func TestDecode_MultipleComponents(t *testing.T) {
 	b.p4s(0)       // colour
 	b.p4s(0)       // activeColour
 	b.p4s(0)       // overColour
+	b.p4s(0)       // activeOverColour (TS Unpack.ts:221)
 
 	// Component id=1
 	b.p2(1)
@@ -1020,6 +1155,7 @@ func TestDecode_MultipleComponents(t *testing.T) {
 	b.p4s(255)    // colour
 	b.p4s(0)
 	b.p4s(0)
+	b.p4s(0) // activeOverColour (TS Unpack.ts:221)
 
 	pkt := makePacket(2, b.data)
 	dec, err := DecodePacket(pkt)

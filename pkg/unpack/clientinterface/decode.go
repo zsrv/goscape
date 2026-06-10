@@ -72,6 +72,7 @@ type Component struct {
 	Draggable      bool      // TS: draggable gbool
 	Interactable   bool      // TS: interactable gbool
 	Usable         bool      // TS: usable gbool
+	Swappable      bool      // TS: swappable gbool (Unpack.ts:172)
 	MarginX        int       // TS: marginX g1 (or g2s for TYPE_INV_TEXT)
 	MarginY        int       // TS: marginY g1 (or g2s for TYPE_INV_TEXT)
 	InvSlotOffsetX []int     // TS: invSlotOffsetX Int16Array (20 elements when set)
@@ -92,9 +93,10 @@ type Component struct {
 	ActiveText string // TS: activeText gjstr (initialized null → Go empty string)
 
 	// Colour fields — TS g4s (signed 32-bit)
-	Colour       int // TS: colour g4s (initialized 0)
-	ActiveColour int // TS: activeColour g4s (initialized 0)
-	OverColour   int // TS: overColour g4s (initialized 0)
+	Colour          int // TS: colour g4s (initialized 0)
+	ActiveColour    int // TS: activeColour g4s (initialized 0)
+	OverColour      int // TS: overColour g4s (initialized 0)
+	ActiveOverColour int // TS: activeOverColour g4s (Unpack.ts:221)
 
 	// TYPE_GRAPHIC — TS lines 223-225
 	Graphic       string // TS: graphic gjstr (initialized null)
@@ -277,6 +279,7 @@ func DecodePacket(dat *packet.Packet) (*Decoded, error) {
 			com.Draggable = dat.GBool()
 			com.Interactable = dat.GBool()
 			com.Usable = dat.GBool()
+			com.Swappable = dat.GBool() // TS Unpack.ts:172
 			com.MarginX = int(dat.G1())
 			com.MarginY = int(dat.G1())
 
@@ -330,10 +333,11 @@ func DecodePacket(dat *packet.Packet) (*Decoded, error) {
 			com.Colour = int(int32(dat.G4()))
 		}
 
-		// TS lines 217-220: activeColour / overColour for TYPE_RECT / TYPE_TEXT
+		// TS lines 217-222: activeColour / overColour / activeOverColour for TYPE_RECT / TYPE_TEXT
 		if com.ComType == TypeRect || com.ComType == TypeText {
 			com.ActiveColour = int(int32(dat.G4()))
 			com.OverColour = int(int32(dat.G4()))
+			com.ActiveOverColour = int(int32(dat.G4())) // TS Unpack.ts:221
 		}
 
 		// TS lines 222-225: TYPE_GRAPHIC strings

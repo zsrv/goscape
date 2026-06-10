@@ -768,6 +768,300 @@ func TestExportComponent_CycleGuard(t *testing.T) {
 	}
 }
 
+// TestExport_Trans_Emitted verifies that a non-zero Trans value emits
+// "trans=N" positioned after "height=" and before "overlayer=" in the
+// non-root header block.
+//
+// TS source: tools/unpack/interface/Unpack.ts:437-439 — if (this.trans) temp.push(`trans=${this.trans}`)
+func TestExport_Trans_Emitted(t *testing.T) {
+	ifPack := makeIfPack(t)
+	ifPack.Register(0, "ui")
+	ifPack.Register(1, "ui:com_0")
+	ifPack.RefreshNames()
+
+	child := &Component{
+		ID:        1,
+		RootLayer: 0,
+		ComType:   TypeRect,
+		Width:     80,
+		Height:    20,
+		Trans:     128, // non-zero — must emit trans=128
+		OverLayer: -1,  // -1 → no overlayer= emitted
+	}
+	root := &Component{
+		ID:        0,
+		RootLayer: 0,
+		ComType:   TypeLayer,
+		ChildID:   []int{1},
+		ChildX:    []int{0},
+		ChildY:    []int{0},
+	}
+	components := []*Component{root, child}
+
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	joined := strings.Join(lines, "\n")
+
+	if !strings.Contains(joined, "trans=128") {
+		t.Errorf("missing trans=128 in output:\n%s", joined)
+	}
+
+	// trans= must appear after height= and before overlayer= (which is absent here)
+	heightIdx := strings.Index(joined, "height=")
+	transIdx := strings.Index(joined, "trans=")
+	if heightIdx < 0 {
+		t.Fatalf("missing height= in output:\n%s", joined)
+	}
+	if transIdx < heightIdx {
+		t.Errorf("trans= must appear after height=:\n%s", joined)
+	}
+}
+
+// TestExport_Trans_Zero_Omitted verifies that Trans==0 emits no trans= line
+// (TS mirrors JS truthiness: 0 is falsy).
+//
+// TS source: tools/unpack/interface/Unpack.ts:437 — if (this.trans)
+func TestExport_Trans_Zero_Omitted(t *testing.T) {
+	ifPack := makeIfPack(t)
+	ifPack.Register(0, "ui")
+	ifPack.Register(1, "ui:com_0")
+	ifPack.RefreshNames()
+
+	child := &Component{
+		ID:        1,
+		RootLayer: 0,
+		ComType:   TypeRect,
+		Trans:     0, // zero — must NOT emit trans=
+		OverLayer: -1,
+	}
+	root := &Component{
+		ID:        0,
+		RootLayer: 0,
+		ComType:   TypeLayer,
+		ChildID:   []int{1},
+		ChildX:    []int{0},
+		ChildY:    []int{0},
+	}
+	components := []*Component{root, child}
+
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	joined := strings.Join(lines, "\n")
+
+	if strings.Contains(joined, "trans=") {
+		t.Errorf("unexpected trans= in output when Trans==0:\n%s", joined)
+	}
+}
+
+// TestExport_Trans_PositionedBeforeOverlayer verifies that trans= appears
+// between height= and overlayer= when all three are present.
+//
+// TS source: tools/unpack/interface/Unpack.ts:433-443 — height, trans, overlayer order
+func TestExport_Trans_PositionedBeforeOverlayer(t *testing.T) {
+	ifPack := makeIfPack(t)
+	ifPack.Register(0, "ui")
+	ifPack.Register(0x0105, "ui:overlay") // overLayer = 261
+	ifPack.Register(1, "ui:com_0")
+	ifPack.RefreshNames()
+
+	child := &Component{
+		ID:        1,
+		RootLayer: 0,
+		ComType:   TypeRect,
+		Height:    30,
+		Trans:     64,
+		OverLayer: 0x0105, // 261 — triggers overlayer= emission
+	}
+	root := &Component{
+		ID:        0,
+		RootLayer: 0,
+		ComType:   TypeLayer,
+		ChildID:   []int{1},
+		ChildX:    []int{0},
+		ChildY:    []int{0},
+	}
+	components := []*Component{root, child}
+
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	joined := strings.Join(lines, "\n")
+
+	transIdx := strings.Index(joined, "trans=")
+	overlayerIdx := strings.Index(joined, "overlayer=")
+	heightIdx := strings.Index(joined, "height=")
+
+	if transIdx < 0 {
+		t.Fatalf("missing trans= in output:\n%s", joined)
+	}
+	if overlayerIdx < 0 {
+		t.Fatalf("missing overlayer= in output:\n%s", joined)
+	}
+	if transIdx < heightIdx {
+		t.Errorf("trans= must appear after height=:\n%s", joined)
+	}
+	if transIdx > overlayerIdx {
+		t.Errorf("trans= must appear before overlayer=:\n%s", joined)
+	}
+}
+
+// TestExport_Swappable_Emitted verifies that Swappable=true emits "swappable=yes"
+// after "usable=yes" in the TYPE_INV block.
+//
+// TS source: tools/unpack/interface/Unpack.ts:588-590 — if (this.swappable) temp.push('swappable=yes')
+func TestExport_Swappable_Emitted(t *testing.T) {
+	ifPack := makeIfPack(t)
+	ifPack.Register(0, "ui")
+	ifPack.Register(1, "ui:com_0")
+	ifPack.RefreshNames()
+
+	child := &Component{
+		ID:        1,
+		RootLayer: 0,
+		ComType:   TypeInv,
+		Usable:    true,
+		Swappable: true,
+		OverLayer: -1,
+	}
+	root := &Component{
+		ID:        0,
+		RootLayer: 0,
+		ComType:   TypeLayer,
+		ChildID:   []int{1},
+		ChildX:    []int{0},
+		ChildY:    []int{0},
+	}
+	components := []*Component{root, child}
+
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	joined := strings.Join(lines, "\n")
+
+	if !strings.Contains(joined, "swappable=yes") {
+		t.Errorf("missing swappable=yes in output:\n%s", joined)
+	}
+	// swappable= must appear after usable=
+	usableIdx := strings.Index(joined, "usable=yes")
+	swappableIdx := strings.Index(joined, "swappable=yes")
+	if usableIdx < 0 {
+		t.Fatalf("missing usable=yes in output:\n%s", joined)
+	}
+	if swappableIdx < usableIdx {
+		t.Errorf("swappable=yes must appear after usable=yes:\n%s", joined)
+	}
+}
+
+// TestExport_Swappable_False_Omitted verifies that Swappable=false emits no
+// swappable= line (TS mirrors JS truthiness: false is falsy).
+//
+// TS source: tools/unpack/interface/Unpack.ts:588 — if (this.swappable)
+func TestExport_Swappable_False_Omitted(t *testing.T) {
+	ifPack := makeIfPack(t)
+	ifPack.Register(0, "ui")
+	ifPack.Register(1, "ui:com_0")
+	ifPack.RefreshNames()
+
+	child := &Component{
+		ID:        1,
+		RootLayer: 0,
+		ComType:   TypeInv,
+		Swappable: false,
+		OverLayer: -1,
+	}
+	root := &Component{
+		ID:        0,
+		RootLayer: 0,
+		ComType:   TypeLayer,
+		ChildID:   []int{1},
+		ChildX:    []int{0},
+		ChildY:    []int{0},
+	}
+	components := []*Component{root, child}
+
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	joined := strings.Join(lines, "\n")
+
+	if strings.Contains(joined, "swappable=") {
+		t.Errorf("unexpected swappable= in output when Swappable==false:\n%s", joined)
+	}
+}
+
+// TestExport_ActiveOverColour_Emitted verifies that a non-zero ActiveOverColour
+// emits "activeovercolour=0xXXXXXX" after "overcolour=" in the TYPE_RECT/TYPE_TEXT
+// colour block, using uppercase 6-digit hex via fmtHex6.
+//
+// TS source: tools/unpack/interface/Unpack.ts:673-675 — if (this.activeOverColour) temp.push(...)
+func TestExport_ActiveOverColour_Emitted(t *testing.T) {
+	ifPack := makeIfPack(t)
+	ifPack.Register(0, "ui")
+	ifPack.Register(1, "ui:com_0")
+	ifPack.RefreshNames()
+
+	child := &Component{
+		ID:               1,
+		RootLayer:        0,
+		ComType:          TypeRect,
+		OverColour:       0xFF0000,
+		ActiveOverColour: 0x00AABB,
+		OverLayer:        -1,
+	}
+	root := &Component{
+		ID:        0,
+		RootLayer: 0,
+		ComType:   TypeLayer,
+		ChildID:   []int{1},
+		ChildX:    []int{0},
+		ChildY:    []int{0},
+	}
+	components := []*Component{root, child}
+
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	joined := strings.Join(lines, "\n")
+
+	if !strings.Contains(joined, "activeovercolour=0x00AABB") {
+		t.Errorf("missing activeovercolour=0x00AABB in output:\n%s", joined)
+	}
+	// activeovercolour= must appear after overcolour=
+	overIdx := strings.Index(joined, "overcolour=")
+	activeOverIdx := strings.Index(joined, "activeovercolour=")
+	if overIdx < 0 {
+		t.Fatalf("missing overcolour= in output:\n%s", joined)
+	}
+	if activeOverIdx < overIdx {
+		t.Errorf("activeovercolour= must appear after overcolour=:\n%s", joined)
+	}
+}
+
+// TestExport_ActiveOverColour_Zero_Omitted verifies that ActiveOverColour==0
+// emits no activeovercolour= line (TS: if (this.activeOverColour) is falsy for 0).
+//
+// TS source: tools/unpack/interface/Unpack.ts:673 — if (this.activeOverColour)
+func TestExport_ActiveOverColour_Zero_Omitted(t *testing.T) {
+	ifPack := makeIfPack(t)
+	ifPack.Register(0, "ui")
+	ifPack.Register(1, "ui:com_0")
+	ifPack.RefreshNames()
+
+	child := &Component{
+		ID:               1,
+		RootLayer:        0,
+		ComType:          TypeRect,
+		ActiveOverColour: 0, // zero — must NOT emit
+		OverLayer:        -1,
+	}
+	root := &Component{
+		ID:        0,
+		RootLayer: 0,
+		ComType:   TypeLayer,
+		ChildID:   []int{1},
+		ChildX:    []int{0},
+		ChildY:    []int{0},
+	}
+	components := []*Component{root, child}
+
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	joined := strings.Join(lines, "\n")
+
+	if strings.Contains(joined, "activeovercolour=") {
+		t.Errorf("unexpected activeovercolour= in output when ActiveOverColour==0:\n%s", joined)
+	}
+}
+
 // TestExportComponent_StatNameOutOfRange verifies that a script op with a
 // stat index ≥ 21 emits "undefined" rather than panicking, faithfully
 // mirroring JS's STATS[stat] → undefined stringification.
