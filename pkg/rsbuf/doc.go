@@ -15,7 +15,10 @@
 //   - TS PlayerInfoEncoder.ts (16 LOC) and NpcInfoEncoder.ts (16 LOC)
 //     just call `buf.pdata(message.bytes, 0, message.bytes.length)`.
 //   - The actual rendering pipeline lives in the external Rust crate
-//     `@2004scape/rsbuf ^225.1.7` (Engine-TS package.json:37), imported
+//     `@2004scape/rsbuf 254.1.0` (Engine-TS package.json:37 @43e02957;
+//     was ^225.1.7 pre-254 — the 244→254 crate delta is commit 304955d5
+//     "Compatibility for 254": NPC ids widen 13→14 bits on the wire,
+//     terminator 8191→16383, NPC capacity 8192→16384), imported
 //     into TS via `import * as rsbuf from '@2004scape/rsbuf'`
 //     (Engine-TS src/engine/World.ts:6-7). TS only sets mask bits and
 //     calls into rsbuf for the actual encoding; it does not ship a
@@ -25,7 +28,7 @@
 //   - This package ports the Rust renderer logic natively (no WASM
 //     boundary): mask payload encoding, visibility, zone discovery,
 //     new-player/NPC detection, appearance dedup, byte budgeting,
-//     8191-terminator emission, and per-mask encoders.
+//     16383-terminator emission (8191 pre-254), and per-mask encoders.
 //   - Wired into the tick loop at modules/world/tick.go (ComputePlayer,
 //     ComputeNpc, ComputePlayers, ComputeNpcs) and emitted via
 //     modules/world/player_info.go and player_npc_info.go (Encode).

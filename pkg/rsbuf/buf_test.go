@@ -24,7 +24,7 @@ func TestNew_ZeroInit(t *testing.T) {
 			break
 		}
 	}
-	for nid := range int32(8192) {
+	for nid := range int32(16384) {
 		if b.npcs[nid] != nil {
 			t.Errorf("New: npcs[%d] non-nil", nid)
 			break
@@ -187,7 +187,7 @@ func TestAddNpc_NegativeIsNoop(t *testing.T) {
 	b := New()
 	b.AddNpc(-1, 100)
 	b.AddNpc(50, -1)
-	for i := range int32(8192) {
+	for i := range int32(16384) {
 		if b.npcs[i] != nil {
 			t.Errorf("AddNpc with negative arg populated npcs[%d]", i)
 			break
@@ -208,7 +208,7 @@ func TestRemoveNpc_AbsentIsNoop(t *testing.T) {
 	b := New()
 	b.RemoveNpc(50) // never added
 	b.RemoveNpc(-1)
-	b.RemoveNpc(8192) // out-of-range upper bound
+	b.RemoveNpc(16384) // out-of-range upper bound
 	if b.npcs[50] != nil {
 		t.Error("RemoveNpc(absent): slot mutated")
 	}
@@ -719,8 +719,8 @@ func TestGetNpcObservers_NilSlotIsZero(t *testing.T) {
 	if got := b.GetNpcObservers(-1); got != 0 {
 		t.Errorf("GetNpcObservers(-1): got %d, want 0", got)
 	}
-	if got := b.GetNpcObservers(8192); got != 0 {
-		t.Errorf("GetNpcObservers(8192): got %d, want 0", got)
+	if got := b.GetNpcObservers(16384); got != 0 {
+		t.Errorf("GetNpcObservers(16384): got %d, want 0", got)
 	}
 }
 
@@ -756,13 +756,13 @@ func TestSetObserverForTest_OutOfRangeIsNoOp(t *testing.T) {
 	// Test negative nid
 	b.SetObserverForTest(-1, 5)
 	// Test nid >= bounds
-	b.SetObserverForTest(8192, 5)
+	b.SetObserverForTest(16384, 5)
 	// Should not panic; observer counts should remain zero
 	if got := b.GetNpcObservers(-1); got != 0 {
 		t.Errorf("GetNpcObservers(-1): got %d, want 0", got)
 	}
-	if got := b.GetNpcObservers(8192); got != 0 {
-		t.Errorf("GetNpcObservers(8192): got %d, want 0", got)
+	if got := b.GetNpcObservers(16384); got != 0 {
+		t.Errorf("GetNpcObservers(16384): got %d, want 0", got)
 	}
 }
 
@@ -788,8 +788,8 @@ func TestBuf_NpcForTest_BoundsAndPresence(t *testing.T) {
 	if got := b.NpcForTest(-1); got != nil {
 		t.Errorf("NpcForTest(-1): got %v, want nil", got)
 	}
-	if got := b.NpcForTest(8192); got != nil {
-		t.Errorf("NpcForTest(8192): got %v, want nil", got)
+	if got := b.NpcForTest(16384); got != nil {
+		t.Errorf("NpcForTest(16384): got %v, want nil", got)
 	}
 	if got := b.NpcForTest(5); got != nil {
 		t.Errorf("NpcForTest(5) before AddNpc: got %v, want nil", got)

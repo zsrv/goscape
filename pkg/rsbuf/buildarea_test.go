@@ -237,7 +237,7 @@ func TestWithinDistanceSW(t *testing.T) {
 func TestBuildArea_GetNearbyNpcs_EmptyZoneMapReturnsEmpty(t *testing.T) {
 	ba := newBuildArea()
 	zm := newZoneMap()
-	var npcs [8192]*Npc
+	var npcs [16384]*Npc
 	got := ba.GetNearbyNpcs(&npcs, zm, 100, 0, 100)
 	if len(got) != 0 {
 		t.Errorf("empty zoneMap: got %v, want []", got)
@@ -247,7 +247,7 @@ func TestBuildArea_GetNearbyNpcs_EmptyZoneMapReturnsEmpty(t *testing.T) {
 func TestBuildArea_GetNearbyNpcs_FindsInRange(t *testing.T) {
 	ba := newBuildArea()
 	zm := newZoneMap()
-	var npcs [8192]*Npc
+	var npcs [16384]*Npc
 	npcs[5] = newNpc(5, 100)
 	npcs[5].Coord = packCoordTest(0, 96, 96)
 	npcs[5].Active = true
@@ -262,7 +262,7 @@ func TestBuildArea_GetNearbyNpcs_FindsInRange(t *testing.T) {
 func TestBuildArea_GetNearbyNpcs_FiltersAlreadyTracked(t *testing.T) {
 	ba := newBuildArea()
 	zm := newZoneMap()
-	var npcs [8192]*Npc
+	var npcs [16384]*Npc
 	npcs[5] = newNpc(5, 100)
 	npcs[5].Coord = packCoordTest(0, 100, 100)
 	npcs[5].Active = true
@@ -278,7 +278,7 @@ func TestBuildArea_GetNearbyNpcs_FiltersAlreadyTracked(t *testing.T) {
 func TestBuildArea_GetNearbyNpcs_FiltersOutOfDistance(t *testing.T) {
 	ba := newBuildArea()
 	zm := newZoneMap()
-	var npcs [8192]*Npc
+	var npcs [16384]*Npc
 	npcs[5] = newNpc(5, 100)
 	// (116, 0, 100): zone 14 is inside the [10,14] zone-walk window for
 	// center (100, 0, 100), so filterNpc IS called. Tile distance 16 >
@@ -296,7 +296,7 @@ func TestBuildArea_GetNearbyNpcs_FiltersOutOfDistance(t *testing.T) {
 func TestBuildArea_GetNearbyNpcs_FiltersNegativeNid(t *testing.T) {
 	ba := newBuildArea()
 	zm := newZoneMap()
-	var npcs [8192]*Npc
+	var npcs [16384]*Npc
 	npcs[5] = newNpc(5, 100)
 	npcs[5].Coord = packCoordTest(0, 100, 100)
 	npcs[5].NID = -1
@@ -312,7 +312,7 @@ func TestBuildArea_GetNearbyNpcs_FiltersNegativeNid(t *testing.T) {
 func TestBuildArea_GetNearbyNpcs_FiltersDifferentLevel(t *testing.T) {
 	ba := newBuildArea()
 	zm := newZoneMap()
-	var npcs [8192]*Npc
+	var npcs [16384]*Npc
 	npcs[5] = newNpc(5, 100)
 	npcs[5].Coord = packCoordTest(1, 100, 100)
 	npcs[5].Active = true
@@ -327,7 +327,7 @@ func TestBuildArea_GetNearbyNpcs_FiltersDifferentLevel(t *testing.T) {
 func TestBuildArea_GetNearbyNpcs_FiltersInactive(t *testing.T) {
 	ba := newBuildArea()
 	zm := newZoneMap()
-	var npcs [8192]*Npc
+	var npcs [16384]*Npc
 	npcs[5] = newNpc(5, 100)
 	npcs[5].Coord = packCoordTest(0, 100, 100)
 	npcs[5].Active = false
@@ -342,7 +342,7 @@ func TestBuildArea_GetNearbyNpcs_FiltersInactive(t *testing.T) {
 func TestBuildArea_GetNearbyNpcs_RespectsPreferredCap(t *testing.T) {
 	ba := newBuildArea()
 	zm := newZoneMap()
-	var npcs [8192]*Npc
+	var npcs [16384]*Npc
 	// Insert 256 candidates (preferredNpcs=255).
 	for i := int32(1); i <= 256; i++ {
 		npcs[i] = newNpc(i, 100)

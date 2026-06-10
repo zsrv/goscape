@@ -10,8 +10,8 @@ type Renderer struct {
 	lowDefFull      [2048][]byte // includes forced APPEARANCE + FACE_COORD
 	lowDefNoApp     [2048][]byte // forces FACE_COORD but NOT APPEARANCE
 
-	npcHighDef [8192][]byte
-	npcLowDef  [8192][]byte // forces FACE_COORD baseline
+	npcHighDef [16384][]byte
+	npcLowDef  [16384][]byte // forces FACE_COORD baseline
 }
 
 // NewRenderer returns an empty renderer.

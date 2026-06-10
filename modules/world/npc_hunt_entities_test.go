@@ -13,7 +13,7 @@ import (
 // addNpcToServerAt seeds s.npcs[nid], registers the NPC's type in
 // s.npcTypes.Configs, and subscribes into pkg/zone.
 // Returns the *Npc so tests can further mutate fields.
-// Slot 0 is reserved; use 1+. nid must be < 8192 (fixed Server.npcs array size).
+// Slot 0 is reserved; use 1+. nid must be < 16384 (fixed Server.npcs array size).
 func addNpcToServerAt(t *testing.T, s *Server, nid, typeId, category, x, z, level int) *Npc {
 	t.Helper()
 	if s.zoneMap == nil {

@@ -38,7 +38,7 @@ const (
 //   - spiral-search helpers                             (NAI-32; player-side only)
 type BuildArea struct {
 	Players *idBitSet // 2048-bit set, capacity preferredPlayers
-	Npcs    *idBitSet // 8192-bit set, capacity preferredNpcs
+	Npcs    *idBitSet // 16384-bit set, capacity preferredNpcs
 
 	// appearances[pid] = tick-when-the-appearance-payload-was-last-sent-to-this-player.
 	// HasAppearance(pid, tick) returns true iff the stored tick == tick. Mirrors
@@ -57,7 +57,7 @@ type BuildArea struct {
 func newBuildArea() *BuildArea {
 	return &BuildArea{
 		Players:      newIdBitSet(2048, preferredPlayers),
-		Npcs:         newIdBitSet(8192, preferredNpcs),
+		Npcs:         newIdBitSet(16384, preferredNpcs),
 		ViewDistance: preferredViewDistance,
 	}
 }
@@ -169,7 +169,7 @@ func (b *BuildArea) filterPlayer(players *[2048]*Player, candidate, pid int32, x
 // View distance is the const preferredViewDistance (15); upstream
 // hardcodes BuildArea::PREFERRED_VIEW_DISTANCE here even when player
 // view distance shrinks (NPCs don't downsize their search radius).
-func (b *BuildArea) GetNearbyNpcs(npcs *[8192]*Npc, zoneMap *zoneMap, x, level, z int) []int32 {
+func (b *BuildArea) GetNearbyNpcs(npcs *[16384]*Npc, zoneMap *zoneMap, x, level, z int) []int32 {
 	distance := int(preferredViewDistance)
 	startZX := (x - distance) >> 3
 	startZZ := (z - distance) >> 3
@@ -207,7 +207,7 @@ func (b *BuildArea) GetNearbyNpcs(npcs *[8192]*Npc, zoneMap *zoneMap, x, level, 
 // build.rs:314-327. Five reject conditions: already tracked,
 // nid==-1 (empty-slot marker), !active, level mismatch,
 // out-of-distance (Chebyshev).
-func (b *BuildArea) filterNpc(npcs *[8192]*Npc, candidate int32, x, level, z int) bool {
+func (b *BuildArea) filterNpc(npcs *[16384]*Npc, candidate int32, x, level, z int) bool {
 	if candidate < 0 || int(candidate) >= len(npcs) {
 		return false
 	}

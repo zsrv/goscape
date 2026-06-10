@@ -71,7 +71,7 @@ func TestHandleOpNpc1InvalidSlotSendsUnsetMapFlag(t *testing.T) {
 	p2.client.encryptor = io2.New([4]uint32{2, 3, 4, 5})
 
 	received := drainConn(t, cc2)
-	_ = handleOpNpc1(p2, p2Payload(9999)) // slot 9999 > 8191
+	_ = handleOpNpc1(p2, p2Payload(20000)) // slot 20000 > 16383 (254 capacity)
 	p2.client.flushWrite()
 	got := <-received
 
@@ -361,7 +361,7 @@ func TestHandleOpNpcTShortPayloadRejected(t *testing.T) {
 func TestHandleOpNpcTInvalidSlotRejected(t *testing.T) {
 	_, p, _ := makeOpNpcFixture(t)
 
-	_ = handleOpNpcT(p, p2x2Payload(9999, 7777)) // slot 9999 > len(s.npcs)
+	_ = handleOpNpcT(p, p2x2Payload(20000, 7777)) // slot 20000 > len(s.npcs)
 
 	if p.target != nil {
 		t.Error("target should remain nil for invalid slot")
@@ -534,7 +534,7 @@ func TestHandleOpNpcUInvalidSlotRejected(t *testing.T) {
 	s.invs[93] = inv
 	p.invListenOnCom(93, 149, -1)
 
-	_ = handleOpNpcU(p, p2x4NpcUPayload(9999, 1511, 3, 149)) // slot 9999 OOB
+	_ = handleOpNpcU(p, p2x4NpcUPayload(20000, 1511, 3, 149)) // slot 20000 OOB
 
 	if p.target != nil {
 		t.Error("target should remain nil for invalid slot")

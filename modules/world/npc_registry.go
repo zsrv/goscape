@@ -63,7 +63,7 @@ func (s *Server) spawnBootNpc(typ *objtype.NpcType, typeID, x, z, level int, wor
 	return n, nil
 }
 
-// allocNpcSlot returns a free nid (1..8191). Returns -1 if full.
+// allocNpcSlot returns a free nid (1..16383). Returns -1 if full.
 func (s *Server) allocNpcSlot() int {
 	for offset := 0; offset < len(s.npcs)-1; offset++ {
 		i := s.nextNpcSlot + offset

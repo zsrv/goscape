@@ -95,7 +95,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.BoolVar(&c.ContentWatch, "world.content-watch", false, "Watch ContentPath subdirs and auto-trigger ::rebuild on changes (debounced 1s). Requires --world.content-path.")
 	f.IntVar(&c.NodeMaxPlayers, "world.node-max-players", 2047, "")
 	f.IntVar(&c.NodeMaxConnected, "world.node-max-connected", 1000, "")
-	f.IntVar(&c.NodeMaxNPCs, "world.node-max-npcs", 8191, "")
+	f.IntVar(&c.NodeMaxNPCs, "world.node-max-npcs", 16383, "Max live NPCs. Mirrors TS Environment.ts NODE_MAX_NPCS (254 default 16383; was 8191 pre-254).")
 	f.StringVar(&c.NodeDebugprocChar, "world.node-debugproc-char", "~", "")
 
 	f.StringVar(&c.LoginServerAddress, "world.login-server-address", "127.0.0.1:2004", "Login server gRPC address.")

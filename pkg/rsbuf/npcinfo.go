@@ -8,7 +8,7 @@ import (
 const (
 	NpcViewDistanceZones = 15
 	PreferredNpcs        = 255
-	NpcTerminator        = 8191
+	NpcTerminator        = 16383
 )
 
 // NpcInfo holds reusable scratch buffers for NpcInfo encoding.
@@ -39,11 +39,11 @@ func NewNpcInfo() *NpcInfo {
 // reintroduced at rsbuf-npc-1, where writeNpcs gained the per-tracked-NPC
 // byte-budget gate (sibling of rsbuf-player-1's playerBitsRun/Walk/Extend).
 const (
-	npcBitsAdd      = 13 + 11 + 5 + 5 + 1 // 35
+	npcBitsAdd      = 14 + 11 + 5 + 5 + 1 // 36 (254: nid widened 13→14 bits, crate 304955d5)
 	npcBitsRun      = 1 + 2 + 3 + 3 + 1   // 10
 	npcBitsWalk     = 1 + 2 + 3 + 1       // 7
 	npcBitsExtend   = 1 + 2               // 3
-	npcTerminator   = 8191
+	npcTerminator   = 16383
 	maxNpcInfoBytes = 4997
 )
 
@@ -73,7 +73,7 @@ func (ni *NpcInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 	ni.writeNpcs(b, self, renderer)
 	ni.writeNewNpcs(b, self, renderer)
 
-	// Mirrors info.rs:456-462: emit the 13-bit 8191 terminator before
+	// Mirrors info.rs:456-462: emit the 14-bit 16383 terminator before
 	// AccessBytes when there are pending mask-payload updates, then append
 	// updates after byte alignment. Without the terminator, the Java
 	// client's getNpcPosNewVis (Client-Java client.java:5787-5821) reads
@@ -81,7 +81,7 @@ func (ni *NpcInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 	// bit-budget exit at first-tick counts) and crashes parsing garbage.
 	// PlayerInfo's analogous pattern at playerinfo.go:89-97 uses 11-bit 2047.
 	if len(ni.updates.Data) > 0 {
-		ni.buf.PBit(13, npcTerminator)
+		ni.buf.PBit(14, npcTerminator)
 		ni.buf.AccessBytes()
 		for _, b2 := range ni.updates.Data {
 			ni.buf.P1(b2)
@@ -212,9 +212,9 @@ func (ni *NpcInfo) decObservers(b *Buf, nid int32) {
 // no-op skeleton with the full discovery loop. Each successful add
 // increments b.npcs[nid].Observers (mirrors info.rs:540).
 //
-// On byte-budget overflow, emits the 13-bit npcTerminator (8191)
+// On byte-budget overflow, emits the 14-bit npcTerminator (16383)
 // sentinel and returns — distinct from PlayerInfo's pre-AccessBytes
-// 11-bit 2047 sentinel which fires at Encode level. NpcInfo's 8191
+// 11-bit 2047 sentinel which fires at Encode level. NpcInfo's 16383
 // terminator is purely a per-loop byte-budget cutoff signal.
 func (ni *NpcInfo) writeNewNpcs(b *Buf, self *Player, renderer *Renderer) {
 	selfPos := coordgrid.UnpackCoord(self.Coord)
@@ -235,7 +235,7 @@ func (ni *NpcInfo) writeNewNpcs(b *Buf, self *Player, renderer *Renderer) {
 		lowDef := renderer.NpcLowDefOf(int(nid))
 		if !ni.fits(npcBitsAdd, len(lowDef)) {
 			// Byte budget overflow — emit terminator and return.
-			ni.buf.PBit(13, npcTerminator)
+			ni.buf.PBit(14, npcTerminator)
 			return
 		}
 
@@ -243,7 +243,7 @@ func (ni *NpcInfo) writeNewNpcs(b *Buf, self *Player, renderer *Renderer) {
 		dx := clampInt(otherPos.X-selfPos.X, -15, 15)
 		dz := clampInt(otherPos.Z-selfPos.Z, -15, 15)
 
-		ni.buf.PBit(13, int(nid))
+		ni.buf.PBit(14, int(nid))
 		ni.buf.PBit(11, int(other.NType))
 		ni.buf.PBit(5, dx&0x1f)
 		ni.buf.PBit(5, dz&0x1f)

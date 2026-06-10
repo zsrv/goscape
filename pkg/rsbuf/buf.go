@@ -20,7 +20,7 @@ import (
 // optimization hooks.
 type Buf struct {
 	players    [2048]*Player
-	npcs       [8192]*Npc
+	npcs       [16384]*Npc
 	zoneMap    *zoneMap
 	playerGrid map[uint32][]int32 // tile-keyed; initialized here, populated by NAI-32 spiral search
 	PlayerInfo *PlayerInfo
@@ -98,7 +98,7 @@ func (b *Buf) RemovePlayer(pid int32) {
 // AddNpc registers nid with NPC type ntype by allocating an *Npc at
 // slot[nid]. Mirrors upstream add_npc at lib.rs:305-311.
 //
-// No-op if nid < 0, nid >= 8192, or ntype < 0. (Upstream guards
+// No-op if nid < 0, nid >= 16384, or ntype < 0. (Upstream guards
 // nid == -1 || ntype == -1; goscape broadens to <0 for slice safety.)
 func (b *Buf) AddNpc(nid, ntype int32) {
 	if nid < 0 || int(nid) >= len(b.npcs) || ntype < 0 {
@@ -113,7 +113,7 @@ func (b *Buf) AddNpc(nid, ntype int32) {
 //  2. (NAI-30) NPC_RENDERER.removePermanent(nid) — skipped here
 //  3. Set slot[nid] = nil
 //
-// No-op if nid < 0, nid >= 8192, or slot[nid] is nil. (Upstream guards
+// No-op if nid < 0, nid >= 16384, or slot[nid] is nil. (Upstream guards
 // nid == -1; goscape broadens to nid < 0 for slice safety.)
 func (b *Buf) RemoveNpc(nid int32) {
 	if nid < 0 || int(nid) >= len(b.npcs) {
@@ -295,7 +295,7 @@ const playerGridBucketCap = 8
 //     mirrors upstream lib.rs:256).
 //  3. (NAI-30) NPC_RENDERER.compute_info(npc) — skipped here.
 //
-// No-op if nid < 0, nid >= 8192, ntype < 0, or slot[nid] is nil.
+// No-op if nid < 0, nid >= 16384, ntype < 0, or slot[nid] is nil.
 // (Upstream guards nid == -1 || ntype == -1; goscape broadens to <0
 // for slice safety.)
 //
@@ -427,7 +427,7 @@ func (b *Buf) HasNpc(pid, nid int32) bool {
 // GetNpcObservers returns the count of players currently observing nid.
 // Mirrors upstream get_npc_observers at lib.rs:337-346.
 //
-// Returns 0 if nid < 0, nid >= 8192, or slot[nid] is nil. (Upstream
+// Returns 0 if nid < 0, nid >= 16384, or slot[nid] is nil. (Upstream
 // guards nid == -1; goscape broadens to nid < 0 + bounds-check for
 // slice safety.)
 func (b *Buf) GetNpcObservers(nid int32) int32 {

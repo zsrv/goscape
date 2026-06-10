@@ -365,7 +365,7 @@ func (w worldVarsView) MergeLoc(loc script.ActiveLoc, player script.ActivePlayer
 
 // TotalNpcs counts the live NPC registry entries. Mirrors TS
 // World.getTotalNpcs (npcs.count, World.ts:1734-1736). In goscape,
-// s.npcs is a fixed-size [8192]*Npc array (no count field); we count
+// s.npcs is a fixed-size [16384]*Npc array (no count field); we count
 // non-nil slots. npcs is tick-goroutine-only — no lock needed (matches
 // the tick-side read in addNpc / removeNpc / npcLoop iteration).
 func (w worldVarsView) TotalNpcs() int {

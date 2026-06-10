@@ -141,9 +141,9 @@ func TestWorldVarsView_LookupNpcBySlot(t *testing.T) {
 		t.Errorf("OOB slot -1: got %v, want nil", got)
 	}
 
-	// OOB positive (Server.npcs is fixed-size [8192]*Npc — server.go:93).
-	if got := w.LookupNpcBySlot(8192); got != nil {
-		t.Errorf("OOB slot 8192: got %v, want nil", got)
+	// OOB positive (Server.npcs is fixed-size [16384]*Npc — server.go:93).
+	if got := w.LookupNpcBySlot(16384); got != nil {
+		t.Errorf("OOB slot 16384: got %v, want nil", got)
 	}
 	if got := w.LookupNpcBySlot(99999); got != nil {
 		t.Errorf("OOB slot 99999: got %v, want nil", got)

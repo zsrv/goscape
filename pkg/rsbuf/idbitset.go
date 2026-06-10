@@ -19,7 +19,7 @@ type idBitSet struct {
 // only an initial backing-array hint; the slice grows as needed.
 //
 // maxID must be a power-of-two-multiple of 32; pass 2048 (player slot
-// count) or 8192 (npc nid count).
+// count) or 16384 (npc nid count).
 func newIdBitSet(maxID, capacity int) *idBitSet {
 	return &idBitSet{
 		bits: make([]uint32, maxID/32),

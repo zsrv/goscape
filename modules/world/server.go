@@ -213,7 +213,7 @@ type Server struct {
 	// mirroring TS's unknown-name posture (Player.ts:1921-1929 id!==-1 guard).
 	midiPack map[string]int
 
-	npcs          [8192]*Npc
+	npcs          [16384]*Npc
 	npcLoop       []*Npc
 	npcEventQueue []NpcEventRequest
 	nextNpcSlot   int
