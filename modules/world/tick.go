@@ -467,11 +467,26 @@ func (s *Server) processLogins() {
 			// rebuildNormal will clear p.reconnecting later in processInfo.
 		} else {
 			// Fresh-login emit sequence per TS Player.onLogin
-			// (Player.ts:486-504). DEVIATION-NAI-182-D4 omits IF_CLOSE.
-			// UpdateIgnoreList([]) defensive emit is permanently skipped
-			// (DEVIATION-NAI-182-D5-NO-DEFENSIVE-IGNORELIST-LOGIN-EMIT —
-			// goscape always runs with a friends server).
+			// (Player.ts:486-504 @43e02957). DEVIATION-NAI-182-D4 omits
+			// IF_CLOSE.
 			sendChatFilterSettings(p, p.publicChat, p.privateChat, p.tradeDuel)
+			// Friends-list bootstrap status right after CHAT_FILTER_SETTINGS
+			// (TS Player.ts:496-501 @43e02957). With a friends server,
+			// status 1 ("connecting"); the relayed list later completes with
+			// a status-2 emit (bridges.go OnFriendlistUpdate, TS
+			// World.ts:2008). Without one, status 2 immediately plus the
+			// empty UPDATE_IGNORELIST bootstrap. 254 INVERTS the 245.2
+			// conditional (was `if (!FRIEND_SERVER) UpdateIgnoreList([])`);
+			// retires DEVIATION-NAI-182-D5-NO-DEFENSIVE-IGNORELIST-LOGIN-EMIT.
+			// Gate mirrors TS Environment.FRIEND_SERVER: s.friendsClient is
+			// non-nil iff FriendsServerEnabled and the client dialed
+			// (world.go:66-75) — same gate as the PlayerLogin RPC below.
+			if s.friendsClient != nil {
+				sendFriendlistLoaded(p, 1)
+			} else {
+				sendFriendlistLoaded(p, 2)
+				sendUpdateIgnoreList(p, nil)
+			}
 			// TS UpdatePidEncoder (244): p2(uid) pbool(members).
 			// TS Player.ts:501 `new UpdatePid(this.pid, this.members)` —
 			// members is the player's own membership flag.

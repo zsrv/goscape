@@ -79,6 +79,31 @@ func TestSendUpdateIgnoreList_EmptyListEmitsZeroLengthPayload(t *testing.T) {
 	}
 }
 
+// TestSendFriendlistLoaded_EmitsExactByteSequence pins FRIENDLIST_LOADED:
+// fixed 1-byte payload p1(status). Statuses per TS FriendlistLoadedEncoder
+// @43e02957: 0 loading, 1 connecting to friendserver, 2 online.
+func TestSendFriendlistLoaded_EmitsExactByteSequence(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	received := drainConn(t, cc)
+	sendFriendlistLoaded(p, 1)
+	sendFriendlistLoaded(p, 2)
+	p.client.flushWrite()
+
+	got := <-received
+	want := []byte{
+		byte((int(gameserver.OpFriendlistLoaded.Opcode) + int(enc.GetNext())) & 0xff),
+		0x01,
+		byte((int(gameserver.OpFriendlistLoaded.Opcode) + int(enc.GetNext())) & 0xff),
+		0x02,
+	}
+	if string(got) != string(want) {
+		t.Fatalf("wire bytes: got % x, want % x", got, want)
+	}
+}
+
 // TestSendChatFilterSettings_EmitsExactByteSequence pins CHAT_FILTER_SETTINGS.
 // Fixed 3-byte payload: p1(public) + p1(private) + p1(trade).
 func TestSendChatFilterSettings_EmitsExactByteSequence(t *testing.T) {

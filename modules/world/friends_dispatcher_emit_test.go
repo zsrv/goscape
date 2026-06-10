@@ -12,8 +12,10 @@ import (
 
 // TestEmitFriendsDispatcher_OnFriendlistUpdate_EnqueuesOnePacketPerEntry
 // pins that the dispatcher closes over a single closure that emits one
-// UPDATE_FRIENDLIST packet per FriendEntry — matching TS World.ts:1964-1966
-// (for-loop over data.friends).
+// UPDATE_FRIENDLIST packet per FriendEntry, then exactly ONE trailing
+// FRIENDLIST_LOADED status 2 ("online") for the whole batch — matching TS
+// World.ts:2003-2008 @43e02957 (for-loop over data.friends followed by
+// `player.write(new FriendlistLoaded(2))`).
 func TestEmitFriendsDispatcher_OnFriendlistUpdate_EnqueuesOnePacketPerEntry(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
@@ -37,13 +39,16 @@ func TestEmitFriendsDispatcher_OnFriendlistUpdate_EnqueuesOnePacketPerEntry(t *t
 	p.client.flushWrite()
 
 	got := <-received
-	// Expect two UPDATE_FRIENDLIST packets back-to-back: each is
-	// 1 opcode byte + 8 username37 + 1 worldId = 10 bytes.
+	// Expect two UPDATE_FRIENDLIST packets back-to-back (each 1 opcode byte
+	// + 8 username37 + 1 worldId = 10 bytes), then ONE FRIENDLIST_LOADED
+	// status-2 packet after the last row (once per batch, not per row).
 	want := []byte{
 		byte((int(gameserver.OpUpdateFriendList.Opcode) + int(enc.GetNext())) & 0xff),
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x01,
 		byte((int(gameserver.OpUpdateFriendList.Opcode) + int(enc.GetNext())) & 0xff),
 		0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11, 0x00,
+		byte((int(gameserver.OpFriendlistLoaded.Opcode) + int(enc.GetNext())) & 0xff),
+		0x02,
 	}
 	if string(got) != string(want) {
 		t.Fatalf("wire bytes: got % x, want % x", got, want)

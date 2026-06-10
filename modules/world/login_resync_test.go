@@ -99,9 +99,13 @@ func TestSendResetAnims_EmitsOpcodeOnly(t *testing.T) {
 }
 
 // TestProcessLogins_FreshLogin_EmitsOpcodeOrder pins CHAT_FILTER_SETTINGS →
-// UPDATE_PID → RESET_CLIENT_VARCACHE → RESET_ANIMS emit order on fresh login.
-// Verifies the sequence wired into processLogins at NAI-182 B3 (UPDATE_PID
-// onward) and NAI-182-D5 (CHAT_FILTER_SETTINGS prepend).
+// FRIENDLIST_LOADED(2) → UPDATE_IGNORELIST([]) → UPDATE_PID →
+// RESET_CLIENT_VARCACHE → RESET_ANIMS emit order on fresh login with NO
+// friends server (newTestServer leaves s.friendsClient nil). Verifies the
+// sequence wired into processLogins at NAI-182 B3 (UPDATE_PID onward),
+// NAI-182-D5 (CHAT_FILTER_SETTINGS prepend), and the 254 no-friendserver
+// bootstrap branch per TS Player.ts:496-501 @43e02957 (status 2 = online +
+// empty ignore-list bootstrap).
 func TestProcessLogins_FreshLogin_EmitsOpcodeOrder(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
@@ -128,6 +132,16 @@ func TestProcessLogins_FreshLogin_EmitsOpcodeOrder(t *testing.T) {
 	// CHAT_FILTER_SETTINGS payload: 3 bytes (publicChat, privateChat, tradeDuel all default 0).
 	want = append(want, 0x00, 0x00, 0x00)
 	want = append(want,
+		byte((int(gameserver.OpFriendlistLoaded.Opcode)+int(enc.GetNext()))&0xff),
+	)
+	// FRIENDLIST_LOADED payload: 1 byte — status 2 (online; no friendserver).
+	want = append(want, 0x02)
+	want = append(want,
+		byte((int(gameserver.OpUpdateIgnoreList.Opcode)+int(enc.GetNext()))&0xff),
+	)
+	// UPDATE_IGNORELIST payload: 2-byte BE length prefix = 0 (empty bootstrap).
+	want = append(want, 0x00, 0x00)
+	want = append(want,
 		byte((int(gameserver.OpUpdatePid.Opcode)+int(enc.GetNext()))&0xff),
 	)
 	// UPDATE_PID payload: 3 bytes (244): p2(slot) + pbool(members).
@@ -152,8 +166,70 @@ func TestProcessLogins_FreshLogin_EmitsOpcodeOrder(t *testing.T) {
 	}
 }
 
+// TestProcessLogins_FreshLogin_FriendsEnabled_EmitsConnectingNoIgnoreBootstrap
+// pins the friends-server-enabled login branch (TS Player.ts:496-498
+// @43e02957): CHAT_FILTER_SETTINGS is followed by FRIENDLIST_LOADED status 1
+// ("connecting to friendserver") and NO UPDATE_IGNORELIST bootstrap — the
+// real list arrives later via the UPDATE_IGNORELIST relay. The exact stream
+// length pins the absence of the empty ignore-list packet.
+func TestProcessLogins_FreshLogin_FriendsEnabled_EmitsConnectingNoIgnoreBootstrap(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	s.friendsClient = newFakeFriendsClient()
+	p.client.server = s
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	// p.username stays "" so the PlayerLogin RPC + SubscribeUpdates
+	// goroutines (gated on username != "") stay quiet; the FRIENDLIST_LOADED
+	// branch is gated on s.friendsClient alone (TS Environment.FRIEND_SERVER
+	// is a static config flag, not a per-player condition).
+
+	s.playersMu.Lock()
+	s.newPlayers = append(s.newPlayers, p)
+	s.playersMu.Unlock()
+
+	received := drainConn(t, cc)
+	s.processLogins()
+	p.client.flushWrite()
+
+	got := <-received
+
+	want := []byte{
+		byte((int(gameserver.OpChatFilterSettings.Opcode) + int(enc.GetNext())) & 0xff),
+		0x00, 0x00, 0x00,
+	}
+	want = append(want,
+		byte((int(gameserver.OpFriendlistLoaded.Opcode)+int(enc.GetNext()))&0xff),
+		0x01, // status 1 = connecting to friendserver
+	)
+	want = append(want,
+		byte((int(gameserver.OpUpdatePid.Opcode)+int(enc.GetNext()))&0xff),
+		0x00, byte(p.pid), 0x00,
+	)
+	want = append(want,
+		byte((int(gameserver.OpResetClientVarCache.Opcode)+int(enc.GetNext()))&0xff),
+	)
+	want = append(want,
+		byte((int(gameserver.OpResetAnims.Opcode)+int(enc.GetNext()))&0xff),
+	)
+
+	// Exact-length pin: CFS=4 + FRIENDLIST_LOADED=2 + UPDATE_PID=4 + RCV=1 +
+	// RA=1 = 12 bytes. An UPDATE_IGNORELIST bootstrap would add 3 more.
+	if len(got) != len(want) {
+		t.Errorf("stream length: got %d, want %d (no UPDATE_IGNORELIST bootstrap)", len(got), len(want))
+	}
+	for i, b := range want {
+		if i >= len(got) {
+			break
+		}
+		if got[i] != b {
+			t.Errorf("byte[%d]: got 0x%02x, want 0x%02x", i, got[i], b)
+		}
+	}
+}
+
 // TestProcessLogins_FreshLogin_WithShutdownPending_EmitsRebootTimer verifies
-// that UPDATE_REBOOT_TIMER is emitted after the 3 standard fresh-login
+// that UPDATE_REBOOT_TIMER is emitted after the 5 standard fresh-login
 // packets when s.shutdownTick != -1. NAI-182 B3.
 func TestProcessLogins_FreshLogin_WithShutdownPending_EmitsRebootTimer(t *testing.T) {
 	p, cc := newTestPlayer(t)
@@ -173,16 +249,19 @@ func TestProcessLogins_FreshLogin_WithShutdownPending_EmitsRebootTimer(t *testin
 
 	got := <-received
 
-	// Consume the first 4 packets: CHAT_FILTER_SETTINGS (1+3 bytes),
-	// UPDATE_PID (1+3 bytes, 244: p2+pbool), RESET_CLIENT_VARCACHE (1 byte),
-	// RESET_ANIMS (1 byte) = 10 bytes total.
+	// Consume the first 5 packets: CHAT_FILTER_SETTINGS (1+3 bytes),
+	// FRIENDLIST_LOADED (1+1 bytes), UPDATE_IGNORELIST (1+2 bytes, empty
+	// bootstrap; friendsClient nil), UPDATE_PID (1+3 bytes, 244: p2+pbool),
+	// RESET_CLIENT_VARCACHE (1 byte), RESET_ANIMS (1 byte) = 15 bytes total.
 	enc.GetNext() // CHAT_FILTER_SETTINGS opcode key
+	enc.GetNext() // FRIENDLIST_LOADED opcode key
+	enc.GetNext() // UPDATE_IGNORELIST opcode key
 	enc.GetNext() // UPDATE_PID opcode key
 	enc.GetNext() // RESET_CLIENT_VARCACHE opcode key
 	enc.GetNext() // RESET_ANIMS opcode key
-	offset := 4 + 4 + 1 + 1
+	offset := 4 + 2 + 3 + 4 + 1 + 1
 
-	// 4th packet: UPDATE_REBOOT_TIMER opcode + 2-byte payload (25 == 0x0019).
+	// Next packet: UPDATE_REBOOT_TIMER opcode + 2-byte payload (25 == 0x0019).
 	wantOpcode := byte((int(gameserver.OpUpdateRebootTimer.Opcode) + int(enc.GetNext())) & 0xff)
 	wantPayload := []byte{0x00, 0x19}
 
@@ -220,16 +299,20 @@ func TestProcessLogins_FreshLogin_NoShutdown_NoRebootTimer(t *testing.T) {
 	got := <-received
 
 	// Compute the expected UPDATE_REBOOT_TIMER encrypted opcode if it were
-	// sent. We consume 4 ISAAC values for the 4 standard packets first.
+	// sent. We consume 6 ISAAC values for the 6 standard packets first.
 	enc.GetNext() // CHAT_FILTER_SETTINGS
+	enc.GetNext() // FRIENDLIST_LOADED
+	enc.GetNext() // UPDATE_IGNORELIST
 	enc.GetNext() // UPDATE_PID
 	enc.GetNext() // RESET_CLIENT_VARCACHE
 	enc.GetNext() // RESET_ANIMS
 	forbiddenOpcode := byte((int(gameserver.OpUpdateRebootTimer.Opcode) + int(enc.GetNext())) & 0xff)
 
-	// The stream should be exactly 10 bytes (CFS=4, UPDATE_PID=4 (244: p2+pbool), RCV=1, RA=1).
-	// Anything beyond that, including a byte matching the reboot opcode, is a bug.
-	const wantLen = 10
+	// The stream should be exactly 15 bytes (CFS=4, FRIENDLIST_LOADED=2,
+	// UPDATE_IGNORELIST=3 (empty bootstrap), UPDATE_PID=4 (244: p2+pbool),
+	// RCV=1, RA=1). Anything beyond that, including a byte matching the
+	// reboot opcode, is a bug.
+	const wantLen = 15
 	if len(got) != wantLen {
 		t.Errorf("stream length: got %d, want %d (no reboot timer packet)", len(got), wantLen)
 	}

@@ -33,6 +33,16 @@ func sendUpdateIgnoreList(p *Player, ignored []uint64) {
 	p.writeOut(gameserver.OpUpdateIgnoreList, buf.Bytes())
 }
 
+// sendFriendlistLoaded reports friends-list bootstrap state.
+// p1(status): 0 loading, 1 connecting to friendserver, 2 online.
+// TS FriendlistLoadedEncoder.ts @43e02957; sends at TS Player.ts:496-501
+// (login) and World.ts:2008 (after the friend-list relay completes).
+func sendFriendlistLoaded(p *Player, status int) {
+	buf := packet.NewPacket(nil)
+	buf.P1(uint8(status))
+	p.writeOut(gameserver.OpFriendlistLoaded, buf.Bytes())
+}
+
 // sendChatFilterSettings writes one CHAT_FILTER_SETTINGS packet carrying
 // the chat-mode triple. Mirrors TS ChatFilterSettingsEncoder
 // (p1(publicChat); p1(privateChat); p1(tradeDuel)).

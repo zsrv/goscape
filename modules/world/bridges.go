@@ -131,6 +131,10 @@ func (d *emitFriendsDispatcher) OnFriendlistUpdate(viewer uint64, entries []*fri
 		for _, e := range entries {
 			sendUpdateFriendList(p, e.Username37, int(e.WorldId))
 		}
+		// After the last relayed row, report the list fully loaded:
+		// FRIENDLIST_LOADED status 2 ("online"), once per batch (not per
+		// row). TS World.ts:2003-2008 @43e02957.
+		sendFriendlistLoaded(p, 2)
 	})
 }
 

@@ -982,10 +982,11 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 // production emitFriendsDispatcher to close the loop on wire emit.
 //
 // Design note: the SubscribeUpdates stream sends an initial snapshot
-// (one empty UPDATE_IGNORELIST = 3 bytes) before delivering the PM.
-// We accumulate ALL bytes from the wire and check the PM opcode at its
-// correct position (byte 3, after the ignorelist packet) to avoid
-// conflating the two packets.
+// (empty friendlist → FRIENDLIST_LOADED(2) = 2 bytes, then one empty
+// UPDATE_IGNORELIST = 3 bytes) before delivering the PM. We accumulate
+// ALL bytes from the wire and check the PM opcode at its correct
+// position (byte 5, after the snapshot packets) to avoid conflating
+// the packets.
 func TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket(t *testing.T) {
 	port := freePort(t)
 	cfg := friends.Config{
@@ -1053,9 +1054,10 @@ func TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket(t *testing.T) {
 	}, nil)
 
 	// accumulated collects all wire bytes across multiple reads. The
-	// initial subscription snapshot sends one empty UPDATE_IGNORELIST
+	// initial subscription snapshot sends FRIENDLIST_LOADED(2) (2 bytes,
+	// empty friendlist batch completion) + one empty UPDATE_IGNORELIST
 	// (opcode + 2-byte length = 3 bytes) before the PM arrives. We keep
-	// reading until we have enough bytes for the PM opcode at offset 3.
+	// reading until we have enough bytes for the PM opcode at offset 5.
 	accumulated := make(chan []byte, 32)
 	go func() {
 		buf := make([]byte, 4096)
@@ -1087,14 +1089,19 @@ func TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket(t *testing.T) {
 
 	// Poll: dispatcher enqueues on s.relayActionQueue; we must drain
 	// from the tick-goroutine seat (the test goroutine here) before
-	// writeOut runs. Accumulate all wire bytes until we have both the
-	// initial ignorelist packet (3 bytes) and the PM opcode byte (byte 3).
+	// writeOut runs. Accumulate all wire bytes until we have the full
+	// initial snapshot (5 bytes) and the PM opcode byte (byte 5).
 	//
-	// Wire layout (OpUpdateIgnoreList.PayloadSize == -2):
-	//   got[0] = encrypted OpUpdateIgnoreList opcode (ISAAC advance #1)
-	//   got[1:3] = 2-byte length = 0 (empty ignorelist)
-	//   got[3] = encrypted OpMessagePrivate opcode (ISAAC advance #2)
-	const pmOpcodeOffset = 3 // byte index of PM opcode in accumulated bytes
+	// Wire layout (friendlist snapshot first, then ignorelist —
+	// handler.go SubscribeUpdates; the empty friendlist snapshot still
+	// emits the batch-completion FRIENDLIST_LOADED(2), TS World.ts:2008
+	// @43e02957):
+	//   got[0] = encrypted OpFriendlistLoaded opcode (ISAAC advance #1)
+	//   got[1] = status 2 (online)
+	//   got[2] = encrypted OpUpdateIgnoreList opcode (ISAAC advance #2)
+	//   got[3:5] = 2-byte length = 0 (empty ignorelist)
+	//   got[5] = encrypted OpMessagePrivate opcode (ISAAC advance #3)
+	const pmOpcodeOffset = 5 // byte index of PM opcode in accumulated bytes
 	deadline := time.Now().Add(2 * time.Second)
 	var got []byte
 	for time.Now().Before(deadline) {
@@ -1119,9 +1126,11 @@ func TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket(t *testing.T) {
 		t.Fatalf("recipient wire received only %d bytes within 2s (need > %d for PM opcode)", len(got), pmOpcodeOffset)
 	}
 
-	// Advance enc past ISAAC advance #1 (the UPDATE_IGNORELIST opcode).
+	// Advance enc past ISAAC advances #1 and #2 (the FRIENDLIST_LOADED
+	// and UPDATE_IGNORELIST opcodes).
 	enc.GetNext()
-	// ISAAC advance #2 is the PM opcode.
+	enc.GetNext()
+	// ISAAC advance #3 is the PM opcode.
 	wantOpcode := byte((int(gameserver.OpMessagePrivate.Opcode) + int(enc.GetNext())) & 0xff)
 	if got[pmOpcodeOffset] != wantOpcode {
 		t.Errorf("PM wire opcode byte (offset %d): got 0x%02x, want 0x%02x (encrypted OpMessagePrivate)",
