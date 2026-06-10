@@ -178,7 +178,7 @@ func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 	return nil
 }
 
-// PostDecode mirrors TS LocType.postDecode (LocType.ts:202-214).
+// PostDecode mirrors TS LocType.postDecode (LocType.ts:216-228 @43e02957).
 // Coerces the Active default (-1) to 0/1 based on Shapes/Op presence.
 // Called after both server and client decode passes complete in
 // parseLocTypes.
