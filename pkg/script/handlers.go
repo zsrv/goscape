@@ -590,7 +590,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPOpHeld: handlePOpHeld,
 
 	// Stubs: TS-declared opcodes with no handlers/* implementation.
-	// PUSH_VARBIT (25) and POP_VARBIT (27) deleted from 244 enum (ScriptOpcode.ts:20-21).
+	// (PUSH_VARBIT 25 / POP_VARBIT 27 were on this list while deleted from
+	// the 244/245.2 enums; restored as LIVE handlers at 254 — see the
+	// S5b VAR-ops block above.)
 	// LC_OP (4104), OC_IOP (4205), OC_OP (4208): TS-unimplemented per NAI-162.
 	OpLcOp:  handleLcOp,  // opcode 4104
 	OpOcIop: handleOcIop, // opcode 4205
