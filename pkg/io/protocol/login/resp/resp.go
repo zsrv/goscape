@@ -116,17 +116,9 @@ var (
 		PayloadSize: 0,
 		Name:        "MembersOnlyArea",
 	}
-	// player will have right-click report abuse in chat, mute option in report abuse interface
-	OpLoginOKWithRights = protocol.Operation{
-		Opcode:      18,
-		PayloadSize: 0,
-		Name:        "LoginOKWithRights",
-	}
-	// OpLoginOKSupermod is sent when staffModLevel >= 2.
-	// TS World.ts:943-949 (244 pin 9aadcec4): >=2 → byte 19 (supermod/admin).
-	OpLoginOKSupermod = protocol.Operation{
-		Opcode:      19,
-		PayloadSize: 0,
-		Name:        "LoginOKSupermod",
-	}
+	// Replies 18 (LoginOKWithRights) and 19 (LoginOKSupermod) were removed
+	// at 254: the staff tier now rides inside the always-opcode-2 login OK
+	// reply [2, min(staffModLevel,2), 1] (TS World.ts:946-950 @43e02957;
+	// the 254 client has no 18/19 login branches — Client.java @2e629784
+	// routes them to "Unexpected server response").
 )

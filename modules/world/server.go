@@ -1221,11 +1221,10 @@ func (c *client) handleLogin() error {
 
 		// Non-accepting replies: send the byte and close the connection.
 		switch reply {
-		case loginresp.OpOK.Opcode, loginresp.OpReconnectOK.Opcode, loginresp.OpLoginOKWithRights.Opcode:
+		case loginresp.OpOK.Opcode, loginresp.OpReconnectOK.Opcode:
 			// accepted — fall through to post-login handling below.
-			// (OpLoginOKWithRights here is unreachable: loginResultToRS2 never
-			// returns 18/19 — the staff byte is applied by sendLoginOK, not the
-			// RPC mapping. Kept for defensive symmetry.)
+			// (254 removed the 18/19 staff replies; the staff tier is the
+			// second byte of sendLoginOK's [2, min(staff,2), 1] reply.)
 		default:
 			return c.sendLoginError(reply)
 		}

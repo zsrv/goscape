@@ -152,7 +152,8 @@ func (c *client) flushWrite() error {
 }
 
 // sendLoginOK queues the player for world registration on the next tick,
-// sends the login-accepted byte, and transitions to ClientStateGame.
+// sends the 3-byte login-accepted reply [2, min(staffModLevel,2), 1], and
+// transitions to ClientStateGame.
 // Actual slot assignment happens in processLogins (next tick).
 func (c *client) sendLoginOK() error {
 	if c.server != nil {
@@ -172,17 +173,14 @@ func (c *client) sendLoginOK() error {
 		c.tap.SessionStarted(c.accountID, c.sessionID, time.Now())
 	}
 
-	// TS World.ts:943-949 (244 pin 9aadcec4):
-	//   staffModLevel >= 2 → 19 (supermod/admin)
-	//   staffModLevel >= 1 → 18 (mod — right-click report abuse)
-	//   else              → 2  (normal)
-	if c.staffModLevel >= 2 {
-		c.bufw.WriteByte(loginresp.OpLoginOKSupermod.Opcode)
-	} else if c.staffModLevel >= 1 {
-		c.bufw.WriteByte(loginresp.OpLoginOKWithRights.Opcode)
-	} else {
-		c.bufw.WriteByte(loginresp.OpOK.Opcode)
-	}
+	// TS World.ts:946-950 @43e02957 (254): always opcode 2, then
+	// min(staffModLevel, 2), then 1 (mouse tracking can only be enabled on
+	// login — the 254 client reads staffmodlevel then mouseTracked after
+	// response code 2, Client.java:2451-2452 @2e629784). The 245.2
+	// three-way opcode fork (19 supermod / 18 mod / 2 normal) is gone.
+	c.bufw.WriteByte(loginresp.OpOK.Opcode)
+	c.bufw.WriteByte(byte(min(c.staffModLevel, 2)))
+	c.bufw.WriteByte(1)
 	if err := c.flushWrite(); err != nil {
 		return fmt.Errorf("failed to flush login OK: %w", err)
 	}

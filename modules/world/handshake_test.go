@@ -17,8 +17,8 @@ package world
 //      payload = 0 bytes (opcode only). client.state→ClientStateOndemand;
 //      reply = 8x00. Subsequent 4-byte frames are routed to s.onDemand.
 //
-//  (d) staffModLevel>=2 → reply byte 19 (World.ts:943-949).
-//      staffModLevel>=1 → 18; else 2.
+//  (d) login OK reply = [2, min(staffModLevel,2), 1] at 254
+//      (TS World.ts:946-950 @43e02957) — the 245.2 18/19 staff fork is gone.
 //
 //  (e) Op-16/18 regression: existing tests keep passing (framing unchanged).
 
@@ -27,8 +27,6 @@ import (
 	"io"
 	"testing"
 	"time"
-
-	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 )
 
 // readAllWithTimeout reads up to n bytes from r; returns what arrived in d or
@@ -253,34 +251,37 @@ func TestOp15OnDemandRoutingIntegration(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// (d) staffModLevel — supermod byte 19
+// (d) staffModLevel — capped staff byte inside the 3-byte login OK reply
 // ---------------------------------------------------------------------------
 
-// TestSendLoginOKStaffTierMatrix pins all three tiers in one table.
-// TS World.ts:943-949 (244 pin 9aadcec4): >=2→19, >=1→18, else→2.
+// TestSendLoginOKStaffTierMatrix pins the 254 login-OK reply for all staff
+// tiers. TS World.ts:946-950 @43e02957: always [2, min(staffModLevel, 2), 1]
+// — the 245.2 opcode-18/19 fork is gone; the trailing 1 enables client-side
+// mouse tracking (Client.java:2451-2452 @2e629784 reads staffmodlevel then
+// mouseTracked after response code 2).
 // The state transition to ClientStateGame is asserted per row.
 func TestSendLoginOKStaffTierMatrix(t *testing.T) {
 	cases := []struct {
 		staffModLevel int32
-		wantByte      byte
+		wantBytes     [3]byte
 		label         string
 	}{
-		{0, loginresp.OpOK.Opcode, "normal(0)→2"},
-		{1, loginresp.OpLoginOKWithRights.Opcode, "mod(1)→18"},
-		{2, loginresp.OpLoginOKSupermod.Opcode, "supermod(2)→19"},
-		{3, loginresp.OpLoginOKSupermod.Opcode, "supermod(3)→19"},
+		{0, [3]byte{2, 0, 1}, "normal(0)→[2,0,1]"},
+		{1, [3]byte{2, 1, 1}, "mod(1)→[2,1,1]"},
+		{2, [3]byte{2, 2, 1}, "supermod(2)→[2,2,1]"},
+		{3, [3]byte{2, 2, 1}, "admin(3)→[2,2,1] (min cap)"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.label, func(t *testing.T) {
 			c, clientConn := newTestClient(t)
 			c.staffModLevel = tc.staffModLevel
 
-			received := make(chan byte, 1)
+			received := make(chan [3]byte, 1)
 			go func() {
-				buf := make([]byte, 1)
+				var buf [3]byte
 				_ = clientConn.(interface{ SetReadDeadline(time.Time) error }).SetReadDeadline(time.Now().Add(time.Second))
-				if _, err := io.ReadFull(clientConn, buf); err == nil {
-					received <- buf[0]
+				if _, err := io.ReadFull(clientConn, buf[:]); err == nil {
+					received <- buf
 				}
 			}()
 
@@ -290,8 +291,8 @@ func TestSendLoginOKStaffTierMatrix(t *testing.T) {
 
 			select {
 			case got := <-received:
-				if got != tc.wantByte {
-					t.Errorf("got byte %d, want %d", got, tc.wantByte)
+				if got != tc.wantBytes {
+					t.Errorf("got bytes %v, want %v", got, tc.wantBytes)
 				}
 			case <-time.After(time.Second):
 				t.Fatal("timeout")

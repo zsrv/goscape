@@ -193,12 +193,12 @@ func TestSendLoginErrorVariousCodes(t *testing.T) {
 func TestSendLoginOKSendsOpOKAndTransitionsState(t *testing.T) {
 	c, clientConn := newTestClient(t)
 
-	received := make(chan byte, 1)
+	received := make(chan [3]byte, 1)
 	go func() {
-		buf := make([]byte, 1)
+		var buf [3]byte
 		clientConn.SetReadDeadline(time.Now().Add(time.Second))
-		if _, err := io.ReadFull(clientConn, buf); err == nil {
-			received <- buf[0]
+		if _, err := io.ReadFull(clientConn, buf[:]); err == nil {
+			received <- buf
 		}
 	}()
 
@@ -208,11 +208,12 @@ func TestSendLoginOKSendsOpOKAndTransitionsState(t *testing.T) {
 
 	select {
 	case got := <-received:
-		if got != loginresp.OpOK.Opcode {
-			t.Errorf("login OK byte: got %d, want %d", got, loginresp.OpOK.Opcode)
+		// TS World.ts:946-950 @43e02957: [2, min(staffModLevel,2), 1].
+		if want := [3]byte{loginresp.OpOK.Opcode, 0, 1}; got != want {
+			t.Errorf("login OK bytes: got %v, want %v", got, want)
 		}
 	case <-time.After(time.Second):
-		t.Error("timed out waiting for login OK byte")
+		t.Error("timed out waiting for login OK bytes")
 	}
 
 	if c.state != ClientStateGame {
@@ -220,16 +221,16 @@ func TestSendLoginOKSendsOpOKAndTransitionsState(t *testing.T) {
 	}
 }
 
-func TestSendLoginOKStaffSendsRightsByte(t *testing.T) {
+func TestSendLoginOKStaffSendsCappedStaffByte(t *testing.T) {
 	c, clientConn := newTestClient(t)
 	c.staffModLevel = 1
 
-	received := make(chan byte, 1)
+	received := make(chan [3]byte, 1)
 	go func() {
-		buf := make([]byte, 1)
+		var buf [3]byte
 		clientConn.SetReadDeadline(time.Now().Add(time.Second))
-		if _, err := io.ReadFull(clientConn, buf); err == nil {
-			received <- buf[0]
+		if _, err := io.ReadFull(clientConn, buf[:]); err == nil {
+			received <- buf
 		}
 	}()
 
@@ -239,11 +240,13 @@ func TestSendLoginOKStaffSendsRightsByte(t *testing.T) {
 
 	select {
 	case got := <-received:
-		if got != loginresp.OpLoginOKWithRights.Opcode {
-			t.Errorf("staff login OK byte: got %d, want %d", got, loginresp.OpLoginOKWithRights.Opcode)
+		// 254 drops the opcode-18 mod fork: staff level rides in byte 2 of
+		// the always-opcode-2 reply (TS World.ts:946-950 @43e02957).
+		if want := [3]byte{loginresp.OpOK.Opcode, 1, 1}; got != want {
+			t.Errorf("staff login OK bytes: got %v, want %v", got, want)
 		}
 	case <-time.After(time.Second):
-		t.Error("timed out waiting for staff login OK byte")
+		t.Error("timed out waiting for staff login OK bytes")
 	}
 }
 
