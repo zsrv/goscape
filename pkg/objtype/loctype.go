@@ -53,7 +53,8 @@ type LocType struct {
 	OffsetX       int16    // code 70 (G2S)
 	OffsetY       int16    // code 71 (G2S)
 	OffsetZ       int16    // code 72 (G2S)
-	ForceDecor    bool     // code 73
+	ForceDecor        bool // code 73
+	BreakRouteFinding bool // code 74, new in 245.2 (TS LocType.ts:194-195)
 
 	// Server-side fields
 	Category int      // code 61
@@ -151,6 +152,8 @@ func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 		lt.OffsetZ = dat.G2S()
 	case 73:
 		lt.ForceDecor = true
+	case 74:
+		lt.BreakRouteFinding = true // TS LocType.ts:194-195, new in 245.2
 	case 249:
 		lt.Params = DecodeParams(dat)
 	case 250:

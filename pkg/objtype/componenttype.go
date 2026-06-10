@@ -64,6 +64,7 @@ type ComponentType struct {
 	Draggable            bool
 	Interactable         bool // TS Component.ts:288; renamed from operable in 244
 	Usable               bool
+	Swappable            bool // TS Component.ts:126, new in 245.2
 	MarginX              int
 	MarginY              int
 	InventorySlotOffsetX []int16
@@ -79,6 +80,7 @@ type ComponentType struct {
 	Colour               int32
 	ActiveColour         int32
 	OverColour           int32
+	ActiveOverColour     int32 // TS Component.ts:157/168, new in 245.2
 	Graphic              string
 	ActiveGraphic        string
 	Model                int
@@ -228,6 +230,7 @@ func parseComponentTypes(client *packet.Packet, server *packet.Packet) (*Compone
 			com.Draggable = client.GBool()
 			com.Interactable = client.GBool() // TS Component.ts:124, renamed from operable in 244
 			com.Usable = client.GBool()
+			com.Swappable = client.GBool() // TS Component.ts:126, new in 245.2
 			com.MarginX = int(client.G1())
 			com.MarginY = int(client.G1())
 			com.InventorySlotOffsetX = make([]int16, 20)
@@ -252,6 +255,7 @@ func parseComponentTypes(client *packet.Packet, server *packet.Packet) (*Compone
 			com.Colour = int32(client.G4())
 			com.ActiveColour = int32(client.G4())
 			com.OverColour = int32(client.G4())
+			com.ActiveOverColour = int32(client.G4()) // TS Component.ts:157, new in 245.2
 		case ComTypeText:
 			com.Center = client.GBool()
 			com.Font = int(client.G1())
@@ -261,6 +265,7 @@ func parseComponentTypes(client *packet.Packet, server *packet.Packet) (*Compone
 			com.Colour = int32(client.G4())
 			com.ActiveColour = int32(client.G4())
 			com.OverColour = int32(client.G4())
+			com.ActiveOverColour = int32(client.G4()) // TS Component.ts:168, new in 245.2
 		case ComTypeSprite:
 			com.Graphic = client.GJStrLF()
 			com.ActiveGraphic = client.GJStrLF()

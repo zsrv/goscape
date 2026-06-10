@@ -644,6 +644,16 @@ func TestLocTypeDecodeNewArms(t *testing.T) {
 				}
 			},
 		},
+		{
+			// TS LocType.ts:194-195 (3c16994c), new in 245.2
+			name:    "code74_breakroutefinding_true",
+			payload: []byte{74},
+			assert: func(t *testing.T, lt *LocType) {
+				if !lt.BreakRouteFinding {
+					t.Errorf("BreakRouteFinding: got false, want true (TS LocType.ts:194-195, new in 245.2)")
+				}
+			},
+		},
 	}
 
 	for _, tc := range cases {

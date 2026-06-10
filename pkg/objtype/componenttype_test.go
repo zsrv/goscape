@@ -334,9 +334,11 @@ func TestComponentDecode_TypeUnused(t *testing.T) {
 }
 
 func TestComponentDecode_TypeInventory(t *testing.T) {
-	// 2 populated slots (indices 0 and 3), 18 empty; inventoryOptions[5]; action fields
+	// 245.2-format fixture: 2 populated slots (indices 0 and 3), 18 empty;
+	// inventoryOptions[5]; action fields.
 	// 244 format: trans byte after height; interactable/inventoryOptions rename
-	// (TS Component.ts:66, 124, 141-143)
+	// (TS Component.ts:66, 124, 141-143).
+	// 245.2 addition: swappable bool byte after usable (TS Component.ts:126).
 	p := packet.NewPacket(nil)
 	p.P2(0) // count header
 	p.P2(6) // id
@@ -352,6 +354,7 @@ func TestComponentDecode_TypeInventory(t *testing.T) {
 	p.P1(1) // draggable = true
 	p.P1(0) // interactable = false (renamed from operable, TS Component.ts:124)
 	p.P1(1) // usable = true
+	p.P1(0) // swappable = false (TS Component.ts:126, new in 245.2)
 	p.P1(3) // marginX = 3
 	p.P1(4) // marginY = 4
 	// 20 slots: slot 0 populated, slot 3 populated, rest empty
@@ -397,6 +400,9 @@ func TestComponentDecode_TypeInventory(t *testing.T) {
 	if !c.Usable {
 		t.Errorf("Usable: want true")
 	}
+	if c.Swappable {
+		t.Errorf("Swappable: want false")
+	}
 	if c.MarginX != 3 {
 		t.Errorf("MarginX: got %d, want 3", c.MarginX)
 	}
@@ -424,11 +430,14 @@ func TestComponentDecode_TypeInventory(t *testing.T) {
 }
 
 func TestComponentDecode_TypeRect(t *testing.T) {
+	// 245.2-format fixture: fill + colour + activeColour + overColour + activeOverColour.
+	// 245.2 addition: activeOverColour g4 after overColour (TS Component.ts:157, new in 245.2).
 	typeBody := []byte{
 		1,                      // fill = true
 		0x00, 0x11, 0x22, 0x33, // colour = 0x00112233
 		0x00, 0xAA, 0xBB, 0xCC, // activeColour
 		0xFF, 0x00, 0x00, 0x01, // overColour
+		0x00, 0xDE, 0xAD, 0xBE, // activeOverColour = 0x00DEADBE (sentinel)
 	}
 	client := minimalComponentRecord(t, 5, ComTypeRect, ButtonNone, typeBody, nil)
 	cfg, err := parseComponentTypes(client, nil)
@@ -450,9 +459,15 @@ func TestComponentDecode_TypeRect(t *testing.T) {
 	if c.OverColour != wantOverColour {
 		t.Errorf("OverColour: got %08x, want ff000001", c.OverColour)
 	}
+	if c.ActiveOverColour != int32(0x00DEADBE) {
+		t.Errorf("ActiveOverColour: got %08x, want 00deadbe (TS Component.ts:157, new in 245.2)", c.ActiveOverColour)
+	}
 }
 
 func TestComponentDecode_TypeText(t *testing.T) {
+	// 245.2-format fixture: center + font + shadowed + text + activeText +
+	// colour + activeColour + overColour + activeOverColour.
+	// 245.2 addition: activeOverColour g4 after overColour (TS Component.ts:168, new in 245.2).
 	p := packet.NewPacket(nil)
 	p.P2(0) // count header
 	p.P2(8) // id
@@ -473,6 +488,7 @@ func TestComponentDecode_TypeText(t *testing.T) {
 	p.P4(0x001122FF) // colour
 	p.P4(0x002244FF) // activeColour
 	p.P4(0x003366FF) // overColour
+	p.P4(0x00CAFE01) // activeOverColour = 0x00CAFE01 (sentinel, TS Component.ts:168, new in 245.2)
 
 	cfg, err := parseComponentTypes(p, nil)
 	if err != nil {
@@ -496,6 +512,15 @@ func TestComponentDecode_TypeText(t *testing.T) {
 	}
 	if c.Colour != int32(0x001122FF) {
 		t.Errorf("Colour: got %08x, want 001122ff", c.Colour)
+	}
+	if c.ActiveColour != int32(0x002244FF) {
+		t.Errorf("ActiveColour: got %08x, want 002244ff", c.ActiveColour)
+	}
+	if c.OverColour != int32(0x003366FF) {
+		t.Errorf("OverColour: got %08x, want 003366ff", c.OverColour)
+	}
+	if c.ActiveOverColour != int32(0x00CAFE01) {
+		t.Errorf("ActiveOverColour: got %08x, want 00cafe01 (TS Component.ts:168, new in 245.2)", c.ActiveOverColour)
 	}
 }
 
@@ -1094,6 +1119,8 @@ func TestComponentDecode_244_ChildCountG2(t *testing.T) {
 // TestComponentDecode_244_InventoryInteractableAndOptions pins the rev-244
 // renames: Interactable (was Operable) and InventoryOptions (was Iop) in the
 // TYPE_INVENTORY block (TS Component.ts:124, 141-143).
+// Fixture widened to 245.2 format: swappable byte inserted after usable
+// (TS Component.ts:126, new in 245.2).
 func TestComponentDecode_244_InventoryInteractableAndOptions(t *testing.T) {
 	p := packet.NewPacket(nil)
 	p.P2(0) // count header
@@ -1110,6 +1137,7 @@ func TestComponentDecode_244_InventoryInteractableAndOptions(t *testing.T) {
 	p.P1(0) // draggable = false
 	p.P1(1) // interactable = true (TS Component.ts:124)
 	p.P1(0) // usable = false
+	p.P1(0) // swappable = false (TS Component.ts:126, new in 245.2)
 	p.P1(0) // marginX
 	p.P1(0) // marginY
 	// 20 empty slots
@@ -1139,6 +1167,133 @@ func TestComponentDecode_244_InventoryInteractableAndOptions(t *testing.T) {
 	}
 	if len(c.InventoryOptions) != 5 || c.InventoryOptions[0] != "op1" || c.InventoryOptions[4] != "op5" {
 		t.Errorf("InventoryOptions: got %v, want [op1..op5] (renamed from Iop, TS Component.ts:295)", c.InventoryOptions)
+	}
+}
+
+// TestComponentDecode_245_2_Swappable pins the rev-245.2 delta: a new
+// swappable bool byte is read directly after usable in TYPE_INVENTORY
+// (TS Component.ts:126, new in 245.2). The tail-shift is the real regression
+// risk: MarginX/MarginY must still land on the correct bytes.
+func TestComponentDecode_245_2_Swappable(t *testing.T) {
+	p := packet.NewPacket(nil)
+	p.P2(0)  // count header
+	p.P2(60) // id
+	p.P1(ComTypeInventory)
+	p.P1(ButtonNone)
+	p.P2(0)
+	p.P2(0)
+	p.P2(0) // clientCode/width/height
+	p.P1(0) // trans
+	p.P1(0) // overLayer
+	p.P1(0) // comparatorCount
+	p.P1(0) // scriptCount
+	p.P1(0) // draggable = false
+	p.P1(0) // interactable = false
+	p.P1(0) // usable = false
+	p.P1(1) // swappable = true (TS Component.ts:126, new in 245.2)
+	p.P1(7) // marginX = 7
+	p.P1(9) // marginY = 9
+	// 20 empty slots
+	for range 20 {
+		p.P1(0)
+	}
+	// inventoryOptions[5]
+	for range 5 {
+		p.PJStrLF("")
+	}
+	p.PJStrLF("") // actionVerb
+	p.PJStrLF("") // action
+	p.P2(0)       // actionTarget
+
+	cfg, err := parseComponentTypes(p, nil)
+	if err != nil {
+		t.Fatalf("parseComponentTypes: %v", err)
+	}
+	c := cfg.Configs[60]
+	if c == nil {
+		t.Fatalf("Configs[60]: missing")
+	}
+	if !c.Swappable {
+		t.Errorf("Swappable: want true (TS Component.ts:126, new in 245.2)")
+	}
+	// Tail-shift guard: MarginX/MarginY must still decode correctly.
+	if c.MarginX != 7 {
+		t.Errorf("MarginX: got %d, want 7 (tail-shift regression check)", c.MarginX)
+	}
+	if c.MarginY != 9 {
+		t.Errorf("MarginY: got %d, want 9 (tail-shift regression check)", c.MarginY)
+	}
+}
+
+// TestComponentDecode_245_2_RectActiveOverColour pins the rev-245.2 delta:
+// activeOverColour is read directly after overColour in TYPE_RECT
+// (TS Component.ts:157, new in 245.2).
+func TestComponentDecode_245_2_RectActiveOverColour(t *testing.T) {
+	typeBody := []byte{
+		1,                      // fill = true
+		0x00, 0x11, 0x22, 0x33, // colour
+		0x00, 0xAA, 0xBB, 0xCC, // activeColour
+		0xFF, 0x00, 0x00, 0x01, // overColour
+		0x00, 0xAB, 0xCD, 0xEF, // activeOverColour = 0x00ABCDEF (TS Component.ts:157, new in 245.2)
+	}
+	client := minimalComponentRecord(t, 61, ComTypeRect, ButtonNone, typeBody, nil)
+	cfg, err := parseComponentTypes(client, nil)
+	if err != nil {
+		t.Fatalf("parseComponentTypes: %v", err)
+	}
+	c := cfg.Configs[61]
+	if c == nil {
+		t.Fatalf("Configs[61]: missing")
+	}
+	if c.ActiveOverColour != int32(0x00ABCDEF) {
+		t.Errorf("ActiveOverColour: got %08x, want 00abcdef (TS Component.ts:157, new in 245.2)", c.ActiveOverColour)
+	}
+	// Verify fields before activeOverColour still decode correctly.
+	if c.OverColour != int32(-16777215) { // int32(uint32(0xFF000001))
+		t.Errorf("OverColour: got %08x, want ff000001 (pre-field regression check)", c.OverColour)
+	}
+}
+
+// TestComponentDecode_245_2_TextActiveOverColour pins the rev-245.2 delta:
+// activeOverColour is read directly after overColour in TYPE_TEXT
+// (TS Component.ts:168, new in 245.2).
+func TestComponentDecode_245_2_TextActiveOverColour(t *testing.T) {
+	p := packet.NewPacket(nil)
+	p.P2(0)  // count header
+	p.P2(62) // id
+	p.P1(ComTypeText)
+	p.P1(ButtonNone)
+	p.P2(0)
+	p.P2(0)
+	p.P2(0) // clientCode/width/height
+	p.P1(0) // trans
+	p.P1(0) // overLayer
+	p.P1(0) // comparatorCount
+	p.P1(0) // scriptCount
+	p.P1(0) // center = false
+	p.P1(0) // font = 0
+	p.P1(0) // shadowed = false
+	p.PJStrLF("Hi")
+	p.PJStrLF("Bye")
+	p.P4(0x00001111) // colour
+	p.P4(0x00002222) // activeColour
+	p.P4(0x00003333) // overColour
+	p.P4(0x00ABCDEF) // activeOverColour = 0x00ABCDEF (TS Component.ts:168, new in 245.2)
+
+	cfg, err := parseComponentTypes(p, nil)
+	if err != nil {
+		t.Fatalf("parseComponentTypes: %v", err)
+	}
+	c := cfg.Configs[62]
+	if c == nil {
+		t.Fatalf("Configs[62]: missing")
+	}
+	if c.ActiveOverColour != int32(0x00ABCDEF) {
+		t.Errorf("ActiveOverColour: got %08x, want 00abcdef (TS Component.ts:168, new in 245.2)", c.ActiveOverColour)
+	}
+	// Verify pre-field still correct.
+	if c.OverColour != int32(0x00003333) {
+		t.Errorf("OverColour: got %08x, want 00003333 (pre-field regression check)", c.OverColour)
 	}
 }
 
