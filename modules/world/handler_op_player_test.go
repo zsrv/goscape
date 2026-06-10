@@ -99,6 +99,9 @@ func TestHandleOpPlayer_HappyPath_AllOps(t *testing.T) {
 			if clicker.interactionKind != InteractionEngine {
 				t.Errorf("interactionKind: got %v, want InteractionEngine", clicker.interactionKind)
 			}
+			if !clicker.opcalled {
+				t.Errorf("opcalled: want true for op=%d", op)
+			}
 		})
 	}
 }

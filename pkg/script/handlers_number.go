@@ -316,7 +316,7 @@ func handleRandomInc(s *ScriptState) error {
 	n := s.PopInt()
 	if n+1 < 0 {
 		// TS: JavaRandom.nextInt(n+1) throws RangeError (JavaRandom.ts:58-62).
-		return fmt.Errorf("RANDOMINC: bound must be non-negative: %d", n+1)
+		return fmt.Errorf("RANDOMINC: bound must be non-negative: n=%d, bound=n+1=%d", n, n+1)
 	}
 	if n+1 == 0 {
 		// TS: nextInt(0) returns 0 (power-of-two branch); avoid IntN(0) panic.
