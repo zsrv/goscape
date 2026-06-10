@@ -7,6 +7,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
 // inputTrackingTestSetup wires a Player against a Server with
@@ -133,7 +134,7 @@ func TestInputTrackingEnable(t *testing.T) {
 	// Decode the ISAAC-encrypted byte against a parallel encryptor seeded
 	// the same way to verify the opcode.
 	parallel := io2.New([4]uint32{1, 2, 3, 4})
-	wantByte := byte((28 + parallel.GetNext()) & 0xff) // OpEnableTracking=28 at 245.2; TS ServerGameProt.ts @3c16994c: ENABLE_TRACKING=28
+	wantByte := byte((uint32(gameserver.OpEnableTracking.Opcode) + parallel.GetNext()) & 0xff) // TS ServerGameProt.ts @43e02957 (254): ENABLE_TRACKING=251
 	if got[0] != wantByte {
 		t.Errorf("EnableTracking opcode (encrypted): got %d, want %d", got[0], wantByte)
 	}
