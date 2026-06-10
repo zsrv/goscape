@@ -94,29 +94,44 @@ Notes:
 
 | Repo | Role | URL | Branch | Pinned commit |
 |---|---|---|---|---|
-| Engine-TS | **primary** — authoritative translation source | https://github.com/LostCityRS/Engine-TS | `254` | `43e02957f3559c4f1aaa5680c41e5305b7ca3bfe` |
+| Engine-TS | **primary** — authoritative translation source | https://github.com/LostCityRS/Engine-TS | `254` | `2e3bcf4392200e84dd15ce67008c5d41fa4537aa` |
 | Content | game content packed and served by the server | https://github.com/LostCityRS/Content | `254` | `caee3f2eb3eb3df60126e2be88c436dc2dc98e43` |
 | Client-Java | the client this server speaks to; wire-protocol cross-check | https://github.com/LostCityRS/Client-Java | `254` | `2e629784c3dcb671ee3aab134f9cb91d614d8094` |
 | rsbuf | renderer/info reference crate — `@2004scape/rsbuf` bumps `^244.1.0` → `254.1.0` at the 254 pin; `pkg/rsbuf` re-audited against it | https://github.com/2004scape/rsbuf | `254` | `304955d5cd6896dbcd76fb2bb17736ea426cae3e` |
-| RuneScriptKt | RuneScript compiler | — | — | unchanged from §rev-244 (release tag `26`; `ScriptProvider.COMPILER_VERSION = 26` at the 254 pin) |
+| RuneScriptTS | RuneScript compiler — **returns at the advanced 254 pin** (`@lostcityrs/runescript ^0.9.6`, `ScriptProvider.COMPILER_VERSION = 27`); replaces the RuneScriptKt release-26 jar used at 244/245.2 | https://github.com/LostCityRS/RuneScriptTS | `main` | record the resolved 0.9.x commit when the pack-parity work pins it |
 | cloudflare/zlib | gzip byte-parity reference | — | — | unchanged from §rev-244 (`886098f3`) |
 
-(Commits captured 2026-06-10, matching the goscape-client `REFERENCES.md`
-rev-254 pins. Go branch `rev-254` is cut from `rev-245.2` at `1e7df180`.)
+(Engine pin ADVANCED 2026-06-10 from the original capture `43e02957` — see
+the pin-advance note below. Content/Client-Java/rsbuf match the
+goscape-client `REFERENCES.md` rev-254 pins; their upstream tips have not
+moved. Go branch `rev-254` is cut from `rev-245.2` at `1e7df180`.)
 
 Notes:
 
+- **Pin advance (2026-06-10, user decision):** the original capture pinned
+  Engine-TS at the then-tip `43e02957`, but that engine cannot pack the
+  pinned Content — Content `caee3f2e` uses a `midi` dbtable column type
+  that Engine-TS only gained in `2dc4a811` (post-pin). The pin was
+  advanced to the current `254` tip `2e3bcf43` (57 commits, 200 files,
+  +4506/−3655 over `43e02957`) rather than cherry-picking. Wire prot
+  tables and `ENGINE_REVISION = 254` are unchanged across the advance;
+  the compiler swaps back to RuneScriptTS (above) and the
+  `tools/pack/CompilerSymbols.ts` .sym export pipeline is deleted
+  upstream.
 - **Lineage:** the upstream `254` branch shares history with `245.2`
-  (merge-base `cc487e8c`), so the net cross-pin diff
-  `git -C Engine-TS diff 3c16994c..43e02957` (63 files, +1262/−524) is the
-  real work list — plus the rsbuf crate diff `origin/244..origin/254`
-  (2 commits; `origin/244` tip `1defefb1` IS the merge-base).
+  (merge-base `cc487e8c`); the net cross-pin work list is
+  `git -C Engine-TS diff 3c16994c..2e3bcf43` — plus the rsbuf crate diff
+  `origin/244..origin/254` (2 commits; `origin/244` tip `1defefb1` IS the
+  merge-base).
 - **Toolchain: rsbuf bumps to `254.1.0`** — NPC ids widen to 14 bits on the
   wire (terminator 8191 → 16383, capacity 8192 → 16384, `NODE_MAX_NPCS`
-  8191 → 16383). `@2004scape/rsmod-pathfinder` stays `^5.0.4`; the compiler
-  stays the RuneScriptKt release-26 jar.
+  8191 → 16383). `@2004scape/rsmod-pathfinder` stays `^5.0.4`.
 - **The zone-op table is renumbered at 254** alongside both prot tables;
   `pkg/rsbuf`'s zone-op fork moves with it (cross-table pin test).
+- **jagFileVersion:** the §rev-225 note ("do not bump to 27 unless the
+  upstream pins `@lostcityrs/runescript` past `750291c`") now triggers —
+  the advanced 254 pin depends on `^0.9.6`. The pack-parity work must
+  re-verify the version byte against the new reference cache.
 
 ## Future revisions
 
