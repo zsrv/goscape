@@ -42,8 +42,10 @@ tips):
 - (c) Pack output is full-tree byte-parity against a 254 reference cache
   produced by the upstream toolchain (Engine-TS 254 + Content 254 +
   RuneScriptKt-26 jar), including content-identical `ondemand.zip`.
-- (d) All `goscape-cli unpack` families (16 existing + **varbit = 17th**)
-  are TS-output parity green against manifests regenerated at the 254 pin.
+- (d) All 16 `goscape-cli unpack` families are TS-output parity green
+  against manifests regenerated at the 254 pin (varbit is a new config
+  TYPE inside the existing `config` family, not a 17th family — the
+  `config.manifest.txt` changed-set will include the varbit outputs).
 - (e) Suite green incl. `-race` on touched packages.
 
 **Structure decision (user-approved):** one spec (this document) + one
@@ -71,7 +73,7 @@ implementation plan with four dependency-ordered phases. The delta is
 | Item | TS source (at `43e02957`) | Go target |
 |---|---|---|
 | Wire opcode renumber, client→server | `ClientGameProt.ts` (every ID reassigned) | `pkg/io/protocol` client prot table + pin tests regenerated mechanically from the TS file |
-| Wire opcode renumber, server→client + zone | `ServerGameProt.ts`, `ServerGameZoneProt.ts` | server/zone prot tables + pin tests; **also re-check `pkg/rsbuf` zone-op cross-table pin** (245.2 lesson: value-forks of renumbered tables) — zone values verified unchanged in this delta, the pin test re-run is the proof |
+| Wire opcode renumber, server→client + zone | `ServerGameProt.ts`, `ServerGameZoneProt.ts` (**the zone table IS renumbered**: LOC_MERGE 188→218, LOC_ANIM 71→30, OBJ_DEL 13→115, OBJ_REVEAL 190→8, LOC_ADD_CHANGE 119→70, MAP_PROJANIM 187→37, LOC_DEL 198→88, OBJ_COUNT 151→98, MAP_ANIM 141→114, OBJ_ADD 94→120) | server/zone prot tables + pin tests; **`pkg/rsbuf/zone_encoders.go` carries a value-fork of the zone table and MUST be updated in the same task** (245.2 lesson e89f62fb); the cross-table pin test (rsbuf vs gameserver.Op*) is the regression proof |
 | **Input-event packet split** | `EVENT_TRACKING` monolith → 4 discrete packets: `EVENT_MOUSE_CLICK` (234, 4), `EVENT_MOUSE_MOVE` (232, −1), `EVENT_APPLET_FOCUS` (8, 1), `EVENT_CAMERA_POSITION` (91, 4); `EVENT_TRACKING` retained (142, −2). New decoder/handler/model per packet (`codec/Event*Decoder.ts`, `handler/Event*Handler.ts`, `model/Event*.ts`) | new models/decoders + handlers in `pkg/io/protocol/game/client` + `modules/world` |
 | **InputTracking rewrite** | `entity/tracking/InputTracking.ts` (full rewrite: `active` flag, inline `buf` accumulation per `InputTrackingEvent` enum {CAMERA_POSITION=1, APPLET_FOCUS=2, MOUSE_CLICK=3, MOUSE_MOVE=4}, `seq` counter, 500-byte flush threshold, `onCycle()` tick flush); `Player.ts` drops `submitInput`, adds `input.flush()` in appearance reset; `World.ts` login state packet becomes `[2, min(staffModLevel,2), 1]` (was 3 staff-level variants) | goscape input-tracking equivalent in `modules/world` (rewrite to match), login flow update |
 | `OPPLAYER5` | `ClientGameProt.ts` (230, 2) + `OpPlayerHandler.ts` op 5 → `ApPlayer5`/`OpPlayer5` triggers | client prot + `modules/world` player-op handler + trigger constants |
@@ -79,7 +81,8 @@ implementation plan with four dependency-ordered phases. The delta is
 | `FRIENDLIST_LOADED` packet | new `model/FriendlistLoaded.ts` + encoder (id 255, size 1: `p1 status` — 0 loading / 1 connecting / 2 online); sends at login (`Player.ts:498-500`) and friends reload (`World.ts:2006-2007`); the FRIEND_SERVER conditional **inverted** vs 245.2 | new model/encoder + registry bind + send sites in `modules/world` |
 | `SET_PLAYER_OP` packet + script op | new `model/SetPlayerOp.ts` + encoder (id 204, size −1: `p1 op, p1 primary, pjstr text`); script op `SET_PLAYER_OP` (inserted after `IF_SETSCROLLPOS` → the four `*QUEUEVARARG` opcodes shift +1 again); handler pops 2 ints + 1 string, validators index∈[1,8], primary∈[0,7] | new model/encoder + `pkg/script` opcode/map/pointers/handler; regenerate the opcode-map pin |
 | **Varbits (runtime)** | new `cache/config/VarBitType.ts` (server `varbit.dat` count g2; code 1 = `basevar g2, startbit g1, endbit g1`; code 250 = debugname); `Player.ts` `getVarBit`/`setVarBit` (`mask = Packet.bitmask[endbit−startbit+1]`; set: `(mask<<startbit & value<<startbit) \| (vars[basevar] & ~mask)`); script ops `PUSH_VARBIT = 25`, `POP_VARBIT = 27` (`CoreOps.ts`, secondary flag = operand bit 16, POP checks basevar protect); `VarBitValid` validator; `Packet.bitmask` made public | new `pkg/objtype/varbittype.go`; Player methods + ops in `pkg/script` handlers; validator; bitmask exposure in `pkg/io/packet` (or local table, matching existing Go idiom) |
-| `STAT_TOTAL` script op | `ScriptOpcode.ts` (after STAT) + `PlayerOps.ts` (sum baseLevels) | `pkg/script` constant/map/pointers + handler |
+| `STAT_TOTAL` script op | `ScriptOpcode.ts` (after STAT) + `PlayerOps.ts` (sum baseLevels). NOTE: the two enum inserts (STAT_TOTAL, SET_PLAYER_OP) shift every implicitly-numbered opcode after STAT by +1 and the tail after IF_SETSCROLLPOS by +2 (until the explicit NPC section) — regenerate the whole map pin from TS, do not hand-shift | `pkg/script` constant/map/pointers + handler |
+| PROJANIM height scaling | `ServerOps.ts` PROJANIM_PL/NPC/MAP drop the `* 4` on srcHeight/dstHeight (caller now passes raw values) | `pkg/script` server-op handlers + tests |
 | Pointer changes | `ScriptOpcodePointers.ts`: NPC_FINDHERO drops require2, set2 → `active_player`; OBJ_ADD/OBJ_TAKEITEM require2 → `active_player` | `pkg/script` pointers table + pin test |
 | `random`/`randominc` clamp removal | `NumberOps.ts` drops `Math.max(0, …)`; JavaRandom validates (throws on ≤0) | `pkg/script` number handlers; verify Go JavaRandom port's negative handling matches |
 | Cheat commands | `ClientCheatHandler.ts`: `::set`/`::get` extended to varbit names (with basevar protect guard incl. closeModal/canAccess/message); `::openoverlay <com>` / `::closeoverlay` | `modules/world` cheat handler |
