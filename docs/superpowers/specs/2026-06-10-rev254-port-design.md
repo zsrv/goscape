@@ -1,8 +1,38 @@
 # rev-254 port — 245.2→254 server delta — design
 
 **Date:** 2026-06-10
-**Status:** APPROVED (design approved in-session 2026-06-10)
+**Status:** APPROVED (design approved in-session 2026-06-10) —
+**AMENDED 2026-06-10: Engine-TS pin ADVANCED `43e02957` → `2e3bcf43`**
+(user decision; see "Pin advance amendment" below). Phases 1-2 were
+executed at `43e02957` and remain valid (wire tables, revision,
+varbits, rsbuf all unchanged across the advance); the post-pin delta
+`43e02957..2e3bcf43` is additional Phase-1b/3 work tracked in the plan
+addendum `docs/superpowers/plans/2026-06-10-rev254-pin-advance-addendum.md`.
 **Branch:** all work lands on `rev-254` (cut from `rev-245.2` at `1e7df180`)
+
+## Pin advance amendment (2026-06-10)
+
+The original capture pinned Engine-TS at the then-tip `43e02957`, but that
+engine cannot pack the pinned Content: Content `caee3f2e` uses the `midi`
+dbtable column type that Engine-TS only gained at `2dc4a811` (post-pin).
+Upstream's own pinned pair was un-packable. Options were a 2-hunk
+supplementary midi-pin vs advancing the engine pin; the user chose to
+**advance to the current 254 tip `2e3bcf43`** (57 commits, 200 files,
++4506/−3655 over the old pin; Content/Client-Java/rsbuf tips unmoved).
+Material consequences:
+
+- **Compiler swap-back**: `@lostcityrs/runescript ^0.9.6` (RuneScriptTS
+  npm) replaces the RuneScriptKt release-26 jar; `COMPILER_VERSION = 27`.
+  The script.dat byte-parity baseline re-opens, including the
+  jagFileVersion 26→27 question (the §rev-225 REFERENCES.md condition for
+  bumping is now met — verify against the new reference cache).
+- **`tools/pack/CompilerSymbols.ts` deleted upstream** — the .sym export
+  pipeline goscape's symbols-parity gate mirrors is gone at the new pin;
+  the gate must be re-scoped against however symbols are produced now.
+- Wire prot tables (client/server/zone) and `ENGINE_REVISION = 254` are
+  byte-identical across the advance — completed Phase-1/2 work stands;
+  TS citations in code written at `43e02957` remain accurate for their
+  content (the audit walks `3c16994c..2e3bcf43`).
 
 ## Goal
 
