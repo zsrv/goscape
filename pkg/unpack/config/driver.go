@@ -46,7 +46,8 @@ type Options struct {
 	DisplaySrcDir string
 
 	// Revision is embedded in the output path scripts/_unpack/<Revision>/all.<type>.
-	// TS hardcodes "245" at the call site (Unpack.ts:368 @3c16994c).
+	// TS hardcodes "254" at the call site (Unpack.ts:356 @43e02957;
+	// was "245" at Unpack.ts:368 @3c16994c).
 	Revision string
 
 	// Out receives printInfo / printWarning lines (bare message + "\n").

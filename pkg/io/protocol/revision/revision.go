@@ -17,4 +17,6 @@ package revision
 // still said 225. Goscape-only constants (no TS counterpart file) are
 // invisible to TS-diff slicing; a repo-wide grep for the old value is
 // required on every revision bump.
-const Expected = 245
+//
+// rev-254: TS Environment.ts:27 (43e02957) defaults ENGINE_REVISION to 254.
+const Expected = 254
