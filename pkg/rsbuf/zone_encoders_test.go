@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"testing"
 
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
 
@@ -224,5 +226,40 @@ func TestEncodeZonePartialEnclosedAppendsData(t *testing.T) {
 	want := []byte{48, 48, 0xAA, 0xBB, 0xCC}
 	if !bytes.Equal(buf.Data, want) {
 		t.Errorf("got %v, want %v", buf.Data, want)
+	}
+}
+
+// TestZoneOpConsistency pins that the ten ZoneOp* constants match the
+// zone-nested Op vars declared in pkg/io/protocol/game/server — compared
+// against those vars DIRECTLY (test-only import; no production dependency
+// edge). pkg/rsbuf's ZoneOp* table is a goscape-local fork of the
+// ServerGameZoneProt table; on rev-245.2 a wire renumber updated the prot
+// table only, every nested zone delta went out with stale bytes, and the
+// live client smoke found doors not opening (zone deltas undecodable until
+// a level change forced a full rebuild). rev-225 had no cross-table pin at
+// all before this backport — this test makes a future renumber unable to
+// miss the fork.
+func TestZoneOpConsistency(t *testing.T) {
+	cases := []struct {
+		name   string
+		zoneOp int
+		op     gameserver.Op
+	}{
+		{"ZoneOpLocMerge / OpLocMerge", ZoneOpLocMerge, gameserver.OpLocMerge},
+		{"ZoneOpLocAnim / OpLocAnim", ZoneOpLocAnim, gameserver.OpLocAnim},
+		{"ZoneOpObjDel / OpObjDel", ZoneOpObjDel, gameserver.OpObjDel},
+		{"ZoneOpObjReveal / OpObjReveal", ZoneOpObjReveal, gameserver.OpObjReveal},
+		{"ZoneOpLocAddChange / OpLocAddChange", ZoneOpLocAddChange, gameserver.OpLocAddChange},
+		{"ZoneOpMapProjAnim / OpMapProjAnim", ZoneOpMapProjAnim, gameserver.OpMapProjAnim},
+		{"ZoneOpLocDel / OpLocDel", ZoneOpLocDel, gameserver.OpLocDel},
+		{"ZoneOpObjCount / OpObjCount", ZoneOpObjCount, gameserver.OpObjCount},
+		{"ZoneOpMapAnim / OpMapAnim", ZoneOpMapAnim, gameserver.OpMapAnim},
+		{"ZoneOpObjAdd / OpObjAdd", ZoneOpObjAdd, gameserver.OpObjAdd},
+	}
+	for _, tc := range cases {
+		if tc.zoneOp != int(tc.op.Opcode) {
+			t.Errorf("%s: ZoneOp const = %d, server prot opcode = %d — tables drifted",
+				tc.name, tc.zoneOp, tc.op.Opcode)
+		}
 	}
 }
