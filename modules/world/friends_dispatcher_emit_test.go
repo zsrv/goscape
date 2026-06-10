@@ -55,6 +55,40 @@ func TestEmitFriendsDispatcher_OnFriendlistUpdate_EnqueuesOnePacketPerEntry(t *t
 	}
 }
 
+// TestEmitFriendsDispatcher_OnFriendlistUpdate_EmptyBatchStillCompletes
+// pins that a zero-entry friend-list batch still emits exactly ONE
+// FRIENDLIST_LOADED status-2 completion packet (TS World.ts:2003-2008
+// @43e02957: the for-loop body runs zero times, the trailing
+// `player.write(new FriendlistLoaded(2))` runs unconditionally).
+func TestEmitFriendsDispatcher_OnFriendlistUpdate_EmptyBatchStillCompletes(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	const viewer uint64 = 0x1111222233334444
+	p.username37 = viewer
+	p.active = true
+	p.pid = 1
+	s.players.set(1, p)
+
+	d := newEmitFriendsDispatcher(s, s.log)
+	received := drainConn(t, cc)
+
+	d.OnFriendlistUpdate(viewer, nil)
+	s.drainRelayActions()
+	p.client.flushWrite()
+
+	got := <-received
+	want := []byte{
+		byte((int(gameserver.OpFriendlistLoaded.Opcode) + int(enc.GetNext())) & 0xff),
+		0x02,
+	}
+	if string(got) != string(want) {
+		t.Fatalf("wire bytes: got % x, want % x", got, want)
+	}
+}
+
 // TestEmitFriendsDispatcher_OnFriendlistUpdate_MissingPlayerNoEmit pins
 // that the dispatcher silently drops events for a viewer not in s.players.
 func TestEmitFriendsDispatcher_OnFriendlistUpdate_MissingPlayerNoEmit(t *testing.T) {

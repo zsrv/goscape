@@ -167,7 +167,6 @@ func TestSendMessagePrivate_EmitsExactByteSequence(t *testing.T) {
 func TestSendMessagePrivate_StaffLvlAdjustmentPositive(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = newTestServer(t) // required: sendMessagePrivate calls server.wordenc.Filter
-	_, _ = isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
 	received := drainConn(t, cc)
@@ -187,7 +186,6 @@ func TestSendMessagePrivate_StaffLvlAdjustmentPositive(t *testing.T) {
 func TestSendMessagePrivate_StaffLvlAdjustmentNegative(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = newTestServer(t) // required: sendMessagePrivate calls server.wordenc.Filter
-	_, _ = isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
 	received := drainConn(t, cc)
@@ -209,7 +207,6 @@ func TestSendMessagePrivate_AppliesWordEncFilter(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
-	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
 	// Inject a filter with one bad word "anal" so "anal" → "****".
@@ -238,9 +235,7 @@ func TestSendMessagePrivate_AppliesWordEncFilter(t *testing.T) {
 	unfilteredPacked := unfilteredBuf.Bytes()
 
 	// Wire format: [encrypted-opcode] [1-byte-len] [8-byte-from] [4-byte-pmId] [staffLvl] [wordpacked-chat]
-	// staffLvl=0 ⇒ no adjustment; opcode = (OpMessagePrivate.Opcode + ISAAC) & 0xff.
-	// Verify opcode byte is present and payload ends with wordpack("****").
-	_ = enc // ISAAC advance consumed by drainConn framing; opcode byte included in got[0].
+	// staffLvl=0 ⇒ no adjustment. The suffix assertion is ISAAC-independent.
 	if !bytes.HasSuffix(got, wantPacked) {
 		if bytes.HasSuffix(got, unfilteredPacked) {
 			t.Errorf("wire ends with wordpack(\"anal\") — Filter was NOT applied; got % x", got)
