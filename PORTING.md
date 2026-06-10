@@ -1344,11 +1344,25 @@ force-teleport every lap. Dates to the rev-225-era NAI-28 port; Arc-27
 - [x] (d) Unpack parity — 16/16 manifests at the pin.
 - [x] (e) Suite green incl. `-race`.
 
-**The rev-245.2 port is COMPLETE.** Residuals carried forward: the
-collision-follow gap above (pre-existing, tracked);
+**The rev-245.2 port is COMPLETE.** Residuals carried forward:
 `ValidateConfigPackNames` map-order (unchanged). The rev-244 residual
 "config.yaml hardcodes the Server244-ref path" now points at
 Server245.2-ref (same shape, new target).
+
+**Residual FIXED (2026-06-10, post-close-out):** the collision-follow gap
+(Hans patrol stall + force-teleport) — `77a6b5dc` ports TS
+`PathingEntity.refreshZonePresence` (PathingEntity.ts:163-188 @3c16994c)
+into both entity forks: `refreshPlayerZonePresence`/`refreshNpcZonePresence`
+move the blockWalk-keyed collision footprint (NPC → npc flags; ALL → npc +
+player flags; width-sized) on every step and teleport, ahead of the
+zone-membership swap. Spawn/despawn/login/logout seeds verified balanced;
+the NPC respawn path deliberately stays zone-only (addNpc re-seeds; a
+presence-move would phantom-remove at the death tile). Notable contract
+pinned along the way: TS has NO login-time player collision seed — the flag
+materialises on the first move and logout removes unconditionally (bitflag
+semantics; goscape mirrors exactly). 9 new pin tests incl. the Hans shape
+(NPC walks back onto its former spawn tile, no teleport). Pre-existing
+TeleJump lastStep deviation noted in-code, unchanged.
 
 **Residual RETIRED (2026-06-10, post-close-out):** `TestDecodeRealCacheBlob`
 "bad trailer position" was a PHANTOM — the bug was in the TEST's idx walk
