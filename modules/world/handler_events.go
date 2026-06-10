@@ -40,11 +40,14 @@ func handleEventMouseMove(p *Player, payload []byte) error {
 	p.input.MouseMove(payload)
 
 	// NAI-Phase2 seam (carried from the retired EVENT_TRACKING handler):
-	// emit MouseMoveEvent. The payload is an opaque packed format; the TS
-	// engine likewise treats the bytes as opaque and never decodes mouse
-	// coords server-side, so X/Y stay zero for TS-parity — the canonical
-	// mouse trail lives in the raw blob accumulated by p.input.
-	if p.client != nil && p.client.server != nil {
+	// emit MouseMoveEvent. Gated on input.Active to preserve the old
+	// seam's posture (it fired only once the recording gates passed) and
+	// to avoid per-packet work for untracked players. The payload is an
+	// opaque packed format; the TS engine likewise treats the bytes as
+	// opaque and never decodes mouse coords server-side, so X/Y stay zero
+	// for TS-parity — the canonical mouse trail lives in the raw blob
+	// accumulated by p.input.
+	if p.input.Active && p.client != nil && p.client.server != nil {
 		telemetry.Get().EmitPlayerInput(&eventspb.PlayerInputEnvelope{
 			SchemaVersion: 1,
 			EventId:       uuid.NewString(),

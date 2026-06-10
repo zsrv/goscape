@@ -77,7 +77,8 @@ type InputTracking struct {
 	// `offenderPlayer.input.active = true`).
 	Active bool
 	// buf is the 500-byte event-accumulation buffer. TS
-	// InputTracking.ts:27 (`buf: Packet = Packet.alloc(1)`).
+	// InputTracking.ts:27 (`buf: Packet = Packet.alloc(1)` — alloc(N) is
+	// a capacity hint, the buffer starts empty; hence NewPacket(nil)).
 	buf *packet.Packet
 	// seq is the monotonically-increasing blob sequence number; never
 	// reset for the life of the player session. TS InputTracking.ts:28.

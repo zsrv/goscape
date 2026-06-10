@@ -18,6 +18,21 @@ func TestConfigNodeLimitBytesPerTrackingSessionDefault(t *testing.T) {
 	}
 }
 
+// NodeSubmitInput defaults false, mirroring TS Environment.ts
+// NODE_SUBMIT_INPUT (still defined upstream at 254 with no readers —
+// the flag is kept for config compatibility; see config.go).
+func TestConfigNodeSubmitInputDefault(t *testing.T) {
+	var c Config
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	c.RegisterFlagsAndApplyDefaults(fs)
+	if err := fs.Parse(nil); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if c.NodeSubmitInput {
+		t.Error("NodeSubmitInput default: got true, want false (TS Environment.ts NODE_SUBMIT_INPUT default false)")
+	}
+}
+
 // logger-transport-3: TS TcpServer.ts:19 sets the idle-socket timeout to
 // 30000 ms via `s.setTimeout(30000)`. goscape's TCPServerReadTimeout drives
 // the same "kill the connection if no client traffic arrives within N"
