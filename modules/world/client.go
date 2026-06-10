@@ -178,6 +178,13 @@ func (c *client) sendLoginOK() error {
 	// login — the 254 client reads staffmodlevel then mouseTracked after
 	// response code 2, Client.java:2451-2452 @2e629784). The 245.2
 	// three-way opcode fork (19 supermod / 18 mod / 2 normal) is gone.
+	//
+	// Reconnecting clients take this same path: goscape never emits wire
+	// byte 15 — RECONNECT_OK is internal-only (loginResultToRS2) and the
+	// resync happens via p.reconnecting → onReconnect. TS's single-byte
+	// [15] send (World.ts:880 @43e02957) is its in-world session-
+	// replacement branch, which goscape's login-server-owned reconnect
+	// design does not have (see the M25-27 reconnect notes).
 	c.bufw.WriteByte(loginresp.OpOK.Opcode)
 	c.bufw.WriteByte(byte(min(c.staffModLevel, 2)))
 	c.bufw.WriteByte(1)
