@@ -155,24 +155,35 @@ func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs, varpTypes
 		p.levels[i] = pkt.G1()
 	}
 
-	// Varps: u16 count, then count × i32. NAI-220 defensive cleanup:
-	// zero non-PERM scope varps at load time too. TS-faithful saves
-	// (post-NAI-220) already write 0 for these slots, so this is a
-	// no-op for new saves. The defensive read-side filter exists to
-	// retroactively scrub stale data from saves written by pre-NAI-220
-	// goscape builds (NAI-PLAYERLOADING-D-SAVE-VARPS-VERBATIM era),
-	// where temp-scope combat varns like %lastcombat / %aggressive_npc
-	// persisted across save→load and broke player_in_combat_check on
-	// subsequent attacks. Nil-tolerant: if varpTypes is nil, loads
-	// verbatim.
+	// Varps: u16 count, then count × i32, OVERLAID into the existing
+	// p.varps. TS allocates player.vars once, registry-sized, in the
+	// Player constructor (Player.ts:418 `new Int32Array(VarPlayerType.count)`
+	// with per-type seeds at :424-432 — goscape mirror: initPlayerVarps),
+	// then PlayerLoading.ts:98-101 writes saved values in WITHOUT resizing.
+	// A save with fewer varps than the registry leaves the extra slots on
+	// their constructor seeds; a save with more silently drops the extras
+	// (JS Int32Array out-of-range writes are no-ops). Resizing p.varps to
+	// the SAVE count here (the pre-rev-245.2 behavior) crashed the login
+	// varp resync the first time the registry grew past an old save
+	// (found live in the rev-245.2 client smoke: 244-era save with 302
+	// varps vs 305 registry configs → index-out-of-range panic in
+	// processLogins).
+	//
+	// NAI-220 defensive cleanup: zero non-PERM scope varps at load time
+	// too. TS-faithful saves (post-NAI-220) already write 0 for these
+	// slots, so this is a no-op for new saves. The defensive read-side
+	// filter exists to retroactively scrub stale data from saves written
+	// by pre-NAI-220 goscape builds (NAI-PLAYERLOADING-D-SAVE-VARPS-VERBATIM
+	// era), where temp-scope combat varns like %lastcombat /
+	// %aggressive_npc persisted across save→load and broke
+	// player_in_combat_check on subsequent attacks. Nil-tolerant: if
+	// varpTypes is nil, loads verbatim.
 	varpCount := int(pkt.G2())
-	if cap(p.varps) < varpCount {
-		p.varps = make([]int32, varpCount)
-	} else {
-		p.varps = p.varps[:varpCount]
-	}
 	for i := range varpCount {
 		v := int32(pkt.G4())
+		if i >= len(p.varps) {
+			continue // save longer than registry: drop, like TS OOB writes
+		}
 		if varpTypes != nil && i < len(varpTypes.Configs) {
 			if vt := varpTypes.Configs[i]; vt != nil && vt.Scope != objtype.VarpScopePerm {
 				v = 0
