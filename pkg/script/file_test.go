@@ -234,39 +234,56 @@ func TestDecodeRealCacheBlob(t *testing.T) {
 		t.Fatalf("read idx: %v", err)
 	}
 
-	// Header: u32 entryCount, u32 version. Skip 4 bytes in idx (same header).
+	// Header: dat = u32 entryCount + u32 version (8 bytes); idx = u32
+	// entryCount only (4 bytes). The original version of this walk assumed
+	// an 8-byte idx header, sliced a Frankenblob across two scripts, and
+	// Decode rejected it with "bad trailer position" — that test bug was
+	// fixed at 0a068e40 but lived on in the porting trackers as a phantom
+	// "decoder residual" until retired at rev-245.2 (decoder verified
+	// against 32,826 blobs across four era-caches, zero failures).
 	if len(dat) < 8 {
 		t.Fatal("dat file too short")
 	}
-	_ = binary.BigEndian.Uint32(dat[0:4]) // entryCount
+	entryCount := int(binary.BigEndian.Uint32(dat[0:4]))
 	_ = binary.BigEndian.Uint32(dat[4:8]) // version
-
-	// idx has a 4-byte header (u32 entryCount), skip it. dat has an 8-byte
-	// header (u32 entryCount + u32 version).
 	idxOffset := 4
 	datOffset := 8
 
-	// Find the first non-zero size entry and decode it.
-	for idxOffset+4 <= len(idx) {
+	// Decode EVERY entry (first-blob-only coverage let the walk bug above
+	// masquerade as a decoder bug; the full sweep costs ~10ms).
+	decoded := 0
+	for id := range entryCount {
+		if idxOffset+4 > len(idx) {
+			t.Fatalf("idx truncated at entry %d", id)
+		}
 		size := int(binary.BigEndian.Uint32(idx[idxOffset : idxOffset+4]))
 		idxOffset += 4
 		if size == 0 {
 			continue
 		}
 		if datOffset+size > len(dat) {
-			t.Fatalf("dat truncated: need %d bytes at offset %d", size, datOffset)
+			t.Fatalf("dat truncated: id %d needs %d bytes at offset %d", id, size, datOffset)
 		}
 		blob := dat[datOffset : datOffset+size]
+		datOffset += size
 		f, err := Decode(blob)
 		if err != nil {
-			t.Fatalf("Decode real cache blob: %v", err)
+			t.Fatalf("Decode real cache blob id %d: %v", id, err)
 		}
 		if f.Name == "" {
-			t.Error("decoded script has empty name")
+			t.Errorf("script id %d decoded with empty name", id)
 		}
-		return
+		decoded++
 	}
-	t.Fatal("no non-zero entries found in idx")
+	if decoded == 0 {
+		t.Fatal("no non-zero entries found in idx")
+	}
+	// Every dat byte must be accounted for — a walk misalignment that
+	// happens to produce decodable slices would still trip this.
+	if datOffset != len(dat) {
+		t.Errorf("dat not fully consumed: walked %d of %d bytes", datOffset, len(dat))
+	}
+	t.Logf("decoded %d scripts, %d bytes", decoded, len(dat))
 }
 
 // TestScriptFileLineNumber pins the LineNumber(pc) accessor (script-core-5,

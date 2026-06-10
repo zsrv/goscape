@@ -1237,9 +1237,13 @@ B7 was the LAST bundle. With it, every umbrella definition-of-done item
 
 **The rev-244 port is COMPLETE.** Non-blocking residuals carried forward
 (not bundle work): `config.yaml` hardcodes the absolute Server244-ref
-content path (B6 live-smoke local override); `TestDecodeRealCacheBlob`
-Arc-26 residual decoder bug in `pkg/script/file.go` (B7's unpack scope never
-reads script blobs — unchanged); `ValidateConfigPackNames` multi-orphan
+content path (B6 live-smoke local override); ~~`TestDecodeRealCacheBlob`
+Arc-26 residual decoder bug in `pkg/script/file.go`~~ — RETIRED: the
+"residual" was a phantom; the failure was the TEST's idx-walk bug (8-byte
+idx header assumed; idx has 4), fixed at `0a068e40` (2026-05-22). The
+decoder was never wrong. Retired at rev-245.2 (`0c5ce79a`, decoder verified
+against 32,826 blobs across four era-caches) together with the all-blobs
+test hardening, backported here; `ValidateConfigPackNames` multi-orphan
 error is map-iteration-ordered (T4-era minor).
 
 ---
