@@ -2,12 +2,12 @@ package server
 
 import "testing"
 
-// TestServerProt244Table pins every server opcode/size against the 244 TS
-// contract (Engine-TS@9aadcec4 ServerGameProt.ts + ServerGameZoneProt.ts).
+// TestServerProt245_2Table pins every server opcode/size against the 245.2 TS
+// contract (Engine-TS@3c16994c ServerGameProt.ts + ServerGameZoneProt.ts).
 //
 // The four DATA_* packets were removed at 244 (maps move to engine
 // OnDemand in Bundle 3); their vars and senders are deleted.
-func TestServerProt244Table(t *testing.T) {
+func TestServerProt245_2Table(t *testing.T) {
 	cases := []struct {
 		name   string
 		op     Op
@@ -15,93 +15,94 @@ func TestServerProt244Table(t *testing.T) {
 		size   int
 	}{
 		// interfaces
-		{"IF_OPENCHAT", OpIfOpenChat, 189, 2},
-		{"IF_OPENMAIN_SIDE", OpIfOpenMainSide, 207, 4},
-		{"IF_CLOSE", OpIfClose, 214, 0},
-		{"IF_SETTAB", OpIfSetTab, 200, 3},
-		{"IF_SETTAB_ACTIVE", OpIfSetTabActive, 56, 1},
-		{"IF_OPENMAIN", OpIfOpenMain, 10, 2},
-		{"IF_OPENSIDE", OpIfOpenSide, 176, 2},
-		{"IF_OPENOVERLAY", OpIfOpenOverlay, 158, 2}, // new at 244
+		{"IF_OPENCHAT", OpIfOpenChat, 7, 2},
+		{"IF_OPENMAIN_SIDE", OpIfOpenMainSide, 229, 4},
+		{"IF_CLOSE", OpIfClose, 174, 0},
+		{"IF_SETTAB", OpIfSetTab, 29, 3},
+		{"IF_SETTAB_ACTIVE", OpIfSetTabActive, 8, 1},
+		{"IF_OPENMAIN", OpIfOpenMain, 177, 2},
+		{"IF_OPENSIDE", OpIfOpenSide, 236, 2},
+		{"IF_OPENOVERLAY", OpIfOpenOverlay, 115, 2},
 		// interface setters
-		{"IF_SETCOLOUR", OpIfSetColour, 78, 4},
-		{"IF_SETHIDE", OpIfSetHide, 123, 3},
-		{"IF_SETOBJECT", OpIfSetObject, 164, 6},
-		{"IF_SETMODEL", OpIfSetModel, 245, 4},
-		// IF_SETRECOL (103/6) removed at 244 — encoder/model deleted upstream; see PORTING.md §B2/§B4.
-		{"IF_SETANIM", OpIfSetAnim, 219, 4},
-		{"IF_SETPLAYERHEAD", OpIfSetPlayerHead, 108, 2},
-		{"IF_SETTEXT", OpIfSetText, 154, -2},
-		{"IF_SETNPCHEAD", OpIfSetNpcHead, 129, 4},
-		{"IF_SETPOSITION", OpIfSetPosition, 241, 6},
+		{"IF_SETCOLOUR", OpIfSetColour, 135, 4},
+		{"IF_SETHIDE", OpIfSetHide, 225, 3},
+		{"IF_SETOBJECT", OpIfSetObject, 153, 6},
+		{"IF_SETMODEL", OpIfSetModel, 60, 4},
+		// IF_SETRECOL absent from ServerGameProt.ts @3c16994c — removed at 244;
+		// encoder/model deleted upstream; see PORTING.md §B2/§B4.
+		{"IF_SETANIM", OpIfSetAnim, 69, 4},
+		{"IF_SETPLAYERHEAD", OpIfSetPlayerHead, 83, 2},
+		{"IF_SETTEXT", OpIfSetText, 32, -2},
+		{"IF_SETNPCHEAD", OpIfSetNpcHead, 76, 4},
+		{"IF_SETPOSITION", OpIfSetPosition, 230, 6},
+		{"IF_SETSCROLLPOS", OpIfSetScrollPos, 226, 4}, // new in 245.2
 		// tutorial area
-		{"TUT_FLASH", OpTutFlash, 168, 1},
-		{"TUT_OPEN", OpTutOpen, 174, 2},
+		{"TUT_FLASH", OpTutFlash, 132, 1},
+		{"TUT_OPEN", OpTutOpen, 152, 2},
 		// inventory
-		{"UPDATE_INV_STOP_TRANSMIT", OpUpdateInvStopTransmit, 162, 2},
-		{"UPDATE_INV_FULL", OpUpdateInvFull, 72, -2},
-		{"UPDATE_INV_PARTIAL", OpUpdateInvPartial, 132, -2},
+		{"UPDATE_INV_STOP_TRANSMIT", OpUpdateInvStopTransmit, 143, 2},
+		{"UPDATE_INV_FULL", OpUpdateInvFull, 156, -2},
+		{"UPDATE_INV_PARTIAL", OpUpdateInvPartial, 95, -2},
 		// camera
-		{"CAM_LOOKAT", OpCamLookAt, 222, 6},
-		{"CAM_SHAKE", OpCamShake, 50, 4},
-		{"CAM_MOVETO", OpCamMoveTo, 12, 6},
-		{"CAM_RESET", OpCamReset, 53, 0},
+		{"CAM_LOOKAT", OpCamLookAt, 123, 6},
+		{"CAM_SHAKE", OpCamShake, 103, 4},
+		{"CAM_MOVETO", OpCamMoveTo, 86, 6},
+		{"CAM_RESET", OpCamReset, 134, 0},
 		// entity updates
-		{"NPC_INFO", OpNpcInfo, 244, -2},
-		{"PLAYER_INFO", OpPlayerInfo, 86, -2},
+		{"NPC_INFO", OpNpcInfo, 105, -2},
+		{"PLAYER_INFO", OpPlayerInfo, 161, -2},
 		// input tracking
-		{"FINISH_TRACKING", OpFinishTracking, 60, 0},
-		{"ENABLE_TRACKING", OpEnableTracking, 22, 0},
+		{"FINISH_TRACKING", OpFinishTracking, 165, 0},
+		{"ENABLE_TRACKING", OpEnableTracking, 28, 0},
 		// social
-		{"MESSAGE_GAME", OpMessageGame, 95, -1},
-		{"UPDATE_IGNORELIST", OpUpdateIgnoreList, 7, -2},
-		{"CHAT_FILTER_SETTINGS", OpChatFilterSettings, 9, 3},
-		{"MESSAGE_PRIVATE", OpMessagePrivate, 30, -1},
-		{"UPDATE_FRIENDLIST", OpUpdateFriendList, 70, 9},
+		{"MESSAGE_GAME", OpMessageGame, 175, -1},
+		{"UPDATE_IGNORELIST", OpUpdateIgnoreList, 181, -2},
+		{"CHAT_FILTER_SETTINGS", OpChatFilterSettings, 2, 3},
+		{"MESSAGE_PRIVATE", OpMessagePrivate, 207, -1},
+		{"UPDATE_FRIENDLIST", OpUpdateFriendList, 109, 9},
 		// misc
-		{"UNSET_MAP_FLAG", OpUnsetMapFlag, 62, 0},
-		{"UPDATE_RUNWEIGHT", OpUpdateRunWeight, 160, 2},
-		{"HINT_ARROW", OpHintArrow, 49, 6},
-		{"UPDATE_REBOOT_TIMER", OpUpdateRebootTimer, 85, 2},
-		{"UPDATE_STAT", OpUpdateStat, 24, 6},
-		{"UPDATE_RUNENERGY", OpUpdateRunEnergy, 177, 1},
-		{"RESET_ANIMS", OpResetAnims, 242, 0},
-		{"LOGOUT", OpLogout, 17, 0},
-		{"P_COUNTDIALOG", OpPCountDialog, 152, 0},
-		{"SET_MULTIWAY", OpSetMultiway, 97, 1},
+		{"UNSET_MAP_FLAG", OpUnsetMapFlag, 233, 0},
+		{"UPDATE_RUNWEIGHT", OpUpdateRunWeight, 70, 2},
+		{"HINT_ARROW", OpHintArrow, 243, 6},
+		{"UPDATE_REBOOT_TIMER", OpUpdateRebootTimer, 26, 2},
+		{"UPDATE_STAT", OpUpdateStat, 110, 6},
+		{"UPDATE_RUNENERGY", OpUpdateRunEnergy, 208, 1},
+		{"RESET_ANIMS", OpResetAnims, 144, 0},
+		{"LOGOUT", OpLogout, 36, 0},
+		{"P_COUNTDIALOG", OpPCountDialog, 56, 0},
+		{"SET_MULTIWAY", OpSetMultiway, 35, 1},
 		// varps
-		{"VARP_SMALL", OpVarpSmall, 236, 3},
-		{"VARP_LARGE", OpVarpLarge, 226, 6},
-		{"RESET_CLIENT_VARCACHE", OpResetClientVarCache, 87, 0},
+		{"VARP_SMALL", OpVarpSmall, 192, 3},
+		{"VARP_LARGE", OpVarpLarge, 75, 6},
+		{"RESET_CLIENT_VARCACHE", OpResetClientVarCache, 25, 0},
 		// audio (non-deferred)
-		{"SYNTH_SOUND", OpSynthSound, 151, 5},
+		{"SYNTH_SOUND", OpSynthSound, 209, 5},
 		// zone outer
-		{"UPDATE_ZONE_PARTIAL_FOLLOWS", OpUpdateZonePartialFollows, 94, 2},
-		{"UPDATE_ZONE_FULL_FOLLOWS", OpUpdateZoneFullFollows, 131, 2},
-		{"UPDATE_ZONE_PARTIAL_ENCLOSED", OpUpdateZonePartialEnclosed, 233, -2},
-		// zone nested (ServerGameZoneProt.ts 244)
-		{"LOC_MERGE", OpLocMerge, 29, 14},
-		{"LOC_ANIM", OpLocAnim, 155, 4},
-		{"OBJ_DEL", OpObjDel, 39, 3},
-		{"OBJ_REVEAL", OpObjReveal, 69, 7},
-		{"LOC_ADD_CHANGE", OpLocAddChange, 232, 4},
-		{"MAP_PROJANIM", OpMapProjAnim, 137, 15},
-		{"LOC_DEL", OpLocDel, 125, 2},
-		{"OBJ_COUNT", OpObjCount, 209, 7},
-		{"MAP_ANIM", OpMapAnim, 198, 6},
-		{"OBJ_ADD", OpObjAdd, 234, 5},
+		{"UPDATE_ZONE_PARTIAL_FOLLOWS", OpUpdateZonePartialFollows, 203, 2},
+		{"UPDATE_ZONE_FULL_FOLLOWS", OpUpdateZoneFullFollows, 140, 2},
+		{"UPDATE_ZONE_PARTIAL_ENCLOSED", OpUpdateZonePartialEnclosed, 15, -2},
+		// zone nested (ServerGameZoneProt.ts 245.2)
+		{"LOC_MERGE", OpLocMerge, 188, 14},
+		{"LOC_ANIM", OpLocAnim, 71, 4},
+		{"OBJ_DEL", OpObjDel, 13, 3},
+		{"OBJ_REVEAL", OpObjReveal, 190, 7},
+		{"LOC_ADD_CHANGE", OpLocAddChange, 119, 4},
+		{"MAP_PROJANIM", OpMapProjAnim, 187, 15},
+		{"LOC_DEL", OpLocDel, 198, 2},
+		{"OBJ_COUNT", OpObjCount, 151, 7},
+		{"MAP_ANIM", OpMapAnim, 141, 6},
+		{"OBJ_ADD", OpObjAdd, 94, 5},
 
-		// --- five rows updated in Task 3 (emitters co-updated) ---
-		// TS ServerGameProt.ts (244): UPDATE_PID=210/3
-		{"UPDATE_PID", OpUpdatePid, 210, 3},
-		// TS ServerGameProt.ts (244): LAST_LOGIN_INFO=44/10
-		{"LAST_LOGIN_INFO", OpLastLoginInfo, 44, 10},
-		// TS ServerGameProt.ts (244): REBUILD_NORMAL=165/4
-		{"REBUILD_NORMAL", OpRebuildNormal, 165, 4},
-		// TS ServerGameProt.ts (244): MIDI_SONG=240/2
-		{"MIDI_SONG", OpMidiSong, 240, 2},
-		// TS ServerGameProt.ts (244): MIDI_JINGLE=173/4
-		{"MIDI_JINGLE", OpMidiJingle, 173, 4},
+		// TS ServerGameProt.ts (245.2): UPDATE_PID=49/3
+		{"UPDATE_PID", OpUpdatePid, 49, 3},
+		// TS ServerGameProt.ts (245.2): LAST_LOGIN_INFO=238/10
+		{"LAST_LOGIN_INFO", OpLastLoginInfo, 238, 10},
+		// TS ServerGameProt.ts (245.2): REBUILD_NORMAL=66/4
+		{"REBUILD_NORMAL", OpRebuildNormal, 66, 4},
+		// TS ServerGameProt.ts (245.2): MIDI_SONG=96/2
+		{"MIDI_SONG", OpMidiSong, 96, 2},
+		// TS ServerGameProt.ts (245.2): MIDI_JINGLE=39/4
+		{"MIDI_JINGLE", OpMidiJingle, 39, 4},
 	}
 	for _, tc := range cases {
 		if tc.op.Opcode != tc.opcode {
@@ -111,6 +112,11 @@ func TestServerProt244Table(t *testing.T) {
 			t.Errorf("%s: PayloadSize = %d, want %d", tc.name, tc.op.PayloadSize, tc.size)
 		}
 	}
+	// An op declared in the var block but omitted from AllOps() would be
+	// invisible to external decoders; anchor the registry size to the table.
+	if got := len(AllOps()); got != len(cases) {
+		t.Errorf("AllOps len = %d, want %d (missing or duplicate entry)", got, len(cases))
+	}
 }
 
 func TestServerOpValues(t *testing.T) {
@@ -119,12 +125,12 @@ func TestServerOpValues(t *testing.T) {
 		opcode byte
 		size   int
 	}{
-		{OpIfClose, 214, 0},
-		{OpIfOpenMain, 10, 2},
-		{OpIfOpenChat, 189, 2},
-		{OpIfOpenSide, 176, 2},
-		{OpIfOpenMainSide, 207, 4},
-		{OpLogout, 17, 0},
+		{OpIfClose, 174, 0},
+		{OpIfOpenMain, 177, 2},
+		{OpIfOpenChat, 7, 2},
+		{OpIfOpenSide, 236, 2},
+		{OpIfOpenMainSide, 229, 4},
+		{OpLogout, 36, 0},
 	}
 	for _, tc := range cases {
 		if tc.op.Opcode != tc.opcode {
@@ -142,9 +148,9 @@ func TestSubSpec3AOpcodes(t *testing.T) {
 		opcode byte
 		size   int
 	}{
-		{OpRebuildNormal, 165, 4}, // TS ServerGameProt.ts (244): REBUILD_NORMAL=165/4 — updated in Task 3
-		{OpUpdateInvFull, 72, -2},
-		{OpUpdateInvPartial, 132, -2},
+		{OpRebuildNormal, 66, 4}, // TS ServerGameProt.ts (245.2): REBUILD_NORMAL=66/4
+		{OpUpdateInvFull, 156, -2},
+		{OpUpdateInvPartial, 95, -2},
 	}
 	for _, tc := range cases {
 		if tc.op.Opcode != tc.opcode {
@@ -157,8 +163,8 @@ func TestSubSpec3AOpcodes(t *testing.T) {
 }
 
 func TestSubSpec3BOpcodes(t *testing.T) {
-	if OpPlayerInfo.Opcode != 86 {
-		t.Errorf("OpPlayerInfo.Opcode = %d, want 86", OpPlayerInfo.Opcode)
+	if OpPlayerInfo.Opcode != 161 {
+		t.Errorf("OpPlayerInfo.Opcode = %d, want 161", OpPlayerInfo.Opcode)
 	}
 	if OpPlayerInfo.PayloadSize != -2 {
 		t.Errorf("OpPlayerInfo.PayloadSize = %d, want -2", OpPlayerInfo.PayloadSize)
@@ -166,8 +172,8 @@ func TestSubSpec3BOpcodes(t *testing.T) {
 }
 
 func TestSubSpec3COpcodes(t *testing.T) {
-	if OpNpcInfo.Opcode != 244 {
-		t.Errorf("OpNpcInfo.Opcode = %d, want 244", OpNpcInfo.Opcode)
+	if OpNpcInfo.Opcode != 105 {
+		t.Errorf("OpNpcInfo.Opcode = %d, want 105", OpNpcInfo.Opcode)
 	}
 	if OpNpcInfo.PayloadSize != -2 {
 		t.Errorf("OpNpcInfo.PayloadSize = %d, want -2", OpNpcInfo.PayloadSize)
@@ -176,7 +182,9 @@ func TestSubSpec3COpcodes(t *testing.T) {
 
 // TestIfSetRecolRemoved244 asserts that IF_SETRECOL (103/6) is absent from
 // the AllOps name table. TS 244 deletes IfSetRecolEncoder.ts + its model;
-// the wire row goes with it (B2 deferral, closed in B4 Task 2).
+// the wire row is absent from ServerGameProt.ts @3c16994c as well (verified
+// with grep — no IF_SETRECOL line exists at the 245.2 pin).
+// See PORTING.md §B2/§B4 for context.
 func TestIfSetRecolRemoved244(t *testing.T) {
 	for _, e := range AllOps() {
 		if e.Name == "IF_SETRECOL" {
@@ -191,8 +199,8 @@ func TestNAI73TrackingOpcodes(t *testing.T) {
 		code byte
 		size int
 	}{
-		{OpEnableTracking, 22, 0},
-		{OpFinishTracking, 60, 0},
+		{OpEnableTracking, 28, 0},
+		{OpFinishTracking, 165, 0},
 	}
 	for _, tc := range cases {
 		if tc.op.Opcode != tc.code {
