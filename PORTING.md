@@ -1344,10 +1344,18 @@ force-teleport every lap. Dates to the rev-225-era NAI-28 port; Arc-27
 - [x] (d) Unpack parity — 16/16 manifests at the pin.
 - [x] (e) Suite green incl. `-race`.
 
-**The rev-245.2 port is COMPLETE.** Residuals carried forward:
-`ValidateConfigPackNames` map-order (unchanged). The rev-244 residual
-"config.yaml hardcodes the Server244-ref path" now points at
-Server245.2-ref (same shape, new target).
+**The rev-245.2 port is COMPLETE.** Residuals carried forward: none — the
+last one (`ValidateConfigPackNames` multi-orphan map-order) was fixed
+post-close-out (see below). The rev-244 residual "config.yaml hardcodes
+the Server244-ref path" now points at Server245.2-ref (same shape, new
+target).
+
+**Residual FIXED (2026-06-10, post-close-out):** `ValidateConfigPackNames`
+multi-orphan reporting is now deterministic — names are checked in
+ascending-id order (TS iterates pack.names, a JS Set in .pack-file line
+order, id-ascending for the machine-written packs; Go's map range was
+random). Pinned by TestValidateConfigPackNames_MultiOrphanDeterministic
+(orphan ids chosen to distinguish id-order from name-sorting).
 
 **Residual FIXED (2026-06-10, post-close-out):** the collision-follow gap
 (Hans patrol stall + force-teleport) — `77a6b5dc` ports TS
