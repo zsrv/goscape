@@ -1,17 +1,19 @@
-# rev-244 B7 TS-reference unpack changed-set manifest - family: models
-# Engine-TS pin 9aadcec4 + Content pin e5d0282e; inputs: B6 byte-parity
-# client cache (main_file_cache.dat/idx0-4) + worldmap.jag (generated at the
-# pin by tools/pack/map/Worldmap.ts with an empty maps/ignore.csv shim).
-# config family ran with engine/data/pack moved aside (plain emission path,
-# not the merge-compare path). See plan Task-1 findings.
-# Generated 2026-06-06. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# rev-245.2 TS-reference unpack changed-set manifest - family: models
+# Engine-TS pin 3c16994c + Content pin cbcfe670; inputs: the rev-245.2
+# reference-pack client cache (Server245.2-ref/engine/data/pack
+# main_file_cache.dat/idx0-4) + worldmap.jag (generated at the pin by
+# tools/pack/map/Worldmap.ts run VANILLA — maps/ignore.csv exists at the
+# 245.2 Content pin, so the rev-244 empty-shim step was dropped).
+# config family ran with the scratch engine's data/pack moved aside (plain
+# emission path, not the merge-compare path). Procedure: rev-244 B7 plan
+# Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md).
+# Generated 2026-06-10. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
 # (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
 # (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
 # prefix = cache dir; PackFile module-load registry rewrites subtracted;
 # renameSync moves preserve mtime so renames appear in ADDED/DELETED only);
 # STDOUT-NORM = sha256 of stdout with per-line 'M/D/YYYY H:MM:SS AM\t LEVEL\t '
 # TS-Logger prefixes stripped.
-MODIFIED pack/model.pack 86eef8957ccc2e49e362644a732aa43998d3730d990930d9a6e876a0c97ccd96
 WROTE models/human/man/arms/model_151_idk.ob2
 WROTE models/human/man/arms/model_158_idk.ob2
 WROTE models/human/man/arms/model_162_idk.ob2
@@ -3139,6 +3141,128 @@ WROTE models/_unpack/244/model_spotanim_252.ob2
 WROTE models/_unpack/244/model_spotanim_253.ob2
 WROTE models/_unpack/244/model_spotanim_257.ob2
 WROTE models/_unpack/244/model_spotanim_258.ob2
+WROTE models/_unpack/245/druidicspirit_bloom.ob2
+WROTE models/_unpack/245/druidicspirit_bloom_player.ob2
+WROTE models/_unpack/245/druidicspirit_druidsshield.ob2
+WROTE models/_unpack/245/ghast.ob2
+WROTE models/_unpack/245/leaves_growing.ob2
+WROTE models/_unpack/245/loc_3440_8.ob2
+WROTE models/_unpack/245/loc_3441_8.ob2
+WROTE models/_unpack/245/loc_3442_8.ob2
+WROTE models/_unpack/245/loc_3443_8.ob2
+WROTE models/_unpack/245/loc_3447_8.ob2
+WROTE models/_unpack/245/loc_3448_8.ob2
+WROTE models/_unpack/245/loc_3449_8.ob2
+WROTE models/_unpack/245/loc_3450_8.ob2
+WROTE models/_unpack/245/loc_3451_8.ob2
+WROTE models/_unpack/245/loc_3452_a.ob2
+WROTE models/_unpack/245/loc_3452_d.ob2
+WROTE models/_unpack/245/loc_3452_f.ob2
+WROTE models/_unpack/245/loc_3452_g.ob2
+WROTE models/_unpack/245/loc_3452_h.ob2
+WROTE models/_unpack/245/loc_3452_s.ob2
+WROTE models/_unpack/245/loc_3453_a.ob2
+WROTE models/_unpack/245/loc_3454_c.ob2
+WROTE models/_unpack/245/loc_3454_x.ob2
+WROTE models/_unpack/245/loc_3454_z.ob2
+WROTE models/_unpack/245/loc_3455_1.ob2
+WROTE models/_unpack/245/loc_3456_1.ob2
+WROTE models/_unpack/245/loc_3457_1.ob2
+WROTE models/_unpack/245/loc_3457_3.ob2
+WROTE models/_unpack/245/loc_3457_4.ob2
+WROTE models/_unpack/245/loc_3457_5.ob2
+WROTE models/_unpack/245/loc_3458_1.ob2
+WROTE models/_unpack/245/loc_3460_1.ob2
+WROTE models/_unpack/245/loc_3461_1.ob2
+WROTE models/_unpack/245/loc_3465_8.ob2
+WROTE models/_unpack/245/loc_3466_q.ob2
+WROTE models/_unpack/245/loc_3467_q.ob2
+WROTE models/_unpack/245/loc_3468_q.ob2
+WROTE models/_unpack/245/loc_3469_q.ob2
+WROTE models/_unpack/245/loc_3470_q.ob2
+WROTE models/_unpack/245/loc_3471_0.ob2
+WROTE models/_unpack/245/loc_3472_0.ob2
+WROTE models/_unpack/245/loc_3473_q.ob2
+WROTE models/_unpack/245/loc_3474_q.ob2
+WROTE models/_unpack/245/loc_3475_q.ob2
+WROTE models/_unpack/245/loc_3476_8.ob2
+WROTE models/_unpack/245/loc_3477_8.ob2
+WROTE models/_unpack/245/loc_3478_8.ob2
+WROTE models/_unpack/245/loc_3479_8.ob2
+WROTE models/_unpack/245/loc_3480_8.ob2
+WROTE models/_unpack/245/loc_3481_8.ob2
+WROTE models/_unpack/245/loc_3482_8.ob2
+WROTE models/_unpack/245/loc_3483_8.ob2
+WROTE models/_unpack/245/loc_3485_8.ob2
+WROTE models/_unpack/245/loc_3486_8.ob2
+WROTE models/_unpack/245/loc_3487_8.ob2
+WROTE models/_unpack/245/loc_3488_8.ob2
+WROTE models/_unpack/245/loc_3489_1.ob2
+WROTE models/_unpack/245/loc_3493_8.ob2
+WROTE models/_unpack/245/loc_3497_8.ob2
+WROTE models/_unpack/245/loc_3501_8.ob2
+WROTE models/_unpack/245/loc_3502_8.ob2
+WROTE models/_unpack/245/loc_3503_8.ob2
+WROTE models/_unpack/245/loc_3504_8.ob2
+WROTE models/_unpack/245/loc_3505_8.ob2
+WROTE models/_unpack/245/loc_3508_8.ob2
+WROTE models/_unpack/245/loc_3509_8.ob2
+WROTE models/_unpack/245/loc_3510_8.ob2
+WROTE models/_unpack/245/loc_3511_8.ob2
+WROTE models/_unpack/245/loc_3512_8.ob2
+WROTE models/_unpack/245/loc_3513_8.ob2
+WROTE models/_unpack/245/loc_3514_8.ob2
+WROTE models/_unpack/245/loc_3515_8.ob2
+WROTE models/_unpack/245/loc_3516_1.ob2
+WROTE models/_unpack/245/loc_3517_8.ob2
+WROTE models/_unpack/245/loc_3518_8.ob2
+WROTE models/_unpack/245/loc_3519_8.ob2
+WROTE models/_unpack/245/loc_3520_8.ob2
+WROTE models/_unpack/245/loc_3521_8.ob2
+WROTE models/_unpack/245/loc_3523_8.ob2
+WROTE models/_unpack/245/loc_3524_1.ob2
+WROTE models/_unpack/245/loc_3524_3.ob2
+WROTE models/_unpack/245/loc_3524_4.ob2
+WROTE models/_unpack/245/loc_3524_5.ob2
+WROTE models/_unpack/245/loc_3525_8.ob2
+WROTE models/_unpack/245/loc_3530_8.ob2
+WROTE models/_unpack/245/loc_3531_8.ob2
+WROTE models/_unpack/245/loc_3532_8.ob2
+WROTE models/_unpack/245/loc_3533_8.ob2
+WROTE models/_unpack/245/loc_3534_8.ob2
+WROTE models/_unpack/245/loc_3535_8.ob2
+WROTE models/_unpack/245/loc_3536_8.ob2
+WROTE models/_unpack/245/loc_3537_8.ob2
+WROTE models/_unpack/245/loc_3547_0.ob2
+WROTE models/_unpack/245/loc_3548_0.ob2
+WROTE models/_unpack/245/loc_3549_0.ob2
+WROTE models/_unpack/245/mushroom_growing.ob2
+WROTE models/_unpack/245/npc_1024_head.ob2
+WROTE models/_unpack/245/npc_1027_head.ob2
+WROTE models/_unpack/245/npc_1030.ob2
+WROTE models/_unpack/245/npc_1043.ob2
+WROTE models/_unpack/245/obj_2952_manwear.ob2
+WROTE models/_unpack/245/obj_2952.ob2
+WROTE models/_unpack/245/obj_2959.ob2
+WROTE models/_unpack/245/obj_2961_manwear.ob2
+WROTE models/_unpack/245/obj_2961.ob2
+WROTE models/_unpack/245/obj_2966.ob2
+WROTE models/_unpack/245/obj_2970.ob2
+WROTE models/_unpack/245/obj_2972.ob2
+WROTE models/_unpack/245/obj_2974.ob2
+WROTE models/_unpack/245/obj_2976.ob2
+WROTE models/_unpack/com_i66.ob2
+WROTE models/_unpack/loc_3434_4.ob2
+WROTE models/_unpack/loc_3435_1.ob2
+WROTE models/_unpack/loc_3435_2.ob2
+WROTE models/_unpack/loc_3435_3.ob2
+WROTE models/_unpack/loc_3435_4.ob2
+WROTE models/_unpack/loc_3435_5.ob2
+WROTE models/_unpack/loc_3436_1.ob2
+WROTE models/_unpack/loc_3439_1.ob2
+WROTE models/_unpack/loc_3439_3.ob2
+WROTE models/_unpack/loc_3439_4.ob2
+WROTE models/_unpack/loc_3439_5.ob2
 WROTE models/_unpack/model_1001.ob2
 WROTE models/_unpack/model_1002.ob2
 WROTE models/_unpack/model_1008.ob2
@@ -3253,6 +3377,7 @@ WROTE models/_unpack/model_2818.ob2
 WROTE models/_unpack/model_2824.ob2
 WROTE models/_unpack/model_2839.ob2
 WROTE models/_unpack/model_2852.ob2
+WROTE models/_unpack/model_2934.ob2
 WROTE models/_unpack/model_2949.ob2
 WROTE models/_unpack/model_2973.ob2
 WROTE models/_unpack/model_2975.ob2
@@ -3380,7 +3505,10 @@ WROTE models/_unpack/model_3437.ob2
 WROTE models/_unpack/model_3438.ob2
 WROTE models/_unpack/model_3454_npc_head.ob2
 WROTE models/_unpack/model_345.ob2
+WROTE models/_unpack/model_3466.ob2
+WROTE models/_unpack/model_3469.ob2
 WROTE models/_unpack/model_350.ob2
+WROTE models/_unpack/model_3596.ob2
 WROTE models/_unpack/model_398.ob2
 WROTE models/_unpack/model_497.ob2
 WROTE models/_unpack/model_583.ob2
@@ -3405,4 +3533,4 @@ WROTE models/_unpack/model_908.ob2
 WROTE models/_unpack/model_920.ob2
 WROTE models/_unpack/model_928.ob2
 WROTE models/_unpack/model_935.ob2
-STDOUT-NORM 0695ceb2cfb1039b8000b6401552888cdc58490755c602c82fa99f5e4cff6255
+STDOUT-NORM 43d1813dd76b717e4b445f0f6ffe12d5db2e3a0d41ed67d18fef772ac3e8e095

@@ -1,4 +1,4 @@
-// Package checksum implements the cache checksum debug tool for the RS2 244 tool chain.
+// Package checksum implements the cache checksum debug tool for the RS2 245.2 tool chain.
 //
 // TS source: tools/unpack/checksum.ts.
 package checksum

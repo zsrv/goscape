@@ -1,10 +1,13 @@
-# rev-244 B7 TS-reference unpack changed-set manifest - family: config
-# Engine-TS pin 9aadcec4 + Content pin e5d0282e; inputs: B6 byte-parity
-# client cache (main_file_cache.dat/idx0-4) + worldmap.jag (generated at the
-# pin by tools/pack/map/Worldmap.ts with an empty maps/ignore.csv shim).
-# config family ran with engine/data/pack moved aside (plain emission path,
-# not the merge-compare path). See plan Task-1 findings.
-# Generated 2026-06-06. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# rev-245.2 TS-reference unpack changed-set manifest - family: config
+# Engine-TS pin 3c16994c + Content pin cbcfe670; inputs: the rev-245.2
+# reference-pack client cache (Server245.2-ref/engine/data/pack
+# main_file_cache.dat/idx0-4) + worldmap.jag (generated at the pin by
+# tools/pack/map/Worldmap.ts run VANILLA — maps/ignore.csv exists at the
+# 245.2 Content pin, so the rev-244 empty-shim step was dropped).
+# config family ran with the scratch engine's data/pack moved aside (plain
+# emission path, not the merge-compare path). Procedure: rev-244 B7 plan
+# Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md).
+# Generated 2026-06-10. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
 # (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
 # (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
 # prefix = cache dir; PackFile module-load registry rewrites subtracted;
@@ -2172,6 +2175,7 @@ ADDED models/npc/npc_pirate2_head.ob2 2cf8ef3f7465e03825cdf61dc171467b0f37fdaee0
 ADDED models/npc/npc_pirate2i2.ob2 aaf8e597c8bcfa7acfc2e50d0111e0b9a502cc43800596459e65d5953f160ee4
 ADDED models/npc/npc_poison_salesman.ob2 18ffe7ce1896c6417a0c3ea3eae47c6dd7d4196a77e42d8f06009d7febbd6051
 ADDED models/npc/npc_poisonspider.ob2 cc1bbdc78c26c8b73c5e525bc715034791d796e15028228d801ca73042a86e04
+ADDED models/npc/npc_priestperilguarddog.ob2 221d5e389467efd428c0c4f92bdfed0507103d729dbc1e17c999ac8bfac1ce35
 ADDED models/npc/npc_ranalph_devere.ob2 34d4104cd459583e6af87fd4b7ac51a963a4975f9cc31bb5a41d75a4dfec9cc5
 ADDED models/npc/npc_ranging_guild_leatherworker.ob2 156cd3ec3f7510e3e7df3205b0d6346a6533c25b8ee600c89b25a32d83606ccb
 ADDED models/npc/npc_ranging_guild_leatherworkeri2.ob2 354ef9948e02e6e84fda77e59073de3ed6df9fed7a7cf3ba7a499d6842684349
@@ -2743,11 +2747,11 @@ ADDED models/obj/obj_phoenix_crossbow_manwear.ob2 c0b82ca9135503daab0bf7d1eeb02d
 ADDED models/obj/obj_piedish_unfired.ob2 486ac4739d3cf507687ae94f2d2bd774a8c619892487391d01d75d5eb3717af6
 ADDED models/obj/obj_pigeons.ob2 dc66bdb49f3ac3d0f7af2c3ab5e01925a90b3fe5f4db79ce93f8e57a2e4abe9b
 ADDED models/obj/obj_pineapple_ring.ob2 1d42669437772355a681e3f9899729161d2f8d9fd111dea0077be12ea8f08054
-ADDED models/obj/obj_piratehat.ob2 4139c99fba5efb47d7f50f2d54ea9870628775c04ae0f18c6c9512bd41bc7274
-ADDED models/obj/obj_piratehat_manhead.ob2 124ea7c7fa3b4c37d39da112b3efe592ec9322e5dbd2912e042accbe8170af66
-ADDED models/obj/obj_piratehat_manwear.ob2 670713fd82a98291cc5f4f5f3b2a8ad512413caed349fc1a4e17191d7bccaef4
-ADDED models/obj/obj_piratehat_womanhead.ob2 124ea7c7fa3b4c37d39da112b3efe592ec9322e5dbd2912e042accbe8170af66
-ADDED models/obj/obj_piratehat_womanwear.ob2 2ec858c95daa34e972762745793773f51f58ee7519c593973992a2a52a33235d
+ADDED models/obj/obj_piratehat.ob2 b6012ead6a7ff92ec04680a0f82c7de753fa965296eb1b08c170800a55831f87
+ADDED models/obj/obj_piratehat_manhead.ob2 29b6e7e4727b4ca4618ee94fea9d42505a3cc58cd750a208918cbaba0b1a746f
+ADDED models/obj/obj_piratehat_manwear.ob2 eab7f10362a6bee4de3330ace4b04784e0683c839e169c9d2a07bac76383a712
+ADDED models/obj/obj_piratehat_womanhead.ob2 29b6e7e4727b4ca4618ee94fea9d42505a3cc58cd750a208918cbaba0b1a746f
+ADDED models/obj/obj_piratehat_womanwear.ob2 76d4ab070f1919e00a84ac1ddf07d57ce4e0aee619c7783de6a39e74643706b3
 ADDED models/obj/obj_plague_jacket.ob2 aefcd377481fc78b983072fe8e1b62b33f21dada7797d462a41c78dc26f142d5
 ADDED models/obj/obj_plague_jacket_manwear.ob2 332b31fa113562a26505be0fb59b71da83a7edf13fd0ead34be2a91629360077
 ADDED models/obj/obj_plague_jacket_manwear2.ob2 46757152e0c0b130df76ec34f5049604498809065133229f787ce00c27aafba3
@@ -3113,15 +3117,15 @@ ADDED models/spot/spot_windstrike_impact.ob2 f137fdaaeafa63cd152129cc0fa9dc7b852
 ADDED models/spot/spot_windstrike_travel.ob2 4e095e340fa9f21f910ac7b44d5c9441f6ebde4f6615d25dc35c3fdcfe5dc89a
 ADDED models/spot/spot_zamorak_flame.ob2 0eeda4af0ba7ff993dc806930721039e0f93e2e4a6a4b8b2df57fe53ac9e2792
 ADDED models/spot/spot_zap.ob2 43febf04ac96aaff53f47c13cbca7314b82983c3a5735af9cc256cf9eeb8d525
-ADDED scripts/_unpack/244/all.flo 1f6f47b1ff1625d9dae42fbc6395525534ca57efac4053f6965d221da1fbe0cc
-ADDED scripts/_unpack/244/all.idk 827e1e44a1e114bc054b45f07bdced2c289b67841aeb59e20a31a0878a8f6619
-ADDED scripts/_unpack/244/all.obj a31b91b495751f001a52e18eee6b96bff82ab6e747adad66077c402043e487e5
-MODIFIED pack/model.pack 244fe374a9332b16a8776078fccde7952badabd8b654e20ea87c70b52b07431d
-MODIFIED scripts/_unpack/244/all.loc 5258319bc6de8c137d4e0958eace3f5e845d86d6924e8867a41ff9bc9292dda7
-MODIFIED scripts/_unpack/244/all.npc 287da87f48f2c3f604cefa4fff6fd4b392cfb388eeeeaef7f04f25bb4b0d876a
-MODIFIED scripts/_unpack/244/all.seq 774a940c63d80cab3c0578f8c163c5580915e6b0ac6fedc527517481fb136506
-MODIFIED scripts/_unpack/244/all.spotanim 62e81da920e0cc6419709c00bfc8d18a6e3128391af9177b99c1f889abc57662
-MODIFIED scripts/_unpack/244/all.varp ec32bea8ecd971c9e2333819d28eb260668ab9bf8baf67b0a075239d238b91fe
+ADDED scripts/_unpack/245/all.flo 43b3547d4ea4be92c2e1ca8c7f036dd7ac2bb5eb9389b161ba4c704eb8be130e
+ADDED scripts/_unpack/245/all.idk 827e1e44a1e114bc054b45f07bdced2c289b67841aeb59e20a31a0878a8f6619
+ADDED scripts/_unpack/245/all.npc 128459ce861885d66b57adbf50d81bd8ff2bf967461be14dba2795839fa9ce71
+ADDED scripts/_unpack/245/all.obj 2d74340af55ad4977dd6555313faecdcfd899babfd8ee292720851551713ebb7
+MODIFIED pack/model.pack 440c838cd45a1cdcced0c3064f85fd88bbd72858218daa319c5795928a250738
+MODIFIED scripts/_unpack/245/all.loc 80ff1c63f0752752a53a2b787c4b37979fd94fea2b45515ad0dda495b9a81cca
+MODIFIED scripts/_unpack/245/all.seq 743fe750dd7745bf90064fdd1e42b78c17fe72a413d31a0a70f53c177e2d5a3b
+MODIFIED scripts/_unpack/245/all.spotanim ef3fedb76a38759916c98aa158d3c7c733dd2d29427db5b87bee46991e129cf8
+MODIFIED scripts/_unpack/245/all.varp c75b1b4353b40c9e09f49d7402980482c061c233c02f29817047bea640943bb0
 DELETED models/_unpack/244/model_loc_3402_8.ob2
 DELETED models/_unpack/244/model_loc_3407_8.ob2
 DELETED models/_unpack/244/model_loc_3408_8.ob2
@@ -3148,6 +3152,7 @@ DELETED models/_unpack/model_155.ob2
 DELETED models/_unpack/model_166.ob2
 DELETED models/_unpack/model_172.ob2
 DELETED models/_unpack/model_175.ob2
+DELETED models/_unpack/model_2934.ob2
 DELETED models/_unpack/model_3184.ob2
 DELETED models/_unpack/model_334.ob2
 DELETED models/_unpack/model_335.ob2
@@ -6232,12 +6237,12 @@ WROTE pack/obj.pack
 WROTE pack/seq.pack
 WROTE pack/spotanim.pack
 WROTE pack/varp.pack
-WROTE scripts/_unpack/244/all.flo
-WROTE scripts/_unpack/244/all.idk
-WROTE scripts/_unpack/244/all.loc
-WROTE scripts/_unpack/244/all.npc
-WROTE scripts/_unpack/244/all.obj
-WROTE scripts/_unpack/244/all.seq
-WROTE scripts/_unpack/244/all.spotanim
-WROTE scripts/_unpack/244/all.varp
-STDOUT-NORM 0e87f8cf8ac27350a7ce4c81126ae33f83b78682214ee69cd00e1e95f9e37fd9
+WROTE scripts/_unpack/245/all.flo
+WROTE scripts/_unpack/245/all.idk
+WROTE scripts/_unpack/245/all.loc
+WROTE scripts/_unpack/245/all.npc
+WROTE scripts/_unpack/245/all.obj
+WROTE scripts/_unpack/245/all.seq
+WROTE scripts/_unpack/245/all.spotanim
+WROTE scripts/_unpack/245/all.varp
+STDOUT-NORM c1b829a98bd0253067ad84f4f56be345f9e8878b520bb6fff890199314b4fb5d

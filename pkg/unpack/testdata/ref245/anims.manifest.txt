@@ -1,10 +1,13 @@
-# rev-244 B7 TS-reference unpack changed-set manifest - family: anims
-# Engine-TS pin 9aadcec4 + Content pin e5d0282e; inputs: B6 byte-parity
-# client cache (main_file_cache.dat/idx0-4) + worldmap.jag (generated at the
-# pin by tools/pack/map/Worldmap.ts with an empty maps/ignore.csv shim).
-# config family ran with engine/data/pack moved aside (plain emission path,
-# not the merge-compare path). See plan Task-1 findings.
-# Generated 2026-06-06. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# rev-245.2 TS-reference unpack changed-set manifest - family: anims
+# Engine-TS pin 3c16994c + Content pin cbcfe670; inputs: the rev-245.2
+# reference-pack client cache (Server245.2-ref/engine/data/pack
+# main_file_cache.dat/idx0-4) + worldmap.jag (generated at the pin by
+# tools/pack/map/Worldmap.ts run VANILLA — maps/ignore.csv exists at the
+# 245.2 Content pin, so the rev-244 empty-shim step was dropped).
+# config family ran with the scratch engine's data/pack moved aside (plain
+# emission path, not the merge-compare path). Procedure: rev-244 B7 plan
+# Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md).
+# Generated 2026-06-10. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
 # (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
 # (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
 # prefix = cache dir; PackFile module-load registry rewrites subtracted;
@@ -178,7 +181,21 @@ WROTE models/anim_247.anim
 WROTE models/anim_248.anim
 WROTE models/anim_249.anim
 WROTE models/anim_24.anim
+WROTE models/anim_250.anim
+WROTE models/anim_251.anim
+WROTE models/anim_252.anim
+WROTE models/anim_253.anim
+WROTE models/anim_254.anim
+WROTE models/anim_255.anim
+WROTE models/anim_256.anim
+WROTE models/anim_257.anim
+WROTE models/anim_258.anim
+WROTE models/anim_259.anim
 WROTE models/anim_25.anim
+WROTE models/anim_260.anim
+WROTE models/anim_261.anim
+WROTE models/anim_262.anim
+WROTE models/anim_263.anim
 WROTE models/anim_26.anim
 WROTE models/anim_27.anim
 WROTE models/anim_28.anim

@@ -8,15 +8,15 @@ import (
 )
 
 // TestMapParity is the env-gated full map-family parity test.
-// It requires GOSCAPE_REF244_DIR to point at the engine directory of a
-// Server244-ref checkout. Run with:
+// It requires GOSCAPE_REF245_DIR to point at the engine directory of a
+// Server245.2-ref checkout. Run with:
 //
-//	GOSCAPE_REF244_DIR=/path/to/Server244-ref/engine \
+//	GOSCAPE_REF245_DIR=/path/to/Server245.2-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/maps/ -run TestMapParity -v -count=1 -timeout 900s
 //
 // The test runs Unpack against a temp scratch copy of the reference content tree
-// and asserts the result against testdata/ref244/map.manifest.txt.
+// and asserts the result against testdata/ref245/map.manifest.txt.
 func TestMapParity(t *testing.T) {
 	refRoot := unpacktest.RefDir(t)
 	contentDir := unpacktest.ContentDir(t)

@@ -1,6 +1,7 @@
 // Package worldmap implements the worldmap floorcol/labels dump tool.
 //
-// Mirrors TS tools/unpack/worldmap/Unpack.ts (Engine-TS 9aadcec4, rev-244):
+// Mirrors TS tools/unpack/worldmap/Unpack.ts (Engine-TS 3c16994c, rev-245.2;
+// identical to the 244 pin 9aadcec4 - the cross-pin diff does not touch it):
 //
 //	FloType.load('data/pack')
 //	const worldmap = Jagfile.load('data/unpack/worldmap.jag')

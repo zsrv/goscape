@@ -191,10 +191,10 @@ func TestCompare_CRCMismatch(t *testing.T) {
 // ---- parity test ----
 
 // TestCompareParity is the env-gated full parity test for Compare.
-// It requires GOSCAPE_REF244_DIR to point at the engine directory of a
-// Server244-ref checkout. Run with:
+// It requires GOSCAPE_REF245_DIR to point at the engine directory of a
+// Server245.2-ref checkout. Run with:
 //
-//	GOSCAPE_REF244_DIR=/path/to/Server244-ref/engine \
+//	GOSCAPE_REF245_DIR=/path/to/Server245.2-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/config/ -run TestCompareParity -v -count=1 -timeout 600s
 //

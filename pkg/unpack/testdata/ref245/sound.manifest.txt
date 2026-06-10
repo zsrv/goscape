@@ -1,10 +1,13 @@
-# rev-244 B7 TS-reference unpack changed-set manifest - family: sound
-# Engine-TS pin 9aadcec4 + Content pin e5d0282e; inputs: B6 byte-parity
-# client cache (main_file_cache.dat/idx0-4) + worldmap.jag (generated at the
-# pin by tools/pack/map/Worldmap.ts with an empty maps/ignore.csv shim).
-# config family ran with engine/data/pack moved aside (plain emission path,
-# not the merge-compare path). See plan Task-1 findings.
-# Generated 2026-06-06. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# rev-245.2 TS-reference unpack changed-set manifest - family: sound
+# Engine-TS pin 3c16994c + Content pin cbcfe670; inputs: the rev-245.2
+# reference-pack client cache (Server245.2-ref/engine/data/pack
+# main_file_cache.dat/idx0-4) + worldmap.jag (generated at the pin by
+# tools/pack/map/Worldmap.ts run VANILLA — maps/ignore.csv exists at the
+# 245.2 Content pin, so the rev-244 empty-shim step was dropped).
+# config family ran with the scratch engine's data/pack moved aside (plain
+# emission path, not the merge-compare path). Procedure: rev-244 B7 plan
+# Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md).
+# Generated 2026-06-10. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
 # (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
 # (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
 # prefix = cache dir; PackFile module-load registry rewrites subtracted;
@@ -19,6 +22,10 @@ WROTE synth/atmospherics/pop2.synth
 WROTE synth/atmospherics/swamp.synth
 WROTE synth/balancing_ledge.synth
 WROTE synth/bind_runes.synth
+WROTE synth/bloom_branch.synth
+WROTE synth/bloom_mushroom.synth
+WROTE synth/bloom_pears.synth
+WROTE synth/cast_bloom.synth
 WROTE synth/climbing_loop.synth
 WROTE synth/climb_wall.synth
 WROTE synth/doorsandopenables/chest_close.synth
@@ -32,7 +39,6 @@ WROTE synth/doorsandopenables/door_open.synth
 WROTE synth/doorsandopenables/grate_close.synth
 WROTE synth/doorsandopenables/grate_open.synth
 WROTE synth/fall_land.synth
-WROTE synth/flower_attack.synth
 WROTE synth/log_balance.synth
 WROTE synth/macroevents/attach_handle.synth
 WROTE synth/macroevents/cavein.synth
@@ -154,6 +160,10 @@ WROTE synth/npc/dragon/dragon_hit.synth
 WROTE synth/npc/duck/duck_death.synth
 WROTE synth/npc/duck/duck_hit.synth
 WROTE synth/npc/duck/quack.synth
+WROTE synth/npc/ghast/ghast_appear.synth
+WROTE synth/npc/ghast/ghast_attack.synth
+WROTE synth/npc/ghast/ghast_death.synth
+WROTE synth/npc/ghast/ghast_hit.synth
 WROTE synth/npc/ghost/ghost_attack2.synth
 WROTE synth/npc/ghost/ghost_attack.synth
 WROTE synth/npc/ghost/ghost_death.synth
@@ -177,6 +187,7 @@ WROTE synth/npc/growls/growl4.synth
 WROTE synth/npc/growls/growl5.synth
 WROTE synth/npc/growls/growl6.synth
 WROTE synth/npc/growls/growl.synth
+WROTE synth/npc/halfwerewolf/half_werewolf_attack.synth
 WROTE synth/npc/halfwerewolf/half_werewolf_death.synth
 WROTE synth/npc/halfwerewolf/half_werewolf_hit.synth
 WROTE synth/npc/human/female_death.synth
@@ -360,7 +371,7 @@ WROTE synth/skills/combat/metals/steel.synth
 WROTE synth/skills/combat/metals/swordclash2.synth
 WROTE synth/skills/combat/metals/sword_hit2.synth
 WROTE synth/skills/combat/metals/sword_hit.synth
-WROTE synth/skills/combat/others/warhammer_crush.synth
+WROTE synth/skills/combat/others/flower_attack.synth
 WROTE synth/skills/combat/scythe/scythe_slash.synth
 WROTE synth/skills/combat/specialattacks/cleave.synth
 WROTE synth/skills/combat/specialattacks/impale.synth
@@ -447,7 +458,6 @@ WROTE synth/skills/woodcutting/woodchop_quick.synth
 WROTE synth/skills/woodcutting/woodchop.synth
 WROTE synth/sound_100.synth
 WROTE synth/sound_101.synth
-WROTE synth/sound_120.synth
 WROTE synth/sound_132.synth
 WROTE synth/sound_135.synth
 WROTE synth/sound_137.synth
@@ -455,11 +465,7 @@ WROTE synth/sound_156.synth
 WROTE synth/sound_175.synth
 WROTE synth/sound_230.synth
 WROTE synth/sound_234.synth
-WROTE synth/sound_239.synth
 WROTE synth/sound_240.synth
-WROTE synth/sound_241.synth
-WROTE synth/sound_242.synth
-WROTE synth/sound_243.synth
 WROTE synth/sound_244.synth
 WROTE synth/sound_245.synth
 WROTE synth/sound_246.synth
@@ -480,6 +486,7 @@ WROTE synth/sound_29.synth
 WROTE synth/sound_33.synth
 WROTE synth/sound_402.synth
 WROTE synth/sound_403.synth
+WROTE synth/sound_416.synth
 WROTE synth/sound_419.synth
 WROTE synth/sound_420.synth
 WROTE synth/sound_421.synth
@@ -488,7 +495,6 @@ WROTE synth/sound_423.synth
 WROTE synth/sound_424.synth
 WROTE synth/sound_467.synth
 WROTE synth/sound_479.synth
-WROTE synth/sound_480.synth
 WROTE synth/sound_482.synth
 WROTE synth/sound_483.synth
 WROTE synth/sound_484.synth
@@ -496,7 +502,6 @@ WROTE synth/sound_485.synth
 WROTE synth/sound_486.synth
 WROTE synth/sound_487.synth
 WROTE synth/sound_488.synth
-WROTE synth/sound_489.synth
 WROTE synth/sound_490.synth
 WROTE synth/sound_491.synth
 WROTE synth/sound_492.synth
@@ -511,14 +516,12 @@ WROTE synth/sound_500.synth
 WROTE synth/sound_501.synth
 WROTE synth/sound_503.synth
 WROTE synth/sound_504.synth
-WROTE synth/sound_50.synth
 WROTE synth/sound_510.synth
 WROTE synth/sound_513.synth
 WROTE synth/sound_516.synth
 WROTE synth/sound_517.synth
 WROTE synth/sound_518.synth
 WROTE synth/sound_519.synth
-WROTE synth/sound_51.synth
 WROTE synth/sound_520.synth
 WROTE synth/sound_521.synth
 WROTE synth/sound_522.synth
@@ -529,11 +532,55 @@ WROTE synth/sound_526.synth
 WROTE synth/sound_527.synth
 WROTE synth/sound_528.synth
 WROTE synth/sound_529.synth
-WROTE synth/sound_52.synth
 WROTE synth/sound_530.synth
 WROTE synth/sound_531.synth
 WROTE synth/sound_532.synth
-WROTE synth/sound_53.synth
+WROTE synth/sound_533.synth
+WROTE synth/sound_534.synth
+WROTE synth/sound_535.synth
+WROTE synth/sound_536.synth
+WROTE synth/sound_537.synth
+WROTE synth/sound_538.synth
+WROTE synth/sound_539.synth
+WROTE synth/sound_540.synth
+WROTE synth/sound_541.synth
+WROTE synth/sound_542.synth
+WROTE synth/sound_543.synth
+WROTE synth/sound_544.synth
+WROTE synth/sound_545.synth
+WROTE synth/sound_546.synth
+WROTE synth/sound_547.synth
+WROTE synth/sound_548.synth
+WROTE synth/sound_549.synth
+WROTE synth/sound_550.synth
+WROTE synth/sound_551.synth
+WROTE synth/sound_552.synth
+WROTE synth/sound_553.synth
+WROTE synth/sound_554.synth
+WROTE synth/sound_555.synth
+WROTE synth/sound_556.synth
+WROTE synth/sound_557.synth
+WROTE synth/sound_558.synth
+WROTE synth/sound_559.synth
+WROTE synth/sound_560.synth
+WROTE synth/sound_561.synth
+WROTE synth/sound_562.synth
+WROTE synth/sound_563.synth
+WROTE synth/sound_564.synth
+WROTE synth/sound_565.synth
+WROTE synth/sound_566.synth
+WROTE synth/sound_567.synth
+WROTE synth/sound_568.synth
+WROTE synth/sound_569.synth
+WROTE synth/sound_570.synth
+WROTE synth/sound_571.synth
+WROTE synth/sound_572.synth
+WROTE synth/sound_573.synth
+WROTE synth/sound_574.synth
+WROTE synth/sound_575.synth
+WROTE synth/sound_576.synth
+WROTE synth/sound_577.synth
+WROTE synth/sound_578.synth
 WROTE synth/sound_6.synth
 WROTE synth/sound_78.synth
 WROTE synth/sound_7.synth
@@ -542,6 +589,8 @@ WROTE synth/sound_96.synth
 WROTE synth/sound_97.synth
 WROTE synth/sound_98.synth
 WROTE synth/sound_99.synth
+WROTE synth/spirit_transform_start.synth
+WROTE synth/spirit_transform.synth
 WROTE synth/stumble_loop.synth
 WROTE synth/swing_across.synth
 WROTE synth/tightrope.synth
