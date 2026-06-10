@@ -781,6 +781,42 @@ func TestResolveLocModels_DirectRef_ModelFlags(t *testing.T) {
 	}
 }
 
+// TestPackLocConfigs_BreakroutefindingTrue pins that breakroutefinding=yes
+// (parsed as bool true) emits client opcode 74 (0x4A) and nothing server-side.
+// TS source: tools/pack/config/LocConfig.ts:60 (booleanKeys) + :307-310 (emission)
+// @ 3c16994c.
+func TestPackLocConfigs_BreakroutefindingTrue(t *testing.T) {
+	mp, _, _, _, _, _ := locTestRegistries(t)
+	locPack := locOneSlotPack("x")
+	configs := map[string][]ConfigLine{"x": {{Key: "breakroutefinding", Value: true}}}
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// opcode 74 (0x4A) + Next 0x00 (no payload — same shape as forcedecor/73)
+	want := []byte{0x00, 0x01, 0x4A, 0x00}
+	if !bytes.Equal(client.Dat.Data, want) {
+		t.Fatalf("got % x, want % x", client.Dat.Data, want)
+	}
+}
+
+// TestPackLocConfigs_BreakroutefindingFalse pins that breakroutefinding=no
+// (parsed as bool false) emits nothing to the client buffer.
+// TS source: LocConfig.ts:307-310 @ 3c16994c — emission fires only on value===true.
+func TestPackLocConfigs_BreakroutefindingFalse(t *testing.T) {
+	mp, _, _, _, _, _ := locTestRegistries(t)
+	locPack := locOneSlotPack("x")
+	configs := map[string][]ConfigLine{"x": {{Key: "breakroutefinding", Value: false}}}
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// false → no opcode 74 emitted; client body is empty (just Next terminator).
+	if !bytes.Equal(client.Dat.Data, locClientEmptyBody()) {
+		t.Fatalf("got % x, want % x", client.Dat.Data, locClientEmptyBody())
+	}
+}
+
 // TestPackLocConfigs_ModelFlags_NilSafe pins that nil modelFlags does not
 // panic in resolveLocModels.
 func TestPackLocConfigs_ModelFlags_NilSafe(t *testing.T) {

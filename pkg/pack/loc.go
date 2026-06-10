@@ -55,18 +55,19 @@ type locModelShape struct {
 }
 
 // locBooleanKeys is the set of keys parsed as IsConfigBoolean-gated
-// booleans. TS source: tools/pack/config/LocConfig.ts:54-60.
+// booleans. TS source: tools/pack/config/LocConfig.ts:54-61.
 var locBooleanKeys = map[string]struct{}{
-	"blockwalk":  {},
-	"blockrange": {},
-	"active":     {},
-	"hillskew":   {},
-	"sharelight": {},
-	"occlude":    {},
-	"hasalpha":   {},
-	"mirror":     {},
-	"shadow":     {},
-	"forcedecor": {},
+	"blockwalk":         {},
+	"blockrange":        {},
+	"active":            {},
+	"hillskew":          {},
+	"sharelight":        {},
+	"occlude":           {},
+	"hasalpha":          {},
+	"mirror":            {},
+	"shadow":            {},
+	"forcedecor":        {},
+	"breakroutefinding": {},
 }
 
 // locNumberKeys is the set of keys parsed as signed/unsigned integers
@@ -291,7 +292,7 @@ func resolveLocModels(srcModels []string, modelPack *PackFile, modelFlags []int,
 // LocConfig.ts:170-434.
 //
 // Server gets: opcode 61 (category), opcode 249 (params), opcode 250
-// (debugname). Client gets everything else (1, 2, 3, 14-73).
+// (debugname). Client gets everything else (1, 2, 3, 14-74).
 //
 // modelFlags is indexed by model id (size = Model PackFile max). The loc
 // packer writes 0x4 flags for model references via resolveLocModels per
@@ -462,6 +463,11 @@ func packLocConfigs(configs map[string][]ConfigLine, locPack, modelPack *PackFil
 				case line.Key == "forcedecor":
 					if line.Value.(bool) {
 						client.P1(73)
+					}
+				case line.Key == "breakroutefinding":
+					// TS source: tools/pack/config/LocConfig.ts:307-310 @ 3c16994c.
+					if line.Value.(bool) {
+						client.P1(74)
 					}
 				}
 			}
