@@ -716,28 +716,32 @@ func TestPackConfigsConfigJagCacheWrite(t *testing.T) {
 	}
 }
 
-// TestClientConfigCRCConstants_Rev244 pins the six BUILD_VERIFY CRC magic
-// numbers to their rev-244 values (TS PackShared.ts @ 9aadcec4).
+// TestClientConfigCRCConstants_Rev2452 pins the BUILD_VERIFY CRC magic
+// numbers to their rev-245.2 values (TS PackShared.ts @ 3c16994c).
 //
-// Old 225 values for reference (updated at 9aadcec4):
-//   seq      1638136604 → 1405403166  (PackShared.ts:435)
-//   loc       891497087 → 1195428820  (PackShared.ts:459)
-//   spotanim -1279835623 → 117013845  (PackShared.ts:507)
-//   npc      -2140681882 → -997428438 (PackShared.ts:531)
-//   obj       -840233510 → 1589810970 (PackShared.ts:555)
-//   varp       705633567 → -1961744050 (PackShared.ts:603)
-func TestClientConfigCRCConstants_Rev244(t *testing.T) {
+// Old 244 values for reference (updated at 9aadcec4 → now 3c16994c):
+//   seq      1638136604 → 1405403166 → -1858954999 (PackShared.ts:438)
+//   loc       891497087 → 1195428820 →  626415911  (PackShared.ts:462)
+//   flo          (new)  → 1976597026 → -532285888  (PackShared.ts:486)
+//   spotanim -1279835623 →  117013845 →   96621343  (PackShared.ts:510)
+//   npc      -2140681882 →  -997428438 →  417024969  (PackShared.ts:534)
+//   obj       -840233510 → 1589810970 →  344600333  (PackShared.ts:558)
+//   idk          (new)  → -359342366 → -359342366  (PackShared.ts:582) UNCHANGED
+//   varp       705633567 → -1961744050 → 1480086078  (PackShared.ts:606)
+func TestClientConfigCRCConstants_Rev2452(t *testing.T) {
 	tests := []struct {
 		name string
 		got  int32
 		want int32
 	}{
-		{"seq", clientConfigCRCSeq, 1405403166},
-		{"loc", clientConfigCRCLoc, 1195428820},
-		{"spotanim", clientConfigCRCSpotAnim, 117013845},
-		{"npc", clientConfigCRCNpc, -997428438},
-		{"obj", clientConfigCRCObj, 1589810970},
-		{"varp", clientConfigCRCVarp, -1961744050},
+		{"seq", clientConfigCRCSeq, -1858954999},
+		{"loc", clientConfigCRCLoc, 626415911},
+		{"flo", clientConfigCRCFlo, -532285888},
+		{"spotanim", clientConfigCRCSpotAnim, 96621343},
+		{"npc", clientConfigCRCNpc, 417024969},
+		{"obj", clientConfigCRCObj, 344600333},
+		{"idk", clientConfigCRCIdk, -359342366},
+		{"varp", clientConfigCRCVarp, 1480086078},
 	}
 	for _, tc := range tests {
 		if tc.got != tc.want {

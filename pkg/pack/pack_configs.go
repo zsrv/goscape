@@ -10,28 +10,39 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
-// clientConfigCRC* are the rev-244 BUILD_VERIFY CRC magic numbers for
-// the eight client-jagfile config sub-files. Updated from the 225 values
-// at TS PackShared.ts:435,459,467,507,531,555,573,603 @ 9aadcec4.
+// clientConfigCRC* are the rev-245.2 BUILD_VERIFY CRC magic numbers for
+// the eight client-jagfile config sub-files. Updated from the 244 values
+// at TS PackShared.ts:438,462,486,510,534,558,582,606 @ 3c16994c.
+// idk did NOT change at 245.2.
 //
-// 225 values (for reference):
-//   seqCRC      was 1638136604  → now 1405403166  (PackShared.ts:435)
-//   locCRC      was 891497087   → now 1195428820  (PackShared.ts:459)
-//   floCRC      new constant    → now 1976597026  (PackShared.ts:467)
-//   spotanimCRC was -1279835623 → now 117013845   (PackShared.ts:507)
-//   npcCRC      was -2140681882 → now -997428438  (PackShared.ts:531)
-//   objCRC      was -840233510  → now 1589810970  (PackShared.ts:555)
-//   idkCRC      new constant    → now -359342366  (PackShared.ts:573)
-//   varpCRC     was 705633567   → now -1961744050 (PackShared.ts:603)
+// 225 values (for reference, updated at 9aadcec4):
+//   seqCRC      was 1638136604  → 244: 1405403166  (PackShared.ts:435)
+//   locCRC      was 891497087   → 244: 1195428820  (PackShared.ts:459)
+//   floCRC      new constant    → 244: 1976597026  (PackShared.ts:467)
+//   spotanimCRC was -1279835623 → 244:  117013845  (PackShared.ts:507)
+//   npcCRC      was -2140681882 → 244: -997428438  (PackShared.ts:531)
+//   objCRC      was -840233510  → 244: 1589810970  (PackShared.ts:555)
+//   idkCRC      new constant    → 244: -359342366  (PackShared.ts:573)
+//   varpCRC     was 705633567   → 244: -1961744050 (PackShared.ts:603)
+//
+// 244 → 245.2 changes (updated at 3c16994c):
+//   seqCRC      1405403166  → -1858954999 (PackShared.ts:438)
+//   locCRC      1195428820  →  626415911  (PackShared.ts:462)
+//   floCRC      1976597026  → -532285888  (PackShared.ts:486)
+//   spotanimCRC  117013845  →   96621343  (PackShared.ts:510)
+//   npcCRC      -997428438  →  417024969  (PackShared.ts:534)
+//   objCRC      1589810970  →  344600333  (PackShared.ts:558)
+//   idkCRC      -359342366  → -359342366  (PackShared.ts:582) UNCHANGED
+//   varpCRC    -1961744050  → 1480086078  (PackShared.ts:606)
 const (
-	clientConfigCRCSeq      int32 = 1405403166
-	clientConfigCRCLoc      int32 = 1195428820
-	clientConfigCRCFlo      int32 = 1976597026
-	clientConfigCRCSpotAnim int32 = 117013845
-	clientConfigCRCNpc      int32 = -997428438
-	clientConfigCRCObj      int32 = 1589810970
+	clientConfigCRCSeq      int32 = -1858954999
+	clientConfigCRCLoc      int32 = 626415911
+	clientConfigCRCFlo      int32 = -532285888
+	clientConfigCRCSpotAnim int32 = 96621343
+	clientConfigCRCNpc      int32 = 417024969
+	clientConfigCRCObj      int32 = 344600333
 	clientConfigCRCIdk      int32 = -359342366
-	clientConfigCRCVarp     int32 = -1961744050
+	clientConfigCRCVarp     int32 = 1480086078
 )
 
 // PackConfigsForRegistry runs the per-config packing pipeline,
@@ -548,7 +559,7 @@ func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, client
 		return err
 	}
 	server, client := packVarpConfigs(cfgs, pf, modelFlags)
-	// TS PackShared.ts:603 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, -1961744050)
+	// TS PackShared.ts:606 @ 3c16994c: Packet.checkcrc(client.data, 0, client.pos, 1480086078)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCVarp); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveVarp: %v (BUILD_VERIFY)\n", err)
 	}
@@ -721,7 +732,7 @@ func packAndSaveLoc(srcDir, serverOut string, locPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
-	// TS PackShared.ts:459 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, 1195428820)
+	// TS PackShared.ts:462 @ 3c16994c: Packet.checkcrc(client.data, 0, client.pos, 626415911)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCLoc); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveLoc: %v (BUILD_VERIFY)\n", err)
 	}
@@ -756,7 +767,7 @@ func packAndSaveNpc(srcDir, serverOut string, npcPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
-	// TS PackShared.ts:531 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, -997428438)
+	// TS PackShared.ts:534 @ 3c16994c: Packet.checkcrc(client.data, 0, client.pos, 417024969)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCNpc); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveNpc: %v (BUILD_VERIFY)\n", err)
 	}
@@ -791,7 +802,7 @@ func packAndSaveObj(srcDir, serverOut string, objPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
-	// TS PackShared.ts:555 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, 1589810970)
+	// TS PackShared.ts:558 @ 3c16994c: Packet.checkcrc(client.data, 0, client.pos, 344600333)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCObj); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveObj: %v (BUILD_VERIFY)\n", err)
 	}
@@ -824,7 +835,7 @@ func packAndSaveSeq(srcDir, serverOut string, seqPack, animPack, objPack *PackFi
 		return err
 	}
 	server, client := packSeqConfigs(cfgs, seqPack, modelFlags)
-	// TS PackShared.ts:435 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, 1405403166)
+	// TS PackShared.ts:438 @ 3c16994c: Packet.checkcrc(client.data, 0, client.pos, -1858954999)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCSeq); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveSeq: %v (BUILD_VERIFY)\n", err)
 	}
@@ -856,7 +867,7 @@ func packAndSaveFlo(srcDir, serverOut string, floPack, texturePack *PackFile, c 
 		return err
 	}
 	server, client := packFloConfigs(cfgs, floPack, modelFlags)
-	// TS PackShared.ts:467 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, 1976597026)
+	// TS PackShared.ts:486 @ 3c16994c: Packet.checkcrc(client.data, 0, client.pos, -532285888)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCFlo); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveFlo: %v (BUILD_VERIFY)\n", err)
 	}
@@ -887,7 +898,7 @@ func packAndSaveSpotAnim(srcDir, serverOut string, spotanimPack, modelPack, seqP
 		return err
 	}
 	server, client := packSpotAnimConfigs(cfgs, spotanimPack, modelFlags)
-	// TS PackShared.ts:507 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, 117013845)
+	// TS PackShared.ts:510 @ 3c16994c: Packet.checkcrc(client.data, 0, client.pos, 96621343)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCSpotAnim); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveSpotAnim: %v (BUILD_VERIFY)\n", err)
 	}
@@ -981,7 +992,7 @@ func packAndSaveIdk(srcDir, serverOut string, idkPack, modelPack *PackFile, c Co
 		return err
 	}
 	server, client := packIdkConfigs(cfgs, idkPack, modelFlags)
-	// TS PackShared.ts:573 @ 9aadcec4: Packet.checkcrc(client.data, 0, client.pos, -359342366)
+	// TS PackShared.ts:582 @ 3c16994c: Packet.checkcrc(client.data, 0, client.pos, -359342366)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCIdk); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveIdk: %v (BUILD_VERIFY)\n", err)
 	}
