@@ -1346,9 +1346,23 @@ force-teleport every lap. Dates to the rev-225-era NAI-28 port; Arc-27
 
 **The rev-245.2 port is COMPLETE.** Residuals carried forward: the
 collision-follow gap above (pre-existing, tracked);
-`TestDecodeRealCacheBlob` (Arc-26, unchanged); `ValidateConfigPackNames`
-map-order (unchanged). The rev-244 residual "config.yaml hardcodes the
-Server244-ref path" now points at Server245.2-ref (same shape, new target).
+`ValidateConfigPackNames` map-order (unchanged). The rev-244 residual
+"config.yaml hardcodes the Server244-ref path" now points at
+Server245.2-ref (same shape, new target).
+
+**Residual RETIRED (2026-06-10, post-close-out):** `TestDecodeRealCacheBlob`
+"bad trailer position" was a PHANTOM — the bug was in the TEST's idx walk
+(8-byte idx header assumed; idx has 4, only dat has 8 → Frankenblob sliced
+across two scripts, which `Decode` correctly rejected), fixed at `0a068e40`
+(2026-05-22) but never retired from the Arc-26 memo / rev-244 close-out,
+which mis-classified it as a `pkg/script/file.go` decoder bug. Re-verified
+exhaustively: 32,826 blobs across four era-caches (Server225_2 Arc-26-era
+artifact, 244 reference, 245.2 reference, current local) all decode with
+byte-exact dat consumption; the decoder is unchanged since its initial port
+and was never wrong; production `Provider.Load` always used the correct
+offsets. The test is upgraded from first-blob-only to an all-blobs sweep
+with a full-consumption assertion so a walk misalignment can never again
+masquerade as a decoder bug.
 
 ---
 
