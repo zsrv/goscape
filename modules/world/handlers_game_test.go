@@ -2471,10 +2471,12 @@ func TestHandleClientCheat_AdminSpawn_StaffGateRejects(t *testing.T) {
 
 	startNpcCount := len(s.npcLoop)
 	startModalMain := p.modalMain
+	startOverlay := p.overlay
 
 	dispatchTeleCheat(t, p, "locadd "+locName)
 	dispatchTeleCheat(t, p, "npcadd "+npcName)
 	dispatchTeleCheat(t, p, "openmain "+comName)
+	dispatchTeleCheat(t, p, "openoverlay "+comName)
 
 	z := s.zoneMap.Get(p.level, p.x, p.z)
 	if len(z.Locs) != 0 {
@@ -2487,6 +2489,19 @@ func TestHandleClientCheat_AdminSpawn_StaffGateRejects(t *testing.T) {
 	if p.modalMain != startModalMain {
 		t.Errorf("staff<3 ::openmain should not open modal; modalMain = %d, want %d",
 			p.modalMain, startModalMain)
+	}
+	if p.overlay != startOverlay {
+		t.Errorf("staff<3 ::openoverlay should not open overlay; overlay = %d, want %d",
+			p.overlay, startOverlay)
+	}
+
+	// closeoverlay is also admin-gated: pre-set an overlay, dispatch at
+	// staff 2, the overlay must survive.
+	p.overlay = comID
+	dispatchTeleCheat(t, p, "closeoverlay")
+	if p.overlay != comID {
+		t.Errorf("staff<3 ::closeoverlay should not close overlay; overlay = %d, want %d",
+			p.overlay, comID)
 	}
 }
 

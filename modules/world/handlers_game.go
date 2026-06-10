@@ -1097,10 +1097,11 @@ func handleClientCheat(p *Player, payload []byte) error {
 				p.MessageGame(fmt.Sprintf("set %s: to %d", cfg.DebugName, value))
 			}
 		case "setvarother":
-			// TS L220-252. NP-gated via inner break (DEVIATION-NAI-185-D2).
+			// TS L247-279 @43e02957 (shifted by the 254 varbit-aware setvar
+			// block above). NP-gated via inner break (DEVIATION-NAI-185-D2).
 			// setvarother <username> <name> <value>. Missing-user message
 			// goes to caller; busy-target message ALSO goes to caller
-			// (DEVIATION-NAI-185-D3 — TS L242 asymmetry).
+			// (DEVIATION-NAI-185-D3 — TS L269 asymmetry).
 			if !p.client.server.cfg.NodeProduction {
 				break
 			}
@@ -1177,7 +1178,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 				p.MessageGame(fmt.Sprintf("get %s: %d", cfg.DebugName, p.Varp(cfg.ID)))
 			}
 		case "getvarother":
-			// TS L268-287. NP-gated via inner break. getvarother
+			// TS L321-340 @43e02957. NP-gated via inner break. getvarother
 			// <username> <name>. Caller gets the target's varp value
 			// formatted as `get <debugname>: <value> on <other.username>`.
 			if !p.client.server.cfg.NodeProduction {
