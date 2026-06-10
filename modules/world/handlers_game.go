@@ -976,6 +976,25 @@ func handleClientCheat(p *Player, payload []byte) error {
 				return nil
 			}
 			p.OpenMain(ct.ID)
+		case "openoverlay":
+			// TS L530-542 @43e02957 — resolves ComponentType by
+			// debugname, gates on rootLayer == id (root layers only,
+			// same gate as openmain), routes through p.OpenOverlay
+			// (sets p.overlay; IF_OPENOVERLAY flush deferred to
+			// encodeOut on overlay != lastOverlay).
+			if args == "" {
+				return nil
+			}
+			name := strings.Fields(args)[0]
+			ct := p.client.server.componentTypes.ByName(name)
+			if ct == nil || ct.RootLayer != ct.ID {
+				return nil
+			}
+			p.OpenOverlay(ct.ID)
+		case "closeoverlay":
+			// TS L543-544 @43e02957 — player.openOverlay(-1) (clears
+			// the old overlay's com listeners, then resets the field).
+			p.OpenOverlay(-1)
 		case "teleother":
 			// TS L377-400 — teleother <username> (production-only via
 			// outer arm selector; goscape mirrors with inner NP gate).
@@ -1012,10 +1031,18 @@ func handleClientCheat(p *Player, payload []byte) error {
 				f.Close()
 			}
 		case "setvar":
-			// TS L192-219. Not NP-gated. setvar <name> <value>: ByName
-			// lookup, optional protect-path modal close + canAccess gate
-			// + clearInteraction + unsetMapFlag, then SetVarp with
-			// int32-clamped value. Caller gets `set <debugname>: to <value>`.
+			// TS L193-246 @43e02957. Not NP-gated. setvar <name> <value>:
+			// varbit-FIRST lookup (VarBitType.getByName, L205) — a hit
+			// resolves the base varp via VarPlayerType.get(varbit.basevar)
+			// and runs the protect gate against it (L209-219); a miss falls
+			// through to VarPlayerType.getByName (L221). The original
+			// protect block (L228-238) still runs after the branch — on the
+			// varbit path with a protected basevar TS literally runs the
+			// gate TWICE (idempotent: the 1st pass closes the modal /
+			// clears the interaction the 2nd pass re-checks). Mirrored
+			// as-is. Write goes through SetVarBit on the varbit path with
+			// the VARBIT's debugname in the reply (L240-242), SetVarp +
+			// varp debugname otherwise (L244-245).
 			if args == "" {
 				return nil
 			}
@@ -1023,7 +1050,33 @@ func handleClientCheat(p *Player, payload []byte) error {
 			if len(sub) < 2 {
 				return nil
 			}
-			cfg := p.client.server.varpTypes.ByName(sub[0])
+			// TS L202: rev-254 moved the int32 clamp ABOVE the lookup.
+			value := parseIntOr(sub[1], 0)
+			if value > 0x7fffffff {
+				value = 0x7fffffff
+			}
+			if value < -0x80000000 {
+				value = -0x80000000
+			}
+			var cfg *objtype.VarPlayerType
+			varbit := p.client.server.varbitTypes.ByName(sub[0])
+			if varbit != nil {
+				// TS L207 indexes configs[basevar] unguarded and would
+				// throw on undefined.protect; Go's nil tolerance folds
+				// that into the `if (!varp) return false` reject below.
+				cfg = p.varpTypeConfig(varbit.Basevar)
+				if cfg != nil && cfg.Protect {
+					p.CloseModal(true)
+					if !p.CanAccess() {
+						p.MessageGame("Please finish what you are doing first.")
+						return nil
+					}
+					p.ClearInteraction()
+					p.unsetMapFlag()
+				}
+			} else {
+				cfg = p.client.server.varpTypes.ByName(sub[0])
+			}
 			if cfg == nil {
 				return nil
 			}
@@ -1036,15 +1089,13 @@ func handleClientCheat(p *Player, payload []byte) error {
 				p.ClearInteraction()
 				p.unsetMapFlag()
 			}
-			value := parseIntOr(sub[1], 0)
-			if value > 0x7fffffff {
-				value = 0x7fffffff
+			if varbit != nil {
+				p.SetVarBit(varbit.ID, int32(value))
+				p.MessageGame(fmt.Sprintf("set %s: to %d", varbit.DebugName, value))
+			} else {
+				p.SetVarp(cfg.ID, int32(value))
+				p.MessageGame(fmt.Sprintf("set %s: to %d", cfg.DebugName, value))
 			}
-			if value < -0x80000000 {
-				value = -0x80000000
-			}
-			p.SetVarp(cfg.ID, int32(value))
-			p.MessageGame(fmt.Sprintf("set %s: to %d", cfg.DebugName, value))
 		case "setvarother":
 			// TS L220-252. NP-gated via inner break (DEVIATION-NAI-185-D2).
 			// setvarother <username> <name> <value>. Missing-user message
@@ -1088,17 +1139,43 @@ func handleClientCheat(p *Player, payload []byte) error {
 			other.SetVarp(cfg.ID, int32(value))
 			p.MessageGame(fmt.Sprintf("set %s: to %d on %s", cfg.DebugName, value, other.username))
 		case "getvar":
-			// TS L253-267. Not NP-gated. getvar <name> → caller gets
+			// TS L280-320 @43e02957. Not NP-gated. getvar <name>:
+			// varbit-FIRST lookup (L291) — a hit resolves the base varp
+			// and runs the protect gate against it (L295-305, same shape
+			// as setvar's varbit branch; the plain-varp path keeps its
+			// historical no-gate behavior), then replies
+			// `get <varbit.debugname>: <getVarBit(id)>` (L314-316).
+			// A miss falls through to the varp path (L307) → caller gets
 			// `get <debugname>: <value>` where value is p.Varp(id) (0
 			// for unset).
 			if args == "" {
 				return nil
 			}
-			cfg := p.client.server.varpTypes.ByName(args)
+			var cfg *objtype.VarPlayerType
+			varbit := p.client.server.varbitTypes.ByName(args)
+			if varbit != nil {
+				// TS L293 indexes configs[basevar] unguarded (see setvar).
+				cfg = p.varpTypeConfig(varbit.Basevar)
+				if cfg != nil && cfg.Protect {
+					p.CloseModal(true)
+					if !p.CanAccess() {
+						p.MessageGame("Please finish what you are doing first.")
+						return nil
+					}
+					p.ClearInteraction()
+					p.unsetMapFlag()
+				}
+			} else {
+				cfg = p.client.server.varpTypes.ByName(args)
+			}
 			if cfg == nil {
 				return nil
 			}
-			p.MessageGame(fmt.Sprintf("get %s: %d", cfg.DebugName, p.Varp(cfg.ID)))
+			if varbit != nil {
+				p.MessageGame(fmt.Sprintf("get %s: %d", varbit.DebugName, p.GetVarBit(varbit.ID)))
+			} else {
+				p.MessageGame(fmt.Sprintf("get %s: %d", cfg.DebugName, p.Varp(cfg.ID)))
+			}
 		case "getvarother":
 			// TS L268-287. NP-gated via inner break. getvarother
 			// <username> <name>. Caller gets the target's varp value

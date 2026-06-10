@@ -1554,6 +1554,156 @@ func TestHandleClientCheat_GetVar_UnknownName_SilentReject(t *testing.T) {
 	}
 }
 
+// setvarVarbitFixture extends setvarTestFixture with a varbit registry
+// (rev-254 ::setvar/::getvar varbit-first lookup, TS
+// ClientCheatHandler.ts:204-222/290-308 @43e02957):
+// id=0 "bit_of_transmit" → basevar 0 (transmit_only, Protect=false),
+// bits [4,7] (mask 0xF); id=1 "bit_of_protect" → basevar 1
+// (protect_var, Protect=true), bits [0,3].
+func setvarVarbitFixture(t *testing.T) (*Player, net.Conn, *Server) {
+	t.Helper()
+	p, cc, s := setvarTestFixture(t)
+	s.varbitTypes = &objtype.VarBitTypeConfigs{
+		Configs: []*objtype.VarBitType{
+			{ConfigType: objtype.ConfigType{ID: 0, DebugName: "bit_of_transmit"}, Basevar: 0, Startbit: 4, Endbit: 7},
+			{ConfigType: objtype.ConfigType{ID: 1, DebugName: "bit_of_protect"}, Basevar: 1, Startbit: 0, Endbit: 3},
+		},
+		ConfigNames: map[string]int{"bit_of_transmit": 0, "bit_of_protect": 1},
+	}
+	return p, cc, s
+}
+
+// TestHandleClientCheat_SetVar_VarbitName_WritesThroughSetVarBit pins
+// TS ClientCheatHandler.ts:204-222 + 240-242 @43e02957: ::setvar with a
+// VARBIT debugname resolves the varbit FIRST, writes through setVarBit
+// (bit-range merge into the base varp), and the reply names the VARBIT.
+func TestHandleClientCheat_SetVar_VarbitName_WritesThroughSetVarBit(t *testing.T) {
+	p, cc, _ := setvarVarbitFixture(t)
+	p.varps[0] = 0x0F0F // bits outside [4,7] must survive the write
+
+	dispatchTeleCheat(t, p, "setvar bit_of_transmit 11")
+	emitted := drainAfterTele(t, p, cc)
+
+	if p.varps[0] != 0x0FBF {
+		t.Errorf("varps[0] after varbit setvar: got %#x, want 0x0FBF (bits [4,7] = 0xB, rest preserved)", p.varps[0])
+	}
+	if !bytes.Contains(emitted, []byte("set bit_of_transmit: to 11")) {
+		t.Errorf("expected 'set bit_of_transmit: to 11' in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
+// TestHandleClientCheat_GetVar_VarbitName_ReadsGetVarBit pins TS
+// ClientCheatHandler.ts:290-316 @43e02957: ::getvar with a VARBIT
+// debugname reads getVarBit and replies with the VARBIT's debugname.
+func TestHandleClientCheat_GetVar_VarbitName_ReadsGetVarBit(t *testing.T) {
+	p, cc, _ := setvarVarbitFixture(t)
+	p.varps[0] = 0x0FBF // bits [4,7] = 0xB = 11
+
+	dispatchTeleCheat(t, p, "getvar bit_of_transmit")
+	emitted := drainAfterTele(t, p, cc)
+
+	if !bytes.Contains(emitted, []byte("get bit_of_transmit: 11")) {
+		t.Errorf("expected 'get bit_of_transmit: 11' in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
+// TestHandleClientCheat_SetVar_VarbitProtectedBasevar_CanAccessFalse pins
+// TS ClientCheatHandler.ts:209-219 @43e02957: a varbit whose basevar is
+// protected runs the closeModal → canAccess gate; access denied →
+// busy-message and NO write.
+func TestHandleClientCheat_SetVar_VarbitProtectedBasevar_CanAccessFalse_MessagesAndRejects(t *testing.T) {
+	p, cc, _ := setvarVarbitFixture(t)
+	p.delayed = true // forces CanAccess() = false
+
+	dispatchTeleCheat(t, p, "setvar bit_of_protect 5")
+	emitted := drainAfterTele(t, p, cc)
+
+	if p.varps[1] != 0 {
+		t.Errorf("CanAccess=false should have rejected varbit setvar: varps[1] = %d, want 0", p.varps[1])
+	}
+	if !bytes.Contains(emitted, []byte("Please finish what you are doing first.")) {
+		t.Errorf("expected busy-message in emitted bytes; got %d bytes", len(emitted))
+	}
+	if bytes.Contains(emitted, []byte("set bit_of_protect")) {
+		t.Errorf("rejected varbit setvar still emitted 'set bit_of_protect'; bytes=%d", len(emitted))
+	}
+}
+
+// TestHandleClientCheat_SetVar_VarbitProtectedBasevar_WithAccess_Writes
+// pins the access-granted half of TS L209-219: closeModal +
+// clearInteraction + unsetMapFlag fire, then the varbit write lands.
+func TestHandleClientCheat_SetVar_VarbitProtectedBasevar_WithAccess_Writes(t *testing.T) {
+	p, cc, _ := setvarVarbitFixture(t)
+	p.modalState = modalStateMain
+	p.waypointIndex = 5
+
+	dispatchTeleCheat(t, p, "setvar bit_of_protect 5")
+	emitted := drainAfterTele(t, p, cc)
+
+	if p.varps[1] != 5 {
+		t.Errorf("varps[1] after protected varbit setvar: got %d, want 5 (bits [0,3])", p.varps[1])
+	}
+	if p.modalState != modalStateNone {
+		t.Errorf("modalState after protected varbit setvar: got %d, want modalStateNone", p.modalState)
+	}
+	if p.waypointIndex != -1 {
+		t.Errorf("waypointIndex after protected varbit setvar: got %d, want -1 (UnsetMapFlag)", p.waypointIndex)
+	}
+	if !bytes.Contains(emitted, []byte("set bit_of_protect: to 5")) {
+		t.Errorf("expected 'set bit_of_protect: to 5' in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
+// TestHandleClientCheat_GetVar_VarbitProtectedBasevar_CanAccessFalse pins
+// the getvar-side protect gate (TS ClientCheatHandler.ts:295-305
+// @43e02957) — same closeModal/canAccess shape as setvar.
+func TestHandleClientCheat_GetVar_VarbitProtectedBasevar_CanAccessFalse_MessagesAndRejects(t *testing.T) {
+	p, cc, _ := setvarVarbitFixture(t)
+	p.varps[1] = 5
+	p.delayed = true // forces CanAccess() = false
+
+	dispatchTeleCheat(t, p, "getvar bit_of_protect")
+	emitted := drainAfterTele(t, p, cc)
+
+	if !bytes.Contains(emitted, []byte("Please finish what you are doing first.")) {
+		t.Errorf("expected busy-message in emitted bytes; got %d bytes", len(emitted))
+	}
+	if bytes.Contains(emitted, []byte("get bit_of_protect")) {
+		t.Errorf("rejected varbit getvar still emitted 'get bit_of_protect'; bytes=%d", len(emitted))
+	}
+}
+
+// TestHandleClientCheat_SetVar_VarpName_StillWorksWithVarbitRegistry pins
+// the fall-through at TS ClientCheatHandler.ts:220-222 @43e02957: a name
+// that misses the varbit index resolves via VarPlayerType.getByName.
+func TestHandleClientCheat_SetVar_VarpName_StillWorksWithVarbitRegistry(t *testing.T) {
+	p, cc, _ := setvarVarbitFixture(t)
+
+	dispatchTeleCheat(t, p, "setvar transmit_only 42")
+	emitted := drainAfterTele(t, p, cc)
+
+	if p.varps[0] != 42 {
+		t.Errorf("varps[0] after varp-name setvar with varbit registry: got %d, want 42", p.varps[0])
+	}
+	if !bytes.Contains(emitted, []byte("set transmit_only: to 42")) {
+		t.Errorf("expected 'set transmit_only: to 42' in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
+// TestHandleClientCheat_GetVar_VarpName_StillWorksWithVarbitRegistry pins
+// the getvar fall-through (TS ClientCheatHandler.ts:306-308 @43e02957).
+func TestHandleClientCheat_GetVar_VarpName_StillWorksWithVarbitRegistry(t *testing.T) {
+	p, cc, _ := setvarVarbitFixture(t)
+	p.varps[0] = 42
+
+	dispatchTeleCheat(t, p, "getvar transmit_only")
+	emitted := drainAfterTele(t, p, cc)
+
+	if !bytes.Contains(emitted, []byte("get transmit_only: 42")) {
+		t.Errorf("expected 'get transmit_only: 42' in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
 func TestHandleClientCheat_GetVarOther_HappyPath_MessagesValueOnTarget(t *testing.T) {
 	p, cc, s := setvarTestFixture(t)
 	s.cfg.NodeProduction = true
@@ -2191,6 +2341,86 @@ func TestHandleClientCheat_Openmain_UnknownName_NoOp(t *testing.T) {
 
 	if p.modalMain != startMain {
 		t.Errorf("unknown ::openmain mutated modalMain: %d → %d", startMain, p.modalMain)
+	}
+}
+
+// overlayCheatFixture seeds a component registry with one root-layer
+// component and one child-layer component for the ::openoverlay tests
+// (TS ClientCheatHandler.ts:530-544 @43e02957).
+func overlayCheatFixture(t *testing.T) (*Player, *Server) {
+	t.Helper()
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+
+	s.componentTypes = &objtype.ComponentTypeConfigs{
+		Configs:     make([]*objtype.ComponentType, 200),
+		ConfigNames: map[string]int{"test_overlay_root": 110, "test_overlay_child": 111},
+	}
+	s.componentTypes.Configs[110] = &objtype.ComponentType{
+		ConfigType: objtype.ConfigType{ID: 110, DebugName: "test_overlay_root"},
+		RootLayer:  110, // root: rootLayer == id passes the gate
+	}
+	s.componentTypes.Configs[111] = &objtype.ComponentType{
+		ConfigType: objtype.ConfigType{ID: 111, DebugName: "test_overlay_child"},
+		RootLayer:  110, // child: rootLayer != id fails the gate
+	}
+	return p, s
+}
+
+// TestHandleClientCheat_Openoverlay_RootComponent_SetsOverlay pins TS
+// ClientCheatHandler.ts:530-542 @43e02957: ::openoverlay resolves the
+// component by debugname, gates on rootLayer === id, and routes through
+// player.openOverlay(type.id) (wire flush deferred to encodeOut).
+func TestHandleClientCheat_Openoverlay_RootComponent_SetsOverlay(t *testing.T) {
+	p, _ := overlayCheatFixture(t)
+
+	dispatchTeleCheat(t, p, "openoverlay test_overlay_root")
+
+	if p.overlay != 110 {
+		t.Errorf("overlay after ::openoverlay: got %d, want 110", p.overlay)
+	}
+}
+
+// TestHandleClientCheat_Openoverlay_NonRoot_NoOp pins the TS L538
+// rootLayer guard: a child-layer component is rejected silently.
+func TestHandleClientCheat_Openoverlay_NonRoot_NoOp(t *testing.T) {
+	p, _ := overlayCheatFixture(t)
+
+	dispatchTeleCheat(t, p, "openoverlay test_overlay_child")
+
+	if p.overlay != -1 {
+		t.Errorf("non-root ::openoverlay mutated overlay: got %d, want -1", p.overlay)
+	}
+}
+
+// TestHandleClientCheat_Openoverlay_UnknownName_NoOp pins the TS L538
+// nil guard: an unknown debugname → no overlay change.
+func TestHandleClientCheat_Openoverlay_UnknownName_NoOp(t *testing.T) {
+	p, _ := overlayCheatFixture(t)
+
+	dispatchTeleCheat(t, p, "openoverlay absent_name")
+
+	if p.overlay != -1 {
+		t.Errorf("unknown ::openoverlay mutated overlay: got %d, want -1", p.overlay)
+	}
+}
+
+// TestHandleClientCheat_Closeoverlay_ClearsOverlay pins TS
+// ClientCheatHandler.ts:543-544 @43e02957: ::closeoverlay routes
+// through player.openOverlay(-1).
+func TestHandleClientCheat_Closeoverlay_ClearsOverlay(t *testing.T) {
+	p, _ := overlayCheatFixture(t)
+
+	dispatchTeleCheat(t, p, "openoverlay test_overlay_root")
+	if p.overlay != 110 {
+		t.Fatalf("precondition: overlay = %d, want 110", p.overlay)
+	}
+
+	dispatchTeleCheat(t, p, "closeoverlay")
+
+	if p.overlay != -1 {
+		t.Errorf("overlay after ::closeoverlay: got %d, want -1", p.overlay)
 	}
 }
 

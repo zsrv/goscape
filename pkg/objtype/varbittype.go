@@ -66,6 +66,30 @@ func (v *VarBitTypeConfigs) Get(id int) *VarBitType {
 	return v.Configs[id]
 }
 
+// ByName returns the VarBitType matching the given debugname, or nil if
+// no match exists. Mirrors TS VarBitType.getByName (VarBitType.ts:53-60
+// @43e02957). Uses the ConfigNames index built at load time — O(1) on
+// name-indexed configs, O(N) only if ConfigNames is unpopulated (test
+// fixtures) or stale. Same shape as VarpTypeConfigs.ByName; the nil
+// receiver tolerance covers a 245.2-era cache with no varbit registry.
+// Consumed by ::setvar / ::getvar in modules/world/handlers_game.go.
+func (v *VarBitTypeConfigs) ByName(name string) *VarBitType {
+	if v == nil {
+		return nil
+	}
+	if id, ok := v.ConfigNames[name]; ok {
+		if id >= 0 && id < len(v.Configs) {
+			return v.Configs[id]
+		}
+	}
+	for _, c := range v.Configs {
+		if c != nil && c.DebugName == name {
+			return c
+		}
+	}
+	return nil
+}
+
 // LoadVarBitTypes reads dir/server/varbit.dat plus the varbit.dat entry
 // of the dir/client/config jagfile (dual-pass decode, mirroring TS
 // VarBitType.load/parse at VarBitType.ts:13-43 and the varp loader's

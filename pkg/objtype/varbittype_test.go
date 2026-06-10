@@ -236,3 +236,38 @@ func TestVarBitTypeConfigs_Get_NilAndOOBSafe(t *testing.T) {
 		t.Error("Get(0): got nil, want config")
 	}
 }
+
+// TestVarBitTypeConfigs_ByName pins the debugname lookup mirroring TS
+// VarBitType.getByName (VarBitType.ts:53-60 @43e02957): index hit,
+// linear-scan fallback for unindexed fixtures, miss → nil, and
+// nil-receiver tolerance (245.2-era cache with no varbit registry).
+func TestVarBitTypeConfigs_ByName(t *testing.T) {
+	cfgs := &VarBitTypeConfigs{
+		Configs: []*VarBitType{
+			{ConfigType: ConfigType{ID: 0, DebugName: "alpha"}, Basevar: 0, Startbit: 0, Endbit: 3},
+			{ConfigType: ConfigType{ID: 1, DebugName: "beta"}, Basevar: 1, Startbit: 4, Endbit: 7},
+		},
+		ConfigNames: map[string]int{"alpha": 0, "beta": 1},
+	}
+	if got := cfgs.ByName("beta"); got == nil || got.ID != 1 {
+		t.Errorf("ByName(beta): got %+v, want config id 1", got)
+	}
+	if got := cfgs.ByName("no_such"); got != nil {
+		t.Errorf("ByName(no_such): got %+v, want nil", got)
+	}
+
+	// Linear-scan fallback when ConfigNames is unpopulated (test fixtures).
+	unindexed := &VarBitTypeConfigs{
+		Configs: []*VarBitType{
+			{ConfigType: ConfigType{ID: 0, DebugName: "gamma"}, Basevar: 0, Startbit: 0, Endbit: 3},
+		},
+	}
+	if got := unindexed.ByName("gamma"); got == nil || got.ID != 0 {
+		t.Errorf("ByName(gamma) without index: got %+v, want config id 0", got)
+	}
+
+	var nilCfgs *VarBitTypeConfigs
+	if got := nilCfgs.ByName("alpha"); got != nil {
+		t.Errorf("nil-receiver ByName: got %+v, want nil", got)
+	}
+}
