@@ -107,6 +107,15 @@ func (p *Player) IfSetPosition(com, x, y int) {
 	p.writeOut(gameserver.OpIfSetPosition, buf.Bytes())
 }
 
+// IfSetScrollPos emits IF_SETSCROLLPOS (com u16, y u16). 4-byte payload.
+// TS IfSetScrollPosEncoder.ts @3c16994c: p2(component) p2(y).
+func (p *Player) IfSetScrollPos(com, y int) {
+	buf := packet.NewPacket(nil)
+	buf.P2(uint16(com))
+	buf.P2(uint16(y))
+	p.writeOut(gameserver.OpIfSetScrollPos, buf.Bytes())
+}
+
 // IfSetTabActive emits IF_SETTABACTIVE (tab u8). 1-byte payload.
 func (p *Player) IfSetTabActive(tab int) {
 	buf := packet.NewPacket(nil)

@@ -403,6 +403,11 @@ type ActivePlayer interface {
 	// persistence.
 	IfSetPosition(com, x, y int)
 
+	// IfSetScrollPos emits an IF_SETSCROLLPOS wire op setting the vertical
+	// scroll position of layer component com. Fire-and-forget; no
+	// server-side persistence. New in 245.2 (TS PlayerOps.ts:751-757).
+	IfSetScrollPos(com, y int)
+
 	// IfSetTabActive emits an IF_SETTABACTIVE wire op making tab the
 	// currently-active tab. Fire-and-forget; no server-side persistence.
 	IfSetTabActive(tab int)
