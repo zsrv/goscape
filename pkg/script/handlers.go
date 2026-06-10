@@ -405,6 +405,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpIfSetObject:     handleIfSetObject,
 	OpIfSetColour:     handleIfSetColour,
 	OpIfSetPosition:   handleIfSetPosition,
+	OpIfSetScrollPos:  handleIfSetScrollPos,
 	// Misc (2).
 	OpIfSetTabActive:     handleIfSetTabActive,
 	OpIfSetResumeButtons: handleIfSetResumeButtons,

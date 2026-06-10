@@ -220,6 +220,7 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 	OpIfSetObject:     {Require: []string{"active_player"}},
 	OpIfSetPlayerHead: {Require: []string{"active_player"}},
 	OpIfSetPosition:   {Require: []string{"active_player"}},
+	OpIfSetScrollPos:  {Require: []string{"active_player"}},
 	// OpIfSetRecol deleted in 244 (ScriptOpcode.ts); row removed.
 	OpIfSetResumeButtons: {Require: []string{"active_player"}},
 	OpIfSetTab:           {Require: []string{"active_player"}},

@@ -2,11 +2,11 @@ package script
 
 import "testing"
 
-// scriptOpcodeMap244Pin pins every compiler-visible opcode name to its 244
-// numeric value. Generated from TS ScriptOpcode.ts at pin 9aadcec4 (enum
+// scriptOpcodeMap245Pin pins every compiler-visible opcode name to its 245.2
+// numeric value. Generated from TS ScriptOpcode.ts at pin 3c16994c (enum
 // values + ScriptOpcodeMap keys, including the four '*' vararg keys).
-// Regenerate ONLY when REFERENCES.md moves the rev-244 pin.
-var scriptOpcodeMap244Pin = map[string]Opcode{
+// Regenerate ONLY when REFERENCES.md moves the rev-245.2 pin.
+var scriptOpcodeMap245Pin = map[string]Opcode{
 	"PUSH_CONSTANT_INT":             0,
 	"PUSH_VARP":                     1,
 	"POP_VARP":                      2,
@@ -139,7 +139,7 @@ var scriptOpcodeMap244Pin = map[string]Opcode{
 	"LAST_USEITEM":                  2063,
 	"LAST_USESLOT":                  2064,
 	"LONGQUEUE":                     2065,
-	"LONGQUEUE*":                    2132,
+	"LONGQUEUE*":                    2133,
 	"MES":                           2066,
 	"MIDI_JINGLE":                   2067,
 	"MIDI_SONG":                     2068,
@@ -168,7 +168,7 @@ var scriptOpcodeMap244Pin = map[string]Opcode{
 	"PLAYER_FINDALLZONE":            2091,
 	"PLAYER_FINDNEXT":               2092,
 	"QUEUE":                         2093,
-	"QUEUE*":                        2131,
+	"QUEUE*":                        2132,
 	"SAY":                           2094,
 	"WALKTRIGGER":                   2095,
 	"SETTIMER":                      2096,
@@ -185,10 +185,10 @@ var scriptOpcodeMap244Pin = map[string]Opcode{
 	"STAT_DRAIN":                    2107,
 	"STAT_RANDOM":                   2108,
 	"STRONGQUEUE":                   2109,
-	"STRONGQUEUE*":                  2134,
+	"STRONGQUEUE*":                  2135,
 	"UID":                           2110,
 	"WEAKQUEUE":                     2111,
-	"WEAKQUEUE*":                    2133,
+	"WEAKQUEUE*":                    2134,
 	"IF_OPENMAINOVERLAY":            2112,
 	"AFK_EVENT":                     2113,
 	"LOWMEMORY":                     2114,
@@ -208,6 +208,7 @@ var scriptOpcodeMap244Pin = map[string]Opcode{
 	"WEALTH_EVENT":                  2128,
 	"P_RUN":                         2129,
 	"PLAYERMEMBER":                  2130,
+	"IF_SETSCROLLPOS":               2131,
 	"NPC_ADD":                       2500,
 	"NPC_ANIM":                      2501,
 	"NPC_BASESTAT":                  2502,
@@ -422,16 +423,16 @@ var scriptOpcodeMap244Pin = map[string]Opcode{
 	"CONSOLE":                       10016,
 }
 
-// removed244Names were deleted/renamed upstream between e1dea19f and
-// 9aadcec4 and must NOT resolve.
-var removed244Names = []string{
+// removed245Names were deleted/renamed upstream between e1dea19f and
+// 3c16994c and must NOT resolve.
+var removed245Names = []string{
 	"PUSH_VARBIT", "POP_VARBIT", "MAP_LIVE", "STAT_TOTAL", "IF_SETRECOL",
 	"HINT_PL", "LOWMEM", "READYANIM", "RUNANIM", "TURNANIM",
 	"WALKANIM", "WALKANIM_B", "WALKANIM_L", "WALKANIM_R",
 }
 
-func TestScriptOpcodeMap_244Pin(t *testing.T) {
-	for name, want := range scriptOpcodeMap244Pin {
+func TestScriptOpcodeMap_245Pin(t *testing.T) {
+	for name, want := range scriptOpcodeMap245Pin {
 		got, ok := ScriptOpcodeMap[name]
 		if !ok {
 			t.Errorf("ScriptOpcodeMap missing %q", name)
@@ -441,18 +442,18 @@ func TestScriptOpcodeMap_244Pin(t *testing.T) {
 			t.Errorf("ScriptOpcodeMap[%q] = %d, want %d", name, got, want)
 		}
 	}
-	if len(ScriptOpcodeMap) != len(scriptOpcodeMap244Pin) {
-		t.Errorf("ScriptOpcodeMap has %d entries, 244 pin has %d", len(ScriptOpcodeMap), len(scriptOpcodeMap244Pin))
+	if len(ScriptOpcodeMap) != len(scriptOpcodeMap245Pin) {
+		t.Errorf("ScriptOpcodeMap has %d entries, 245.2 pin has %d", len(ScriptOpcodeMap), len(scriptOpcodeMap245Pin))
 	}
-	for _, name := range removed244Names {
+	for _, name := range removed245Names {
 		if _, ok := ScriptOpcodeMap[name]; ok {
 			t.Errorf("ScriptOpcodeMap still contains removed name %q", name)
 		}
 	}
 }
 
-func TestOpcodeString_244Pin(t *testing.T) {
-	for name, op := range scriptOpcodeMap244Pin {
+func TestOpcodeString_245Pin(t *testing.T) {
+	for name, op := range scriptOpcodeMap245Pin {
 		if name[len(name)-1] == '*' {
 			continue // vararg map keys; String() keeps the enum spelling
 		}

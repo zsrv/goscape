@@ -1334,3 +1334,83 @@ func TestIfOpenOverlayNoActivePlayer(t *testing.T) {
 		t.Errorf("Execution: got %v, want Aborted", state.Execution)
 	}
 }
+
+// -- IF_SETSCROLLPOS (rev-245.2) -----------------------------------------------
+
+// TestIfSetScrollPos pins IF_SETSCROLLPOS happy path.
+// TS PlayerOps.ts:751-757 @3c16994c — popInts(2) → [com, y], y on top.
+// Push com first (bottom), then y (top). Only com is checked with NumberNotNull.
+func TestIfSetScrollPos(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "if_setscrollpos",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // com (bottom)
+			OpPushConstantInt, // y (top)
+			OpIfSetScrollPos,
+			OpReturn,
+		},
+		IntOperands:      []int32{77, 42, 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.lastIfSetScrollPos != (struct{ com, y int }{77, 42}) {
+		t.Errorf("IfSetScrollPos: got %+v, want {77, 42}", mp.lastIfSetScrollPos)
+	}
+}
+
+// TestHandleIfSetScrollPosNullComRejected pins IF_SETSCROLLPOS: TS wraps com
+// with NumberNotNull (PlayerOps.ts:754 @3c16994c). y is NOT wrapped.
+func TestHandleIfSetScrollPosNullComRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "if_setscrollpos_null_com",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // com = -1 (bottom)
+			OpPushConstantInt, // y (top)
+			OpIfSetScrollPos,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 10, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for com=-1, got nil")
+	}
+	want := "IF_SETSCROLLPOS: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastIfSetScrollPos != (struct{ com, y int }{0, 0}) {
+		t.Errorf("IfSetScrollPos: should not have been called, got %+v", mp.lastIfSetScrollPos)
+	}
+}
+
+// TestIfSetScrollPosNoActivePlayer pins IF_SETSCROLLPOS: nil Self → error.
+func TestIfSetScrollPosNoActivePlayer(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "if_setscrollpos_nap",
+		Opcodes: []Opcode{
+			OpPushConstantInt,
+			OpPushConstantInt,
+			OpIfSetScrollPos,
+			OpReturn,
+		},
+		IntOperands:      []int32{1, 2, 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	if err := Execute(state); err == nil {
+		t.Fatal("expected error from IF_SETSCROLLPOS with no active player, got nil")
+	}
+	if state.Execution != Aborted {
+		t.Errorf("Execution: got %v, want Aborted", state.Execution)
+	}
+}

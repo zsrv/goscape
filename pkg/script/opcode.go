@@ -254,10 +254,11 @@ const (
 	OpWealthEvent         Opcode = 2128
 	OpPRun                Opcode = 2129
 	OpPlayerMember        Opcode = 2130
-	OpQueueVarArg         Opcode = 2131
-	OpLongQueueVarArg     Opcode = 2132
-	OpWeakQueueVarArg     Opcode = 2133
-	OpStrongQueueVarArg   Opcode = 2134
+	OpIfSetScrollPos      Opcode = 2131 // new in 245.2 (TS ScriptOpcode.ts:208 @3c16994c)
+	OpQueueVarArg         Opcode = 2132 // 2131→2132 at 245.2 (IF_SETSCROLLPOS insert)
+	OpLongQueueVarArg     Opcode = 2133
+	OpWeakQueueVarArg     Opcode = 2134
+	OpStrongQueueVarArg   Opcode = 2135
 )
 
 // NPC ops (2500–2999)
@@ -933,6 +934,8 @@ func (o Opcode) String() string {
 		return "P_RUN"
 	case OpPlayerMember:
 		return "PLAYERMEMBER"
+	case OpIfSetScrollPos:
+		return "IF_SETSCROLLPOS"
 	case OpQueueVarArg:
 		return "QUEUE*"
 	case OpLongQueueVarArg:

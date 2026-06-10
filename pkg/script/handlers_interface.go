@@ -357,6 +357,22 @@ func handleIfSetPosition(s *ScriptState) error {
 	return nil
 }
 
+// handleIfSetScrollPos implements IF_SETSCROLLPOS.
+// TS PlayerOps.ts:751-757 @3c16994c — popInts(2) → [com, y], y on top.
+// com wrapped with check(com, NumberNotNull); y NOT wrapped.
+func handleIfSetScrollPos(s *ScriptState) error {
+	if err := requireActivePlayer(s, "IF_SETSCROLLPOS"); err != nil {
+		return err
+	}
+	y := s.PopInt()
+	com := s.PopInt()
+	if err := checkNotNull(com, "IF_SETSCROLLPOS"); err != nil {
+		return err
+	}
+	s.activePlayer().IfSetScrollPos(com, y)
+	return nil
+}
+
 // IF_SETRECOL deleted in 244 (ScriptOpcode.ts); handleIfSetRecol removed.
 // The seam method ActivePlayer.IfSetRecol + wire row are removed in Task 2.
 

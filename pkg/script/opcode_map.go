@@ -92,7 +92,7 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"OBJCOUNT":         OpZoneObjCount,
 	"MAP_MULTIWAY":     OpMapMultiway,
 
-	// Player ops (2000–2134)
+	// Player ops (2000–2135)
 	"ALLOWDESIGN":          OpAllowDesign,
 	"ANIM":                 OpAnim,
 	"BAS_READYANIM":        OpBasReadyAnim,
@@ -145,6 +145,7 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"IF_SETOBJECT":         OpIfSetObject,
 	"IF_SETPLAYERHEAD":     OpIfSetPlayerHead,
 	"IF_SETPOSITION":       OpIfSetPosition,
+	"IF_SETSCROLLPOS":      OpIfSetScrollPos,
 	"IF_SETRESUMEBUTTONS":  OpIfSetResumeButtons,
 	"IF_SETTAB":            OpIfSetTab,
 	"IF_SETTABACTIVE":      OpIfSetTabActive,
