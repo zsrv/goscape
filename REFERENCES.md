@@ -90,6 +90,34 @@ Notes:
   re-audit), `@2004scape/rsmod-pathfinder` stays `^5.0.4`, the compiler
   stays the RuneScriptKt release-26 jar.
 
+## rev-254 — Go branch `rev-254`
+
+| Repo | Role | URL | Branch | Pinned commit |
+|---|---|---|---|---|
+| Engine-TS | **primary** — authoritative translation source | https://github.com/LostCityRS/Engine-TS | `254` | `43e02957f3559c4f1aaa5680c41e5305b7ca3bfe` |
+| Content | game content packed and served by the server | https://github.com/LostCityRS/Content | `254` | `caee3f2eb3eb3df60126e2be88c436dc2dc98e43` |
+| Client-Java | the client this server speaks to; wire-protocol cross-check | https://github.com/LostCityRS/Client-Java | `254` | `2e629784c3dcb671ee3aab134f9cb91d614d8094` |
+| rsbuf | renderer/info reference crate — `@2004scape/rsbuf` bumps `^244.1.0` → `254.1.0` at the 254 pin; `pkg/rsbuf` re-audited against it | https://github.com/2004scape/rsbuf | `254` | `304955d5cd6896dbcd76fb2bb17736ea426cae3e` |
+| RuneScriptKt | RuneScript compiler | — | — | unchanged from §rev-244 (release tag `26`; `ScriptProvider.COMPILER_VERSION = 26` at the 254 pin) |
+| cloudflare/zlib | gzip byte-parity reference | — | — | unchanged from §rev-244 (`886098f3`) |
+
+(Commits captured 2026-06-10, matching the goscape-client `REFERENCES.md`
+rev-254 pins. Go branch `rev-254` is cut from `rev-245.2` at `1e7df180`.)
+
+Notes:
+
+- **Lineage:** the upstream `254` branch shares history with `245.2`
+  (merge-base `cc487e8c`), so the net cross-pin diff
+  `git -C Engine-TS diff 3c16994c..43e02957` (63 files, +1262/−524) is the
+  real work list — plus the rsbuf crate diff `origin/244..origin/254`
+  (2 commits; `origin/244` tip `1defefb1` IS the merge-base).
+- **Toolchain: rsbuf bumps to `254.1.0`** — NPC ids widen to 14 bits on the
+  wire (terminator 8191 → 16383, capacity 8192 → 16384, `NODE_MAX_NPCS`
+  8191 → 16383). `@2004scape/rsmod-pathfinder` stays `^5.0.4`; the compiler
+  stays the RuneScriptKt release-26 jar.
+- **The zone-op table is renumbered at 254** alongside both prot tables;
+  `pkg/rsbuf`'s zone-op fork moves with it (cross-table pin test).
+
 ## Future revisions
 
 When porting revision *N*:
