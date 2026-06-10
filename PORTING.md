@@ -1244,6 +1244,114 @@ error is map-iteration-ordered (T4-era minor).
 
 ---
 
+## rev-245.2 audit trail (2026-06-10)
+
+Spec `docs/superpowers/specs/2026-06-09-rev245.2-port-design.md` (`e2268540`),
+plan `docs/superpowers/plans/2026-06-09-rev245.2-port.md` (`1da4150d`). Work
+list = the net cross-pin diff `git -C Engine-TS diff 9aadcec4..3c16994c`
+(26 files, +246/−178; the upstream `245.2` branch diverged from the `244`
+lineage at merge-base `4095da3b` and cherry-picks cancel). Pins in
+`main:REFERENCES.md` §rev-245.2. No toolchain swap: RuneScriptKt-26,
+`@2004scape/rsbuf ^244.1.0`, rsmod-pathfinder unchanged.
+
+### Correspondence table (TS surface → Go commit)
+
+| TS @3c16994c | Go |
+|---|---|
+| `ClientGameProt.ts` full opcode renumber (76 entries, sizes unchanged) | `c3c80e09` — `pkg/io/protocol/game/client` (mechanically verified 76/76 by review) |
+| `ServerGameProt.ts` + `ServerGameZoneProt.ts` renumber (68 entries incl. NEW IF_SETSCROLLPOS=226/4) | `f8ae9d23` — `pkg/io/protocol/game/server` + AllOps count guard (68/68 verified); **zone-nested fork in `pkg/rsbuf` missed, caught by the live smoke → `e89f62fb`** (see Live-smoke finds) |
+| `IfSetScrollPos.ts` model + `IfSetScrollPosEncoder.ts` (p2 com, p2 y) + repository bind | `f8ae9d23` (wire op) + `b0991f73` (`Player.IfSetScrollPos` emitter + ActivePlayer interface; goscape shape = Op table + player method, no model/encoder files) |
+| `ScriptOpcode.ts` IF_SETSCROLLPOS=2131 insert (four varargs shift to 2132–2135; NPC section anchored at 2500) + `ScriptOpcodePointers.ts` + `PlayerOps.ts:751-757` handler | `090fa48e` — all six wiring sites; pin regen `opcode_map_245_pin_test.go` 413→414 entries (exactly +1, mechanically diffed) |
+| `Environment.ts` ENGINE_REVISION 245 | `6d53f6b1` — `revision.Expected = 245` (repo-wide old-value grep clean) |
+| `LoginServer.ts` updateHiscores banned_until gate REMOVED (245.2 lacks 244-only `ccc263c7`) | `e7af19cf` — gate out of `modules/login/hiscore.go`; pinning test flipped to the new contract |
+| `FriendServerRepository.ts:83` staff threshold `>0` | `5d197288` — `isStaffLocked`; pinning test updated (staffLvl 1 now staff) |
+| `Component.ts` swappable + activeOverColour decode | `3f6bc599` — `pkg/objtype/componenttype.go` (synthetic fixtures widened, tail-shift guards) |
+| `LocType.ts` code 74 breakroutefinding | `3f6bc599` — `pkg/objtype/loctype.go` |
+| `tools/pack/interface/PackShared.ts:444,498` + `PackClient.ts:19` CRC 587792799 | `6c1d069d` — packer emission + CRC (absent-key parity verified via the JS NaN-chain: parseInt(undefined)→NaN→p4 writes 0 = Go atoiOr0) |
+| `tools/pack/config/LocConfig.ts` breakroutefinding key + code 74 | `e4ce1810` |
+| `tools/pack/config/PackShared.ts` 7 config CRCs (idk UNCHANGED) + `tools/pack/sound/pack.ts` CRC | `f9b7080f` (sound returns to the pre-244 value — content moved back; deliberate) |
+| `tools/unpack/interface/Unpack.ts` swappable/activeOverColour decode + swappable/activeovercolour/trans emission | `27eb2910` — `pkg/unpack/clientinterface` (ordering gate: trans between height and overlayer) |
+| `tools/unpack/config/LocConfig.ts:293-294` code 74 + `Unpack.ts` `unpackConfigs('245')` | `6d46dcac` — unpack loc branch + cli `-revision` default 245 |
+| `README.md`, `bun.lock`, `public/client/*.js` (webclient bundles) | NOT-PORTED — no Go surface; goscape serves no TS webclient. The "Build version" commit `6b8e444f` (src/web.ts + PackAll.ts) is NOT in the net cross-pin diff — both branches received it via the sync cherry-picks, so it was rev-244's surface (verified: `git diff 9aadcec4..3c16994c -- src/web.ts tools/pack/PackAll.ts` is empty) |
+
+### Re-baselined verification gates
+
+- **Pack byte-parity (definition-of-done (c)):** 245.2 reference cache
+  generated from the pinned toolchain (bun, jar sha = §rev-244 pin,
+  BUILD_VERIFY=true, content tree clean after run). Full-tree parity GREEN
+  on the first run — 2,755/2,755 files + 4,942/4,942 `ondemand.zip` entries
+  (`c77b8e0b`; manifests independently re-derived by review, all 8 gate
+  failure modes live-verified non-vacuous; exemption allowlist unchanged).
+  gzip corpus 5,832/5,832 (cf-zlib port holds); compiler symbols 32/32
+  (`8b893684`). Env renamed `GOSCAPE_REF244_DIR` → `GOSCAPE_REF245_DIR`;
+  pinned worktrees `Server245.2-ref/{engine,content,javaclient}`.
+- **Unpack parity (d):** all 16 family manifests regenerated at the pin via
+  the B7 procedure (`d9cb4fd5`); 16/16 GREEN, 295 PASS / 0 SKIP with the env
+  set; anti-circularity verified (manifest shas trace to the TS bun-run
+  trees); worldmap ran VANILLA (`maps/ignore.csv` exists at Content
+  `cbcfe670` — the 244 empty-shim retired); zero Go-side fixes needed.
+  Reference-cache integrity re-verified after the unpack runs.
+- **Suite (e):** build/vet/full suite/`-race` green at every phase gate and
+  at close-out. (`ada92047` removed pre-existing vacuous ldflags
+  self-assignments that go1.26 vet flags — unblocked the vet gate.)
+
+### Live 245.2 client smoke (b) — PASSED 2026-06-10
+
+Client-Java `176a85f7` (clientversion 245): login, walk, shop/bank, music,
+map-square hop, NPC kill/despawn/respawn, doors, dropped items — all green.
+Two real finds, both fixed same-session:
+
+1. **`f4334477`** — login PANIC with a rev-244-era save: `LoadSave` resized
+   `p.varps` to the SAVE's varp count, clobbering the registry-sized
+   `initPlayerVarps` allocation; the post-login varp resync indexed out of
+   range (302-varp save vs 305-config registry). TS allocates once,
+   registry-sized (Player.ts:423), and PlayerLoading only overlays
+   (OOB writes are silent no-ops). Latent since the playerloading port —
+   fatal the first time the registry grows across a revision boundary.
+   Pinned both directions.
+2. **`e89f62fb`** — doors didn't visibly open/close until a level change:
+   `pkg/rsbuf`'s ZoneOp* constants are a goscape-local fork of the
+   ServerGameZoneProt table and still carried 244 bytes — every nested zone
+   delta was undecodable by the 245.2 client. The dedicated consistency
+   test (`TestZoneOpConsistency244`) compared the constants against its own
+   literal copies "to avoid a dependency edge" and was blind by
+   construction; rewritten to compare directly against the
+   `gameserver.Op*` vars (test-only import).
+
+Adjudicated AUTHENTIC (no goscape action): backspace key-repeat behavior
+(client-side; both reference clients accept OS key-repeats — delivery rate
+is an OS matter) and death-sound timing (the only death audio is the
+`death2` jingle, scripted by `death.rs2` on the same tick as the respawn
+teleport — identical by construction in TS).
+
+**Pre-existing find documented as follow-up (NOT fixed, not 245.2 scope):**
+Hans's patrol stall + position reset = the collision-follow gap — TS
+`PathingEntity.refreshZonePresence` (PathingEntity.ts:163-188) moves
+NPC/player block flags on every step/teleport; goscape freezes them at
+spawn/login (`zone_refresh.go` swaps zone membership only). Hans spawns on
+his own patrol1 point, blocks himself, and hits the 30-tick patrol
+force-teleport every lap. Dates to the rev-225-era NAI-28 port; Arc-27
+`world-ops-2` fixed only the logout edge of this family.
+
+### rev-245.2 umbrella close-out (2026-06-10)
+
+- [x] (a) Change-for-change correspondence — table above covers the full
+  net cross-pin diff `9aadcec4..3c16994c`.
+- [x] (b) Live 245.2-client smoke — PASSED (incl. doors/items re-test after
+  the zone-opcode fix).
+- [x] (c) Pack byte-parity — FULL TREE, first-run green; re-verified after
+  the unpack manifest regeneration.
+- [x] (d) Unpack parity — 16/16 manifests at the pin.
+- [x] (e) Suite green incl. `-race`.
+
+**The rev-245.2 port is COMPLETE.** Residuals carried forward: the
+collision-follow gap above (pre-existing, tracked);
+`TestDecodeRealCacheBlob` (Arc-26, unchanged); `ValidateConfigPackNames`
+map-order (unchanged). The rev-244 residual "config.yaml hardcodes the
+Server244-ref path" now points at Server245.2-ref (same shape, new target).
+
+---
+
 ## Recent audit history (full log in `docs/PORTING-CLOSED.md`)
 
 - Arc 21 — Phase 2 closure (NAI-162 13th-flag CLOSED).
