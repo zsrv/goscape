@@ -270,3 +270,19 @@ func TestNpcTypeDecodeCode102HeadIcon(t *testing.T) {
 		t.Errorf("HeadIcon after 0x00 0x07: got %d, want 7", typ.HeadIcon)
 	}
 }
+
+// TestNpcTypeDecodeCode103TurnSpeed pins the code-103 decoder, new in 254
+// (TS NpcType.ts:202-203 @43e02957). turnspeed = g2() — unsigned 2-byte.
+// Default 32 (TS NpcType.ts:97); feed 0x00 0x40 → 64.
+func TestNpcTypeDecodeCode103TurnSpeed(t *testing.T) {
+	typ := NewNpcType(0)
+	if typ.TurnSpeed != 32 {
+		t.Fatalf("default TurnSpeed: got %d, want 32 (TS NpcType.ts:97)", typ.TurnSpeed)
+	}
+	if err := typ.Decode(103, packet2.NewPacket([]byte{0x00, 0x40})); err != nil {
+		t.Fatalf("Decode(103, 0x00 0x40): %v", err)
+	}
+	if typ.TurnSpeed != 64 {
+		t.Errorf("TurnSpeed after 0x00 0x40: got %d, want 64", typ.TurnSpeed)
+	}
+}

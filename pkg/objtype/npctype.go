@@ -158,6 +158,7 @@ type NpcType struct {
 	Ambient     int8
 	Contrast    int8
 	HeadIcon    int
+	TurnSpeed   int // code 103, new in 254; default 32 (TS NpcType.ts:97,202-203 @43e02957)
 
 	// server-side
 	RegenRate    int
@@ -282,6 +283,9 @@ func (t *NpcType) Decode(code uint8, dat *packet2.Packet) error {
 	case 102:
 		// TS NpcType.ts:199-200
 		t.HeadIcon = int(dat.G2())
+	case 103:
+		// TS NpcType.ts:202-203, new in 254
+		t.TurnSpeed = int(dat.G2())
 	case 200:
 		t.WanderRange = dat.G2()
 	case 201:
@@ -348,6 +352,7 @@ func NewNpcType(id int) *NpcType {
 		ResizeH:   128,
 		ResizeV:   128,
 		HeadIcon:  -1,
+		TurnSpeed: 32,
 
 		// server-side
 		RegenRate:    100,

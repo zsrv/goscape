@@ -22,8 +22,8 @@ type LocType struct {
 	ConfigType
 
 	// Client-side render + gameplay fields (codes 1-73)
-	Models        []uint16 // code 1, paired with Shapes
-	Shapes        []uint8  // code 1, paired with Models
+	Models        []uint16 // code 1 (paired with Shapes) or code 5 (models only)
+	Shapes        []uint8  // code 1, paired with Models; code 5 sets nil
 	Name          string   // code 2
 	Desc          string   // code 3
 	Width         int      // code 14, default 1
@@ -55,6 +55,7 @@ type LocType struct {
 	OffsetZ       int16    // code 72 (G2S)
 	ForceDecor        bool // code 73
 	BreakRouteFinding bool // code 74, new in 245.2 (TS LocType.ts:194-195)
+	RaiseObject       int  // code 75, new in 254; default -1 (TS LocType.ts:104,205-206 @43e02957)
 
 	// Server-side fields
 	Category int      // code 61
@@ -75,6 +76,17 @@ func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 		lt.Name = dat.GJStrLF()
 	case 3:
 		lt.Desc = dat.GJStrLF()
+	case 5:
+		// New in 254 (TS LocType.ts:124-131 @43e02957): models-only list.
+		// Replaces any prior code-1 pair and sets shapes = null — the
+		// PostDecode shape-10 Active inference therefore never fires for
+		// code-5 locs (TS guards `this.shapes && ...`).
+		count := int(dat.G1())
+		lt.Models = make([]uint16, count)
+		lt.Shapes = nil
+		for i := range count {
+			lt.Models[i] = dat.G2()
+		}
 	case 14:
 		lt.Width = int(dat.G1())
 	case 15:
@@ -154,6 +166,8 @@ func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 		lt.ForceDecor = true
 	case 74:
 		lt.BreakRouteFinding = true // TS LocType.ts:194-195, new in 245.2
+	case 75:
+		lt.RaiseObject = int(dat.G1()) // TS LocType.ts:205-206, new in 254
 	case 249:
 		lt.Params = DecodeParams(dat)
 	case 250:
@@ -196,6 +210,7 @@ func NewLocType(id int) *LocType {
 		ResizeZ:     128,
 		MapFunction: -1,
 		MapScene:    -1,
+		RaiseObject: -1,
 		Category:    -1,
 		Params:      make(ParamMap),
 	}

@@ -654,6 +654,46 @@ func TestLocTypeDecodeNewArms(t *testing.T) {
 				}
 			},
 		},
+		{
+			// TS LocType.ts:124-131 (43e02957), new in 254: code 5 is a
+			// models-only list (count=g1, then g2 per model) that sets
+			// shapes = null. Active inference must NOT fire (postDecode
+			// guards `this.shapes && ...`).
+			name: "code5_models_only_shapes_nil",
+			payload: func() []byte {
+				p := packet2.NewPacket(nil)
+				p.P1(5)
+				p.P1(2)      // count = 2
+				p.P2(0x1111) // models[0]
+				p.P2(0x2222) // models[1]
+				return p.Bytes()
+			}(),
+			assert: func(t *testing.T, lt *LocType) {
+				if len(lt.Models) != 2 || lt.Models[0] != 0x1111 || lt.Models[1] != 0x2222 {
+					t.Errorf("Models: got %v, want [0x1111 0x2222]", lt.Models)
+				}
+				if lt.Shapes != nil {
+					t.Errorf("Shapes: got %v, want nil (TS LocType.ts:127 sets shapes = null)", lt.Shapes)
+				}
+				if lt.Active != 0 {
+					t.Errorf("Active: got %d, want 0 (nil Shapes must not trip the shape-10 inference)", lt.Active)
+				}
+				if lt.RaiseObject != -1 {
+					t.Errorf("RaiseObject default: got %d, want -1 (TS LocType.ts:104)", lt.RaiseObject)
+				}
+			},
+		},
+		{
+			// TS LocType.ts:205-206 (43e02957), new in 254:
+			// raiseobject = g1(); field default -1 (LocType.ts:104).
+			name:    "code75_raiseobject_g1",
+			payload: []byte{75, 1},
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.RaiseObject != 1 {
+					t.Errorf("RaiseObject: got %d, want 1 (TS LocType.ts:205-206)", lt.RaiseObject)
+				}
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -669,6 +709,38 @@ func TestLocTypeDecodeNewArms(t *testing.T) {
 			}
 			tc.assert(t, cfgs.Configs[0])
 		})
+	}
+}
+
+// TestLocTypeDecodeCode5AfterCode1ClearsShapes pins the TS overwrite
+// semantics: a code-5 block REPLACES any prior code-1 models+shapes pair —
+// models are rebuilt and shapes is set back to null (TS LocType.ts:124-131
+// @43e02957).
+func TestLocTypeDecodeCode5AfterCode1ClearsShapes(t *testing.T) {
+	lt := NewLocType(0)
+
+	p1 := packet2.NewPacket(nil)
+	p1.P1(1)      // count = 1
+	p1.P2(0xAAAA) // models[0]
+	p1.P1(10)     // shapes[0]
+	if err := lt.Decode(1, packet2.NewPacket(p1.Bytes())); err != nil {
+		t.Fatalf("Decode(1): %v", err)
+	}
+	if lt.Shapes == nil {
+		t.Fatal("Shapes after code 1: got nil, want non-nil")
+	}
+
+	p5 := packet2.NewPacket(nil)
+	p5.P1(1)      // count = 1
+	p5.P2(0xBBBB) // models[0]
+	if err := lt.Decode(5, packet2.NewPacket(p5.Bytes())); err != nil {
+		t.Fatalf("Decode(5): %v", err)
+	}
+	if len(lt.Models) != 1 || lt.Models[0] != 0xBBBB {
+		t.Errorf("Models after code 5: got %v, want [0xBBBB]", lt.Models)
+	}
+	if lt.Shapes != nil {
+		t.Errorf("Shapes after code 5: got %v, want nil (TS sets shapes = null)", lt.Shapes)
 	}
 }
 
