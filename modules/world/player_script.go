@@ -555,7 +555,10 @@ func (p *Player) TeleJump(x, z, level int) {
 	p.level = level
 	p.tele = true
 	p.jump = true
-	refreshPlayerZone(p, prevX, prevZ, prevLevel)
+	// Full zone presence (collision-follow + zone swap): TS teleJump
+	// routes through teleport → refreshZonePresence (PathingEntity.ts:
+	// 261-265, 290).
+	refreshPlayerZonePresence(p, prevX, prevZ, prevLevel)
 }
 
 // Teleport moves the player to (x, z, level) and flags the client for a
@@ -596,12 +599,13 @@ func (p *Player) Teleport(x, z, level int) {
 	moveZ := coordgrid.MoveZ(p.z, dir)
 	p.focus(coordgrid.Fine(moveX, 1), coordgrid.Fine(moveZ, 1), false)
 
-	// Order: refreshPlayerZone runs BEFORE p.tele = true to match TS
-	// PathingEntity.ts:290-293. The two writes are functionally
+	// Order: refreshPlayerZonePresence runs BEFORE p.tele = true to match
+	// TS PathingEntity.ts:290-293. The two writes are functionally
 	// commutative (refresh reads only previous coords + current
 	// x/z/level; the tele bit is independent), but TS-faithful order is
-	// the project's true-to-TS gate default.
-	refreshPlayerZone(p, prevX, prevZ, prevLevel)
+	// the project's true-to-TS gate default. Presence = collision-follow
+	// + zone swap (TS refreshZonePresence, PathingEntity.ts:160-185).
+	refreshPlayerZonePresence(p, prevX, prevZ, prevLevel)
 
 	// NAI-65 D4-Player: lastStep adjust from TS PathingEntity.ts:291-292.
 	// Currently dead-write at HEAD (no production reader of
