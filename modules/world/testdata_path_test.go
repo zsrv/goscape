@@ -43,6 +43,23 @@ func realCacheDir(t *testing.T) string {
 	return dir
 }
 
+// ref245Cache is the 245.2 reference cache (Engine-TS 3c16994c + Content
+// cbcfe670, bun-packed via Server245.2-ref worktrees). Tests that decode
+// COMPONENT configs (e.g. the Reload suite via LoadComponentTypes) must use
+// this cache: the repo's own data/pack may be a stale 244-format pack that
+// predates the swappable/activeOverColour component layout.
+const ref245Cache = "/home/owner/Code/github.com/LostCityRS/Server245.2-ref/engine/data/pack"
+
+// ref245CacheDir returns ref245Cache, skipping the test when the reference
+// checkout is not present on this machine.
+func ref245CacheDir(t *testing.T) string {
+	t.Helper()
+	if _, err := os.Stat(ref245Cache); err != nil {
+		t.Skipf("Server245.2-ref cache unavailable: %v", err)
+	}
+	return ref245Cache
+}
+
 // mainRepoDataPack returns the main checkout's data/pack directory by
 // asking git for the common-dir (the .git dir shared between the primary
 // worktree and any linked worktrees). Result is memoised because the path
