@@ -7,21 +7,25 @@ import (
 
 // Zone-nested opcode constants. Written by the zone subsystem (sub-spec 4b-3)
 // as a single byte before each encoder's payload when composing the shared
-// buffer delivered via UpdateZonePartialEnclosed (opcode 233, -2).
-// Values mirror ServerGameZoneProt.ts at Engine-TS rev 244 (9aadcec4).
-// Must stay in sync with Op* vars in pkg/io/protocol/game/server (pinned by
-// TestZoneOpConsistency244 in zone_encoders_test.go).
+// buffer delivered via UpdateZonePartialEnclosed (opcode 15, -2).
+// Values mirror ServerGameZoneProt.ts at Engine-TS rev 245.2 (3c16994c).
+// Must stay in sync with Op* vars in pkg/io/protocol/game/server — pinned by
+// TestZoneOpConsistency in zone_encoders_test.go, which compares against
+// those vars DIRECTLY. (Its predecessor compared against its own literal
+// copies, so the 245.2 renumber sailed past it and shipped stale 244 bytes
+// here; the live client smoke caught doors not opening — zone deltas were
+// undecodable until a level change forced a full rebuild.)
 const (
-	ZoneOpLocMerge     = 29
-	ZoneOpLocAnim      = 155
-	ZoneOpObjDel       = 39
-	ZoneOpObjReveal    = 69
-	ZoneOpLocAddChange = 232
-	ZoneOpMapProjAnim  = 137
-	ZoneOpLocDel       = 125
-	ZoneOpObjCount     = 209
-	ZoneOpMapAnim      = 198
-	ZoneOpObjAdd       = 234
+	ZoneOpLocMerge     = 188
+	ZoneOpLocAnim      = 71
+	ZoneOpObjDel       = 13
+	ZoneOpObjReveal    = 190
+	ZoneOpLocAddChange = 119
+	ZoneOpMapProjAnim  = 187
+	ZoneOpLocDel       = 198
+	ZoneOpObjCount     = 151
+	ZoneOpMapAnim      = 141
+	ZoneOpObjAdd       = 94
 )
 
 // packLocShapeAngle returns (shape<<2)|(angle&0x3), the common second byte
@@ -163,19 +167,19 @@ func zoneRelHeader(buf *packet.Packet, zoneX, zoneZ, originX, originZ int) {
 }
 
 // EncodeZoneFullFollows writes the 2-byte header for the outer UpdateZoneFullFollows
-// packet (opcode 131, fixed 2). The opcode is emitted by writeOut.
+// packet (opcode 140, fixed 2). The opcode is emitted by writeOut.
 func EncodeZoneFullFollows(buf *packet.Packet, zoneX, zoneZ, originX, originZ int) {
 	zoneRelHeader(buf, zoneX, zoneZ, originX, originZ)
 }
 
 // EncodeZonePartialFollows writes the 2-byte header for the outer
-// UpdateZonePartialFollows packet (opcode 94, fixed 2).
+// UpdateZonePartialFollows packet (opcode 203, fixed 2).
 func EncodeZonePartialFollows(buf *packet.Packet, zoneX, zoneZ, originX, originZ int) {
 	zoneRelHeader(buf, zoneX, zoneZ, originX, originZ)
 }
 
 // EncodeZonePartialEnclosed writes the 2-byte header followed by the
-// precomputed shared-data bytes for UpdateZonePartialEnclosed (opcode 233, -2).
+// precomputed shared-data bytes for UpdateZonePartialEnclosed (opcode 15, -2).
 func EncodeZonePartialEnclosed(buf *packet.Packet, zoneX, zoneZ, originX, originZ int, data []byte) {
 	zoneRelHeader(buf, zoneX, zoneZ, originX, originZ)
 	buf.PData(data)
