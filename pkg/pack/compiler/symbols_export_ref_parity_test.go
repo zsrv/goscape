@@ -2,12 +2,12 @@ package compiler
 
 // TestWriteCompilerSymbols_RefParity validates that WriteCompilerSymbols
 // produces .sym files byte-identical to the reference output at
-// Server244-ref/engine/data/symbols/*.sym.
+// Server245.2-ref/engine/data/symbols/*.sym.
 //
-// Activation: set GOSCAPE_REF244_DIR to the engine root of the reference
+// Activation: set GOSCAPE_REF245_DIR to the engine root of the reference
 // checkout (the directory that contains data/pack and data/symbols):
 //
-//	GOSCAPE_REF244_DIR=/home/owner/Code/github.com/LostCityRS/Server244-ref/engine \
+//	GOSCAPE_REF245_DIR=/home/owner/Code/github.com/LostCityRS/Server245.2-ref/engine \
 //	  go test ./pkg/pack/compiler/ -run TestWriteCompilerSymbols_RefParity -v
 //
 // Without the env var the test is skipped (clean CI).
@@ -27,9 +27,9 @@ import (
 )
 
 func TestWriteCompilerSymbols_RefParity(t *testing.T) {
-	refDir := os.Getenv("GOSCAPE_REF244_DIR")
+	refDir := os.Getenv("GOSCAPE_REF245_DIR")
 	if refDir == "" {
-		t.Skip("GOSCAPE_REF244_DIR not set — skipping ref-parity test")
+		t.Skip("GOSCAPE_REF245_DIR not set — skipping ref-parity test")
 	}
 
 	// srcDir = refDir/../content (has scripts/ and pack/ sub-dirs)

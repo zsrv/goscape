@@ -80,14 +80,14 @@ func TestCompressGz_EmptyInput(t *testing.T) {
 }
 
 // TestCompressGz_RefCorpus is an env-gated full corpus check.
-// Set GOSCAPE_REF244_DIR to the path of Server244-ref/engine to enable it.
+// Set GOSCAPE_REF245_DIR to the path of Server245.2-ref/engine to enable it.
 // It iterates every entry in data/pack/ondemand.zip (strip last 2 bytes for gz)
 // plus every file under data/pack/client/maps/, decompresses with stdlib,
 // recompresses with CompressGz, and byte-compares.
 func TestCompressGz_RefCorpus(t *testing.T) {
-	refDir := os.Getenv("GOSCAPE_REF244_DIR")
+	refDir := os.Getenv("GOSCAPE_REF245_DIR")
 	if refDir == "" {
-		t.Skip("GOSCAPE_REF244_DIR not set; skipping corpus check")
+		t.Skip("GOSCAPE_REF245_DIR not set; skipping corpus check")
 	}
 
 	totalOK := 0
