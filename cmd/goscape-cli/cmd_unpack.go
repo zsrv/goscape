@@ -115,7 +115,7 @@ func unpackUsage(w io.Writer) {
 	fmt.Fprintln(w, "  -src-dir    string   Content source tree root (default: data/src).")
 	fmt.Fprintln(w, "  -pack-dir   string   Pack output directory for compare/worldmap/config (default: data/pack).")
 	fmt.Fprintln(w, "                       For config: merge-compare path used only when <pack-dir>/main_file_cache.dat exists.")
-	fmt.Fprintln(w, "  -revision   string   Revision tag embedded in config output path (default: 244; config only).")
+	fmt.Fprintln(w, "  -revision   string   Revision tag embedded in config output path (default: 245; config only).")
 	fmt.Fprintln(w, "  -type       string   Config type for compare (default: npc; compare only).")
 	fmt.Fprintln(w, "  -log.level  string   Log severity (debug|info|warn|error; default: info).")
 	fmt.Fprintln(w, "  -log.format string   Log format (text|json; default: text).")
@@ -153,7 +153,7 @@ func parseUnpackFlags(name string, args []string, stderr io.Writer, showPackDir,
 			"Pack output directory (compare/worldmap/config merge path).\n\t\tFor config: the merge-compare path is used only when <pack-dir>/main_file_cache.dat exists.")
 	}
 	if showRevision {
-		fs.StringVar(&f.revision, "revision", "244",
+		fs.StringVar(&f.revision, "revision", "245",
 			"Revision tag embedded in config output path (scripts/_unpack/<revision>/…).")
 	}
 	if showType {

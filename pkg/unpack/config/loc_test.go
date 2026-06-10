@@ -379,6 +379,19 @@ func TestUnpackLoc_Opcode73_ForceDecor(t *testing.T) {
 	assertLines(t, want, got)
 }
 
+// TestUnpackLoc_Opcode74_BreakRouteFinding checks breakroutefinding=yes.
+// TS LocConfig.ts:293-294 (@3c16994c): else if (code === 74) { def.push('breakroutefinding=yes'); }
+func TestUnpackLoc_Opcode74_BreakRouteFinding(t *testing.T) {
+	body := []byte{74, 0}
+	cfg := buildLocCfgIdx(body)
+	got, err := unpackLoc(cfg, 0, makePackFile(0, "loc"), nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"[loc]", "breakroutefinding=yes"}
+	assertLines(t, want, got)
+}
+
 // TestUnpackLoc_UnknownOpcode_ReturnsError verifies unknown opcode triggers error return.
 // TS: printFatalError → Go: return error.
 func TestUnpackLoc_UnknownOpcode_ReturnsError(t *testing.T) {

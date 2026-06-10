@@ -399,6 +399,10 @@ func unpackLoc(
 			// TS line 291-292: push forcedecor=yes
 			def = append(def, "forcedecor=yes")
 
+		case code == 74:
+			// TS LocConfig.ts:293-294 (@3c16994c): push breakroutefinding=yes
+			def = append(def, "breakroutefinding=yes")
+
 		default:
 			// TS line 293-294: printFatalError(`unknown loc code ${code}, last code ${lastCode}`)
 			// Go: return error instead of fatal.
