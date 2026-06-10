@@ -4,6 +4,8 @@ import (
 	"runtime"
 )
 
+// Version, Revision, Branch, BuildUser, and BuildDate are injected at link
+// time via -ldflags -X; they stay empty in plain `go build` binaries.
 var (
 	Version   string
 	Revision  string
@@ -14,10 +16,5 @@ var (
 )
 
 func init() {
-	Version = Version
-	Revision = Revision
-	Branch = Branch
-	BuildUser = BuildUser
-	BuildDate = BuildDate
 	GoVersion = runtime.Version()
 }
