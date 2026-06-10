@@ -84,8 +84,8 @@ func TestProjAnimMap_HappyPath(t *testing.T) {
 		level: srcLevel, srcX: srcX, srcZ: srcZ,
 		dstX: dstX, dstZ: dstZ,
 		target: 0, spotanim: spotanim,
-		srcHeight:  srcHeight * 4,
-		dstHeight:  dstHeight * 4,
+		srcHeight:  srcHeight,
+		dstHeight:  dstHeight,
 		startDelay: delay,
 		endDelay:   duration,
 		peak:       peak,
@@ -247,8 +247,8 @@ func TestProjAnimNpc_HappyPath(t *testing.T) {
 		dstX: 300, dstZ: 400, // from lookup-resolved npc, NOT popped src
 		target:     slot + 1, // nid+1 encoding
 		spotanim:   spotanim,
-		srcHeight:  srcHeight * 4,
-		dstHeight:  dstHeight * 4,
+		srcHeight:  srcHeight,
+		dstHeight:  dstHeight,
 		startDelay: delay,
 		endDelay:   duration,
 		peak:       peak,
@@ -353,8 +353,8 @@ func TestProjAnimPl_HappyPath(t *testing.T) {
 		dstX: 500, dstZ: 600, // from lookup-resolved player
 		target:     -slot - 1, // -4-1 = -5
 		spotanim:   spotanim,
-		srcHeight:  srcHeight * 4,
-		dstHeight:  dstHeight * 4,
+		srcHeight:  srcHeight,
+		dstHeight:  dstHeight,
 		startDelay: delay,
 		endDelay:   duration,
 		peak:       peak,
@@ -418,8 +418,10 @@ func TestProjAnimPl_TargetEncodingPinSlotZero(t *testing.T) {
 	}
 }
 
-// Pins srcHeight*4 / dstHeight*4 scaling. Independent of other coverage
-// to keep the regression signal narrow if the multiplier ever changes.
+// Pins raw srcHeight/dstHeight pass-through — 254 drops the script-side
+// *4 scaling (TS ServerOps.ts @43e02957; content now passes pre-scaled
+// values, the wire encoder is unchanged). Independent of other coverage
+// to keep the regression signal narrow if a multiplier ever reappears.
 func TestProjAnimPl_HeightScaling(t *testing.T) {
 	const uid = 1
 	pl := &mockPlayer{slot: 0, x: 100, z: 200}
@@ -442,7 +444,7 @@ func TestProjAnimPl_HeightScaling(t *testing.T) {
 		t.Fatalf("mapProjAnimCalls: got %d, want 1", len(w.mapProjAnimCalls))
 	}
 	got := w.mapProjAnimCalls[0]
-	if got.srcHeight != srcH*4 || got.dstHeight != dstH*4 {
-		t.Errorf("height scaling: got src=%d dst=%d, want src=%d dst=%d (×4)", got.srcHeight, got.dstHeight, srcH*4, dstH*4)
+	if got.srcHeight != srcH || got.dstHeight != dstH {
+		t.Errorf("height scaling: got src=%d dst=%d, want src=%d dst=%d (raw, no ×4 at 254)", got.srcHeight, got.dstHeight, srcH, dstH)
 	}
 }

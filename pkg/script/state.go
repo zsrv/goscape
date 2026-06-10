@@ -99,7 +99,8 @@ type WorldVars interface {
 	// MapProjAnim broadcasts a projectile event from (level, srcX, srcZ)
 	// to (dstX, dstZ). target encodes the receiver: 0 = none (MAP→MAP),
 	// npc.nid+1 = NPC target, -player.slot-1 = player target.
-	// srcHeight/dstHeight are pre-scaled by the handler (×4).
+	// srcHeight/dstHeight pass through raw — 254 dropped the handler-side
+	// ×4 scaling (TS ServerOps.ts @43e02957; content pre-scales).
 	// Mirrors TS World.mapProjAnim. Used by PROJANIM_MAP, PROJANIM_NPC,
 	// PROJANIM_PL. NAI-150.
 	MapProjAnim(level, srcX, srcZ, dstX, dstZ, target, spotanim,

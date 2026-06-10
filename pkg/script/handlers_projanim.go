@@ -32,8 +32,10 @@ func handleProjAnimMap(s *ScriptState) error {
 		return err
 	}
 
+	// 254 drops the script-side srcHeight*4/dstHeight*4 scaling — content
+	// passes pre-scaled values (TS ServerOps.ts @43e02957; wire unchanged).
 	s.World.MapProjAnim(srcLevel, srcX, srcZ, dstX, dstZ, 0,
-		spotanim, srcHeight*4, dstHeight*4, delay, duration, peak, arc)
+		spotanim, srcHeight, dstHeight, delay, duration, peak, arc)
 	return nil
 }
 
@@ -67,8 +69,9 @@ func handleProjAnimNpc(s *ScriptState) error {
 		return fmt.Errorf("PROJANIM_NPC: invalid npc uid: %d", npcUid)
 	}
 
+	// 254: raw heights, no *4 (TS ServerOps.ts @43e02957).
 	s.World.MapProjAnim(srcLevel, srcX, srcZ, npc.NpcX(), npc.NpcZ(),
-		npc.Nid()+1, spotanim, srcHeight*4, dstHeight*4,
+		npc.Nid()+1, spotanim, srcHeight, dstHeight,
 		delay, duration, peak, arc)
 	return nil
 }
@@ -101,8 +104,9 @@ func handleProjAnimPl(s *ScriptState) error {
 		return fmt.Errorf("PROJANIM_PL: invalid player uid: %d", uid)
 	}
 
+	// 254: raw heights, no *4 (TS ServerOps.ts @43e02957).
 	s.World.MapProjAnim(srcLevel, srcX, srcZ, pl.X(), pl.Z(),
-		-pl.Slot()-1, spotanim, srcHeight*4, dstHeight*4,
+		-pl.Slot()-1, spotanim, srcHeight, dstHeight,
 		delay, duration, peak, arc)
 	return nil
 }
