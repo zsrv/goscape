@@ -11,13 +11,16 @@ import (
 
 // updateHiscores exports a logged-out player's enabled-stat XP and levels into
 // the hiscore (per-stat) and hiscore_large (total) tables. Mirrors TS
-// LoginServer.updateHiscores (Engine-TS/src/server/login/LoginServer.ts:19-109):
-// staff above mod-level-1 and actively-banned accounts are skipped; the total
-// (type 0) goes to hiscore_large; per-stat rows (type = stat+1) go to hiscore
-// only when the base level is >= 15. XP is the ×10 fixed-point value read
-// straight from the save (same scaling as TS). Best-effort: PlayerLogout logs
-// any error and still reports success (TS sends the logout response before
-// awaiting this), so a hiscore failure never blocks logout.
+// LoginServer.updateHiscores (Engine-TS/src/server/login/LoginServer.ts:20-26
+// @3c16994c): only staff above mod-level-1 are skipped; banned accounts are
+// exported normally (245.2 reverts 244's ccc263c7 banned_until gate — the
+// 245.2 updateHiscores signature is { id, staffmodlevel } with no
+// banned_until). The total (type 0) goes to hiscore_large; per-stat rows
+// (type = stat+1) go to hiscore only when the base level is >= 15. XP is the
+// ×10 fixed-point value read straight from the save (same scaling as TS).
+// Best-effort: PlayerLogout logs any error and still reports success (TS sends
+// the logout response before awaiting this), so a hiscore failure never blocks
+// logout.
 func updateHiscores(ctx context.Context, db *sql.DB, account *accountRow, save []byte, profile string) error {
 	if account == nil {
 		return nil
@@ -26,12 +29,6 @@ func updateHiscores(ctx context.Context, db *sql.DB, account *accountRow, save [
 		return nil
 	}
 	now := time.Now().UTC()
-	if account.BannedUntil.Valid {
-		// Active ban = ban end >= now (TS: banned_until >= new Date()).
-		if t, err := time.Parse(dbTimeFormat, account.BannedUntil.String); err == nil && !now.After(t) {
-			return nil
-		}
-	}
 
 	stats, ok := saveStats(save)
 	if !ok {

@@ -129,7 +129,13 @@ func TestUpdateHiscores_StaffSkip(t *testing.T) {
 	}
 }
 
-func TestUpdateHiscores_BannedSkip(t *testing.T) {
+// TestUpdateHiscores_BannedStillExported pins the 245.2 contract: banned
+// accounts are exported to the hiscores just like normal accounts. The 244
+// port had a banned_until gate (ccc263c7) that was reverted in 245.2 —
+// TS LoginServer.ts @3c16994c lines 20-26 shows updateHiscores takes only
+// { id, staffmodlevel } with no banned_until parameter or check. goscape
+// follows the 245.2 pin faithfully.
+func TestUpdateHiscores_BannedStillExported(t *testing.T) {
 	db := createTestDB(t)
 	id := int(insertTestAccount(t, db, "banned", "pw"))
 	if err := setAccountBanned(t.Context(), db, "banned", time.Now().UTC().Add(24*time.Hour)); err != nil {
@@ -141,11 +147,27 @@ func TestUpdateHiscores_BannedSkip(t *testing.T) {
 	for i := range levels {
 		levels[i] = 50
 	}
-	if err := updateHiscores(t.Context(), db, acct, makeSaveWithStats(0, statsForLevels(levels)), "main"); err != nil {
+	xps := statsForLevels(levels)
+	if err := updateHiscores(t.Context(), db, acct, makeSaveWithStats(0, xps), "main"); err != nil {
 		t.Fatalf("updateHiscores: %v", err)
 	}
-	if _, _, _, found := queryHiscoreRow(t, db, "hiscore_large", id, 0); found {
-		t.Error("actively-banned account must be excluded from hiscores")
+
+	// hiscore_large type 0 row must be present — ban does not skip hiscores.
+	var wantXp int64
+	var wantLevel int
+	for i := range objtype.PlayerStatCount {
+		if !objtype.PlayerStatEnabled[i] {
+			continue
+		}
+		wantXp += int64(xps[i])
+		wantLevel += objtype.GetLevelByExp(int(xps[i]))
+	}
+	lvl, val, _, found := queryHiscoreRow(t, db, "hiscore_large", id, 0)
+	if !found {
+		t.Fatal("hiscore_large type 0 row missing for banned account — 245.2 exports banned accounts")
+	}
+	if val != wantXp || lvl != wantLevel {
+		t.Errorf("hiscore_large: got (level=%d,value=%d), want (level=%d,value=%d)", lvl, val, wantLevel, wantXp)
 	}
 }
 
