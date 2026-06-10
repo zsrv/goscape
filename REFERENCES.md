@@ -63,6 +63,33 @@ Notes:
   reimplementation of that crate, see `pkg/rsbuf/doc.go`) must be re-audited
   against the 244 crate. `@2004scape/rsmod-pathfinder` is unchanged (`^5.0.4`).
 
+## rev-245.2 — Go branch `rev-245.2`
+
+| Repo | Role | URL | Branch | Pinned commit |
+|---|---|---|---|---|
+| Engine-TS | **primary** — authoritative translation source | https://github.com/LostCityRS/Engine-TS | `245.2` | `3c16994ca4ba51b4e04f88316c1f7395b0c4bb8a` |
+| Content | game content packed and served by the server | https://github.com/LostCityRS/Content | `245.2` | `cbcfe6706ef9f4093e5b8e4c9cfee93577346993` |
+| Client-Java | the client this server speaks to; wire-protocol cross-check | https://github.com/LostCityRS/Client-Java | `245.2` | `176a85f7b423111c878a476e1ead048745e377c0` |
+| RuneScriptKt | RuneScript compiler | — | — | unchanged from §rev-244 (release tag `26`; `ScriptProvider.COMPILER_VERSION = 26` at the 245.2 pin) |
+| cloudflare/zlib | gzip byte-parity reference | — | — | unchanged from §rev-244 (`886098f3`) |
+
+(Commits captured 2026-06-09, matching the goscape-client `REFERENCES.md`
+rev-245.2 pins. Go branch `rev-245.2` is cut from `rev-244` at `a4fe2d2a`.)
+
+Notes:
+
+- **Lineage:** the upstream `245.2` branch diverged from the `244` lineage at
+  merge-base `4095da3b`; most 244-era fixes were cherry-picked onto both
+  sides and cancel out, so the net cross-pin diff
+  `git -C Engine-TS diff 9aadcec4..3c16994c` (26 files, +246/−178) is the
+  real work list.
+- **The diff reverts two 244-only commits** and goscape follows the 245.2
+  pin: the hiscores banned-accounts gate (`ccc263c7`, absent from 245.2) and
+  the friends staff threshold (`staffLvl > 1` → `> 0`).
+- **No toolchain swap:** `@2004scape/rsbuf` stays `^244.1.0` (no `pkg/rsbuf`
+  re-audit), `@2004scape/rsmod-pathfinder` stays `^5.0.4`, the compiler
+  stays the RuneScriptKt release-26 jar.
+
 ## Future revisions
 
 When porting revision *N*:
