@@ -9,8 +9,11 @@ import (
 // as a single byte before each encoder's payload when composing the shared
 // buffer delivered via UpdateZonePartialEnclosed (opcode 233, -2).
 // Values mirror ServerGameZoneProt.ts at Engine-TS rev 244 (9aadcec4).
-// Must stay in sync with Op* vars in pkg/io/protocol/game/server (pinned by
-// TestZoneOpConsistency244 in zone_encoders_test.go).
+// Must stay in sync with Op* vars in pkg/io/protocol/game/server — pinned by
+// TestZoneOpConsistency in zone_encoders_test.go, which compares against
+// those vars DIRECTLY (test-only import). Its predecessor compared against
+// its own literal copies, which is how the rev-245.2 renumber sailed past
+// it on the sibling branch; see the test comment for the full story.
 const (
 	ZoneOpLocMerge     = 29
 	ZoneOpLocAnim      = 155

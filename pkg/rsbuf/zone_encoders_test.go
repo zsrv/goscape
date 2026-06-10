@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"testing"
 
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
 
@@ -227,35 +229,39 @@ func TestEncodeZonePartialEnclosedAppendsData(t *testing.T) {
 	}
 }
 
-// TestZoneOpConsistency244 pins that the ten ZoneOp* constants match the
-// zone-nested Op values declared in pkg/io/protocol/game/server at the 244
-// revision (Engine-TS@9aadcec4 ServerGameZoneProt.ts).
-//
-// pkg/rsbuf intentionally does NOT import pkg/io/protocol/game/server to avoid
-// a new dependency edge, so this test pins the expected literal 244 values
-// directly. If you change one side, update both.
-func TestZoneOpConsistency244(t *testing.T) {
-	// Expected values sourced from ServerGameZoneProt.ts (244 pin 9aadcec4)
-	// and must match the Op{Opcode:…} vars in pkg/io/protocol/game/server.
+// TestZoneOpConsistency pins that the ten ZoneOp* constants match the
+// zone-nested Op vars declared in pkg/io/protocol/game/server — compared
+// against those vars DIRECTLY (test-only import; no production dependency
+// edge). Its predecessor (TestZoneOpConsistency244) compared against its own
+// literal copies "to avoid a new dependency edge", which made it blind to
+// exactly the drift it claimed to pin: on the sibling rev-245.2 branch the
+// 245.2 wire renumber updated the prot table, the pkg/rsbuf fork kept the
+// 244 bytes, the test kept passing, and the live client smoke found doors
+// not opening (zone deltas undecodable by the 245.2 client until a level
+// change forced a full rebuild). On this branch both tables carry the 244
+// values (Engine-TS@9aadcec4 ServerGameZoneProt.ts), so this must pass
+// as-is; a failure means the two tables drifted.
+func TestZoneOpConsistency(t *testing.T) {
 	cases := []struct {
 		name   string
 		zoneOp int
-		wantOp int // matching server prot opcode
+		op     gameserver.Op
 	}{
-		{"ZoneOpLocMerge / OpLocMerge", ZoneOpLocMerge, 29},
-		{"ZoneOpLocAnim / OpLocAnim", ZoneOpLocAnim, 155},
-		{"ZoneOpObjDel / OpObjDel", ZoneOpObjDel, 39},
-		{"ZoneOpObjReveal / OpObjReveal", ZoneOpObjReveal, 69},
-		{"ZoneOpLocAddChange / OpLocAddChange", ZoneOpLocAddChange, 232},
-		{"ZoneOpMapProjAnim / OpMapProjAnim", ZoneOpMapProjAnim, 137},
-		{"ZoneOpLocDel / OpLocDel", ZoneOpLocDel, 125},
-		{"ZoneOpObjCount / OpObjCount", ZoneOpObjCount, 209},
-		{"ZoneOpMapAnim / OpMapAnim", ZoneOpMapAnim, 198},
-		{"ZoneOpObjAdd / OpObjAdd", ZoneOpObjAdd, 234},
+		{"ZoneOpLocMerge / OpLocMerge", ZoneOpLocMerge, gameserver.OpLocMerge},
+		{"ZoneOpLocAnim / OpLocAnim", ZoneOpLocAnim, gameserver.OpLocAnim},
+		{"ZoneOpObjDel / OpObjDel", ZoneOpObjDel, gameserver.OpObjDel},
+		{"ZoneOpObjReveal / OpObjReveal", ZoneOpObjReveal, gameserver.OpObjReveal},
+		{"ZoneOpLocAddChange / OpLocAddChange", ZoneOpLocAddChange, gameserver.OpLocAddChange},
+		{"ZoneOpMapProjAnim / OpMapProjAnim", ZoneOpMapProjAnim, gameserver.OpMapProjAnim},
+		{"ZoneOpLocDel / OpLocDel", ZoneOpLocDel, gameserver.OpLocDel},
+		{"ZoneOpObjCount / OpObjCount", ZoneOpObjCount, gameserver.OpObjCount},
+		{"ZoneOpMapAnim / OpMapAnim", ZoneOpMapAnim, gameserver.OpMapAnim},
+		{"ZoneOpObjAdd / OpObjAdd", ZoneOpObjAdd, gameserver.OpObjAdd},
 	}
 	for _, tc := range cases {
-		if tc.zoneOp != tc.wantOp {
-			t.Errorf("%s: ZoneOp const = %d, want %d (server prot opcode)", tc.name, tc.zoneOp, tc.wantOp)
+		if tc.zoneOp != int(tc.op.Opcode) {
+			t.Errorf("%s: ZoneOp const = %d, server prot opcode = %d — tables drifted",
+				tc.name, tc.zoneOp, tc.op.Opcode)
 		}
 	}
 }
