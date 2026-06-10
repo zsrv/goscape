@@ -1,7 +1,6 @@
 package world
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -12,18 +11,17 @@ import (
 // Test skips when the Server244-ref reference cache (needed for NewServer loads)
 // is unavailable.
 //
-// Uses the Server244-ref 244-format pack (not Engine-TS, which carries a
-// 225-format pack that panics in parseComponentTypes). B6 window closed.
+// Uses the rev-244 reference cache via ref244CacheDir (defined in
+// testdata_path_test.go); the repo's own data/pack is not used because
+// the git common-dir fallback can resolve a different revision's pack
+// (e.g. 245.2-format) that LoadComponentTypes can no longer decode.
 //
 // encfilter.Load() reads data/raw/wordenc relative to the working directory;
 // t.Chdir changes to the repo root so the committed data/raw/wordenc is reachable.
 //
 // TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:35-37 (static WordEnc.load).
 func TestNewServer_LoadsWordencFilter(t *testing.T) {
-	const ref244Cache = "/home/owner/Code/github.com/LostCityRS/Server244-ref/engine/data/pack"
-	if _, err := os.Stat(ref244Cache); err != nil {
-		t.Skipf("Server244-ref cache unavailable: %v", err)
-	}
+	cachePath := ref244CacheDir(t)
 	// encfilter.Load() resolves data/raw/wordenc relative to cwd. Switch to the
 	// repo root so the committed data/raw/wordenc jagfile is reachable.
 	repoRoot := filepath.Join("..", "..")
@@ -33,7 +31,7 @@ func TestNewServer_LoadsWordencFilter(t *testing.T) {
 	}
 	t.Chdir(absRoot)
 	cfg := Config{
-		CachePath:        ref244Cache,
+		CachePath:        cachePath,
 		TCPListenNetwork: "tcp",
 		TCPListenAddress: "127.0.0.1",
 		TCPListenPort:    0, // OS picks a free port
