@@ -379,7 +379,7 @@ func (r *Repository) GetFollowers(ctx context.Context, target uint64) ([]uint64,
 // IsVisibleTo applies TS visibility rules (FriendServerRepository.isVisibleTo,
 // FriendServerRepository.ts:332-355), in order:
 //
-//  1. viewer is staff (staffLvl > 1)   -> always visible
+//  1. viewer is staff (staffLvl > 0)   -> always visible
 //  2. other has ignored viewer         -> never visible
 //  3. other.privateChat 0 (ON)         -> always visible
 //     other.privateChat 1 (FRIENDS)    -> visible only if viewer is in other's friend set
@@ -400,7 +400,7 @@ func (r *Repository) IsVisibleTo(ctx context.Context, viewer, other uint64) (boo
 	viewerStaff := r.isStaffLocked(viewer)
 	r.mu.RUnlock()
 
-	// 1. Staff see everyone (TS playerStaff = registered with staffLvl > 1).
+	// 1. Staff see everyone (TS playerStaff = registered with staffLvl > 0).
 	if viewerStaff {
 		return true, nil
 	}
@@ -433,12 +433,12 @@ func (r *Repository) IsVisibleTo(ctx context.Context, viewer, other uint64) (boo
 	}
 }
 
-// isStaffLocked reports whether username37 is registered with staffLvl > 1.
-// Mirrors TS playerStaff membership (FriendServerRepository.ts:82-84). Caller
-// must hold r.mu (read or write).
+// isStaffLocked reports whether username37 is registered with staffLvl > 0.
+// Mirrors TS playerStaff membership (FriendServerRepository.ts:83 @3c16994c).
+// Caller must hold r.mu (read or write).
 func (r *Repository) isStaffLocked(username37 uint64) bool {
 	ps, ok := r.players[username37]
-	return ok && ps.staffLvl > 1
+	return ok && ps.staffLvl > 0
 }
 
 // isIgnoredBy reports whether owner has target on its ignorelist. Mirrors TS
