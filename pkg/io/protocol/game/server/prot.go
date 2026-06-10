@@ -193,7 +193,7 @@ var (
 	// TS ServerGameProt.ts (254): UPDATE_FRIENDLIST=111/9.
 	OpUpdateFriendList = Op{Opcode: 111, PayloadSize: 9}
 
-	// FRIENDLIST_LOADED reports friends-list bootstrap state to the client.
+	// OpFriendlistLoaded reports friends-list bootstrap state to the client.
 	// 1-byte payload: p1(status) — 0 loading, 1 connecting to friendserver,
 	// 2 online (anything else renders "Please wait..."). New in 254 —
 	// TS FriendlistLoadedEncoder.ts @43e02957, ServerGameProt.ts: FRIENDLIST_LOADED=255/1.
@@ -219,10 +219,10 @@ var (
 	// PrivateMessageDelivery. TS ServerGameProt.ts (254): MESSAGE_PRIVATE=60/-1.
 	OpMessagePrivate = Op{Opcode: 60, PayloadSize: -1}
 
-	// SET_PLAYER_OP sets a right-click player-menu entry. Variable
+	// OpSetPlayerOp sets a right-click player-menu entry. Variable
 	// 1-byte-length-prefixed payload: p1(op index) p1(primary) pjstr(text)
 	// per SetPlayerOpEncoder.ts (note: the TS model ctor order is
-	// (op, value, primary); the wire order is op, primary, value). New in 254 —
+	// (op, text, primary); the wire order is op, primary, text). New in 254 —
 	// TS SetPlayerOpEncoder.ts @43e02957, ServerGameProt.ts: SET_PLAYER_OP=204/-1.
 	OpSetPlayerOp = Op{Opcode: 204, PayloadSize: -1}
 )
@@ -285,7 +285,6 @@ func AllOps() []OpEntry {
 		// misc
 		{"SET_MULTIWAY", OpSetMultiway},
 		{"UPDATE_INV_STOP_TRANSMIT", OpUpdateInvStopTransmit},
-		{"SET_PLAYER_OP", OpSetPlayerOp},
 		// varps
 		{"VARP_SMALL", OpVarpSmall},
 		{"VARP_LARGE", OpVarpLarge},
@@ -306,6 +305,7 @@ func AllOps() []OpEntry {
 		{"OBJ_REVEAL", OpObjReveal},
 		// interaction
 		{"UNSET_MAP_FLAG", OpUnsetMapFlag},
+		{"SET_PLAYER_OP", OpSetPlayerOp},
 		// chat
 		{"MESSAGE_GAME", OpMessageGame},
 		// audio
