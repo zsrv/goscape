@@ -16,12 +16,14 @@ import (
 // Rev-244 (9aadcec4): interface CRC updated from -2146838800 (225) →
 // 316858560 (PackClient.ts:21). Sound CRC updated from -1570057128 (225
 // placeholder) to the active value -1415586973.
+// Rev-245.2 (3c16994c): interface CRC updated from 316858560 →
+// 587792799 (PackClient.ts:19) to reflect swappable + activeovercolour.
 func TestBuildVerifyMagicNumbers_AppearExactlyOnce(t *testing.T) {
 	tests := []struct {
 		file    string
 		literal string
 	}{
-		{"clientinterface/pack.go", "316858560"},
+		{"clientinterface/pack.go", "587792799"},
 		{"audio/sound.go", "-1415586973"},
 	}
 	for _, tc := range tests {

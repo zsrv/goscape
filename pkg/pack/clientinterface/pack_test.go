@@ -78,7 +78,6 @@ func TestPack_BytePinned(t *testing.T) {
 // loop. Synthetic fixtures with no string-bearing components had hidden
 // the bug.
 func TestPack_StringFieldsRoundTrip(t *testing.T) {
-	t.Skip("packer does not emit 245.2 swappable/activeovercolour yet — un-skip with the interface-packer update; see docs/superpowers/plans/2026-06-09-rev245.2-port.md Task 11")
 	tmp := t.TempDir()
 	src := filepath.Join(tmp, "src")
 	scriptsDir := filepath.Join(src, "scripts")
@@ -161,6 +160,129 @@ func TestAtoiOr0(t *testing.T) {
 		if got := atoiOr0(tt.in); got != tt.want {
 			t.Errorf("atoiOr0(%q) = %d, want %d", tt.in, got, tt.want)
 		}
+	}
+}
+
+// TestPack_245_2_InvSwappable pins rev-245.2: swappable bool byte is emitted
+// directly after usable in TYPE_INVENTORY (TS PackShared.ts:444, @3c16994c).
+// Pack → LoadComponentTypes round-trip: swappable=yes → Swappable=true.
+func TestPack_245_2_InvSwappable(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "src")
+	scriptsDir := filepath.Join(src, "scripts")
+	packDir := filepath.Join(src, "pack")
+	if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "interface.pack"),
+		[]byte("0=myinv\n1=myinv:bag\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile interface.pack: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "interface.order"),
+		[]byte("0\n1\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile interface.order: %v", err)
+	}
+	for _, name := range []string{"obj", "model", "seq", "varp"} {
+		if err := os.WriteFile(filepath.Join(packDir, name+".pack"), []byte(""), 0o644); err != nil {
+			t.Fatalf("WriteFile %s: %v", name, err)
+		}
+	}
+	// comType=inv with swappable=yes — pins 245.2 swappable byte.
+	body := "[bag]\ntype=inv\nwidth=100\nheight=100\nswappable=yes\n"
+	if err := os.WriteFile(filepath.Join(scriptsDir, "myinv.if"), []byte(body), 0o644); err != nil {
+		t.Fatalf("WriteFile myinv.if: %v", err)
+	}
+
+	reg := &pack.Registry{SrcDir: src}
+	out := filepath.Join(tmp, "out")
+	if err := Pack(reg, src, out, nil, nil); err != nil {
+		t.Fatalf("Pack: %v", err)
+	}
+
+	configs, err := objtype.LoadComponentTypes(out)
+	if err != nil {
+		t.Fatalf("LoadComponentTypes: %v", err)
+	}
+	if configs == nil || len(configs.Configs) < 2 {
+		t.Fatalf("LoadComponentTypes returned %d configs, want >=2", len(configs.Configs))
+	}
+	bag := configs.Configs[1]
+	if bag == nil {
+		t.Fatalf("configs[1] is nil")
+	}
+	if !bag.Swappable {
+		t.Errorf("Swappable: want true (TS PackShared.ts:444 @3c16994c, new in 245.2)")
+	}
+}
+
+// TestPack_245_2_ActiveOverColour pins rev-245.2: activeovercolour p4 is
+// emitted directly after overcolour for TYPE_RECT and TYPE_TEXT
+// (TS PackShared.ts:498, @3c16994c). Tests both component types via
+// Pack → LoadComponentTypes round-trip.
+func TestPack_245_2_ActiveOverColour(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "src")
+	scriptsDir := filepath.Join(src, "scripts")
+	packDir := filepath.Join(src, "pack")
+	if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "interface.pack"),
+		[]byte("0=myif\n1=myif:box\n2=myif:lbl\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile interface.pack: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "interface.order"),
+		[]byte("0\n1\n2\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile interface.order: %v", err)
+	}
+	for _, name := range []string{"obj", "model", "seq", "varp"} {
+		if err := os.WriteFile(filepath.Join(packDir, name+".pack"), []byte(""), 0o644); err != nil {
+			t.Fatalf("WriteFile %s: %v", name, err)
+		}
+	}
+	// box = rect (comType=3), lbl = text (comType=4); both carry activeovercolour.
+	// Colours are decimal, mirroring how atoiOr0 also accepts plain ints.
+	body := "[box]\ntype=rect\nwidth=50\nheight=50\ncolour=1\nactivecolour=2\novercolour=3\nactiveovercolour=11259375\n" +
+		"[lbl]\ntype=text\nwidth=50\nheight=10\ncolour=1\nactivecolour=2\novercolour=3\nactiveovercolour=11259375\ntext=hi\nactivetext=bye\n"
+	if err := os.WriteFile(filepath.Join(scriptsDir, "myif.if"), []byte(body), 0o644); err != nil {
+		t.Fatalf("WriteFile myif.if: %v", err)
+	}
+
+	reg := &pack.Registry{SrcDir: src}
+	out := filepath.Join(tmp, "out")
+	if err := Pack(reg, src, out, nil, nil); err != nil {
+		t.Fatalf("Pack: %v", err)
+	}
+
+	configs, err := objtype.LoadComponentTypes(out)
+	if err != nil {
+		t.Fatalf("LoadComponentTypes: %v (likely EOF — packer missing activeovercolour P4)", err)
+	}
+	if configs == nil || len(configs.Configs) < 3 {
+		t.Fatalf("LoadComponentTypes returned %d configs, want >=3", len(configs.Configs))
+	}
+
+	box := configs.Configs[1]
+	if box == nil {
+		t.Fatalf("configs[1] (rect) is nil")
+	}
+	// 11259375 decimal = 0x00ABCDEF
+	if box.ActiveOverColour != int32(0x00ABCDEF) {
+		t.Errorf("rect ActiveOverColour: got %08x, want 00abcdef (TS PackShared.ts:498 @3c16994c, new in 245.2)", box.ActiveOverColour)
+	}
+
+	lbl := configs.Configs[2]
+	if lbl == nil {
+		t.Fatalf("configs[2] (text) is nil")
+	}
+	if lbl.ActiveOverColour != int32(0x00ABCDEF) {
+		t.Errorf("text ActiveOverColour: got %08x, want 00abcdef (TS PackShared.ts:498 @3c16994c, new in 245.2)", lbl.ActiveOverColour)
 	}
 }
 

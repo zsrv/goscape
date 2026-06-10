@@ -17,8 +17,9 @@ import (
 
 // interfaceCRCMagic is the TS PackClient.ts:16 build-verify constant.
 // Rev-244 (9aadcec4) PackClient.ts:21: updated from the rev-225 value
-// (-2146838800) to the rev-244 value below.
-const interfaceCRCMagic int32 = 316858560
+// (-2146838800) to the rev-244 value. Rev-245.2 (3c16994c) PackClient.ts:19:
+// updated again to reflect the new swappable + activeovercolour fields.
+const interfaceCRCMagic int32 = 587792799
 
 // component mirrors the TS Component type (PackShared.ts:156-160).
 //
@@ -368,6 +369,7 @@ func packInterface(reg *pack.Registry, srcDir string, modelFlags []int) (client,
 			client.PBool(src["draggable"] == "yes")
 			client.PBool(src["interactable"] == "yes")
 			client.PBool(src["usable"] == "yes")
+			client.PBool(src["swappable"] == "yes") // TS PackShared.ts:444 @3c16994c, new in 245.2
 			if margin, ok := src["margin"]; ok && margin != "" {
 				mp := strings.Split(margin, ",")
 				client.P1(uint8(atoiOr0(mp[0])))
@@ -416,6 +418,7 @@ func packInterface(reg *pack.Registry, srcDir string, modelFlags []int) (client,
 			client.P4(uint32(atoiOr0(src["colour"])))
 			client.P4(uint32(atoiOr0(src["activecolour"])))
 			client.P4(uint32(atoiOr0(src["overcolour"])))
+			client.P4(uint32(atoiOr0(src["activeovercolour"]))) // TS PackShared.ts:498 @3c16994c, new in 245.2
 		}
 
 		if comType == 5 {
