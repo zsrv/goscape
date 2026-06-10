@@ -43,7 +43,6 @@ const (
 	npcBitsRun      = 1 + 2 + 3 + 3 + 1   // 10
 	npcBitsWalk     = 1 + 2 + 3 + 1       // 7
 	npcBitsExtend   = 1 + 2               // 3
-	npcTerminator   = 16383
 	maxNpcInfoBytes = 4997
 )
 
@@ -81,7 +80,7 @@ func (ni *NpcInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 	// bit-budget exit at first-tick counts) and crashes parsing garbage.
 	// PlayerInfo's analogous pattern at playerinfo.go:89-97 uses 11-bit 2047.
 	if len(ni.updates.Data) > 0 {
-		ni.buf.PBit(14, npcTerminator)
+		ni.buf.PBit(14, NpcTerminator)
 		ni.buf.AccessBytes()
 		for _, b2 := range ni.updates.Data {
 			ni.buf.P1(b2)
@@ -212,7 +211,7 @@ func (ni *NpcInfo) decObservers(b *Buf, nid int32) {
 // no-op skeleton with the full discovery loop. Each successful add
 // increments b.npcs[nid].Observers (mirrors info.rs:540).
 //
-// On byte-budget overflow, emits the 14-bit npcTerminator (16383)
+// On byte-budget overflow, emits the 14-bit NpcTerminator (16383)
 // sentinel and returns — distinct from PlayerInfo's pre-AccessBytes
 // 11-bit 2047 sentinel which fires at Encode level. NpcInfo's 16383
 // terminator is purely a per-loop byte-budget cutoff signal.
@@ -235,7 +234,7 @@ func (ni *NpcInfo) writeNewNpcs(b *Buf, self *Player, renderer *Renderer) {
 		lowDef := renderer.NpcLowDefOf(int(nid))
 		if !ni.fits(npcBitsAdd, len(lowDef)) {
 			// Byte budget overflow — emit terminator and return.
-			ni.buf.PBit(14, npcTerminator)
+			ni.buf.PBit(14, NpcTerminator)
 			return
 		}
 
