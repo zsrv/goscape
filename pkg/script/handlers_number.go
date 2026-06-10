@@ -2,6 +2,7 @@ package script
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"math/bits"
 	"math/rand/v2"
@@ -286,10 +287,24 @@ func handleSetBitRangeToInt(s *ScriptState) error {
 }
 
 // -- Random --
+//
+// TS uses the shared JavaRandom PRNG (java.util.Random port); goscape uses
+// math/rand/v2 — sequences differ but the distribution contract is the same
+// (uniform over [0, bound)). 254 (TS NumberOps.ts:32-40 @43e02957) drops the
+// 245.2 Math.max(0,·) clamp, exposing JavaRandom.nextInt's bound guard:
+// checkIsPositiveInt throws RangeError on bound < 0 (JavaRandom.ts:58-62),
+// while bound == 0 does NOT throw — it satisfies the power-of-two branch
+// ((0 & -0) === 0, JavaRandom.ts:93-96) and returns 0.
 
 func handleRandom(s *ScriptState) error {
 	n := s.PopInt()
-	if n <= 0 {
+	if n < 0 {
+		// TS: JavaRandom.nextInt(n) throws RangeError (JavaRandom.ts:58-62).
+		return fmt.Errorf("RANDOM: bound must be non-negative: %d", n)
+	}
+	if n == 0 {
+		// TS: nextInt(0) hits the power-of-two branch and returns 0;
+		// Go rand.IntN(0) would panic, so special-case it.
 		s.PushInt(0)
 		return nil
 	}
@@ -299,7 +314,12 @@ func handleRandom(s *ScriptState) error {
 
 func handleRandomInc(s *ScriptState) error {
 	n := s.PopInt()
-	if n < 0 {
+	if n+1 < 0 {
+		// TS: JavaRandom.nextInt(n+1) throws RangeError (JavaRandom.ts:58-62).
+		return fmt.Errorf("RANDOMINC: bound must be non-negative: %d", n+1)
+	}
+	if n+1 == 0 {
+		// TS: nextInt(0) returns 0 (power-of-two branch); avoid IntN(0) panic.
 		s.PushInt(0)
 		return nil
 	}
