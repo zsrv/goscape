@@ -235,7 +235,9 @@ func (n *Npc) Teleport(x, z, level int) {
 	moveZ := coordgrid.MoveZ(n.z, dir)
 	n.focus(coordgrid.Fine(moveX, n.size), coordgrid.Fine(moveZ, n.size), false)
 
-	refreshNpcZone(n.server, n, prevX, prevZ, prevLevel)
+	// Full zone presence (collision-follow + zone swap) per TS
+	// PathingEntity.ts:293 → refreshZonePresence(:163-188).
+	refreshNpcZonePresence(n.server, n, prevX, prevZ, prevLevel)
 	n.tele = true
 }
 

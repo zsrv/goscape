@@ -1463,9 +1463,11 @@ func (s *Server) removePlayerInternal(p *Player) {
 	// world-ops-2: TS World.removePlayer (World.ts:1642) calls
 	// changeNpcCollision(player.width, player.x, player.z, player.level,
 	// false) unconditionally after deleting the slot, clearing the
-	// FlagBlockNPCs that SetVisibility(Default) (player.go:674) seeds
-	// at the player's tile. Width is always 1 per TS PathingEntity
-	// init (matching the goscape hardcode in SetVisibility).
+	// FlagBlockNPCs at the player's current tile. The flag is planted by
+	// SetVisibility(Default) (player.go:674) and moved on every step and
+	// teleport by refreshPlayerZonePresence (zone_refresh.go), so the
+	// current tile is where it lives. Width is always 1 per TS
+	// PathingEntity init (matching the goscape hardcode in SetVisibility).
 	if s.gamemap != nil {
 		s.gamemap.ChangeNPCCollision(1, p.x, p.z, p.level, false)
 	}

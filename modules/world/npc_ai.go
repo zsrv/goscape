@@ -34,6 +34,13 @@ func (n *Npc) turn(s *Server) {
 					n.dead = false
 					prevX, prevZ, prevLevel := n.x, n.z, n.level
 					n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
+					// Zone-only refresh — deliberately NOT the collision-
+					// following refreshNpcZonePresence: TS routes respawn
+					// through World.addNpc (World.ts:1295-1316) which seeds
+					// collision at the start tile (goscape: revertType →
+					// addNpc below); the death-tile flags were already
+					// cleared by removeNpc at death, so a presence-move
+					// here would phantom-remove at the death tile.
 					refreshNpcZone(s, n, prevX, prevZ, prevLevel)
 					n.revertType()
 				} else {
