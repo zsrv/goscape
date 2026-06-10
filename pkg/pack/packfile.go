@@ -212,9 +212,24 @@ func (pf *PackFile) GetByName(name string) int {
 //	"<type>: <name> was not found in any <ext> files, you may need to
 //	 edit <srcDir>/pack/<type>.pack"
 //
-// TS source: tools/pack/PackFile.ts:117-121 @ 9aadcec4 (rev-244 B6).
+// With multiple orphans, the reported name is the LOWEST-id one: TS
+// iterates pack.names, a JS Set in insertion order — .pack file line
+// order, which the machine-written pack files keep id-ascending — so the
+// first throw is the lowest-id orphan. Go's map range was random here
+// (the rev-244-era multi-orphan map-order residual); ordering by
+// NameToID restores determinism and the TS report for sorted pack files.
+//
+// TS source: tools/pack/PackFile.ts:117-121 @ 9aadcec4 (rev-244 B6;
+// unchanged at 3c16994c).
 func ValidateConfigPackNames(pf *PackFile, configNames map[string]struct{}, ext string) error {
+	names := make([]string, 0, len(pf.Names))
 	for name := range pf.Names {
+		names = append(names, name)
+	}
+	sort.Slice(names, func(i, j int) bool {
+		return pf.NameToID[names[i]] < pf.NameToID[names[j]]
+	})
+	for _, name := range names {
 		if strings.HasPrefix(name, "cert_") {
 			continue
 		}

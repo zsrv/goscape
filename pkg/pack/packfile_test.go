@@ -337,3 +337,37 @@ func TestValidateConfigPackNames_KnownName(t *testing.T) {
 		t.Fatalf("known name must pass; got: %v", err)
 	}
 }
+
+// TestValidateConfigPackNames_MultiOrphanDeterministic pins that when
+// MULTIPLE pack names are orphaned, the error deterministically reports the
+// one with the LOWEST id. TS iterates pack.names — a JS Set in insertion
+// order, i.e. .pack file line order, which the machine-written pack files
+// keep id-ascending (PackFile.ts:117-119 @9aadcec4) — so the first throw is
+// the lowest-id orphan. The pre-fix Go ranged the Names map, so which
+// orphan got reported was map-iteration random (the rev-244-era
+// "ValidateConfigPackNames multi-orphan map-order" residual).
+//
+// The orphan at the LOWER id ("zz_orphan") sorts lexicographically AFTER
+// the higher-id one ("aa_orphan") so this test distinguishes id-order from
+// accidental name-sorting. 50 iterations defeat Go's per-range map seed.
+func TestValidateConfigPackNames_MultiOrphanDeterministic(t *testing.T) {
+	pf := &PackFile{
+		Type: "npc",
+		Pack: map[int]string{0: "rat", 1: "zz_orphan", 2: "aa_orphan"},
+		Names: map[string]struct{}{
+			"rat": {}, "zz_orphan": {}, "aa_orphan": {},
+		},
+		NameToID: map[string]int{"rat": 0, "zz_orphan": 1, "aa_orphan": 2},
+	}
+	configNames := map[string]struct{}{"rat": {}}
+
+	for i := range 50 {
+		err := ValidateConfigPackNames(pf, configNames, ".npc")
+		if err == nil {
+			t.Fatal("want error for orphaned names, got nil")
+		}
+		if !strings.Contains(err.Error(), "zz_orphan") {
+			t.Fatalf("iteration %d: error must report the lowest-id orphan (id 1, zz_orphan); got: %v", i, err)
+		}
+	}
+}

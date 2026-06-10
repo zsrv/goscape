@@ -1243,8 +1243,11 @@ Arc-26 residual decoder bug in `pkg/script/file.go`~~ — RETIRED: the
 idx header assumed; idx has 4), fixed at `0a068e40` (2026-05-22). The
 decoder was never wrong. Retired at rev-245.2 (`0c5ce79a`, decoder verified
 against 32,826 blobs across four era-caches) together with the all-blobs
-test hardening, backported here; `ValidateConfigPackNames` multi-orphan
-error is map-iteration-ordered (T4-era minor).
+test hardening, backported here; ~~`ValidateConfigPackNames` multi-orphan
+error is map-iteration-ordered (T4-era minor)~~ — FIXED: names are now
+checked in NameToID-ascending order, matching TS's id-ascending Set
+iteration (PackFile.ts:117-121 @9aadcec4); fixed at rev-245.2 (`9c02d555`),
+backported here with the MultiOrphanDeterministic pin test.
 
 ---
 
