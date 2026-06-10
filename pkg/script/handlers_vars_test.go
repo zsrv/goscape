@@ -743,6 +743,258 @@ func TestPopVarp_NonProtect_NoGate(t *testing.T) {
 	}
 }
 
+// varbitConfigs builds a mockConfigs with one varbit (id 10, bits 0-7 of
+// basevar 5, debugname "combatlevel") and its base varp (id 5) carrying
+// the given protect flag. Fixture for the PUSH_VARBIT/POP_VARBIT tests.
+func varbitConfigs(protect bool) *mockConfigs {
+	return &mockConfigs{
+		varbits: map[int]*objtype.VarBitType{
+			10: {
+				ConfigType: objtype.ConfigType{ID: 10, DebugName: "combatlevel"},
+				Basevar:    5,
+				Startbit:   0,
+				Endbit:     7,
+			},
+		},
+		varps: map[int]*objtype.VarPlayerType{
+			5: {Type: objtype.ScriptVarTypeInt, Protect: protect},
+		},
+	}
+}
+
+func TestPushVarbit(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "push_varbit",
+		Opcodes:          []Opcode{OpPushVarbit, OpReturn},
+		IntOperands:      []int32{10, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	mp := &mockPlayer{varbits: map[int]int32{10: 99}}
+	state := Init(sf, mp, false, nil, nil)
+	state.Configs = varbitConfigs(false)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 99 {
+		t.Errorf("PushVarbit: got %d, want 99", got)
+	}
+}
+
+func TestPushVarbitSecondaryBitReadsSelf2(t *testing.T) {
+	// Operand bit 16 = secondary flag (TS CoreOps.ts:62): `.%varbit`
+	// reads the SECONDARY active player (Self2), not the primary.
+	sf := &ScriptFile{
+		Name:             "push_varbit_secondary",
+		Opcodes:          []Opcode{OpPushVarbit, OpReturn},
+		IntOperands:      []int32{0x1000A, 0}, // secondary=1, id=10
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	primary := &mockPlayer{varbits: map[int]int32{10: 11}}
+	secondary := &mockPlayer{varbits: map[int]int32{10: 99}}
+	state := Init(sf, primary, false, nil, nil)
+	state.Self2 = secondary
+	state.Pointers |= PtrActivePlayer2
+	state.Configs = varbitConfigs(false)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 99 {
+		t.Errorf("PushVarbit(.%%, secondary): got %d, want 99 (Self2's varbit, not primary's 11)", got)
+	}
+}
+
+func TestPushVarbitRequiresActivePlayer(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "push_varbit_noself",
+		Opcodes:          []Opcode{OpPushVarbit, OpReturn},
+		IntOperands:      []int32{10, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.Configs = varbitConfigs(false)
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want error")
+	}
+	if !errors.Is(err, ErrNoActivePlayer) {
+		t.Errorf("error: got %v, want ErrNoActivePlayer", err)
+	}
+}
+
+func TestPushVarbitRequiresActivePlayer2WhenSecondary(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "push_varbit_noself2",
+		Opcodes:          []Opcode{OpPushVarbit, OpReturn},
+		IntOperands:      []int32{0x1000A, 0}, // secondary=1, id=10
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, &mockPlayer{}, false, nil, nil)
+	state.Configs = varbitConfigs(false)
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want error")
+	}
+	if !errors.Is(err, ErrNoActivePlayer2) {
+		t.Errorf("error: got %v, want ErrNoActivePlayer2", err)
+	}
+}
+
+func TestPushVarbit_UnknownIDRejected(t *testing.T) {
+	// TS check(id, VarBitValid) throws for id >= VarBitType.count
+	// (ScriptValidators.ts:130). Goscape's checkVarBitType analog.
+	sf := &ScriptFile{
+		Name:             "push_varbit_oob",
+		Opcodes:          []Opcode{OpPushVarbit, OpReturn},
+		IntOperands:      []int32{999, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	mp := &mockPlayer{varbits: map[int]int32{10: 99}}
+	state := Init(sf, mp, false, nil, nil)
+	state.Configs = varbitConfigs(false)
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want VarBit validator error")
+	}
+	if !strings.Contains(err.Error(), "no VarBit with value (999) found") {
+		t.Errorf("error: got %q, want VarBit validator message", err.Error())
+	}
+}
+
+func TestPopVarbitWritesToSelf(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "pop_varbit",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push 77
+			OpPopVarbit,       // write varbit 10 = 77
+			OpReturn,
+		},
+		IntOperands:      []int32{77, 10, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	state.Configs = varbitConfigs(false)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.GetVarBit(10); got != 77 {
+		t.Errorf("mp.GetVarBit(10): got %d, want 77", got)
+	}
+}
+
+// TestPopVarbitSecondaryBitWritesSelf2 pins that `.%varbit = x` writes the
+// SECONDARY player. Mirrors TS POP_VARBIT secondary (CoreOps.ts:74-75).
+func TestPopVarbitSecondaryBitWritesSelf2(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "pop_varbit_secondary",
+		Opcodes: []Opcode{
+			OpPushConstantInt,
+			OpPopVarbit,
+			OpReturn,
+		},
+		IntOperands:      []int32{55, 0x1000A, 0}, // push 55; write secondary varbit id=10
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	primary := &mockPlayer{}
+	secondary := &mockPlayer{}
+	state := Init(sf, primary, false, nil, nil)
+	state.Self2 = secondary
+	state.Pointers |= PtrActivePlayer2
+	state.Configs = varbitConfigs(false)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := secondary.GetVarBit(10); got != 55 {
+		t.Errorf("PopVarbit(.%%, secondary): Self2.varbit[10]=%d, want 55", got)
+	}
+	if got, ok := primary.varbits[10]; ok {
+		t.Errorf("PopVarbit(.%%, secondary): primary.varbit[10] should be untouched, got %d", got)
+	}
+}
+
+func TestPopVarbit_ProtectGate_DeniesUnprotected(t *testing.T) {
+	// TS CoreOps.ts:83-86: the gate reads the BASE varp's protect flag,
+	// and the error carries the VARBIT's debugname.
+	sf := &ScriptFile{
+		Name: "pop_varbit_protected_unprot",
+		Opcodes: []Opcode{
+			OpPushConstantInt,
+			OpPopVarbit,
+			OpReturn,
+		},
+		IntOperands:      []int32{77, 10, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false /* protect=false */, nil, nil)
+	state.Configs = varbitConfigs(true)
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want Protect-gate error, got nil")
+	}
+	if !strings.Contains(err.Error(), "requires protected access") {
+		t.Errorf("error: got %q, want substring 'requires protected access'", err.Error())
+	}
+	if !strings.Contains(err.Error(), "%combatlevel") {
+		t.Errorf("error: got %q, want the varbit debugname '%%combatlevel'", err.Error())
+	}
+}
+
+func TestPopVarbit_ProtectGate_AllowsProtected(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "pop_varbit_protected_prot",
+		Opcodes: []Opcode{
+			OpPushConstantInt,
+			OpPopVarbit,
+			OpReturn,
+		},
+		IntOperands:      []int32{77, 10, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, true /* protect=true */, nil, nil)
+	state.Configs = varbitConfigs(true)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.GetVarBit(10); got != 77 {
+		t.Errorf("mp.GetVarBit(10): got %d, want 77", got)
+	}
+}
+
+func TestPopVarbit_UnknownIDRejected(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "pop_varbit_oob",
+		Opcodes: []Opcode{
+			OpPushConstantInt,
+			OpPopVarbit,
+			OpReturn,
+		},
+		IntOperands:      []int32{77, 999, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	state.Configs = varbitConfigs(false)
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want VarBit validator error")
+	}
+	if !strings.Contains(err.Error(), "no VarBit with value (999) found") {
+		t.Errorf("error: got %q, want VarBit validator message", err.Error())
+	}
+}
+
 func TestPushVarn_RawNpcLiteralNoPanic(t *testing.T) {
 	// R2 mitigation: a mockNpc with nil varns/varnsString slices must not
 	// panic when PUSH_VARN dispatches via either branch (STRING or int).

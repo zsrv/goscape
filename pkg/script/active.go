@@ -154,6 +154,19 @@ type ActivePlayer interface {
 	// varp_string opcode); server-side state only.
 	SetVarpString(id int, val string)
 
+	// GetVarBit reads the varbit's bit-range out of its base varp.
+	// Unconfigured/garbage varbit ranges read 0. Mirrors TS
+	// Player.getVarBit (Player.ts:1750-1760 @43e02957). Used by the
+	// PUSH_VARBIT opcode. rev-254.
+	GetVarBit(id int) int32
+
+	// SetVarBit writes value into the varbit's bit-range of its base
+	// varp, preserving the other bits; out-of-range values write 0.
+	// Routes through SetVarp so transmit varps resync. Mirrors TS
+	// Player.setVarBit (Player.ts:1762-1777 @43e02957). Used by the
+	// POP_VARBIT opcode. rev-254.
+	SetVarBit(id int, value int32)
+
 	// RunVarpID returns the varp id discovered at config-load time as the
 	// engine-level run-mode varp (the config with ClientCode==7). Mirrors TS
 	// VarPlayerType.RUN dynamic discovery at Engine-TS/src/cache/config/VarPlayerType.ts:50-53.

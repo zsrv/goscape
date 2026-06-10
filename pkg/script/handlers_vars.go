@@ -115,6 +115,85 @@ func handlePopVarp(s *ScriptState) error {
 	return nil
 }
 
+// checkVarBitType validates a VarBitType id is registered in s.Configs
+// and returns it. Mirrors TS check(id, VarBitValid) (ScriptValidators.ts:130
+// @43e02957 — config-type validator over 0 <= id < VarBitType.count).
+// rev-254.
+func checkVarBitType(s *ScriptState, id int, op string) (*objtype.VarBitType, error) {
+	if s.Configs == nil {
+		return nil, fmt.Errorf("%s: no VarBit with value (%d) found", op, id)
+	}
+	vb := s.Configs.VarBitType(id)
+	if vb == nil {
+		return nil, fmt.Errorf("%s: no VarBit with value (%d) found", op, id)
+	}
+	return vb, nil
+}
+
+// handlePushVarbit reads the varbit's bit-range out of the active
+// player's base varp (Self, or Self2 when the secondary bit is set) and
+// pushes it. Varbits are always int-typed — no STRING fork like
+// PUSH_VARP. Mirrors TS CoreOps.ts:61-71 @43e02957. rev-254 (opcode 25
+// restored; deleted in 244).
+func handlePushVarbit(s *ScriptState) error {
+	player := s.Self
+	if varSecondary(s) {
+		player = s.Self2
+	}
+	if player == nil {
+		if varSecondary(s) {
+			return fmt.Errorf("PUSH_VARBIT: %w", ErrNoActivePlayer2)
+		}
+		return fmt.Errorf("PUSH_VARBIT: %w", ErrNoActivePlayer)
+	}
+	id := varOperandID(s)
+	vb, err := checkVarBitType(s, id, "PUSH_VARBIT")
+	if err != nil {
+		return err
+	}
+	s.PushInt(int(player.GetVarBit(vb.ID)))
+	return nil
+}
+
+// handlePopVarbit pops an int and writes it into the varbit's bit-range
+// of the active player's base varp. The protect gate reads the BASE
+// varp's protect flag (TS CoreOps.ts:83-84 `VarPlayerType.get(varbit.basevar)`
+// → `basevar.protect`), but the error carries the VARBIT's debugname
+// (CoreOps.ts:85 `%${varbit.debugname} requires protected access`).
+// Secondary-aware via bit 16 like POP_VARP; the gate is likewise
+// operand-aware (ProtectedActivePlayer[secondary], CoreOps.ts:84).
+// Mirrors TS CoreOps.ts:73-90 @43e02957. rev-254 (opcode 27 restored;
+// deleted in 244).
+func handlePopVarbit(s *ScriptState) error {
+	secondary := varSecondary(s)
+	player := s.Self
+	protectFlag := PtrProtectedActivePlayer
+	if secondary {
+		player = s.Self2
+		protectFlag = PtrProtectedActivePlayer2
+	}
+	if player == nil {
+		if secondary {
+			return fmt.Errorf("POP_VARBIT: %w", ErrNoActivePlayer2)
+		}
+		return fmt.Errorf("POP_VARBIT: %w", ErrNoActivePlayer)
+	}
+	id := varOperandID(s)
+	vb, err := checkVarBitType(s, id, "POP_VARBIT")
+	if err != nil {
+		return err
+	}
+	// TS VarPlayerType.get(varbit.basevar).protect — goscape's VarpType
+	// surfaces exactly the (type, protect) tuple; an OOB basevar degrades
+	// to protect=false (DEVIATION-NAI-121-D3 convention).
+	_, protect := s.varpType(vb.Basevar)
+	if protect && s.Pointers&protectFlag == 0 {
+		return fmt.Errorf("POP_VARBIT: %%%s requires protected access", vb.DebugName)
+	}
+	player.SetVarBit(vb.ID, int32(s.PopInt()))
+	return nil
+}
+
 // handlePushVars reads world-shared variable `id` from the running World
 // and pushes it. Dispatches on Configs.VarsType(id): STRING calls
 // PushString backed by World.VarsString, else PushInt backed by

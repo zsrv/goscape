@@ -343,6 +343,12 @@ type mockPlayer struct {
 	varps       map[int]int32
 	varpsString map[int]string
 
+	// rev-254: per-varbit-id whole-value storage. The mock keys by
+	// varbit id directly (no basevar bit packing) — handler tests only
+	// assert routing/protect gating, not the bit math (that's pinned in
+	// modules/world/player_varbit_test.go).
+	varbits map[int]int32
+
 	// S5c: read-side storage. Tests pre-seed these; the getter methods
 	// return the corresponding slot. 21 is the authentic stat count.
 	levels      [21]int
@@ -419,10 +425,10 @@ type mockPlayer struct {
 	}
 	lastIfSetTab       struct{ com, tab int }
 	lastIfSetObject    struct{ com, objID, scale int }
-	lastIfSetColour     struct{ com, colour int }
-	lastIfSetPosition   struct{ com, x, y int }
-	lastIfSetScrollPos  struct{ com, y int }
-	lastIfSetTabActive  int // just tab
+	lastIfSetColour    struct{ com, colour int }
+	lastIfSetPosition  struct{ com, x, y int }
+	lastIfSetScrollPos struct{ com, y int }
+	lastIfSetTabActive int // just tab
 
 	lastSetResumeButtons [5]int
 
@@ -712,6 +718,19 @@ func (m *mockPlayer) SetVarpString(id int, val string) {
 	}
 	m.varpsString[id] = val
 }
+func (m *mockPlayer) GetVarBit(id int) int32 {
+	if m.varbits == nil {
+		return 0
+	}
+	return m.varbits[id]
+}
+func (m *mockPlayer) SetVarBit(id int, value int32) {
+	if m.varbits == nil {
+		m.varbits = make(map[int]int32)
+	}
+	m.varbits[id] = value
+}
+
 func (m *mockPlayer) RunVarpID() int { return m.runVarpID }
 
 // S5c: position / facing / teleport.

@@ -12,6 +12,9 @@ package script
 // new player ops (BUFFER_FULL, IF_MULTIZONE, IF_OPENOVERLAY, etc.);
 // NPC block renumbered; inv block renumbered; MAP_LAST* debug ops added.
 //
+// 254 changes vs 245.2: PUSH_VARBIT (25) / POP_VARBIT (27) restored
+// (TS ScriptOpcode.ts:20-21 + map entries :484-485 @43e02957).
+//
 // Naming: TS UPPER_SNAKE_CASE → goscape Op* constant in
 // pkg/script/opcode.go. Most names follow mechanical UPPER_SNAKE →
 // OpUpperCamel translation; goscape uses all-caps for acronyms (UID, ID)
@@ -40,6 +43,8 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"GOSUB":                         OpGosub,
 	"JUMP":                          OpJump,
 	"SWITCH":                        OpSwitch,
+	"PUSH_VARBIT":                   OpPushVarbit,
+	"POP_VARBIT":                    OpPopVarbit,
 	"BRANCH_LESS_THAN_OR_EQUALS":    OpBranchLessThanOrEquals,
 	"BRANCH_GREATER_THAN_OR_EQUALS": OpBranchGreaterThanOrEquals,
 	"PUSH_INT_LOCAL":                OpPushIntLocal,

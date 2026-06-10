@@ -24,6 +24,8 @@ var scriptOpcodeMap245Pin = map[string]Opcode{
 	"GOSUB":                         22,
 	"JUMP":                          23,
 	"SWITCH":                        24,
+	"PUSH_VARBIT":                   25, // restored at 254 (ScriptOpcode.ts:20 @43e02957); Task 9 regenerates this file
+	"POP_VARBIT":                    27, // restored at 254 (ScriptOpcode.ts:21 @43e02957); Task 9 regenerates this file
 	"BRANCH_LESS_THAN_OR_EQUALS":    31,
 	"BRANCH_GREATER_THAN_OR_EQUALS": 32,
 	"PUSH_INT_LOCAL":                33,
@@ -424,9 +426,12 @@ var scriptOpcodeMap245Pin = map[string]Opcode{
 }
 
 // removed245Names were deleted/renamed upstream between e1dea19f and
-// 3c16994c and must NOT resolve.
+// 3c16994c and must NOT resolve. PUSH_VARBIT/POP_VARBIT left this list
+// at 254 — restored upstream (ScriptOpcode.ts:20-21 @43e02957).
+// STAT_TOTAL is also restored at 254 but lands in Task 9 with the full
+// regen of this file.
 var removed245Names = []string{
-	"PUSH_VARBIT", "POP_VARBIT", "MAP_LIVE", "STAT_TOTAL", "IF_SETRECOL",
+	"MAP_LIVE", "STAT_TOTAL", "IF_SETRECOL",
 	"HINT_PL", "LOWMEM", "READYANIM", "RUNANIM", "TURNANIM",
 	"WALKANIM", "WALKANIM_B", "WALKANIM_L", "WALKANIM_R",
 }

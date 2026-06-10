@@ -195,6 +195,18 @@ func (c serverConfigsView) VarpType(id int) (objtype.ScriptVarType, bool) {
 	return cfg.Type, cfg.Protect
 }
 
+// VarBitType implements script.Configs.VarBitType. Surfaces the full
+// varbit config (POP_VARBIT needs Basevar + DebugName). Nil when the
+// server/registry is uninitialized or id is out of range — the Go
+// analog of TS check(id, VarBitValid) failing (ScriptValidators.ts:130
+// @43e02957). rev-254.
+func (c serverConfigsView) VarBitType(id int) *objtype.VarBitType {
+	if c.s == nil {
+		return nil
+	}
+	return c.s.varbitTypes.Get(id)
+}
+
 func (c serverConfigsView) VarnType(id int) objtype.ScriptVarType {
 	if c.s == nil || c.s.varnTypes == nil {
 		return objtype.ScriptVarTypeInt

@@ -54,6 +54,7 @@ func (f *fakeConfigs) FindDbRowsStr(query string, packed int) []int { return nil
 func (f *fakeConfigs) VarpType(id int) (objtype.ScriptVarType, bool) {
 	return objtype.ScriptVarTypeInt, false
 }
+func (f *fakeConfigs) VarBitType(id int) *objtype.VarBitType   { return nil }
 func (f *fakeConfigs) VarnType(id int) objtype.ScriptVarType   { return objtype.ScriptVarTypeInt }
 func (f *fakeConfigs) VarsType(id int) objtype.ScriptVarType   { return objtype.ScriptVarTypeInt }
 func (f *fakeConfigs) ObjByName(name string) *objtype.ObjType  { return nil }

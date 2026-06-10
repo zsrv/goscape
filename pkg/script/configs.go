@@ -50,6 +50,16 @@ type Configs interface {
 	// (DEVIATION-NAI-121-D3; goscape defensive; TS check() throws).
 	VarpType(id int) (typ objtype.ScriptVarType, protect bool)
 
+	// VarBitType returns the varbit config for id, or nil when out of
+	// range or the registry is empty (pre-254 cache without varbit.dat).
+	// Unlike VarpType's degraded (type, protect) tuple, the full config
+	// is surfaced because POP_VARBIT needs Basevar (protect gate routes
+	// through the BASE varp's protect flag, TS CoreOps.ts:83-84) and
+	// DebugName (the protect error carries the varbit's debugname, TS
+	// CoreOps.ts:85). Consumed by checkVarBitType — the Go analog of TS
+	// check(id, VarBitValid) (ScriptValidators.ts:130). rev-254.
+	VarBitType(id int) *objtype.VarBitType
+
 	// VarnType returns the type for an NPC-var id. Out-of-range or
 	// unloaded id returns ScriptVarTypeInt (DEVIATION-NAI-121-D3).
 	VarnType(id int) objtype.ScriptVarType

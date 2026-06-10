@@ -22,6 +22,7 @@ type mockConfigs struct {
 	spotAnimTypes  map[int]*objtype.SpotanimType
 	categories     map[int]*objtype.CategoryType
 	varps          map[int]*objtype.VarPlayerType
+	varbits        map[int]*objtype.VarBitType
 	varns          map[int]*objtype.VarNpcType
 	varss          map[int]*objtype.VarSharedType
 	seqs           map[int]*objtype.SeqType
@@ -75,6 +76,8 @@ func (m *mockConfigs) VarpType(id int) (objtype.ScriptVarType, bool) {
 	}
 	return v.Type, v.Protect
 }
+
+func (m *mockConfigs) VarBitType(id int) *objtype.VarBitType { return m.varbits[id] }
 
 func (m *mockConfigs) VarnType(id int) objtype.ScriptVarType {
 	v, ok := m.varns[id]

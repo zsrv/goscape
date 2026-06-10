@@ -252,10 +252,13 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// S5b: VAR ops.
 	OpPushVarp: handlePushVarp,
 	OpPopVarp:  handlePopVarp,
-	OpPushVars: handlePushVars,
-	OpPopVars:  handlePopVars,
-	OpPushVarn: handlePushVarn,
-	OpPopVarn:  handlePopVarn,
+	// rev-254: PUSH_VARBIT/POP_VARBIT restored (TS CoreOps.ts:61-90 @43e02957).
+	OpPushVarbit: handlePushVarbit,
+	OpPopVarbit:  handlePopVarbit,
+	OpPushVars:   handlePushVars,
+	OpPopVars:    handlePopVars,
+	OpPushVarn:   handlePushVarn,
+	OpPopVarn:    handlePopVarn,
 
 	// S5c: player stat/coord/facing/anim.
 	// Stat read + mutation ops.

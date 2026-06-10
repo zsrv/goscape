@@ -49,8 +49,8 @@ const (
 	OpJump   Opcode = 23
 	OpSwitch Opcode = 24
 
-	// 25 = PUSH_VARBIT (deleted in 244; see ScriptOpcode.ts:20)
-	// 27 = POP_VARBIT  (deleted in 244; see ScriptOpcode.ts:21)
+	OpPushVarbit Opcode = 25 // official (cs2); restored at 254 (TS ScriptOpcode.ts:20)
+	OpPopVarbit  Opcode = 27 // official (cs2); restored at 254 (TS ScriptOpcode.ts:21)
 
 	OpBranchLessThanOrEquals    Opcode = 31
 	OpBranchGreaterThanOrEquals Opcode = 32
@@ -574,6 +574,10 @@ func (o Opcode) String() string {
 		return "JUMP"
 	case OpSwitch:
 		return "SWITCH"
+	case OpPushVarbit:
+		return "PUSH_VARBIT"
+	case OpPopVarbit:
+		return "POP_VARBIT"
 	case OpBranchLessThanOrEquals:
 		return "BRANCH_LESS_THAN_OR_EQUALS"
 	case OpBranchGreaterThanOrEquals:
