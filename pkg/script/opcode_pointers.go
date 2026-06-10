@@ -83,7 +83,9 @@ func corruptExceptActive(extras ...string) []string {
 // constraints"). Mirrored in goscape via map miss (zero-value
 // Pointers{}).
 //
-// 237 entries; verified by TestScriptOpcodePointers_LengthParity in T5.
+// 242 entries at the rev-254 pin; verified by
+// TestScriptOpcodePointers_LengthParity, which documents the
+// per-revision count history.
 // Entry order in this literal mirrors TS line ordering to support
 // side-by-side review; Go map iteration order itself is randomized but
 // unobservable to callers.
