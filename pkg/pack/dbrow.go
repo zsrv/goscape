@@ -2,6 +2,7 @@ package pack
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -99,6 +100,16 @@ func packDbRowConfigs(
 				parts := parseCsv(line.Value.(string))
 				column := parts[0]
 				values := parts[1:]
+				// 2e3bcf43 (upstream 2dc4a811): data lines naming a column
+				// that does not exist on the table now ERROR instead of
+				// being silently dropped. TS DbRowConfig.ts:120-122:
+				//
+				//	if (typeof column === 'undefined' || table.columnNames.indexOf(column) === -1) {
+				//	    throw packStepError(debugname, `Data invalid in row, double-check the column exists: data=${value}`);
+				//	}
+				if !slices.Contains(table.ColumnNames, column) {
+					return nil, packStepError(name, "Data invalid in row, double-check the column exists: data=%s", line.Value.(string))
+				}
 				data = append(data, dbRowDataField{column: column, values: values})
 			}
 

@@ -35,7 +35,7 @@ func buildParamLookupsForDbRowTest(t *testing.T) *paramLookups {
 	for _, dst := range []**PackFile{
 		&lk.enumPF, &lk.objPF, &lk.locPF, &lk.interfacePF, &lk.structPF,
 		&lk.categoryPF, &lk.spotanimPF, &lk.npcPF, &lk.invPF, &lk.synthPF,
-		&lk.seqPF, &lk.varpPF, &lk.dbrowPF,
+		&lk.seqPF, &lk.varpPF, &lk.dbrowPF, &lk.midiPF,
 	} {
 		*dst = newTestPF("dummy", map[int]string{})
 	}

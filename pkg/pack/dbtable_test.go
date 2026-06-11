@@ -14,7 +14,7 @@ func buildParamLookupsForDbTableTest(t *testing.T) *paramLookups {
 	for _, dst := range []**PackFile{
 		&lk.enumPF, &lk.objPF, &lk.locPF, &lk.interfacePF, &lk.structPF,
 		&lk.categoryPF, &lk.spotanimPF, &lk.npcPF, &lk.invPF, &lk.synthPF,
-		&lk.seqPF, &lk.varpPF, &lk.dbrowPF,
+		&lk.seqPF, &lk.varpPF, &lk.dbrowPF, &lk.midiPF,
 	} {
 		*dst = newTestPF("dummy", map[int]string{})
 	}
@@ -188,5 +188,104 @@ func TestParseDbTableConfig_UnknownKey(t *testing.T) {
 	v, claimed, err := parseDbTableConfig("foo", "bar")
 	if claimed || err != nil || v != nil {
 		t.Fatalf("got v=%v claimed=%v err=%v, want all-zero", v, claimed, err)
+	}
+}
+
+// --- A14: dbtable midi column type (rev-254 pin advance; upstream 2dc4a811) ---
+
+// TestPackDbTableConfigs_MidiColumnTypeByte77 pins that `column=x,midi`
+// packs ScriptVarType MIDI = 77 ('M') as the column type byte.
+// TS: ScriptVarType.ts:27 `static readonly MIDI = 77; // M` +
+// getTypeChar 'midi' -> 'M' (ScriptVarType.ts:168-170 @2e3bcf43).
+func TestPackDbTableConfigs_MidiColumnTypeByte77(t *testing.T) {
+	pf := newTestPF("dbtable", map[int]string{0: "t_midi"})
+	configs := map[string][]ConfigLine{
+		"t_midi": {
+			{Key: "column", Value: "track,midi"},
+		},
+	}
+	pd, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []byte{
+		0x00, 0x01, // count header
+		1, 1, 0x00, 1, 77, 255, // opcode 1: type byte 77 ('M')
+		251, 1, 't', 'r', 'a', 'c', 'k', 0x0a,
+		252, 1, 0,
+		250, 't', '_', 'm', 'i', 'd', 'i', 0x0a,
+		0x00,
+	}
+	if !bytes.Equal(pd.Dat.Data, want) {
+		t.Fatalf("got % x\nwant % x", pd.Dat.Data, want)
+	}
+}
+
+// TestPackDbTableConfigs_MidiDefaultResolvesViaMidiPack pins that a midi
+// default resolves the NAME through the midi pack registry to its id
+// (TS ParamConfig.ts:158-160 @2e3bcf43: MidiPack.getByName).
+func TestPackDbTableConfigs_MidiDefaultResolvesViaMidiPack(t *testing.T) {
+	pf := newTestPF("dbtable", map[int]string{0: "t_mdef"})
+	lk := buildParamLookupsForDbTableTest(t)
+	lk.midiPF = newTestPF("midi", map[int]string{219: "advance attack"})
+	configs := map[string][]ConfigLine{
+		"t_mdef": {
+			{Key: "column", Value: "track,midi"},
+			{Key: "default", Value: "track,advance attack"},
+		},
+	}
+	pd, err := packDbTableConfigs(configs, pf, lk, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []byte{
+		0x00, 0x01, // count header
+		1, 1, 0x80, 1, 77, 1, 0, 0, 0, 219, 255, // P4(219) default
+		251, 1, 't', 'r', 'a', 'c', 'k', 0x0a,
+		252, 1, 0,
+		250, 't', '_', 'm', 'd', 'e', 'f', 0x0a,
+		0x00,
+	}
+	if !bytes.Equal(pd.Dat.Data, want) {
+		t.Fatalf("got % x\nwant % x", pd.Dat.Data, want)
+	}
+}
+
+// TestPackDbTableConfigs_InvalidColumnTypeErrors pins the TS error shape
+// for an unknown column type token (TS DbTableConfig.ts:112-115
+// @2e3bcf43: `Invalid column type "<part>"`).
+func TestPackDbTableConfigs_InvalidColumnTypeErrors(t *testing.T) {
+	pf := newTestPF("dbtable", map[int]string{0: "t_badtype"})
+	configs := map[string][]ConfigLine{
+		"t_badtype": {
+			{Key: "column", Value: "x,notatype"},
+		},
+	}
+	_, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t), nil)
+	if err == nil {
+		t.Fatal("want error for unknown column type, got nil")
+	}
+	if !strings.Contains(err.Error(), `Invalid column type "notatype"`) {
+		t.Fatalf("err=%q, want TS shape `Invalid column type \"notatype\"`", err)
+	}
+}
+
+// TestPackDbTableConfigs_MidiDefaultUnknownNameErrors pins the TS
+// default-value error shape (TS DbTableConfig.ts:170-172 @2e3bcf43:
+// `Data invalid in column, double-check the reference exists: default=...`).
+func TestPackDbTableConfigs_MidiDefaultUnknownNameErrors(t *testing.T) {
+	pf := newTestPF("dbtable", map[int]string{0: "t_mbad"})
+	configs := map[string][]ConfigLine{
+		"t_mbad": {
+			{Key: "column", Value: "track,midi"},
+			{Key: "default", Value: "track,no_such_song"},
+		},
+	}
+	_, err := packDbTableConfigs(configs, pf, buildParamLookupsForDbTableTest(t), nil)
+	if err == nil {
+		t.Fatal("want error for unknown midi default, got nil")
+	}
+	if !strings.Contains(err.Error(), "Data invalid in column, double-check the reference exists: default=track,no_such_song") {
+		t.Fatalf("err=%q, want TS `Data invalid in column...` shape", err)
 	}
 }

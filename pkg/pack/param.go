@@ -64,6 +64,10 @@ type paramLookups struct {
 	seqPF       *PackFile
 	varpPF      *PackFile
 	dbrowPF     *PackFile
+	// midiPF resolves ScriptVarType MIDI (77/'M') values — new at the
+	// rev-254 pin (upstream 2dc4a811; TS ParamConfig.ts:158-160
+	// `case ScriptVarType.MIDI: index = MidiPack.getByName(value)`).
+	midiPF *PackFile
 }
 
 // paramStats / paramNpcStats are TS-hardcoded ordered lists from
@@ -151,6 +155,10 @@ func lookupParamValue(typ objtype.ScriptVarType, value string, lk *paramLookups)
 		return paramIndexOrErr(lk.varpPF, value, "varp")
 	case objtype.ScriptVarTypeDbrow:
 		return paramIndexOrErr(lk.dbrowPF, value, "dbrow")
+	case objtype.ScriptVarTypeMidi:
+		// 254 pin (upstream 2dc4a811): TS ParamConfig.ts:158-160
+		// `case ScriptVarType.MIDI: index = MidiPack.getByName(value)`.
+		return paramIndexOrErr(lk.midiPF, value, "midi")
 
 	case objtype.ScriptVarTypeStat:
 		i := slices.Index(paramStats, value)

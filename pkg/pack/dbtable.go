@@ -78,9 +78,14 @@ func packDbTableConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *param
 					if part == strings.ToUpper(part) {
 						col.properties = append(col.properties, part)
 					} else {
+						// 2e3bcf43 (upstream 2dc4a811): getTypeChar returns
+						// null for unknown types and the packer throws
+						// `Invalid column type "<part>"` (TS
+						// DbTableConfig.ts:112-115). ScriptVarTypeFromName
+						// is the getTypeChar analog (midi → 77/'M' included).
 						t, ok := objtype.ScriptVarTypeFromName(part)
 						if !ok {
-							return nil, packStepError(name, "unknown column type %q", part)
+							return nil, packStepError(name, "Invalid column type %q", part)
 						}
 						col.types = append(col.types, t)
 					}
@@ -109,11 +114,13 @@ func packDbTableConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *param
 						break
 					}
 				}
+				// 2e3bcf43 (upstream 2dc4a811) error shapes — TS
+				// DbTableConfig.ts:137-143.
 				if colIdx == -1 {
-					return nil, packStepError(name, "unknown default column %q", colName)
+					return nil, packStepError(name, "Could not assign default to column %q - column does not exist", colName)
 				}
 				if slices.Contains(columns[colIdx].properties, "REQUIRED") {
-					return nil, packStepError(name, "%s cannot have a default value because it is marked REQUIRED", colName)
+					return nil, packStepError(name, "Could not assign default to column %q - no default value is allowed because the column is marked REQUIRED", colName)
 				}
 				defaults[colIdx] = values
 			}
@@ -137,7 +144,13 @@ func packDbTableConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *param
 						for j, t := range col.types {
 							resolved, err := lookupParamValue(t, defaults[i][j], lk)
 							if err != nil {
-								return nil, packStepError(name, "default[%d]: %v", j, err)
+								// 2e3bcf43 (upstream 2dc4a811): TS
+								// DbTableConfig.ts:170-172 throws
+								// `Data invalid in column, double-check the
+								// reference exists: default=<name>,<values>`
+								// when lookupParamValue returns null.
+								return nil, packStepError(name, "Data invalid in column, double-check the reference exists: default=%s,%s",
+									col.name, strings.Join(defaults[i], ","))
 							}
 							if t == objtype.ScriptVarTypeString {
 								pd.PJStr(resolved.(string))

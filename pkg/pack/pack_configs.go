@@ -598,10 +598,13 @@ func packAndSaveVars(srcDir, serverOut string, pf *PackFile, c Constants, modelF
 	return pd.Save(filepath.Join(serverOut, "vars.dat"), filepath.Join(serverOut, "vars.idx"))
 }
 
-// loadParamLookups constructs the 12 typed-id PackFiles needed by
-// lookupParamValue (the 13th, varpPF, is reused from the up-front
+// loadParamLookups constructs the 13 typed-id PackFiles needed by
+// lookupParamValue (the 14th, varpPF, is reused from the up-front
 // var-domain trio). Called only when .param source is present so the
 // cost is amortized for the no-source case.
+//
+// midi joins the set at the rev-254 pin (upstream 2dc4a811: ScriptVarType
+// MIDI=77 resolves dbtable/dbrow/param values via MidiPack.getByName).
 //
 // NAI-194-D-PACKFILE-SINGLETONS-DEFERRED: TS uses module-level
 // EnumPack/ObjPack/etc.; goscape constructs from srcDir per call.
@@ -623,6 +626,7 @@ func loadParamLookups(srcDir string, varpPF *PackFile) (*paramLookups, error) {
 		{"synth", &lk.synthPF},
 		{"seq", &lk.seqPF},
 		{"dbrow", &lk.dbrowPF},
+		{"midi", &lk.midiPF},
 	} {
 		pf, err := NewPackFile(srcDir, t.name, nil)
 		if err != nil {
