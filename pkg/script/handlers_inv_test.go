@@ -4521,18 +4521,17 @@ func TestInvDropAll_UntradeableStops244(t *testing.T) {
 	}
 }
 
-// TestBothDropSlot_WealthRecipientRekey244 verifies the 244 BOTH_DROPSLOT
-// SCOPE_PERM wealth event carries recipient_id + recipient_session.
-// TS InvOps.ts:706-714: `recipient_id: toPlayer.account_id`,
-// `recipient_session: isClientConnected(toPlayer) ? toPlayer.client.uuid : 'disconnected'`
-// (line 707 from TS InvOps.ts:706-714 verified).
-// toPlayer fake has AccountID()=42 and RecipientSession()="disconnected" (not connected).
-func TestBothDropSlot_WealthRecipientRekey244(t *testing.T) {
+// TestBothDropSlot_WealthRecipientSession254 verifies the BOTH_DROPSLOT
+// SCOPE_PERM wealth event carries recipient_session ONLY — rev-254 A3:
+// TS InvOps.ts:702-709 @2e3bcf43 `recipient_session: toPlayer.session`;
+// recipient_id was removed upstream (WealthEvent.ts:7-16 @2e3bcf43).
+// toPlayer fake has RecipientSession()="to-sess-pvp".
+func TestBothDropSlot_WealthRecipientSession254(t *testing.T) {
 	mc := newBothDropSlotConfigs()
 	// Use tradeable obj in SCOPE_PERM inv so the wealth event fires.
 	// obj 20 is tradeable, inv 6 is SCOPE_PERM.
 	self := &mockPlayer{uidValue: 11}
-	self2 := &mockPlayer{uidValue: 22, accountIDValue: 42, recipientSessionValue: "disconnected"}
+	self2 := &mockPlayer{uidValue: 22, accountIDValue: 42, recipientSessionValue: "to-sess-pvp"}
 	lookup, _, _ := newTwoPlayerInvFixture()
 	lookup.self = self
 	lookup.self2 = self2
@@ -4557,26 +4556,23 @@ func TestBothDropSlot_WealthRecipientRekey244(t *testing.T) {
 	if evt.EventType != WealthEventTypePVP {
 		t.Errorf("EventType: got %d, want %d (PVP)", evt.EventType, WealthEventTypePVP)
 	}
-	// 244 re-key: recipient_id must be toPlayer.AccountID().
-	if evt.RecipientID != 42 {
-		t.Errorf("RecipientID: got %d, want 42 (toPlayer.AccountID)", evt.RecipientID)
-	}
-	// 244 re-key: recipient_session from toPlayer.RecipientSession().
-	if evt.RecipientSession != "disconnected" {
-		t.Errorf("RecipientSession: got %q, want %q", evt.RecipientSession, "disconnected")
+	// rev-254 A3: recipient keyed by session only (toPlayer.session).
+	if evt.RecipientSession != "to-sess-pvp" {
+		t.Errorf("RecipientSession: got %q, want %q", evt.RecipientSession, "to-sess-pvp")
 	}
 }
 
-// TestBothMoveInv_StakeRecipientRekey244 verifies the 244 STAKE wealth event
-// carries recipient_id + recipient_session. TS InvOps.ts:453-458.
-// Extends TestBothMoveInv_StakePositive_EmitsWealthEvent with the new fields.
-func TestBothMoveInv_StakeRecipientRekey244(t *testing.T) {
+// TestBothMoveInv_StakeRecipientSession254 verifies the STAKE wealth
+// event carries recipient_session ONLY (rev-254 A3: TS InvOps.ts:448-457
+// @2e3bcf43 `recipient_session: toPlayer.session`; recipient_id removed).
+// Extends TestBothMoveInv_StakePositive_EmitsWealthEvent with the field.
+func TestBothMoveInv_StakeRecipientSession254(t *testing.T) {
 	mc := newTestInvConfigs()
 	mc.invs[testInvMain].DebugName = "dueloffer"
 	mc.invs[testInvMain].Protect = false
 	lookup, self, self2 := newTwoPlayerInvFixture()
 	self2.accountIDValue = 99
-	self2.recipientSessionValue = "disconnected"
+	self2.recipientSessionValue = "to-sess-stake"
 	lookup.selfInvs[testInvMain].Items[0] = &inventory.Item{Id: testObjCoin, Count: 100}
 	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
 
@@ -4589,18 +4585,16 @@ func TestBothMoveInv_StakeRecipientRekey244(t *testing.T) {
 	if evt.EventType != WealthEventTypeStake {
 		t.Errorf("EventType: got %d, want %d (STAKE)", evt.EventType, WealthEventTypeStake)
 	}
-	if evt.RecipientID != 99 {
-		t.Errorf("244 STAKE RecipientID: got %d, want 99", evt.RecipientID)
-	}
-	if evt.RecipientSession != "disconnected" {
-		t.Errorf("244 STAKE RecipientSession: got %q, want %q", evt.RecipientSession, "disconnected")
+	if evt.RecipientSession != "to-sess-stake" {
+		t.Errorf("254 STAKE RecipientSession: got %q, want %q", evt.RecipientSession, "to-sess-stake")
 	}
 }
 
-// TestBothMoveInv_TradeRecipientRekey244 verifies the 244 TRADE wealth event
-// carries recipient_id + recipient_session. TS InvOps.ts:488-495.
-// Extends TestBothMoveInv_TradePositive_EmitsWealthEvent with the new fields.
-func TestBothMoveInv_TradeRecipientRekey244(t *testing.T) {
+// TestBothMoveInv_TradeRecipientSession254 verifies the TRADE wealth
+// event carries recipient_session ONLY (rev-254 A3: TS InvOps.ts:483-493
+// @2e3bcf43 `recipient_session: toPlayer.session`; recipient_id removed).
+// Extends TestBothMoveInv_TradePositive_EmitsWealthEvent with the field.
+func TestBothMoveInv_TradeRecipientSession254(t *testing.T) {
 	mc := newTestInvConfigs()
 	mc.invs[testInvMain].Protect = false
 	lookup, self, self2 := newTwoPlayerInvFixture()
@@ -4618,10 +4612,7 @@ func TestBothMoveInv_TradeRecipientRekey244(t *testing.T) {
 	if evt.EventType != WealthEventTypeTrade {
 		t.Errorf("EventType: got %d, want %d (TRADE)", evt.EventType, WealthEventTypeTrade)
 	}
-	if evt.RecipientID != 77 {
-		t.Errorf("244 TRADE RecipientID: got %d, want 77", evt.RecipientID)
-	}
 	if evt.RecipientSession != "some-uuid-abc" {
-		t.Errorf("244 TRADE RecipientSession: got %q, want %q", evt.RecipientSession, "some-uuid-abc")
+		t.Errorf("254 TRADE RecipientSession: got %q, want %q", evt.RecipientSession, "some-uuid-abc")
 	}
 }

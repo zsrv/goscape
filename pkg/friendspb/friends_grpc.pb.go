@@ -63,9 +63,10 @@ type FriendsServiceClient interface {
 	// Chat. Mirrors TS PRIVATE_MESSAGE. Server persists then delivers via
 	// SubscribeUpdates fan-out; insert error → codes.Internal.
 	PrivateMessage(ctx context.Context, in *PrivateMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// Public-chat audit log. Mirrors TS FriendServer.ts:291-307 — append-
-	// only persistence keyed by username + profile + world (rev-244 re-key:
-	// TS re-keyed from session_uuid to username at FriendServer.ts:292-293).
+	// Public-chat audit log. Mirrors TS FriendServer.ts:286-297 @2e3bcf43
+	// — append-only persistence keyed by session_uuid (rev-254 A3 re-key:
+	// TS keyed back from username to session_uuid; goscape additionally
+	// keeps profile + world, see PublicMessageRequest).
 	// No delivery half; the world handles in-world chat propagation itself.
 	// Insert error → codes.Internal.
 	PublicMessage(ctx context.Context, in *PublicMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -357,9 +358,10 @@ type FriendsServiceServer interface {
 	// Chat. Mirrors TS PRIVATE_MESSAGE. Server persists then delivers via
 	// SubscribeUpdates fan-out; insert error → codes.Internal.
 	PrivateMessage(context.Context, *PrivateMessageRequest) (*emptypb.Empty, error)
-	// Public-chat audit log. Mirrors TS FriendServer.ts:291-307 — append-
-	// only persistence keyed by username + profile + world (rev-244 re-key:
-	// TS re-keyed from session_uuid to username at FriendServer.ts:292-293).
+	// Public-chat audit log. Mirrors TS FriendServer.ts:286-297 @2e3bcf43
+	// — append-only persistence keyed by session_uuid (rev-254 A3 re-key:
+	// TS keyed back from username to session_uuid; goscape additionally
+	// keeps profile + world, see PublicMessageRequest).
 	// No delivery half; the world handles in-world chat propagation itself.
 	// Insert error → codes.Internal.
 	PublicMessage(context.Context, *PublicMessageRequest) (*emptypb.Empty, error)

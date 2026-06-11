@@ -597,16 +597,18 @@ func (r *Repository) LogPrivateMessage(ctx context.Context, from, to uint64, coo
 }
 
 // LogPublicMessage appends one row to public_chat under r.profile.
-// rev-244 re-key: rows are keyed (profile, world, username) — TS
-// FriendServer.ts:287-305 resolves username to account_id; goscape
-// stores the username directly (federated DB, no account table —
-// NO-LANDING-SITE row, PORTING.md §B5). Append-only, no dedupe, no
-// validation; insert failure surfaces codes.Internal at the handler.
-func (r *Repository) LogPublicMessage(ctx context.Context, world int32, username string, coord int32, message string) error {
+// rev-254 A3 re-key: rows are keyed (profile, world, session_uuid) —
+// TS FriendServer.ts:286-297 @2e3bcf43 persists session_uuid directly
+// (no account resolution). goscape keeps profile + world columns: TS
+// recovers them by joining session_uuid against the login DB session
+// table, which the federated friends DB lacks (DB-2, db.go:21-35).
+// Append-only, no dedupe, no validation; insert failure surfaces
+// codes.Internal at the handler.
+func (r *Repository) LogPublicMessage(ctx context.Context, world int32, sessionUUID string, coord int32, message string) error {
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO public_chat (profile, world, username, coord, message)
+		`INSERT INTO public_chat (profile, world, session_uuid, coord, message)
 		 VALUES (?, ?, ?, ?, ?)`,
-		r.profile, world, username, coord, message,
+		r.profile, world, sessionUUID, coord, message,
 	)
 	if err != nil {
 		return fmt.Errorf("LogPublicMessage: %w", err)

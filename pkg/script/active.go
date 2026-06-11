@@ -1,44 +1,31 @@
 package script
 
 // WealthEvent captures a single wealth-affecting event for analytics.
-// Mirrors TS WealthEvent (WealthEvent.ts:19-23) + WealthEventParams
-// (WealthEvent.ts:7-17). Goscape AddWealthEvent appends to an
+// Mirrors TS WealthEvent (WealthEvent.ts:18-21 @2e3bcf43) + WealthEventParams
+// (WealthEvent.ts:7-16). Goscape AddWealthEvent appends to an
 // in-memory log only per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY;
 // analytics RPC integration deferred.
 //
-// rev-244 B3 — account_id threading (WealthEvent.ts:21-22,
-// Player.ts:640-642, NetworkPlayer.ts:259-261):
-// AccountID and AccountSession are stamped by Player.AddWealthEvent
-// (not by the caller). RecipientID mirrors WealthEventParams.recipient_id?
-// (WealthEvent.ts:13); RecipientSession mirrors recipient_session?
-// (WealthEvent.ts:14, previously the sole recipient field).
+// rev-254 pin-advance A3 (TS 43e02957..2e3bcf43): the account_id /
+// account_session pair collapses into the single session_uuid key
+// (WealthEvent.ts:20 @2e3bcf43) and recipient_id is removed
+// (WealthEventParams keeps only recipient_session?, WealthEvent.ts:13).
 type WealthEvent struct {
 	EventType    int
 	AccountItems []WealthItem
 	AccountValue int
 
-	// AccountID is the persistent DB account.id of the player who owns
-	// this event. Stamped by Player.AddWealthEvent from p.accountID
-	// (World.ts:1932 sources it from the login reply).
-	// TS WealthEvent.account_id (WealthEvent.ts:21).
-	AccountID int64
-
-	// AccountSession is the per-login session correlation key for the
-	// account. Stamped by Player.AddWealthEvent:
-	//   - client present → p.session (UUID, NetworkPlayer.ts:260)
-	//   - no client       → "headless" (Player.ts:641)
-	// TS WealthEvent.account_session (WealthEvent.ts:22).
-	AccountSession string
-
-	// RecipientID is the optional DB account.id of the counterparty
-	// (set by trade/PvP/duel callers that know the other player's ID).
-	// TS WealthEventParams.recipient_id? (WealthEvent.ts:13).
-	// Zero means absent (TS optional field).
-	RecipientID int64
+	// SessionUUID is the per-login session correlation key of the
+	// player who owns this event. Stamped by Player.AddWealthEvent
+	// from Player.session ('headless' default; client UUID for
+	// connected players — Player.ts:311 + NetworkPlayer ctor @2e3bcf43).
+	// TS WealthEvent.session_uuid (WealthEvent.ts:20).
+	SessionUUID string
 
 	// RecipientSession is the optional per-login session UUID of the
-	// counterparty; set by trade/PvP/duel callers alongside RecipientID.
-	// TS WealthEventParams.recipient_session? (WealthEvent.ts:14).
+	// counterparty; set by trade/PvP/duel callers from toPlayer.session
+	// (TS InvOps.ts:454/489/707 @2e3bcf43).
+	// TS WealthEventParams.recipient_session? (WealthEvent.ts:13).
 	RecipientSession string
 	RecipientItems   []WealthItem
 	RecipientValue   int
@@ -614,12 +601,13 @@ type ActivePlayer interface {
 	// players whose session bypassed the login bridge. NAI-Phase2.
 	AccountID() int64
 
-	// RecipientSession returns this player's per-login session UUID when a
-	// client is attached, else "disconnected". Used when this player is
-	// the COUNTERPARTY of a wealth event. Mirrors TS InvOps.ts:446
-	// `isClientConnected(toPlayer) ? toPlayer.client.uuid : 'disconnected'`
-	// (single-Player-type adaptation documented at the rev-244 B3
-	// account_id row; seam added in B4).
+	// RecipientSession returns this player's per-login session UUID
+	// ('headless' when the player has none — the TS Player.session
+	// field default). Used when this player is the COUNTERPARTY of a
+	// wealth event. Mirrors TS `recipient_session: toPlayer.session`
+	// (InvOps.ts:454/489/707 @2e3bcf43); the 244-era
+	// isClientConnected/'disconnected' fork was deleted upstream with
+	// the NetworkPlayer addWealthEvent override (rev-254 A3).
 	RecipientSession() string
 
 	// X returns the player's current absolute world X coord. Used by

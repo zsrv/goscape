@@ -26,9 +26,10 @@ service FriendsService {
   // SubscribeUpdates fan-out; insert error → codes.Internal.
   rpc PrivateMessage(PrivateMessageRequest) returns (google.protobuf.Empty);
 
-  // Public-chat audit log. Mirrors TS FriendServer.ts:291-307 — append-
-  // only persistence keyed by username + profile + world (rev-244 re-key:
-  // TS re-keyed from session_uuid to username at FriendServer.ts:292-293).
+  // Public-chat audit log. Mirrors TS FriendServer.ts:286-297 @2e3bcf43
+  // — append-only persistence keyed by session_uuid (rev-254 A3 re-key:
+  // TS keyed back from username to session_uuid; goscape additionally
+  // keeps profile + world, see PublicMessageRequest).
   // No delivery half; the world handles in-world chat propagation itself.
   // Insert error → codes.Internal.
   rpc PublicMessage(PublicMessageRequest) returns (google.protobuf.Empty);
@@ -147,14 +148,20 @@ message PrivateMessageRequest {
 }
 
 message PublicMessageRequest {
-  int32  world_id  = 1;
-  // rev-244: re-keyed from session_uuid to the player username
-  // (TS FriendServer.ts:287-305 / FriendClient.publicMessage :704-722).
-  string username  = 2;
-  int32  coord     = 3;
-  string chat      = 4;
-  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile   = 5;
+  int32  world_id     = 1;
+  // rev-254 A3: re-keyed back from username to the per-login session
+  // UUID (TS World.logPublicChat posts session_uuid, World.ts:1567-1574
+  // @2e3bcf43; FriendServer.ts:286-297 @2e3bcf43 persists it directly,
+  // no account resolution). Same field number as the 244-era
+  // `username` (wire-compatible string rename).
+  string session_uuid = 2;
+  int32  coord        = 3;
+  string chat         = 4;
+  // rev-244: per-message profile (multi-profile server). TS 254 drops
+  // profile/world from the public_chat row because session_uuid joins
+  // back to the login DB session table; goscape's federated friends DB
+  // has no session table, so the request keeps both for recoverability.
+  string profile      = 5;
 }
 
 message SubscribeUpdatesRequest {

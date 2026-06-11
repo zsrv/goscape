@@ -1169,11 +1169,11 @@ func TestHandler_PublicMessage_PersistsRow(t *testing.T) {
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 
 	resp, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
-		WorldId:  10,
-		Profile:  "main",
-		Username: "uuid-pub-1",
-		Coord:    9876,
-		Chat:     "audit me",
+		WorldId:     10,
+		Profile:     "main",
+		SessionUuid: "uuid-pub-1",
+		Coord:       9876,
+		Chat:        "audit me",
 	})
 	if err != nil {
 		t.Fatalf("PublicMessage: %v", err)
@@ -1182,15 +1182,15 @@ func TestHandler_PublicMessage_PersistsRow(t *testing.T) {
 		t.Fatalf("PublicMessage: nil response, want non-nil Empty")
 	}
 
-	var username, msg string
+	var sessionUUID, msg string
 	var coord int32
 	if err := db.QueryRowContext(t.Context(),
-		`SELECT username, coord, message FROM public_chat`).
-		Scan(&username, &coord, &msg); err != nil {
+		`SELECT session_uuid, coord, message FROM public_chat`).
+		Scan(&sessionUUID, &coord, &msg); err != nil {
 		t.Fatalf("SELECT public_chat: %v", err)
 	}
-	if username != "uuid-pub-1" || coord != 9876 || msg != "audit me" {
-		t.Errorf("row = (%q, %d, %q), want (uuid-pub-1, 9876, audit me)", username, coord, msg)
+	if sessionUUID != "uuid-pub-1" || coord != 9876 || msg != "audit me" {
+		t.Errorf("row = (%q, %d, %q), want (uuid-pub-1, 9876, audit me)", sessionUUID, coord, msg)
 	}
 }
 
@@ -1211,11 +1211,11 @@ func TestHandler_PublicMessage_InsertErrorReturnsInternal(t *testing.T) {
 	}
 
 	resp, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
-		WorldId:  10,
-		Profile:  "main",
-		Username: "uuid-pub-err",
-		Coord:    0,
-		Chat:     "should not persist",
+		WorldId:     10,
+		Profile:     "main",
+		SessionUuid: "uuid-pub-err",
+		Coord:       0,
+		Chat:        "should not persist",
 	})
 	if err == nil {
 		t.Fatalf("PublicMessage on closed DB: got nil error, want Internal")
@@ -1228,11 +1228,12 @@ func TestHandler_PublicMessage_InsertErrorReturnsInternal(t *testing.T) {
 	}
 }
 
-// TestHandler_PublicMessage_Rev244Shape pins the rev-244 re-key: handler
-// persists (profile, world, username, coord, message) — world is now
-// persisted from req.WorldId, username from req.Username. TS
-// FriendServer.ts:287-305.
-func TestHandler_PublicMessage_Rev244Shape(t *testing.T) {
+// TestHandler_PublicMessage_Rev254Shape pins the row shape: handler
+// persists (profile, world, session_uuid, coord, message) — rev-254 A3
+// re-key: session_uuid from req.SessionUuid (TS FriendServer.ts:286-297
+// @2e3bcf43 persists session_uuid directly); profile + world are
+// goscape-kept columns (federated DB, no session table join).
+func TestHandler_PublicMessage_Rev254Shape(t *testing.T) {
 	db := createTestDB(t)
 	repos := newRepositories(db)
 	log := noopLogger()
@@ -1240,23 +1241,23 @@ func TestHandler_PublicMessage_Rev244Shape(t *testing.T) {
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 
 	if _, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
-		WorldId:  10,
-		Profile:  "main",
-		Username: "bob",
-		Coord:    7,
-		Chat:     "hi",
+		WorldId:     10,
+		Profile:     "main",
+		SessionUuid: "sess-bob",
+		Coord:       7,
+		Chat:        "hi",
 	}); err != nil {
 		t.Fatalf("PublicMessage: %v", err)
 	}
 
-	var profile, username, message string
+	var profile, sessionUUID, message string
 	var world, coord int
 	if err := repos.get("main").db.QueryRow(
-		`SELECT profile, world, username, coord, message FROM public_chat`).
-		Scan(&profile, &world, &username, &coord, &message); err != nil {
+		`SELECT profile, world, session_uuid, coord, message FROM public_chat`).
+		Scan(&profile, &world, &sessionUUID, &coord, &message); err != nil {
 		t.Fatalf("SELECT public_chat: %v", err)
 	}
-	if profile != "main" || world != 10 || username != "bob" || coord != 7 || message != "hi" {
-		t.Errorf("row: profile=%s world=%d username=%s coord=%d message=%s", profile, world, username, coord, message)
+	if profile != "main" || world != 10 || sessionUUID != "sess-bob" || coord != 7 || message != "hi" {
+		t.Errorf("row: profile=%s world=%d session_uuid=%s coord=%d message=%s", profile, world, sessionUUID, coord, message)
 	}
 }

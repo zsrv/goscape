@@ -35,10 +35,11 @@ func packPublicChatPayload(color, effect byte, message string) []byte {
 
 // TestHandleMessagePublic_FiresFriendsBridge pins that a valid
 // public-chat utterance triggers FriendsBridge.PublicMessage with the
-// expected (username, coord, decoded message) tuple.
-// rev-244 re-key: Username is player.username, not session UUID.
-// TS World.ts:1620-1628 logPublicChat keys by player.username.
-// Coord is the packed coordgrid.PackCoord(level, x, z) value at utterance.
+// expected (session_uuid, coord, decoded message) tuple.
+// rev-254 A3 re-key: TS World.ts:1567-1574 @2e3bcf43 logPublicChat
+// posts `session_uuid: player.session` — the 244-era username key is
+// gone. Coord is the packed coordgrid.PackCoord(level, x, z) value at
+// utterance.
 func TestHandleMessagePublic_FiresFriendsBridge(t *testing.T) {
 	p, rec := commonMessagePublicSetup(t)
 	// Move the player to a known coord so PackCoord output is deterministic.
@@ -53,9 +54,9 @@ func TestHandleMessagePublic_FiresFriendsBridge(t *testing.T) {
 		t.Fatalf("publicMsgs: got %d, want 1", len(rec.publicMsgs))
 	}
 	got := rec.publicMsgs[0]
-	// rev-244: username, not session UUID
-	if got.username != "alice" {
-		t.Errorf("username: got %q, want alice (rev-244 re-key: keyed by username, not session UUID; TS World.ts:1620-1628)", got.username)
+	// rev-254 A3: session UUID, not username
+	if got.sessionUUID != "uuid-sess-1" {
+		t.Errorf("sessionUUID: got %q, want uuid-sess-1 (rev-254 A3 re-key; TS World.ts:1567-1574 @2e3bcf43)", got.sessionUUID)
 	}
 	wantCoord := coordgrid.PackCoord(0, 3210, 3210)
 	if got.coord != wantCoord {
@@ -66,15 +67,15 @@ func TestHandleMessagePublic_FiresFriendsBridge(t *testing.T) {
 	}
 }
 
-// TestPublicChatLog_UsernameKeyed pins the rev-244 B5 contract:
-// (1) PublicMessage carries Username == p.username (not session UUID),
-// (2) a player with empty session STILL logs (225-era session gate is gone;
-//
-//	TS 244 gates only on logMessage != null, World.ts:677-679),
-//
-// (3) a player with "headless" session STILL logs (same gate removal).
-func TestPublicChatLog_UsernameKeyed(t *testing.T) {
-	t.Run("username_carried", func(t *testing.T) {
+// TestPublicChatLog_SessionKeyed pins the rev-254 A3 contract:
+// (1) PublicMessage carries the session UUID (TS World.ts:1567-1574
+// @2e3bcf43 `session_uuid: player.session`), NOT the username,
+// (2) a player with empty session STILL logs as 'headless' (the only
+// gate is logMessage != null, World.ts:629-631 @2e3bcf43; "" maps to
+// the TS Player.session ctor default 'headless'),
+// (3) a player with "headless" session STILL logs (no session gate).
+func TestPublicChatLog_SessionKeyed(t *testing.T) {
+	t.Run("session_uuid_carried", func(t *testing.T) {
 		p, rec := commonMessagePublicSetup(t)
 		p.level, p.x, p.z = 0, 3200, 3200
 		payload := packPublicChatPayload(0, 0, "hello")
@@ -84,22 +85,26 @@ func TestPublicChatLog_UsernameKeyed(t *testing.T) {
 		if len(rec.publicMsgs) != 1 {
 			t.Fatalf("publicMsgs: got %d, want 1", len(rec.publicMsgs))
 		}
-		if rec.publicMsgs[0].username != "alice" {
-			t.Errorf("Username: got %q, want alice (keyed by username, not session UUID)", rec.publicMsgs[0].username)
+		if rec.publicMsgs[0].sessionUUID != "uuid-sess-1" {
+			t.Errorf("sessionUUID: got %q, want uuid-sess-1 (keyed by session UUID, not username)", rec.publicMsgs[0].sessionUUID)
 		}
 	})
 
-	t.Run("empty_session_still_logs", func(t *testing.T) {
-		// 225-era gate `p.session != ""` is removed. Player with empty session
-		// must still emit a PublicMessage row (TS only gates on logMessage != null).
+	t.Run("empty_session_logs_as_headless", func(t *testing.T) {
+		// No session gate: TS only gates on logMessage != null. An
+		// unassigned session ("" in Go) relays as 'headless' (the TS
+		// Player.ts:311 ctor default).
 		p, rec := commonMessagePublicSetup(t)
-		p.session = "" // was skipped in 225; must fire in 244
+		p.session = ""
 		payload := packPublicChatPayload(0, 0, "hi")
 		if err := handleMessagePublic(p, payload); err != nil {
 			t.Fatalf("handleMessagePublic: %v", err)
 		}
 		if len(rec.publicMsgs) != 1 {
-			t.Errorf("publicMsgs: got %d, want 1 (session gate removed in rev-244, TS World.ts:677-679)", len(rec.publicMsgs))
+			t.Fatalf("publicMsgs: got %d, want 1 (no session gate, TS World.ts:629-631 @2e3bcf43)", len(rec.publicMsgs))
+		}
+		if rec.publicMsgs[0].sessionUUID != "headless" {
+			t.Errorf("sessionUUID: got %q, want headless (TS ctor default)", rec.publicMsgs[0].sessionUUID)
 		}
 		// In-world propagation must still fire.
 		if p.chatBytes == nil {
@@ -108,16 +113,15 @@ func TestPublicChatLog_UsernameKeyed(t *testing.T) {
 	})
 
 	t.Run("headless_session_still_logs", func(t *testing.T) {
-		// 225-era gate `p.session != "headless"` is removed. Player with
-		// "headless" session must still emit a PublicMessage row.
+		// 'headless' sessions log too — no session-validity gate.
 		p, rec := commonMessagePublicSetup(t)
-		p.session = "headless" // was skipped in 225; must fire in 244
+		p.session = "headless"
 		payload := packPublicChatPayload(0, 0, "hi")
 		if err := handleMessagePublic(p, payload); err != nil {
 			t.Fatalf("handleMessagePublic: %v", err)
 		}
 		if len(rec.publicMsgs) != 1 {
-			t.Errorf("publicMsgs: got %d, want 1 (headless session gate removed in rev-244)", len(rec.publicMsgs))
+			t.Errorf("publicMsgs: got %d, want 1 (no session gate at 254)", len(rec.publicMsgs))
 		}
 	})
 }

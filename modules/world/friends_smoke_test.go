@@ -926,14 +926,14 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 
 	client.WorldConnect(ctx, 10, "main")
 
-	// rev-244 re-key: Username is a player username (not session UUID).
-	// TS World.ts:1620-1628 logPublicChat keys by player.username.
+	// rev-254 A3 re-key: keyed by the per-login session UUID
+	// (TS World.ts:1567-1574 @2e3bcf43 logPublicChat posts session_uuid).
 	client.PublicMessage(ctx, &friendspb.PublicMessageRequest{
-		WorldId:  10,
-		Profile:  "main",
-		Username: "alice",
-		Coord:    42,
-		Chat:     "persisted publicly",
+		WorldId:     10,
+		Profile:     "main",
+		SessionUuid: "sess-alice",
+		Coord:       42,
+		Chat:        "persisted publicly",
 	})
 
 	// Open a second *sql.DB against the same file. Poll up to 2s for
@@ -947,15 +947,15 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 	t.Cleanup(func() { _ = rdb.Close() })
 
 	deadline := time.Now().Add(2 * time.Second)
-	var username, msg string
+	var sessionUUID, msg string
 	var coord int32
 	for time.Now().Before(deadline) {
 		err := rdb.QueryRowContext(t.Context(),
-			`SELECT username, coord, message
+			`SELECT session_uuid, coord, message
 			 FROM public_chat
 			 WHERE profile = 'main'
 			 ORDER BY id DESC
-			 LIMIT 1`).Scan(&username, &coord, &msg)
+			 LIMIT 1`).Scan(&sessionUUID, &coord, &msg)
 		if err == nil {
 			break
 		}
@@ -965,9 +965,9 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	if username != "alice" || coord != 42 || msg != "persisted publicly" {
-		t.Errorf("public_chat row = (%q, %d, %q), want (alice, 42, %q)",
-			username, coord, msg, "persisted publicly")
+	if sessionUUID != "sess-alice" || coord != 42 || msg != "persisted publicly" {
+		t.Errorf("public_chat row = (%q, %d, %q), want (sess-alice, 42, %q)",
+			sessionUUID, coord, msg, "persisted publicly")
 	}
 }
 

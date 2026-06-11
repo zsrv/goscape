@@ -383,24 +383,15 @@ func (p *Player) UID() int { return p.uid }
 func (p *Player) AccountID() int64 { return p.accountID }
 
 // RecipientSession implements script.ActivePlayer.RecipientSession.
-// Returns this player's per-login session UUID when a client is attached,
-// else "disconnected". Used when this player is the COUNTERPARTY of a
-// wealth event. Mirrors TS InvOps.ts:446 /
-// NetworkPlayer isClientConnected — connected → session UUID, else
-// 'disconnected'. Distinct from AddSessionLog's 'headless' fallback
-// (Player.ts:641), which covers the never-had-a-client path.
-// rev-244 B4 closes the NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY Session-not-exposed deferral.
-//
-// Honesty note: goscape never nils p.client on disconnect (players leave via
-// the server.go removePlayer* paths with the client intact), so the
-// "disconnected" branch is effectively unreachable in production — same
-// posture as AddSessionLog's "unreachable... kept for clarity" note. TS
-// reaches it via the NullClientSocket swap on socket close (TcpServer.ts:48).
+// Returns this player's per-login session UUID ('headless' when none —
+// the TS Player.session field default, Player.ts:311 @2e3bcf43). Used
+// when this player is the COUNTERPARTY of a wealth event. Mirrors TS
+// `recipient_session: toPlayer.session` (InvOps.ts:454/489/707
+// @2e3bcf43). rev-254 A3: the 244-era isClientConnected /
+// 'disconnected' fork was deleted upstream together with the
+// NetworkPlayer addWealthEvent override.
 func (p *Player) RecipientSession() string {
-	if p.client != nil {
-		return p.session
-	}
-	return "disconnected"
+	return p.sessionOrHeadless()
 }
 
 // CanAccess implements script.ActivePlayer.CanAccess — the P_FINDUID
@@ -1860,24 +1851,21 @@ func (p *Player) ApplyDamage(amount, dmgType int) {
 // here on the per-event append path that scripts observe. Keep this
 // helper one-line and side-effect-free until then.
 //
-// rev-244 B3 — account_id threading (WealthEvent.ts:21-22,
-// Player.ts:637-644, NetworkPlayer.ts:256-263):
-// AccountID is stamped from p.accountID (the persistent DB account.id,
-// sourced from the login reply at World.ts:1932).
-// AccountSession mirrors the Player / NetworkPlayer fork:
-//   - client present → p.session (per-login UUID, NetworkPlayer.ts:260)
-//   - no client       → "headless" (Player.ts:641)
+// rev-254 A3 — session_uuid re-key (TS 43e02957..2e3bcf43):
+// Player.addWealthEvent stamps `session_uuid: this.session`
+// (Player.ts:653-658 @2e3bcf43); the 244-era account_id /
+// account_session pair is gone (WealthEvent.ts:18-21) and the
+// NetworkPlayer addWealthEvent override (with its isClientConnected /
+// 'disconnected' fork) was deleted — the parent impl handles all
+// players. goscape mirrors the TS field-default semantics: p.session
+// is the per-login UUID when assigned, 'headless' otherwise (the TS
+// Player.ts:311 ctor default).
 //
 // Coord is NOT embedded in the in-memory WealthEvent (goscape's internal
 // shape); it is computed at the analytics-dispatch boundary if/when a
 // real wealth-event consumer is wired (NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY).
 func (p *Player) AddWealthEvent(evt script.WealthEvent) {
-	evt.AccountID = p.accountID
-	if p.client != nil {
-		evt.AccountSession = p.session // NetworkPlayer.ts:260 — session UUID when connected
-	} else {
-		evt.AccountSession = "headless" // Player.ts:641 base impl
-	}
+	evt.SessionUUID = p.sessionOrHeadless()
 	p.wealthLog = append(p.wealthLog, evt)
 }
 

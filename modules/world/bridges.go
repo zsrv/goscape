@@ -33,17 +33,18 @@ type FriendsBridge interface {
 	PrivateMessage(playerUsername string, staffLvl int32, pmId uint32, target uint64, message string, coord int)
 
 	// PublicMessage audit-logs a public-chat utterance to the friends
-	// server. username is the player's display name (Player.username).
-	// coord is the packed coordgrid.PackCoord value at utterance.
-	// message is the WordPack-decoded text (not the raw word-packed
-	// bytes — see handleMessagePublic for the decode site).
+	// server. sessionUUID is the player's per-login session UUID
+	// (Player.session; 'headless' default). coord is the packed
+	// coordgrid.PackCoord value at utterance. message is the
+	// WordPack-decoded text (not the raw word-packed bytes — see
+	// handleMessagePublic for the decode site).
 	// Real impl: grpcFriendsBridge.PublicMessage (this file) fans a
 	// friendspb.PublicMessageRequest out to the friends server.
-	// Mirrors TS World.logPublicChat (World.ts:1620-1628) which keys by
-	// player.username; rev-244 re-key (225 used session UUID).
-	// The 225-era session-validity gate is removed: TS 244 gates only on
-	// logMessage != null (World.ts:677-679).
-	PublicMessage(username string, coord int, message string)
+	// rev-254 A3 re-key: TS World.logPublicChat (World.ts:1567-1574
+	// @2e3bcf43) posts `session_uuid: player.session` — the 244-era
+	// username key is gone (225 had used the session UUID too). The
+	// only gate remains logMessage != null (World.ts:629-631 @2e3bcf43).
+	PublicMessage(sessionUUID string, coord int, message string)
 }
 
 // LoginBridgeMod mirrors TS World.loginThread.postMessage('player_ban'/
@@ -495,16 +496,16 @@ func (b *grpcFriendsBridge) PrivateMessage(playerUsername string, staffLvl int32
 	}()
 }
 
-func (b *grpcFriendsBridge) PublicMessage(username string, coord int, message string) {
+func (b *grpcFriendsBridge) PublicMessage(sessionUUID string, coord int, message string) {
 	go func() {
 		ctx, cancel := context.WithTimeout(b.parentCtx, bridgeCallTimeout)
 		defer cancel()
 		b.client.PublicMessage(ctx, &friendspb.PublicMessageRequest{
-			WorldId:  b.worldID,
-			Profile:  b.profile,
-			Username: username,
-			Coord:    int32(coord),
-			Chat:     message,
+			WorldId:     b.worldID,
+			Profile:     b.profile,
+			SessionUuid: sessionUUID,
+			Coord:       int32(coord),
+			Chat:        message,
 		})
 	}()
 }

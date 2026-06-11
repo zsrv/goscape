@@ -30,16 +30,17 @@ func NewSlogLoggerBridge(parent *slog.Logger, nodeID int, profile string) Logger
 }
 
 // NotifyPlayerReport emits a 'report' record. Mirrors TS
-// World.notifyPlayerReport's loggerThread.postMessage call. rev-244
-// re-shape: keyed by username + world + profile + timestamp instead of
-// the 225 session uuid (LoggerClient.ts:48-67). Proto message shapes
-// stay with the private sibling; this is the dev/debug slog seam only.
+// World.notifyPlayerReport's loggerThread.postMessage call. rev-254 A3
+// re-key: the 'report' message carries session_uuid: player.session
+// instead of the 244-era username (World.ts:2309-2324 @2e3bcf43,
+// LoggerThread.ts:45-51 @2e3bcf43). Proto message shapes stay with the
+// private sibling; this is the dev/debug slog seam only.
 func (b *slogLoggerBridge) NotifyPlayerReport(p *Player, offender, reason string) {
 	b.log.Info("player_report",
 		"type", "report",
 		"world", b.nodeID,
 		"profile", b.profile,
-		"username", p.username,
+		"session_uuid", p.sessionOrHeadless(),
 		"timestamp_ms", time.Now().UnixMilli(),
 		"coord", coordgrid.PackCoord(p.level, p.x, p.z),
 		"offender", offender,
@@ -89,14 +90,14 @@ func (b *slogLoggerBridge) SubmitInputTracking(username, sessionUUID string, blo
 // chosen for grep/filter friendliness — this is a dev/debug sink, not
 // the production LoggerClient WS transport which would JSON-batch.
 //
-// rev-244 B3: account_id emitted alongside session (SessionLog.ts:2,
-// World.ts:2252). Proto shape is unchanged (B5/private-sibling owns
-// message shapes); this is the dev/debug slog seam adaptation only.
+// rev-254 A3: account_id dropped — the row is keyed by session_uuid
+// only (World.addSessionLog @2e3bcf43 World.ts:2234-2243). Proto shape
+// is unchanged (B5/private-sibling owns message shapes); this is the
+// dev/debug slog seam adaptation only.
 func (b *slogLoggerBridge) SubmitSessionLogs(logs []SessionLog) {
 	for _, lg := range logs {
 		b.log.Info("session_log",
 			"type", "session_log",
-			"account_id", lg.AccountID,
 			"session", lg.SessionUUID,
 			"timestamp_ms", lg.Timestamp,
 			"coord", lg.Coord,

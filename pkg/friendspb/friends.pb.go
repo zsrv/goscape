@@ -707,12 +707,18 @@ func (x *PrivateMessageRequest) GetProfile() string {
 type PublicMessageRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	WorldId int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
-	// rev-244: re-keyed from session_uuid to the player username
-	// (TS FriendServer.ts:287-305 / FriendClient.publicMessage :704-722).
-	Username string `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
-	Coord    int32  `protobuf:"varint,3,opt,name=coord,proto3" json:"coord,omitempty"`
-	Chat     string `protobuf:"bytes,4,opt,name=chat,proto3" json:"chat,omitempty"`
-	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	// rev-254 A3: re-keyed back from username to the per-login session
+	// UUID (TS World.logPublicChat posts session_uuid, World.ts:1567-1574
+	// @2e3bcf43; FriendServer.ts:286-297 @2e3bcf43 persists it directly,
+	// no account resolution). Same field number as the 244-era
+	// `username` (wire-compatible string rename).
+	SessionUuid string `protobuf:"bytes,2,opt,name=session_uuid,json=sessionUuid,proto3" json:"session_uuid,omitempty"`
+	Coord       int32  `protobuf:"varint,3,opt,name=coord,proto3" json:"coord,omitempty"`
+	Chat        string `protobuf:"bytes,4,opt,name=chat,proto3" json:"chat,omitempty"`
+	// rev-244: per-message profile (multi-profile server). TS 254 drops
+	// profile/world from the public_chat row because session_uuid joins
+	// back to the login DB session table; goscape's federated friends DB
+	// has no session table, so the request keeps both for recoverability.
 	Profile       string `protobuf:"bytes,5,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -755,9 +761,9 @@ func (x *PublicMessageRequest) GetWorldId() int32 {
 	return 0
 }
 
-func (x *PublicMessageRequest) GetUsername() string {
+func (x *PublicMessageRequest) GetSessionUuid() string {
 	if x != nil {
-		return x.Username
+		return x.SessionUuid
 	}
 	return ""
 }
@@ -2424,10 +2430,10 @@ const file_friends_friends_proto_rawDesc = "" +
 	"\x05pm_id\x18\x05 \x01(\rR\x04pmId\x12\x12\n" +
 	"\x04chat\x18\x06 \x01(\tR\x04chat\x12\x14\n" +
 	"\x05coord\x18\a \x01(\x05R\x05coord\x12\x18\n" +
-	"\aprofile\x18\b \x01(\tR\aprofile\"\x91\x01\n" +
+	"\aprofile\x18\b \x01(\tR\aprofile\"\x98\x01\n" +
 	"\x14PublicMessageRequest\x12\x19\n" +
-	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x1a\n" +
-	"\busername\x18\x02 \x01(\tR\busername\x12\x14\n" +
+	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12!\n" +
+	"\fsession_uuid\x18\x02 \x01(\tR\vsessionUuid\x12\x14\n" +
 	"\x05coord\x18\x03 \x01(\x05R\x05coord\x12\x12\n" +
 	"\x04chat\x18\x04 \x01(\tR\x04chat\x12\x18\n" +
 	"\aprofile\x18\x05 \x01(\tR\aprofile\"n\n" +

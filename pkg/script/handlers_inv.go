@@ -1575,9 +1575,10 @@ func handleInvDropItem(s *ScriptState) error {
 // InvOps.ts:445-494: STAKE for 'dueloffer', TRADE for non-secondary trade.
 // NAI-115-D1 retired at NAI-162 B2.
 //
-// rev-244 B4: the STAKE/TRADE events below carry RecipientID +
-// RecipientSession via the ActivePlayer.RecipientSession seam (TS
-// InvOps.ts:446) — the former Session-not-exposed deferral is closed.
+// rev-254 A3: the STAKE/TRADE events below carry RecipientSession via
+// the ActivePlayer.RecipientSession seam (TS InvOps.ts:454/489
+// @2e3bcf43, `recipient_session: toPlayer.session`); recipient_id was
+// removed upstream with the session_uuid re-key.
 func handleBothMoveInv(s *ScriptState) error {
 	operand := s.Script.IntOperands[s.PC]
 	if operand != 0 && operand != 1 {
@@ -1719,15 +1720,14 @@ func handleBothMoveInv(s *ScriptState) error {
 	}
 
 	if fromInvType.DebugName == "dueloffer" {
-		// STAKE event (mirrors TS InvOps.ts:447-458).
-		// rev-244 B4: RecipientID + RecipientSession from toPlayer.
-		// Closes NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY deferral.
+		// STAKE event (mirrors TS InvOps.ts:448-457 @2e3bcf43).
+		// rev-254 A3: recipient keyed by session only (recipient_id
+		// removed upstream; recipient_session: toPlayer.session).
 		if len(fromLogs) > 0 {
 			fromPlayer.AddWealthEvent(WealthEvent{
 				EventType:        WealthEventTypeStake,
 				AccountItems:     fromItems,
 				AccountValue:     fromTotal,
-				RecipientID:      toPlayer.AccountID(),
 				RecipientSession: toPlayer.RecipientSession(),
 			})
 			if s.NodeDebug && s.Log != nil {
@@ -1765,15 +1765,14 @@ func handleBothMoveInv(s *ScriptState) error {
 				toTotal += toObjType.Cost * it.Count
 			}
 		}
-		// TS InvOps.ts:483-495: emit when fromItems OR toItems non-empty.
-		// rev-244 B4: RecipientID + RecipientSession from toPlayer.
-		// Closes NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY deferral.
+		// TS InvOps.ts:483-493 @2e3bcf43: emit when fromItems OR toItems
+		// non-empty. rev-254 A3: recipient keyed by session only
+		// (recipient_id removed upstream).
 		if len(fromLogs) > 0 || len(toItems) > 0 {
 			fromPlayer.AddWealthEvent(WealthEvent{
 				EventType:        WealthEventTypeTrade,
 				AccountItems:     fromItems,
 				AccountValue:     fromTotal,
-				RecipientID:      toPlayer.AccountID(),
 				RecipientSession: toPlayer.RecipientSession(),
 			})
 			var tradeWorldID int32
@@ -1987,9 +1986,8 @@ func handleInvDebugName(s *ScriptState) error {
 // (secondary). Gate checked after validators, before slot lookup.
 //
 // SCOPE_PERM drops emit a PVP WealthEvent on state.activePlayer (Self)
-// with RecipientID=toPlayer.AccountID() and RecipientSession from
-// toPlayer.RecipientSession(). rev-244 B4 closes the
-// NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY Session-not-exposed deferral.
+// with RecipientSession from toPlayer.RecipientSession() (rev-254 A3:
+// session-only recipient keying, TS InvOps.ts:702-709 @2e3bcf43).
 //
 // rev-244 B4 delta: untradeables stop after invDel (no AddObj); tradeable
 // objs go to toPlayer (receiverID = toPlayer.UID()).
@@ -2082,15 +2080,14 @@ func handleBothDropSlot(s *ScriptState) error {
 	}
 
 	// SCOPE_PERM → PVP WealthEvent on state.activePlayer (Self).
-	// rev-244 B4: RecipientID + RecipientSession filled from toPlayer.
-	// Mirrors TS InvOps.ts:706-714 (recipient_id, recipient_session keying).
-	// Closes NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY Session-not-exposed deferral.
+	// rev-254 A3: recipient keyed by session only — recipient_id removed
+	// upstream (WealthEvent.ts:7-16 @2e3bcf43).
+	// Mirrors TS InvOps.ts:702-709 @2e3bcf43 (recipient_session: toPlayer.session).
 	if invType.Scope == objtype.InvTypeScopePerm {
 		s.activePlayer().AddWealthEvent(WealthEvent{
 			EventType:        WealthEventTypePVP,
 			AccountItems:     []WealthItem{{ID: objID, Name: objType.DebugName, Count: count}},
 			AccountValue:     count * objType.Cost,
-			RecipientID:      toPlayer.AccountID(),
 			RecipientSession: toPlayer.RecipientSession(),
 		})
 		if s.NodeDebug && s.Log != nil {

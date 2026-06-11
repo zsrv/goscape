@@ -816,15 +816,15 @@ func TestRepository_LogPublicMessage_PersistsRow(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("row count = %d, want 1", n)
 	}
-	var username, msg string
+	var sessionUUID, msg string
 	var coord int32
 	if err := db.QueryRowContext(ctx,
-		`SELECT username, coord, message FROM public_chat`).
-		Scan(&username, &coord, &msg); err != nil {
+		`SELECT session_uuid, coord, message FROM public_chat`).
+		Scan(&sessionUUID, &coord, &msg); err != nil {
 		t.Fatalf("SELECT row: %v", err)
 	}
-	if username != "uuid-aaa" {
-		t.Errorf("username = %q, want %q", username, "uuid-aaa")
+	if sessionUUID != "uuid-aaa" {
+		t.Errorf("session_uuid = %q, want %q", sessionUUID, "uuid-aaa")
 	}
 	if coord != 54321 {
 		t.Errorf("coord = %d, want 54321", coord)
@@ -907,25 +907,25 @@ func TestRepository_LogPublicMessage_EmptyMessageAllowed(t *testing.T) {
 	}
 }
 
-// TestLogPublicMessage_Rev244Shape pins the re-keyed public_chat row:
-// (profile, world, username, coord, message). TS FriendServer.ts:287-305
-// resolves username -> account_id against the shared account table;
-// goscape's friends DB is username-keyed by design (DB-2 federation) —
-// the username is stored directly (account_id resolution has no landing
-// site; see the B5 rows in PORTING.md).
-func TestLogPublicMessage_Rev244Shape(t *testing.T) {
+// TestLogPublicMessage_Rev254Shape pins the re-keyed public_chat row:
+// (profile, world, session_uuid, coord, message). rev-254 A3: TS
+// FriendServer.ts:286-297 @2e3bcf43 persists session_uuid directly (no
+// account resolution); goscape keeps the profile + world columns since
+// the federated friends DB cannot join session_uuid back to the login
+// DB session table (DB-2, db.go:21-35).
+func TestLogPublicMessage_Rev254Shape(t *testing.T) {
 	r := NewRepository(createTestDB(t), "main")
-	if err := r.LogPublicMessage(t.Context(), 10, "bob", 12345, "hello"); err != nil {
+	if err := r.LogPublicMessage(t.Context(), 10, "sess-bob", 12345, "hello"); err != nil {
 		t.Fatalf("LogPublicMessage: %v", err)
 	}
-	var profile, username, message string
+	var profile, sessionUUID, message string
 	var world, coord int
-	if err := r.db.QueryRow(`SELECT profile, world, username, coord, message FROM public_chat`).
-		Scan(&profile, &world, &username, &coord, &message); err != nil {
+	if err := r.db.QueryRow(`SELECT profile, world, session_uuid, coord, message FROM public_chat`).
+		Scan(&profile, &world, &sessionUUID, &coord, &message); err != nil {
 		t.Fatalf("scan: %v", err)
 	}
-	if profile != "main" || world != 10 || username != "bob" || coord != 12345 || message != "hello" {
-		t.Errorf("row: %s/%d/%s/%d/%s", profile, world, username, coord, message)
+	if profile != "main" || world != 10 || sessionUUID != "sess-bob" || coord != 12345 || message != "hello" {
+		t.Errorf("row: %s/%d/%s/%d/%s", profile, world, sessionUUID, coord, message)
 	}
 }
 
@@ -971,6 +971,56 @@ func TestMigration000004_PreservesLegacyRows(t *testing.T) {
 	}
 	// And the NEW public_chat is the re-keyed shape, empty.
 	if err := db.QueryRow(`SELECT COUNT(*) FROM public_chat`).Scan(&n); err != nil {
+		t.Fatalf("new public_chat query: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("new public_chat rows = %d, want 0", n)
+	}
+}
+
+// TestMigration000005_PreservesLegacyRows pins the rev-254 legacy-table
+// rename: a genuinely 244-era username-keyed row (seeded at migration
+// version 4) survives the 000005 rename into public_chat_legacy_244,
+// and the new public_chat is the session_uuid-keyed shape, empty.
+// Mirrors TestMigration000004_PreservesLegacyRows.
+func TestMigration000005_PreservesLegacyRows(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	src, err := iofs.New(migrations, "migrations")
+	if err != nil {
+		t.Fatalf("iofs: %v", err)
+	}
+	drv, err := sqlitedriver.WithInstance(db, &sqlitedriver.Config{})
+	if err != nil {
+		t.Fatalf("driver: %v", err)
+	}
+	m, err := migrate.NewWithInstance("iofs", src, "sqlite", drv)
+	if err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if err := m.Migrate(4); err != nil {
+		t.Fatalf("migrate to 4: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO public_chat (profile, world, username, coord, message)
+	                      VALUES ('main', 10, 'bob', 7, 'old 244 row')`); err != nil {
+		t.Fatalf("seed 244-era row: %v", err)
+	}
+	if err := m.Migrate(5); err != nil {
+		t.Fatalf("migrate to 5: %v", err)
+	}
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM public_chat_legacy_244
+	                       WHERE username = 'bob'`).Scan(&n); err != nil {
+		t.Fatalf("legacy table query: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("legacy row count = %d, want 1 (244-era rows must survive the rename)", n)
+	}
+	// And the NEW public_chat is the session_uuid-keyed shape, empty.
+	if err := db.QueryRow(`SELECT COUNT(*) FROM public_chat WHERE session_uuid != ''`).Scan(&n); err != nil {
 		t.Fatalf("new public_chat query: %v", err)
 	}
 	if n != 0 {

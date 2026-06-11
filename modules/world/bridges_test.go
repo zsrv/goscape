@@ -45,10 +45,10 @@ type recordedPrivateMessageCall struct {
 	coord          int
 }
 type recordedPublicMessageCall struct {
-	method   string // "PublicMessage"
-	username string
-	coord    int
-	message  string
+	method      string // "PublicMessage"
+	sessionUUID string // rev-254 A3: session_uuid key (was username at 244)
+	coord       int
+	message     string
 }
 
 type recordingBridges struct {
@@ -82,9 +82,9 @@ func (r *recordingBridges) PrivateMessage(p string, staffLvl int32, pmId uint32,
 		pmId: pmId, target: target, message: message, coord: coord,
 	})
 }
-func (r *recordingBridges) PublicMessage(username string, coord int, message string) {
+func (r *recordingBridges) PublicMessage(sessionUUID string, coord int, message string) {
 	r.publicMsgs = append(r.publicMsgs, recordedPublicMessageCall{
-		method: "PublicMessage", username: username, coord: coord, message: message,
+		method: "PublicMessage", sessionUUID: sessionUUID, coord: coord, message: message,
 	})
 }
 func (r *recordingBridges) NotifyPlayerBan(staff, username string, until time.Time) {

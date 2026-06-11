@@ -480,20 +480,20 @@ func (h *handler) RelayQueueScript(_ context.Context, req *friendspb.RelayQueueS
 }
 
 // PublicMessage persists one row to public_chat. Mirrors TS
-// FriendServer.ts:287-305 — append-only, no delivery, no validation.
-// Insert error → codes.Internal (matches slice 6 PrivateMessage posture
-// and FRIENDLIST/IGNORELIST mutation handlers).
+// FriendServer.ts:286-297 @2e3bcf43 — append-only, no delivery, no
+// validation. Insert error → codes.Internal (matches slice 6
+// PrivateMessage posture and FRIENDLIST/IGNORELIST mutation handlers).
 //
-// rev-244 re-key: req.WorldId is now persisted (TS 244 inserts
-// `world: nodeId`). req.Username carries the username TEXT; TS resolves
-// to account_id but goscape stores the username directly — no account
-// table in the federated friends DB (DB-2, db.go:21-35). See
-// PORTING.md §B5 NO-LANDING-SITE row.
+// rev-254 A3 re-key: rows are keyed by req.SessionUuid (TS 254 inserts
+// `session_uuid` directly with no account resolution). goscape keeps
+// the world column from 244 and the profile scoping — TS recovers them
+// via the login DB session table join, which the federated friends DB
+// lacks (DB-2, db.go:21-35).
 //
 // Retires NAI-S6-D-PUBLIC-CHAT-DEFERRED.
 func (h *handler) PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest) (*emptypb.Empty, error) {
 	repo := h.repos.get(req.Profile)
-	if err := repo.LogPublicMessage(ctx, req.WorldId, req.Username, req.Coord, req.Chat); err != nil {
+	if err := repo.LogPublicMessage(ctx, req.WorldId, req.SessionUuid, req.Coord, req.Chat); err != nil {
 		return nil, status.Errorf(codes.Internal, "LogPublicMessage: %v", err)
 	}
 	return &emptypb.Empty{}, nil

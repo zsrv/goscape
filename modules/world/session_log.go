@@ -18,10 +18,14 @@ const (
 // active player emits a MODERATOR "Server check in" record.
 const PlayerCoordLogRate = 50
 
-// SessionLog mirrors TS SessionLog (SessionLog.ts:1-7). One entry per
+// SessionLog mirrors the TS session-log row shape pushed by
+// World.addSessionLog (World.ts:2234-2243 @2e3bcf43). One entry per
 // addSessionLog call; flushed batched per tick by Server.processSessionLogs.
+//
+// rev-254 A3: account_id dropped — the row is keyed by session_uuid
+// only (World.addSessionLog signature lost its account_id parameter in
+// TS 43e02957..2e3bcf43).
 type SessionLog struct {
-	AccountID   int64           // TS account_id (SessionLog.ts:2, World.ts:2252)
 	SessionUUID string          // TS session_uuid
 	Timestamp   int64           // TS timestamp (ms since epoch via time.Now().UnixMilli())
 	Coord       int             // TS coord (CoordGrid.packCoord(level,x,z))

@@ -7,10 +7,11 @@ import (
 	"testing"
 )
 
-// TestSlogLoggerBridgeNotifyPlayerReport pins the rev-244 report shape
-// (TS LoggerClient.ts:48-67): type=report, world, profile, username,
-// timestamp, coord, offender, reason — the 225-era session uuid key is
-// GONE (re-keyed to username at 244).
+// TestSlogLoggerBridgeNotifyPlayerReport pins the rev-254 A3 report
+// shape (TS World.ts:2309-2324 @2e3bcf43 posts session_uuid;
+// LoggerThread.ts:45-51 destructures it): type=report, world, profile,
+// session_uuid, timestamp, coord, offender, reason — the 244-era
+// username key is GONE (re-keyed back to the session UUID).
 func TestSlogLoggerBridgeNotifyPlayerReport(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&buf, nil))
@@ -28,7 +29,7 @@ func TestSlogLoggerBridgeNotifyPlayerReport(t *testing.T) {
 		"type=report",
 		"world=10",
 		"profile=main",
-		"username=alice",
+		"session_uuid=test-session",
 		"timestamp_ms=",
 		"offender=evilbob",
 		"reason=MACROING",
@@ -38,8 +39,8 @@ func TestSlogLoggerBridgeNotifyPlayerReport(t *testing.T) {
 			t.Errorf("log output missing %q: %s", want, out)
 		}
 	}
-	if strings.Contains(out, "session=") {
-		t.Errorf("report still carries the 225 session key (re-keyed to username at 244): %s", out)
+	if strings.Contains(out, "username=") {
+		t.Errorf("report still carries the 244 username key (re-keyed to session_uuid at 254): %s", out)
 	}
 }
 
