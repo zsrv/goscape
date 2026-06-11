@@ -290,7 +290,7 @@ func (n *Npc) tryInteract(s *Server, allowOpScenery bool) bool {
 // updateMovement consumes up to 1 waypoint step (walk) or 2 (run) per
 // tick. Returns true if the NPC moved. Writes walkDir (step 1) and
 // runDir (step 2 when running). Replaces npc_ai.go advanceWaypoint
-// (migrated into stepOnce below).
+// (migrated into takeStep + validateAndAdvanceStep below).
 func (n *Npc) updateMovement(s *Server) bool {
 	// TS Npc.updateMovement (Npc.ts:339-343) does `const type =
 	// NpcType.get(this.type); if (type.moverestrict === MoveRestrict.NOMOVE)

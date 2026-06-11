@@ -185,7 +185,9 @@ func (n *Npc) playerEscapeMode(s *Server) {
 		n.wanderCounter++
 	}
 
-	// distanceToSW({x, startZ}, start) collapses to per-axis displacement.
+	// Both axes are checked INDEPENDENTLY (distX >= maxRange AND distZ >=
+	// maxRange) — stricter than a single Chebyshev DistanceToSW >= maxRange;
+	// mirrors the TS per-axis distanceToSW calls with one coord pinned.
 	distX := n.x - n.startX
 	if distX < 0 {
 		distX = -distX

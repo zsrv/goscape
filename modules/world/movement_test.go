@@ -350,7 +350,7 @@ func TestQueueWaypointsTruncatesFarEntries(t *testing.T) {
 	}
 }
 
-// TestStepOnceFollowsDirectionChangePoints is the regression pin for the
+// TestStepFollowsDirectionChangePoints is the regression pin for the
 // NAI-101 root cause. Pre-fix, with packed=[first_step, mid, dest] stored
 // natural-order, stepOnce reads waypoints[n-1] = dest and uses Face to head
 // straight at dest, ignoring the routed mid waypoint. Post-fix, reversed
@@ -362,7 +362,7 @@ func TestQueueWaypointsTruncatesFarEntries(t *testing.T) {
 // DirectionNortheast (heads NE diagonally), bypassing the routed N→E shape.
 // Post-fix Face from (3094, 3106) to first_step (3094, 3107) returns
 // DirectionNorth (correct first step).
-func TestStepOnceFollowsDirectionChangePoints(t *testing.T) {
+func TestStepFollowsDirectionChangePoints(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 3094, 3106, 0
 	p.moveSpeed = MoveSpeedWalk
@@ -380,14 +380,14 @@ func TestStepOnceFollowsDirectionChangePoints(t *testing.T) {
 	}
 }
 
-// TestPlayerStepOnce_PlumbsBlockWalkFlag pins NAI-176 D4. TS Player.blockWalkFlag
+// TestPlayerStep_PlumbsBlockWalkFlag pins NAI-176 D4. TS Player.blockWalkFlag
 // (Player.ts:706-708) is unconditional FlagBlockPlayers, so a tile carrying
 // only FlagBlockPlayers (e.g., one occupied by another player or a BlockWalkAll
 // NPC) blocks the step. rev-254 (f0ccbe8a): a fully-blocked attempt makes
 // validateAndAdvanceStep return -1 with the waypoint queue PRESERVED and the
 // position unchanged (takeStep yields delta (0,0); the waypoint-reached check
 // doesn't fire because the dest wasn't reached).
-func TestPlayerStepOnce_PlumbsBlockWalkFlag(t *testing.T) {
+func TestPlayerStep_PlumbsBlockWalkFlag(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	c, _ := newTestClient(t)
@@ -448,9 +448,9 @@ func TestPlayerBlockedStep_ReanchorsLastStep(t *testing.T) {
 	}
 }
 
-// TestPlayerStepOnce_AxisFallback_XOnly pins NAI-176 D4 + D1 for Player.
+// TestPlayerStep_AxisFallback_XOnly pins NAI-176 D4 + D1 for Player.
 // Direct diagonal blocked, X-only open → step east.
-func TestPlayerStepOnce_AxisFallback_XOnly(t *testing.T) {
+func TestPlayerStep_AxisFallback_XOnly(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	c, _ := newTestClient(t)

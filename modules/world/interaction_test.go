@@ -1208,7 +1208,8 @@ func TestPlayerFollow_PathToPathingTarget_QueuesValidLeaderCoord(t *testing.T) {
 	})
 
 	t.Run("leader moved one step: follower queues leader's pre-step tile", func(t *testing.T) {
-		// Simulate leader's stepOnce (movement.go:140-143): capture pre-step
+		// Simulate the leader's step (lastStepX/Z now written inside
+	// refreshPlayerZonePresence, zone_refresh.go): capture pre-step
 		// coord into lastStepX/Z, then mutate x. Leader walks east one tile.
 		prevX, prevZ := leader.x, leader.z
 		leader.lastStepX = prevX

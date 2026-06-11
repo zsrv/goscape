@@ -76,13 +76,13 @@ func TestNpcQueueWaypointsReversesInputOrder(t *testing.T) {
 	}
 }
 
-// TestNpcStepOnceFollowsDirectionChangePoints is the Npc-side regression
-// pin for NAI-101. Mirror of TestStepOnceFollowsDirectionChangePoints.
+// TestNpcStepFollowsDirectionChangePoints is the Npc-side regression
+// pin for NAI-101. Mirror of TestStepFollowsDirectionChangePoints.
 //
 // NPC at (3094, 3106). Route N to (3094, 3110), then E to (3097, 3110).
 // Pre-fix Face from (3094, 3106) to dest (3097, 3110) returns NE diagonal,
 // skipping the mid waypoint. Post-fix iterates first_step → mid → dest.
-func TestNpcStepOnceFollowsDirectionChangePoints(t *testing.T) {
+func TestNpcStepFollowsDirectionChangePoints(t *testing.T) {
 	s := newTestServer(t)
 
 	n := newTestNpc(1)

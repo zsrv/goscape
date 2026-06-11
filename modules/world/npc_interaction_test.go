@@ -2377,12 +2377,12 @@ func TestNpc_InOperableDistance_Obj_OutOfReach(t *testing.T) {
 	}
 }
 
-// TestNpcStepOnce_BlockedNpcStepsOntoWaterTile pins NAI-175 root cause.
+// TestNpcStep_BlockedNpcStepsOntoWaterTile pins NAI-175 root cause.
 // A MoveRestrictBlocked NPC (duck) on a FlagBlockWalk tile must be able
 // to step onto an adjacent FlagBlockWalk tile under TypeBlocked collision.
 // Mirrors TS PathingEntity.takeStep at PathingEntity.ts:617-683 with
 // getCollisionStrategy()==TypeBlocked and blockWalkFlag()==FlagOpen.
-func TestNpcStepOnce_BlockedNpcStepsOntoWaterTile(t *testing.T) {
+func TestNpcStep_BlockedNpcStepsOntoWaterTile(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	// Two adjacent water tiles: (3221, 3220) and (3222, 3220).
@@ -2411,10 +2411,10 @@ func TestNpcStepOnce_BlockedNpcStepsOntoWaterTile(t *testing.T) {
 	}
 }
 
-// TestNpcStepOnce_AxisFallback_X pins NAI-175 D1. When the diagonal
+// TestNpcStep_AxisFallback_X pins NAI-175 D1. When the diagonal
 // is blocked but the X-only step is open, TS takeStep returns the
 // X-only direction. Mirrors PathingEntity.ts:672-675.
-func TestNpcStepOnce_AxisFallback_X(t *testing.T) {
+func TestNpcStep_AxisFallback_X(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	typ := &objtype.NpcType{
@@ -2441,9 +2441,9 @@ func TestNpcStepOnce_AxisFallback_X(t *testing.T) {
 	}
 }
 
-// TestNpcStepOnce_AxisFallback_Z mirrors D1 for the Z-axis fallback
+// TestNpcStep_AxisFallback_Z mirrors D1 for the Z-axis fallback
 // (PathingEntity.ts:677-680).
-func TestNpcStepOnce_AxisFallback_Z(t *testing.T) {
+func TestNpcStep_AxisFallback_Z(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	typ := &objtype.NpcType{
@@ -2471,7 +2471,7 @@ func TestNpcStepOnce_AxisFallback_Z(t *testing.T) {
 	}
 }
 
-// TestNpcStepOnce_TransientBlock_PreservesWaypointIndex pins NAI-176 D2.
+// TestNpcStep_TransientBlock_PreservesWaypointIndex pins NAI-176 D2.
 // TS PathingEntity.takeStep:682 returns null when all canTravel arms
 // fail — wrapper (validateAndAdvanceStep) returns -1 WITHOUT decrementing
 // waypointIndex. Goscape's pre-NAI-176 stepOnce cleared waypointIndex to -1
@@ -2481,7 +2481,7 @@ func TestNpcStepOnce_AxisFallback_Z(t *testing.T) {
 // Block the north tile with FlagBlockWalk so all canTravel arms fail.
 // The X-only fallback (dx=0) and Z-only fallback (dx=0,dz=1 = same as direct)
 // also fail — falls through to stepBlocked.
-func TestNpcStepOnce_TransientBlock_PreservesWaypointIndex(t *testing.T) {
+func TestNpcStep_TransientBlock_PreservesWaypointIndex(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	s.gamemap.Pathfinder.Flags.Add(3221, 3221, 0, collision.FlagBlockWalk)
@@ -2656,13 +2656,13 @@ func TestNpcUpdateMovement_RunSpeed_DoneWaypointCostsWalkSlot(t *testing.T) {
 	}
 }
 
-// TestNpcStepOnce_WidthGt1_PrefersXAxis pins the width>1 step order. rev-254
+// TestNpcStep_WidthGt1_PrefersXAxis pins the width>1 step order. rev-254
 // (f0ccbe8a) takeStep gates the DIAGONAL arm on width==1 (PathingEntity.ts:
 // 659-662), so width>1 NPCs fall through to the E/W arm first, then N/S —
 // same X-before-Z preference as the retired NAI-176 D3 special case.
 // Width=2 NPC at (3220,3220) targeting (3222, 3222). X-only step (East,
 // 2 wide) is allowed; Z-only is blocked. Expect an East step.
-func TestNpcStepOnce_WidthGt1_PrefersXAxis(t *testing.T) {
+func TestNpcStep_WidthGt1_PrefersXAxis(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	// Allocate the bounding box that the width=2 NPC will walk across
@@ -2698,10 +2698,10 @@ func TestNpcStepOnce_WidthGt1_PrefersXAxis(t *testing.T) {
 	}
 }
 
-// TestNpcStepOnce_WidthGt1_FallsThroughToZ pins the E/W → N/S fallback
+// TestNpcStep_WidthGt1_FallsThroughToZ pins the E/W → N/S fallback
 // (PathingEntity.ts:664-672 at the rev-254 pin): when the E/W canTravel
 // fails, try N/S.
-func TestNpcStepOnce_WidthGt1_FallsThroughToZ(t *testing.T) {
+func TestNpcStep_WidthGt1_FallsThroughToZ(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	for x := 3219; x <= 3223; x++ {
@@ -2734,8 +2734,8 @@ func TestNpcStepOnce_WidthGt1_FallsThroughToZ(t *testing.T) {
 	}
 }
 
-// TestNpcStepOnce_WidthGt1_BothBlocked pins TS L651 null when both axes fail.
-func TestNpcStepOnce_WidthGt1_BothBlocked(t *testing.T) {
+// TestNpcStep_WidthGt1_BothBlocked pins TS L651 null when both axes fail.
+func TestNpcStep_WidthGt1_BothBlocked(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	for x := 3219; x <= 3223; x++ {

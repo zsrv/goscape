@@ -114,7 +114,7 @@ func (n *Npc) QueueWaypoint(x, z int) {
 // cross-reference (*Player).queueWaypoints (modules/world/movement.go).
 //
 // Reverses the input on copy so that internal storage is [dest, …, first_step].
-// stepOnce reads waypoints[waypointIndex] starting at n-1 (= first_step) and
+// validateAndAdvanceStep reads waypoints[waypointIndex] starting at n-1 (= first_step) and
 // decrements toward 0 (= dest). Truncation drops far-from-dest entries when
 // input exceeds the waypoint buffer cap (TS-faithful).
 //
