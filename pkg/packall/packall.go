@@ -95,7 +95,7 @@ func PackAll(srcDir, outDir, dataPackDir, rawDir string) error {
 	// documented Go-only feature — see the symbols-export-go-only
 	// exception in pkg/pack/compiler/symbols_export.go / PORTING.md.
 	// The full-tree parity manifest (testdata/ref254_manifest.txt) EXCLUDES
-	// data/symbols/ (no upstream baseline exists; the retired ref245
+	// data/symbols/ (no upstream baseline exists; the retired pre-254
 	// manifest included it). symbolsDir is a sibling of outDir named "symbols"
 	// (e.g. data/pack → data/symbols), matching TS's historical hardcoded
 	// 'data/symbols' output path.
