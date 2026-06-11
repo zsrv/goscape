@@ -1,6 +1,7 @@
 package world
 
 import (
+	"encoding/base64"
 	"log/slog"
 	"time"
 
@@ -48,39 +49,26 @@ func (b *slogLoggerBridge) NotifyPlayerReport(p *Player, offender, reason string
 	)
 }
 
-// SubmitInputTracking emits an 'input_track' record. Mirrors TS
-// World.submitInputTracking's loggerThread.postMessage call
-// (World.ts:2346-2354 @43e02957): username + session_uuid + blobs. At
-// 254 each InputTracking.Flush submits exactly ONE blob; the slice
-// shape mirrors the TS signature.
+// SubmitInputTracking emits an 'input_track' record. rev-254 A5
+// re-shape: mirrors TS World.submitInputTracking's
+// loggerThread.postMessage call (World.ts:2326-2333 @2e3bcf43):
 //
-// Each blob carries Seq, Data (base64), and Coord — matching the TS
-// InputTrackingBlob shape (InputTrackingBlob.ts:1-11). The blobs are
-// emitted as a JSON-serialisable []any slice for slog structured output.
-// Proto message shapes are owned by B5/private-sibling; this slog seam
-// is adapted for 244 without touching .proto files.
+//	{ type: 'input_track', session_uuid: player.session,
+//	  timestamp: Date.now(), buf: Buffer.from(buf).toString('base64') }
 //
-// rev-244 B5: world/profile stamped per the 244 inputTrack envelope
-// (LoggerClient.ts:76-86). The TS `timestamp` param is not modeled —
-// goscape's seam has no caller-supplied timestamp (the slog record
-// carries its own time); recorded with the B5 logger rows in PORTING.md.
-func (b *slogLoggerBridge) SubmitInputTracking(username, sessionUUID string, blobs []InputTrackingBlob) {
-	blobsAny := make([]any, len(blobs))
-	for i, bl := range blobs {
-		blobsAny[i] = map[string]any{
-			"seq":   bl.Seq,
-			"data":  bl.Data,
-			"coord": bl.Coord,
-		}
-	}
+// The 43e02957-era username/seq/coord blob wrapper is gone
+// (InputTrackingBlob.ts deleted upstream); blob assembly (base64 +
+// session + timestamp) is receiver-side, here. NOTE world/profile are
+// NOT stamped — unlike report/session_log/wealth_event, the
+// LoggerClient.inputTrack envelope omits them (LoggerClient.ts:64-79
+// @2e3bcf43). Proto message shapes are owned by B5/private-sibling;
+// this is the dev/debug slog seam only.
+func (b *slogLoggerBridge) SubmitInputTracking(p *Player, buf []byte) {
 	b.log.Info("input_track",
 		"type", "input_track",
-		"world", b.nodeID,
-		"profile", b.profile,
-		"username", username,
-		"session_uuid", sessionUUID,
-		"blob_count", len(blobs),
-		"blobs", blobsAny,
+		"session_uuid", p.sessionOrHeadless(),
+		"timestamp_ms", time.Now().UnixMilli(),
+		"buf", base64.StdEncoding.EncodeToString(buf),
 	)
 }
 

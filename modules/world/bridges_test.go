@@ -1,6 +1,7 @@
 package world
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -30,10 +31,9 @@ type recordedLoggerCall struct {
 	reason   string
 }
 type recordedInputTrackingCall struct {
-	method      string // "SubmitInputTracking"
-	username    string
-	sessionUUID string
-	blobs       []InputTrackingBlob
+	method string // "SubmitInputTracking"
+	player *Player
+	buf    []byte // defensive copy (caller's slice aliases the live buffer)
 }
 type recordedPrivateMessageCall struct {
 	method         string // "PrivateMessage"
@@ -96,15 +96,13 @@ func (r *recordingBridges) NotifyPlayerMute(staff, username string, until time.T
 func (r *recordingBridges) NotifyPlayerReport(player *Player, offender, reason string) {
 	r.logger = append(r.logger, recordedLoggerCall{method: "NotifyPlayerReport", player: player, offender: offender, reason: reason})
 }
-func (r *recordingBridges) SubmitInputTracking(username, sessionUUID string, blobs []InputTrackingBlob) {
-	// Snapshot blobs slice to defend against caller mutation.
-	cp := make([]InputTrackingBlob, len(blobs))
-	copy(cp, blobs)
+func (r *recordingBridges) SubmitInputTracking(player *Player, buf []byte) {
+	// Snapshot buf — it aliases the live accumulation buffer (rev-254 A5
+	// contract: implementations must copy before returning).
 	r.inputTracks = append(r.inputTracks, recordedInputTrackingCall{
-		method:      "SubmitInputTracking",
-		username:    username,
-		sessionUUID: sessionUUID,
-		blobs:       cp,
+		method: "SubmitInputTracking",
+		player: player,
+		buf:    bytes.Clone(buf),
 	})
 }
 func (r *recordingBridges) SubmitSessionLogs(logs []SessionLog) {
@@ -156,7 +154,7 @@ func TestNoopBridgesAllMethods(t *testing.T) {
 	b.NotifyPlayerBan("s", "u", now)
 	b.NotifyPlayerMute("s", "u", now)
 	b.NotifyPlayerReport(nil, "off", "REASON")
-	b.SubmitInputTracking("user", "uuid", []InputTrackingBlob{{Seq: 1, Data: "AAAA", Coord: 0}})
+	b.SubmitInputTracking(nil, []byte{0x01, 0x02})
 	b.SubmitSessionLogs(nil)
 }
 
@@ -210,11 +208,9 @@ func TestRecordingBridgesCapturesPrivateMessage(t *testing.T) {
 
 func TestRecordingBridgesCapturesSubmitInputTracking(t *testing.T) {
 	rec := &recordingBridges{}
-	callerBlobs := []InputTrackingBlob{
-		{Seq: 1, Data: "AQID", Coord: 100},
-		{Seq: 2, Data: "BAU=", Coord: 200},
-	}
-	rec.SubmitInputTracking("alice", "sess-uuid-1", callerBlobs)
+	p := &Player{username: "alice", session: "sess-uuid-1"}
+	callerBuf := []byte{0x01, 0x02, 0x03}
+	rec.SubmitInputTracking(p, callerBuf)
 	if len(rec.inputTracks) != 1 {
 		t.Fatalf("inputTracks: got %d, want 1", len(rec.inputTracks))
 	}
@@ -222,22 +218,17 @@ func TestRecordingBridgesCapturesSubmitInputTracking(t *testing.T) {
 	if got.method != "SubmitInputTracking" {
 		t.Errorf("method: got %q, want SubmitInputTracking", got.method)
 	}
-	if got.username != "alice" {
-		t.Errorf("username: got %q, want alice", got.username)
+	if got.player != p {
+		t.Errorf("player: got %p, want %p", got.player, p)
 	}
-	if got.sessionUUID != "sess-uuid-1" {
-		t.Errorf("sessionUUID: got %q, want sess-uuid-1", got.sessionUUID)
+	if !bytes.Equal(got.buf, []byte{0x01, 0x02, 0x03}) {
+		t.Errorf("buf: got % X, want 01 02 03", got.buf)
 	}
-	if len(got.blobs) != 2 {
-		t.Fatalf("blobs: got %d, want 2", len(got.blobs))
-	}
-	if got.blobs[0].Seq != 1 || got.blobs[0].Data != "AQID" || got.blobs[0].Coord != 100 {
-		t.Errorf("blobs[0]: got %+v", got.blobs[0])
-	}
-	// Mutation defense: mutate caller's original slice; stored copy must be unaffected.
-	callerBlobs[0].Seq = 999
-	if rec.inputTracks[0].blobs[0].Seq != 1 {
-		t.Error("blobs copy must be defensive (not aliasing caller slice)")
+	// Mutation defense: the caller's slice aliases the live accumulation
+	// buffer (rev-254 A5 contract) — the stored copy must be unaffected.
+	callerBuf[0] = 0xFF
+	if rec.inputTracks[0].buf[0] != 0x01 {
+		t.Error("buf copy must be defensive (not aliasing caller slice)")
 	}
 }
 

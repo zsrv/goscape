@@ -65,13 +65,17 @@ type LoggerBridge interface {
 	// of the ReportAbuseReason enum value (e.g. "MACROING").
 	NotifyPlayerReport(player *Player, offender, reason string)
 
-	// SubmitInputTracking posts per-player input-recording blobs from
-	// the input-tracking subsystem (TS World.submitInputTracking at
-	// World.ts:2346 @43e02957): username + session UUID + blobs. At 254
-	// each InputTracking.Flush submits exactly ONE blob
-	// (InputTracking.ts:47-48); the slice shape mirrors the TS
-	// signature (`blobs: InputTrackingBlob[]`).
-	SubmitInputTracking(username, sessionUUID string, blobs []InputTrackingBlob)
+	// SubmitInputTracking posts one flushed input-recording buffer (the
+	// raw accumulated event bytes) for player. rev-254 A5 re-shape: TS
+	// World.submitInputTracking(player, buf) (World.ts:2326-2333
+	// @2e3bcf43) — the receiver assembles the logger message
+	// {type:'input_track', session_uuid: player.session,
+	// timestamp: Date.now(), buf: base64(buf)}. The 43e02957-era
+	// username/seq/coord blob wrapper is GONE (InputTrackingBlob.ts
+	// deleted upstream). buf may alias the live accumulation buffer
+	// (TS subarray semantics); implementations must copy or encode
+	// before returning.
+	SubmitInputTracking(player *Player, buf []byte)
 
 	// SubmitSessionLogs posts the per-tick batch of session-log entries.
 	// Mirrors TS LoggerThread 'session_log' channel (LoggerThread.ts:31-37,
@@ -322,7 +326,7 @@ func (noopBridges) PublicMessage(string, int, string)                         {}
 func (noopBridges) NotifyPlayerBan(string, string, time.Time)                 {}
 func (noopBridges) NotifyPlayerMute(string, string, time.Time)                {}
 func (noopBridges) NotifyPlayerReport(*Player, string, string)                {}
-func (noopBridges) SubmitInputTracking(string, string, []InputTrackingBlob)   {}
+func (noopBridges) SubmitInputTracking(*Player, []byte)                       {}
 func (noopBridges) SubmitSessionLogs([]SessionLog)                            {}
 func (noopBridges) OnFriendlistUpdate(uint64, []*friendspb.FriendEntry)       {}
 func (noopBridges) OnIgnorelistUpdate(uint64, []uint64)                       {}

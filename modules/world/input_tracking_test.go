@@ -2,10 +2,7 @@ package world
 
 import (
 	"bytes"
-	"encoding/base64"
 	"testing"
-
-	"github.com/zsrv/goscape/pkg/coordgrid"
 )
 
 // inputTrackingTestSetup wires a Player against a Server with
@@ -24,7 +21,7 @@ func inputTrackingTestSetup(t *testing.T) (*InputTracking, *Player, *recordingBr
 }
 
 // TestInputTrackingCameraPosition pins event 1: p1(tag) p2(pitch) p2(yaw)
-// appended only while Active. TS InputTracking.ts:54-66 @43e02957.
+// appended only while Active. TS InputTracking.ts:48-60 @2e3bcf43.
 func TestInputTrackingCameraPosition(t *testing.T) {
 	t.Run("active-appends", func(t *testing.T) {
 		tt, _, _ := inputTrackingTestSetup(t)
@@ -46,7 +43,7 @@ func TestInputTrackingCameraPosition(t *testing.T) {
 }
 
 // TestInputTrackingAppletFocus pins event 2: p1(tag) p1(focus).
-// TS InputTracking.ts:68-79.
+// TS InputTracking.ts:62-73 @2e3bcf43.
 func TestInputTrackingAppletFocus(t *testing.T) {
 	tt, _, _ := inputTrackingTestSetup(t)
 	tt.Active = true
@@ -58,7 +55,7 @@ func TestInputTrackingAppletFocus(t *testing.T) {
 }
 
 // TestInputTrackingMouseClick pins event 3: p1(tag) p4(info).
-// TS InputTracking.ts:81-92.
+// TS InputTracking.ts:75-86 @2e3bcf43.
 func TestInputTrackingMouseClick(t *testing.T) {
 	tt, _, _ := inputTrackingTestSetup(t)
 	tt.Active = true
@@ -70,7 +67,7 @@ func TestInputTrackingMouseClick(t *testing.T) {
 }
 
 // TestInputTrackingMouseMove pins event 4: p1(tag) p1(len) pdata, with
-// the len==0 and len>160 rejections. TS InputTracking.ts:94-106.
+// the len==0 and len>160 rejections. TS InputTracking.ts:88-100 @2e3bcf43.
 func TestInputTrackingMouseMove(t *testing.T) {
 	cases := []struct {
 		name string
@@ -120,125 +117,129 @@ func TestInputTrackingMultiEventConcatenation(t *testing.T) {
 	}
 }
 
-// TestInputTrackingOnCycleFlushThreshold pins OnCycle's >=500 flush:
-// one blob via the logger bridge with seq 0, then the NEXT flush uses
-// seq 1 — seq never resets. TS InputTracking.ts:34-38,47.
+// TestInputTrackingOnCycleFlushThreshold pins OnCycle's >=1500 soft-limit
+// flush (rev-254 A5: softLimit=1500 replaces the 43e02957-era max=500):
+// the raw buffer bytes are submitted to the logger bridge with the
+// player — no blob wrapper, no seq, no coord (TS InputTracking.ts:30-34,
+// 36-46 @2e3bcf43).
 func TestInputTrackingOnCycleFlushThreshold(t *testing.T) {
 	tt, p, rec := inputTrackingTestSetup(t)
 	tt.Active = true
 	p.username = "alice"
 	p.session = "sess-uuid-1"
-	p.level, p.x, p.z = 0, 3200, 3200
 
-	// 100 mouse clicks x 5 bytes = exactly 500 buffered bytes.
-	for range 100 {
+	// 300 mouse clicks x 5 bytes = exactly 1500 buffered bytes.
+	for range 300 {
 		tt.MouseClick(0x11223344)
 	}
-	if got := tt.buf.Len(); got != 500 {
-		t.Fatalf("preflight buf len: got %d, want 500", got)
+	if got := tt.buf.Len(); got != 1500 {
+		t.Fatalf("preflight buf len: got %d, want 1500", got)
 	}
 
 	tt.OnCycle()
 
 	if got := len(rec.inputTracks); got != 1 {
-		t.Fatalf("bridge calls after OnCycle at 500: got %d, want 1", got)
+		t.Fatalf("bridge calls after OnCycle at 1500: got %d, want 1", got)
 	}
 	call := rec.inputTracks[0]
-	if call.username != "alice" {
-		t.Errorf("username: got %q, want alice", call.username)
+	if call.player != p {
+		t.Errorf("player: got %p, want %p (TS submits this.player)", call.player, p)
 	}
-	if call.sessionUUID != "sess-uuid-1" {
-		t.Errorf("sessionUUID: got %q, want sess-uuid-1", call.sessionUUID)
+	if got := len(call.buf); got != 1500 {
+		t.Errorf("submitted buf len: got %d, want 1500 (raw bytes, no base64 sender-side)", got)
 	}
-	if got := len(call.blobs); got != 1 {
-		t.Fatalf("blobs per flush: got %d, want 1 (ONE blob per flush at 254)", got)
-	}
-	b := call.blobs[0]
-	if b.Seq != 0 {
-		t.Errorf("first blob Seq: got %d, want 0 (254 is 0-based)", b.Seq)
-	}
-	wantCoord := coordgrid.PackCoord(0, 3200, 3200)
-	if b.Coord != wantCoord {
-		t.Errorf("Coord: got %d, want %d", b.Coord, wantCoord)
-	}
-	if wantLen := base64.StdEncoding.EncodedLen(500); len(b.Data) != wantLen {
-		t.Errorf("Data base64 len: got %d, want %d", len(b.Data), wantLen)
+	if !bytes.Equal(call.buf[:5], []byte{0x03, 0x11, 0x22, 0x33, 0x44}) {
+		t.Errorf("submitted buf head: got % X, want 03 11 22 33 44", call.buf[:5])
 	}
 	if got := tt.buf.Len(); got != 0 {
 		t.Errorf("buf len after flush: got %d, want 0", got)
 	}
 
-	// OnCycle below threshold is a no-op.
-	tt.MouseClick(0x11223344)
+	// OnCycle below threshold is a no-op — 1499 bytes must NOT flush.
+	for range 299 {
+		tt.MouseClick(0x11223344)
+	}
+	tt.buf.P1(0)
+	tt.buf.P1(0)
+	tt.buf.P1(0)
+	tt.buf.P1(0)
+	if got := tt.buf.Len(); got != 1499 {
+		t.Fatalf("preflight buf len: got %d, want 1499", got)
+	}
 	tt.OnCycle()
 	if got := len(rec.inputTracks); got != 1 {
 		t.Fatalf("bridge calls after sub-threshold OnCycle: got %d, want 1", got)
 	}
 
-	// Second explicit flush carries seq 1 — never reset.
+	// Second explicit flush submits the remaining bytes.
 	tt.Flush()
 	if got := len(rec.inputTracks); got != 2 {
 		t.Fatalf("bridge calls after second flush: got %d, want 2", got)
 	}
-	if got := rec.inputTracks[1].blobs[0].Seq; got != 1 {
-		t.Errorf("second blob Seq: got %d, want 1 (monotonic, never reset)", got)
+	if got := len(rec.inputTracks[1].buf); got != 1499 {
+		t.Errorf("second flush buf len: got %d, want 1499", got)
 	}
 }
 
-// TestInputTrackingAppendOverflowFlushesFirst pins the pre-append
-// overflow flush: when bufLen + n > 500 the buffer is flushed FIRST,
-// then the event appended. TS InputTracking.ts:59-61 (and the parallel
-// checks in each event method).
+// TestInputTrackingAppendOverflowFlushesFirst pins the rev-254 A5
+// pre-append overflow flush: the per-event checks now compare against
+// the BUFFER CAPACITY (`this.buf.pos + N >= this.buf.length`, where
+// buf.length = 5000 — Packet.alloc(1), Packet.ts:128 @2e3bcf43), with
+// >= replacing the 43e02957-era > against max=500.
+// TS InputTracking.ts:53-55 (and the parallel checks per event method).
 func TestInputTrackingAppendOverflowFlushesFirst(t *testing.T) {
-	t.Run("496-plus-5-flushes", func(t *testing.T) {
+	t.Run("4995-plus-5-flushes", func(t *testing.T) {
 		tt, _, rec := inputTrackingTestSetup(t)
 		tt.Active = true
-		fillInputBuffer(t, tt, 496)
-		tt.MouseClick(0xCAFEBABE) // 496+5 > 500 → flush first, then append
+		fillInputBuffer(t, tt, 4995)
+		tt.MouseClick(0xCAFEBABE) // 4995+5 >= 5000 → flush first, then append
 		if got := len(rec.inputTracks); got != 1 {
 			t.Fatalf("bridge calls: got %d, want 1 (overflow must flush first)", got)
 		}
-		if got := base64.StdEncoding.EncodedLen(496); len(rec.inputTracks[0].blobs[0].Data) != got {
-			t.Errorf("flushed blob carries pre-append bytes: data len got %d, want %d",
-				len(rec.inputTracks[0].blobs[0].Data), got)
+		if got := len(rec.inputTracks[0].buf); got != 4995 {
+			t.Errorf("flushed buf carries pre-append bytes: len got %d, want 4995", got)
 		}
 		want := []byte{0x03, 0xCA, 0xFE, 0xBA, 0xBE}
 		if got := tt.buf.Bytes(); !bytes.Equal(got, want) {
 			t.Errorf("buf after overflow append: got % X, want % X", got, want)
 		}
 	})
-	t.Run("495-plus-5-appends", func(t *testing.T) {
+	t.Run("4994-plus-5-appends", func(t *testing.T) {
 		tt, _, rec := inputTrackingTestSetup(t)
 		tt.Active = true
-		fillInputBuffer(t, tt, 495)
-		tt.MouseClick(0xCAFEBABE) // 495+5 == 500, NOT > 500 → no flush
+		fillInputBuffer(t, tt, 4994)
+		tt.MouseClick(0xCAFEBABE) // 4994+5 == 4999 < 5000 → no flush
 		if got := len(rec.inputTracks); got != 0 {
-			t.Fatalf("bridge calls: got %d, want 0 (495+5==500 must append)", got)
+			t.Fatalf("bridge calls: got %d, want 0 (4994+5 < 5000 must append)", got)
 		}
-		if got := tt.buf.Len(); got != 500 {
-			t.Errorf("buf len: got %d, want 500", got)
+		if got := tt.buf.Len(); got != 4999 {
+			t.Errorf("buf len: got %d, want 4999", got)
 		}
 	})
 	t.Run("mousemove-overflow-counts-data-only", func(t *testing.T) {
 		// TS quirk: mouseMove's overflow check adds only data.length —
-		// NOT the 2 tag/len bytes. At bufLen=498 with len(data)=2,
-		// 498+2 == 500 is NOT > 500, so it appends WITHOUT flushing and
-		// the buffer overshoots to 502. TS InputTracking.ts:99.
+		// NOT the 2 tag/len bytes. At bufLen=4997 with len(data)=2,
+		// 4997+2 == 4999 is NOT >= 5000, so it appends WITHOUT flushing
+		// and the buffer overshoots the capacity check to 5001.
+		// TS InputTracking.ts:93 @2e3bcf43.
 		tt, _, rec := inputTrackingTestSetup(t)
 		tt.Active = true
-		fillInputBuffer(t, tt, 498)
+		fillInputBuffer(t, tt, 4997)
 		tt.MouseMove([]byte{0xEE, 0xFF})
 		if got := len(rec.inputTracks); got != 0 {
 			t.Fatalf("bridge calls: got %d, want 0 (quirk: tag/len bytes not counted)", got)
 		}
-		if got := tt.buf.Len(); got != 502 {
-			t.Errorf("buf len: got %d, want 502 (498 + tag + len + 2 data)", got)
+		if got := tt.buf.Len(); got != 5001 {
+			t.Errorf("buf len: got %d, want 5001 (4997 + tag + len + 2 data)", got)
 		}
 	})
 }
 
 // fillInputBuffer appends applet-focus events (2 bytes each) plus
-// mouse-move padding until the accumulation buffer holds exactly n bytes.
+// raw padding until the accumulation buffer holds exactly n bytes.
+// Bypasses OnCycle, so n may exceed the 1500 soft limit (matching the
+// TS model: events accumulate freely between cycles; only the per-event
+// capacity checks and the per-cycle soft limit flush).
 func fillInputBuffer(t *testing.T, tt *InputTracking, n int) {
 	t.Helper()
 	for tt.buf.Len()+2 <= n {
@@ -255,8 +256,8 @@ func fillInputBuffer(t *testing.T, tt *InputTracking, n int) {
 }
 
 // TestInputTrackingFlushEmptyBuffer pins that Flush with an empty
-// buffer submits nothing and does NOT bump seq. TS InputTracking.ts:45
-// (`if (this.buf.pos > 0)` wraps both the submit and the seq++).
+// buffer submits nothing. TS InputTracking.ts:41
+// (`if (this.buf.pos > 0)` wraps the submit).
 func TestInputTrackingFlushEmptyBuffer(t *testing.T) {
 	tt, _, rec := inputTrackingTestSetup(t)
 	tt.Active = true
@@ -265,24 +266,22 @@ func TestInputTrackingFlushEmptyBuffer(t *testing.T) {
 	if got := len(rec.inputTracks); got != 0 {
 		t.Fatalf("bridge calls: got %d, want 0", got)
 	}
-	if tt.seq != 0 {
-		t.Errorf("seq after empty flush: got %d, want 0 (must not bump)", tt.seq)
-	}
 
-	// Next real flush still carries seq 0.
+	// Next real flush submits the buffered event.
 	tt.MouseClick(1)
 	tt.Flush()
 	if got := len(rec.inputTracks); got != 1 {
 		t.Fatalf("bridge calls: got %d, want 1", got)
 	}
-	if got := rec.inputTracks[0].blobs[0].Seq; got != 0 {
-		t.Errorf("Seq: got %d, want 0", got)
+	if got := len(rec.inputTracks[0].buf); got != 5 {
+		t.Errorf("buf len: got %d, want 5", got)
 	}
 }
 
 // TestInputTrackingFlushInactiveNoop pins that Flush while !Active is a
 // complete no-op even with buffered bytes — TS checks active FIRST
-// (InputTracking.ts:41-43), so the buffer is neither submitted nor reset.
+// (InputTracking.ts:37-39 @2e3bcf43), so the buffer is neither
+// submitted nor reset.
 func TestInputTrackingFlushInactiveNoop(t *testing.T) {
 	tt, _, rec := inputTrackingTestSetup(t)
 	tt.Active = true
@@ -297,61 +296,6 @@ func TestInputTrackingFlushInactiveNoop(t *testing.T) {
 	if got := tt.buf.Len(); got != 5 {
 		t.Errorf("buf len: got %d, want 5 (inactive flush must not reset)", got)
 	}
-	if tt.seq != 0 {
-		t.Errorf("seq: got %d, want 0", tt.seq)
-	}
-}
-
-// TestInputTrackingFlushHeadlessSession pins the empty-session →
-// "headless" fallback. TS InputTracking.ts:46
-// (`player instanceof NetworkPlayer ? player.client.uuid : 'headless'`).
-func TestInputTrackingFlushHeadlessSession(t *testing.T) {
-	tt, p, rec := inputTrackingTestSetup(t)
-	tt.Active = true
-	p.username = "headlessbot"
-	p.session = ""
-
-	tt.AppletFocus(1)
-	tt.Flush()
-
-	if got := len(rec.inputTracks); got != 1 {
-		t.Fatalf("bridge calls: got %d, want 1", got)
-	}
-	if got := rec.inputTracks[0].sessionUUID; got != "headless" {
-		t.Errorf("sessionUUID: got %q, want headless", got)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// InputTrackingBlob (unchanged at 254 — InputTrackingBlob.ts identical
-// between pins 3c16994c and 43e02957)
-// ---------------------------------------------------------------------------
-
-// TestInputTrackingBlobCtor pins InputTrackingBlob construction:
-// seq stored verbatim, data is base64 of rawData, coord stored verbatim.
-// Mirrors InputTrackingBlob.ts:6-10.
-func TestInputTrackingBlobCtor(t *testing.T) {
-	raw := []byte{0xDE, 0xAD, 0xBE, 0xEF}
-	b := NewInputTrackingBlob(raw, 3, 0xC0DE)
-	if b.Seq != 3 {
-		t.Errorf("Seq: got %d, want 3", b.Seq)
-	}
-	wantData := base64.StdEncoding.EncodeToString(raw)
-	if b.Data != wantData {
-		t.Errorf("Data: got %q, want %q", b.Data, wantData)
-	}
-	if b.Coord != 0xC0DE {
-		t.Errorf("Coord: got %d, want 0xC0DE", b.Coord)
-	}
-}
-
-// TestInputTrackingBlobCtorZeroCoord verifies that a zero coord is
-// stored (not dropped), matching InputTrackingBlob.ts:4 (coord?: number).
-func TestInputTrackingBlobCtorZeroCoord(t *testing.T) {
-	b := NewInputTrackingBlob([]byte{0x01}, 1, 0)
-	if b.Coord != 0 {
-		t.Errorf("Coord: got %d, want 0", b.Coord)
-	}
 }
 
 // ---------------------------------------------------------------------------
@@ -359,7 +303,7 @@ func TestInputTrackingBlobCtorZeroCoord(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestHandleEventPackets pins the four thin handlers' decode + dispatch
-// against the TS codec files @43e02957:
+// against the TS codec files @2e3bcf43:
 //   - EVENT_MOUSE_CLICK:     info  = g4  (EventMouseClickDecoder.ts)
 //   - EVENT_MOUSE_MOVE:      data  = raw payload (EventMouseMoveDecoder.ts)
 //   - EVENT_APPLET_FOCUS:    focus = g1  (EventAppletFocusDecoder.ts)

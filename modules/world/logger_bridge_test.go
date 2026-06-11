@@ -44,35 +44,54 @@ func TestSlogLoggerBridgeNotifyPlayerReport(t *testing.T) {
 	}
 }
 
-// TestSlogLoggerBridgeSubmitInputTracking pins that SubmitInputTracking
-// emits a record with type=input_track, username, session_uuid, blob_count.
-// 244 re-shape: username + session_uuid + ALL blobs (InputTracking.ts:147,
-// World.ts:2343-2351). The old session/blob_len/blob_b64 fields are gone.
+// TestSlogLoggerBridgeSubmitInputTracking pins the rev-254 A5 record
+// shape (TS World.submitInputTracking @2e3bcf43 World.ts:2326-2333 posts
+// {type:'input_track', session_uuid: player.session, timestamp, buf:
+// base64}): the blob wrapper (username/seq/coord/blob_count) is GONE,
+// and — unlike report/session_log/wealth_event — the LoggerClient
+// inputTrack envelope does NOT stamp world/profile
+// (LoggerClient.ts:64-79 @2e3bcf43).
 func TestSlogLoggerBridgeSubmitInputTracking(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&buf, nil))
 	bridge := NewSlogLoggerBridge(logger, 10, "main")
 
-	blobs := []InputTrackingBlob{
-		NewInputTrackingBlob([]byte{0x00, 0x01, 0x02}, 1, 0xC0DE),
-		NewInputTrackingBlob([]byte{0xFF}, 2, 0xBEEF),
-	}
-	bridge.SubmitInputTracking("alice", "test-session-uuid", blobs)
+	p := &Player{username: "alice", session: "test-session-uuid"}
+	bridge.SubmitInputTracking(p, []byte{0x00, 0x01, 0x02})
 
 	out := buf.String()
 	for _, want := range []string{
 		"type=input_track",
-		"world=10",
-		"profile=main",
-		"username=alice",
 		"session_uuid=test-session-uuid",
-		"blob_count=2",
-		"blobs=", // the payload attribute itself must be present
-		"seq:1",  // first blob rendered inside the blobs attribute
-		"seq:2",  // second blob present → ALL blobs emitted, not just [0]
+		"timestamp_ms=",
+		"buf=AAEC", // base64 of 00 01 02 — receiver-side encode
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("log output missing %q: %s", want, out)
 		}
+	}
+	for _, gone := range []string{
+		"username=", "blob_count=", "blobs=", "seq:", "coord=",
+		"world=", "profile=",
+	} {
+		if strings.Contains(out, gone) {
+			t.Errorf("log output still carries 43e02957-era key %q: %s", gone, out)
+		}
+	}
+}
+
+// TestSlogLoggerBridgeSubmitInputTrackingHeadless pins the empty-session
+// → "headless" fallback at the receiver: TS Player.session defaults to
+// 'headless' (Player.ts:311 @2e3bcf43); goscape's zero value is "" and
+// sessionOrHeadless maps it.
+func TestSlogLoggerBridgeSubmitInputTrackingHeadless(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+	bridge := NewSlogLoggerBridge(logger, 10, "main")
+
+	bridge.SubmitInputTracking(&Player{username: "headlessbot"}, []byte{0x01})
+
+	if out := buf.String(); !strings.Contains(out, "session_uuid=headless") {
+		t.Errorf("log output missing session_uuid=headless: %s", out)
 	}
 }

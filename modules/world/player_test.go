@@ -938,9 +938,10 @@ func TestPlayer_ProtectedScriptActive_TruthTable(t *testing.T) {
 }
 
 // TestProcessInCallsInputTrackingOnCycle pins that the last line of
-// Player.processIn dispatches to InputTracking.OnCycle (TS World.ts:679
-// placement parity @43e02957). At 254 OnCycle flushes when the
-// accumulation buffer has reached 500 bytes; an over-threshold buffer
+// Player.processIn dispatches to InputTracking.OnCycle (TS World.ts
+// placement parity). At rev-254 A5 OnCycle flushes when the
+// accumulation buffer has reached the 1500-byte soft limit
+// (TS InputTracking.ts:21,30-34 @2e3bcf43); an over-threshold buffer
 // must be flushed to the logger bridge by processIn.
 func TestProcessInCallsInputTrackingOnCycle(t *testing.T) {
 	s := newTestServer(t)
@@ -951,7 +952,7 @@ func TestProcessInCallsInputTrackingOnCycle(t *testing.T) {
 	p.client.encryptor = enc
 	rec := installRecordingBridges(s)
 	p.input.Active = true
-	for range 100 { // 100 x 5 bytes = 500 ≥ threshold
+	for range 300 { // 300 x 5 bytes = 1500 ≥ soft limit
 		p.input.MouseClick(0x01020304)
 	}
 
