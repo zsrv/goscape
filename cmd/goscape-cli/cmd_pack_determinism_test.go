@@ -38,11 +38,13 @@ func TestRunPack_DeterministicOutput(t *testing.T) {
 	rawDir := makeRawDir(t, src)
 
 	out1 := t.TempDir()
+	seedWorldmapJagStub(t, out1) // 254: keep the packMaps worldmap gate closed
 	var stderr1 bytes.Buffer
 	if code := runPack([]string{"--src-dir", src, "--out-dir", out1, "--raw-dir", rawDir}, io.Discard, &stderr1); code != 0 {
 		t.Fatalf("run 1: runPack returned %d; stderr=%s", code, stderr1.String())
 	}
 	out2 := t.TempDir()
+	seedWorldmapJagStub(t, out2) // 254: keep the packMaps worldmap gate closed
 	var stderr2 bytes.Buffer
 	if code := runPack([]string{"--src-dir", src, "--out-dir", out2, "--raw-dir", rawDir}, io.Discard, &stderr2); code != 0 {
 		t.Fatalf("run 2: runPack returned %d; stderr=%s", code, stderr2.String())

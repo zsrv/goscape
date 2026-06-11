@@ -114,6 +114,15 @@ func TestPackAll_TwelveStageSmoke(t *testing.T) {
 	seedWordencRaw(t, rawDir)
 
 	outDir := filepath.Join(dir, "out")
+	// 254: keep the packMaps worldmap gate closed (TS Pack.js:189 seeds
+	// rebuildWorldmap = !exists(mapview/worldmap.jag); this fixture packs
+	// no .jm2 maps and carries no worldmap inputs).
+	if err := os.MkdirAll(filepath.Join(outDir, "mapview"), 0o755); err != nil {
+		t.Fatalf("MkdirAll mapview: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outDir, "mapview", "worldmap.jag"), []byte{0}, 0o644); err != nil {
+		t.Fatalf("WriteFile worldmap.jag stub: %v", err)
+	}
 	if err := PackAll(dir, outDir, outDir, rawDir); err != nil {
 		t.Fatalf("PackAll: %v", err)
 	}

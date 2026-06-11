@@ -37,6 +37,7 @@ func TestRunCompile_HappyPath_Check(t *testing.T) {
 	// points to a real packed dir.
 	rawDir := filepath.Join(dir, "raw")
 	seedWordencRaw(t, rawDir)
+	seedWorldmapJagStub(t, dir) // 254: keep the packMaps worldmap gate closed
 	if err := packall.PackAll(dir, dir, dir, rawDir); err != nil {
 		t.Fatalf("PackAll seed: %v", err)
 	}
@@ -64,6 +65,7 @@ func TestRunCompile_SourceError(t *testing.T) {
 	seedMinimalPackFixture(t, dir)
 	rawDir := filepath.Join(dir, "raw")
 	seedWordencRaw(t, rawDir)
+	seedWorldmapJagStub(t, dir) // 254: keep the packMaps worldmap gate closed
 	if err := packall.PackAll(dir, dir, dir, rawDir); err != nil {
 		t.Fatalf("PackAll seed: %v", err)
 	}

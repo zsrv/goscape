@@ -53,6 +53,23 @@ func seedMinimalPackFixture(t *testing.T, dir string) {
 	}
 }
 
+// seedWorldmapJagStub pre-creates <outDir>/mapview/worldmap.jag so the
+// 254 packMaps worldmap gate stays closed for synthetic fixtures:
+// TS Pack.js:189 @ 2e3bcf43 seeds rebuildWorldmap = !exists(worldmap.jag)
+// and only a map rebuild re-opens it. These fixtures pack no .jm2 maps
+// and carry none of the worldmap inputs (flo.dat, sprites, fonts,
+// labels.txt), so a worldmap rebuild would fail exactly as the TS
+// toolchain would on the same tree.
+func seedWorldmapJagStub(t *testing.T, outDir string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(outDir, "mapview"), 0o755); err != nil {
+		t.Fatalf("MkdirAll mapview: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outDir, "mapview", "worldmap.jag"), []byte{0}, 0o644); err != nil {
+		t.Fatalf("WriteFile worldmap.jag stub: %v", err)
+	}
+}
+
 // makeRawDir creates a fixture rawDir containing a synthetic wordenc blob.
 // Rev-244: wordenc.Pack reads rawDir/wordenc as an opaque blob; any content works.
 func makeRawDir(t *testing.T, dir string) string {
@@ -76,6 +93,7 @@ func TestRunPack_HappyPath(t *testing.T) {
 	seedMinimalPackFixture(t, dir)
 	rawDir := makeRawDir(t, dir)
 	outDir := filepath.Join(dir, "out")
+	seedWorldmapJagStub(t, outDir)
 
 	var stderr bytes.Buffer
 	code := runPack([]string{
