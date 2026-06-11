@@ -91,18 +91,23 @@ func RegisterAllDynCommands(
 	}
 
 	// db_find / db_find_refine / db_find_with_count / db_find_refine_with_count /
-	// db_getfield. Mirrors RuneScriptKt-26 ClientScriptCompiler.kt L88-89.
+	// db_getfield.
 	//
-	// RuneScriptKt-26 uses withCount=true for BOTH db_find and db_find_refine
-	// (DbFindCommandHandler(true)), making them return PrimitiveInt. When used
-	// as expression-statements the codegen emits Discard(BaseVarInteger) →
-	// POP_INT_DISCARD. The old TS lineage used withCount=false (MetaUnit return,
-	// no Discard), producing -3 bytes per occurrence vs the reference (B6 Class-2).
+	// 254 (RuneScriptTS b8c3388 ServerScriptCompiler.ts:187-190): db_find and
+	// db_find_refine register with withCount=FALSE → MetaType.Unit return →
+	// NO Discard in statement context (DbFindCommandHandler.ts:41). Only the
+	// *_with_count variants return PrimitiveInt. The rev-244 era pinned
+	// withCount=true for all four from the RuneScriptKt-26 lineage
+	// (ClientScriptCompiler.kt L88-89, the B6 Class-2 fix); the 254 reference
+	// script.dat proves the TS compiler is authoritative here — goscape's
+	// extra POP_INT_DISCARD after every statement-context db_find produced
+	// +3 bytes and +1 instruction of branch-offset drift in ~50 scripts
+	// (caught by the T23 full-tree gate).
 	//
 	// Gated on features.DisableDBTables per TS L129-155.
 	if !features.DisableDBTables {
-		register("db_find", NewDbFindCommandHandler(true))
-		register("db_find_refine", NewDbFindCommandHandler(true))
+		register("db_find", NewDbFindCommandHandler(false))
+		register("db_find_refine", NewDbFindCommandHandler(false))
 		register("db_find_with_count", NewDbFindCommandHandler(true))
 		register("db_find_refine_with_count", NewDbFindCommandHandler(true))
 		register("db_getfield", &DbGetFieldCommandHandler{})

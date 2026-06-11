@@ -37,25 +37,26 @@ func TestDbFindCommandHandler_EmitsStackTypeBeforeCommand(t *testing.T) {
 	t.Skip("requires full codegen + symbol fixture; covered by T14 smoke")
 }
 
-// TestDbFind_WithCount_MatchesRuneScriptKt pins that db_find and db_find_refine
-// are registered with withCount=true, matching RuneScriptKt-26's
-// DbFindCommandHandler(true) for these names (ClientScriptCompiler.kt L88-89).
+// TestDbFind_WithCount_Matches254 pins the 254 registration: db_find and
+// db_find_refine use withCount=FALSE (MetaType.Unit return — no
+// POP_INT_DISCARD in statement context), per RuneScriptTS b8c3388
+// ServerScriptCompiler.ts:187-188 + DbFindCommandHandler.ts:41. Only the
+// *_with_count variants return PrimitiveInt (:189-190).
 //
-// RuneScriptKt-26 uses withCount=true for db_find / db_find_refine, which
-// makes them return PrimitiveInt. When used as expression-statements the
-// codegen emits Discard(BaseVarInteger) → POP_INT_DISCARD. goscape was
-// previously using withCount=false (MetaUnit return) so no POP_INT_DISCARD
-// was emitted, producing -3 bytes per occurrence in 41 scripts (B6 Class-2).
-func TestDbFind_WithCount_MatchesRuneScriptKt(t *testing.T) {
+// History: the rev-244 port pinned withCount=true for all four from the
+// RuneScriptKt-26 lineage (ClientScriptCompiler.kt L88-89, B6 Class-2).
+// The 254 reference script.dat refutes that for the plain variants — the
+// T23 full-tree gate showed goscape's extra POP_INT_DISCARD in ~50 scripts.
+func TestDbFind_WithCount_Matches254(t *testing.T) {
 	// verify that the handlers registered for db_find / db_find_refine have
-	// withCount=true (return PrimitiveInt, not MetaUnit).
+	// withCount=false (MetaUnit return, no discard).
 	for _, name := range []string{"db_find", "db_find_refine"} {
 		h := dbFindHandlerForName(name)
 		if h == nil {
 			t.Fatalf("%s: handler not registered", name)
 		}
-		if !h.withCount {
-			t.Errorf("%s: withCount=false, want true (RuneScriptKt-26 parity: returns int, emits POP_INT_DISCARD in statement context)", name)
+		if h.withCount {
+			t.Errorf("%s: withCount=true, want false (RuneScriptTS b8c3388 ServerScriptCompiler.ts:187-188: Unit return, no POP_INT_DISCARD)", name)
 		}
 	}
 	// verify that db_find_with_count / db_find_refine_with_count still use withCount=true.
