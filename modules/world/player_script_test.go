@@ -1825,6 +1825,34 @@ func TestPlayerTeleport_LastStepAdjust(t *testing.T) {
 	}
 }
 
+// TestPlayerTeleJump_LastStepAdjust pins the rev-254 A7 contract: TeleJump
+// routes through the shared teleport tail, so lastStep = (x-1, z) — TS
+// PathingEntity.ts:313-314 @2e3bcf43 (teleport writes it after
+// refreshZonePresence; TS has ALWAYS done this — the old goscape "stale
+// lastStep on TeleJump" posture died when lastStep moved inside
+// refreshZonePresence at f0ccbe8a).
+func TestPlayerTeleJump_LastStepAdjust(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	p.lastStepX = -999
+	p.lastStepZ = -999
+
+	p.TeleJump(3300, 3300, 0)
+
+	if p.lastStepX != 3299 {
+		t.Errorf("lastStepX after TeleJump: got %d, want 3299 (x - 1)", p.lastStepX)
+	}
+	if p.lastStepZ != 3300 {
+		t.Errorf("lastStepZ after TeleJump: got %d, want 3300 (z)", p.lastStepZ)
+	}
+}
+
 // TestPlayerTeleport_InPlaceFocusUsesSelfCenter pins the in-place edge case.
 // When prev == new, coordgrid.Face returns -1; coordgrid.MoveX/MoveZ no-op
 // (DeltaX/Z default-case = 0). focus uses self-center coords:

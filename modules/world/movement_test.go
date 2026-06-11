@@ -418,6 +418,36 @@ func TestPlayerStepOnce_PlumbsBlockWalkFlag(t *testing.T) {
 	}
 }
 
+// TestPlayerBlockedStep_ReanchorsLastStep pins the rev-254 A7 contract:
+// refreshZonePresence runs on EVERY attempt with a waypoint — even fully
+// blocked — and lastStepX/Z is written inside it (TS PathingEntity.ts:
+// 178-179, 226-227 @2e3bcf43: "Refresh zone presence if we had a
+// waypoint, even if we didn't move"). A blocked step therefore re-anchors
+// lastStep to the pre-step (= current) coords.
+func TestPlayerBlockedStep_ReanchorsLastStep(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3200, 0)
+	s.gamemap.Pathfinder.Flags.Add(3201, 3200, 0, collision.FlagBlockPlayers)
+	p.queueWaypoint(3201, 3200)
+	p.lastStepX, p.lastStepZ = -999, -999
+
+	if dir := p.validateAndAdvanceStep(); dir != -1 {
+		t.Fatalf("expected blocked step, got dir=%d", dir)
+	}
+	if p.lastStepX != 3200 || p.lastStepZ != 3200 {
+		t.Fatalf("lastStep after blocked step: got (%d,%d), want (3200,3200) — refresh runs even when blocked",
+			p.lastStepX, p.lastStepZ)
+	}
+}
+
 // TestPlayerStepOnce_AxisFallback_XOnly pins NAI-176 D4 + D1 for Player.
 // Direct diagonal blocked, X-only open → step east.
 func TestPlayerStepOnce_AxisFallback_XOnly(t *testing.T) {
