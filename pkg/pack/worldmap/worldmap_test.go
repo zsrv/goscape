@@ -148,7 +148,7 @@ func TestProcessMap_EmptyLandFile_ProducesHeaderOnlyBytes(t *testing.T) {
 		freemap:  map[int]struct{}{},
 	}
 
-	if err := processMap(ctx, out, 50, 50, land, loc, obj, npc); err != nil {
+	if err := processMap(ctx, out, 50, 50, 0, land, loc, obj, npc); err != nil {
 		t.Fatalf("processMap: %v", err)
 	}
 
@@ -240,7 +240,7 @@ func TestProcessMap_WallShapeDecoding(t *testing.T) {
 		freemap:  map[int]struct{}{},
 	}
 
-	if err := processMap(ctx, out, 50, 50, land, locBuf, obj, npc); err != nil {
+	if err := processMap(ctx, out, 50, 50, 0, land, locBuf, obj, npc); err != nil {
 		t.Fatalf("processMap: %v", err)
 	}
 
@@ -308,7 +308,7 @@ func TestProcessMap_ObjPathEmitsPBoolMask(t *testing.T) {
 		freemap:  map[int]struct{}{},
 	}
 
-	if err := processMap(ctx, out, 10, 10, land, locBuf, obj, npc); err != nil {
+	if err := processMap(ctx, out, 10, 10, 0, land, locBuf, obj, npc); err != nil {
 		t.Fatalf("processMap: %v", err)
 	}
 
@@ -373,7 +373,7 @@ func TestProcessMap_NpcPathEmitsPBoolMask(t *testing.T) {
 		freemap:  map[int]struct{}{},
 	}
 
-	if err := processMap(ctx, out, 12, 13, land, locBuf, obj, npc); err != nil {
+	if err := processMap(ctx, out, 12, 13, 0, land, locBuf, obj, npc); err != nil {
 		t.Fatalf("processMap: %v", err)
 	}
 
@@ -436,7 +436,7 @@ func TestProcessMap_MapScene22SkipsLoc(t *testing.T) {
 		freemap:  map[int]struct{}{},
 	}
 
-	if err := processMap(ctx, out, 50, 50, land, locBuf, obj, npc); err != nil {
+	if err := processMap(ctx, out, 50, 50, 0, land, locBuf, obj, npc); err != nil {
 		t.Fatalf("processMap: %v", err)
 	}
 
@@ -456,12 +456,13 @@ func TestProcessMap_MapScene22SkipsLoc(t *testing.T) {
 	}
 }
 
-// TestProcessMap_UndergroundPassExceptionRemoved pins the rev-244 change:
-// the mx==33 && mz>=71..73 level=1 override is gone (TS Worldmap.ts @ 9aadcec4).
-// actualLevel is now always bridged ? 1 : 0. A non-bridged tile at (0,0)
-// reads underlayIds[0][0][0]; placing an underlay opcode at level=1 should
-// NOT influence the output — the value emitted must be 0.
-func TestProcessMap_UndergroundPassExceptionRemoved(t *testing.T) {
+// TestProcessMap_UndergroundPassException254 pins the rev-254 change:
+// the underground-pass override is RE-ADDED in new form (TS Worldmap.ts
+// :109-113 + :185 @ 2e3bcf43; it was absent at 9aadcec4/244). Pack passes
+// level=1 for mx==33 && mz 71..73; a non-bridged tile then reads
+// underlayIds[0+1]: the level-1 underlay placed at (0,0) MUST surface
+// in the output (the 244 contract pinned 0 here).
+func TestProcessMap_UndergroundPassException254(t *testing.T) {
 	t.Parallel()
 	land := packet2.Alloc(1)
 	defer land.Release()
@@ -498,15 +499,15 @@ func TestProcessMap_UndergroundPassExceptionRemoved(t *testing.T) {
 		multimap: map[int]struct{}{},
 		freemap:  map[int]struct{}{},
 	}
-	if err := processMap(ctx, out, 33, 72, land, loc, obj, npc); err != nil {
+	// level=1: what Pack computes for mx=33, mz=72 (Worldmap.ts:109-113).
+	if err := processMap(ctx, out, 33, 72, 1, land, loc, obj, npc); err != nil {
 		t.Fatalf("processMap: %v", err)
 	}
 
-	// Level-1 underlay at (0,0) must NOT bleed into the output since
-	// actualLevel is bridged?1:0 and this tile is not bridged.
-	// underlayIds[0][0][0] == -1 → emits 0.
+	// Non-bridged tile (0,0): actualLevel = (bridged?1:0)+level = 1, so the
+	// level-1 underlay opcode 82 → id 82-81 = 1 must surface in the output.
 	out.underlay.Pos = 2 // skip header
-	if got := out.underlay.G1(); got != 0 {
-		t.Errorf("underlay[0][0] = %d, want 0 (underground-pass exception removed at rev-244)", got)
+	if got := out.underlay.G1(); got != 1 {
+		t.Errorf("underlay[0][0] = %d, want 1 (underground-pass level=1 re-added at 254, Worldmap.ts:185)", got)
 	}
 }

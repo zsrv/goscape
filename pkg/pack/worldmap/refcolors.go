@@ -3,14 +3,16 @@
 // CSV/font/sprite assets.
 package worldmap
 
-// refColors is the 89-entry hardcoded floor-color palette from TS
-// Worldmap.ts:533-623 (lines 534-622 inclusive carry one [edge, fill]
-// pair each; rev-244 / 9aadcec4 added 10 entries: agility …
-// viking_mud_overlay). Each row is [edgeColor, fillColor] as u32.
+// refColors is the 101-entry hardcoded floor-color palette from TS
+// Worldmap.ts:501-603 @ 2e3bcf43 (lines 502-602 inclusive carry one
+// [edge, fill] pair each; rev-244 / 9aadcec4 added 10 entries
+// agility … viking_mud_overlay; rev-254 / 2e3bcf43 added 12 more:
+// viking_cave_overlay … mm_town_overlay). Each row is
+// [edgeColor, fillColor] as u32.
 // Ordering matches FloType id ordering — if Content adds a new
 // flo before this is in sync, the packer will panic on out-of-
 // range access. Update both Content and this table together.
-var refColors = [89][2]uint32{
+var refColors = [101][2]uint32{
 	{0x00000038, 0x009c8f8e}, // cliff
 	{0x00000016, 0x004a4242}, // cliff2
 	{0x00000022, 0x004a4242}, // cliff3
@@ -100,4 +102,16 @@ var refColors = [89][2]uint32{
 	{0x0390601d, 0x00514c6a}, // grey_blue
 	{0x00a04417, 0x00433f30}, // viking_town_overlay
 	{0x0090b814, 0x00625416}, // viking_mud_overlay
+	{0x00903c0d, 0x002a2726}, // viking_cave_overlay
+	{0x00909012, 0x00342616}, // legendssword_cave
+	{0x0090301a, 0x005b5952}, // mountain
+	{0x01906416, 0x003b512e}, // darkgrass
+	{0x00903014, 0x00473e33}, // mountain_dark
+	{0x03108c23, 0x00476980}, // grey_blue_underlay
+	{0x00a0c40f, 0x004c4618}, // autumnal
+	{0x00a04419, 0x004f4639}, // viking_town
+	{0x00a0440d, 0x00392f1f}, // viking_town_dark
+	{0x01c0a018, 0x001e5f1f}, // jungle_green
+	{0x0150dc13, 0x001d390b}, // jungle_dark_green
+	{0x00a0c011, 0x0039300b}, // mm_town_overlay
 }

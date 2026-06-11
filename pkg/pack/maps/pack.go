@@ -14,7 +14,14 @@ import (
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pack"
+	"github.com/zsrv/goscape/pkg/pack/worldmap"
 )
+
+// packWorldmap is the worldmap entrypoint called at the end of Pack
+// (TS Pack.js:383-385 @ 2e3bcf43). Package var so unit tests with
+// synthetic map trees (no flo.dat/sprites/fonts fixtures) can stub it;
+// production always runs worldmap.Pack.
+var packWorldmap = worldmap.Pack
 
 // Pack ports TS map/Pack.js:packMaps at revision 244.
 //
@@ -93,6 +100,12 @@ func Pack(srcDir, outDir string, mapPack *pack.PackFile, cache *filestream.FileS
 		}
 	}
 
+	// 254: packMaps owns the worldmap rebuild (TS Pack.js:189 @ 2e3bcf43:
+	// rebuildWorldmap = !fs.existsSync('data/pack/mapview/worldmap.jag');
+	// :222 sets it on any map rebuild; :383-385 packs it after the loop).
+	// At 244/245.2 the worldmap was a standalone tool outside packAll.
+	rebuildWorldmap := !pack.FileExists(filepath.Join(outDir, "mapview", "worldmap.jag"))
+
 	files := pack.ListFilesExt(mapsSrc, ".jm2")
 	for _, file := range files {
 		base := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
@@ -116,9 +129,16 @@ func Pack(srcDir, outDir string, mapPack *pack.PackFile, cache *filestream.FileS
 		needNpc := pack.ShouldBuildFile(file, serverNpc)
 		needObj := pack.ShouldBuildFile(file, serverObj)
 
-		if !needLand && !needLoc && !needNpc && !needObj && cache == nil {
-			// All outputs are fresh and no cache writes needed.
-			continue
+		if !needLand && !needLoc && !needNpc && !needObj {
+			if cache == nil {
+				// All outputs are fresh and no cache writes needed.
+				continue
+			}
+		} else {
+			// Any rebuilt artifact marks the worldmap stale (TS Pack.js:222
+			// @ 2e3bcf43 sets rebuildWorldmap inside the needsRebuild branch;
+			// goscape's per-artifact freshness maps to "any need* fired").
+			rebuildWorldmap = true
 		}
 
 		// Parse source file (shared across all four output artifacts).
@@ -176,6 +196,13 @@ func Pack(srcDir, outDir string, mapPack *pack.PackFile, cache *filestream.FileS
 				}
 				cache.Write(4, lID, lBytes, 1)
 			}
+		}
+	}
+
+	// TS Pack.js:383-385 @ 2e3bcf43: if (rebuildWorldmap) await packWorldmap().
+	if rebuildWorldmap {
+		if err := packWorldmap(srcDir, outDir); err != nil {
+			return fmt.Errorf("maps.Pack: worldmap: %w", err)
 		}
 	}
 	return nil

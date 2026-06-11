@@ -26,13 +26,21 @@ import (
 // 244 delta (TS Worldmap.ts @ 9aadcec4):
 //   - packWater helper + its 16 call sites commented out upstream →
 //     deleted here (no dead code).
-//   - Underground-pass level exception removed; actualLevel is
-//     now always bridged ? 1 : 0.
 //   - 10 new floorcol refColor entries (agility … viking_mud_overlay).
-//   - f11-f30 font members removed from the jag.
-//   - Jag member write order changed to interleaved (see below).
 //   - CSV + labels reads use the \r-strip idiom (.replace(/\r/g,'')
 //     before .split('\n')).
+//
+// 254 delta (TS Worldmap.ts @ 2e3bcf43):
+//   - Underground-pass level exception RE-ADDED in new form:
+//     mx==33 && mz 71..73 → level=1; overlay/underlay actualLevel =
+//     (bridged?1:0)+level; loc/obj/npc emit from [level]
+//     (Worldmap.ts:109-113, 185, 332-342, 384, 428).
+//   - 12 new floorcol refColor entries (viking_cave_overlay …
+//     mm_town_overlay), 89 → 101 (Worldmap.ts:501-603).
+//   - f11-f30 font members RE-ADDED (Packet.load fonts/fNN.fm,
+//     Worldmap.ts:618-625).
+//   - Jag member writes batched at the end in fixed order
+//     (Worldmap.ts:648-669), replacing the 244 interleaved order.
 //
 // Tag NAI-WORLDMAP-D-READDIR-SORTED: os.ReadDir returns lexically
 // sorted entries; TS fs.readdirSync is filesystem-order. The per-
@@ -135,6 +143,12 @@ func Pack(srcDir, outDir string) error {
 		if _, skip := ignoremap[coordgrid.PackCoord(0, mx<<6, mz<<6)]; skip {
 			continue
 		}
+		// TS Worldmap.ts:109-113 @ 2e3bcf43: underground-pass exception
+		// (re-added at 254; it was absent at 9aadcec4).
+		level := 0
+		if mx == 33 && mz >= 71 && mz <= 73 {
+			level = 1
+		}
 		if err := func() error {
 			land, err := packet2.Load(filepath.Join(mapsDir, name), false)
 			if err != nil {
@@ -156,7 +170,7 @@ func Pack(srcDir, outDir string) error {
 				return fmt.Errorf("load n%d_%d: %w", mx, mz, err)
 			}
 			defer npc.Release()
-			if err := processMap(ctx, out, mx, mz, land, loc, obj, npc); err != nil {
+			if err := processMap(ctx, out, mx, mz, level, land, loc, obj, npc); err != nil {
 				return fmt.Errorf("processMap %d,%d: %w", mx, mz, err)
 			}
 			return nil
@@ -170,7 +184,7 @@ func Pack(srcDir, outDir string) error {
 
 	// floorcol
 	if len(flo.Configs) > len(refColors) {
-		return fmt.Errorf("floorcol: flo.Configs has %d entries but refColors only covers %d; update refcolors.go to add the new rows in TS Worldmap.ts:534-622 order", len(flo.Configs), len(refColors))
+		return fmt.Errorf("floorcol: flo.Configs has %d entries but refColors only covers %d; update refcolors.go to add the new rows in TS Worldmap.ts:501-603 order", len(flo.Configs), len(refColors))
 	}
 	floorcol := packet2.Alloc(1)
 	defer floorcol.Release()
@@ -180,11 +194,10 @@ func Pack(srcDir, outDir string) error {
 		floorcol.P4(refColors[i][1])
 	}
 
-	// Sprites.
-	// Note: f11-f30 font members removed from jag at rev-244 (TS 9aadcec4).
+	// Sprites + fonts (f11-f30 re-added at 254, TS Worldmap.ts:618-625).
 	spriteDir := filepath.Join(srcDir, "sprites")
 	fontDir := filepath.Join(srcDir, "fonts")
-	index := packet2.Alloc(1)
+	index := packet2.Alloc(2)
 	defer index.Release()
 
 	convert := func(dir, name string) (*packet2.Packet, error) {
@@ -216,6 +229,19 @@ func Pack(srcDir, outDir string) error {
 	}
 	defer mapdots.Release()
 
+	// Fonts: raw .fm bytes (TS Packet.load(`fonts/fNN.fm`, true) — the
+	// seekToEnd flag only matters for TS's data[0..pos] write slice;
+	// goscape's jag.Write uses the full Data, Worldmap.ts:618-625).
+	fontNames := []string{"f11", "f12", "f14", "f17", "f19", "f22", "f26", "f30"}
+	fonts := make(map[string]*packet2.Packet, len(fontNames))
+	for _, fn := range fontNames {
+		raw, err := os.ReadFile(filepath.Join(fontDir, fn+".fm"))
+		if err != nil {
+			return fmt.Errorf("read font %s.fm: %w", fn, err)
+		}
+		fonts[fn] = packet2.NewPacket(raw)
+	}
+
 	// labels
 	// TS 244 Worldmap.ts: .replace(/\r/g, '').split('\n') — strip ALL \r.
 	labelsRaw, err := os.ReadFile(filepath.Join(srcDir, "maps", "labels.txt"))
@@ -233,13 +259,13 @@ func Pack(srcDir, outDir string) error {
 		labelsPkt.P1(uint8(lab.Type))
 	}
 
-	// Assemble jagfile: interleaved write order per TS Worldmap.ts:506-685
-	// (rev-244 / 9aadcec4). Each jag.write call is emitted inline after its
-	// packet is constructed; f11-f30 entries are gone.
+	// Assemble jagfile: batched write order per TS Worldmap.ts:648-669
+	// @ 2e3bcf43 (replaces the 244 interleaved order; f11-f30 re-added).
 	//
 	// Order: underlay → overlay → loc → obj → npc → multi → free →
-	//        floorcol → mapscene → mapfunction → b12 → mapdots →
-	//        index → labels
+	//        floorcol → mapscene → mapfunction → b12 → f11 → f12 →
+	//        f14 → f17 → f19 → f22 → f26 → f30 → mapdots → index →
+	//        labels
 	jag := jagfile.NewEmptyJagfile(false)
 	jag.Write("underlay.dat", out.underlay)
 	jag.Write("overlay.dat", out.overlay)
@@ -252,6 +278,9 @@ func Pack(srcDir, outDir string) error {
 	jag.Write("mapscene.dat", mapscene)
 	jag.Write("mapfunction.dat", mapfunction)
 	jag.Write("b12.dat", b12)
+	for _, fn := range fontNames {
+		jag.Write(fn+".dat", fonts[fn])
+	}
 	jag.Write("mapdots.dat", mapdots)
 	jag.Write("index.dat", index)
 	jag.Write("labels.dat", labelsPkt)
@@ -326,7 +355,12 @@ type mapCtx struct {
 
 // processMap appends one (mx, mz) mapsquare's worth of bytes to
 // the seven output packets. Mirrors the body of the TS for-loop at
-// Worldmap.ts:114-510.
+// Worldmap.ts:99-496 @ 2e3bcf43.
+//
+// level is the underground-pass exception offset (0, or 1 for
+// mx==33 && mz 71..73 — Worldmap.ts:109-113): overlay/underlay read
+// actualLevel = (bridged?1:0)+level, and the loc/obj/npc emit loops
+// read plane [level]. multi/free still emit plane [0] (TS:460,492).
 //
 // land/loc/obj/npc are the binary mapsquare files. obj and npc may
 // be empty (Length()==0); in that case no bytes are emitted for
@@ -343,11 +377,7 @@ type mapCtx struct {
 // Packet.Unused() returns cap(Data)-Pos which is unsafe for files
 // loaded via os.ReadFile (cap can exceed len by 1, producing a
 // one-byte off-by-one).
-func processMap(ctx mapCtx, out *mapPackets, mx, mz int, land, loc, obj, npc *packet2.Packet) error {
-	// Underground-pass level exception removed at rev-244 (TS 9aadcec4):
-	// the mx==33 && mz>=71..73 level=1 override is gone; actualLevel is
-	// now always bridged ? 1 : 0.
-
+func processMap(ctx mapCtx, out *mapPackets, mx, mz, level int, land, loc, obj, npc *packet2.Packet) error {
 	// --- land file decode ---
 	var (
 		flags        [4][64][64]int
@@ -399,9 +429,10 @@ func processMap(ctx mapCtx, out *mapPackets, mx, mz int, land, loc, obj, npc *pa
 	for x := range 64 {
 		for z := range 64 {
 			bridged := (flags[1][x][z] & 0x2) == 2
-			actualLevel := 0
+			// TS Worldmap.ts:185 @ 2e3bcf43: (bridged ? 1 : 0) + level.
+			actualLevel := level
 			if bridged {
-				actualLevel = 1
+				actualLevel++
 			}
 			if actualLevel < 0 || actualLevel > 3 {
 				out.overlay.P1(0)
@@ -521,14 +552,15 @@ func processMap(ctx mapCtx, out *mapPackets, mx, mz int, land, loc, obj, npc *pa
 	out.loc.P1(uint8(mz))
 	for x := range 64 {
 		for z := range 64 {
-			if walls[0][x][z] != -1 {
-				out.loc.P1(uint8(walls[0][x][z]))
+			// TS Worldmap.ts:332-342 @ 2e3bcf43: plane [level].
+			if walls[level][x][z] != -1 {
+				out.loc.P1(uint8(walls[level][x][z]))
 			}
-			if mapscenes[0][x][z] != -1 {
-				out.loc.P1(uint8(29 + mapscenes[0][x][z]))
+			if mapscenes[level][x][z] != -1 {
+				out.loc.P1(uint8(29 + mapscenes[level][x][z]))
 			}
-			if mapfunctions[0][x][z] != -1 {
-				out.loc.P1(uint8(160 + mapfunctions[0][x][z]))
+			if mapfunctions[level][x][z] != -1 {
+				out.loc.P1(uint8(160 + mapfunctions[level][x][z]))
 			}
 			out.loc.P1(0)
 		}
@@ -560,7 +592,8 @@ func processMap(ctx mapCtx, out *mapPackets, mx, mz int, land, loc, obj, npc *pa
 		out.obj.P1(uint8(mz))
 		for x := range 64 {
 			for z := range 64 {
-				out.obj.PBool(objs[0][x][z] != -1)
+				// TS Worldmap.ts:384 @ 2e3bcf43: plane [level].
+				out.obj.PBool(objs[level][x][z] != -1)
 			}
 		}
 	}
@@ -592,7 +625,8 @@ func processMap(ctx mapCtx, out *mapPackets, mx, mz int, land, loc, obj, npc *pa
 		out.npc.P1(uint8(mz))
 		for x := range 64 {
 			for z := range 64 {
-				out.npc.PBool(npcs[0][x][z] != -1)
+				// TS Worldmap.ts:428 @ 2e3bcf43: plane [level].
+				out.npc.PBool(npcs[level][x][z] != -1)
 			}
 		}
 	}
