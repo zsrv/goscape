@@ -22,39 +22,62 @@ type handler struct {
 	log       *slog.Logger
 }
 
-// ensureWorld lazy-inits the world's player slot for the given profile if
-// not already known. TS-faithful behavior: FriendServer.ts:108-115 (and
-// similar branches) lazily call initializeWorld on the first non-WorldConnect
-// message from a new world. Kept permanently.
-//
-// NAI-S1-D-LAZY-WORLDINIT — for reviewer traceability; not retired.
-func (h *handler) ensureWorld(profile string, worldId int32) {
-	h.repos.get(profile).initializeWorldIfAbsent(worldId, h.cfg.WorldPlayerLimit)
+// profile returns the single profile this server serves. 254 pin
+// (TS FriendServer @2e3bcf43): the friend server is single-profile —
+// `private profile: string = Environment.NODE_PROFILE;` with one
+// `repository` — so every routing decision uses the configured profile,
+// never a request field (TS messages other than WORLD_CONNECT no longer
+// carry a profile at the pin).
+func (h *handler) profile() string {
+	return h.cfg.Profile
 }
 
-// WorldConnect initializes the world's slot for the given profile.
-// Mirrors TS FriendServer WORLD_CONNECT (FriendServer.ts:92-103).
-// Re-init by the same world resets that world's player counter to 0.
+// repo returns the single profile's repository (TS `this.repository`).
+func (h *handler) repo() *Repository {
+	return h.repos.get(h.profile())
+}
+
+// ensureWorld lazy-inits the world's player slot if not already known.
+// TS-faithful behavior: FriendServer.ts lazily calls initializeWorld on
+// the first non-WorldConnect message from a new world. Kept permanently.
 //
-// Note: TS 244 REMOVED the profile-mismatch reject that existed at 225
-// (verified at FriendServer.ts:92-103 in commit 9aadcec4 — the block
-// simply sets world/profile and calls initializeWorld with no comparison
-// against a server-side configured profile). The server accepts any
-// profile string and routes it into the corresponding per-profile
-// repository.
+// NAI-S1-D-LAZY-WORLDINIT — for reviewer traceability; not retired.
+func (h *handler) ensureWorld(worldId int32) {
+	h.repo().initializeWorldIfAbsent(worldId, h.cfg.WorldPlayerLimit)
+}
+
+// WorldConnect initializes the world's slot. Mirrors TS FriendServer
+// WORLD_CONNECT at 2e3bcf43 (FriendServer.ts:99-112). Re-init by the same
+// world resets that world's player counter to 0.
 //
-// L45: TS WORLD_CONNECT also calls initializeWorld(profile, world, socket),
-// which terminates any prior socket for that (profile, world) pair
-// (FriendServer.ts:432-440, `socketByWorld[profile][world].terminate()`).
-// goscape splits TS's single per-world WebSocket into two pieces — this
-// one-shot WorldConnect init RPC and the persistent SubscribeWorldEvents
-// push stream — so there is no socket to terminate HERE. The terminate-prior
-// semantics are preserved in the equivalent layer:
-// worldSubscriptions.register (world_subscriptions.go) closes the prior
-// subscriber's done channel on re-subscribe per (profile, worldId).
-// See NAI-S4A-D-PERPLAYER-NOT-PERWORLD-STREAM.
+// 254 pin: the profile-mismatch reject is BACK (244 had removed it) —
+// TS closes the socket and logs:
+//
+//	if (profile === undefined || profile !== this.profile) {
+//	    socket.close();
+//	    console.error(`[Friends]: World ${world} tried to connect with incorrect profile: ${profile}`);
+//	    return;
+//	}
+//
+// goscape maps socket.close() to a FailedPrecondition gRPC error.
+//
+// L45: TS WORLD_CONNECT also calls initializeWorld(world, socket),
+// which terminates any prior socket for that world
+// (`socketByWorld[world].terminate()`). goscape splits TS's single
+// per-world WebSocket into two pieces — this one-shot WorldConnect init
+// RPC and the persistent SubscribeWorldEvents push stream — so there is
+// no socket to terminate HERE. The terminate-prior semantics are
+// preserved in the equivalent layer: worldSubscriptions.register
+// (world_subscriptions.go) closes the prior subscriber's done channel on
+// re-subscribe. See NAI-S4A-D-PERPLAYER-NOT-PERWORLD-STREAM.
 func (h *handler) WorldConnect(_ context.Context, req *friendspb.WorldConnectRequest) (*emptypb.Empty, error) {
-	h.repos.get(req.Profile).InitializeWorld(req.WorldId, h.cfg.WorldPlayerLimit)
+	if req.Profile != h.profile() {
+		h.log.Error("world tried to connect with incorrect profile",
+			slog.Int("world", int(req.WorldId)), slog.String("profile", req.Profile))
+		return nil, status.Errorf(codes.FailedPrecondition,
+			"world %d tried to connect with incorrect profile: %s", req.WorldId, req.Profile)
+	}
+	h.repo().InitializeWorld(req.WorldId, h.cfg.WorldPlayerLimit)
 	return &emptypb.Empty{}, nil
 }
 
@@ -72,8 +95,8 @@ func coercePrivateChat(v int32) int32 {
 // reached. The world acts on the rejection in modules/world/tick.go's
 // processLogins callback (slice 4c).
 func (h *handler) PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginRequest) (*friendspb.PlayerLoginResponse, error) {
-	repo := h.repos.get(req.Profile)
-	h.ensureWorld(req.Profile, req.WorldId)
+	repo := h.repo()
+	h.ensureWorld(req.WorldId)
 	pc := coercePrivateChat(req.PrivateChat)
 	// TS-faithful: PLAYER_LOGIN unregisters first to dedupe across worlds.
 	repo.Unregister(req.Username37)
@@ -86,7 +109,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginReq
 		// No broadcast on rejection — player isn't on any world.
 		return &friendspb.PlayerLoginResponse{Accepted: false}, nil
 	}
-	h.broadcastWorldToFollowers(ctx, req.Profile, req.Username37)
+	h.broadcastWorldToFollowers(ctx, h.profile(), req.Username37)
 	return &friendspb.PlayerLoginResponse{Accepted: true}, nil
 }
 
@@ -94,10 +117,10 @@ func (h *handler) PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginReq
 // Idempotent on unknown players. Broadcasts the (now-offline) world to
 // followers after Unregister.
 func (h *handler) PlayerLogout(ctx context.Context, req *friendspb.PlayerLogoutRequest) (*emptypb.Empty, error) {
-	repo := h.repos.get(req.Profile)
-	h.ensureWorld(req.Profile, req.WorldId)
+	repo := h.repo()
+	h.ensureWorld(req.WorldId)
 	repo.Unregister(req.Username37)
-	h.broadcastWorldToFollowers(ctx, req.Profile, req.Username37)
+	h.broadcastWorldToFollowers(ctx, h.profile(), req.Username37)
 	return &emptypb.Empty{}, nil
 }
 
@@ -106,10 +129,10 @@ func (h *handler) PlayerLogout(ctx context.Context, req *friendspb.PlayerLogoutR
 // unknown player (state lives at the player record, which doesn't exist
 // pre-login).
 func (h *handler) ChatSetMode(ctx context.Context, req *friendspb.ChatSetModeRequest) (*emptypb.Empty, error) {
-	repo := h.repos.get(req.Profile)
-	h.ensureWorld(req.Profile, req.WorldId)
+	repo := h.repo()
+	h.ensureWorld(req.WorldId)
 	repo.SetChatMode(req.Username37, coercePrivateChat(req.PrivateChat))
-	h.broadcastWorldToFollowers(ctx, req.Profile, req.Username37)
+	h.broadcastWorldToFollowers(ctx, h.profile(), req.Username37)
 	return &emptypb.Empty{}, nil
 }
 
@@ -118,49 +141,49 @@ func (h *handler) ChatSetMode(ctx context.Context, req *friendspb.ChatSetModeReq
 // sendPlayerWorldUpdate at FriendServer.ts:200) and then broadcasts the
 // adder's world to all followers (TS FriendServer.ts:204).
 func (h *handler) FriendlistAdd(ctx context.Context, req *friendspb.FriendlistAddRequest) (*emptypb.Empty, error) {
-	repo := h.repos.get(req.Profile)
-	h.ensureWorld(req.Profile, req.WorldId)
+	repo := h.repo()
+	h.ensureWorld(req.WorldId)
 	if err := repo.AddFriend(ctx, req.Username37, req.TargetUsername37); err != nil {
 		return nil, status.Errorf(codes.Internal, "AddFriend: %v", err)
 	}
-	h.sendPlayerWorldUpdate(ctx, req.Profile, req.Username37, req.TargetUsername37)
-	h.broadcastWorldToFollowers(ctx, req.Profile, req.Username37)
+	h.sendPlayerWorldUpdate(ctx, h.profile(), req.Username37, req.TargetUsername37)
+	h.broadcastWorldToFollowers(ctx, h.profile(), req.Username37)
 	return &emptypb.Empty{}, nil
 }
 
 // FriendlistDel removes target from the player's friend set (idempotent).
 // Broadcasts the remover's world to followers (TS FriendServer.ts:221).
 func (h *handler) FriendlistDel(ctx context.Context, req *friendspb.FriendlistDelRequest) (*emptypb.Empty, error) {
-	repo := h.repos.get(req.Profile)
-	h.ensureWorld(req.Profile, req.WorldId)
+	repo := h.repo()
+	h.ensureWorld(req.WorldId)
 	if err := repo.DeleteFriend(ctx, req.Username37, req.TargetUsername37); err != nil {
 		return nil, status.Errorf(codes.Internal, "DeleteFriend: %v", err)
 	}
-	h.broadcastWorldToFollowers(ctx, req.Profile, req.Username37)
+	h.broadcastWorldToFollowers(ctx, h.profile(), req.Username37)
 	return &emptypb.Empty{}, nil
 }
 
 // IgnorelistAdd appends target to the player's ignore set (idempotent).
 // Broadcasts the adder's world to followers (TS FriendServer.ts:238).
 func (h *handler) IgnorelistAdd(ctx context.Context, req *friendspb.IgnorelistAddRequest) (*emptypb.Empty, error) {
-	repo := h.repos.get(req.Profile)
-	h.ensureWorld(req.Profile, req.WorldId)
+	repo := h.repo()
+	h.ensureWorld(req.WorldId)
 	if err := repo.AddIgnore(ctx, req.Username37, req.TargetUsername37); err != nil {
 		return nil, status.Errorf(codes.Internal, "AddIgnore: %v", err)
 	}
-	h.broadcastWorldToFollowers(ctx, req.Profile, req.Username37)
+	h.broadcastWorldToFollowers(ctx, h.profile(), req.Username37)
 	return &emptypb.Empty{}, nil
 }
 
 // IgnorelistDel removes target from the player's ignore set (idempotent).
 // Broadcasts the remover's world to followers (TS FriendServer.ts:255).
 func (h *handler) IgnorelistDel(ctx context.Context, req *friendspb.IgnorelistDelRequest) (*emptypb.Empty, error) {
-	repo := h.repos.get(req.Profile)
-	h.ensureWorld(req.Profile, req.WorldId)
+	repo := h.repo()
+	h.ensureWorld(req.WorldId)
 	if err := repo.DeleteIgnore(ctx, req.Username37, req.TargetUsername37); err != nil {
 		return nil, status.Errorf(codes.Internal, "DeleteIgnore: %v", err)
 	}
-	h.broadcastWorldToFollowers(ctx, req.Profile, req.Username37)
+	h.broadcastWorldToFollowers(ctx, h.profile(), req.Username37)
 	return &emptypb.Empty{}, nil
 }
 
@@ -195,12 +218,12 @@ func (h *handler) IgnorelistDel(ctx context.Context, req *friendspb.IgnorelistDe
 // federation trade-off documented in db.go for friendlist / ignorelist /
 // public_chat rows.
 func (h *handler) PrivateMessage(ctx context.Context, req *friendspb.PrivateMessageRequest) (*emptypb.Empty, error) {
-	repo := h.repos.get(req.Profile)
-	h.ensureWorld(req.Profile, req.WorldId)
+	repo := h.repo()
+	h.ensureWorld(req.WorldId)
 	if err := repo.LogPrivateMessage(ctx, req.Username37, req.TargetUsername37, req.Coord, req.Chat); err != nil {
 		return nil, status.Errorf(codes.Internal, "LogPrivateMessage: %v", err)
 	}
-	h.subs.send(req.Profile, req.TargetUsername37, &friendspb.FriendsUpdate{
+	h.subs.send(h.profile(), req.TargetUsername37, &friendspb.FriendsUpdate{
 		Update: &friendspb.FriendsUpdate_PrivateMessage{
 			PrivateMessage: &friendspb.PrivateMessageDelivery{
 				FromUsername37: req.Username37,
@@ -226,9 +249,9 @@ func (h *handler) PrivateMessage(ctx context.Context, req *friendspb.PrivateMess
 // choice; TS keeps one socket per (profile, world), goscape one stream
 // per (profile, world, player). Permanent.
 func (h *handler) SubscribeUpdates(req *friendspb.SubscribeUpdatesRequest, stream friendspb.FriendsService_SubscribeUpdatesServer) error {
-	h.ensureWorld(req.Profile, req.WorldId)
+	h.ensureWorld(req.WorldId)
 
-	sub := newSubscriber(req.Profile, req.WorldId, req.Username37)
+	sub := newSubscriber(h.profile(), req.WorldId, req.Username37)
 	h.subs.register(sub)
 	defer h.subs.deregister(sub)
 
@@ -237,10 +260,10 @@ func (h *handler) SubscribeUpdates(req *friendspb.SubscribeUpdatesRequest, strea
 	// Initial snapshots (TS FriendServer sendFriendsListToPlayer +
 	// sendIgnoreListToPlayer, FriendServer.ts:138-139, but on subscribe
 	// instead of login).
-	if err := h.sendInitialFriendlist(ctx, req.Profile, stream, req.Username37); err != nil {
+	if err := h.sendInitialFriendlist(ctx, h.profile(), stream, req.Username37); err != nil {
 		return err
 	}
-	if err := h.sendInitialIgnorelist(ctx, req.Profile, stream, req.Username37); err != nil {
+	if err := h.sendInitialIgnorelist(ctx, h.profile(), stream, req.Username37); err != nil {
 		return err
 	}
 
@@ -411,7 +434,7 @@ func (h *handler) sendPlayerWorldUpdate(ctx context.Context, profile string, vie
 //   each opcode's world-state action is wired.
 
 func (h *handler) RelayMute(_ context.Context, req *friendspb.RelayMuteRequest) (*emptypb.Empty, error) {
-	h.worldSubs.send(req.Profile, req.TargetWorldId, &friendspb.WorldEvent{
+	h.worldSubs.send(h.profile(), req.TargetWorldId, &friendspb.WorldEvent{
 		Event: &friendspb.WorldEvent_Mute{Mute: &friendspb.MuteEvent{
 			Username37:   req.Username37,
 			MutedUntilMs: req.MutedUntilMs,
@@ -421,56 +444,56 @@ func (h *handler) RelayMute(_ context.Context, req *friendspb.RelayMuteRequest) 
 }
 
 func (h *handler) RelayKick(_ context.Context, req *friendspb.RelayKickRequest) (*emptypb.Empty, error) {
-	h.worldSubs.send(req.Profile, req.TargetWorldId, &friendspb.WorldEvent{
+	h.worldSubs.send(h.profile(), req.TargetWorldId, &friendspb.WorldEvent{
 		Event: &friendspb.WorldEvent_Kick{Kick: &friendspb.KickEvent{Username37: req.Username37}},
 	})
 	return &emptypb.Empty{}, nil
 }
 
 func (h *handler) RelayShutdown(_ context.Context, req *friendspb.RelayShutdownRequest) (*emptypb.Empty, error) {
-	h.worldSubs.send(req.Profile, req.TargetWorldId, &friendspb.WorldEvent{
+	h.worldSubs.send(h.profile(), req.TargetWorldId, &friendspb.WorldEvent{
 		Event: &friendspb.WorldEvent_Shutdown{Shutdown: &friendspb.ShutdownEvent{DurationTicks: req.DurationTicks}},
 	})
 	return &emptypb.Empty{}, nil
 }
 
 func (h *handler) RelayBroadcast(_ context.Context, req *friendspb.RelayBroadcastRequest) (*emptypb.Empty, error) {
-	h.worldSubs.send(req.Profile, req.TargetWorldId, &friendspb.WorldEvent{
+	h.worldSubs.send(h.profile(), req.TargetWorldId, &friendspb.WorldEvent{
 		Event: &friendspb.WorldEvent_Broadcast{Broadcast: &friendspb.BroadcastEvent{Message: req.Message}},
 	})
 	return &emptypb.Empty{}, nil
 }
 
 func (h *handler) RelayTrack(_ context.Context, req *friendspb.RelayTrackRequest) (*emptypb.Empty, error) {
-	h.worldSubs.send(req.Profile, req.TargetWorldId, &friendspb.WorldEvent{
+	h.worldSubs.send(h.profile(), req.TargetWorldId, &friendspb.WorldEvent{
 		Event: &friendspb.WorldEvent_Track{Track: &friendspb.TrackEvent{Username37: req.Username37, State: req.State}},
 	})
 	return &emptypb.Empty{}, nil
 }
 
 func (h *handler) RelayReload(_ context.Context, req *friendspb.RelayReloadRequest) (*emptypb.Empty, error) {
-	h.worldSubs.send(req.Profile, req.TargetWorldId, &friendspb.WorldEvent{
+	h.worldSubs.send(h.profile(), req.TargetWorldId, &friendspb.WorldEvent{
 		Event: &friendspb.WorldEvent_Reload{Reload: &friendspb.ReloadEvent{}},
 	})
 	return &emptypb.Empty{}, nil
 }
 
 func (h *handler) RelayClearLogins(_ context.Context, req *friendspb.RelayClearLoginsRequest) (*emptypb.Empty, error) {
-	h.worldSubs.send(req.Profile, req.TargetWorldId, &friendspb.WorldEvent{
+	h.worldSubs.send(h.profile(), req.TargetWorldId, &friendspb.WorldEvent{
 		Event: &friendspb.WorldEvent_ClearLogins{ClearLogins: &friendspb.ClearLoginsEvent{}},
 	})
 	return &emptypb.Empty{}, nil
 }
 
 func (h *handler) RelayClearLogouts(_ context.Context, req *friendspb.RelayClearLogoutsRequest) (*emptypb.Empty, error) {
-	h.worldSubs.send(req.Profile, req.TargetWorldId, &friendspb.WorldEvent{
+	h.worldSubs.send(h.profile(), req.TargetWorldId, &friendspb.WorldEvent{
 		Event: &friendspb.WorldEvent_ClearLogouts{ClearLogouts: &friendspb.ClearLogoutsEvent{}},
 	})
 	return &emptypb.Empty{}, nil
 }
 
 func (h *handler) RelayQueueScript(_ context.Context, req *friendspb.RelayQueueScriptRequest) (*emptypb.Empty, error) {
-	h.worldSubs.send(req.Profile, req.TargetWorldId, &friendspb.WorldEvent{
+	h.worldSubs.send(h.profile(), req.TargetWorldId, &friendspb.WorldEvent{
 		Event: &friendspb.WorldEvent_QueueScript{QueueScript: &friendspb.QueueScriptEvent{
 			ScriptName: req.ScriptName,
 			Username37: req.Username37,
@@ -492,7 +515,7 @@ func (h *handler) RelayQueueScript(_ context.Context, req *friendspb.RelayQueueS
 //
 // Retires NAI-S6-D-PUBLIC-CHAT-DEFERRED.
 func (h *handler) PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest) (*emptypb.Empty, error) {
-	repo := h.repos.get(req.Profile)
+	repo := h.repo()
 	if err := repo.LogPublicMessage(ctx, req.WorldId, req.SessionUuid, req.Coord, req.Chat); err != nil {
 		return nil, status.Errorf(codes.Internal, "LogPublicMessage: %v", err)
 	}
@@ -507,7 +530,7 @@ func (h *handler) PublicMessage(ctx context.Context, req *friendspb.PublicMessag
 //
 // Replaces the slice-1 codes.Unimplemented stub.
 func (h *handler) SubscribeWorldEvents(req *friendspb.SubscribeWorldEventsRequest, stream friendspb.FriendsService_SubscribeWorldEventsServer) error {
-	sub := newWorldSubscriber(req.Profile, req.WorldId)
+	sub := newWorldSubscriber(h.profile(), req.WorldId)
 	h.worldSubs.register(sub)
 	defer h.worldSubs.deregister(sub)
 

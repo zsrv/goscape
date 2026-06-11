@@ -28,6 +28,7 @@ func newTestHandler(t *testing.T) *handler {
 		subs:  newSubscriptions(log),
 		cfg: Config{
 			WorldPlayerLimit: 10,
+			Profile:          "main",
 		},
 		log: log,
 	}
@@ -47,19 +48,27 @@ func TestHandler_WorldConnect_OK(t *testing.T) {
 	}
 }
 
-// TestHandler_WorldConnect_AnyProfileAccepted verifies that TS 244 removed
-// the server-side profile-mismatch reject: any profile string is accepted.
-// The 225 server gated WorldConnect on a configured NodeProfile; TS 244
-// removed that field and the server accepts any profile string (verified at
-// FriendServer.ts:92-103, pin 9aadcec4).
-func TestHandler_WorldConnect_AnyProfileAccepted(t *testing.T) {
+// TestHandler_WorldConnect_ProfileGate RE-PINNED at 2e3bcf43: the
+// single-profile server rejects any WORLD_CONNECT whose profile differs
+// from the configured one (TS FriendServer.ts:104-108 socket.close()
+// + console.error; goscape → FailedPrecondition). Only the configured
+// profile ("main" in the fixture) is accepted. (244 accepted any
+// profile string into per-profile repositories — that posture is gone.)
+func TestHandler_WorldConnect_ProfileGate(t *testing.T) {
 	h := newTestHandler(t)
-	for _, profile := range []string{"main", "beta", "dev", ""} {
-		if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{
+	if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{
+		WorldId: 1,
+		Profile: "main",
+	}); err != nil {
+		t.Errorf("WorldConnect profile \"main\": got error %v, want nil", err)
+	}
+	for _, profile := range []string{"beta", "dev", ""} {
+		_, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{
 			WorldId: 1,
 			Profile: profile,
-		}); err != nil {
-			t.Errorf("WorldConnect profile %q: got error %v, want nil", profile, err)
+		})
+		if status.Code(err) != codes.FailedPrecondition {
+			t.Errorf("WorldConnect profile %q: got %v, want FailedPrecondition (single-profile gate @2e3bcf43)", profile, err)
 		}
 	}
 }
@@ -347,7 +356,7 @@ func TestSubscribeUpdates_InitialSnapshots(t *testing.T) {
 	repos := newRepositories(db)
 	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100}
+	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.Register(1, 100, 0, 0)
@@ -394,7 +403,7 @@ func TestPlayerLogin_BroadcastsToFollowers(t *testing.T) {
 	repos := newRepositories(db)
 	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100}
+	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	// Follower 100 friended target 200.
@@ -449,7 +458,7 @@ func TestBroadcast_ChatModeOffHidesWorld(t *testing.T) {
 	repos := newRepositories(db)
 	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100}
+	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
@@ -492,7 +501,7 @@ func TestPlayerLogout_BroadcastsZeroWorld(t *testing.T) {
 	repos := newRepositories(db)
 	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100}
+	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
@@ -533,7 +542,7 @@ func TestFriendlistAdd_AdderGetsTargetWorldAndFollowersBroadcast(t *testing.T) {
 	repos := newRepositories(db)
 	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100}
+	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	// Pre-existing: adder 100 has a follower 50 who already friended 100.
@@ -602,7 +611,7 @@ func TestPrivateMessage_DeliveredToRecipient(t *testing.T) {
 	repos := newRepositories(db)
 	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100}
+	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.Register(1, 200, 0, 0) // recipient online so the subscription can attach
@@ -663,7 +672,7 @@ func TestPrivateMessage_CrossWorld(t *testing.T) {
 	repos := newRepositories(db)
 	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100}
+	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.InitializeWorld(20, 100)
@@ -717,7 +726,7 @@ func TestHandler_PrivateMessage_PersistsBeforeSending(t *testing.T) {
 	repos := newRepositories(db)
 	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100}
+	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.Register(1, 200, 0, 0) // recipient online
@@ -782,7 +791,7 @@ func TestHandler_PrivateMessage_InsertErrorBlocksSend(t *testing.T) {
 	repos := newRepositories(db)
 	r := repos.get("main")
 	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100}
+	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.Register(1, 200, 0, 0)
@@ -1061,7 +1070,7 @@ func newTestHandlerWithWorldSubs(t *testing.T) (*handler, *subscriptions, *world
 		repos:     repos,
 		subs:      subs,
 		worldSubs: worldSubs,
-		cfg:       Config{WorldPlayerLimit: 2000},
+		cfg:       Config{WorldPlayerLimit: 2000, Profile: "main"},
 		log:       log,
 	}
 	return h, subs, worldSubs
@@ -1119,39 +1128,38 @@ func waitFor(t *testing.T, cond func() bool) {
 	t.Fatal("waitFor: condition not met within 2s")
 }
 
-// TestMultiProfile_WorldIsolation pins the 244 multi-profile server
-// (FriendServer.ts:61-75 repositories[profile] +
-// socketByWorld[profile][world]): the same world id under two profiles
-// is two independent registries — registration, presence, and the
-// player cap are all profile-scoped, and the WorldConnect
-// profile-mismatch reject is GONE (TS deleted it at 244).
-func TestMultiProfile_WorldIsolation(t *testing.T) {
-	h := newTestHandler(t)
-	for _, profile := range []string{"main", "beta"} {
-		if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{
-			WorldId: 1, Profile: profile,
-		}); err != nil {
-			t.Fatalf("WorldConnect %s: %v", profile, err)
-		}
-	}
-	for _, profile := range []string{"main", "beta"} {
-		resp, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{
-			WorldId: 1, Profile: profile, Username37: 0xB0B,
-		})
-		if err != nil || !resp.Accepted {
-			t.Fatalf("PlayerLogin %s: %v / %v", profile, resp, err)
-		}
-	}
-	if _, err := h.PlayerLogout(t.Context(), &friendspb.PlayerLogoutRequest{
-		WorldId: 1, Profile: "beta", Username37: 0xB0B,
+// TestSingleProfile_WorldConnectRejectsMismatch pins the 254-pin
+// single-profile server (TS FriendServer @2e3bcf43:
+// `private profile: string = Environment.NODE_PROFILE` + one
+// `repository`): a WORLD_CONNECT with a different profile is REJECTED
+// (TS socket.close() + console.error at FriendServer.ts:104-108 —
+// goscape maps it to a FailedPrecondition gRPC error), and all other
+// routing uses the configured profile. (Replaces the 244 multi-profile
+// TestMultiProfile_WorldIsolation pin — repositories[profile] is gone.)
+func TestSingleProfile_WorldConnectRejectsMismatch(t *testing.T) {
+	h := newTestHandler(t) // configured profile "main"
+	if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{
+		WorldId: 1, Profile: "main",
 	}); err != nil {
-		t.Fatal(err)
+		t.Fatalf("WorldConnect main: %v", err)
+	}
+	_, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{
+		WorldId: 1, Profile: "beta",
+	})
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("WorldConnect beta: got err %v, want FailedPrecondition (TS profile-mismatch close @2e3bcf43)", err)
+	}
+
+	// Non-WorldConnect RPCs route by the CONFIGURED profile regardless of
+	// the request field (TS messages no longer carry profile at the pin).
+	resp, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{
+		WorldId: 1, Profile: "beta", Username37: 0xB0B,
+	})
+	if err != nil || !resp.Accepted {
+		t.Fatalf("PlayerLogin: %v / %v", resp, err)
 	}
 	if got := h.repos.get("main").GetWorld(0xB0B); got != 1 {
-		t.Errorf("main presence after beta logout: world %d, want 1", got)
-	}
-	if got := h.repos.get("beta").GetWorld(0xB0B); got != 0 {
-		t.Errorf("beta presence after beta logout: world %d, want 0", got)
+		t.Errorf("main presence: world %d, want 1 (routing must use the configured profile)", got)
 	}
 }
 
@@ -1165,7 +1173,7 @@ func TestHandler_PublicMessage_PersistsRow(t *testing.T) {
 	db := createTestDB(t)
 	repos := newRepositories(db)
 	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100}
+	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 
 	resp, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
@@ -1203,7 +1211,7 @@ func TestHandler_PublicMessage_InsertErrorReturnsInternal(t *testing.T) {
 	db := createTestDB(t)
 	repos := newRepositories(db)
 	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100}
+	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 
 	if err := db.Close(); err != nil {
@@ -1237,7 +1245,7 @@ func TestHandler_PublicMessage_Rev254Shape(t *testing.T) {
 	db := createTestDB(t)
 	repos := newRepositories(db)
 	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100}
+	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 
 	if _, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
