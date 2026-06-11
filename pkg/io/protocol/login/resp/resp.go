@@ -116,6 +116,20 @@ var (
 		PayloadSize: 0,
 		Name:        "MembersOnlyArea",
 	}
+	OpHopTimer = protocol.Operation{
+		// You have only just left another world
+		// Your profile will be transfered in: <n> seconds
+		//
+		// rev-254 A4: the only login reject with a payload — one extra
+		// byte carrying min(255, remaining/1000) seconds (TS
+		// World.ts:1861-1866 @2e3bcf43 renders LoginServer response 10
+		// as [21, Math.min(255, remaining/1000)]). The Java client
+		// (Client.java @2e629784, response-21 branch) reads that byte
+		// and counts it down on the title screen before auto-retrying.
+		Opcode:      21,
+		PayloadSize: 1,
+		Name:        "HOP_TIMER",
+	}
 	// Replies 18 (LoginOKWithRights) and 19 (LoginOKSupermod) were removed
 	// at 254: the staff tier now rides inside the always-opcode-2 login OK
 	// reply [2, min(staffModLevel,2), 1] (TS World.ts:946-950 @43e02957;

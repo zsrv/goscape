@@ -1093,16 +1093,18 @@ func TestShouldSpawnNpc_MembersGate(t *testing.T) {
 	}
 }
 
-// TestLoginResultToRS2_Rev244RateLimits pins the 244 reply→byte contract
-// (World.ts:1871-1911): login-server response 8 (3-in-5s rate limit) →
-// client byte 16 (TOO_MANY_ATTEMPTS, World.ts:1901-1906); response 6
-// (45s hop timer) → client byte 9 (IP_LIMIT "login limit exceeded",
-// World.ts:1891-1896).
-func TestLoginResultToRS2_Rev244RateLimits(t *testing.T) {
+// TestLoginResultToRS2_RateLimits pins the reply→byte contract at the
+// rev-254 pin (Engine-TS @2e3bcf43): login-server response 8 (3-in-5s
+// rate limit) → client byte 16 (TOO_MANY_ATTEMPTS); response 10 (hop
+// timer, NEW numbering at 254 — was response 6 → byte 9 at 244) →
+// client opcode 21 with a remaining-seconds payload byte
+// (World.ts:1861-1866; the payload byte is sendLoginHopTimer's job,
+// covered by TestSendLoginHopTimerWire).
+func TestLoginResultToRS2_RateLimits(t *testing.T) {
 	if got := loginResultToRS2(loginpb.LoginResult_LOGIN_RESULT_RATE_LIMITED); got != loginresp.OpTooManyAttempts.Opcode {
 		t.Errorf("RATE_LIMITED: got byte %d, want %d", got, loginresp.OpTooManyAttempts.Opcode)
 	}
-	if got := loginResultToRS2(loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER); got != loginresp.OpIPLimit.Opcode {
-		t.Errorf("HOP_TIMER: got byte %d, want %d", got, loginresp.OpIPLimit.Opcode)
+	if got := loginResultToRS2(loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER); got != loginresp.OpHopTimer.Opcode {
+		t.Errorf("HOP_TIMER: got byte %d, want %d (rev-254 [21, secs] reply)", got, loginresp.OpHopTimer.Opcode)
 	}
 }

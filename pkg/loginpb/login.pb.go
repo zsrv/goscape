@@ -273,6 +273,12 @@ type PlayerLoginResponse struct {
 	Members       bool                   `protobuf:"varint,6,opt,name=members,proto3" json:"members,omitempty"`
 	MessageCount  int32                  `protobuf:"varint,7,opt,name=message_count,json=messageCount,proto3" json:"message_count,omitempty"`
 	SessionUuid   string                 `protobuf:"bytes,8,opt,name=session_uuid,json=sessionUuid,proto3" json:"session_uuid,omitempty"`
+	// rev-254 A4: hop-timer remainder in milliseconds. Set ONLY when
+	// result == LOGIN_RESULT_HOP_TIMER. Mirrors TS LoginServer response 10
+	// `remaining` (LoginServer.ts:333-344 @2e3bcf43: logout_time -
+	// (now - NODE_HOP_TIME)); the world renders it as wire reply
+	// [21, min(255, remaining/1000)] (World.ts:1861-1867 @2e3bcf43).
+	RemainingMs   int64 `protobuf:"varint,9,opt,name=remaining_ms,json=remainingMs,proto3" json:"remaining_ms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -361,6 +367,13 @@ func (x *PlayerLoginResponse) GetSessionUuid() string {
 		return x.SessionUuid
 	}
 	return ""
+}
+
+func (x *PlayerLoginResponse) GetRemainingMs() int64 {
+	if x != nil {
+		return x.RemainingMs
+	}
+	return 0
 }
 
 type PlayerLogoutRequest struct {
@@ -805,7 +818,7 @@ const file_login_login_proto_rawDesc = "" +
 	"\x0eremote_address\x18\b \x01(\tR\rremoteAddress\x12\"\n" +
 	"\freconnecting\x18\t \x01(\bR\freconnecting\x12\x19\n" +
 	"\bhas_save\x18\n" +
-	" \x01(\bR\ahasSaveJ\x04\b\a\x10\bR\x06socket\"\xe1\x02\n" +
+	" \x01(\bR\ahasSaveJ\x04\b\a\x10\bR\x06socket\"\x84\x03\n" +
 	"\x13PlayerLoginResponse\x12-\n" +
 	"\x06result\x18\x01 \x01(\x0e2\x15.login.v1.LoginResultR\x06result\x12\x1d\n" +
 	"\n" +
@@ -816,7 +829,8 @@ const file_login_login_proto_rawDesc = "" +
 	"mutedUntil\x88\x01\x01\x12\x18\n" +
 	"\amembers\x18\x06 \x01(\bR\amembers\x12#\n" +
 	"\rmessage_count\x18\a \x01(\x05R\fmessageCount\x12!\n" +
-	"\fsession_uuid\x18\b \x01(\tR\vsessionUuidB\a\n" +
+	"\fsession_uuid\x18\b \x01(\tR\vsessionUuid\x12!\n" +
+	"\fremaining_ms\x18\t \x01(\x03R\vremainingMsB\a\n" +
 	"\x05_saveB\x0e\n" +
 	"\f_muted_until\"x\n" +
 	"\x13PlayerLogoutRequest\x12\x17\n" +

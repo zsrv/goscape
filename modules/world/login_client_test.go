@@ -97,6 +97,10 @@ func TestCallPlayerLoginRPC_ReplyByteMapping(t *testing.T) {
 		{"NOT_A_MEMBER", loginpb.LoginResult_LOGIN_RESULT_NOT_A_MEMBER, loginresp.OpNeedMembersAccount.Opcode, false},
 		{"LOGIN_IN_PROGRESS", loginpb.LoginResult_LOGIN_RESULT_LOGIN_IN_PROGRESS, loginresp.OpTooManyAttempts.Opcode, false},
 		{"IP_BANNED", loginpb.LoginResult_LOGIN_RESULT_IP_BANNED, loginresp.OpLoginServerRejected.Opcode, false},
+		// rev-254 A4: hop timer is response 10 → wire opcode 21 (TS
+		// World.ts:1861-1866 @2e3bcf43); pre-254 it rode response 6 →
+		// byte 9 (OpIPLimit).
+		{"HOP_TIMER", loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER, loginresp.OpHopTimer.Opcode, false},
 		{"UNSPECIFIED_default", loginpb.LoginResult_LOGIN_RESULT_UNSPECIFIED, loginresp.OpIPLimit.Opcode, false},
 	}
 	for _, tc := range cases {
@@ -132,6 +136,35 @@ func TestCallPlayerLoginRPC_ReplyByteMapping(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestCallPlayerLoginRPC_HopTimerCachesRemaining pins the rev-254 A4
+// remaining_ms plumbing: a HOP_TIMER response caches the millisecond
+// remainder on c.hopRemainingMs (consumed by sendLoginHopTimer to build
+// the [21, min(255, remaining/1000)] reply) and caches NO session fields.
+func TestCallPlayerLoginRPC_HopTimerCachesRemaining(t *testing.T) {
+	fake := newFakeLoginClient()
+	fake.playerLoginResp = &loginpb.PlayerLoginResponse{
+		Result:      loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER,
+		RemainingMs: 32_000,
+	}
+	c, _ := newClientWithFakeLoginServer(t, fake)
+	req := sampleLoginReq(t, c)
+
+	reply, err := c.callPlayerLoginRPC(req, "test")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if reply != loginresp.OpHopTimer.Opcode {
+		t.Errorf("reply byte: got %d, want OpHopTimer (%d)", reply, loginresp.OpHopTimer.Opcode)
+	}
+	if c.hopRemainingMs != 32_000 {
+		t.Errorf("hopRemainingMs: got %d, want 32000", c.hopRemainingMs)
+	}
+	if c.savePayload != nil || c.username != "" || c.sessionUUID != "" {
+		t.Errorf("session must NOT be cached on hop-timer reject: savePayload=%v username=%q sessionUUID=%q",
+			c.savePayload, c.username, c.sessionUUID)
 	}
 }
 

@@ -32,6 +32,7 @@ func newTestHandler(t *testing.T) (*handler, string) {
 			AutoRegister:         true,
 			AutoSubscribeMembers: true,
 			BCryptCost:           4,
+			NodeHopTime:          45 * time.Second, // registered default (TS NODE_HOP_TIME 45000)
 		},
 		log:      noopLogger(),
 	}
@@ -1193,14 +1194,17 @@ func hopTimerFixture(t *testing.T, loggedOut int, logoutAge time.Duration, staff
 	return h
 }
 
-// TestPlayerLogin_HopTimer pins TS LoginServer.ts:366-379: a non-staff
-// account that gracefully logged out of ANOTHER world < 45s ago is
-// rejected with response 6 (LOGIN_RESULT_HOP_TIMER).
+// TestPlayerLogin_HopTimer pins TS LoginServer.ts:327-346 @2e3bcf43: a
+// non-staff account that gracefully logged out of ANOTHER world less than
+// NODE_HOP_TIME ago is rejected with response 10 (LOGIN_RESULT_HOP_TIMER)
+// carrying remaining = logout_time + NODE_HOP_TIME - now (ms, strictly
+// positive). rev-254 A4: the window comes from cfg.NodeHopTime, and the
+// remainder is surfaced as PlayerLoginResponse.remaining_ms.
 // Each sub-test runs in its own t.Run so createTestDB picks a unique
 // in-memory DSN (keyed by t.Name()); without sub-tests all calls to
 // hopTimerFixture would share the same DB and accumulate rate-limit rows.
 func TestPlayerLogin_HopTimer(t *testing.T) {
-	attempt := func(t *testing.T, h *handler) loginpb.LoginResult {
+	attempt := func(t *testing.T, h *handler) *loginpb.PlayerLoginResponse {
 		t.Helper()
 		resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
 			NodeId: 10, Profile: "main", Username: "bob", Password: "pw",
@@ -1209,36 +1213,72 @@ func TestPlayerLogin_HopTimer(t *testing.T) {
 		if err != nil {
 			t.Fatalf("PlayerLogin: %v", err)
 		}
-		return resp.Result
+		return resp
 	}
-	// Fires: other node (11 != 10), 10s ago, staff 0.
+	// Fires: other node (11 != 10), 10s ago, staff 0. remaining must be
+	// ~45000-10000=35000 ms (wide tolerance for test scheduling; the DB
+	// timestamp has 1s granularity).
 	t.Run("fires", func(t *testing.T) {
-		if got := attempt(t, hopTimerFixture(t, 11, 10*time.Second, 0)); got != loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER {
-			t.Errorf("hop case: got %v, want HOP_TIMER", got)
+		resp := attempt(t, hopTimerFixture(t, 11, 10*time.Second, 0))
+		if resp.Result != loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER {
+			t.Fatalf("hop case: got %v, want HOP_TIMER", resp.Result)
+		}
+		if resp.RemainingMs < 30_000 || resp.RemainingMs > 36_000 {
+			t.Errorf("RemainingMs: got %d, want ~35000 (logout_time + 45s - now)", resp.RemainingMs)
 		}
 	})
 	// Bypass: same node (logged_out == nodeId 10).
 	t.Run("same_node", func(t *testing.T) {
-		if got := attempt(t, hopTimerFixture(t, 10, 10*time.Second, 0)); got != loginpb.LoginResult_LOGIN_RESULT_OK {
+		if got := attempt(t, hopTimerFixture(t, 10, 10*time.Second, 0)).Result; got != loginpb.LoginResult_LOGIN_RESULT_OK {
 			t.Errorf("same-node case: got %v, want OK", got)
 		}
 	})
 	// Bypass: logged_out == 0 (no recorded origin; backfill posture).
 	t.Run("logged_out_zero", func(t *testing.T) {
-		if got := attempt(t, hopTimerFixture(t, 0, 10*time.Second, 0)); got != loginpb.LoginResult_LOGIN_RESULT_OK {
+		if got := attempt(t, hopTimerFixture(t, 0, 10*time.Second, 0)).Result; got != loginpb.LoginResult_LOGIN_RESULT_OK {
 			t.Errorf("logged_out=0 case: got %v, want OK", got)
 		}
 	})
-	// Bypass: outside the 45s window.
+	// Bypass: outside the 45s window (stale logout).
 	t.Run("window_expired", func(t *testing.T) {
-		if got := attempt(t, hopTimerFixture(t, 11, 46*time.Second, 0)); got != loginpb.LoginResult_LOGIN_RESULT_OK {
+		if got := attempt(t, hopTimerFixture(t, 11, 46*time.Second, 0)).Result; got != loginpb.LoginResult_LOGIN_RESULT_OK {
 			t.Errorf(">45s case: got %v, want OK", got)
 		}
 	})
-	// Bypass: staffmodlevel >= 2 (supermod tier, B3 T18).
+	// Bypass: staffmodlevel >= 2 (TS gate `account.staffmodlevel < 2`,
+	// LoginServer.ts:328 — supermod+ hop freely).
 	t.Run("staff_bypass", func(t *testing.T) {
-		if got := attempt(t, hopTimerFixture(t, 11, 10*time.Second, 2)); got != loginpb.LoginResult_LOGIN_RESULT_OK {
+		if got := attempt(t, hopTimerFixture(t, 11, 10*time.Second, 2)).Result; got != loginpb.LoginResult_LOGIN_RESULT_OK {
 			t.Errorf("staff case: got %v, want OK", got)
+		}
+	})
+	// Boundary: staffmodlevel 1 (regular mod) is NOT exempt.
+	t.Run("mod_not_exempt", func(t *testing.T) {
+		if got := attempt(t, hopTimerFixture(t, 11, 10*time.Second, 1)).Result; got != loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER {
+			t.Errorf("staff=1 case: got %v, want HOP_TIMER", got)
+		}
+	})
+	// Config wiring: a 90s NodeHopTime keeps blocking a 60s-old logout
+	// (which the 45s default would admit) — pins that the window really
+	// reads cfg.NodeHopTime, not a hardcoded 45s.
+	t.Run("config_window_90s", func(t *testing.T) {
+		h := hopTimerFixture(t, 11, 60*time.Second, 0)
+		h.cfg.NodeHopTime = 90 * time.Second
+		resp := attempt(t, h)
+		if resp.Result != loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER {
+			t.Fatalf("90s-window case: got %v, want HOP_TIMER", resp.Result)
+		}
+		if resp.RemainingMs < 25_000 || resp.RemainingMs > 31_000 {
+			t.Errorf("RemainingMs: got %d, want ~30000 (logout_time + 90s - now)", resp.RemainingMs)
+		}
+	})
+	// Config wiring: NodeHopTime 0 disables the block entirely
+	// (remaining = logout_time - now is never > 0 for a past logout).
+	t.Run("config_window_zero", func(t *testing.T) {
+		h := hopTimerFixture(t, 11, 1*time.Second, 0)
+		h.cfg.NodeHopTime = 0
+		if got := attempt(t, h).Result; got != loginpb.LoginResult_LOGIN_RESULT_OK {
+			t.Errorf("0s-window case: got %v, want OK", got)
 		}
 	})
 }

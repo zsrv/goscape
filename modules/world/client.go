@@ -95,6 +95,14 @@ type client struct {
 	// the world emits 0 for connections that bypass the login bridge
 	// (unit tests, standalone world). NAI-Phase2 backfill.
 	accountID int64
+	// hopRemainingMs is the hop-timer cooldown remainder (milliseconds)
+	// from the login server's PlayerLogin response, cached by
+	// callPlayerLoginRPC ONLY when result == LOGIN_RESULT_HOP_TIMER
+	// (rev-254 A4). Consumed once by handleLogin's reject dispatch to
+	// render the 2-byte [21, min(255, remaining/1000)] wire reply
+	// (sendLoginHopTimer). Always > 0 when set — the login server only
+	// emits HOP_TIMER when remaining > 0 (TS LoginServer.ts:334).
+	hopRemainingMs int64
 	// tap is the seam handle owned by the tapper dskit module;
 	// nil on tests that construct a client without a Server. Tap calls are
 	// always gated on (c.tap != nil && c.sessionID != "").
@@ -200,6 +208,36 @@ func (c *client) sendLoginOK() error {
 func (c *client) sendLoginError(code byte) error {
 	c.bufw.WriteByte(code)
 	c.log.Debug("send login error", "opcode", c.opcode, "num_bytes", c.in.Len(), "data", code)
+	c.flushWrite() // best-effort; connection is closing regardless
+	return errCloseConn
+}
+
+// sendLoginHopTimer writes the 2-byte hop-timer login reject
+// [21, min(255, remainingMs/1000)], flushes it, and returns errCloseConn.
+// Mirrors TS World.ts:1861-1866 @2e3bcf43:
+//
+//	} else if (reply === 10) {
+//	    // hop timer
+//	    const { remaining } = msg;
+//	    client.send(Uint8Array.from([21, Math.min(255, remaining! / 1000)]));
+//	    client.close();
+//
+// JS Uint8Array.from truncates the float toward zero, so Go's integer
+// division (remainingMs/1000) is byte-identical for the positive values
+// the login server emits. The <0 clamp is unreachable in practice
+// (LoginServer.ts:334 only sends response 10 when remaining > 0) but
+// keeps a zero/unset RemainingMs from wrapping to 255 via byte(-1).
+func (c *client) sendLoginHopTimer(remainingMs int64) error {
+	secs := remainingMs / 1000
+	if secs > 255 {
+		secs = 255
+	}
+	if secs < 0 {
+		secs = 0
+	}
+	c.bufw.WriteByte(loginresp.OpHopTimer.Opcode)
+	c.bufw.WriteByte(byte(secs))
+	c.log.Debug("send login hop timer", "opcode", c.opcode, "remaining_ms", remainingMs, "seconds_byte", secs)
 	c.flushWrite() // best-effort; connection is closing regardless
 	return errCloseConn
 }

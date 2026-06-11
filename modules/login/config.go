@@ -20,6 +20,17 @@ type Config struct {
 	AutoSubscribeMembers    bool          `yaml:"auto_subscribe_members"`
 	Enable                  bool          `yaml:"enable"`
 	GracefulShutdownTimeout time.Duration `yaml:"graceful_shutdown_timeout"`
+	// NodeHopTime is the world-hop cooldown: a non-staff account that
+	// gracefully logged out of a DIFFERENT world is rejected with
+	// LOGIN_RESULT_HOP_TIMER (+remaining) until this long after
+	// logout_time. Mirrors TS Environment NODE_HOP_TIME (45000ms,
+	// Environment.ts:55 @2e3bcf43) consumed by LoginServer.ts:327-346.
+	// (Upstream quirk: Environment.ts:55 reads env var NODE_MAX_NPCS for
+	// this value — a TS copy-paste bug; only the 45000 default is ever
+	// effective, which is what this flag mirrors.)
+	// Placed on the LOGIN module (the TS consumer is LoginServer), not
+	// the world config.
+	NodeHopTime        time.Duration `yaml:"node_hop_time"`
 }
 
 func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
@@ -33,6 +44,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.BoolVar(&c.AutoSubscribeMembers, "login.auto-subscribe-members", true, "Automatically upgrade non-member accounts to members on member worlds.")
 	f.BoolVar(&c.Enable, "login.enable", false, "Whether to run the login module.")
 	f.DurationVar(&c.GracefulShutdownTimeout, "login.graceful-shutdown-timeout", 30*time.Second, "Timeout for graceful gRPC server shutdown.")
+	f.DurationVar(&c.NodeHopTime, "login.node-hop-time", 45*time.Second, "Mirror of TS NODE_HOP_TIME: world-hop cooldown after a graceful logout on another world (hop-timer login reject).")
 }
 
 // Validate enforces runtime invariants (PORTING.md Arc 18 CFG-1).
@@ -53,6 +65,9 @@ func (c *Config) Validate() error {
 	}
 	if c.SavePath == "" {
 		return fmt.Errorf("login: SavePath must be non-empty when login.enable=true")
+	}
+	if c.NodeHopTime < 0 {
+		return fmt.Errorf("login: NodeHopTime must be >= 0, got %v", c.NodeHopTime)
 	}
 		return err
 	}

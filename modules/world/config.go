@@ -36,6 +36,8 @@ type Config struct {
 	TCPListenPort                    int                `yaml:"tcp_listen_port"`
 	NodeLimitBytesPerTrackingSession int                `yaml:"node_limit_bytes_per_tracking_session"`
 	NodeMinimumWealthValueEvent      int                `yaml:"node_minimum_wealth_value_event"`
+	NodeRatelimitAddressLogin        int                `yaml:"node_ratelimit_address_login"`
+	NodeRatelimitDeviceLogin         int                `yaml:"node_ratelimit_device_login"`
 	NodeMembers                      bool               `yaml:"node_members"`
 	LoginServerEnabled               bool               `yaml:"login_server_enabled"`
 	FriendsServerEnabled             bool               `yaml:"friends_server_enabled"`
@@ -97,6 +99,13 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.IntVar(&c.NodeMaxConnected, "world.node-max-connected", 1000, "")
 	f.IntVar(&c.NodeMaxNPCs, "world.node-max-npcs", 16383, "Max live NPCs. Mirrors TS Environment.ts NODE_MAX_NPCS (254 default 16383; was 8191 pre-254).")
 	f.StringVar(&c.NodeDebugprocChar, "world.node-debugproc-char", "~", "")
+	// rev-254 A4 login rate limits (TS Environment.ts:57-58 @2e3bcf43).
+	// Only active in production mode (NodeProduction) — TS gates both
+	// checks on NODE_PRODUCTION (World.ts:2107/2172). 0 disables. The
+	// 60s/15s windows are TS-hardcoded TTLCache options (World.ts:176-177),
+	// not config — see login_ratelimit.go.
+	f.IntVar(&c.NodeRatelimitAddressLogin, "world.node-ratelimit-address-login", 30, "Mirror of TS NODE_RATELIMIT_ADDRESS_LOGIN: max op-14 login attempts per remote IP inside a sliding 60s window (production mode only; 0 disables). Exceeded -> reply 16 + close.")
+	f.IntVar(&c.NodeRatelimitDeviceLogin, "world.node-ratelimit-device-login", 5, "Mirror of TS NODE_RATELIMIT_DEVICE_LOGIN: max op-16/18 login attempts per uid@IP inside a sliding 15s window (production mode only; 0 disables). Exceeded -> reply 16 + close.")
 
 	f.StringVar(&c.LoginServerAddress, "world.login-server-address", "127.0.0.1:2004", "Login server gRPC address.")
 	f.BoolVar(&c.LoginServerEnabled, "world.login-server-enabled", true, "Whether to connect to the login server.")

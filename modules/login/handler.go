@@ -197,17 +197,31 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		account.LoggedOut != 0 &&
 		account.LoggedOut != int(req.NodeId) &&
 		account.LogoutTime.Valid {
-		// 45s hop timer — TS LoginServer.ts:366-379: a non-staff account
-		// that gracefully logged out of a DIFFERENT world less than 45s
-		// ago is rejected with response 6. logged_out/logout_time are the
-		// per-profile columns from migration 000005 (login-server-7
-		// closure). TS's `logged_out !== null` collapses into != 0 (the
-		// column is NOT NULL DEFAULT 0).
-		if hopT, err := time.Parse(dbTimeFormat, account.LogoutTime.String); err == nil &&
-			!hopT.Before(time.Now().UTC().Add(-45*time.Second)) {
-			return &loginpb.PlayerLoginResponse{
-				Result: loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER,
-			}, nil
+		// Hop timer — TS LoginServer.ts:327-346 @2e3bcf43: a non-staff
+		// account (staffmodlevel < 2) that gracefully logged out of a
+		// DIFFERENT world (logged_out != 0 && != nodeId) still inside the
+		// NODE_HOP_TIME cooldown is rejected with response 10 carrying the
+		// remainder:
+		//
+		//	const remaining = new Date(account.logout_time).getTime() -
+		//	    new Date(Date.now() - Environment.NODE_HOP_TIME).getTime();
+		//	if (remaining > 0) { ... response: 10, remaining ... }
+		//
+		// i.e. remaining = logout_time + NODE_HOP_TIME - now, blocking
+		// only while STRICTLY positive. The world renders remaining as
+		// wire reply [21, min(255, remaining/1000)] (World.ts:1861-1866).
+		// NODE_HOP_TIME is cfg.NodeHopTime (default 45s, Environment
+		// default 45000 ms). logged_out/logout_time are the per-profile
+		// columns from migration 000005 (login-server-7 closure). TS's
+		// `logged_out !== null` collapses into != 0 (the column is
+		// NOT NULL DEFAULT 0).
+		if hopT, err := time.Parse(dbTimeFormat, account.LogoutTime.String); err == nil {
+			if remaining := time.Until(hopT.Add(h.cfg.NodeHopTime)); remaining > 0 {
+				return &loginpb.PlayerLoginResponse{
+					Result:      loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER,
+					RemainingMs: remaining.Milliseconds(),
+				}, nil
+			}
 		}
 	}
 

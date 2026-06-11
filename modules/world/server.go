@@ -281,6 +281,15 @@ type Server struct {
 	sessionLogsMu sync.Mutex
 	sessionLogs   []SessionLog
 
+	// Login rate-limit attempt counters (rev-254 A4). Mirror TS
+	// World.loginAddressAttempts / loginDeviceAttempts (World.ts:176-177
+	// @2e3bcf43): per-remote-address (60s TTL) and per-uid@address (15s
+	// TTL) counters consulted by handleLogin when NodeProduction is on.
+	// Zero values are ready to use; internally mutex-guarded (handleLogin
+	// runs on per-connection goroutines). See login_ratelimit.go.
+	loginAddressAttempts ttlAttemptCache
+	loginDeviceAttempts  ttlAttemptCache
+
 	testPathfinder pathfinderForTarget // injected by tests; nil in production
 
 	// broadcastMesFunc is the broadcast sink for Server.BroadcastMes-style
@@ -1067,13 +1076,13 @@ func (c *client) handleLogin() error {
 		return fmt.Errorf("unexpected opcode in login state: %d", opcode[0])
 
 	case 14:
-		// Op 14 — checklogin handshake (World.ts:2143-2155 at 244 pin 9aadcec4).
+		// Op 14 — checklogin handshake (World.ts:2104-2127 @2e3bcf43).
 		// Total wire input: opcode(1) + payload(1) = 2 bytes.
 		// Payload is the _loginServer discriminator byte — read and discarded by TS.
-		// Reply (17 bytes total, sent in three TS calls merged into one Go write):
+		// Reply (17 bytes total on the happy path, sent in three TS calls):
 		//   8x0x00            — TS: client.send([0,0,0,0,0,0,0,0])
 		//   0x00              — TS: client.send([0])
-		//   p4(rand & 0x00ffffff) || p4(rand) — 8-byte seed (World.ts:2152-2154).
+		//   p4(rand & 0x00ffffff) || p4(rand) — 8-byte seed (World.ts:2123-2126).
 		// The seed is generated fresh per call and NOT stored — the client echoes
 		// its own ISAAC seeds inside the RSA block at op 16/18.
 		// First word masked to 24 bits (TS: Math.random() * 0x00ffffff) so high byte
@@ -1081,11 +1090,34 @@ func (c *client) handleLogin() error {
 		if c.in.Len() < 2 {
 			return protocol.ErrPayloadTooSmall
 		}
-		c.in.Next(2) // consume opcode + 1-byte payload
+		// goscape consumes opcode + the _loginServer byte up front; TS
+		// reads _loginServer only after the rate-limit check below —
+		// the byte is discarded either way, so the wire behavior is
+		// identical.
+		c.in.Next(2)
 
-		reply := packet.NewPacket(make([]byte, 0, 17))
-		reply.P4(0)                          // 4 zero bytes
-		reply.P4(0)                          // 4 more zero bytes → 8x0x00
+		// TS sends the 8 zero bytes BEFORE the rate-limit check
+		// (World.ts:2105); a limited client still receives them,
+		// followed by the [16] reject.
+		zeros := packet.NewPacket(make([]byte, 0, 8))
+		zeros.P4(0)
+		zeros.P4(0)
+		c.write(zeros.Bytes())
+
+		// rev-254 A4 — per-address login rate limit (World.ts:2107-2117
+		// @2e3bcf43): gated on NODE_PRODUCTION && threshold > 0;
+		// increments on EVERY op-14 attempt (before the comparison, so
+		// rejected attempts keep the window armed); attempts >= limit →
+		// reply byte 16 ("login attempts exceeded") + close. Keyed by
+		// the bare remote IP (TS client.remoteAddress carries no port).
+		if s := c.server; s != nil && s.cfg.NodeProduction && s.cfg.NodeRatelimitAddressLogin > 0 {
+			host, _ := splitHostPort(c.conn.RemoteAddr().String())
+			if s.loginAddressAttempts.bump(host, loginAddressAttemptTTL) >= s.cfg.NodeRatelimitAddressLogin {
+				return c.sendLoginError(loginresp.OpTooManyAttempts.Opcode)
+			}
+		}
+
+		reply := packet.NewPacket(make([]byte, 0, 9))
 		reply.P1(0)                          // 0x00 separator byte
 		reply.P4(rand.Uint32() & 0x00ffffff) // first seed word, 24-bit-masked
 		reply.P4(rand.Uint32())              // second seed word, full 32-bit
@@ -1162,6 +1194,15 @@ func (c *client) handleLogin() error {
 		}
 		c.encryptor = io2.New(req.ISAACSeed)
 
+		// rev-254 A4 — per-device login rate limit (World.ts:2172-2184
+		// @2e3bcf43): sits AFTER the RSA block is decoded (uid/username/
+		// password read, ISAAC ciphers armed) and BEFORE the username
+		// length validation — i.e. before any credential verification.
+		// Exceeded → reply byte 16 + close. See deviceLoginLimited.
+		if c.deviceLoginLimited(req.UID) {
+			return c.sendLoginError(loginresp.OpTooManyAttempts.Opcode)
+		}
+
 		if len(req.Username) < 1 || len(req.Username) > 12 {
 			return c.sendLoginError(loginresp.OpInvalidUsernameOrPassword.Opcode)
 		}
@@ -1237,6 +1278,12 @@ func (c *client) handleLogin() error {
 			// accepted — fall through to post-login handling below.
 			// (254 removed the 18/19 staff replies; the staff tier is the
 			// second byte of sendLoginOK's [2, min(staff,2), 1] reply.)
+		case loginresp.OpHopTimer.Opcode:
+			// rev-254 A4 — the hop timer is the only reject with a
+			// payload: [21, min(255, remaining/1000)] (TS World.ts:
+			// 1861-1866 @2e3bcf43). c.hopRemainingMs was cached by
+			// callPlayerLoginRPC from the HOP_TIMER gRPC response.
+			return c.sendLoginHopTimer(c.hopRemainingMs)
 		default:
 			return c.sendLoginError(reply)
 		}
@@ -1288,6 +1335,13 @@ func (c *client) callPlayerLoginRPC(req *loginpb.PlayerLoginRequest, safeName st
 	result := resp.GetResult()
 	reply := loginResultToRS2(result)
 
+	// rev-254 A4 — cache the hop-timer remainder so handleLogin's reject
+	// dispatch can render [21, min(255, remaining/1000)] (the only login
+	// reject carrying a payload byte; World.ts:1861-1866 @2e3bcf43).
+	if result == loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER {
+		c.hopRemainingMs = resp.GetRemainingMs()
+	}
+
 	// Only cache session details if the login was accepted.
 	if result == loginpb.LoginResult_LOGIN_RESULT_OK ||
 		result == loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER ||
@@ -1328,8 +1382,12 @@ func loginResultToRS2(result loginpb.LoginResult) byte {
 		// TS response 8 → byte 16 "too many attempts" (World.ts:1901-1906).
 		return loginresp.OpTooManyAttempts.Opcode
 	case loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER:
-		// TS response 6 → byte 9 "login limit exceeded" (World.ts:1891-1896).
-		return loginresp.OpIPLimit.Opcode
+		// rev-254: the hop timer moved off the response-6/byte-9 rendering
+		// (pre-254 LoginServer) onto its own response 10 → wire
+		// [21, min(255, remaining/1000)] (TS LoginServer.ts:327-346 +
+		// World.ts:1861-1866 @2e3bcf43). The remaining-seconds payload
+		// byte is appended by sendLoginHopTimer, not here.
+		return loginresp.OpHopTimer.Opcode
 	default:
 		// UNSPECIFIED / unknown future values
 		return loginresp.OpIPLimit.Opcode

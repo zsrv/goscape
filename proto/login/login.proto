@@ -63,6 +63,12 @@ message PlayerLoginResponse {
   bool                       members       = 6;
   int32                      message_count = 7;
   string                     session_uuid  = 8;
+  // rev-254 A4: hop-timer remainder in milliseconds. Set ONLY when
+  // result == LOGIN_RESULT_HOP_TIMER. Mirrors TS LoginServer response 10
+  // `remaining` (LoginServer.ts:333-344 @2e3bcf43: logout_time -
+  // (now - NODE_HOP_TIME)); the world renders it as wire reply
+  // [21, min(255, remaining/1000)] (World.ts:1861-1867 @2e3bcf43).
+  int64                      remaining_ms  = 9;
 }
 
 message PlayerLogoutRequest {
