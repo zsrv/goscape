@@ -19,7 +19,8 @@ var npcStringKeys = map[string]struct{}{
 }
 
 // npcNumberKeys is the set of keys parsed as signed/unsigned integers via
-// TS parseInt (accepts 0x-prefixed hex). TS source: NpcConfig.ts:18-27.
+// TS parseInt (accepts 0x-prefixed hex). turnspeed joined at rev-254.
+// TS source: NpcConfig.ts:18-29 @ 2e3bcf43.
 //
 // Range constraints (TS L61-87) are honoured by the parser.
 var npcNumberKeys = map[string]struct{}{
@@ -44,6 +45,7 @@ var npcNumberKeys = map[string]struct{}{
 	"ambient":     {},
 	"contrast":    {},
 	"headicon":    {},
+	"turnspeed":   {},
 	"regenrate":   {},
 }
 
@@ -511,8 +513,12 @@ func packNpcConfigs(configs map[string][]ConfigLine, npcPack *PackFile, modelFla
 					client.P1(101)
 					client.P1(uint8(line.Value.(int)))
 				case key == "headicon":
-					// TS NpcConfig.ts:388-390.
+					// TS NpcConfig.ts:391-393 @ 2e3bcf43.
 					client.P1(102)
+					client.P2(uint16(line.Value.(int)))
+				case key == "turnspeed":
+					// NEW at rev-254. TS NpcConfig.ts:394-396 @ 2e3bcf43.
+					client.P1(103)
 					client.P2(uint16(line.Value.(int)))
 				case key == "wanderrange":
 					server.P1(200)

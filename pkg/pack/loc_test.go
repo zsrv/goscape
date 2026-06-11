@@ -615,18 +615,21 @@ func TestPackLocConfigs_Desc(t *testing.T) {
 }
 
 func TestPackLocConfigs_Models_ForceShape8(t *testing.T) {
-	// "chair" exists in modelPack and has no shape-suffix variants → forced shape _8.
+	// "chair" exists in modelPack and has no shape-suffix variants → forced
+	// shape _8. All-centrepiece list → compact opcode-5 form at rev-254
+	// (TS LocConfig.ts:386-392 @ 2e3bcf43; this pin previously asserted
+	// the pre-254 opcode-1 pair form).
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("c")
-	configs := map[string][]ConfigLine{"c": {{Key: "model1", Value: "chair"}}}
+	configs := map[string][]ConfigLine{"c": {{Key: "model", Value: "chair"}}}
 	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// opcode 1 + p1(count=1) + p2(modelID=1) + p1(shape=10)
+	// opcode 5 + p1(count=1) + p2(modelID=1) — NO shape byte
 	// + opcode 2 + pjstr("c\n")  (shape _8 forces name-transmit)
 	// + Next
-	want := []byte{0x00, 0x01, 0x01, 0x01, 0x00, 0x01, 0x0A, 0x02, 'c', 0x0A, 0x00}
+	want := []byte{0x00, 0x01, 0x05, 0x01, 0x00, 0x01, 0x02, 'c', 0x0A, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("got % x, want % x", client.Dat.Data, want)
 	}
@@ -636,19 +639,128 @@ func TestPackLocConfigs_Models_DirectMatchWithShape8Variant(t *testing.T) {
 	// "table" matches exactly (id=0) AND "table_8" exists (id=2). TS
 	// directReference probe scans shape 0..22 SKIPPING shape 10 (_8),
 	// so the "_8" variant alone does NOT flip directReference to false.
-	// Result: directReference wins → emit id=0 forced into shape _8.
+	// Result: directReference wins → emit id=0 forced into shape _8;
+	// all-centrepiece → opcode-5 compact form at rev-254 (this pin
+	// previously asserted the pre-254 opcode-1 pair form).
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("t")
-	configs := map[string][]ConfigLine{"t": {{Key: "model1", Value: "table"}}}
+	configs := map[string][]ConfigLine{"t": {{Key: "model", Value: "table"}}}
 	_, client, err := packLocConfigs(configs, locPack, mp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// opcode 1 + p1(1) + p2(modelID=0 for "table") + p1(shape=10)
+	// opcode 5 + p1(1) + p2(modelID=0 for "table") — NO shape byte
 	// + opcode 2 + pjstr("t\n") (shape _8 forces name) + Next
-	want := []byte{0x00, 0x01, 0x01, 0x01, 0x00, 0x00, 0x0A, 0x02, 't', 0x0A, 0x00}
+	want := []byte{0x00, 0x01, 0x05, 0x01, 0x00, 0x00, 0x02, 't', 0x0A, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("got % x, want % x", client.Dat.Data, want)
+	}
+}
+
+func TestPackLocConfigs_Models_MixedShapesKeepCode1(t *testing.T) {
+	// "wall" resolves via suffix variants: wall_8 (centrepiece, id=1) AND
+	// wall_1 (wall_straight shape 0, id=0). Mixed shapes → centrepieceOnly
+	// false → the opcode-1 (model, shape) pair form is retained
+	// (TS LocConfig.ts:393-401 @ 2e3bcf43).
+	mp := newTestPF("model", map[int]string{
+		0: "wall_1", // LocShapeSuffix[0] = "_1" (wall_straight)
+		1: "wall_8", // centrepiece_straight
+	})
+	locPack := locOneSlotPack("mywall")
+	configs := map[string][]ConfigLine{
+		"mywall": {{Key: "model", Value: "wall"}},
+	}
+	_, client, err := packLocConfigs(configs, locPack, mp, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// opcode 1 + p1(count=2) + (p2(1)+p1(10)) [wall_8 probed first] +
+	// (p2(0)+p1(0)) + opcode 2 + pjstr (centrepiece presence forces name)
+	// + Next
+	want := []byte{0x00, 0x01,
+		0x01, 0x02,
+		0x00, 0x01, 0x0A,
+		0x00, 0x00, 0x00,
+		0x02, 'm', 'y', 'w', 'a', 'l', 'l', 0x0A,
+		0x00,
+	}
+	if !bytes.Equal(client.Dat.Data, want) {
+		t.Fatalf("got % x, want % x", client.Dat.Data, want)
+	}
+}
+
+func TestParseLocConfig_Model2to5Accepted_Model1Rejected(t *testing.T) {
+	// rev-254: stringKeys enumerate model, model2..model5
+	// (TS LocConfig.ts:37-42 @ 2e3bcf43). model1 is NOT in the list →
+	// invalid property KEY.
+	_, cp, sp, tp, pt, lk := locTestRegistries(t)
+	parse := parseLocConfigFor(cp, sp, tp, lk, pt)
+
+	for _, key := range []string{"model", "model2", "model3", "model4", "model5"} {
+		v, accepted, err := parse(key, "chair")
+		if err != nil {
+			t.Fatalf("%s: %v", key, err)
+		}
+		if !accepted {
+			t.Fatalf("%s: should be accepted", key)
+		}
+		if v.(string) != "chair" {
+			t.Fatalf("%s: got %#v, want raw string passthrough", key, v)
+		}
+	}
+
+	_, accepted, err := parse("model1", "chair")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if accepted {
+		t.Fatal("model1: accepted; want invalid key (TS stringKeys exclude model1)")
+	}
+}
+
+func TestParseLocConfig_Raiseobject(t *testing.T) {
+	// rev-254: raiseobject joined booleanKeys (TS LocConfig.ts:60 @ 2e3bcf43).
+	_, cp, sp, tp, pt, lk := locTestRegistries(t)
+	parse := parseLocConfigFor(cp, sp, tp, lk, pt)
+
+	v, accepted, err := parse("raiseobject", "yes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !accepted {
+		t.Fatal("raiseobject should be accepted")
+	}
+	if v.(bool) != true {
+		t.Fatalf("got %#v, want true", v)
+	}
+
+	if _, _, err := parse("raiseobject", "maybe"); err == nil {
+		t.Fatal("want err for non-boolean raiseobject")
+	}
+}
+
+func TestPackLocConfigs_Raiseobject(t *testing.T) {
+	// rev-254: opcode 75 + pbool, emitted for BOTH true and false (no
+	// asymmetry, unlike forcedecor 73 / breakroutefinding 74).
+	// TS LocConfig.ts:311-314 @ 2e3bcf43.
+	mp, _, _, _, _, _ := locTestRegistries(t)
+
+	for _, tc := range []struct {
+		val  bool
+		want []byte
+	}{
+		{true, []byte{0x00, 0x01, 0x4B, 0x01, 0x00}},
+		{false, []byte{0x00, 0x01, 0x4B, 0x00, 0x00}},
+	} {
+		locPack := locOneSlotPack("x")
+		configs := map[string][]ConfigLine{"x": {{Key: "raiseobject", Value: tc.val}}}
+		_, client, err := packLocConfigs(configs, locPack, mp, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(client.Dat.Data, tc.want) {
+			t.Fatalf("raiseobject=%v: got % x, want % x", tc.val, client.Dat.Data, tc.want)
+		}
 	}
 }
 

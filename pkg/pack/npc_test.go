@@ -120,6 +120,27 @@ func TestParseNpcConfig_UnknownKey(t *testing.T) {
 	}
 }
 
+func TestParseNpcConfig_Turnspeed(t *testing.T) {
+	// rev-254: turnspeed joined numberKeys (TS NpcConfig.ts:27 @ 2e3bcf43).
+	mp, cp, sp, hp, pt, lk := npcTestRegistries(t)
+	parse := parseNpcConfigFor(mp, cp, sp, hp, lk, pt)
+
+	val, accepted, err := parse("turnspeed", "16")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !accepted {
+		t.Fatal("turnspeed key should be accepted")
+	}
+	if val.(int) != 16 {
+		t.Fatalf("got %#v, want 16", val)
+	}
+
+	if _, _, err := parse("turnspeed", "abc"); err == nil {
+		t.Fatal("want err for non-numeric turnspeed")
+	}
+}
+
 func TestParseNpcConfig_Moverestrict(t *testing.T) {
 	mp, cp, sp, hp, pt, lk := npcTestRegistries(t)
 	parse := parseNpcConfigFor(mp, cp, sp, hp, lk, pt)
@@ -419,6 +440,20 @@ func TestPackNpcConfigs_Op5(t *testing.T) {
 	body = append(body, []byte("examine")...)
 	body = append(body, 0x0A)
 	want := expectClient("x", body...)
+	if !bytes.Equal(client.Dat.Data, want) {
+		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
+	}
+}
+
+func TestPackNpcConfigs_Turnspeed(t *testing.T) {
+	// rev-254: client opcode 103 + p2 (TS NpcConfig.ts:394-396 @ 2e3bcf43).
+	npcPack := npcOneSlotPack("x")
+	configs := map[string][]ConfigLine{"x": {{Key: "turnspeed", Value: 16}}}
+	_, client, err := packNpcConfigs(configs, npcPack, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := expectClient("x", 0x67, 0x00, 0x10)
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
 	}

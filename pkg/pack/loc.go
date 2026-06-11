@@ -55,7 +55,8 @@ type locModelShape struct {
 }
 
 // locBooleanKeys is the set of keys parsed as IsConfigBoolean-gated
-// booleans. TS source: tools/pack/config/LocConfig.ts:54-61.
+// booleans. raiseobject joined at rev-254.
+// TS source: tools/pack/config/LocConfig.ts:54-61 @ 2e3bcf43.
 var locBooleanKeys = map[string]struct{}{
 	"blockwalk":         {},
 	"blockrange":        {},
@@ -68,6 +69,7 @@ var locBooleanKeys = map[string]struct{}{
 	"shadow":            {},
 	"forcedecor":        {},
 	"breakroutefinding": {},
+	"raiseobject":       {},
 }
 
 // locNumberKeys is the set of keys parsed as signed/unsigned integers
@@ -89,16 +91,22 @@ var locNumberKeys = map[string]struct{}{
 }
 
 // locStringKeys is the set of keys whose raw value passes through as a
-// string (subject to the 1000-char limit). TS source: LocConfig.ts:37-42.
+// string (subject to the 1000-char limit). model2..model5 joined at
+// rev-254 ("defer parsing to packing stage" — note model1 is NOT a
+// valid key). TS source: LocConfig.ts:37-42 @ 2e3bcf43.
 var locStringKeys = map[string]struct{}{
-	"name":  {},
-	"desc":  {},
-	"op1":   {},
-	"op2":   {},
-	"op3":   {},
-	"op4":   {},
-	"op5":   {},
-	"model": {},
+	"name":   {},
+	"desc":   {},
+	"op1":    {},
+	"op2":    {},
+	"op3":    {},
+	"op4":    {},
+	"op5":    {},
+	"model":  {},
+	"model2": {},
+	"model3": {},
+	"model4": {},
+	"model5": {},
 }
 
 // parseLocConfigFor returns the per-key=value parser for .loc config
@@ -206,14 +214,13 @@ func parseLocConfigFor(categoryPack, seqPack, texturePack *PackFile, lk *paramLo
 			return flags, true, nil
 		}
 
-		// `model{N}` (e.g. model1, model2, ...) — TS uses startsWith('model').
-		// Resolution deferred to packer; just return raw value.
-		if strings.HasPrefix(key, "model") {
-			if len(value) > 1000 {
-				return nil, true, fmt.Errorf("model value exceeds 1000 chars")
-			}
-			return value, true, nil
-		}
+		// `model`/`model2`..`model5` are handled by locStringKeys above —
+		// at the 254 pin TS enumerates them in stringKeys (LocConfig.ts:41)
+		// rather than prefix-matching, so e.g. `model1` or `modelfoo` is an
+		// invalid KEY. (The pre-254 Go prefix catch-all was retired with the
+		// stringKeys expansion.) Resolution stays deferred to the packer,
+		// which DOES prefix-match when collecting srcModels
+		// (LocConfig.ts:196 startsWith('model')).
 
 		// `op{N}` — handled by locStringKeys above for op1..op5. Anything
 		// starting with "op" beyond op1..op5 falls through to unknown.
@@ -465,10 +472,16 @@ func packLocConfigs(configs map[string][]ConfigLine, locPack, modelPack *PackFil
 						client.P1(73)
 					}
 				case line.Key == "breakroutefinding":
-					// TS source: tools/pack/config/LocConfig.ts:307-310 @ 3c16994c.
+					// TS source: tools/pack/config/LocConfig.ts:307-310 @ 2e3bcf43.
 					if line.Value.(bool) {
 						client.P1(74)
 					}
+				case line.Key == "raiseobject":
+					// NEW at rev-254: always emits opcode 75 + pbool (no
+					// true/false asymmetry, unlike 73/74).
+					// TS source: tools/pack/config/LocConfig.ts:311-314 @ 2e3bcf43.
+					client.P1(75)
+					client.PBool(line.Value.(bool))
 				}
 			}
 
@@ -486,17 +499,38 @@ func packLocConfigs(configs map[string][]ConfigLine, locPack, modelPack *PackFil
 				}
 			}
 
-			// Model resolution and opcode 1 emission.
+			// Model resolution and opcode 1/5 emission. NEW at rev-254
+			// (TS LocConfig.ts:377-402 @ 2e3bcf43): when EVERY resolved
+			// shape is the centrepiece_straight default, the compact
+			// opcode-5 form is written — p1(count) + p2(model) per entry,
+			// NO shape bytes. Any other shape mix keeps the opcode-1
+			// (model, shape) pair form.
 			models, mErr := resolveLocModels(srcModels, modelPack, modelFlags, debugname)
 			if mErr != nil {
 				return nil, nil, mErr
 			}
 			if len(models) > 0 {
-				client.P1(1)
-				client.P1(uint8(len(models)))
+				centrepieceOnly := true
 				for _, m := range models {
-					client.P2(uint16(m.model))
-					client.P1(uint8(m.shape))
+					if m.shape != locShapeCentrepieceStraight {
+						centrepieceOnly = false
+						break
+					}
+				}
+
+				if centrepieceOnly {
+					client.P1(5)
+					client.P1(uint8(len(models)))
+					for _, m := range models {
+						client.P2(uint16(m.model))
+					}
+				} else {
+					client.P1(1)
+					client.P1(uint8(len(models)))
+					for _, m := range models {
+						client.P2(uint16(m.model))
+						client.P1(uint8(m.shape))
+					}
 				}
 			}
 
