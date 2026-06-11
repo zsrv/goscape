@@ -64,7 +64,7 @@ func TestRebootTimer_SetsShutdownTickAndBroadcasts(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
@@ -93,7 +93,7 @@ func TestRebootTimer_DurationZero(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
@@ -146,7 +146,7 @@ func TestProcessShutdown_MarksAllConnectedPlayersForLogout(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 	go io.Copy(io.Discard, cc)
 
@@ -154,7 +154,7 @@ func TestProcessShutdown_MarksAllConnectedPlayersForLogout(t *testing.T) {
 	s.processShutdown()
 
 	if !p.loggingOut {
-		t.Errorf("player slot=%d: loggingOut not set after processShutdown", p.pid)
+		t.Errorf("player slot=%d: loggingOut not set after processShutdown", p.slot)
 	}
 }
 
@@ -171,7 +171,7 @@ func TestProcessShutdown_ForceRemoveAfter1024Ticks(t *testing.T) {
 	}
 	go io.Copy(io.Discard, cc)
 
-	slot := p.pid
+	slot := p.slot
 	p.loggingOut = true
 	s.shutdownTick = s.currentTick - 1024
 
@@ -194,7 +194,7 @@ func TestProcessShutdown_ForceRemoveNotSetBeforeDuration(t *testing.T) {
 	}
 	go io.Copy(io.Discard, cc)
 
-	slot := p.pid
+	slot := p.slot
 	p.loggingOut = true
 	s.shutdownTick = s.currentTick - 1023
 
@@ -240,7 +240,7 @@ func TestProcessShutdown_AcceleratesTickRateAfterDuration2(t *testing.T) {
 	// doesn't fire before the tickRate=0 line — TS sets tickRate AFTER
 	// the online==0 check, so a zero-player world graceful-exits without
 	// touching tickRate.
-	s.players.set(1, &Player{pid: 1})
+	s.players.set(1, &Player{slot: 1})
 
 	if s.tickRate != defaultTickRate {
 		t.Fatalf("precondition: tickRate=%v, want defaultTickRate (%v)", s.tickRate, defaultTickRate)
@@ -260,7 +260,7 @@ func TestProcessShutdown_LeavesTickRateAloneWithinDuration2(t *testing.T) {
 	s := newTestServer(t)
 	// duration = 2 — boundary; TS uses `>` so this stays at normal rate.
 	s.shutdownTick = -2
-	s.players.set(1, &Player{pid: 1})
+	s.players.set(1, &Player{slot: 1})
 
 	s.processShutdown()
 
@@ -281,14 +281,14 @@ func TestProcessShutdown_ForceRemovesStuckPlayerAfter1024(t *testing.T) {
 	p.client.server = s
 	// Register the player in a real slot so removal is observable
 	// (newPlayer leaves slot=-1, which removePlayerInternal's slot guard
-	// would skip). addPlayer assigns a slot via getNextPid and
-	// calls s.players.set(slot, p).
+	// would skip). addPlayer assigns a slot via nextSlot and
+	// calls s.players.add(slot, key, p).
 	if err := s.addPlayer(p); err != nil {
 		t.Fatalf("addPlayer: %v", err)
 	}
 	go io.Copy(io.Discard, cc)
 
-	slot := p.pid
+	slot := p.slot
 
 	// Make the player fail processLogouts' inner gate: !CanAccess(). This is
 	// exactly the stuck-player case that the buggy forceRemove path never

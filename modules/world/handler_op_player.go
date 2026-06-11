@@ -9,7 +9,7 @@ import (
 // (254 adds the OPPLAYER5 wire packet for SET_PLAYER_OP slot 5).
 //
 // Opcodes (254): OPPLAYER1=192, OPPLAYER2=17, OPPLAYER3=18, OPPLAYER4=72,
-// OPPLAYER5=230. Op is 1..5. Payload = u2 pid.
+// OPPLAYER5=230. Op is 1..5. Payload = u2 playerSlot (TS OpPlayer.playerSlot @2e3bcf43).
 //
 // Gates per TS OpPlayerHandler.ts (244):
 //  1. delayed player → UnsetMapFlag (no clearPendingAction). TS:15-18.
@@ -48,10 +48,10 @@ func handleOpPlayer(p *Player, payload []byte, op int) error {
 	}
 
 	r := packet.NewPacket(payload)
-	pid := int(r.G2())
+	playerSlot := int(r.G2())
 
 	// Gate 3: target not found — clearPendingAction. TS OpPlayerHandler.ts:20-25 (244).
-	other := s.LookupPlayerBySlot(pid)
+	other := s.LookupPlayerBySlot(playerSlot)
 	if other == nil {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
@@ -59,7 +59,7 @@ func handleOpPlayer(p *Player, payload []byte, op int) error {
 	}
 
 	// Gate 4: rsbuf visibility — clearPendingAction. TS OpPlayerHandler.ts:27-31 (244).
-	if !s.rsbuf.HasPlayer(int32(p.pid), int32(other.pid)) {
+	if !s.rsbuf.HasPlayer(int32(p.slot), int32(other.slot)) {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
 		return nil
@@ -79,7 +79,7 @@ func handleOpPlayer5(p *Player, payload []byte) error { return handleOpPlayer(p,
 
 // handleOpPlayerT is the handler for OPPLAYERT (opcode 73, 4-byte payload).
 // Spell-on-Player: player drags a spell icon onto another player.
-// Payload = (pid:G2, spellComponent:G2).
+// Payload = (playerSlot:G2, spellComponent:G2).
 //
 // Gates per TS OpPlayerTHandler.ts (244):
 //  1. delayed player → UnsetMapFlag (no clearPendingAction). TS:16-19.
@@ -111,7 +111,7 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 	}
 
 	r := packet.NewPacket(payload)
-	pid := int(r.G2())
+	playerSlot := int(r.G2())
 	spellCom := int(r.G2())
 
 	// Gate 3: combined component check — clearPendingAction. TS OpPlayerTHandler.ts:21-26 (244).
@@ -124,7 +124,7 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 	}
 
 	// Gate 4: target not found — clearPendingAction. TS OpPlayerTHandler.ts:28-33 (244).
-	other := s.LookupPlayerBySlot(pid)
+	other := s.LookupPlayerBySlot(playerSlot)
 	if other == nil {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
@@ -132,7 +132,7 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 	}
 
 	// Gate 5: rsbuf visibility — clearPendingAction. TS OpPlayerTHandler.ts:35-39 (244).
-	if !s.rsbuf.HasPlayer(int32(p.pid), int32(other.pid)) {
+	if !s.rsbuf.HasPlayer(int32(p.slot), int32(other.slot)) {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
 		return nil
@@ -146,7 +146,7 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 
 // handleOpPlayerU is the handler for OPPLAYERU (opcode 48, 8-byte payload).
 // Item-on-Player: player drags an inventory item onto another player.
-// Payload = (pid:G2, useObj:G2, useSlot:G2, useComponent:G2).
+// Payload = (playerSlot:G2, useObj:G2, useSlot:G2, useComponent:G2).
 //
 // Gates per TS OpPlayerUHandler.ts (244):
 //  1. delayed player → UnsetMapFlag (no clearPendingAction). TS:18-21.
@@ -185,7 +185,7 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 	}
 
 	r := packet.NewPacket(payload)
-	pid := int(r.G2())
+	playerSlot := int(r.G2())
 	useObj := int(r.G2())
 	useSlot := int(r.G2())
 	useCom := int(r.G2())
@@ -219,7 +219,7 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 	}
 
 	// Gate 6: target not found — clearPendingAction. TS OpPlayerUHandler.ts:44-48 (244).
-	other := s.LookupPlayerBySlot(pid)
+	other := s.LookupPlayerBySlot(playerSlot)
 	if other == nil {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
@@ -227,7 +227,7 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 	}
 
 	// Gate 7: rsbuf visibility — clearPendingAction. TS OpPlayerUHandler.ts:50-54 (244).
-	if !s.rsbuf.HasPlayer(int32(p.pid), int32(other.pid)) {
+	if !s.rsbuf.HasPlayer(int32(p.slot), int32(other.slot)) {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
 		return nil

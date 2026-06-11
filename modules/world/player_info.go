@@ -17,7 +17,7 @@ func (p *Player) updatePlayers() {
 	if s == nil || s.rsbuf == nil || s.renderer == nil {
 		return
 	}
-	payload := s.rsbuf.PlayerInfo.Encode(s.rsbuf, int32(p.pid), s.renderer)
+	payload := s.rsbuf.PlayerInfo.Encode(s.rsbuf, int32(p.slot), s.renderer)
 	p.writeOut(gameserver.OpPlayerInfo, payload)
 
 	telemetry.Get().EmitWorld(&eventspb.WorldEnvelope{

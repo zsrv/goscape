@@ -320,11 +320,11 @@ func reportAbuseSetupWithOnlineOffender(t *testing.T, offenderName string) (*Pla
 	offender.client.server = s
 	offender.username = offenderName
 	offender.active = true
-	slot := s.players.next()
+	slot := s.players.nextSlot()
 	if slot == -1 {
 		t.Fatal("reportAbuseSetupWithOnlineOffender: world full")
 	}
-	offender.pid = slot
+	offender.slot = slot
 	s.players.set(slot, offender)
 	return reporter, offender, rec
 }

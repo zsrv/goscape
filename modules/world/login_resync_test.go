@@ -24,8 +24,8 @@ func TestSendUpdatePid_EmitsExactByteSequence(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	p.pid = 0x1234
-	sendUpdatePid(p, p.pid, false)
+	p.slot = 0x1234
+	sendUpdatePid(p, p.slot, false)
 	p.client.flushWrite()
 
 	got := <-received
@@ -48,8 +48,8 @@ func TestSendUpdatePid_MembersTrue(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	p.pid = 1
-	sendUpdatePid(p, p.pid, true)
+	p.slot = 1
+	sendUpdatePid(p, p.slot, true)
 	p.client.flushWrite()
 
 	got := <-received
@@ -146,7 +146,7 @@ func TestProcessLogins_FreshLogin_EmitsOpcodeOrder(t *testing.T) {
 	)
 	// UPDATE_PID payload: 3 bytes (244): p2(slot) + pbool(members).
 	// newTestServer has cfg.NodeMembers=false (zero-value); p.members=false → members=false → 0x00.
-	want = append(want, 0x00, byte(p.pid), 0x00)
+	want = append(want, 0x00, byte(p.slot), 0x00)
 	want = append(want,
 		byte((int(gameserver.OpResetClientVarCache.Opcode)+int(enc.GetNext()))&0xff),
 	)
@@ -204,7 +204,7 @@ func TestProcessLogins_FreshLogin_FriendsEnabled_EmitsConnectingNoIgnoreBootstra
 	)
 	want = append(want,
 		byte((int(gameserver.OpUpdatePid.Opcode)+int(enc.GetNext()))&0xff),
-		0x00, byte(p.pid), 0x00,
+		0x00, byte(p.slot), 0x00,
 	)
 	want = append(want,
 		byte((int(gameserver.OpResetClientVarCache.Opcode)+int(enc.GetNext()))&0xff),

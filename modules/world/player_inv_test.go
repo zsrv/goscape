@@ -306,7 +306,7 @@ func TestUpdateInvsLazyAllocSeedsStockTemp(t *testing.T) {
 	p.client.server = s
 	p.uid = 12345
 	p.active = true
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 
 	// Register listener at com=149 — SCOPE_TEMP, source=p.uid.
@@ -366,7 +366,7 @@ func buildRunWeightInvServer(t *testing.T, p *Player, invTypeID, objTypeID, objW
 	p.client.server = s
 	p.uid = 12345
 	p.active = true
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 	return s
 }
@@ -515,7 +515,7 @@ func TestUpdateInvs_SharedInvDoesNotCountToRunWeight(t *testing.T) {
 	p.client.server = s
 	p.uid = 12345
 	p.active = true
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 
 	// SCOPE_SHARED: invListenOnCom rewrites source to -1.
@@ -607,7 +607,7 @@ func TestUpdateInvsLazyAllocSeedsStockShared(t *testing.T) {
 	p.client.server = s
 	p.uid = 12345
 	p.active = true
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 
 	// caller source=99; SCOPE_SHARED rewrite inside invListenOnCom flips to -1.

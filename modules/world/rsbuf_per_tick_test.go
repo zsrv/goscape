@@ -24,7 +24,7 @@ func TestProcessInfo_ComputePlayerPushSmoke(t *testing.T) {
 	p := setupInfoPlayer(t, s, 1, 50, 50, 0)
 	// Reserve the matching rsbuf player slot so ComputePlayer's
 	// pid bounds-check writes to a real entry instead of no-op.
-	s.rsbuf.AddPlayer(int32(p.pid))
+	s.rsbuf.AddPlayer(int32(p.slot))
 
 	// Drive processInfo (the function containing the new ComputePlayer
 	// push). Should not panic.
@@ -103,14 +103,14 @@ func TestProcessInfo_PassesRealOrientationFields(t *testing.T) {
 	s.renderer = rsbuf.NewRenderer()
 
 	p := setupInfoPlayer(t, s, 1, 50, 50, 0)
-	s.rsbuf.AddPlayer(int32(p.pid))
+	s.rsbuf.AddPlayer(int32(p.slot))
 
 	p.OrientationX = 1234
 	p.OrientationZ = 5678
 
 	s.processInfo()
 
-	rp := s.rsbuf.PlayerForTest(int32(p.pid))
+	rp := s.rsbuf.PlayerForTest(int32(p.slot))
 	if rp == nil {
 		t.Fatal("rsbuf player slot not populated after processInfo")
 	}
@@ -135,13 +135,13 @@ func TestProcessInfo_PassesRealLastAppearance(t *testing.T) {
 	s.renderer = rsbuf.NewRenderer()
 
 	p := setupInfoPlayer(t, s, 1, 50, 50, 0)
-	s.rsbuf.AddPlayer(int32(p.pid))
+	s.rsbuf.AddPlayer(int32(p.slot))
 
 	p.lastAppearance = 42
 
 	s.processInfo()
 
-	rp := s.rsbuf.PlayerForTest(int32(p.pid))
+	rp := s.rsbuf.PlayerForTest(int32(p.slot))
 	if rp == nil {
 		t.Fatal("rsbuf player slot not populated after processInfo")
 	}

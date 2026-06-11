@@ -10,7 +10,7 @@ func TestProcessCleanupResetsSocialFlags(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	p.pid = 1
+	p.slot = 1
 	s.playersMu.Lock()
 	s.players.set(1, p)
 	s.playersMu.Unlock()
@@ -34,7 +34,7 @@ func TestProcessCleanupPreservesStaffModLevel(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	p.pid = 1
+	p.slot = 1
 	s.playersMu.Lock()
 	s.players.set(1, p)
 	s.playersMu.Unlock()

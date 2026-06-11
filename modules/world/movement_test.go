@@ -537,8 +537,8 @@ func TestProcessValidateDistanceWalked_ExactMoveGate(t *testing.T) {
 	exact.lastTickX, exact.lastTickZ, exact.lastLevel = 3200, 3194, 0 // 6 tiles
 	exact.masks |= MaskExactMove
 
-	s.players.set(moved.pid, moved)
-	s.players.set(exact.pid, exact)
+	s.players.set(moved.slot, moved)
+	s.players.set(exact.slot, exact)
 	s.processValidateDistanceWalked()
 
 	if !moved.jump {

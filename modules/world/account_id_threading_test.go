@@ -97,7 +97,7 @@ func TestCoordLogCarriesAccountID(t *testing.T) {
 	p1.accountID = 77
 	p1.session = "p1-sess"
 	p1.level, p1.x, p1.z = 0, 3200, 3200
-	p1.pid = 1
+	p1.slot = 1
 	s.players.set(1, p1)
 	s.currentTick = PlayerCoordLogRate
 

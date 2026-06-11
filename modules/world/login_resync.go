@@ -6,14 +6,16 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
-// sendUpdatePid writes one UPDATE_PID packet. TS UpdatePidEncoder (244):
-// p2(pid) pbool(members). TS passes p.pid and p.members at
-// Player.ts:501 via `new UpdatePid(this.pid, this.members)` — pid is
-// the player's slot/protocol-identity field; members is the player's own
-// membership flag. NAI-182; extended in rev-244 B2 Task 3.
-func sendUpdatePid(p *Player, pid int, members bool) {
+// sendUpdatePid writes one UPDATE_PID packet. TS UpdatePidEncoder
+// (unchanged at @2e3bcf43): p2 + pbool. The value sent is the player's
+// slot — TS passes `new UpdatePid(this.slot, this.members)` at
+// Player.ts:500 (upstream a8186b95 renamed pid → slot; the wire payload
+// semantics are unchanged, the model's first field is merely named
+// `uid` upstream). members is the player's own membership flag.
+// NAI-182; extended in rev-244 B2 Task 3.
+func sendUpdatePid(p *Player, slot int, members bool) {
 	buf := packet.NewPacket(nil)
-	buf.P2(uint16(pid))
+	buf.P2(uint16(slot))
 	if members {
 		buf.P1(1)
 	} else {

@@ -119,7 +119,7 @@ func TestProcessInfo_TeleAcrossWindow_LocalCoordsInRange(t *testing.T) {
 	// origin (2661, 3306). Pre-fix: rsbuf cache holds STALE (3094, 3106).
 	s.processInfo()
 
-	payload := s.rsbuf.PlayerInfo.Encode(s.rsbuf, int32(p.pid), s.renderer)
+	payload := s.rsbuf.PlayerInfo.Encode(s.rsbuf, int32(p.slot), s.renderer)
 	if len(payload) == 0 {
 		t.Fatal("PlayerInfo.Encode returned empty payload")
 	}

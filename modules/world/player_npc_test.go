@@ -19,7 +19,7 @@ func setupNpcInfoPlayer(t *testing.T, s *Server, slot, x, z, level int) *Player 
 	p.x, p.z, p.level = x, z, level
 	p.originX, p.originZ = x, z
 	p.lastTickX, p.lastTickZ, p.lastLevel = x, z, level
-	p.pid = slot
+	p.slot = slot
 	s.players.set(slot, p)
 	p.active = true
 	if s.rsbuf != nil {
@@ -56,8 +56,8 @@ func TestPlayerSeesNearbyNpc(t *testing.T) {
 	s.processInfo()
 	p.updateNpcs()
 
-	if !s.rsbuf.HasNpc(int32(p.pid), int32(npc.nid)) {
-		t.Errorf("player should track npc after updateNpcs; HasNpc(%d, %d) returned false", p.pid, npc.nid)
+	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
+		t.Errorf("player should track npc after updateNpcs; HasNpc(%d, %d) returned false", p.slot, npc.nid)
 	}
 }
 

@@ -71,7 +71,7 @@ func TestRemovePlayerOnTick_NoLoginClient_NoRPC(t *testing.T) {
 
 	s.removePlayerOnTick(p) // must not panic
 	// player slot cleared (removePlayerInternal still runs).
-	if s.players.get(p.pid) != nil {
+	if s.players.get(p.slot) != nil {
 		t.Error("removePlayerInternal must still run when loginClient is nil")
 	}
 }
@@ -205,7 +205,7 @@ func TestRemovePlayerOnDisconnect_NoLoginClient_NoRPC(t *testing.T) {
 
 	s.removePlayerOnDisconnect(p) // enqueues; must not panic
 	s.drainRelayActions()         // runs the relayed removePlayerOnTick on-tick
-	if s.players.get(p.pid) != nil {
+	if s.players.get(p.slot) != nil {
 		t.Error("removePlayerInternal must run (via the relayed tick logout) when loginClient is nil")
 	}
 }

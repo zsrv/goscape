@@ -966,14 +966,14 @@ func TestHandleOpLocUHappyPathWithOtherPlayerInv(t *testing.T) {
 	// Create a second player at slot 2 with inv type 93 containing
 	// the claimed item at the claimed slot.
 	other, _ := newTestPlayer(t)
-	other.pid = 2
+	other.slot = 2
 	other.uid = 0xDEADBEEF // arbitrary UID; must use UID not slot in invListenOnCom
 	other.active = true
 	other.invs = map[int]*inventory.Inventory{}
 	inv := inventory.New(93, 28, inventory.StackNormal)
 	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
 	other.invs[93] = inv
-	other.pid = 2
+	other.slot = 2
 	s.players.set(2, other)
 
 	// Register listener pointing at other's uid (not slot) for inv type 93.

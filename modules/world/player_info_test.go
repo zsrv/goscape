@@ -21,7 +21,7 @@ func setupInfoPlayer(t *testing.T, s *Server, slot, x, z, level int) *Player {
 	p.x, p.z, p.level = x, z, level
 	p.originX, p.originZ = x, z
 	p.lastTickX, p.lastTickZ, p.lastLevel = x, z, level
-	p.pid = slot
+	p.slot = slot
 	s.players.set(slot, p)
 	p.active = true
 	if s.rsbuf != nil {
@@ -44,8 +44,8 @@ func TestTwoPlayersSeeEachOther(t *testing.T) {
 	s.processInfo()
 	a.updatePlayers()
 
-	if !s.rsbuf.HasPlayer(int32(a.pid), 2) {
-		t.Errorf("a should track b after updatePlayers; HasPlayer(%d, 2) returned false", a.pid)
+	if !s.rsbuf.HasPlayer(int32(a.slot), 2) {
+		t.Errorf("a should track b after updatePlayers; HasPlayer(%d, 2) returned false", a.slot)
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 // the post-NAI-11-Task-4 IsValid semantics.
 func newActivePlayer(pid int) *Player {
 	return &Player{
-		pid:        pid,
+		slot:       pid,
 		active:     true,
 		visibility: rsbuf.VisibilityDefault,
 		client:     &client{},

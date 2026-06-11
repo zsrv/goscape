@@ -3,96 +3,147 @@ package world
 import (
 	"iter"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 )
 
-// playerList ports TS EntityList/PlayerList (EntityList.ts:6-115 at the 244
-// pin): the pid-keyed player registry with round-robin allocation.
+// playerList ports the rev-254 World player containers (TS World.ts:145-148
+// @2e3bcf43, introduced upstream in a8186b95 "refactor: Replaced PlayerList
+// with HashTable<Player>"):
 //
-// Representation: TS keeps a storage Array + ids Int32Array + free Set; the
-// indirection has no observable effect (get/set/remove keyed by id,
-// iteration in id order, count = size - free.size), so the Go port stores
-// entities directly by pid. Observable contract — allocation order,
-// iteration order, count, full-world sentinel — is identical.
+//		// the server processes players in the underlying bucket-order (key fragment + insertion order)
+//		readonly playerLoop: HashTable<Player> = new HashTable(8);
+//		// the client and server communicate via player "slots," separate from processing
+//		readonly players: Player[] = new Array(2048);
+//
+//	  - entities is the protocol slot array (TS `players`). "Slot" is the
+//	    wire identity — player info, UPDATE_PID, hint arrows, OP_PLAYER
+//	    input — and says nothing about processing order.
+//	  - buckets is the processing loop (TS `playerLoop`), keyed by client
+//	    IP. Per-tick passes iterate bucket 0..7 in ascending order, each
+//	    bucket in insertion (login) order, so processing order is
+//	    IP-influenced and independent of slot numbers (TS HashTable.ts).
+//
+// Go representation: TS chains players through the intrusive Linkable
+// next/prev fields with one sentinel per bucket; the Go port keeps a
+// slice per bucket (append = TS tail-insert, slices.Delete = unlink).
+// Membership is tracked via Player.loopBucket instead of Linkable.prev.
+// Observable contract — bucket selection, in-bucket order, removal and
+// re-add semantics — is identical.
 type playerList struct {
-	entities      []*Player
-	count         int
-	lastUsedIndex int // last pid passed to set(); next() resumes after it. TS EntityList.ts:67
+	entities []*Player                    // slot → player; TS World.players
+	buckets  [playerLoopBuckets][]*Player // TS World.playerLoop (HashTable(8))
+	// count caches the occupied-slot total. TS getTotalPlayers
+	// (World.ts:1691-1702) recounts slots 1..2046 on every call, with a
+	// "todo: could cache this, or increment/decrement on add/remove"
+	// note; the cached value is identical.
+	count int
 }
 
-// playerListIndexPadding mirrors PlayerList's super(size, 1): the
-// wraparound floor of the round-robin scan — pid 0 is never allocated.
-// TS EntityList.ts:15-20,97.
-const playerListIndexPadding = 1
+// playerLoopBuckets mirrors `new HashTable(8)` (TS World.ts:146). The
+// bucket index is key & (playerLoopBuckets - 1) (TS HashTable.ts:35).
+const playerLoopBuckets = 8
+
+// playerLoopHeadlessKey is the loop key for logins with no attached
+// client socket: 2130706433 = 127.0.0.1 (TS World.ts:914-917).
+const playerLoopHeadlessKey uint64 = 2130706433
 
 func newPlayerList(size int) *playerList {
 	return &playerList{entities: make([]*Player, size)}
 }
 
-func (l *playerList) get(pid int) *Player {
-	if pid < 0 || pid >= len(l.entities) {
+func (l *playerList) get(slot int) *Player {
+	if slot < 0 || slot >= len(l.entities) {
 		return nil
 	}
-	return l.entities[pid]
+	return l.entities[slot]
 }
 
-func (l *playerList) set(pid int, p *Player) { // TS EntityList.ts:59-68
-	if l.entities[pid] == nil {
-		l.count++
-	}
-	l.entities[pid] = p
-	l.lastUsedIndex = pid
-}
-
-func (l *playerList) remove(pid int) { // TS EntityList.ts:70-77
-	if l.entities[pid] != nil {
-		l.entities[pid] = nil
-		l.count--
-	}
-}
-
-// next is the round-robin scan: forward from lastUsedIndex+1, wrapping at
-// indexPadding. Returns -1 when full (TS throws; the only caller maps it
-// to the WORLD_FULL login reply). TS EntityList.ts:22-35.
-func (l *playerList) next() int {
-	start := l.lastUsedIndex + 1
-	for pid := start; pid < len(l.entities); pid++ {
-		if l.entities[pid] == nil {
-			return pid
-		}
-	}
-	for pid := playerListIndexPadding; pid < start && pid < len(l.entities); pid++ {
-		if l.entities[pid] == nil {
-			return pid
+// nextSlot ports TS World.getNextPlayerSlot (World.ts:1634-1642): linear
+// scan for the lowest free slot in [1, 2046]. Slot 0 is never allocated
+// and neither is the final slot — TS scans `1 <= i < 2047` against the
+// 2048-entry array. Returns -1 when the world is full (TS returns -1;
+// the caller rejects the login with the world-full reply). Unlike the
+// rev-244 PlayerList there is no round-robin resume and no IP-derived
+// priority window: a freed low slot is reused by the very next login.
+func (l *playerList) nextSlot() int {
+	for slot := 1; slot < len(l.entities)-1; slot++ {
+		if l.entities[slot] == nil {
+			return slot
 		}
 	}
 	return -1
 }
 
-// nextPriority scans the 100-wide preferred window [start, start+100),
-// skipping pid 0 via the init quirk, then falls back to the DEFAULT-start
-// round-robin (TS calls super.next() with no args). TS EntityList.ts:100-114.
-func (l *playerList) nextPriority(start int) int {
-	init := 0
-	if start == 0 {
-		init = 1
+// add inserts p at slot and appends it to the playerLoop bucket derived
+// from key. Mirrors the TS login sequence (World.ts:902-921):
+// playerLoop.add(key, player), players[slot] = player, player.slot =
+// slot (the World.ts:921 assignment is folded in here so the
+// remove-by-player slot lookup is always coherent). TS HashTable.add
+// unlinks an already-linked value before appending it at the bucket
+// tail (HashTable.ts:30-43); add replicates both behaviors.
+func (l *playerList) add(slot int, key uint64, p *Player) {
+	if l.entities[slot] == nil {
+		l.count++
 	}
-	for i := init; i < 100; i++ {
-		pid := start + i
-		if pid < len(l.entities) && l.entities[pid] == nil {
-			return pid
-		}
-	}
-	return l.next()
+	l.entities[slot] = p
+	p.slot = slot
+	l.loopUnlink(p)
+	b := int(key & (playerLoopBuckets - 1))
+	l.buckets[b] = append(l.buckets[b], p)
+	p.loopBucket = b + 1
 }
 
-// all iterates players in pid order. TS EntityList.ts:37-48.
+// set is add with the headless 127.0.0.1 loop key (TS World.ts:914-917).
+// Production logins go through Server.addPlayer → add with the
+// client-derived key; set is the shorthand used by tests and matches
+// the no-client login path exactly.
+func (l *playerList) set(slot int, p *Player) {
+	l.add(slot, playerLoopHeadlessKey, p)
+}
+
+// remove clears p's slot and unlinks it from its playerLoop bucket.
+// TS World.removePlayer (World.ts:1586-1589): `delete this.players[slot]`
+// followed by `player.unlink()`.
+func (l *playerList) remove(p *Player) {
+	if p == nil {
+		return
+	}
+	if p.slot >= 0 && p.slot < len(l.entities) && l.entities[p.slot] == p {
+		l.entities[p.slot] = nil
+		l.count--
+	}
+	l.loopUnlink(p)
+}
+
+// loopUnlink removes p from its playerLoop bucket, if linked. Ports TS
+// Linkable.unlink (Linkable.ts:6-15); no-op when not linked, like the
+// TS prev == null guard.
+func (l *playerList) loopUnlink(p *Player) {
+	if p.loopBucket == 0 {
+		return
+	}
+	b := p.loopBucket - 1
+	if i := slices.Index(l.buckets[b], p); i >= 0 {
+		l.buckets[b] = slices.Delete(l.buckets[b], i, i+1)
+	}
+	p.loopBucket = 0
+}
+
+// all iterates the playerLoop: buckets in ascending index order, each
+// bucket in insertion (login) order. This is the per-tick processing
+// order at the 254 pin (TS HashTable.all, HashTable.ts:49-60) — NOT
+// slot order. Callers that remove players mid-pass must snapshot first
+// (snapshotPlayers), the same invariant as before; the TS iterator
+// instead pre-reads node.next before yielding.
 func (l *playerList) all() iter.Seq[*Player] {
 	return func(yield func(*Player) bool) {
-		for _, p := range l.entities {
-			if p != nil && !yield(p) {
-				return
+		for b := range l.buckets {
+			for _, p := range l.buckets[b] {
+				if !yield(p) {
+					return
+				}
 			}
 		}
 	}
@@ -100,8 +151,8 @@ func (l *playerList) all() iter.Seq[*Player] {
 
 // splitHostPort wraps net.SplitHostPort and tolerates a missing port by
 // returning the input as the host unchanged. Parse problems are absorbed
-// (never surfaced) — getNextPid treats any unparseable address as the
-// plain round-robin path, so there is nothing to signal.
+// (never surfaced) — playerLoopKey treats any unparseable address as the
+// headless 127.0.0.1 bucket, so there is nothing to signal.
 func splitHostPort(addr string) (host, port string) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
@@ -110,27 +161,57 @@ func splitHostPort(addr string) (host, port string) {
 	return host, port
 }
 
-// getNextPid ports TS World.getNextPid (World.ts:1758-1773): derive the
-// preferred pid window from the remote address. TS parses the raw address
-// string (split on '.' / ':'), so the Go port does the same rather than
-// using net.IP; any parse failure falls back to the plain round-robin.
-// remoteAddr may be "host:port", a bare host, or "" (no client).
-func getNextPid(l *playerList, remoteAddr string) int {
+// playerLoopKey derives the playerLoop key from the client's remote
+// address, porting the TS login bucketing (World.ts:902-917 @2e3bcf43):
+//
+//   - IPv4 ("last octet determines the bucket"): all four octets packed
+//     big-endian — bucket = key & 7 = the last octet's low 3 bits. JS
+//     packs through signed int32 then BigInt; two's complement preserves
+//     the low bits, so the Go uint32 pack selects identical buckets.
+//     Octets that fail to parse contribute 0, matching JS parseInt → NaN
+//     coercing to 0 under <</| (relevant for v4-mapped forms like
+//     "::ffff:1.2.3.4", whose first "octet" is "::ffff:1").
+//   - IPv6 ("site prefix determines the bucket"): the third hextet
+//     parsed as hex, mod 256. A missing/unparseable hextet contributes 0
+//     (TS would throw on BigInt(NaN); unreachable for net.Conn-sourced
+//     addresses, which are always well-formed).
+//   - no address (headless login, no client socket): 2130706433 =
+//     127.0.0.1 (TS World.ts:914-917) → bucket 1.
+//
+// DEVIATION (unreachable-path hardening): a connected client whose
+// address contains neither '.' nor ':' is never playerLoop.add-ed in TS
+// at all — the player would hold a slot but never be processed. Real
+// net.Conn addresses always contain one of the two; goscape routes the
+// impossible remainder (and net.Pipe's "pipe" test address) into the
+// headless 127.0.0.1 bucket instead of silently never processing the
+// player.
+//
+// TS parses the raw address string (split on '.' / ':'), so the Go port
+// does the same rather than using net.IP. remoteAddr may be
+// "host:port", a bare host, or "" (no client).
+func playerLoopKey(remoteAddr string) uint64 {
 	host, _ := splitHostPort(remoteAddr)
 	if strings.Contains(host, ".") {
-		// IPv4 — first available pid starting from (low ip octet % 20) * 100.
 		octets := strings.Split(host, ".")
-		if n, err := strconv.Atoi(octets[len(octets)-1]); err == nil {
-			return l.nextPriority((n % 20) * 100)
+		octet := func(i int) uint32 {
+			if i >= len(octets) {
+				return 0 // JS: octets[i] undefined → parseInt → NaN → 0
+			}
+			n, _ := strconv.Atoi(octets[i]) // parse failure → 0 (JS NaN)
+			return uint32(int32(n))
 		}
-	} else if strings.Contains(host, ":") {
-		// IPv6 — first available pid starting from (low site prefix % 20) * 100.
-		hextets := strings.Split(host, ":")
-		if len(hextets) > 2 {
-			if n, err := strconv.ParseInt(hextets[2], 16, 64); err == nil {
-				return l.nextPriority((int(n) % 20) * 100)
+		// TS: (o0 << 24) | (o1 << 16) | (o2 << 8) | o3, through signed
+		// int32 — uint32 arithmetic yields the same low 32 bits.
+		key := octet(0)<<24 | octet(1)<<16 | octet(2)<<8 | octet(3)
+		return uint64(key)
+	}
+	if strings.Contains(host, ":") {
+		if hextets := strings.Split(host, ":"); len(hextets) > 2 {
+			if v, err := strconv.ParseUint(hextets[2], 16, 64); err == nil {
+				return v % 256
 			}
 		}
+		return 0
 	}
-	return l.next()
+	return playerLoopHeadlessKey
 }

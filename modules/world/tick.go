@@ -321,11 +321,13 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 
 // snapshotPlayers returns a stable copy of s.players for one tick pass
 // to iterate: passes like processLogouts remove players from the live
-// registry mid-iteration, so ranging players.all() directly would skip
-// entries. (PlayerList.all() iterates over the entities array by index;
-// a concurrent remove zeroes the slot, and the iterator would skip that
-// slot on re-entry — but snapshotting is simpler and preserves the
-// existing tick-goroutine ownership invariant.)
+// registry mid-iteration, so ranging players.all() directly would
+// misbehave. (playerList.all() ranges the playerLoop bucket slices —
+// rev-254 processing order, bucket then login order — and a concurrent
+// loopUnlink shifts bucket entries under the range. The TS HashTable
+// iterator instead pre-reads node.next before yielding; snapshotting is
+// simpler and preserves the existing tick-goroutine ownership
+// invariant.)
 //
 // The copy lands in s.playerScratch, reused across passes — pre-PERF-1
 // each of the 13 passes allocated a fresh slice, ~13 allocs/tick scaling
@@ -487,10 +489,11 @@ func (s *Server) processLogins() {
 				sendFriendlistLoaded(p, 2)
 				sendUpdateIgnoreList(p, nil)
 			}
-			// TS UpdatePidEncoder (244): p2(uid) pbool(members).
-			// TS Player.ts:501 `new UpdatePid(this.pid, this.members)` —
-			// members is the player's own membership flag.
-			sendUpdatePid(p, p.pid, p.members)
+			// TS UpdatePidEncoder (unchanged @2e3bcf43): p2 + pbool.
+			// TS Player.ts:500 `new UpdatePid(this.slot, this.members)` —
+			// the wire value is the player's slot; members is the
+			// player's own membership flag.
+			sendUpdatePid(p, p.slot, p.members)
 			sendResetClientVarCache(p)
 			if s.varpTypes != nil {
 				for i, vt := range s.varpTypes.Configs {
@@ -1059,7 +1062,7 @@ func (s *Server) processInfo() {
 			// (faceAngle, south on login) so the always-forced FACE_COORD
 			// low-def orients a fresh player south, not north-east.
 			pFaceX, pFaceZ := p.effectiveFaceCoord()
-			s.rsbuf.ComputePlayer(int32(p.pid),
+			s.rsbuf.ComputePlayer(int32(p.slot),
 				p.x, p.level, p.z,
 				p.originX, p.originZ,
 				p.tele, p.jump,

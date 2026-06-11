@@ -1020,9 +1020,9 @@ func (n *Npc) SetInteraction(kind InteractionKind, target entity, op, com int) b
 	// faceEntity (Player/Npc) or targetX/Z (Loc/Obj) dispatch.
 	switch t := target.(type) {
 	case *Player:
-		pid := t.pid + 32768
-		if n.faceEntity != pid {
-			n.faceEntity = pid
+		playerSlot := t.slot + 32768 // TS PathingEntity.ts:534 @2e3bcf43
+		if n.faceEntity != playerSlot {
+			n.faceEntity = playerSlot
 			n.masks |= n.entitymask
 		}
 	case *Npc:

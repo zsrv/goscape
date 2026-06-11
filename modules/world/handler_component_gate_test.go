@@ -370,10 +370,10 @@ func seedNpcAtSlot(t *testing.T, s *Server, p *Player, slot int) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.x, p.z, p.level = 99, 100, 0
 
-	p.pid = slot + 100 // use an offset so player slot doesn't collide with npc slot
-	s.players.set(p.pid, p)
-	s.rsbuf.AddPlayer(int32(p.pid))
-	s.rsbuf.SubscribeNpcForTest(int32(p.pid), int32(npcNid))
+	p.slot = slot + 100 // use an offset so player slot doesn't collide with npc slot
+	s.players.set(p.slot, p)
+	s.rsbuf.AddPlayer(int32(p.slot))
+	s.rsbuf.SubscribeNpcForTest(int32(p.slot), int32(npcNid))
 }
 
 // seedObjAt places an Obj at (x, z) with the given objId in the server's zone
@@ -452,20 +452,20 @@ func seedTargetPlayerAtSlot(t *testing.T, s *Server, p *Player, slot int) {
 	t.Helper()
 	other, _ := newTestPlayer(t)
 	other.client.server = s
-	other.pid = slot
+	other.slot = slot
 	s.players.set(slot, other)
 	s.rsbuf.AddPlayer(int32(slot))
 
 	// Wire the clicker player into the server.
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	p.pid = slot + 100 // avoid collision with target slot
-	s.players.set(p.pid, p)
-	s.rsbuf.AddPlayer(int32(p.pid))
+	p.slot = slot + 100 // avoid collision with target slot
+	s.players.set(p.slot, p)
+	s.rsbuf.AddPlayer(int32(p.slot))
 
 	// Make the target visible to the clicker.
-	bp := s.rsbuf.PlayerForTest(int32(p.pid))
+	bp := s.rsbuf.PlayerForTest(int32(p.slot))
 	if bp == nil {
-		t.Fatalf("rsbuf has no player at observer slot %d", p.pid)
+		t.Fatalf("rsbuf has no player at observer slot %d", p.slot)
 	}
 	bp.Build.Players.Insert(int32(slot))
 }

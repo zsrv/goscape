@@ -38,7 +38,7 @@ func resolveListenerInv(s *Server, listener InventoryListener) *inventory.Invent
 //  1. player.delayed → UnsetMapFlag (no clearPendingAction). TS:16-19.
 //  2. payload too short → UnsetMapFlag (goscape defensive).
 //  3. !npc || npc.delayed → UnsetMapFlag + clearPendingAction. TS:21-26.
-//  4. !hasNpc(player.pid, npc.nid) → UnsetMapFlag + clearPendingAction. TS:28-32.
+//  4. !hasNpc(player.slot, npc.nid) → UnsetMapFlag + clearPendingAction. TS:28-32.
 //  5. !npcType.op || !npcType.op[op-1] → UnsetMapFlag + clearPendingAction. TS:34-39.
 //     Note: at 244 the explicit `=== 'hidden'` check was removed; only falsy
 //     (null/empty-string) rejects. In goscape, "hidden" is stored verbatim as a
@@ -81,7 +81,7 @@ func handleOpNpc(p *Player, payload []byte, op int) error {
 		return nil
 	}
 	// Gate 4: rsbuf visibility — clearPendingAction. TS OpNpcHandler.ts:28-32 (244).
-	if !s.rsbuf.HasNpc(int32(p.pid), int32(npc.nid)) {
+	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
 		return nil
@@ -117,7 +117,7 @@ func handleOpNpc5(p *Player, payload []byte) error { return handleOpNpc(p, paylo
 //  3. com undefined || !isVisible || (actionTarget&NPC)==0 → UnsetMapFlag
 //     + clearPendingAction. TS:21-26 (244 combined check).
 //  4. !npc || npc.delayed → UnsetMapFlag + clearPendingAction. TS:28-33.
-//  5. !hasNpc(player.pid, npc.nid) → UnsetMapFlag + clearPendingAction. TS:35-39.
+//  5. !hasNpc(player.slot, npc.nid) → UnsetMapFlag + clearPendingAction. TS:35-39.
 //
 // On success: clearPendingAction → setInteraction(ENGINE, npc,
 // targetOpNpcT, spellCom) → opcalled=true. TS:41-44.
@@ -167,7 +167,7 @@ func handleOpNpcT(p *Player, payload []byte) error {
 		return nil
 	}
 	// Gate 5: rsbuf visibility — clearPendingAction. TS OpNpcTHandler.ts:35-39 (244).
-	if !s.rsbuf.HasNpc(int32(p.pid), int32(npc.nid)) {
+	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
 		return nil
@@ -192,7 +192,7 @@ func handleOpNpcT(p *Player, payload []byte) error {
 //  4. listener not found → UnsetMapFlag + clearPendingAction. TS:30-35.
 //  5. inv unresolved || !validSlot || !hasAt → UnsetMapFlag + clearPendingAction. TS:37-42.
 //  6. !npc || npc.delayed → UnsetMapFlag + clearPendingAction. TS:44-49.
-//  7. !hasNpc(player.pid, npc.nid) → UnsetMapFlag + clearPendingAction. TS:51-55.
+//  7. !hasNpc(player.slot, npc.nid) → UnsetMapFlag + clearPendingAction. TS:51-55.
 //  8. members-only item on free world → MessageGame + UnsetMapFlag. TS:58-61.
 //
 // On success: clearPendingAction → (gate 8 members check) → lastUseItem/lastUseSlot →
@@ -261,7 +261,7 @@ func handleOpNpcU(p *Player, payload []byte) error {
 		return nil
 	}
 	// Gate 7: rsbuf visibility — clearPendingAction. TS OpNpcUHandler.ts:51-55 (244).
-	if !s.rsbuf.HasNpc(int32(p.pid), int32(npc.nid)) {
+	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
 		sendUnsetMapFlag(p)
 		p.ClearPendingAction()
 		return nil

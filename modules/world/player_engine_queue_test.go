@@ -79,7 +79,7 @@ func TestProcessPlayerEngineQueuesFiresWhenDelayReachesZero(t *testing.T) {
 
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 
 	// Manual append — bypass EnqueueScriptFile to set Delay=2 explicitly.
@@ -129,7 +129,7 @@ func TestProcessPlayerEngineQueuesGatedByCanAccess(t *testing.T) {
 
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 
 	// Force CanAccess()=false via delayed.
@@ -175,7 +175,7 @@ func TestProcessPlayerEngineQueuesSanityFire(t *testing.T) {
 
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 
 	// p.delayed defaults to false → CanAccess()=true (assuming no modals).
@@ -207,7 +207,7 @@ func TestProcessPlayerEngineQueuesSameTickReentrant(t *testing.T) {
 
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 
 	p.engineQueue = append(p.engineQueue,
@@ -228,7 +228,7 @@ func TestProcessPlayerEngineQueuesEmptyIsNoop(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 
 	if len(p.engineQueue) != 0 {

@@ -32,8 +32,8 @@ func newInvListenerTestPlayer(t *testing.T, s *Server, slot int) (*Player, net.C
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	p.pid = slot
-	p.uid = composeUID(p.username37, p.pid) // NAI-113: matches Server.addPlayer
+	p.slot = slot
+	p.uid = composeUID(p.username37, p.slot) // NAI-113: matches Server.addPlayer
 	p.active = true
 	p.invs = map[int]*inventory.Inventory{}
 	s.players.set(slot, p)

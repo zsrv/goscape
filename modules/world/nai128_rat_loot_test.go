@@ -173,7 +173,7 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 	})
 
 	// Register the player with the server before crediting heroPoints.
-	// addPlayer assigns p.pid, p.uid=composeUID(username37, slot), and
+	// addPlayer assigns p.slot, p.uid=composeUID(username37, slot), and
 	// adds to s.players with active=true. Required so
 	// downstream NPC_FINDHERO -> LookupPlayerByUID(uid) resolves the
 	// player at T5 (controller pre-flight: tut_giant_rat.rs2:6 gates

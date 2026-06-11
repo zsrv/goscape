@@ -91,11 +91,19 @@ type playerTimer struct {
 }
 
 // Player is the game-side representation of a connected player.
-// All fields except client and pid are owned exclusively by the tick goroutine.
+// All fields except client and slot are owned exclusively by the tick goroutine.
 type Player struct {
 	// === network (from sub-spec 1) ===
-	pid    int
+	// slot is the protocol identity (TS Player.slot @2e3bcf43; renamed
+	// from pid by upstream a8186b95: "'Slot' is a better term for the
+	// protocol (not player-aware)").
+	slot   int
 	client *client
+	// loopBucket is this player's bucket index + 1 in playerList.buckets
+	// (the playerLoop); 0 = not linked. Stands in for the intrusive TS
+	// Linkable prev/next links (Linkable.ts:3-5). Maintained exclusively
+	// by playerList.add / playerList.loopUnlink.
+	loopBucket int
 
 	// === identity ===
 	username      string
@@ -107,7 +115,7 @@ type Player struct {
 	staffModLevel int32
 	// accountID is the persistent DB account.id from PlayerLogin RPC,
 	// copied off client.accountID in newPlayer. Distinct from uid (which
-	// is composeUID(username37, pid), a per-session identity used by
+	// is composeUID(username37, slot), a per-session identity used by
 	// scripts). Used as the partition key on every telemetry envelope.
 	// Zero for connections that bypass the login bridge. NAI-Phase2.
 	accountID int64
@@ -634,7 +642,7 @@ func newPlayer(c *client) *Player {
 		staffModLevel:  c.staffModLevel,
 		session:        c.sessionUUID,
 		accountID:      c.accountID,
-		pid:            -1,
+		slot:           -1, // TS Player.ts: slot = -1 until login assigns one
 		uid:            -1,
 		x:              3094,
 		z:              3106,
@@ -745,15 +753,11 @@ func newPlayer(c *client) *Player {
 	return p
 }
 
-// Slot returns the player's pid. Satisfies the shared entity interface used
-// by Npc (which returns nid), Obj, and Loc — all of which implement Slot() int
-// for polymorphic zone / rsbuf dispatch. Player impl returns pid; Npc impl
-// returns nid. TS 244 naming: Player.pid (Player.ts:309).
-func (p *Player) Slot() int { return p.pid }
-
-// Pid returns the player's pid (protocol identity). Mirrors TS Player.ts:309
-// `this.pid` at rev-244.
-func (p *Player) Pid() int { return p.pid }
+// Slot returns the player's protocol slot. Satisfies the shared entity
+// interface used by Npc (which returns nid), Obj, and Loc — all of which
+// implement Slot() int for polymorphic zone / rsbuf dispatch. TS 254
+// naming: Player.slot (renamed from pid by a8186b95 @2e3bcf43).
+func (p *Player) Slot() int { return p.slot }
 
 // Coords returns the player's current absolute coordinates.
 func (p *Player) Coords() (x, z, level int) { return p.x, p.z, p.level }

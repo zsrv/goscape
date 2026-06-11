@@ -28,9 +28,9 @@ func TestBroadcastRebuildStaff_DeliversToInvokerAndStaffOnly(t *testing.T) {
 	peasant.staffModLevel = 0
 	peasant.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
-	invoker.pid = 1
-	staff.pid = 2
-	peasant.pid = 3
+	invoker.slot = 1
+	staff.slot = 2
+	peasant.slot = 3
 	s.playersMu.Lock()
 	s.players.set(1, invoker)
 	s.players.set(2, staff)
@@ -74,8 +74,8 @@ func TestBroadcastRebuildStaff_FsnotifyTriggered_NoInvoker(t *testing.T) {
 	peasant.staffModLevel = 0
 	peasant.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
-	staff.pid = 1
-	peasant.pid = 2
+	staff.slot = 1
+	peasant.slot = 2
 	s.playersMu.Lock()
 	s.players.set(1, staff)
 	s.players.set(2, peasant)

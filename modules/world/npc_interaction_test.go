@@ -956,7 +956,7 @@ func TestNpcSetInteraction(t *testing.T) {
 	typ := &objtype.NpcType{}
 	targetNpc := &Npc{nid: 7, typeId: 99, x: 105, z: 105, level: 0}
 	targetPlayer := &Player{
-		pid:        3,
+		slot:       3,
 		active:     true,
 		visibility: rsbuf.VisibilityDefault,
 		client:     &client{},

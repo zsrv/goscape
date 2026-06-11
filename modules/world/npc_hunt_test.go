@@ -723,8 +723,8 @@ func TestHuntPlayersCombatGuard(t *testing.T) {
 		if len(hunted) != 1 {
 			t.Fatalf("got %d, want 1 (target=other → candidate filtered, other passes)", len(hunted))
 		}
-		if hunted[0].Slot() != other.pid {
-			t.Errorf("hunted[0]: got slot %d, want slot %d (the target-player)", hunted[0].Slot(), other.pid)
+		if hunted[0].Slot() != other.slot {
+			t.Errorf("hunted[0]: got slot %d, want slot %d (the target-player)", hunted[0].Slot(), other.slot)
 		}
 	})
 
@@ -1254,7 +1254,7 @@ func TestHuntPlayersUsesZoneSubscriptionExclusive(t *testing.T) {
 	// from Zone, so this player must NOT be returned.
 	c, _ := newTestClient(t)
 	phantom := newPlayer(c)
-	phantom.pid = 99
+	phantom.slot = 99
 	phantom.x, phantom.z, phantom.level = hunter.x+1, hunter.z+1, hunter.level
 	phantom.combatLevel = 50
 	// active=true so the test catches a registry-fallback regression
@@ -1271,7 +1271,7 @@ func TestHuntPlayersUsesZoneSubscriptionExclusive(t *testing.T) {
 	}
 	got := hunter.huntPlayers(s, hunt)
 	for _, e := range got {
-		if pl, ok := e.(*Player); ok && pl.pid == 99 {
+		if pl, ok := e.(*Player); ok && pl.slot == 99 {
 			t.Error("huntPlayers returned non-Zone-subscribed player; should be Zone-exclusive")
 		}
 	}
@@ -1302,8 +1302,8 @@ func TestHuntPlayersRespectsIsValidFilter(t *testing.T) {
 	}
 	got := hunter.huntPlayers(s, hunt)
 	for _, e := range got {
-		if pl, ok := e.(*Player); ok && pl.pid == target.pid {
-			t.Errorf("huntPlayers returned inactive player pid=%d; IsValid filter should skip it", target.pid)
+		if pl, ok := e.(*Player); ok && pl.slot == target.slot {
+			t.Errorf("huntPlayers returned inactive player pid=%d; IsValid filter should skip it", target.slot)
 		}
 	}
 }

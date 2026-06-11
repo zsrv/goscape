@@ -1,19 +1,19 @@
 package world
 
-// composeUID derives a Player.uid from username37 + pid.
+// composeUID derives a Player.uid from username37 + slot.
 //
-// Mirrors TS Engine-TS World.ts:937:
+// Mirrors TS Engine-TS World.ts:922 @2e3bcf43:
 //
-//	player.uid = ((Number(player.username37 & 0x1fffffn) << 11) | player.pid) >>> 0;
+//	player.uid = ((Number(player.username37 & 0x1fffffn) << 11) | player.slot) >>> 0;
 //
 // The lower 21 bits of username37 are shifted up 11 bits; the 11-bit
-// pid occupies the low bits. Stable per (account, pid) for the
-// session. Goscape masks pid to 11 bits defensively (TS pid is ≤2047
+// slot occupies the low bits. Stable per (account, slot) for the
+// session. Goscape masks slot to 11 bits defensively (TS slot is ≤2046
 // by construction); username37 is masked to 21 bits matching TS.
 //
 // Single source of truth for the formula. Production callers:
 // Server.addPlayer. Test callers: newInvListenerTestPlayer (and any
 // future test fixture that needs a deterministic per-player uid).
-func composeUID(username37 uint64, pid int) int {
-	return int(((username37 & 0x1FFFFF) << 11) | uint64(pid&0x7FF))
+func composeUID(username37 uint64, slot int) int {
+	return int(((username37 & 0x1FFFFF) << 11) | uint64(slot&0x7FF))
 }

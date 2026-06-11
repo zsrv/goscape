@@ -95,14 +95,17 @@ type Server struct {
 	// by bridgesCancel mid-flight.
 	saveWg sync.WaitGroup
 
-	// players is the 244 PlayerList: pid-keyed registry with round-robin
-	// allocation. Replaces the 225-era flat players [2048]*Player array
-	// and playerLoop []*Player insertion-order slice.
-	// TS World.ts:244 uses a single EntityList/PlayerList for both slot
-	// lookup (getPlayer) and ordered iteration (players.all() → pid order).
-	// Closes PORTING-EXCEPTION (gap-db-datastruct-4).
-	// TS refs: login insert World.ts:940-961, removePlayer World.ts:1643-1648,
-	// getNextPid World.ts:1758-1773, getTotalPlayers World.ts:1730-1732.
+	// players bundles the rev-254 World player containers (TS
+	// World.ts:145-148 @2e3bcf43, upstream a8186b95): the protocol slot
+	// array (`players: (Player|null)[2048]`, lowest-free assignment via
+	// getNextPlayerSlot) plus the IP-bucketed playerLoop
+	// (HashTable<Player>(8)) that fixes per-tick processing order.
+	// players.all() iterates the playerLoop (bucket order then login
+	// order), NOT slot order. Keeps PORTING-EXCEPTION
+	// (gap-db-datastruct-4) closed, now via the playerLoop port.
+	// TS refs: login insert World.ts:875-922, removePlayer
+	// World.ts:1576-1599, getNextPlayerSlot World.ts:1634-1642,
+	// getTotalPlayers World.ts:1691-1702.
 	players    *playerList
 	newPlayers []*Player // guarded by playersMu; drained by processLogins
 	playersMu  sync.RWMutex
@@ -1363,22 +1366,22 @@ func (s *Server) addPlayer(p *Player) error {
 	s.playersMu.Lock()
 	defer s.playersMu.Unlock()
 
-	// Derive the preferred pid window from the client's remote address.
-	// TS World.ts:920-924: getNextPid(isClientConnected(player) ? player.client : null).
-	// Connected clients pass their remote address for IP-windowed allocation;
-	// headless/bot logins (no client) fall back to plain round-robin.
-	// TS World.ts:1758-1773.
+	// Lowest-free slot assignment. TS World.ts:875-883 @2e3bcf43:
+	// getNextPlayerSlot() (linear 1..2046); -1 → world full → reject.
+	slot := s.players.nextSlot()
+	if slot == -1 {
+		return errWorldFull
+	}
+	// playerLoop bucketing by client IP (TS World.ts:902-917): connected
+	// clients derive the key from their remote address; headless logins
+	// (no client socket) land in the 127.0.0.1 bucket. The bucket fixes
+	// this player's per-tick processing position — independent of slot.
 	var remoteAddr string
 	if p.client != nil && p.client.conn != nil {
 		remoteAddr = p.client.conn.RemoteAddr().String()
 	}
-	pid := getNextPid(s.players, remoteAddr)
-	if pid == -1 {
-		return errWorldFull
-	}
-	p.pid = pid
-	p.uid = composeUID(p.username37, p.pid) // NAI-113: TS World.ts:956
-	s.players.set(pid, p)
+	s.players.add(slot, playerLoopKey(remoteAddr), p) // sets p.slot (TS World.ts:919-921)
+	p.uid = composeUID(p.username37, p.slot)          // NAI-113: TS World.ts:922
 	p.active = true
 	// Seed the default-south orientation now that p.x/p.z are set, so
 	// the always-forced FACE_COORD low-def orients a freshly-logged-in
@@ -1389,13 +1392,15 @@ func (s *Server) addPlayer(p *Player) error {
 		p.zoneListElement = z.EnterPlayer(p, s.zoneMap.Grid(p.level))
 	}
 	if s.rsbuf != nil {
-		s.rsbuf.AddPlayer(int32(p.pid))
+		s.rsbuf.AddPlayer(int32(p.slot))
 	}
 	return nil
 }
 
 // getTotalPlayers returns the count of live players.
-// TS World.ts:1730-1732: return this.players.count.
+// TS World.ts:1691-1702 @2e3bcf43 recounts occupied slots 1..2046 on
+// every call (with a "todo: could cache this" note); playerList.count
+// caches the identical value.
 // Lock-free read — playersMu guards writes only.
 func (s *Server) getTotalPlayers() int {
 	return s.players.count
@@ -1449,7 +1454,7 @@ func (s *Server) removePlayerInternal(p *Player) {
 	s.playersMu.Lock()
 	defer s.playersMu.Unlock()
 
-	if p.pid < 1 || p.pid >= len(s.players.entities) || s.players.get(p.pid) != p {
+	if p.slot < 1 || p.slot >= len(s.players.entities) || s.players.get(p.slot) != p {
 		return
 	}
 	if s.zoneMap != nil && p.zoneListElement != nil {
@@ -1463,10 +1468,11 @@ func (s *Server) removePlayerInternal(p *Player) {
 		// Build.Cleanup. Order matters; running cleanup first would
 		// clear Npcs before the iteration and silently skip the
 		// observer decrement.
-		s.rsbuf.RemovePlayer(int32(p.pid))
+		s.rsbuf.RemovePlayer(int32(p.slot))
 	}
-	// TS World.ts:1641: this.players.remove(player.pid). TS EntityList.ts:70-77.
-	s.players.remove(p.pid)
+	// TS World.ts:1588-1589 @2e3bcf43: `delete this.players[player.slot]`
+	// + `player.unlink()` (drop out of the playerLoop bucket).
+	s.players.remove(p)
 
 	// world-ops-2: TS World.removePlayer (World.ts:1642) calls
 	// changeNpcCollision(player.width, player.x, player.z, player.level,

@@ -229,10 +229,10 @@ func TestFireOpTriggerPlayerCapturesNextTargetFromScript(t *testing.T) {
 	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
 
 	// Make target visible to rsbuf so the HINT_PL dispatch doesn't fail.
-	s.players.set(target.pid, target)
-	s.rsbuf.AddPlayer(int32(target.pid))
-	s.players.set(clicker.pid, clicker)
-	s.rsbuf.AddPlayer(int32(clicker.pid))
+	s.players.set(target.slot, target)
+	s.rsbuf.AddPlayer(int32(target.slot))
+	s.players.set(clicker.slot, clicker)
+	s.rsbuf.AddPlayer(int32(clicker.slot))
 
 	fireOpTriggerPlayer(clicker, s, target)
 
@@ -259,10 +259,10 @@ func TestFireOpTriggerPlayerClearsWaypoints(t *testing.T) {
 	target.uid = 42
 	target.active = true
 
-	s.players.set(target.pid, target)
-	s.rsbuf.AddPlayer(int32(target.pid))
-	s.players.set(clicker.pid, clicker)
-	s.rsbuf.AddPlayer(int32(clicker.pid))
+	s.players.set(target.slot, target)
+	s.rsbuf.AddPlayer(int32(target.slot))
+	s.players.set(clicker.slot, clicker)
+	s.rsbuf.AddPlayer(int32(clicker.slot))
 
 	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
 

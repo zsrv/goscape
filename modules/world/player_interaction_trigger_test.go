@@ -74,12 +74,12 @@ func newPlayerTriggerFixture(t *testing.T) (s *Server, clicker, target *Player, 
 	clicker, clickerConn = newTestPlayer(t)
 	clicker.client.server = s
 	clicker.client.encryptor = io2.New([4]uint32{5, 6, 7, 8})
-	clicker.pid = 1
+	clicker.slot = 1
 
 	target, targetConn = newTestPlayer(t)
 	target.client.server = s
 	target.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	target.pid = 2
+	target.slot = 2
 
 	clicker.SetInteraction(InteractionEngine, target, 1, -1)
 	clicker.interacted = true // simulate reach
@@ -96,7 +96,7 @@ func newPlayerTriggerFixture(t *testing.T) (s *Server, clicker, target *Player, 
 //   - fireOpTriggerPlayer invoked runScript, which in turn executed the script.
 //   - state.Self = clicker (`p`), since HintPlayer is dispatched on
 //     state.Self's *Player and the wire packet lands on clicker's conn.
-//   - The uid→pid lookup resolved target correctly (slot on the wire = target.pid).
+//   - The uid→pid lookup resolved target correctly (slot on the wire = target.slot).
 //
 // Note (244): HINT_PL no longer reads Self2; uid is popped from the int
 // stack. Self2 binding (buildPlayerScriptState sets activePlayer2 = target,
@@ -113,7 +113,7 @@ func TestFireOpTriggerPlayer_ScriptFiresAndHintsTarget(t *testing.T) {
 	const targetUID = 42
 	target.uid = targetUID
 	target.active = true
-	s.players.set(target.pid, target)
+	s.players.set(target.slot, target)
 
 	// Compute expected first wire byte using a parallel encryptor seeded
 	// identically to clicker.client.encryptor (NAI-70 fixture seed).
@@ -128,8 +128,8 @@ func TestFireOpTriggerPlayer_ScriptFiresAndHintsTarget(t *testing.T) {
 
 	want := []byte{
 		byte((int(gameserver.OpHintArrow.Opcode) + int(wantEnc.GetNext())) & 0xff),
-		0x0A,                                    // p1: type = 10 (player hint)
-		byte(target.pid >> 8), byte(target.pid), // p2: slot (target's)
+		0x0A,                                      // p1: type = 10 (player hint)
+		byte(target.slot >> 8), byte(target.slot), // p2: slot (target's)
 		0x00, 0x00, // p2: 0
 		0x00, // p1: 0
 	}
@@ -182,7 +182,7 @@ func TestTryFireOpTrigger_PlayerArm(t *testing.T) {
 	const targetUID = 42
 	target.uid = targetUID
 	target.active = true
-	s.players.set(target.pid, target)
+	s.players.set(target.slot, target)
 
 	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
 
@@ -206,7 +206,7 @@ func TestTryFireOpTrigger_PlayerArm(t *testing.T) {
 // MessageGame on clicker's conn. Post-fix → script runs → marker appears.
 func TestFireOpTriggerPlayerOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 	s, clicker, other, cc1, _ := makeOpPlayerFixtureWithBothConns(t)
-	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
+	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
 
 	const overrideTypeId = 7783
 	const marker = "opplayer1-override-fired"
@@ -236,7 +236,7 @@ func TestFireOpTriggerPlayerOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 // sets apRange = -1 per fireApTriggerPlayer).
 func TestFireApTriggerPlayerOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 	s, clicker, other, cc1, _ := makeOpPlayerFixtureWithBothConns(t)
-	rsbufSeesPlayer(t, s, clicker.pid, other.pid)
+	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
 
 	const overrideTypeId = 7784
 	const marker = "applayer1-override-fired"
@@ -286,8 +286,8 @@ func TestFireApTriggerPlayerClearsWaypointsOnAttackPath(t *testing.T) {
 		InstructionCount: 1,
 	})
 
-	s.players.set(target.pid, target)
-	s.players.set(clicker.pid, clicker)
+	s.players.set(target.slot, target)
+	s.players.set(clicker.slot, clicker)
 
 	fireApTriggerPlayer(clicker, s, target)
 
@@ -339,8 +339,8 @@ func TestFireApTriggerPlayer_ApRangeCalled_BindsToClicker(t *testing.T) {
 		InstructionCount: 3,
 	})
 
-	s.players.set(target.pid, target)
-	s.players.set(clicker.pid, clicker)
+	s.players.set(target.slot, target)
+	s.players.set(clicker.slot, clicker)
 
 	fireApTriggerPlayer(clicker, s, target)
 
@@ -391,8 +391,8 @@ func TestTryInteract_ApPlayer_SameTickRetryActivates(t *testing.T) {
 		InstructionCount: 3,
 	})
 
-	s.players.set(target.pid, target)
-	s.players.set(clicker.pid, clicker)
+	s.players.set(target.slot, target)
+	s.players.set(clicker.slot, clicker)
 
 	// Place clicker within AP range (5 tiles) but outside operable range (>1).
 	// Default apRange=10; 5 tiles satisfies inApproachDistance but not
@@ -461,8 +461,8 @@ func TestApTriggerPlayer_SameTickRetry_FullCycle(t *testing.T) {
 		InstructionCount: 3,
 	})
 
-	s.players.set(target.pid, target)
-	s.players.set(clicker.pid, clicker)
+	s.players.set(target.slot, target)
+	s.players.set(clicker.slot, clicker)
 
 	clicker.x = 3094
 	clicker.z = 3106

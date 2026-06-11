@@ -25,7 +25,7 @@ func TestEmitFriendsDispatcher_OnFriendlistUpdate_EnqueuesOnePacketPerEntry(t *t
 	const viewer uint64 = 0x1111222233334444
 	p.username37 = viewer
 	p.active = true
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 
 	d := newEmitFriendsDispatcher(s, s.log)
@@ -69,7 +69,7 @@ func TestEmitFriendsDispatcher_OnFriendlistUpdate_EmptyBatchStillCompletes(t *te
 	const viewer uint64 = 0x1111222233334444
 	p.username37 = viewer
 	p.active = true
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 
 	d := newEmitFriendsDispatcher(s, s.log)
@@ -118,7 +118,7 @@ func TestEmitFriendsDispatcher_OnFriendlistUpdate_LogoutBetweenEnqueueAndDrain(t
 	const viewer uint64 = 0xCAFE
 	p.username37 = viewer
 	p.active = true
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 
 	d := newEmitFriendsDispatcher(s, s.log)
@@ -143,7 +143,7 @@ func TestEmitFriendsDispatcher_OnIgnorelistUpdate_EmitsSnapshot(t *testing.T) {
 	const viewer uint64 = 0x1111
 	p.username37 = viewer
 	p.active = true
-	p.pid = 1
+	p.slot = 1
 	s.players.set(1, p)
 
 	d := newEmitFriendsDispatcher(s, s.log)
@@ -177,7 +177,7 @@ func TestEmitFriendsDispatcher_OnPrivateMessage_EmitsPacket(t *testing.T) {
 	const target uint64 = 0x4444
 	p.username37 = target
 	p.active = true
-	p.pid = 1
+	p.slot = 1
 	p.client.server = s // required: sendMessagePrivate calls server.wordenc.Filter
 	s.players.set(1, p)
 

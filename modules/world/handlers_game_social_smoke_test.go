@@ -19,7 +19,7 @@ func TestNAI72AllSixOpcodesDispatch(t *testing.T) {
 	// REPORT_ABUSE in-range path calls MessageGame → writeOut → ISAAC.
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	rec := installRecordingBridges(s)
-	p.pid = 1
+	p.slot = 1
 	s.playersMu.Lock()
 	s.players.set(1, p)
 	s.playersMu.Unlock()
