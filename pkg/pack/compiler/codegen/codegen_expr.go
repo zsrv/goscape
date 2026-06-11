@@ -174,19 +174,27 @@ func (g *CodeGenerator) visitNullLiteral(nl *ast.NullLiteral) {
 	if hasBase {
 		switch base {
 		case typ.BaseVarString:
-			g.Instruction(PushConstantString, "null", nl.Source())
+			// TS CodeGenerator.ts:716 @ b8c3388 passes NO source for the
+			// string-null push (instruction(PushConstantString, 'null')) —
+			// the zero NodeSourceLocation keeps it OUT of the line-number
+			// table, exactly like TS's undefined source. Surfaced at the
+			// T23 254 full-tree gate: passing nl.Source() here shifted the
+			// pc→line entries of every script with a string-typed null
+			// argument (e.g. set_player_op(null, …)).
+			g.Instruction(PushConstantString, "null", lexer.NodeSourceLocation{})
 			return
 		case typ.BaseVarLong:
-			g.Instruction(PushConstantLong, int64(-1), nl.Source())
+			// TS :719 — likewise sourceless.
+			g.Instruction(PushConstantLong, int64(-1), lexer.NodeSourceLocation{})
 			return
 		}
 	}
 	g.Instruction(PushConstantInt, -1, nl.Source())
 
 	// Hook special case: MetaType.Hook context emits trailing PushConstantString("").
-	// Mirrors TS L756-L760.
+	// Mirrors TS L725-L731; the push carries NO source (TS :730).
 	if _, isHook := typ.IsMetaHook(t); isHook {
-		g.Instruction(PushConstantString, "", nl.Source())
+		g.Instruction(PushConstantString, "", lexer.NodeSourceLocation{})
 	}
 }
 
