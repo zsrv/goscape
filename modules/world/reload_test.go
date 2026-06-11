@@ -16,7 +16,7 @@ import (
 )
 
 // ref254CacheDir is defined in testdata_path_test.go — it resolves the
-// Server245.2-ref reference cache (245.2 component layout) and skips when
+// Server254-ref reference cache (254 component layout) and skips when
 // the reference checkout is unavailable. The repo's own data/pack is not
 // used here because it may be a stale 244-format pack that
 // LoadComponentTypes can no longer decode.

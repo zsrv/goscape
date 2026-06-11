@@ -8,10 +8,10 @@ import (
 // TestNewServer_LoadsWordencFilter pins that NewServer populates s.wordenc from
 // the raw wordenc jagfile. Rev-244: TS dropped the existence check and
 // hardcoded "data/raw/wordenc" — NewServer now fails when the jag is absent.
-// Test skips when the Server245.2-ref reference cache (needed for NewServer
+// Test skips when the Server254-ref reference cache (needed for NewServer
 // loads) is unavailable.
 //
-// Uses the Server245.2-ref pack (LoadComponentTypes expects the 245.2
+// Uses the Server254-ref pack (LoadComponentTypes expects the 254
 // component layout — swappable/activeOverColour; ref254CacheDir is defined
 // in testdata_path_test.go).
 //
