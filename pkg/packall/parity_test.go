@@ -13,41 +13,46 @@ import (
 	"testing"
 )
 
-// TestPackAll_Ref245FullTreeParity is the full-tree byte-parity acceptance
-// gate. It runs PackAll over the real 245.2 content and asserts that the output
-// matches the reference cache captured from Engine-TS 3c16994c + Content cbcfe670.
+// TestPackAll_Ref254FullTreeParity is the full-tree byte-parity acceptance
+// gate. It runs PackAll over the real 254 content and asserts that the output
+// matches the reference cache captured from Engine-TS 2e3bcf43 + Content caee3f2e.
 //
-// The test is skipped unless GOSCAPE_REF245_DIR is set to the engine directory
-// of a Server245.2-ref checkout, e.g.:
+// The test is skipped unless GOSCAPE_REF254_DIR is set to the engine directory
+// of a Server254-ref checkout, e.g.:
 //
-//	GOSCAPE_REF245_DIR=/path/to/Server245.2-ref/engine go test ./pkg/packall/ \
-//	  -run Ref245FullTreeParity -v -count=1
+//	GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine go test ./pkg/packall/ \
+//	  -run Ref254FullTreeParity -v -count=1
 //
-// Content is derived as $GOSCAPE_REF245_DIR/../content. rawDir is the repo's
+// Content is derived as $GOSCAPE_REF254_DIR/../content. rawDir is the repo's
 // data/raw (contains the wordenc blob; not the engine copy).
+//
+// data/symbols is NOT part of the gate: upstream deleted the .sym pipeline at
+// 2e3bcf43, so the reference cache has no symbols baseline. goscape's .sym
+// export is a documented Go-only feature pinned by the synthetic-fixture
+// tests in pkg/pack/compiler (see symbols_export_ref_parity_test.go).
 //
 // Exemptions (not compared byte-for-byte against the manifest):
 //   - server/build          — 4-byte wall-clock timestamp; asserted to be exactly 4 bytes.
 //   - ondemand.zip          — zip container bytes differ (Go archive/zip vs fflate);
-//     entry-level content parity is verified via ref245_ondemand_entries.txt.
+//     entry-level content parity is verified via ref254_ondemand_entries.txt.
 //   - server/maps/free2play.csv  — goscape-extra runtime copy; not in TS pack output.
 //   - server/maps/multiway.csv   — goscape-extra runtime copy; not in TS pack output.
 //     See pkg/pack/maps/pack.go for the deviation rationale.
-func TestPackAll_Ref245FullTreeParity(t *testing.T) {
+func TestPackAll_Ref254FullTreeParity(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping full-tree parity test in short mode (takes ~10-20s)")
 	}
 
-	ref := os.Getenv("GOSCAPE_REF245_DIR")
+	ref := os.Getenv("GOSCAPE_REF254_DIR")
 	if ref == "" {
-		t.Skip("GOSCAPE_REF245_DIR not set; to run: " +
-			"GOSCAPE_REF245_DIR=/path/to/Server245.2-ref/engine " +
-			"go test ./pkg/packall/ -run Ref245FullTreeParity -v -count=1")
+		t.Skip("GOSCAPE_REF254_DIR not set; to run: " +
+			"GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine " +
+			"go test ./pkg/packall/ -run Ref254FullTreeParity -v -count=1")
 	}
 
 	contentDir := filepath.Join(ref, "..", "content")
 	if _, err := os.Stat(contentDir); err != nil {
-		t.Fatalf("contentDir %q not found (derived from GOSCAPE_REF245_DIR/../content): %v", contentDir, err)
+		t.Fatalf("contentDir %q not found (derived from GOSCAPE_REF254_DIR/../content): %v", contentDir, err)
 	}
 
 	// rawDir is the goscape repo's data/raw, not the engine's copy. Tests run
@@ -67,14 +72,8 @@ func TestPackAll_Ref245FullTreeParity(t *testing.T) {
 		t.Fatalf("PackAll: %v", err)
 	}
 
-	// symbolsDir is a sibling of outDir named "symbols" — PackAll writes it
-	// via filepath.Join(filepath.Dir(outDir), "symbols"). Since outDir is a
-	// TempDir (e.g. /tmp/TestXxx123/001) the sibling lives at
-	// /tmp/TestXxx123/symbols. We must create it at the same base.
-	symbolsDir := filepath.Join(filepath.Dir(outDir), "symbols")
-
 	// ── 1. Load manifest ────────────────────────────────────────────────────
-	manifest, err := loadRef245Manifest(t)
+	manifest, err := loadRef254Manifest(t)
 	if err != nil {
 		t.Fatalf("load manifest: %v", err)
 	}
@@ -82,19 +81,14 @@ func TestPackAll_Ref245FullTreeParity(t *testing.T) {
 	// ── 2. Assertion A: every manifest file matches sha256 ──────────────────
 	var mismatches []string
 	for relPath, wantHex := range manifest {
-		// Map manifest path prefix to output directory:
-		//   "data/pack/..."     → outDir/<rest>
-		//   "data/symbols/..."  → symbolsDir/<rest>
-		var absPath string
-		switch {
-		case strings.HasPrefix(relPath, "data/pack/"):
-			absPath = filepath.Join(outDir, strings.TrimPrefix(relPath, "data/pack/"))
-		case strings.HasPrefix(relPath, "data/symbols/"):
-			absPath = filepath.Join(symbolsDir, strings.TrimPrefix(relPath, "data/symbols/"))
-		default:
-			t.Errorf("manifest path %q has unexpected prefix (not data/pack/ or data/symbols/)", relPath)
+		// Manifest paths are all "data/pack/..." → outDir/<rest>. (The 245
+		// manifest also carried data/symbols/; the 254 baseline has none —
+		// upstream deleted the .sym pipeline at 2e3bcf43.)
+		if !strings.HasPrefix(relPath, "data/pack/") {
+			t.Errorf("manifest path %q has unexpected prefix (not data/pack/)", relPath)
 			continue
 		}
+		absPath := filepath.Join(outDir, strings.TrimPrefix(relPath, "data/pack/"))
 
 		gotHex, hashErr := sha256File(absPath)
 		if hashErr != nil {
@@ -115,8 +109,9 @@ func TestPackAll_Ref245FullTreeParity(t *testing.T) {
 	}
 
 	// ── 3. Assertion B: no unexpected extra files ────────────────────────────
-	// Walk outDir and symbolsDir; every file must either be in the manifest or
-	// on the explicit allowlist below.
+	// Walk outDir; every file must either be in the manifest or on the
+	// explicit allowlist below. The data/symbols sibling PackAll writes is
+	// NOT walked: it is the Go-only .sym export with no upstream baseline.
 	//
 	// Allowlisted extras (relative to outDir for data/pack paths):
 	//   server/build              — wall-clock timestamp, size-checked separately
@@ -146,9 +141,6 @@ func TestPackAll_Ref245FullTreeParity(t *testing.T) {
 		})
 	}
 	walkExtra(outDir, "data/pack")
-	if _, statErr := os.Stat(symbolsDir); statErr == nil {
-		walkExtra(symbolsDir, "data/symbols")
-	}
 	if len(unexpected) > 0 {
 		t.Errorf("%d unexpected extra file(s) in output tree:\n  %s",
 			len(unexpected), strings.Join(unexpected, "\n  "))
@@ -166,13 +158,13 @@ func TestPackAll_Ref245FullTreeParity(t *testing.T) {
 	checkOndemandZip(t, filepath.Join(outDir, "ondemand.zip"))
 }
 
-// loadRef245Manifest reads testdata/ref245_manifest.txt and returns a map from
+// loadRef254Manifest reads testdata/ref254_manifest.txt and returns a map from
 // manifest path (e.g. "data/pack/client/config") to its expected sha256 hex.
 // The map doubles as a membership set for "in manifest" queries in the
 // extra-files walk (presence check via _, ok := manifest[key]).
-func loadRef245Manifest(t *testing.T) (map[string]string, error) {
+func loadRef254Manifest(t *testing.T) (map[string]string, error) {
 	t.Helper()
-	f, err := os.Open(filepath.Join("testdata", "ref245_manifest.txt"))
+	f, err := os.Open(filepath.Join("testdata", "ref254_manifest.txt"))
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +187,7 @@ func loadRef245Manifest(t *testing.T) (map[string]string, error) {
 }
 
 // checkOndemandZip opens outDir/ondemand.zip and verifies that its entry set
-// and per-entry sha256 of uncompressed bytes match testdata/ref245_ondemand_entries.txt.
+// and per-entry sha256 of uncompressed bytes match testdata/ref254_ondemand_entries.txt.
 func checkOndemandZip(t *testing.T, zipPath string) {
 	t.Helper()
 
@@ -205,9 +197,9 @@ func checkOndemandZip(t *testing.T, zipPath string) {
 		sha  string
 	}
 	want := make(map[string]wantEntry)
-	ef, err := os.Open(filepath.Join("testdata", "ref245_ondemand_entries.txt"))
+	ef, err := os.Open(filepath.Join("testdata", "ref254_ondemand_entries.txt"))
 	if err != nil {
-		t.Fatalf("open ref245_ondemand_entries.txt: %v", err)
+		t.Fatalf("open ref254_ondemand_entries.txt: %v", err)
 	}
 	defer ef.Close()
 
@@ -220,12 +212,12 @@ func checkOndemandZip(t *testing.T, zipPath string) {
 		var name, shaHex string
 		var size int64
 		if _, scanErr := fmt.Sscanf(line, "%s %d %s", &name, &size, &shaHex); scanErr != nil {
-			t.Fatalf("ref245_ondemand_entries.txt: malformed line %q: %v", line, scanErr)
+			t.Fatalf("ref254_ondemand_entries.txt: malformed line %q: %v", line, scanErr)
 		}
 		want[name] = wantEntry{size: size, sha: shaHex}
 	}
 	if scanErr := scanner.Err(); scanErr != nil {
-		t.Fatalf("scan ref245_ondemand_entries.txt: %v", scanErr)
+		t.Fatalf("scan ref254_ondemand_entries.txt: %v", scanErr)
 	}
 
 	// Open the actual zip.
