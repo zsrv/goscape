@@ -27,7 +27,6 @@ func newVarbitTestVarpPack(t *testing.T, names ...string) *PackFile {
 	return pf
 }
 
-
 func TestParseVarbitConfig_StartbitDecimal(t *testing.T) {
 	parse := parseVarbitConfigFor(newVarbitTestVarpPack(t, "run"))
 	v, ok, err := parse("startbit", "7")
