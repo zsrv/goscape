@@ -47,22 +47,22 @@ const (
 	BlockWalkAll
 )
 
-// stepStatus is the tri-state return classification from (*Npc).stepOnce
-// and (*Player).stepOnce. Mirrors TS PathingEntity.takeStep's
-// (number | null) return where the wrapper (validateAndAdvanceStep)
-// dispatches on the value:
+// AllowRepath gates whether Player NAIVE-strategy chase logic may recompute
+// the naive path before reaching the current destination. Mirrors TS
+// AllowRepath.ts (added by Engine-TS f0ccbe8a):
 //
-//	stepBlocked = TS null   → transient block; waypointIndex preserved (NAI-176 D2)
-//	stepDone    = TS -1     → waypoint reached or no-move; wrapper decrements + recurses
-//	stepMoved   = TS number → position applied inline; wrapper returns dir
+//	export const enum AllowRepath { BEFOREDEST, NONE }
 //
-// Mirrors PathingEntity.ts:617-683 (takeStep) + 202-232 (validateAndAdvanceStep).
-type stepStatus int
+// Writers: queueWaypoint/queueWaypoints (→ BEFOREDEST, PathingEntity.ts:
+// 258/272), SetInteraction with InteractionScript (→ BEFOREDEST,
+// PathingEntity.ts:544-547), and the MoveClick click-own-tile arm
+// (→ NONE, MoveClickHandler.ts:43). Sole reader: Player.pathToPathingTarget's
+// NAIVE branch (Player.ts:1079).
+type AllowRepath int
 
 const (
-	stepMoved stepStatus = iota
-	stepDone
-	stepBlocked
+	AllowRepathBeforeDest AllowRepath = iota
+	AllowRepathNone
 )
 
 // entity is implemented by all targetable game objects.

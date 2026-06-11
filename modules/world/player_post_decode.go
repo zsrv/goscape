@@ -5,15 +5,16 @@ import (
 )
 
 // processPostDecode runs the per-tick post-decode block at TS
-// Engine-TS/src/engine/World.ts:611-641. Called from end of processIn,
-// before processInputTracking (matching TS L611-646 ordering).
+// Engine-TS/src/engine/World.ts (rev-254 pin: :613-626). Called from end of
+// processIn, before processInputTracking (matching TS ordering).
 //
-// Activates the NAI-144 moveClickRequest gate at movement.go:64 by
-// porting the L624-628 setter. Folds in the NAI-77 walktrigger
-// fallback (L635-641), retiring processWalkTriggerFallbacks; this
-// also closes NAI-77-D-WALKTRIGGER-FALLBACK-PHASE-CHOICE by shifting
-// the fallback from after-processPathing to before-processPathing
-// (TS-faithful slot).
+// Activates the NAI-144 moveClickRequest gate at movement.go by porting the
+// setter. f0ccbe8a removed the rest of the block: the op-driven pathToTarget
+// shortcut and the NODE_WALKTRIGGER_SETTING pathToMoveClick/walktrigger
+// fallbacks are gone — pathing for a move click now happens entirely in the
+// MoveClick handler (queueWaypoints at decode time), and the op-driven
+// initial path comes from pathToPathingTarget/pathToTarget in
+// processInteraction.
 func (p *Player) processPostDecode() {
 	// TS L611: isClientConnected(player) && player.decodeIn()
 	if !p.decodedThisTick {
@@ -45,36 +46,11 @@ func (p *Player) processPostDecode() {
 		}
 	}
 
-	// TS L624-628: moveClickRequest setter. Activates the gate at
-	// modules/world/movement.go:64 (NAI-144 — previously inert at HEAD).
+	// TS L620-624: moveClickRequest setter. Activates the gate at
+	// modules/world/movement.go (NAI-144).
 	if !p.Busy() && p.opcalled {
 		p.moveClickRequest = false
 	} else {
 		p.moveClickRequest = true
-	}
-
-	s := p.client.server
-
-	// TS L630-633: pathToTarget when op-driven and not following a
-	// player. followingPlayer = (targetOp == 3) per
-	// modules/world/interaction.go:140-146 (goscape stores raw op
-	// slot 1..4; APPLAYER3 / OPPLAYER3 both map to 3).
-	followingPlayer := p.targetOp == 3
-	if !followingPlayer && p.opcalled &&
-		(len(p.userPath) == 0 || !s.cfg.NodeClientRoutefinder) {
-		p.pathToTarget()
-		return
-	}
-
-	// TS L635-641: non-PLAYERPACKET re-path + PLAYERSETUP walktrigger.
-	// Folded from NAI-77 processWalkTriggerFallbacks; restores the
-	// TS-faithful pre-processPathing slot, closing
-	// NAI-77-D-WALKTRIGGER-FALLBACK-PHASE-CHOICE.
-	if s.cfg.NodeWalktriggerSetting != WalkTriggerSettingPlayerpacket {
-		p.pathToMoveClick(p.userPath, !s.cfg.NodeClientRoutefinder)
-		if s.cfg.NodeWalktriggerSetting == WalkTriggerSettingPlayersetup &&
-			!p.opcalled && p.hasWaypoints() {
-			p.processWalktrigger()
-		}
 	}
 }

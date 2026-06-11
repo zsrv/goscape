@@ -2,25 +2,33 @@ package world
 
 import "github.com/zsrv/goscape/pkg/objtype"
 
-// This file ports TS PathingEntity.refreshZonePresence (Engine-TS@3c16994c
-// PathingEntity.ts:163-188), split per goscape's Player/Npc forks. Each
+// This file ports TS PathingEntity.refreshZonePresence (Engine-TS@2e3bcf43
+// PathingEntity.ts:163-185), split per goscape's Player/Npc forks. Each
 // *Presence function does the TS body in TS order:
 //
-//  1. Collision-follow (TS :165-182): when the position changed, move the
-//     entity's collision footprint — switch (this.blockWalk):
+//  1. Collision-follow (TS :164-177): move the entity's collision footprint
+//     — switch (this.blockWalk):
 //     case NPC: changeNpcCollision(width, prev..., false) + (new..., true)
 //     case ALL: same PLUS the changePlayerCollision pair.
 //     Runs whether or not the zone changed.
-//  2. Zone-membership swap (TS :184-187): only when the zone (x>>3, z>>3,
+//  2. lastStepX/Z = prev (TS :178-179, player fork only — Npc has no
+//     lastStep fields, see refreshNpcZonePresence).
+//  3. Zone-membership swap (TS :181-184): only when the zone (x>>3, z>>3,
 //     level) changed.
 //
-// TS :180-181 also sets lastStepX/Z = prev inside the moved-guard; goscape
-// keeps that bookkeeping at the existing sites instead (see the lastStep
-// note on refreshPlayerZonePresence) — do NOT double-set it here.
+// f0ccbe8a removed the pre-rev-254 "only when the entity moved" guard around
+// steps 1-2: the collision toggle + lastStep update now run UNCONDITIONALLY
+// on every call — a blocked step attempt (prev == cur) re-asserts the
+// entity's collision flag on its current tile (remove+add of the same tile,
+// net flag unchanged once set) and re-anchors lastStepX/Z to the current
+// tile. The lastStep re-anchor is load-bearing for player-follow: a blocked
+// follower's followX/Z become its own tile rather than the stale pre-block
+// step.
 
 // refreshPlayerZonePresence is the Player fork of TS refreshZonePresence.
-// Called from (*Player).applyStep (movement.go), (*Player).Teleport, and
-// (*Player).TeleJump (player_script.go) after the position is mutated.
+// Called from (*Player).validateAndAdvanceStep (movement.go — every step
+// attempt with a waypoint, moved or not, per f0ccbe8a), (*Player).Teleport,
+// and (*Player).TeleJump (player_script.go) after the position is mutated.
 //
 // Collision width is 1: TS Player constructs with width=length=1
 // (Player.ts:412-417), matching the existing SetVisibility / logout
@@ -28,35 +36,37 @@ import "github.com/zsrv/goscape/pkg/objtype"
 // BlockWalk.NPC) and toggles NPC↔NONE via SetVisibility (TS Player.ts:
 // 1899-1904).
 //
-// lastStep mapping (TS :180-181): (*Player).applyStep already records
-// lastStepX/Z = pre-step position before mutating, and Teleport overwrites
-// with x-1/z per TS :294-295 — equivalent net state, so this function does
-// not touch lastStepX/Z.
+// lastStep (TS :178-179): set UNCONDITIONALLY to the previous position —
+// f0ccbe8a moved this out of the moved-guard. Teleport/TeleJump overwrite
+// with x-1/z after this call per TS teleport (PathingEntity.ts:313-314).
 //
 // nil-guards: test fixtures may lack client/server/gamemap; skip collision
 // silently (the zone swap has its own guards).
 func refreshPlayerZonePresence(p *Player, prevX, prevZ, prevLevel int) {
-	if p.client != nil && p.client.server != nil && p.client.server.gamemap != nil &&
-		(p.x != prevX || p.z != prevZ || p.level != prevLevel) {
+	if p.client != nil && p.client.server != nil && p.client.server.gamemap != nil {
 		gm := p.client.server.gamemap
 		switch p.blockWalk {
 		case BlockWalkNpc:
-			// TS PathingEntity.ts:169-172.
+			// TS PathingEntity.ts:167-170.
 			gm.ChangeNPCCollision(1, prevX, prevZ, prevLevel, false)
 			gm.ChangeNPCCollision(1, p.x, p.z, p.level, true)
 		case BlockWalkAll:
-			// TS PathingEntity.ts:173-178.
+			// TS PathingEntity.ts:171-176.
 			gm.ChangeNPCCollision(1, prevX, prevZ, prevLevel, false)
 			gm.ChangeNPCCollision(1, p.x, p.z, p.level, true)
 			gm.ChangePlayerCollision(1, prevX, prevZ, prevLevel, false)
 			gm.ChangePlayerCollision(1, p.x, p.z, p.level, true)
 		}
 	}
+	// TS PathingEntity.ts:178-179.
+	p.lastStepX = prevX
+	p.lastStepZ = prevZ
 	refreshPlayerZone(p, prevX, prevZ, prevLevel)
 }
 
 // refreshNpcZonePresence is the NPC fork of TS refreshZonePresence. Called
-// from (*Npc).applyStep (npc_interaction.go) and (*Npc).Teleport
+// from (*Npc).validateAndAdvanceStep (npc_interaction.go — every step attempt
+// with a waypoint, moved or not, per f0ccbe8a) and (*Npc).Teleport
 // (npc_script.go — wanderMode home-tele, patrolMode waypoint-tele, NPC_TELE)
 // after the position is mutated.
 //
@@ -76,15 +86,14 @@ func refreshPlayerZonePresence(p *Player, prevX, prevZ, prevLevel int) {
 // lastStep: Npc has no lastStepX/Z fields (D4-NPC documented dead-API skip,
 // see npc_script.go DEVIATION block) — nothing to set.
 func refreshNpcZonePresence(s *Server, n *Npc, prevX, prevZ, prevLevel int) {
-	if s != nil && s.gamemap != nil &&
-		(n.x != prevX || n.z != prevZ || n.level != prevLevel) {
+	if s != nil && s.gamemap != nil {
 		switch n.blockWalk {
 		case objtype.BlockWalkNPC:
-			// TS PathingEntity.ts:169-172.
+			// TS PathingEntity.ts:167-170.
 			s.gamemap.ChangeNPCCollision(n.size, prevX, prevZ, prevLevel, false)
 			s.gamemap.ChangeNPCCollision(n.size, n.x, n.z, n.level, true)
 		case objtype.BlockWalkAll:
-			// TS PathingEntity.ts:173-178.
+			// TS PathingEntity.ts:171-176.
 			s.gamemap.ChangeNPCCollision(n.size, prevX, prevZ, prevLevel, false)
 			s.gamemap.ChangeNPCCollision(n.size, n.x, n.z, n.level, true)
 			s.gamemap.ChangePlayerCollision(n.size, prevX, prevZ, prevLevel, false)

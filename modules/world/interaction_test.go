@@ -2542,23 +2542,28 @@ func TestPlayer_PathToTarget_NpcTarget_NoIntersect_UsesFindPathToEntity(t *testi
 	}
 }
 
-// TestPlayer_PathToTarget_NpcTarget_NodeClientRoutefinder_Intersect_UsesNaivePath
-// pins the shortcut: NodeClientRoutefinder=true AND bbox-intersect →
-// FindNaivePath instead of FindPathToEntity.
-func TestPlayer_PathToTarget_NpcTarget_NodeClientRoutefinder_Intersect_UsesNaivePath(t *testing.T) {
+// TestPlayer_PathToTarget_NpcTarget_SmartIntersect_UsesFindPathToEntity
+// pins the rev-254 (f0ccbe8a) removal of the SMART-arm NCR+intersect
+// FindNaivePath shortcut (PathingEntity.ts:463-464 at the pin): a SMART
+// player always dispatches FindPathToEntity for PathingEntity targets,
+// even when routefinder is on and the bboxes intersect. (Naive players —
+// the production default under routefinder — never reach this arm; their
+// under-target handling is pathToPathingTarget's randomWalk.)
+func TestPlayer_PathToTarget_NpcTarget_SmartIntersect_UsesFindPathToEntity(t *testing.T) {
 	srv, rec := newPathToTargetTestServer(t)
 	srv.cfg.NodeClientRoutefinder = true
 	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	p.moveStrategy = MoveStrategySmart
 	npc := newPathToTargetTestNpc(t, srv, 100, 100, 0 /*size=*/, 1) // same tile = intersect
 	p.target = npc
 
 	p.pathToTarget()
 
-	if _, ok := rec.lastFindNaivePath(); !ok {
-		t.Fatalf("FindNaivePath not called (NCR + intersect should shortcut)")
+	if _, ok := rec.lastFindPathToEntity(); !ok {
+		t.Fatalf("FindPathToEntity not called (f0ccbe8a removed the NCR+intersect naive shortcut)")
 	}
-	if _, ok := rec.lastFindPathToEntity(); ok {
-		t.Errorf("FindPathToEntity unexpectedly called (intersect should shortcut)")
+	if _, ok := rec.lastFindNaivePath(); ok {
+		t.Errorf("FindNaivePath unexpectedly called (shortcut was removed by f0ccbe8a)")
 	}
 }
 
@@ -2657,9 +2662,11 @@ func TestPlayer_PathToTarget_ObjTarget_DifferentTile_UsesFindPathPlain(t *testin
 }
 
 // TestPlayer_PathToTarget_NaiveStrategy_PathingEntityTarget_UsesFindNaivePath
-// pins NAI-92 B5's NAIVE/PathingEntity dispatch. Player.blockWalkFlag is
-// unconditional FlagBlockPlayers in TS, so extraFlag is always
-// FlagBlockPlayers (verified via the recorder's extraFlag field).
+// pins the rev-254 (f0ccbe8a) NAIVE/PathingEntity dispatch: pathToTarget's
+// NAIVE arm routes through naivePathToTarget (Player.ts:1087-1103), which
+// passes the target ANGLE in the extraFlag slot (0 for non-Loc targets) and
+// hardcodes CollisionType.NORMAL — the pre-rev-254 blockWalkFlag/
+// collisionStrategy parameterization is retired.
 func TestPlayer_PathToTarget_NaiveStrategy_PathingEntityTarget_UsesFindNaivePath(t *testing.T) {
 	srv, rec := newPathToTargetTestServer(t)
 	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
@@ -2673,8 +2680,8 @@ func TestPlayer_PathToTarget_NaiveStrategy_PathingEntityTarget_UsesFindNaivePath
 	if !ok {
 		t.Fatalf("FindNaivePath not called")
 	}
-	if call.extraFlag != p.blockWalkFlag() {
-		t.Errorf("extraFlag: got %d, want %d (Player.blockWalkFlag)", call.extraFlag, p.blockWalkFlag())
+	if call.extraFlag != 0 {
+		t.Errorf("extraFlag: got %d, want 0 (f0ccbe8a: angle slot; 0 for non-Loc targets)", call.extraFlag)
 	}
 	if call.srcWidth != 1 || call.srcLength != 1 {
 		t.Errorf("srcW/L: got (%d, %d), want (1, 1) (Player.Width/Length)", call.srcWidth, call.srcLength)
@@ -2683,7 +2690,7 @@ func TestPlayer_PathToTarget_NaiveStrategy_PathingEntityTarget_UsesFindNaivePath
 		t.Errorf("destW/L: got (%d, %d), want (1, 1) (npc.size)", call.destWidth, call.destLength)
 	}
 	if call.collisionType != collision.TypeNormal {
-		t.Errorf("collisionType: got %v, want TypeNormal (MoveRestrictNormal player)", call.collisionType)
+		t.Errorf("collisionType: got %v, want TypeNormal (hardcoded in naivePathToTarget)", call.collisionType)
 	}
 	// Negative pin: SMART arm should NOT have fired.
 	if _, ok := rec.lastFindPathToEntity(); ok {

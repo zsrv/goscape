@@ -106,55 +106,38 @@ func TestResolveMovementNoPathClearsDirections(t *testing.T) {
 	}
 }
 
-func TestPathToMoveClickSmartTrustClient(t *testing.T) {
+// TestQueueWaypointsSetsAllowRepath pins the f0ccbe8a contract
+// (PathingEntity.ts:255-273): queueWaypoint AND queueWaypoints reset
+// allowRepath to BEFOREDEST unconditionally — including on empty input
+// (the MoveClick click-own-tile arm relies on queueWaypoints([]) followed
+// by an explicit setAllowRepath(NONE)).
+//
+// Replaces the retired pathToMoveClick pins — f0ccbe8a deleted
+// pathToMoveClick; move clicks now queueWaypoints directly in the handler.
+func TestQueueWaypointsSetsAllowRepath(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 3094, 3106, 0
-	p.moveStrategy = MoveStrategySmart
 
-	packed := []int{packTestCoord(0, 3100, 3110)}
-	p.pathToMoveClick(packed, false)
-
-	if p.waypointIndex != 0 {
-		t.Errorf("waypointIndex: got %d, want 0", p.waypointIndex)
+	p.allowRepath = AllowRepathNone
+	p.queueWaypoint(3100, 3110)
+	if p.allowRepath != AllowRepathBeforeDest {
+		t.Errorf("queueWaypoint allowRepath: got %v, want BEFOREDEST", p.allowRepath)
 	}
-	if p.waypoints[0] != packed[0] {
-		t.Error("waypoints[0] should equal input")
+
+	p.allowRepath = AllowRepathNone
+	p.queueWaypoints([]int{packTestCoord(0, 3100, 3110)})
+	if p.allowRepath != AllowRepathBeforeDest {
+		t.Errorf("queueWaypoints allowRepath: got %v, want BEFOREDEST", p.allowRepath)
 	}
-}
 
-func TestPathToMoveClickNaiveTakesLastCoord(t *testing.T) {
-	p, _ := newTestPlayer(t)
-	p.x, p.z, p.level = 3094, 3106, 0
-	p.moveStrategy = MoveStrategyNaive
-
-	packed := []int{packTestCoord(0, 3100, 3110), packTestCoord(0, 3105, 3115)}
-	p.pathToMoveClick(packed, false)
-
-	gotX := (p.waypoints[0] >> 14) & 0x3FFF
-	gotZ := p.waypoints[0] & 0x3FFF
-	if gotX != 3105 || gotZ != 3115 {
-		t.Errorf("NAIVE should take input[-1]: got (%d,%d), want (3105,3115)", gotX, gotZ)
+	// Empty input: clears the path but still resets allowRepath.
+	p.allowRepath = AllowRepathNone
+	p.queueWaypoints(nil)
+	if p.waypointIndex != -1 {
+		t.Errorf("queueWaypoints(nil) waypointIndex: got %d, want -1", p.waypointIndex)
 	}
-}
-
-// TestPathToMoveClick_FlyQueuesEndCoord pins TS PathingEntity.pathToMoveClick
-// L408-420: any moveStrategy other than SMART (including FLY) takes the
-// "queueWaypoint(last-coord)" branch. ::fly was the first runtime path
-// that put MoveStrategyFly on a live Player (NAI-184 T3); the goscape
-// switch in movement.go only had explicit Smart/Naive cases, dropping
-// the player's clicks silently. NAI-184 T3 fix.
-func TestPathToMoveClick_FlyQueuesEndCoord(t *testing.T) {
-	p, _ := newTestPlayer(t)
-	p.x, p.z, p.level = 3094, 3106, 0
-	p.moveStrategy = MoveStrategyFly
-
-	packed := []int{packTestCoord(0, 3100, 3110), packTestCoord(0, 3105, 3115)}
-	p.pathToMoveClick(packed, false)
-
-	gotX := (p.waypoints[0] >> 14) & 0x3FFF
-	gotZ := p.waypoints[0] & 0x3FFF
-	if gotX != 3105 || gotZ != 3115 {
-		t.Errorf("FLY should take input[-1]: got (%d,%d), want (3105,3115)", gotX, gotZ)
+	if p.allowRepath != AllowRepathBeforeDest {
+		t.Errorf("queueWaypoints(nil) allowRepath: got %v, want BEFOREDEST", p.allowRepath)
 	}
 }
 
@@ -183,7 +166,7 @@ func TestMoveGameClickAdvancesPlayer(t *testing.T) {
 	p.processIn(0)
 
 	if p.waypointIndex < 0 {
-		t.Fatal("pathToMoveClick should have queued a waypoint")
+		t.Fatal("move click should have queued a waypoint")
 	}
 
 	p.resolveMovement()
@@ -205,9 +188,8 @@ func TestPlayerStepCrossZoneRefreshSubscription(t *testing.T) {
 	}
 	// Queue a step east into zone (400, 400).
 	p.queueWaypoint(3200, 3200)
-	dir, status := p.stepOnce()
-	if status != stepMoved {
-		t.Fatalf("stepOnce status: got %v (dir=%d), want stepMoved", status, dir)
+	if dir := p.validateAndAdvanceStep(); dir == -1 {
+		t.Fatal("validateAndAdvanceStep: got -1, want a step direction")
 	}
 	prevZ := s.zoneMap.Get(0, 3199, 3200)
 	newZ := s.zoneMap.Get(0, 3200, 3200)
@@ -249,8 +231,8 @@ func TestPlayerStepIntraZoneNoSubscriptionChange(t *testing.T) {
 		t.Fatalf("addPlayer: %v", err)
 	}
 	p.queueWaypoint(3201, 3201)
-	if _, status := p.stepOnce(); status != stepMoved {
-		t.Fatalf("stepOnce status: got %v, want stepMoved", status)
+	if dir := p.validateAndAdvanceStep(); dir == -1 {
+		t.Fatal("validateAndAdvanceStep: got -1, want a step direction")
 	}
 	z := s.zoneMap.Get(0, 3200, 3200)
 	if z.PlayersCount() != 1 {
@@ -399,11 +381,12 @@ func TestStepOnceFollowsDirectionChangePoints(t *testing.T) {
 }
 
 // TestPlayerStepOnce_PlumbsBlockWalkFlag pins NAI-176 D4. TS Player.blockWalkFlag
-// (Player.ts:706-708) is unconditional FlagBlockPlayers. Goscape pre-NAI-176
-// passed extraFlag=0 to gamemap.CanTravel (movement.go:144), so a tile carrying
+// (Player.ts:706-708) is unconditional FlagBlockPlayers, so a tile carrying
 // only FlagBlockPlayers (e.g., one occupied by another player or a BlockWalkAll
-// NPC) was traversable by the moving player. Post-fix: the same tile should
-// block the step (status = stepBlocked).
+// NPC) blocks the step. rev-254 (f0ccbe8a): a fully-blocked attempt makes
+// validateAndAdvanceStep return -1 with the waypoint queue PRESERVED and the
+// position unchanged (takeStep yields delta (0,0); the waypoint-reached check
+// doesn't fire because the dest wasn't reached).
 func TestPlayerStepOnce_PlumbsBlockWalkFlag(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
@@ -421,13 +404,13 @@ func TestPlayerStepOnce_PlumbsBlockWalkFlag(t *testing.T) {
 	p.queueWaypoint(3201, 3200)
 
 	wantWaypointIndex := p.waypointIndex
-	dir, status := p.stepOnce()
+	dir := p.validateAndAdvanceStep()
 
-	if status != stepBlocked {
-		t.Fatalf("player step over FlagBlockPlayers tile: got status=%v dir=%d, want stepBlocked", status, dir)
+	if dir != -1 {
+		t.Fatalf("player step over FlagBlockPlayers tile: got dir=%d, want -1 (blocked)", dir)
 	}
 	if p.waypointIndex != wantWaypointIndex {
-		t.Fatalf("waypointIndex after stepBlocked: got %d, want %d (D2: must NOT clear)",
+		t.Fatalf("waypointIndex after blocked step: got %d, want %d (must NOT clear)",
 			p.waypointIndex, wantWaypointIndex)
 	}
 	if p.x != 3200 || p.z != 3200 {
@@ -457,11 +440,8 @@ func TestPlayerStepOnce_AxisFallback_XOnly(t *testing.T) {
 	s.gamemap.Pathfinder.Flags.Add(3201, 3201, 0, collision.FlagBlockWalk)
 	p.queueWaypoint(3205, 3205)
 
-	dir, status := p.stepOnce()
+	dir := p.validateAndAdvanceStep()
 
-	if status != stepMoved {
-		t.Fatalf("axis-fallback X: got status=%v, want stepMoved", status)
-	}
 	if dir != int(coordgrid.DirectionEast) {
 		t.Fatalf("axis-fallback X: dir=%d, want East (%d)", dir, coordgrid.DirectionEast)
 	}
@@ -471,9 +451,10 @@ func TestPlayerStepOnce_AxisFallback_XOnly(t *testing.T) {
 }
 
 // TestPlayerValidateAndAdvanceStep_NoMoveRestrict_ReturnsBlocked pins
-// the wrapper's response to MoveRestrictNoMove: stepDone via cs==nil,
-// wrapper decrements then sees waypointIndex<0 and returns (-1, false).
-// waypointIndex transitions 0 → -1 (legitimate decrement, not a clear).
+// the rev-254 (f0ccbe8a) nomove response: a nil collision strategy now
+// CLEARS the waypoint queue outright (TS PathingEntity.ts:206-209
+// "Clear waypoints if no movement is allowed") and returns -1 with the
+// position unchanged.
 func TestPlayerValidateAndAdvanceStep_NoMoveRestrict_ReturnsBlocked(t *testing.T) {
 	s := newTestServer(t)
 	c, _ := newTestClient(t)
@@ -486,10 +467,13 @@ func TestPlayerValidateAndAdvanceStep_NoMoveRestrict_ReturnsBlocked(t *testing.T
 	}
 	p.queueWaypoint(3201, 3200)
 
-	dir, advanced := p.validateAndAdvanceStep()
+	dir := p.validateAndAdvanceStep()
 
-	if advanced {
-		t.Fatalf("NoMove: got advanced=true (dir=%d), want false", dir)
+	if dir != -1 {
+		t.Fatalf("NoMove: got dir=%d, want -1", dir)
+	}
+	if p.waypointIndex != -1 {
+		t.Fatalf("NoMove: waypointIndex=%d, want -1 (queue cleared per TS L206-209)", p.waypointIndex)
 	}
 	if p.x != 3200 || p.z != 3200 {
 		t.Fatalf("NoMove: position changed to (%d,%d), want (3200,3200)", p.x, p.z)

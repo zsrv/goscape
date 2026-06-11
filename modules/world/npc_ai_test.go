@@ -37,11 +37,17 @@ func TestTeleportHomeAfterStuck(t *testing.T) {
 	n.x, n.z = 3094+10, 3106+10
 	// MoveRestrictNoMove makes this a deterministically *stuck* NPC: wanderMode
 	// skips the 1/8 random-walk roll and updateMovement can't step, so the
-	// NPC's position never changes and wanderCounter is never reset on-move
-	// (npc_interaction.go:333-336). Without it the random roll occasionally
-	// moves the NPC, resetting the counter and making this teleport-home
-	// assertion flaky — which is exactly the correct stuck-recovery semantics.
+	// NPC's position never changes and wanderCounter is never reset on-move.
+	// Without it the random roll occasionally moves the NPC, resetting the
+	// counter and making this teleport-home assertion flaky — which is exactly
+	// the correct stuck-recovery semantics. NoMove must live on the TYPE:
+	// wanderMode/updateMovement read moverestrict live from NpcType.
 	n.moveRestrict = MoveRestrictNoMove
+	n.typ.MoveRestrict = int(MoveRestrictNoMove)
+	// rev-254: updateMovement's moved-check is positional vs lastTick;
+	// seed the snapshot so the fresh-NPC -1 sentinel doesn't read as
+	// "moved" and reset wanderCounter.
+	n.lastTickX, n.lastTickZ = n.x, n.z
 	n.wanderCounter = 501
 	s := &Server{}
 	n.turn(s)

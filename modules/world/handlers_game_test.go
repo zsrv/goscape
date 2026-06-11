@@ -126,9 +126,12 @@ func TestHandleMoveGameClickClosesChatModal(t *testing.T) {
 	}
 }
 
-// TestHandleMoveOpClickPreservesChatModal pins that MOVE_OPCLICK (opClick=true)
-// skips ClearPendingAction, leaving an open chat modal untouched.
-func TestHandleMoveOpClickPreservesChatModal(t *testing.T) {
+// TestHandleMoveOpClickClosesChatModal pins the rev-254 (f0ccbe8a) contract:
+// the pinned MoveClickHandler runs clearPendingAction for ALL move opcodes —
+// the pre-rev-254 !opClick gate is gone, so MOVE_OPCLICK also closes an open
+// chat modal (TS MoveClickHandler.ts:27-28; message.opClick is decoded but
+// never read by the handler).
+func TestHandleMoveOpClickClosesChatModal(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
@@ -144,11 +147,11 @@ func TestHandleMoveOpClickPreservesChatModal(t *testing.T) {
 		t.Fatalf("handleMoveOpClick: %v", err)
 	}
 
-	if p.modalChat != 100 {
-		t.Errorf("modalChat: got %d, want 100 (unchanged — op click skips ClearPendingAction)", p.modalChat)
+	if p.modalChat != -1 {
+		t.Errorf("modalChat: got %d, want -1 (op click now ALSO fires ClearPendingAction per f0ccbe8a)", p.modalChat)
 	}
-	if p.modalState&modalStateChat == modalStateNone {
-		t.Errorf("modalState chat bit cleared unexpectedly")
+	if p.modalState&modalStateChat != modalStateNone {
+		t.Errorf("modalState chat bit still set: got 0x%x", p.modalState)
 	}
 }
 
@@ -278,25 +281,23 @@ func TestHandleMoveGameClickRunenergyLowSuppressesTempRun(t *testing.T) {
 	}
 }
 
-// TestHandleMoveGameClickFiresWalktriggerWhenPlayerpacket pins that
-// processWalktrigger is called when WalkTriggerSetting==PLAYERPACKET and the
-// player has waypoints. Observable via p.walktrigger being reset to -1.
-func TestHandleMoveGameClickFiresWalktriggerWhenPlayerpacket(t *testing.T) {
+// TestHandleMoveGameClickFiresWalktriggerWhenRoutefinder pins the rev-254
+// (f0ccbe8a) contract: the routefinder branch of the pinned MoveClickHandler
+// fires processWalktrigger unconditionally after queueing the client path
+// (TS MoveClickHandler.ts:50) — the pre-rev-254 PLAYERPACKET/hasWaypoints
+// gates are gone. Observable via p.walktrigger being reset to -1.
+func TestHandleMoveGameClickFiresWalktriggerWhenRoutefinder(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	_ = cc
 
-	// Precondition: default cfg has WalkTriggerSetting=PLAYERPACKET (value 0).
-	if s.cfg.NodeWalktriggerSetting != WalkTriggerSettingPlayerpacket {
-		t.Fatalf("precondition: NodeWalktriggerSetting=%v, want PLAYERPACKET", s.cfg.NodeWalktriggerSetting)
-	}
+	s.cfg.NodeClientRoutefinder = true // production default
 
 	// Set a walktrigger so processWalktrigger has something to clear.
 	p.walktrigger = 42
 
-	// Dest one tile away so hasWaypoints() returns true after pathToMoveClick.
 	payload := buildMovePayload(0, p.x+1, p.z)
 	if err := handleMoveGameClick(p, payload); err != nil {
 		t.Fatalf("handleMoveGameClick: %v", err)
@@ -307,18 +308,19 @@ func TestHandleMoveGameClickFiresWalktriggerWhenPlayerpacket(t *testing.T) {
 	}
 }
 
-// TestHandleMoveGameClickSkipsWalktriggerWhenSettingNotPlayerpacket pins that
-// processWalktrigger is NOT called when WalkTriggerSetting!=PLAYERPACKET.
-// walktrigger remains at its preset value.
-func TestHandleMoveGameClickSkipsWalktriggerWhenSettingNotPlayerpacket(t *testing.T) {
+// TestHandleMoveGameClickSkipsWalktriggerWhenNonRoutefinder pins that the
+// non-routefinder branch of the pinned MoveClickHandler does NOT fire
+// processWalktrigger (TS MoveClickHandler.ts:51-54 has no walktrigger call;
+// the fallback fire site is processInteraction's hasWaypoints+canAccess arm).
+// walktrigger remains at its preset value after the handler.
+func TestHandleMoveGameClickSkipsWalktriggerWhenNonRoutefinder(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	_ = cc
 
-	// Override setting to PLAYERSETUP.
-	s.cfg.NodeWalktriggerSetting = WalkTriggerSettingPlayersetup
+	s.cfg.NodeClientRoutefinder = false
 
 	p.walktrigger = 42
 
@@ -328,7 +330,7 @@ func TestHandleMoveGameClickSkipsWalktriggerWhenSettingNotPlayerpacket(t *testin
 	}
 
 	if p.walktrigger != 42 {
-		t.Errorf("walktrigger: got %d, want 42 (unchanged — setting is not PLAYERPACKET)", p.walktrigger)
+		t.Errorf("walktrigger: got %d, want 42 (unchanged — non-routefinder branch has no walktrigger fire)", p.walktrigger)
 	}
 }
 
@@ -2968,20 +2970,19 @@ func TestHandleIdleTimer_RequestsLogoutUnlessNodeDebug(t *testing.T) {
 	}
 }
 
-// TestMoveClickNonRoutefinderPathsToDestNotStart pins M24: in non-routefinder
-// mode moveClickInner must hand p.userPath (== [dest]) to pathToMoveClick, not
-// the raw packed path (whose [0] is the START tile). With SMART strategy and no
-// server gamemap, pathToMoveClick falls back to queueWaypoints(input); the old
-// code queued [start,dest] (waypointIndex 1 — the player walked to dest then
-// BACK to start), the fix queues just [dest] (waypointIndex 0). Mirrors TS
-// MoveClickHandler.ts:34-40 (userPath=[dest] in non-routefinder mode).
+// TestMoveClickNonRoutefinderPathsToDestNotStart pins the rev-254 (f0ccbe8a)
+// non-routefinder branch (TS MoveClickHandler.ts:51-54): the server pathfinds
+// to the LAST coord of the client path (the dest, not the start tile), and
+// userPath is NOT touched (TS only writes userPath in the routefinder
+// branch). With no server gamemap, the goscape-defensive fallback queues a
+// single waypoint at the dest.
 func TestMoveClickNonRoutefinderPathsToDestNotStart(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
-	s.cfg.NodeClientRoutefinder = false // non-routefinder: userPath collapses to [dest]
+	s.cfg.NodeClientRoutefinder = false
 	p.moveStrategy = MoveStrategySmart
 	p.x, p.z, p.level = 3094, 3106, 0
 
@@ -2997,13 +2998,13 @@ func TestMoveClickNonRoutefinderPathsToDestNotStart(t *testing.T) {
 		t.Fatalf("handleMoveGameClick: %v", err)
 	}
 
-	// userPath collapses to a single dest entry.
-	if len(p.userPath) != 1 {
-		t.Fatalf("userPath len: got %d (%v), want 1 [dest]", len(p.userPath), p.userPath)
+	// f0ccbe8a: the non-routefinder branch leaves userPath untouched.
+	if len(p.userPath) != 0 {
+		t.Fatalf("userPath len: got %d (%v), want 0 (untouched in non-routefinder mode)", len(p.userPath), p.userPath)
 	}
 
-	// The fix queues exactly one waypoint (the dest); the bug queued two
-	// (dest then start), leaving waypointIndex at 1.
+	// One waypoint at the dest (defensive nil-pathfinder fallback); the
+	// pre-rev-254 bug queued [start] via packed[0].
 	if p.waypointIndex != 0 {
 		t.Errorf("waypointIndex: got %d, want 0 (one waypoint — dest only; >0 means start tile leaked in)", p.waypointIndex)
 	}

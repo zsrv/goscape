@@ -314,206 +314,178 @@ func (n *Npc) updateMovement(s *Server) bool {
 		n.runDir = -1
 		return false
 	}
-	if n.waypointIndex < 0 {
-		n.walkDir = -1
-		n.runDir = -1
-		return false
-	}
 
-	// NAI-51: walktrigger consumer (TS Npc.ts:347-357). Fire BEFORE
-	// step consumption. TS clears walktrigger BEFORE the script-found
-	// check, so a missing script still resets the field. The n.typ
-	// guard defends against the nil-typ test path; production NPCs
-	// always have typ set by NewNpc, but defensive parity with TS's
-	// NpcType.get(this.type) lookup avoids a nil deref here.
-	if n.walktrigger != -1 && n.typ != nil && s.scriptProvider != nil {
-		trigger := script.TriggerAiQueue1 + script.ServerTriggerType(n.walktrigger)
-		sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.typ.Category)
-		wtArg := n.walktriggerArg
-		n.walktrigger = -1
-		if sf != nil {
-			s.runNpcScript(sf, n, nil, trigger, []int{wtArg}, nil)
+	if n.waypointIndex >= 0 {
+		// NAI-51: walktrigger consumer (TS Npc.ts:350-359). Fire BEFORE
+		// step consumption. TS clears walktrigger BEFORE the script-found
+		// check, so a missing script still resets the field. The n.typ
+		// guard defends against the nil-typ test path; production NPCs
+		// always have typ set by NewNpc, but defensive parity with TS's
+		// NpcType.get(this.type) lookup avoids a nil deref here.
+		if n.walktrigger != -1 && n.typ != nil && s.scriptProvider != nil {
+			trigger := script.TriggerAiQueue1 + script.ServerTriggerType(n.walktrigger)
+			sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.typ.Category)
+			wtArg := n.walktriggerArg
+			n.walktrigger = -1
+			if sf != nil {
+				s.runNpcScript(sf, n, nil, trigger, []int{wtArg}, nil)
+			}
 		}
-	}
 
-	dir1, advanced1 := n.validateAndAdvanceStep(s)
-	if !advanced1 {
-		n.walkDir = -1
+		// TS PathingEntity.processMovement (PathingEntity.ts:146-152): a
+		// single validateAndAdvanceStep per speed slot; -1 (blocked OR
+		// waypoint-consumed) leaves the dir at -1. The pre-rev-254
+		// recursion is retired (f0ccbe8a) — see (*Npc).validateAndAdvanceStep.
+		n.walkDir = n.validateAndAdvanceStep(s)
 		n.runDir = -1
-		return false
-	}
-	n.walkDir = dir1
-
-	if n.moveSpeed == MoveSpeedRun && n.waypointIndex >= 0 {
-		dir2, advanced2 := n.validateAndAdvanceStep(s)
-		if advanced2 {
-			n.runDir = dir2
-		} else {
-			n.runDir = -1
+		if n.moveSpeed == MoveSpeedRun && n.walkDir != -1 {
+			n.runDir = n.validateAndAdvanceStep(s)
 		}
 	} else {
+		n.walkDir = -1
 		n.runDir = -1
 	}
-	// NAI-82: TS Npc.updateMovement at Engine-TS/.../Npc.ts:361-366 writes
-	// lastMovement = World.currentTick + 1 AND resets wanderCounter = 0 when
-	// the NPC's position changed this tick. Read by AI_ARRIVEDELAY /
-	// AI_TARGETMOVED (deferred — see NAI-82 spec §6.1). Position-vs-snapshot
-	// check (rather than stepsTaken > 0) mirrors TS exactly. No nil-server
-	// guard: the function already dereferences s above (walktrigger lookup,
-	// stepOnce), so reaching this line implies s != nil.
+
+	// NAI-82: TS Npc.updateMovement (Npc.ts:364-369) writes lastMovement =
+	// World.currentTick + 1 AND resets wanderCounter = 0 when the NPC's
+	// position changed this tick, and RETURNS that positional moved check
+	// (rev-254 aligns the return to TS — previously goscape returned
+	// "stepped this call", equivalent except when an earlier same-tick
+	// teleport moved the NPC). Read by AI_ARRIVEDELAY / AI_TARGETMOVED.
+	// No nil-server guard: the function already dereferences s above.
 	//
 	// The wanderCounter reset is what makes the wanderMode 500-tick
 	// teleport-to-spawn a *stuck-recovery*: a wandering NPC that keeps moving
 	// never accumulates 500, so it only snaps home after 500 consecutive
 	// stationary ticks. Omitting it (pre-fix) made every healthy wandering
 	// NPC teleport home every ~500 ticks (Hans / Lumbridge goblins resetting).
-	if n.x != n.lastTickX || n.z != n.lastTickZ {
+	moved := n.x != n.lastTickX || n.z != n.lastTickZ
+	if moved {
 		n.lastMovement = s.currentTick + 1
 		n.wanderCounter = 0
 	}
-	return true
+	return moved
 }
 
-// stepOnce walks one tile toward the current waypoint and returns
-// (dir, status). Mirrors TS PathingEntity.takeStep (PathingEntity.ts:617-683).
-// Position update + dest-check decrement of waypointIndex happen inline via
-// applyStep; transient-block / done / no-move classifications go to the
-// validateAndAdvanceStep wrapper for waypointIndex bookkeeping.
+// takeStep computes the (dx, dz) delta for one tile of travel toward the
+// current waypoint WITHOUT mutating position. Mirrors TS PathingEntity.
+// takeStep at the rev-254 pin (PathingEntity.ts:629-675, rewritten by
+// f0ccbe8a): returns (0,0) on failsafe (no waypoint / nil strategy) or when
+// every canTravel arm fails. The diagonal arm is gated on width==1, so
+// width>1 NPCs naturally fall through to the E/W → N/S axis arms — this
+// supersedes the pre-rev-254 NAI-176 D3 width>1 axis-split special case.
 //
-// Tri-state contract (mirrors TS takeStep return number | null):
-//
-//	stepBlocked = TS null   → all canTravel arms failed; wrapper preserves waypointIndex (NAI-176 D2)
-//	stepDone    = TS -1     → strategy null / extraFlag null / Face==-1; wrapper decrements
-//	stepMoved   = TS number → moved; position applied via applyStep
-//
-// NAI-175 status: D0 strategy plumbing (T4) + D1 axis-fallback (T6) +
-// D2 wrapper waypoint retention (NAI-176 B1) + D3 width>1 axis split
-// (NAI-176 B2) all shipped.
-func (n *Npc) stepOnce(s *Server) (int, stepStatus) {
-	if n.waypointIndex < 0 {
-		return -1, stepBlocked
+// NAI-176-D-FLY-NO-CONTENT-WIRES: MoveStrategyFly bypasses collision
+// entirely (TS L654-657). No NpcType or content in goscape's cache currently
+// assigns Fly; engine-fidelity only.
+func (n *Npc) takeStep(s *Server) (int, int) {
+	if n.waypointIndex == -1 {
+		// failsafe check (TS L632-635)
+		return 0, 0
 	}
 	cs := n.getCollisionStrategy()
-	if cs == nil {
-		return -1, stepDone
-	}
 	extraFlag := n.blockWalkFlag()
-	if extraFlag == collision.FlagNull {
-		return -1, stepDone
+	if cs == nil {
+		// failsafe check (TS L640-643)
+		return 0, 0
 	}
+
 	dest := coordgrid.UnpackCoord(n.waypoints[n.waypointIndex])
-
-	// NAI-176 D3: TS PathingEntity.takeStep:642-651 — width>1 NPCs use
-	// axis-only Face checks (no diagonal step). X-axis tried first;
-	// returns stepBlocked if both axes fail.
-	if n.size > 1 {
-		if s != nil && s.gamemap != nil {
-			tryDirX := coordgrid.Face(n.x, 0, dest.X, 0)
-			if tryDirX != -1 && s.gamemap.CanTravel(n.level, n.x, n.z, coordgrid.DeltaX(tryDirX), 0, n.Width(), extraFlag, *cs) {
-				return n.applyStep(s, dest, coordgrid.DeltaX(tryDirX), 0, int(tryDirX))
-			}
-			tryDirZ := coordgrid.Face(0, n.z, 0, dest.Z)
-			if tryDirZ != -1 && s.gamemap.CanTravel(n.level, n.x, n.z, 0, coordgrid.DeltaZ(tryDirZ), n.Width(), extraFlag, *cs) {
-				return n.applyStep(s, dest, 0, coordgrid.DeltaZ(tryDirZ), int(tryDirZ))
-			}
-			// NAI-176 D2 + D3: both axes failed → stepBlocked (TS L651 null).
-			return -1, stepBlocked
-		}
-		// Test-fixture path with no gamemap — fall through to single-tile
-		// arm below (Face on full delta). Width>1 only matters when canTravel
-		// actually runs.
-	}
-
 	dir := coordgrid.Face(n.x, n.z, dest.X, dest.Z)
-	if dir == -1 {
-		// TS L659-661: dx==0 && dz==0 → -1 (waypoint reached on current tile).
-		return -1, stepDone
-	}
 	dx := coordgrid.DeltaX(dir)
 	dz := coordgrid.DeltaZ(dir)
 
-	// NAI-176-D-FLY-NO-CONTENT-WIRES: TS PathingEntity.takeStep:663-665
-	// — MoveStrategyFly bypasses collision entirely. No NpcType or content
-	// in goscape's cache currently assigns MoveStrategyFly; the enum +
-	// early-return ship for engine-fidelity only. To retire: when first
-	// FLY-moveStrategy content (wyvern, dragon) ports + a smoke binds.
+	// Already on the waypoint tile (Face == -1 → zero deltas). TS feeds the
+	// (0,0) deltas through canTravel, whose result is irrelevant — every arm
+	// yields [0,0] either way. goscape's StepValidator panics on a (0,0)
+	// offset, so short-circuit the observationally-identical result here.
+	if dx == 0 && dz == 0 {
+		return 0, 0
+	}
+
 	if n.moveStrategy == MoveStrategyFly {
-		return n.applyStep(s, dest, dx, dz, int(dir))
+		return dx, dz
 	}
 
 	if s == nil || s.gamemap == nil {
-		// Test-fixture path: no gamemap → skip collision and apply step.
-		return n.applyStep(s, dest, dx, dz, int(dir))
+		// Test-fixture path: no gamemap → skip collision and step freely.
+		// (goscape defensive; TS always has rsmod loaded.)
+		return dx, dz
 	}
-	// NAI-175 D1: TS takeStep PathingEntity.ts:668-682 — direct, then X-only,
-	// then Z-only fallback before giving up.
-	if s.gamemap.CanTravel(n.level, n.x, n.z, dx, dz, n.Width(), extraFlag, *cs) {
-		return n.applyStep(s, dest, dx, dz, int(dir))
+	// Move diagonal (TS L659-662) — gated on width==1; width>1 NPCs never
+	// step diagonally.
+	if n.Width() == 1 && s.gamemap.CanTravel(n.level, n.x, n.z, dx, dz, n.Width(), extraFlag, *cs) {
+		return dx, dz
 	}
+	// Move E/W (TS L664-667).
 	if dx != 0 && s.gamemap.CanTravel(n.level, n.x, n.z, dx, 0, n.Width(), extraFlag, *cs) {
-		axisDir := coordgrid.Face(n.x, n.z, dest.X, n.z)
-		return n.applyStep(s, dest, dx, 0, int(axisDir))
+		return dx, 0
 	}
+	// Move N/S (TS L669-672).
 	if dz != 0 && s.gamemap.CanTravel(n.level, n.x, n.z, 0, dz, n.Width(), extraFlag, *cs) {
-		axisDir := coordgrid.Face(n.x, n.z, n.x, dest.Z)
-		return n.applyStep(s, dest, 0, dz, int(axisDir))
+		return 0, dz
 	}
-	// NAI-176 D2: TS L682 returns null here (transient block); wrapper
-	// preserves waypointIndex.
-	return -1, stepBlocked
+	// https://x.com/JagexAsh/status/1727609489954664502
+	return 0, 0
 }
 
-// applyStep advances the NPC one tile by (dx, dz), refreshes its zone,
-// and decrements waypointIndex if the destination is reached. Factored
-// from stepOnce so axis-fallback arms share the same post-step bookkeeping.
-// Returns (dir, stepMoved) — applyStep is only invoked from the moved arms.
-func (n *Npc) applyStep(s *Server, dest coordgrid.Position, dx, dz, dir int) (int, stepStatus) {
-	prevX, prevZ := n.x, n.z
+// validateAndAdvanceStep validates and applies one step of movement,
+// returning the step direction or -1 when no tile was covered. Mirrors TS
+// PathingEntity.validateAndAdvanceStep at the rev-254 pin (PathingEntity.ts:
+// 202-248, rewritten by f0ccbe8a). See the Player fork in movement.go for
+// the structural notes (nomove → clear waypoints; no recursion; zone
+// presence refreshed even on a blocked attempt).
+func (n *Npc) validateAndAdvanceStep(s *Server) int {
+	cs := n.getCollisionStrategy()
+	extraFlag := n.blockWalkFlag()
+
+	// Clear waypoints if no movement is allowed (TS L206-209).
+	if cs == nil || extraFlag == collision.FlagNull {
+		n.waypointIndex = -1
+	}
+
+	// If no waypoints, return (TS L211-214).
+	if n.waypointIndex == -1 {
+		return -1
+	}
+
+	dx, dz := n.takeStep(s)
+
+	srcX, srcZ := n.x, n.z
+
+	// Move entity (TS L222-224).
 	n.x += dx
 	n.z += dz
-	// M2: per-step focus (TS PathingEntity.ts:216-220) — face one tile ahead in
-	// the travel direction so faceAngle tracks movement. client=false → faceAngle
-	// only. Paired with D1's per-tick faceSquare reset so a wandering NPC's
-	// rendered orientation follows its walk for newly-visible observers.
-	n.focus(coordgrid.Fine(coordgrid.MoveX(n.x, coordgrid.Direction(dir)), n.size), coordgrid.Fine(coordgrid.MoveZ(n.z, coordgrid.Direction(dir)), n.size), false)
-	n.stepsTaken++
-	// Full zone presence (collision-follow + zone swap) per TS
-	// PathingEntity.ts:225 → refreshZonePresence(:163-188).
-	refreshNpcZonePresence(s, n, prevX, prevZ, n.level)
-	if n.x == dest.X && n.z == dest.Z {
-		n.waypointIndex--
-	}
-	return dir, stepMoved
-}
 
-// validateAndAdvanceStep wraps stepOnce with the TS waypointIndex
-// bookkeeping + recursive try-next-waypoint cascade. Mirrors TS
-// PathingEntity.validateAndAdvanceStep (PathingEntity.ts:202-232).
-// Returns (dir, true) when a step landed, (-1, false) when blocked /
-// done / no-move.
-func (n *Npc) validateAndAdvanceStep(s *Server) (int, bool) {
-	dir, status := n.stepOnce(s)
-	switch status {
-	case stepBlocked:
-		// NAI-176 D2: waypointIndex preserved; entity stays put this tick.
-		return -1, false
-	case stepDone:
-		n.waypointIndex--
-		if n.waypointIndex >= 0 {
-			return n.validateAndAdvanceStep(s)
+	// Refresh zone presence if we had a waypoint, even if we didn't move
+	// (TS L226-227). Collision-follow + zone swap per refreshNpcZonePresence.
+	refreshNpcZonePresence(s, n, srcX, srcZ, n.level)
+
+	// Update waypoint index if we reached the current waypoint (TS L229-235).
+	if n.waypointIndex != -1 {
+		coord := coordgrid.UnpackCoord(n.waypoints[n.waypointIndex])
+		if coord.X == n.x && coord.Z == n.z {
+			n.waypointIndex--
 		}
-		return -1, false
-	case stepMoved:
-		// Position already applied inside stepOnce.applyStep.
-		return dir, true
 	}
-	return -1, false
+
+	// If we actually moved, update orientation and steps taken (TS L237-245).
+	if n.x != srcX || n.z != srcZ {
+		// Focus the tile in front (faceAngle only; no FACE_COORD wire mask).
+		focusX := n.x + dx
+		focusZ := n.z + dz
+		n.focus(coordgrid.Fine(focusX, n.size), coordgrid.Fine(focusZ, n.size), false)
+		n.stepsTaken++
+		return int(coordgrid.Face(srcX, srcZ, n.x, n.z))
+	}
+
+	return -1
 }
 
-// pathToTarget mirrors TS Npc.pathToTarget (Npc.ts:319-335). Override of
-// PathingEntity.pathToTarget that short-circuits PathingEntity targets to
-// FindNaivePath when bbox-intersect (UNCONDITIONAL — no NodeClientRoutefinder
-// gate, unlike Player-side PathingEntity branch). Otherwise delegates to
+// pathToTarget mirrors TS Npc.pathToTarget at the rev-254 pin
+// (Npc.ts:321-337). Override of PathingEntity.pathToTarget that
+// random-walks one tile when bbox-intersecting a PathingEntity target
+// (f0ccbe8a — was a FindNaivePath escape). Otherwise delegates to
 // pathToTargetBase which mirrors PathingEntity.pathToTarget.
 func (n *Npc) pathToTarget() {
 	if n.target == nil {
@@ -524,20 +496,76 @@ func (n *Npc) pathToTarget() {
 		tx, tz, _ := t.Coords()
 		tw, tl := t.Width(), t.Length()
 		if coordgrid.Intersects(n.x, n.z, n.Width(), n.Length(), tx, tz, tw, tl) {
-			pf := n.pathfinder()
-			if pf == nil {
-				// (goscape defensive; TS skips this check) — gamemap absent
-				// in test fixtures; queue a single waypoint at target tile.
-				n.QueueWaypoint(tx, tz)
-				return
-			}
-			route := pf.FindNaivePath(n.level, n.x, n.z, tx, tz, n.Width(), n.Length(), tw, tl, 0, collision.TypeNormal)
-			n.queueWaypoints(routeToPacked(route))
+			// TS Npc.ts:331-334 (f0ccbe8a): overlapped → randomWalk.
+			n.randomWalk()
 			return
 		}
 	}
 
 	n.pathToTargetBase()
+}
+
+// randomWalk queues a single waypoint one tile away on a random axis.
+// Mirrors TS PathingEntity.randomWalk (PathingEntity.ts:430-439, added by
+// f0ccbe8a). Distinct from the wanderMode wander-range roll (TS wander(),
+// renamed from randomWalk(range) by the same commit — goscape inlines that
+// roll in wanderMode).
+func (n *Npc) randomWalk() {
+	x, z := n.x, n.z
+	if rand.IntN(2) == 0 {
+		if rand.IntN(2) == 0 {
+			x--
+		} else {
+			x++
+		}
+	} else {
+		if rand.IntN(2) == 0 {
+			z--
+		} else {
+			z++
+		}
+	}
+	n.QueueWaypoint(x, z)
+}
+
+// naivePathToTarget is the base-class naive chase repath — TS PathingEntity.
+// naivePathToTarget (PathingEntity.ts:441-455, added by f0ccbe8a). Queues
+// the naive route unless its first coord is the NPC's current tile
+// ("don't queue naive waypoint if already there").
+//
+// NOTE: TS passes the Loc angle in findNaivePath's extraFlag parameter slot
+// (PathingEntity.ts:449) — mirrored verbatim. The Loc arm is currently
+// unreachable (the only caller gates on PathingEntity targets) but kept for
+// base-class parity.
+func (n *Npc) naivePathToTarget() {
+	if n.target == nil {
+		return
+	}
+	angle := 0
+	if loc, ok := n.target.(*entitypkg.Loc); ok {
+		angle = loc.Angle()
+	}
+	tx, tz, _ := n.target.Coords()
+	tw, tl := approachTargetSize(n.target)
+	pf := n.pathfinder()
+	if pf == nil {
+		// (goscape defensive; TS skips this check) — gamemap absent in
+		// test fixtures; queue a single waypoint at the target tile.
+		n.QueueWaypoint(tx, tz)
+		return
+	}
+	route := pf.FindNaivePath(n.level, n.x, n.z, tx, tz, n.Width(), n.Length(), tw, tl, angle, collision.TypeNormal)
+	packed := routeToPacked(route)
+	if len(packed) == 0 {
+		// TS unpackCoord(undefined) yields NaN ≠ x/z → queueWaypoints(empty)
+		// → waypoint clear; mirror the clear explicitly.
+		n.queueWaypoints(nil)
+		return
+	}
+	first := coordgrid.UnpackCoord(packed[0])
+	if first.X != n.x || first.Z != n.z {
+		n.queueWaypoints(packed)
+	}
 }
 
 // pathToTargetBase is the shared base dispatch consumed by Npc, mirroring
@@ -637,17 +665,14 @@ func (n *Npc) pathToTargetNaive() {
 		return
 	}
 
-	tx, tz, _ := n.target.Coords()
-	if t, ok := n.target.(pathingEntity); ok {
-		pf := n.pathfinder()
-		if pf == nil {
-			// (goscape defensive; TS skips this check)
-			n.QueueWaypoint(tx, tz)
-			return
-		}
-		route := pf.FindNaivePath(n.level, n.x, n.z, tx, tz, n.Width(), n.Length(), t.Width(), t.Length(), extraFlag, *cs)
-		n.queueWaypoints(routeToPacked(route))
+	if _, ok := n.target.(pathingEntity); ok {
+		// TS PathingEntity.ts:485-486 (f0ccbe8a): dispatch to
+		// naivePathToTarget — angle-aware, plain NORMAL collision (the
+		// pre-rev-254 extraFlag/collisionStrategy-parameterized
+		// FindNaivePath call is retired; the guards above remain).
+		n.naivePathToTarget()
 	} else {
+		tx, tz, _ := n.target.Coords()
 		n.QueueWaypoint(tx, tz)
 	}
 }
@@ -1001,6 +1026,12 @@ func (n *Npc) SetInteraction(kind InteractionKind, target entity, op, com int) b
 		n.targetSubject.typ = t.Type
 	default:
 		n.targetSubject.typ = -1
+	}
+
+	// TS PathingEntity.ts:544-547 (f0ccbe8a) — script-set interactions
+	// re-allow naive repathing.
+	if kind == InteractionScript {
+		n.allowRepath = AllowRepathBeforeDest
 	}
 
 	// focus — fine-grained face-angle coord. Non-pathing targets

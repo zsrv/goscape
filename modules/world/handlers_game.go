@@ -235,16 +235,14 @@ func handleIdleTimer(p *Player, _ []byte) error {
 }
 
 // handleMoveGameClick is the dispatch entry for MOVE_GAMECLICK (opcode 63).
-// Routes to the shared inner handler with opClick=false, which causes the
-// !opClick body to fire (clearPendingAction + tempRun + walktrigger).
 func handleMoveGameClick(p *Player, payload []byte) error {
 	return moveClickInner(p, payload, false, 0)
 }
 
 // handleMoveOpClick is the dispatch entry for MOVE_OPCLICK (opcode 167).
-// Routes to the shared inner handler with opClick=true, which skips the
-// !opClick body (the move was triggered by an op click, not a plain
-// ground click — the op click already handled modal/interaction state).
+// f0ccbe8a: the handler body no longer branches on opClick — clearPendingAction
+// + tempRun + queueWaypoints + walktrigger run for op clicks too (TS decodes
+// message.opClick but the pinned MoveClickHandler never reads it).
 func handleMoveOpClick(p *Player, payload []byte) error {
 	return moveClickInner(p, payload, true, 0)
 }
@@ -252,8 +250,9 @@ func handleMoveOpClick(p *Player, payload []byte) error {
 // moveClickInner is the shared move-click implementation for all three
 // move opcodes — MOVE_GAMECLICK (63), MOVE_OPCLICK (167), and
 // MOVE_MINIMAPCLICK (56) — mirroring TS, which binds all three to a
-// single MoveClickHandler (ClientGameProtRepository.ts:121-123).
-// Mirrors TS MoveClickHandler.ts:10-58.
+// single MoveClickHandler (ClientGameProtRepository.ts:125-127).
+// Mirrors TS MoveClickHandler.ts:11-57 at the rev-254 pin (rewritten by
+// f0ccbe8a).
 //
 // Wire payload (per TS MoveClickDecoder.ts):
 //
@@ -265,22 +264,23 @@ func handleMoveOpClick(p *Player, payload []byte) error {
 //	           click only — the camera/compass trailer; 0 otherwise).
 //	           Mirrors TS MoveClickDecoder.ts:16 offset.
 //
-// Gates per TS MoveClickHandler.ts:11-22:
-//  1. p.delayed → write UnsetMapFlag (no waypoint clear), no-op
+// Flow per the pinned handler:
+//  1. p.delayed → write UnsetMapFlag (no waypoint clear), no-op (TS L13-16).
 //  2. ctrlHeld out of [0,1] OR DistanceToSW(player, start) > 104 →
-//     player.unsetMapFlag() (clearWaypoints + write) + clear userPath,
-//     no-op. TS Player.ts:2169 unsetMapFlag = clearWaypoints + write;
-//     goscape's sendUnsetMapFlag is the write only, so gate-2 also
-//     resets waypointIndex inline to halt any in-flight movement from
-//     a prior click.
+//     unsetMapFlag (clearWaypoints + write) + clear userPath, no-op
+//     (TS L20-25).
+//  3. ClearPendingAction — for ALL move opcodes incl. MOVE_OPCLICK
+//     (TS L27-28; the pre-rev-254 !opClick gate is gone).
+//  4. tempRun = ctrlHeld; override to 0 if runenergy<100 && ctrlHeld==1
+//     (TS L30-35).
+//  5. Routefinder on (TS L38-50): queueWaypoints directly from the client
+//     path. Click-own-tile (single waypoint == current pos) clears the
+//     path and sets AllowRepathNone. processWalktrigger fires
+//     unconditionally after.
+//     Routefinder off (TS L51-54): server-side findPath to the last coord.
+//     userPath is NOT touched on this branch (TS-faithful).
 //
-// On success:
-//  3. Build packed waypoint slice
-//  4. cfg.WalkTriggerSetting==PLAYERPACKET → pathToMoveClick
-//  5. !opClick:
-//     a. ClearPendingAction (fires CloseModal(true) — symptom-2 fix)
-//     b. tempRun = ctrlHeld; override to 0 if runenergy<100 && ctrlHeld==1
-//     c. cfg.WalkTriggerSetting==PLAYERPACKET && hasWaypoints → processWalktrigger
+// opClick is retained for the debug log only.
 func moveClickInner(p *Player, payload []byte, opClick bool, trailingBytes int) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -301,9 +301,10 @@ func moveClickInner(p *Player, payload []byte, opClick bool, trailingBytes int) 
 	startX := int(r.G2())
 	startZ := int(r.G2())
 
+	// Validate input (TS L20-25).
 	if ctrlHeld < 0 || ctrlHeld > 1 || coordgrid.DistanceToSW(p.x, p.z, startX, startZ) > 104 {
 		sendUnsetMapFlag(p)
-		p.waypointIndex = -1 // TS Player.unsetMapFlag → clearWaypoints (Player.ts:2169)
+		p.waypointIndex = -1 // TS Player.unsetMapFlag → clearWaypoints
 		p.userPath = nil
 		return nil
 	}
@@ -317,42 +318,45 @@ func moveClickInner(p *Player, payload []byte, opClick bool, trailingBytes int) 
 		packed = append(packed, coordgrid.PackCoord(p.level, startX+ddx, startZ+ddz))
 	}
 
-	// Persist for per-tick WalkTriggerSetting fallback (T3).
-	// Under client-routefinder, store the full path; otherwise store
-	// only the dest. Mirrors TS MoveClickHandler.ts:23-37.
-	if s.cfg.NodeClientRoutefinder {
-		p.userPath = append(p.userPath[:0], packed...)
-	} else {
-		dest := packed[len(packed)-1]
-		if cap(p.userPath) > 0 {
-			p.userPath = p.userPath[:0]
-		}
-		p.userPath = append(p.userPath, dest)
-	}
-
 	p.client.log.Debug("move click", "ctrl_held", ctrlHeld, "dest_packed", packed[len(packed)-1], "op_click", opClick)
 
-	if s.cfg.NodeWalktriggerSetting == WalkTriggerSettingPlayerpacket {
-		needsFinding := !s.cfg.NodeClientRoutefinder
-		// M24: pass p.userPath (not packed) to mirror TS MoveClickHandler.ts:40.
-		// Under routefinder p.userPath == packed (full waypoint copy); under
-		// non-routefinder p.userPath == [dest], so pathToMoveClick pathfinds to
-		// the clicked destination rather than packed[0] (the START tile).
-		p.pathToMoveClick(p.userPath, needsFinding)
+	// Clear previous interaction (TS L27-28) — unconditional since f0ccbe8a
+	// (fires for MOVE_OPCLICK too).
+	p.ClearPendingAction()
+
+	// Handle ctrl run (TS L30-35).
+	if p.runenergy < 100 && ctrlHeld == 1 {
+		p.tempRun = 0
+	} else {
+		p.tempRun = ctrlHeld
 	}
 
-	if !opClick {
-		p.ClearPendingAction()
-
-		if p.runenergy < 100 && ctrlHeld == 1 {
-			p.tempRun = 0
+	// Set new path (TS L37-54).
+	if s.cfg.NodeClientRoutefinder {
+		// this check ignores setting the path when the player is clicking
+		// on their current tile (TS L40-43).
+		if len(packed) == 1 && startX == p.x && startZ == p.z {
+			p.userPath = p.userPath[:0]
+			p.queueWaypoints(p.userPath) // clears waypoints + BEFOREDEST
+			p.setAllowRepath(AllowRepathNone)
 		} else {
-			p.tempRun = ctrlHeld
+			p.userPath = append(p.userPath[:0], packed...)
+			p.queueWaypoints(p.userPath)
 		}
-
-		if s.cfg.NodeWalktriggerSetting == WalkTriggerSettingPlayerpacket && p.hasWaypoints() {
-			p.processWalktrigger()
+		// TS L50 — fires regardless of opClick or hasWaypoints.
+		p.processWalktrigger()
+	} else {
+		// TS L51-54: server-side pathfind to the clicked destination.
+		// userPath deliberately untouched (TS-faithful).
+		dest := coordgrid.UnpackCoord(packed[len(packed)-1])
+		pf := s.pathfinder()
+		if pf == nil {
+			// (goscape defensive; TS skips this check)
+			p.queueWaypoint(dest.X, dest.Z)
+			return nil
 		}
+		route := pf.FindPathPlain(p.level, p.x, p.z, dest.X, dest.Z)
+		p.queueWaypoints(routeToPacked(route))
 	}
 
 	return nil

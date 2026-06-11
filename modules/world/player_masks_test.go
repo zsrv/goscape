@@ -598,7 +598,7 @@ func TestMaskDamage2ConstantsMatchRsbuf(t *testing.T) {
 }
 
 // TestApplyStepFocusesAhead pins M2: a walk step refreshes faceAngle to point
-// one tile ahead in the travel direction (TS PathingEntity.ts:216-220,
+// one tile ahead in the travel direction (rev-254 TS PathingEntity.ts:237-242,
 // focus client=false). Combined with D1 this is what makes a walking entity
 // render facing where it walks for newly-visible observers.
 func TestApplyStepFocusesAhead(t *testing.T) {
@@ -606,22 +606,22 @@ func TestApplyStepFocusesAhead(t *testing.T) {
 	p.x, p.z, p.level = 3200, 3200, 0
 	p.unfocus() // south: faceAngleZ points to z-1
 
-	// Walk one tile east.
-	dir := int(coordgrid.Face(p.x, p.z, p.x+1, p.z))
-	dest := coordgrid.Position{Level: 0, X: p.x + 1, Z: p.z}
-	p.waypointIndex = 0
-	p.waypoints[0] = coordgrid.PackCoord(p.level, dest.X, dest.Z)
-	p.applyStep(dest, 1, 0, dir)
+	// Walk one tile east (no gamemap → takeStep applies the delta freely).
+	p.queueWaypoint(p.x+1, p.z)
+	dir := p.validateAndAdvanceStep()
+	if dir != int(coordgrid.DirectionEast) {
+		t.Fatalf("validateAndAdvanceStep dir: got %d, want East", dir)
+	}
 
 	// faceAngle must now point one tile beyond the new position, eastward.
-	wantX := coordgrid.Fine(coordgrid.MoveX(p.x, coordgrid.Direction(dir)), 1)
-	wantZ := coordgrid.Fine(coordgrid.MoveZ(p.z, coordgrid.Direction(dir)), 1)
+	wantX := coordgrid.Fine(p.x+1, 1)
+	wantZ := coordgrid.Fine(p.z, 1)
 	if p.faceAngleX != wantX || p.faceAngleZ != wantZ {
-		t.Errorf("applyStep faceAngle: got (%d,%d), want (%d,%d) — must focus one tile ahead (M2)",
+		t.Errorf("step faceAngle: got (%d,%d), want (%d,%d) — must focus one tile ahead (M2)",
 			p.faceAngleX, p.faceAngleZ, wantX, wantZ)
 	}
 	// faceSquare untouched by a client=false focus.
 	if p.faceSquareX != -1 {
-		t.Errorf("applyStep must not set faceSquare (client=false focus): got %d", p.faceSquareX)
+		t.Errorf("step must not set faceSquare (client=false focus): got %d", p.faceSquareX)
 	}
 }

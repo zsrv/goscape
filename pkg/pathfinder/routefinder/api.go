@@ -35,7 +35,7 @@ func NewPathFinderAPI() PathFinderAPI {
 
 // FindPathPlain mirrors TS findPath (GameMap.ts:378-380). Hardcodes the
 // shape-blind 1×1 default search; equivalent to the prior FindPathDefault.
-// Used by MOVE_CLICK pipeline (movement.go pathToMoveClick) and by SMART
+// Used by the MOVE_CLICK pipeline (non-routefinder findPath branch) and by SMART
 // pathToTarget's Obj-different-tile fallback branch.
 func (pf PathFinderAPI) FindPathPlain(level, srcX, srcZ, destX, destZ int) Route {
 	return pf.FindPath(level, srcX, srcZ, destX, destZ, 1, 1, 1, 0, -1, true, 0, 25, collision.TypeNormal)

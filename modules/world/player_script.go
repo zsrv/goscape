@@ -632,8 +632,14 @@ func (p *Player) TeleJump(x, z, level int) {
 	p.jump = true
 	// Full zone presence (collision-follow + zone swap): TS teleJump
 	// routes through teleport → refreshZonePresence (PathingEntity.ts:
-	// 264-268, 293).
+	// 283-287, 312).
 	refreshPlayerZonePresence(p, prevX, prevZ, prevLevel)
+	// rev-254 (f0ccbe8a): refreshPlayerZonePresence now writes lastStepX/Z =
+	// prev unconditionally; TS teleJump → teleport overwrites with x-1/z
+	// (PathingEntity.ts:313-314) after the refresh, so mirror that tail here
+	// (closes the prior TeleJump lastStep skip, which left a stale value).
+	p.lastStepX = p.x - 1
+	p.lastStepZ = p.z
 }
 
 // Teleport moves the player to (x, z, level) and flags the client for a

@@ -56,7 +56,7 @@ func TestNpcStep_CollisionFlagFollows(t *testing.T) {
 	}
 
 	n.queueWaypoints([]int{coordgrid.PackCoord(0, 3201, 3200)})
-	if _, advanced := n.validateAndAdvanceStep(s); !advanced {
+	if dir := n.validateAndAdvanceStep(s); dir == -1 {
 		t.Fatalf("setup: NPC step east did not advance")
 	}
 	if n.x != 3201 || n.z != 3200 {
@@ -110,8 +110,8 @@ func TestPlayerStep_CollisionFlagFollows(t *testing.T) {
 	s.gamemap.ChangeNPCCollision(1, 3200, 3200, 0, true)
 
 	p.queueWaypoint(3201, 3200)
-	if _, status := p.stepOnce(); status != stepMoved {
-		t.Fatalf("setup: player step east did not move (status=%v)", status)
+	if dir := p.validateAndAdvanceStep(); dir == -1 {
+		t.Fatal("setup: player step east did not move")
 	}
 	if p.x != 3201 || p.z != 3200 {
 		t.Fatalf("setup: player at (%d,%d), want (3201,3200)", p.x, p.z)
@@ -139,7 +139,7 @@ func TestNpcCanWalkBackOntoOwnSpawnTile(t *testing.T) {
 	// Walk off T: two steps east.
 	n.queueWaypoints([]int{coordgrid.PackCoord(0, 3202, 3200)})
 	for range 2 {
-		if _, advanced := n.validateAndAdvanceStep(s); !advanced {
+		if dir := n.validateAndAdvanceStep(s); dir == -1 {
 			t.Fatalf("walk-off: step from (%d,%d) did not advance", n.x, n.z)
 		}
 	}
@@ -151,7 +151,7 @@ func TestNpcCanWalkBackOntoOwnSpawnTile(t *testing.T) {
 	n.tele = false
 	n.queueWaypoints([]int{coordgrid.PackCoord(0, 3200, 3200)})
 	for range 2 {
-		if _, advanced := n.validateAndAdvanceStep(s); !advanced {
+		if dir := n.validateAndAdvanceStep(s); dir == -1 {
 			t.Fatalf("walk-home: NPC blocked at (%d,%d) walking back onto its own spawn tile — frozen own FlagBlockNPCs (the Hans shape)", n.x, n.z)
 		}
 	}
@@ -176,7 +176,7 @@ func TestNpcBlockWalkNone_StepMovesNoFlags(t *testing.T) {
 	}
 
 	n.queueWaypoints([]int{coordgrid.PackCoord(0, 3201, 3200)})
-	if _, advanced := n.validateAndAdvanceStep(s); !advanced {
+	if dir := n.validateAndAdvanceStep(s); dir == -1 {
 		t.Fatalf("setup: NPC step east did not advance")
 	}
 
@@ -200,7 +200,7 @@ func TestNpcBlockWalkAll_StepMovesBothFlagFamilies(t *testing.T) {
 	}
 
 	n.queueWaypoints([]int{coordgrid.PackCoord(0, 3201, 3200)})
-	if _, advanced := n.validateAndAdvanceStep(s); !advanced {
+	if dir := n.validateAndAdvanceStep(s); dir == -1 {
 		t.Fatalf("setup: NPC step east did not advance")
 	}
 
@@ -229,8 +229,8 @@ func TestPlayerBlockWalkNone_StepMovesNoFlags(t *testing.T) {
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3200, 0)
 
 	p.queueWaypoint(3201, 3200)
-	if _, status := p.stepOnce(); status != stepMoved {
-		t.Fatalf("setup: player step east did not move (status=%v)", status)
+	if dir := p.validateAndAdvanceStep(); dir == -1 {
+		t.Fatal("setup: player step east did not move")
 	}
 
 	both := collision.FlagBlockNPCs | collision.FlagBlockPlayers
@@ -257,7 +257,7 @@ func TestNpcSpawnDespawnCollisionSeedBalance(t *testing.T) {
 	// Walk one tile so the despawn-side removal exercises the CURRENT
 	// (post-move) position, not the spawn tile.
 	n.queueWaypoints([]int{coordgrid.PackCoord(0, 3201, 3200)})
-	if _, advanced := n.validateAndAdvanceStep(s); !advanced {
+	if dir := n.validateAndAdvanceStep(s); dir == -1 {
 		t.Fatalf("setup: NPC step east did not advance")
 	}
 
@@ -293,8 +293,8 @@ func TestPlayerStepThenLogout_CollisionSeedBalance(t *testing.T) {
 	}
 
 	p.queueWaypoint(3201, 3200)
-	if _, status := p.stepOnce(); status != stepMoved {
-		t.Fatalf("setup: player step east did not move (status=%v)", status)
+	if dir := p.validateAndAdvanceStep(); dir == -1 {
+		t.Fatal("setup: player step east did not move")
 	}
 	if !s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagBlockNPCs) {
 		t.Fatalf("step: tile (3201,3200) missing FlagBlockNPCs (first move materialises the flag, TS PathingEntity.ts:171)")

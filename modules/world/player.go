@@ -150,6 +150,11 @@ type Player struct {
 	followX, followZ       int
 	targetX, targetZ       int
 	faceAngleX, faceAngleZ int
+	// allowRepath gates the NAIVE-strategy chase repath in
+	// pathToPathingTarget. Zero value BEFOREDEST mirrors the TS field
+	// initializer (PathingEntity.ts:57, f0ccbe8a). See AllowRepath in
+	// movement_consts.go.
+	allowRepath AllowRepath
 
 	// === interaction target ===
 	target entity
@@ -627,6 +632,23 @@ func (p *Player) writeOut(op gameserver.Op, payload []byte) {
 	}
 }
 
+// playerMoveStrategy resolves the ctor-time move strategy. Mirrors TS
+// Player ctor at the rev-254 pin (Player.ts:426, f0ccbe8a):
+// `Environment.NODE_CLIENT_ROUTEFINDER ? MoveStrategy.NAIVE :
+// MoveStrategy.SMART`. With the default config (routefinder on) players are
+// NAIVE — their chase repath runs through pathToPathingTarget's NAIVE branch
+// and MoveClick queues the client-found waypoints verbatim.
+//
+// nil-guards (goscape defensive; TS reads a process-global env): bare test
+// fixtures without a wired server default to SMART, the pre-rev-254
+// zero-value behavior.
+func playerMoveStrategy(c *client) MoveStrategy {
+	if c != nil && c.server != nil && c.server.cfg.NodeClientRoutefinder {
+		return MoveStrategyNaive
+	}
+	return MoveStrategySmart
+}
+
 func newPlayer(c *client) *Player {
 	p := &Player{
 		client:       c,
@@ -661,7 +683,7 @@ func newPlayer(c *client) *Player {
 		runenergy:      10000,
 		lastRunEnergy:  -1,
 		moveSpeed:      MoveSpeedInstant,
-		moveStrategy:   MoveStrategySmart,
+		moveStrategy:   playerMoveStrategy(c),
 		moveRestrict:   MoveRestrictNormal,
 		blockWalk:      BlockWalkNpc,
 		combatLevel:    3,

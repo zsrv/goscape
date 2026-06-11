@@ -127,6 +127,12 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 	p.apRange = 10
 	p.apRangeCalled = false
 
+	// TS PathingEntity.ts:544-547 (f0ccbe8a) — script-set interactions
+	// re-allow naive repathing.
+	if kind == InteractionScript {
+		p.allowRepath = AllowRepathBeforeDest
+	}
+
 	// TS PathingEntity.ts:528 — focus on the target's fine coord.
 	// instant=true ⇔ NonPathingEntity (Loc/Obj) clicked via the engine
 	// (kind == InteractionEngine). Any other combination passes
@@ -371,7 +377,12 @@ func (p *Player) processInteractionPreMove() {
 			p.interactTick.active = false
 			return
 		}
-		if !followOp {
+		// TS Player.ts:1266-1268 (f0ccbe8a): the pre-step walktrigger fires
+		// only under NODE_CLIENT_ROUTEFINDER (&& !followOp). Non-routefinder
+		// servers still fire walktriggers via the unconditional
+		// hasWaypoints+canAccess call in the post-step head below (TS
+		// L1279-1281).
+		if s.cfg.NodeClientRoutefinder && !followOp {
 			p.processWalktrigger()
 		}
 		p.interactCallSlot = 0
@@ -422,7 +433,10 @@ func (p *Player) processInteractionPostMove() {
 		if p.target != nil && p.CanAccess() && !followOp {
 			p.interactCallSlot = 1
 			interacted = p.tryInteract(p.stepsTaken == 0)
-			if !interacted && !p.hasWaypoints() && p.stepsTaken == 0 {
+			// TS Player.ts:1293-1297 (f0ccbe8a adds !apRangeCalled): an AP
+			// script that called p_aprange this tick keeps the interaction
+			// alive instead of terminating with "I can't reach that!".
+			if !interacted && !p.apRangeCalled && !p.hasWaypoints() && p.stepsTaken == 0 {
 				p.MessageGame("I can't reach that!")
 				p.ClearInteraction()
 			}
@@ -945,92 +959,115 @@ func effectiveApRange(p *Player) int {
 	return p.apRange
 }
 
-// pathToPathingTarget mirrors TS Player.pathToPathingTarget
-// (Engine-TS/src/engine/entity/Player.ts:1034-1055). Called once per tick
-// from processInteraction's post-step branch when !interacted (TS L1228-1229).
+// pathToPathingTarget mirrors TS Player.pathToPathingTarget at the rev-254
+// pin (Engine-TS/src/engine/entity/Player.ts:1055-1085, rewritten by
+// f0ccbe8a). Called once per tick from processInteraction's post-step branch
+// when !interacted (TS L1275-1276).
 //
 // Dispatch:
-//   - Loc/Obj target: no-op (TS L1035-1037). In TS, Loc/Obj targets get
+//   - Loc/Obj (or nil) target: no-op (TS L1056-1058). Loc/Obj targets get
 //     their initial path from MoveClick/scripts; tickloop never repaths.
-//     NAI-98 retired the legacy goscape `!p.repathed` once-per-interaction
-//     gate that pre-emptively ran pathToTarget for these targets;
-//     post-NAI-98 the arm matches TS exactly. If a downstream Loc/Obj
-//     smoke surfaces a residual, revisit.
-//   - PathingEntity + isLastOrNoWaypoint + followOp (APPLAYER3/OPPLAYER3):
-//     queueWaypoint to target's followX/followZ (TS L1039-1042).
-//     Player-on-player chase fast-path. TS declares followX/Z on the
-//     PathingEntity base class (PathingEntity.ts:51-52); goscape
-//     declares them on *Player only — sufficient because isFollowOp's
-//     *Player type assertion (goscape defensive; TS skips this check,
-//     relying on APPLAYER3/OPPLAYER3 targetOp identity at Player.ts:1205)
-//     means *Npc targets cannot reach this arm in either engine.
-//   - !canAccess: no-op (TS L1044-1046). Gated on full p.CanAccess() —
-//     delayed + modal-Main/Chat + protectedScriptActive (player_script.go:390).
-//   - NODE_CLIENT_ROUTEFINDER + intersects: queueWaypoints via
-//     FindNaivePath (TS L1048-1051). Mirrors the same shortcut at
-//     pathToTarget Smart/PathingEntity arm (interaction.go:638-644).
-//   - PathingEntity + isLastOrNoWaypoint (no followOp, no intersects):
-//     pathToTarget (TS L1052-1054).
-//
-// isLastOrNoWaypoint mirrors TS PathingEntity.isLastOrNoWaypoint
-// (PathingEntity.ts:374-376): true when the player has consumed all but
-// the final waypoint or has none queued.
-//
-// Retires the goscape divergent `!p.repathed` once-per-interaction gate
-// at interaction.go:236-239 (pre-NAI-98). The `repathed` field stays
-// declared + reset in SetInteraction/ClearInteraction as TS-vestigial
-// (TS PathingEntity.ts:64 declares it + Player.ts:459 resets it but
-// nothing reads it).
+//   - isLastWaypoint + followOp (APPLAYER3/OPPLAYER3): queueWaypoint to
+//     target's followX/followZ (TS L1060-1063). Player-on-player chase
+//     fast-path. TS declares followX/Z on the PathingEntity base class;
+//     goscape declares them on *Player only — sufficient because isFollowOp's
+//     *Player type assertion means *Npc targets cannot reach this arm in
+//     either engine.
+//   - !canAccess: no-op (TS L1065-1067).
+//   - NAIVE strategy (TS L1069-1081, f0ccbe8a — players are NAIVE whenever
+//     NODE_CLIENT_ROUTEFINDER is on, per the ctor): under-target →
+//     randomWalk; else isLastWaypoint + allowRepath==BEFOREDEST →
+//     naivePathToTarget. The pre-rev-254 routefinder+intersects FindNaivePath
+//     shortcut is retired by this branch.
+//   - SMART (or other) strategy + isLastWaypoint: pathToTarget (TS L1082-1084).
 func (p *Player) pathToPathingTarget() {
-	if p.target == nil {
+	t, ok := p.target.(pathingEntity)
+	if !ok {
+		// nil or Loc/Obj target — TS L1056-1058 no-op.
 		return
 	}
-	if _, ok := p.target.(pathingEntity); !ok {
-		// Loc/Obj target — TS no-op.
-		return
-	}
-	if p.isLastOrNoWaypoint() && isFollowOp(p) {
+	if p.isLastWaypoint() && isFollowOp(p) {
 		// Player-on-player chase: queue waypoint to target's last-step coord.
-		// followOp implies target is *Player (per isFollowOp at :145-151);
-		// goscape's *Player has followX/followZ (player.go:104).
-		if t, ok := p.target.(*Player); ok {
-			p.queueWaypoint(t.followX, t.followZ)
+		// followOp implies target is *Player (per isFollowOp);
+		// goscape's *Player has followX/followZ.
+		if tp, ok := p.target.(*Player); ok {
+			p.queueWaypoint(tp.followX, tp.followZ)
 		}
 		return
 	}
 	if !p.CanAccess() {
-		// canAccess gate (TS L1044-1046). Mirrors TS canAccess
-		// (Player.ts:805-812: !protect && !busy(); busy includes
-		// !containsModalInterface). NAI-170.
+		// canAccess gate (TS L1065-1067). NAI-170.
 		return
 	}
-	if p.client == nil || p.client.server == nil {
-		return
-	}
-	srv := p.client.server
-	tx, tz, _ := p.target.Coords()
-	if t, ok := p.target.(pathingEntity); ok {
-		tw, tl := t.Width(), t.Length()
-		if srv.cfg.NodeClientRoutefinder && coordgrid.Intersects(p.x, p.z, p.Width(), p.Length(), tx, tz, tw, tl) {
-			pf := srv.pathfinder()
-			if pf == nil {
-				p.queueWaypoint(tx, tz)
-				return
-			}
-			route := pf.FindNaivePath(p.level, p.x, p.z, tx, tz, p.Width(), p.Length(), tw, tl, 0, collision.TypeNormal)
-			p.queueWaypoints(routeToPacked(route))
+
+	// Different mechanics for naive and smart paths (TS L1069-1084).
+	if p.moveStrategy == MoveStrategyNaive {
+		tx, tz, _ := t.Coords()
+		underTarget := coordgrid.Intersects(p.x, p.z, p.Width(), p.Length(), tx, tz, t.Width(), t.Length())
+		if underTarget {
+			p.randomWalk()
 			return
 		}
-	}
-	if p.isLastOrNoWaypoint() {
+
+		if p.isLastWaypoint() && p.allowRepath == AllowRepathBeforeDest {
+			p.naivePathToTarget()
+		}
+	} else if p.isLastWaypoint() {
 		p.pathToTarget()
 	}
 }
 
-// isLastOrNoWaypoint mirrors TS PathingEntity.isLastOrNoWaypoint
-// (PathingEntity.ts:374-376): true when the player has consumed all but
-// the final waypoint or has none queued.
-func (p *Player) isLastOrNoWaypoint() bool {
+// naivePathToTarget is the Player override of the naive chase repath —
+// TS Player.naivePathToTarget (Player.ts:1087-1103, added by f0ccbe8a).
+// Distinct from the Npc/base form: only repaths when there is no waypoint
+// or the queued destination has drifted more than 1 tile from the target.
+func (p *Player) naivePathToTarget() {
+	if p.target == nil {
+		return
+	}
+	angle := 0
+	if loc, ok := p.target.(*entitypkg.Loc); ok {
+		angle = loc.Angle()
+	}
+
+	// TS L1096 reads waypoints[0] (the stored final destination) before the
+	// gate; the waypointIndex==-1 short-circuit below protects the stale read.
+	wp := coordgrid.UnpackCoord(p.waypoints[0])
+	tx, tz, _ := p.target.Coords()
+
+	// If no waypoint, or waypoint is further than 1 tile from target, set
+	// new dest (TS L1098-1102).
+	if p.waypointIndex == -1 || absInt(tx-wp.X) > 1 || absInt(tz-wp.Z) > 1 {
+		if p.client == nil || p.client.server == nil {
+			return
+		}
+		pf := p.client.server.pathfinder()
+		tw, tl := approachTargetSize(p.target)
+		if pf == nil {
+			// (goscape defensive; TS skips this check)
+			p.queueWaypoint(tx, tz)
+			return
+		}
+		// NOTE: TS passes the Loc angle in findNaivePath's extraFlag
+		// parameter slot (Player.ts:1100) — mirrored verbatim.
+		route := pf.FindNaivePath(p.level, p.x, p.z, tx, tz, p.Width(), p.Length(), tw, tl, angle, collision.TypeNormal)
+		p.queueWaypoints(routeToPacked(route))
+	}
+}
+
+// absInt is a plain int absolute value (Math.abs in the TS sites above).
+func absInt(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
+// isLastWaypoint mirrors TS PathingEntity.isLastWaypoint
+// (PathingEntity.ts:396-398; renamed from isLastOrNoWaypoint by f0ccbe8a):
+// true when the player has consumed all but the final waypoint or has none
+// queued.
+func (p *Player) isLastWaypoint() bool {
 	return p.waypointIndex <= 0
 }
 
@@ -1096,23 +1133,19 @@ func (p *Player) pathToTargetSmart() {
 
 	case pathingEntity:
 		// *Player or *Npc target. Mirrors TS PathingEntity.pathToTarget
-		// PathingEntity branch (PathingEntity.ts:464-468). When NODE_CLIENT_-
-		// ROUTEFINDER is enabled and player+target bboxes intersect, shortcut
-		// to FindNaivePath; else use the full FindPathToEntity search with
-		// the entity-target shape sentinel (=-2 inside the wrapper).
+		// PathingEntity branch at the rev-254 pin (PathingEntity.ts:463-464).
+		// f0ccbe8a removed the NODE_CLIENT_ROUTEFINDER+intersects
+		// FindNaivePath shortcut — the SMART arm is now a plain
+		// FindPathToEntity (naive players never reach this arm; their
+		// chase repath lives in pathToPathingTarget's NAIVE branch).
 		if pf == nil {
 			// (goscape defensive; TS skips this check)
 			p.queueWaypoint(tx, tz)
 			return
 		}
 		tw, tl := t.Width(), t.Length()
-		if srv.cfg.NodeClientRoutefinder && coordgrid.Intersects(p.x, p.z, p.Width(), p.Length(), tx, tz, tw, tl) {
-			route := pf.FindNaivePath(p.level, p.x, p.z, tx, tz, p.Width(), p.Length(), tw, tl, 0, collision.TypeNormal)
-			p.queueWaypoints(routeToPacked(route))
-		} else {
-			route := pf.FindPathToEntity(p.level, p.x, p.z, tx, tz, p.Width(), tw, tl)
-			p.queueWaypoints(routeToPacked(route))
-		}
+		route := pf.FindPathToEntity(p.level, p.x, p.z, tx, tz, p.Width(), tw, tl)
+		p.queueWaypoints(routeToPacked(route))
 
 	case *entitypkg.Obj:
 		// TS PathingEntity.pathToTarget Obj arm (PathingEntity.ts:469-475).
@@ -1143,10 +1176,11 @@ func (p *Player) pathToTargetSmart() {
 	}
 }
 
-// pathToTargetNaive — NAIVE strategy. PathingEntity targets use
-// FindNaivePath with the entity's blockWalkFlag/collisionStrategy;
-// non-PathingEntity targets queue a single waypoint at the target tile.
-// Mirrors TS PathingEntity.pathToTarget NAIVE arm (PathingEntity.ts:477-493).
+// pathToTargetNaive — NAIVE strategy. PathingEntity targets dispatch to
+// naivePathToTarget (f0ccbe8a — was a direct FindNaivePath with the entity's
+// blockWalkFlag/collisionStrategy); non-PathingEntity targets queue a single
+// waypoint at the target tile. Mirrors TS PathingEntity.pathToTarget NAIVE
+// arm at the rev-254 pin (PathingEntity.ts:473-489).
 // Cross-reference: modules/world/npc_interaction.go pathToTargetNaive.
 func (p *Player) pathToTargetNaive() {
 	cs := p.getCollisionStrategy()
@@ -1162,17 +1196,12 @@ func (p *Player) pathToTargetNaive() {
 		return
 	}
 
-	tx, tz, _ := p.target.Coords()
-	if t, ok := p.target.(pathingEntity); ok {
-		pf := p.client.server.pathfinder()
-		if pf == nil {
-			// (goscape defensive; TS skips this check)
-			p.queueWaypoint(tx, tz)
-			return
-		}
-		route := pf.FindNaivePath(p.level, p.x, p.z, tx, tz, p.Width(), p.Length(), t.Width(), t.Length(), extraFlag, *cs)
-		p.queueWaypoints(routeToPacked(route))
+	if _, ok := p.target.(pathingEntity); ok {
+		// TS PathingEntity.ts:485-486 — Player inherits its own override
+		// (Player.ts:1087), which adds the waypoint-drift gate.
+		p.naivePathToTarget()
 	} else {
+		tx, tz, _ := p.target.Coords()
 		p.queueWaypoint(tx, tz)
 	}
 }

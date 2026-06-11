@@ -1,45 +1,58 @@
 package world
 
 import (
+	"math/rand/v2"
+
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/pathfinder/routefinder"
 )
 
 // queueWaypoint clears any existing path and sets a single destination.
+// Mirrors TS PathingEntity.queueWaypoint (PathingEntity.ts:255-259) — the
+// setAllowRepath(BEFOREDEST) tail is from f0ccbe8a.
 func (p *Player) queueWaypoint(x, z int) {
 	p.waypoints[0] = coordgrid.PackCoord(p.level, x, z)
 	p.waypointIndex = 0
+	p.setAllowRepath(AllowRepathBeforeDest)
 }
 
 // queueWaypoints replaces the current path with the given packed coords.
-// Mirrors TS PathingEntity.queueWaypoints (Engine-TS PathingEntity.ts:248-254):
+// Mirrors TS PathingEntity.queueWaypoints (Engine-TS PathingEntity.ts:265-273):
 // reverses the input on copy so that internal storage is [dest, …, first_step].
-// stepOnce reads waypoints[waypointIndex] starting at n-1 (= first_step) and
-// decrements toward 0 (= dest).
+// validateAndAdvanceStep reads waypoints[waypointIndex] starting at n-1
+// (= first_step) and decrements toward 0 (= dest).
 //
 // Truncation: when len(packed) exceeds len(p.waypoints), entries closest to
 // dest are preserved (input iterates from length-1 down; output bounded above
 // by waypoints buffer cap). TS-faithful: TS truncates the same way via
 // output < this.waypoints.length.
+//
+// Empty input clears the path (index stays -1) but STILL resets allowRepath
+// to BEFOREDEST — TS runs setAllowRepath unconditionally (f0ccbe8a), and the
+// MoveClick click-own-tile arm relies on queueWaypoints([]) + a subsequent
+// explicit setAllowRepath(NONE).
 func (p *Player) queueWaypoints(packed []int) {
-	if len(packed) == 0 {
-		p.waypointIndex = -1
-		return
-	}
 	index := -1
 	for input, output := len(packed)-1, 0; input >= 0 && output < len(p.waypoints); input, output = input-1, output+1 {
 		p.waypoints[output] = packed[input]
 		index++
 	}
 	p.waypointIndex = index
+	p.setAllowRepath(AllowRepathBeforeDest)
+}
+
+// setAllowRepath mirrors TS PathingEntity.setAllowRepath (PathingEntity.ts:
+// 275-277, added by f0ccbe8a).
+func (p *Player) setAllowRepath(v AllowRepath) {
+	p.allowRepath = v
 }
 
 // resolveMovement advances the player along their waypoint queue for one tick.
 // Called from processPathing before processClientsOut so walkDir/runDir are
 // set for the outgoing info block.
 func (p *Player) resolveMovement() {
-	// NAI-44 T3: stepsTaken accumulates per-step in stepOnce (movement.go:88).
+	// NAI-44 T3: stepsTaken accumulates per-step in validateAndAdvanceStep.
 	// Reset at start of each tick's movement cycle so processInteraction
 	// (which runs after processPathing in tick.go:38-39) reads the
 	// per-tick step count. TS Player.processInteraction reads
@@ -85,7 +98,7 @@ func (p *Player) resolveMovement() {
 	// load-bearing case for Player — P_TELEJUMP / RebuildNormal
 	// (player_script.go:600, login_resync.go:98) set it for the teleport
 	// tick, and the bridge above preserves it. Without this gate, a queued
-	// waypoint from a prior pathToMoveClick still gets stepped on the
+	// waypoint from a prior move-click still gets stepped on the
 	// teleport tick, producing an animated walk inside the jump tick.
 	// Player.updateMovement's !super.processMovement() branch (TS
 	// Player.ts:670-673) resets tempRun in this case; we mirror that here.
@@ -107,28 +120,24 @@ func (p *Player) resolveMovement() {
 		return
 	}
 
-	dir, ok := p.validateAndAdvanceStep()
-	if !ok {
-		p.walkDir = -1
-		p.runDir = -1
-		// NAI-135: step blocked → no steps → tempRun reset (TS Player.ts:670-673).
-		p.tempRun = 0
-		return
-	}
-	p.walkDir = dir
+	// TS PathingEntity.processMovement (PathingEntity.ts:146-152): a single
+	// validateAndAdvanceStep per speed slot; -1 (blocked OR waypoint-consumed)
+	// simply leaves the dir at -1. f0ccbe8a: a blocked step no longer resets
+	// tempRun — TS resets tempRun only when processMovement returns false
+	// (no waypoints / INSTANT / STATIONARY, the two branches above); the
+	// pre-rev-254 goscape tempRun-reset-on-blocked is retired with the
+	// recursion (see validateAndAdvanceStep below).
+	p.walkDir = p.validateAndAdvanceStep()
 	p.runDir = -1
 
-	if p.moveSpeed == MoveSpeedRun && p.waypointIndex >= 0 {
-		dir2, ok2 := p.validateAndAdvanceStep()
-		if ok2 {
-			p.runDir = dir2
-		}
+	if p.moveSpeed == MoveSpeedRun && p.walkDir != -1 {
+		p.runDir = p.validateAndAdvanceStep()
 	}
 
 	// NAI-82: TS Player.processMovement at Engine-TS/.../Player.ts:675-677
 	// writes lastMovement = World.currentTick + 1 whenever stepsTaken > 0
 	// after the tick's movement resolves. The defensive client/server nil
-	// guard mirrors the established stepOnce convention (movement.go:84) —
+	// guard mirrors the established takeStep convention —
 	// fixture tests that construct a bare *Player with no client get a
 	// silent skip.
 	if p.stepsTaken > 0 && p.client != nil && p.client.server != nil {
@@ -153,108 +162,128 @@ func (p *Player) validateDistanceWalked() {
 	}
 }
 
-// stepOnce walks one tile toward the current waypoint and returns
-// (dir, status). Mirrors TS PathingEntity.takeStep (PathingEntity.ts:617-683)
-// for width=1 entities (Player.Width() ≡ 1). Position update + dest-check
-// decrement of waypointIndex happen inline via applyStep; transient-block /
-// done / no-move classifications go to validateAndAdvanceStep for
-// waypointIndex bookkeeping.
+// takeStep computes the (dx, dz) delta for one tile of travel toward the
+// current waypoint WITHOUT mutating position. Mirrors TS PathingEntity.
+// takeStep at the rev-254 pin (PathingEntity.ts:629-675, rewritten by
+// f0ccbe8a): returns [0,0] on failsafe (no waypoint / nil strategy) or when
+// every canTravel arm fails; the diagonal arm is gated on width==1 (players
+// are always 1×1), then E/W, then N/S axis fallbacks.
 //
-// NAI-176 B3: plumbs p.blockWalkFlag() (= FlagBlockPlayers) and
-// p.getCollisionStrategy() per-step + D1 axis-fallback (X-only / Z-only).
-// Retires NAI-175-D-PLAYER-STEP-COLLISION.
-func (p *Player) stepOnce() (int, stepStatus) {
-	if p.waypointIndex < 0 {
-		return -1, stepBlocked
+// NAI-176-D-FLY-NO-CONTENT-WIRES: MoveStrategyFly bypasses collision
+// entirely (TS L654-657). No content currently assigns Fly to Player;
+// engine-fidelity only.
+func (p *Player) takeStep() (int, int) {
+	if p.waypointIndex == -1 {
+		// failsafe check (TS L632-635)
+		return 0, 0
 	}
 	cs := p.getCollisionStrategy()
-	if cs == nil {
-		return -1, stepDone
-	}
 	extraFlag := p.blockWalkFlag()
-	if extraFlag == collision.FlagNull {
-		return -1, stepDone
+	if cs == nil {
+		// failsafe check (TS L640-643)
+		return 0, 0
 	}
+
 	dest := coordgrid.UnpackCoord(p.waypoints[p.waypointIndex])
 	dir := coordgrid.Face(p.x, p.z, dest.X, dest.Z)
-	if dir == -1 {
-		return -1, stepDone
-	}
 	dx := coordgrid.DeltaX(dir)
 	dz := coordgrid.DeltaZ(dir)
 
-	// NAI-176-D-FLY-NO-CONTENT-WIRES: TS PathingEntity.takeStep:663-665
-	// — MoveStrategyFly bypasses collision entirely. No content currently
-	// assigns MoveStrategyFly to Player; engine-fidelity only.
+	// Already on the waypoint tile (Face == -1 → zero deltas). TS feeds the
+	// (0,0) deltas through canTravel, whose result is irrelevant — every arm
+	// yields [0,0] either way. goscape's StepValidator panics on a (0,0)
+	// offset, so short-circuit the observationally-identical result here.
+	if dx == 0 && dz == 0 {
+		return 0, 0
+	}
+
 	if p.moveStrategy == MoveStrategyFly {
-		return p.applyStep(dest, dx, dz, int(dir))
+		return dx, dz
 	}
 
 	if p.client == nil || p.client.server == nil || p.client.server.gamemap == nil {
-		// Test-fixture path: no gamemap → skip collision and apply step.
-		return p.applyStep(dest, dx, dz, int(dir))
+		// Test-fixture path: no gamemap → skip collision and step freely.
+		// (goscape defensive; TS always has rsmod loaded.)
+		return dx, dz
 	}
 	gm := p.client.server.gamemap
-	if gm.CanTravel(p.level, p.x, p.z, dx, dz, 1, extraFlag, *cs) {
-		return p.applyStep(dest, dx, dz, int(dir))
+	// Move diagonal (TS L659-662) — gated on width==1.
+	if p.Width() == 1 && gm.CanTravel(p.level, p.x, p.z, dx, dz, p.Width(), extraFlag, *cs) {
+		return dx, dz
 	}
-	if dx != 0 && gm.CanTravel(p.level, p.x, p.z, dx, 0, 1, extraFlag, *cs) {
-		axisDir := coordgrid.Face(p.x, p.z, dest.X, p.z)
-		return p.applyStep(dest, dx, 0, int(axisDir))
+	// Move E/W (TS L664-667).
+	if dx != 0 && gm.CanTravel(p.level, p.x, p.z, dx, 0, p.Width(), extraFlag, *cs) {
+		return dx, 0
 	}
-	if dz != 0 && gm.CanTravel(p.level, p.x, p.z, 0, dz, 1, extraFlag, *cs) {
-		axisDir := coordgrid.Face(p.x, p.z, p.x, dest.Z)
-		return p.applyStep(dest, 0, dz, int(axisDir))
+	// Move N/S (TS L669-672).
+	if dz != 0 && gm.CanTravel(p.level, p.x, p.z, 0, dz, p.Width(), extraFlag, *cs) {
+		return 0, dz
 	}
-	// NAI-176 D2: TS L682 returns null (transient block); wrapper preserves
-	// waypointIndex.
-	return -1, stepBlocked
+	// https://x.com/JagexAsh/status/1727609489954664502
+	return 0, 0
 }
 
-// applyStep advances the player one tile by (dx, dz), refreshes zone
-// presence, and decrements waypointIndex if the destination is reached.
-// lastStepX/Z capture pre-step position (consumed by interaction.go and
-// player_script.go follower paths — see NAI-174). Returns (dir, stepMoved).
-func (p *Player) applyStep(dest coordgrid.Position, dx, dz, dir int) (int, stepStatus) {
-	p.lastStepX = p.x
-	p.lastStepZ = p.z
+// validateAndAdvanceStep validates and applies one step of movement,
+// returning the step direction or -1 when no tile was covered. Mirrors TS
+// PathingEntity.validateAndAdvanceStep at the rev-254 pin (PathingEntity.ts:
+// 202-248, rewritten by f0ccbe8a):
+//
+//   - nomove (nil strategy / NULL blockwalk flag) now CLEARS the waypoint
+//     queue outright (TS L206-209) instead of decrementing per call.
+//   - NO recursion: a consumed waypoint costs the remainder of this tick's
+//     step slot (the pre-f0ccbe8a try-next-waypoint cascade is retired).
+//   - refreshZonePresence runs whenever a waypoint existed, EVEN IF the
+//     entity did not move (TS L226-227) — this also re-anchors lastStepX/Z
+//     to the pre-step (== current, when blocked) tile every attempt.
+//   - orientation focus + stepsTaken only on actual movement (TS L237-245).
+func (p *Player) validateAndAdvanceStep() int {
+	cs := p.getCollisionStrategy()
+	extraFlag := p.blockWalkFlag()
+
+	// Clear waypoints if no movement is allowed (TS L206-209).
+	if cs == nil || extraFlag == collision.FlagNull {
+		p.waypointIndex = -1
+	}
+
+	// If no waypoints, return (TS L211-214).
+	if p.waypointIndex == -1 {
+		return -1
+	}
+
+	dx, dz := p.takeStep()
+
+	srcX, srcZ := p.x, p.z
+
+	// Move entity (TS L222-224).
 	p.x += dx
 	p.z += dz
-	// M2: per-step focus (TS PathingEntity.ts:216-220). After advancing, face the
-	// tile one further in the travel direction so faceAngle tracks movement.
-	// client=false → faceAngle only (no FACE_COORD wire mask). Paired with D1's
-	// per-tick faceSquare reset, this is what keeps a walking entity's rendered
-	// orientation (effectiveFaceCoord → faceAngle once faceSquare clears) pointing
-	// where it walks for newly-visible observers, instead of a stale square.
-	p.focus(coordgrid.Fine(coordgrid.MoveX(p.x, coordgrid.Direction(dir)), 1), coordgrid.Fine(coordgrid.MoveZ(p.z, coordgrid.Direction(dir)), 1), false)
-	p.stepsTaken++
-	// Full zone presence (collision-follow + zone swap) per TS
-	// PathingEntity.ts:225 → refreshZonePresence(:163-188).
-	refreshPlayerZonePresence(p, p.lastStepX, p.lastStepZ, p.level)
-	if p.x == dest.X && p.z == dest.Z {
-		p.waypointIndex--
-	}
-	return dir, stepMoved
-}
 
-// validateAndAdvanceStep wraps stepOnce with waypointIndex bookkeeping
-// + recursive try-next-waypoint cascade. Mirrors TS PathingEntity.
-// validateAndAdvanceStep (PathingEntity.ts:202-232).
-func (p *Player) validateAndAdvanceStep() (int, bool) {
-	dir, status := p.stepOnce()
-	switch status {
-	case stepBlocked:
-		return -1, false
-	case stepDone:
-		p.waypointIndex--
-		if p.waypointIndex >= 0 {
-			return p.validateAndAdvanceStep()
+	// Refresh zone presence if we had a waypoint, even if we didn't move
+	// (TS L226-227). Sets lastStepX/Z = (srcX, srcZ) unconditionally —
+	// see refreshPlayerZonePresence.
+	refreshPlayerZonePresence(p, srcX, srcZ, p.level)
+
+	// Update waypoint index if we reached the current waypoint (TS L229-235).
+	if p.waypointIndex != -1 {
+		coord := coordgrid.UnpackCoord(p.waypoints[p.waypointIndex])
+		if coord.X == p.x && coord.Z == p.z {
+			p.waypointIndex--
 		}
-		return -1, false
-	case stepMoved:
-		return dir, true
 	}
-	return -1, false
+
+	// If we actually moved, update orientation and steps taken (TS L237-245).
+	if p.x != srcX || p.z != srcZ {
+		// Focus the tile in front. client=false → faceAngle only (no
+		// FACE_COORD wire mask); keeps a walking entity's rendered
+		// orientation tracking its movement for newly-visible observers.
+		focusX := p.x + dx
+		focusZ := p.z + dz
+		p.focus(coordgrid.Fine(focusX, 1), coordgrid.Fine(focusZ, 1), false)
+		p.stepsTaken++
+		return int(coordgrid.Face(srcX, srcZ, p.x, p.z))
+	}
+
+	return -1
 }
 
 // defaultMoveSpeed maps p.run → MoveSpeed. Mirrors TS
@@ -272,32 +301,26 @@ func (p *Player) defaultMoveSpeed() MoveSpeed {
 	return MoveSpeedWalk
 }
 
-// pathToMoveClick translates a MOVE_GAMECLICK / MOVE_OPCLICK waypoint list
-// into the player's movement queue. If needsFinding is true and moveStrategy
-// is SMART, the server runs its own pathfinder; otherwise (Naive or Fly)
-// it queues a waypoint at the last coord.
-func (p *Player) pathToMoveClick(packed []int, needsFinding bool) {
-	if len(packed) == 0 {
-		return
-	}
-
-	switch p.moveStrategy {
-	case MoveStrategySmart:
-		if needsFinding && p.client != nil && p.client.server != nil && p.client.server.gamemap != nil {
-			dest := coordgrid.UnpackCoord(packed[0])
-			route := p.client.server.gamemap.Pathfinder.FindPathPlain(p.level, p.x, p.z, dest.X, dest.Z)
-			if coords := routeToPacked(route); len(coords) > 0 {
-				p.queueWaypoints(coords)
-			}
+// randomWalk queues a single waypoint one tile away on a random axis.
+// Mirrors TS PathingEntity.randomWalk (PathingEntity.ts:430-439, added by
+// f0ccbe8a; replaces the removed pathToMoveClick on the player side).
+// Consumed by pathToPathingTarget's NAIVE under-target arm.
+func (p *Player) randomWalk() {
+	x, z := p.x, p.z
+	if rand.IntN(2) == 0 {
+		if rand.IntN(2) == 0 {
+			x--
 		} else {
-			p.queueWaypoints(packed)
+			x++
 		}
-	case MoveStrategyNaive, MoveStrategyFly:
-		// TS PathingEntity.pathToMoveClick L408-420: any non-SMART strategy
-		// queues a single waypoint at the LAST coord of the input.
-		dest := coordgrid.UnpackCoord(packed[len(packed)-1])
-		p.queueWaypoint(dest.X, dest.Z)
+	} else {
+		if rand.IntN(2) == 0 {
+			z--
+		} else {
+			z++
+		}
 	}
+	p.queueWaypoint(x, z)
 }
 
 // reorient is the per-tick refocus invoked from Server.processInfo
