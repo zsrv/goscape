@@ -81,12 +81,19 @@ func GetLocalCount(locals *codegen.LocalTable, baseType typ.BaseVarType) int {
 // (array-vs-scalar; scalar further partitioned by BaseVarType, with
 // non-parameter arrays excluded from the scalar pool).
 //
-// For scalar (non-array) locals, the lookup uses value equality (name + type),
-// mirroring RuneScriptKt's LocalVariableSymbol data-class indexOf behaviour:
-// two symbols with the same name and type that were declared in mutually-
-// exclusive block scopes (if/else branches etc.) share the same slot index
-// (the index of the FIRST occurrence). This is the block-scope local slot
-// recycling rule described in RuneScriptKt BaseScriptWriter.getVariableId.
+// The lookup uses REFERENCE equality, mirroring TS
+// BaseScriptWriter.getVariableId (RuneScriptTS b8c3388 L276-282:
+// Array.prototype.indexOf — strict ===). Every declaration statement
+// creates a fresh LocalVariableSymbol (TypeChecking.ts:406), so two
+// same-name same-type locals declared in mutually-exclusive block scopes
+// (if/else $i etc.) get DISTINCT slots.
+//
+// History: the rev-244 port used value equality (name+type), implementing
+// RuneScriptKt's data-class indexOf "slot recycling". The 254 reference
+// script.dat refutes that rule for the TS toolchain — the T23 full-tree
+// gate caught 15 scripts whose sibling-scope locals were merged into one
+// slot (e.g. [proc,duel_arena_coord]: else-branch $i is slot 1 upstream,
+// was slot 0 here).
 //
 // For array locals, pointer identity is used (arrays are not recycled).
 //
@@ -112,19 +119,17 @@ func GetVariableId(locals *codegen.LocalTable, local *symbol.LocalVariableSymbol
 	bt, _ := local.Type.BaseType()
 	n := 0
 	for _, v := range locals.All {
-		// Value-equality check (mirrors Kt data-class equals: name + type).
-		// Two distinct pointer objects with the same name and type are treated
-		// as the same symbol — the slot of the FIRST occurrence is returned for
-		// all of them, implementing block-scope local slot recycling.
-		if v.Name == local.Name && v.Type == local.Type {
-			return n
-		}
 		vbt, ok := v.Type.BaseType()
 		if !ok || vbt != bt {
 			continue
 		}
 		if _, isArr := v.Type.(*typ.ArrayType); isArr && !containsLocal(locals.Parameters, v) {
 			continue
+		}
+		// Reference equality (TS indexOf ===): each declared symbol object
+		// owns its slot; same-name siblings do NOT recycle.
+		if v == local {
+			return n
 		}
 		n++
 	}

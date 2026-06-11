@@ -115,22 +115,24 @@ func TestGetVariableId_ParamsAndLocals(t *testing.T) {
 	}
 }
 
-// TestGetVariableId_BlockScopeRecycling verifies RuneScriptKt LocalTable slot
-// reuse: when two LocalVariableSymbols with the same name and type appear in
-// All (because they were declared in mutually-exclusive block scopes), the
-// SECOND symbol must get the same slot as the FIRST (slot 0), not the next
-// monotonic index (slot 1).
+// TestGetVariableId_BlockScopeDistinctSlots pins the 254/TS rule: when two
+// LocalVariableSymbols with the same name and type appear in All (declared
+// in mutually-exclusive block scopes), each symbol object gets its OWN slot
+// — reference-equality indexOf, RuneScriptTS b8c3388
+// BaseScriptWriter.getVariableId L276-282 (Array.prototype.indexOf ===)
+// + TypeChecking.ts:406 (fresh LocalVariableSymbol per declaration).
 //
-// This mirrors Kt's data-class valueOf indexOf behaviour:
-// LocalVariableSymbol("i", INT).indexOf(...) returns the index of the
-// first equal element regardless of which pointer object was passed.
+// History: the rev-244 port pinned RuneScriptKt's data-class indexOf
+// "slot recycling" (same name+type → first slot). The 254 reference
+// script.dat refutes it for the TS toolchain ([proc,duel_arena_coord]:
+// else-branch $i is slot 1 upstream) — caught by the T23 full-tree gate.
 //
-// Fixture: two separate $i int locals that would be in if/else branches.
-// All = [$i_if, $i_else] — $i_else should reuse slot 0.
+// Fixture: two separate $i int locals as if in if/else branches.
+// All = [$i_if, $i_else] — $i_else gets slot 1.
 //
-// int_locals header count = GetLocalCount = 2 (raw symbol count is unchanged).
-func TestGetVariableId_BlockScopeRecycling(t *testing.T) {
-	// Two distinct pointer objects, same name+type — simulates if/else $i reuse.
+// int_locals header count = GetLocalCount = 2 (raw symbol count, unchanged).
+func TestGetVariableId_BlockScopeDistinctSlots(t *testing.T) {
+	// Two distinct pointer objects, same name+type — if/else $i siblings.
 	iIf := &symbol.LocalVariableSymbol{Name: "$i", Type: typ.PrimitiveInt}
 	iElse := &symbol.LocalVariableSymbol{Name: "$i", Type: typ.PrimitiveInt}
 
@@ -142,10 +144,10 @@ func TestGetVariableId_BlockScopeRecycling(t *testing.T) {
 	if got := writer.GetVariableId(locals, iIf); got != 0 {
 		t.Errorf("iIf slot = %d, want 0", got)
 	}
-	if got := writer.GetVariableId(locals, iElse); got != 0 {
-		t.Errorf("iElse slot = %d, want 0 (slot recycled from closed scope)", got)
+	if got := writer.GetVariableId(locals, iElse); got != 1 {
+		t.Errorf("iElse slot = %d, want 1 (reference-equality indexOf; TS does NOT recycle sibling-scope slots)", got)
 	}
-	// int_locals count stays 2 — raw symbol count, not slot watermark.
+	// int_locals count stays 2 — raw symbol count.
 	if got := writer.GetLocalCount(locals, typ.BaseVarInteger); got != 2 {
 		t.Errorf("LocalCount(Integer) = %d, want 2", got)
 	}
