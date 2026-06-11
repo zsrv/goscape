@@ -281,40 +281,11 @@ func clearLoggedInFlag(ctx context.Context, db *sql.DB, accountID int, profile s
 	return nil
 }
 
-// countRecentLoginAttempts counts `login` rows for (accountID, ip) whose
-// timestamp falls inside the trailing window. Mirrors the TS 3-in-5s
-// window scan (LoginServer.ts:235-242; TS LIMITs at 3 and compares
-// length === 3 — COUNT >= 3 is the same observable).
-func countRecentLoginAttempts(ctx context.Context, db *sql.DB, accountID int, ip string, window time.Duration) (int, error) {
-	cutoff := time.Now().UTC().Add(-window).Format(dbTimeFormat)
-	var n int
-	err := db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM login
-		 WHERE account_id = ? AND ip = ? AND timestamp >= ?`,
-		accountID, ip, cutoff,
-	).Scan(&n)
-	if err != nil {
-		return 0, fmt.Errorf("countRecentLoginAttempts: %w", err)
-	}
-	return n, nil
-}
-
-// insertLoginAttempt records one per-attempt `login` row. Mirrors TS
-// LoginServer.ts:255-267 (`uuid: socket` → goscape's per-attempt
-// sessionUUID; `timestamp: toDbDate(nodeTime)` → server clock — goscape's
-// PlayerLoginRequest carries no world clock; the window comparison uses
-// the same clock on both sides, so the observable is unchanged).
-func insertLoginAttempt(ctx context.Context, db *sql.DB, attemptUUID string, accountID, world, uid int, ip string) error {
-	ts := time.Now().UTC().Format(dbTimeFormat)
-	if _, err := db.ExecContext(ctx,
-		`INSERT INTO login (uuid, account_id, world, timestamp, uid, ip)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		attemptUUID, accountID, world, ts, uid, ip,
-	); err != nil {
-		return fmt.Errorf("insertLoginAttempt: %w", err)
-	}
-	return nil
-}
+// countRecentLoginAttempts / insertLoginAttempt were retired at the 254
+// pin advance: TS LoginServer.ts @2e3bcf43 no longer reads or writes the
+// `login` attempts table (the prisma model was deleted; address/device
+// rate limiting moved to the world module's TTL caches — A4). The table
+// itself stays in goscape's migrations as schema history.
 
 func setAccountBanned(ctx context.Context, db *sql.DB, username string, until time.Time) error {
 	_, err := db.ExecContext(ctx,

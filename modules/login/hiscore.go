@@ -11,13 +11,17 @@ import (
 
 // updateHiscores exports a logged-out player's enabled-stat XP and levels into
 // the hiscore (per-stat) and hiscore_large (total) tables. Mirrors TS
-// LoginServer.updateHiscores (Engine-TS/src/server/login/LoginServer.ts:20-26
-// @3c16994c): only staff above mod-level-1 are skipped; banned accounts are
-// exported normally (245.2 reverts 244's ccc263c7 banned_until gate — the
-// 245.2 updateHiscores signature is { id, staffmodlevel } with no
-// banned_until). The total (type 0) goes to hiscore_large; per-stat rows
-// (type = stat+1) go to hiscore only when the base level is >= 15. XP is the
-// ×10 fixed-point value read straight from the save (same scaling as TS).
+// LoginServer.updateHiscores (Engine-TS/src/server/login/LoginServer.ts:19-30
+// @2e3bcf43): staff above mod-level-1 are skipped, and the 254 pin
+// RE-ADDS a currently-banned gate (245.2 had reverted 244's variant):
+//
+//	if (account.banned_until !== null && new Date(account.banned_until) >= new Date()) {
+//	    return;
+//	}
+//
+// The total (type 0) goes to hiscore_large; per-stat rows (type = stat+1)
+// go to hiscore only when the base level is >= 15. XP is the ×10
+// fixed-point value read straight from the save (same scaling as TS).
 // Best-effort: PlayerLogout logs any error and still reports success (TS sends
 // the logout response before awaiting this), so a hiscore failure never blocks
 // logout.
@@ -29,6 +33,15 @@ func updateHiscores(ctx context.Context, db *sql.DB, account *accountRow, save [
 		return nil
 	}
 	now := time.Now().UTC()
+	// TS LoginServer.ts:27-29 @2e3bcf43 — skip accounts whose ban is
+	// still active (banned_until >= now). Expired bans export normally.
+	// An unparseable banned_until exports normally too (TS `new
+	// Date(garbage) >= new Date()` is false for Invalid Date).
+	if account.BannedUntil.Valid {
+		if t, err := time.Parse(dbTimeFormat, account.BannedUntil.String); err == nil && !t.Before(now) {
+			return nil
+		}
+	}
 
 	stats, ok := saveStats(save)
 	if !ok {

@@ -1029,11 +1029,13 @@ func TestPlayerLogin_SaveMissingNoLogoutTimeIsNewPlayer(t *testing.T) {
 	}
 }
 
-// TestPlayerLogin_RateLimit pins TS LoginServer.ts:234-268: per-attempt
-// `login` rows keyed (account, ip); 3 rows inside 5s → response 8
-// (LOGIN_RESULT_RATE_LIMITED) BEFORE the password compare; a rejected
-// attempt does NOT insert a row.
-func TestPlayerLogin_RateLimit(t *testing.T) {
+// TestPlayerLogin_NoDbRateLimit pins the 254-pin retirement of the
+// 43e02957-era per-attempt DB rate limiter: TS LoginServer.ts @2e3bcf43
+// no longer queries or inserts the `login` table (3-in-5s → response 8
+// is GONE; address/device limiting moved to the world module's TTL
+// caches, A4). Repeated rapid attempts from one (account, ip) must NOT
+// yield RATE_LIMITED, and no `login` rows are written.
+func TestPlayerLogin_NoDbRateLimit(t *testing.T) {
 	h, _ := newTestHandler(t)
 	req := func(pw string) *loginpb.PlayerLoginRequest {
 		return &loginpb.PlayerLoginRequest{
@@ -1041,113 +1043,36 @@ func TestPlayerLogin_RateLimit(t *testing.T) {
 			RemoteAddress: "1.2.3.4:5", Uid: 1,
 		}
 	}
-	// Attempt 1 registers the account (NEW_PLAYER) and logs row 1.
 	resp, err := h.PlayerLogin(t.Context(), req("pw"))
 	if err != nil || resp.Result != loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER {
 		t.Fatalf("attempt 1: %v / %v", resp, err)
 	}
-	// Logout so attempts 2-3 are not ALREADY_LOGGED_IN. Force-logout does
-	// NOT stamp logout_time, so M25 stays unarmed.
 	if _, err := h.PlayerForceLogout(t.Context(), &loginpb.PlayerForceLogoutRequest{
 		NodeId: 10, Profile: "main", Username: "bob",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	// Attempts 2-3: wrong password — still insert attempt rows (the TS
-	// insert precedes the bcrypt compare).
-	for i := 2; i <= 3; i++ {
+	// 5 rapid wrong-password attempts: always INVALID_CREDENTIALS, never
+	// RATE_LIMITED (would have tripped at attempt 4 under 43e02957).
+	for i := 2; i <= 6; i++ {
 		resp, err = h.PlayerLogin(t.Context(), req("wrong"))
 		if err != nil || resp.Result != loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS {
-			t.Fatalf("attempt %d: %v / %v", i, resp, err)
+			t.Fatalf("attempt %d: got %v / %v, want INVALID_CREDENTIALS (DB rate limiter retired at 2e3bcf43)", i, resp, err)
 		}
 	}
-	// Attempt 4 inside the window: rate limited, even with the right password.
+	// And the correct password still succeeds immediately.
 	resp, err = h.PlayerLogin(t.Context(), req("pw"))
-	if err != nil || resp.Result != loginpb.LoginResult_LOGIN_RESULT_RATE_LIMITED {
-		t.Fatalf("attempt 4: got %v / %v, want RATE_LIMITED", resp, err)
+	if err != nil || (resp.Result != loginpb.LoginResult_LOGIN_RESULT_OK &&
+		resp.Result != loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER) {
+		t.Errorf("post-burst attempt: got %v / %v, want OK/NEW_PLAYER", resp, err)
 	}
-	// Exactly 3 rows (the rejected attempt did not insert).
+	// No per-attempt `login` rows are written anymore.
 	var n int
 	if err := h.db.QueryRow(`SELECT COUNT(*) FROM login`).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
-	if n != 3 {
-		t.Errorf("login rows: got %d, want 3", n)
-	}
-}
-
-// TestPlayerLogin_RateLimit_ScopedToAccountAndIP pins the window key:
-// a different IP for the same account is NOT limited (TS keys the
-// window by account_id AND ip, LoginServer.ts:238-239).
-func TestPlayerLogin_RateLimit_ScopedToAccountAndIP(t *testing.T) {
-	h, _ := newTestHandler(t)
-	mk := func(addr string) *loginpb.PlayerLoginRequest {
-		return &loginpb.PlayerLoginRequest{
-			NodeId: 10, Profile: "main", Username: "bob", Password: "wrong",
-			RemoteAddress: addr, Uid: 1,
-		}
-	}
-	if _, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
-		NodeId: 10, Profile: "main", Username: "bob", Password: "pw",
-		RemoteAddress: "1.2.3.4:5", Uid: 1,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := h.PlayerForceLogout(t.Context(), &loginpb.PlayerForceLogoutRequest{
-		NodeId: 10, Profile: "main", Username: "bob",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	for i := 0; i < 2; i++ {
-		if _, err := h.PlayerLogin(t.Context(), mk("1.2.3.4:5")); err != nil {
-			t.Fatal(err)
-		}
-	}
-	// Attempt from IP B: not limited (INVALID_CREDENTIALS, not RATE_LIMITED).
-	resp, err := h.PlayerLogin(t.Context(), mk("9.9.9.9:5"))
-	if err != nil || resp.Result != loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS {
-		t.Errorf("other-IP attempt: got %v / %v, want INVALID_CREDENTIALS", resp, err)
-	}
-	// And the same-IP side of the scope still limits: IP A has 3 rows.
-	resp, err = h.PlayerLogin(t.Context(), mk("1.2.3.4:5"))
-	if err != nil || resp.Result != loginpb.LoginResult_LOGIN_RESULT_RATE_LIMITED {
-		t.Errorf("same-IP attempt: got %v / %v, want RATE_LIMITED", resp, err)
-	}
-}
-
-// TestPlayerLogin_RateLimit_WindowExpiry pins the 5s window edge: rows
-// older than 5s do not count (TS timestamp >= now-5000,
-// LoginServer.ts:240). Backdates the rows directly rather than sleeping.
-func TestPlayerLogin_RateLimit_WindowExpiry(t *testing.T) {
-	h, _ := newTestHandler(t)
-	seed := &loginpb.PlayerLoginRequest{
-		NodeId: 10, Profile: "main", Username: "bob", Password: "pw",
-		RemoteAddress: "1.2.3.4:5", Uid: 1,
-	}
-	if _, err := h.PlayerLogin(t.Context(), seed); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := h.PlayerForceLogout(t.Context(), &loginpb.PlayerForceLogoutRequest{
-		NodeId: 10, Profile: "main", Username: "bob",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	for i := 0; i < 2; i++ {
-		if _, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
-			NodeId: 10, Profile: "main", Username: "bob", Password: "wrong",
-			RemoteAddress: "1.2.3.4:5", Uid: 1,
-		}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	// Backdate all 3 rows past the window.
-	if _, err := h.db.Exec(`UPDATE login SET timestamp = '2000-01-01 00:00:00'`); err != nil {
-		t.Fatal(err)
-	}
-	resp, err := h.PlayerLogin(t.Context(), seed)
-	if err != nil || (resp.Result != loginpb.LoginResult_LOGIN_RESULT_OK &&
-		resp.Result != loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER) {
-		t.Errorf("post-window attempt: got %v / %v, want OK/NEW_PLAYER", resp, err)
+	if n != 0 {
+		t.Errorf("login rows: got %d, want 0 (attempt-log insert retired at 2e3bcf43)", n)
 	}
 }
 
@@ -1283,9 +1208,10 @@ func TestPlayerLogin_HopTimer(t *testing.T) {
 	})
 }
 
-// TestPlayerLogin_MessageCountWired pins that the unread count reaches
-// PlayerLoginResponse.message_count on the full-login path (TS
-// LoginServer.ts:395 + :433) — previously a stub 0.
+// TestPlayerLogin_MessageCountWired RE-PINNED at 2e3bcf43: TS deleted
+// Messages.ts/getUnreadMessageCount and the message tables — every reply
+// carries `messageCount: 0` regardless of unread threads. The fixture
+// still seeds an unread thread to prove it is IGNORED.
 func TestPlayerLogin_MessageCountWired(t *testing.T) {
 	h, _ := newTestHandler(t)
 	if _, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
@@ -1315,8 +1241,8 @@ func TestPlayerLogin_MessageCountWired(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.MessageCount != 1 {
-		t.Errorf("MessageCount: got %d, want 1", resp.MessageCount)
+	if resp.MessageCount != 0 {
+		t.Errorf("MessageCount: got %d, want 0 (TS sends the literal 0 at 2e3bcf43)", resp.MessageCount)
 	}
 }
 
@@ -1359,9 +1285,9 @@ func TestPlayerLogin_M25_PerProfileLogoutTime(t *testing.T) {
 	}
 }
 
-// TestPlayerLogin_MessageCountWired_Reconnect pins the reconnect-path
-// half of the messageCount wiring (TS LoginServer.ts:322): a
-// RECONNECT_OK reply carries the unread count too.
+// TestPlayerLogin_MessageCountWired_Reconnect RE-PINNED at 2e3bcf43:
+// the RECONNECT_OK reply also carries the literal 0 (Messages.ts
+// deleted upstream); the seeded unread thread must be ignored.
 func TestPlayerLogin_MessageCountWired_Reconnect(t *testing.T) {
 	h, _ := newTestHandler(t)
 	id := insertTestAccount(t, h.db, "reconuser", "pw")
@@ -1399,7 +1325,7 @@ func TestPlayerLogin_MessageCountWired_Reconnect(t *testing.T) {
 	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK {
 		t.Fatalf("Result: got %v, want LOGIN_RESULT_RECONNECT_OK", resp.Result)
 	}
-	if resp.MessageCount != 1 {
-		t.Errorf("MessageCount on reconnect: got %d, want 1", resp.MessageCount)
+	if resp.MessageCount != 0 {
+		t.Errorf("MessageCount on reconnect: got %d, want 0 (TS sends the literal 0 at 2e3bcf43)", resp.MessageCount)
 	}
 }

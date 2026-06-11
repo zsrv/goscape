@@ -122,26 +122,14 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		}
 	}
 
-	// 3b. Per-attempt rate limit + attempt log. TS LoginServer.ts:234-268:
-	// runs only when the account exists (auto-registered accounts
-	// included), BEFORE the password compare; 3 rows for (account, ip)
-	// inside 5s → response 8; a rate-limited attempt does NOT insert.
-	// goscape's per-attempt sessionUUID stands in for TS's socket uuid.
-	// (TS's `if (account)` guard covers its no-auto-register fallthrough,
-	// which goscape already returned from at step 3 — account is non-nil
-	// here.)
-	recent, err := countRecentLoginAttempts(ctx, h.db, account.ID, ip, 5*time.Second)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "countRecentLoginAttempts: %v", err)
-	}
-	if recent >= 3 {
-		return &loginpb.PlayerLoginResponse{
-			Result: loginpb.LoginResult_LOGIN_RESULT_RATE_LIMITED,
-		}, nil
-	}
-	if err := insertLoginAttempt(ctx, h.db, sessionUUID, account.ID, int(req.NodeId), int(req.Uid), ip); err != nil {
-		return nil, status.Errorf(codes.Internal, "insertLoginAttempt: %v", err)
-	}
+	// 3b. (retired at 2e3bcf43) The 43e02957-era per-attempt DB rate limit
+	// (3 `login` rows per (account, ip) inside 5s → response 8) and its
+	// attempt-log insert were REMOVED upstream — TS LoginServer.ts no
+	// longer queries/inserts the `login` table (the table itself left
+	// db/types.ts). Address/device login rate limiting now lives in the
+	// world module's TTL caches (A4: World.ts:652-676 @2e3bcf43, reply
+	// byte 16). The `login` table remains in goscape's migrations as
+	// schema history only.
 
 	// 4. Password check.
 	// Lowercase before compare — mirrors TS LoginServer.ts:233
@@ -250,13 +238,11 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 			}
 			saveBytes = b
 		}
-		// TS LoginServer.ts:322 — messageCount on the reconnect reply too.
-		mc, err := getUnreadMessageCount(ctx, h.db, account.ID)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "getUnreadMessageCount: %v", err)
-		}
+		// 2e3bcf43: messageCount is the literal 0 on every reply — TS
+		// deleted Messages.ts/getUnreadMessageCount and the message
+		// tables (LoginServer.ts reconnect reply sends `messageCount: 0`).
 		resp := buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK, account, saveBytes, sessionUUID)
-		resp.MessageCount = int32(mc)
+		resp.MessageCount = 0
 		return resp, nil
 	}
 
@@ -323,14 +309,11 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	committed = true
 
 
-	// TS LoginServer.ts:395 — messageCount computed after the session
-	// insert, attached to the success reply (:412/:433).
-	mc, err := getUnreadMessageCount(ctx, h.db, account.ID)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "getUnreadMessageCount: %v", err)
-	}
+	// 2e3bcf43: messageCount is the literal 0 on every reply (TS deleted
+	// Messages.ts/getUnreadMessageCount; LoginServer success replies send
+	// `messageCount: 0`).
 	resp := buildLoginResponse(result, account, saveBytes, sessionUUID)
-	resp.MessageCount = int32(mc)
+	resp.MessageCount = 0
 	return resp, nil
 }
 
