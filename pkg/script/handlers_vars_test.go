@@ -36,6 +36,9 @@ type mockWorld struct {
 	// 244 MAP_LAST* debug ops (DebugOps.ts:20-66): per-cycle stat snapshot.
 	// Index order mirrors TS WorldStat enum (WorldStat.ts:1-14).
 	lastCycleStats [12]int
+	// A10 MIDI_LENGTH (ServerOps.ts:383-387 @2e3bcf43): seeded per-track
+	// tick lengths. Nil map → 0 for every track.
+	midiTickLengths map[int]int
 }
 
 func newMockWorld() *mockWorld {
@@ -53,6 +56,7 @@ func (m *mockWorld) CurrentTick() int                 { return m.tick }
 func (m *mockWorld) PlayerCount() int                 { return m.players }
 func (m *mockWorld) MapMembers() int                  { return m.mapMembers }
 func (m *mockWorld) MapProduction() int               { return m.mapProduction }
+func (m *mockWorld) MidiTickLength(track int) int     { return m.midiTickLengths[track] }
 func (m *mockWorld) LastCycleStat(stat int) int       { return m.lastCycleStats[stat] }
 func (m *mockWorld) NodeID() int                      { return m.nodeID }
 

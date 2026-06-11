@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
@@ -1758,44 +1757,20 @@ func (p *Player) HeroPointsClear() {
 func (p *Player) SetBodyPart(slot, idkit int)  { p.body[slot] = idkit }
 func (p *Player) SetColorPart(slot, color int) { p.colors[slot] = color }
 
-// normalizeSongName mirrors TS Player.playSong's normalization step
-// (Engine-TS/src/engine/entity/Player.ts:1922 at 244):
+// PlaySong sends a MIDI song by TRACK ID to the client. A10 @2e3bcf43:
+// the 244-era name-based signature (normalize + midiPack registry
+// lookup) is retired — names resolve to ids at script compile time
+// (ScriptVarType MIDI; tools/pack/Compiler.ts:199). Mirrors TS
+// Player.playSong (Player.ts:1985-1987 @2e3bcf43):
 //
-//	name.toLowerCase().replaceAll(' ', '_').replace(/[^a-z0-9_-]/g, '')
+//	playSong(id: number) {
+//	    this.write(new MidiSong(id));
+//	}
 //
-// Lowercase → spaces→underscores → strip characters outside [a-z0-9_-].
-// Asymmetric with normalizeJingleName: jingles are lowercase-only (TS
-// Player.ts:1929 uses only toLowerCase()).
-func normalizeSongName(name string) string {
-	name = strings.ToLower(name)
-	name = strings.ReplaceAll(name, " ", "_")
-	var b strings.Builder
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
-
-// PlaySong normalizes the song name per TS Player.playSong
-// (Engine-TS/src/engine/entity/Player.ts:1919-1925 at 244), resolves
-// the pack id via the server's midiPack registry, and writes MidiSong
-// to the client. Silent no-op on empty name, id == -1, or nil server
-// (mirrors TS's `if (id !== -1)` guard at Player.ts:1921-1924).
-//
-// normalizeSongName (TS-faithful): lowercase + spaces→underscores + strip
-// /[^a-z0-9_-]/g. Asymmetric with normalizeJingleName (lowercase only).
-func (p *Player) PlaySong(name string) {
-	name = normalizeSongName(name)
-	if name == "" {
-		return
-	}
-	if p.client == nil || p.client.server == nil {
-		return
-	}
-	id := p.client.server.midiIDByName(name)
-	if id == -1 {
+// No id guard — TS writes unconditionally (the encoder p2 truncates).
+// Nil client guard is goscape-defensive for bare test players.
+func (p *Player) PlaySong(id int) {
+	if p.client == nil {
 		return
 	}
 	buf := packet.NewPacket(make([]byte, 0, 4))
@@ -1803,41 +1778,28 @@ func (p *Player) PlaySong(name string) {
 	p.writeOut(gameserver.OpMidiSong, buf.Bytes())
 }
 
-// normalizeJingleName mirrors TS Player.playJingle's normalization step
-// (Engine-TS/src/engine/entity/Player.ts:1929 at 244):
+// PlayJingle sends a short MIDI jingle by TRACK ID; the wire delay field
+// is the track's parsed length in milliseconds from the boot-time Midi
+// cache. Mirrors TS Player.playJingle (Player.ts:1989-1991 @2e3bcf43):
 //
-//	name.toLowerCase()
+//	playJingle(id: number): void {
+//	    this.write(new MidiJingle(id, Midi.getLength(id)));
+//	}
 //
-// Lowercase only — no underscore-to-space conversion. Asymmetric with
-// normalizeSongName (lowercase+strip+spaces→underscores). The asymmetry
-// is TS-faithful: jingle names match the pack file keys verbatim after
-// casing; song names have an additional space-to-underscore step.
-func normalizeJingleName(name string) string {
-	return strings.ToLower(name)
-}
-
-// PlayJingle normalizes the jingle name per TS Player.playJingle
-// (Engine-TS/src/engine/entity/Player.ts:1928-1933 at 244), resolves
-// the pack id via the server's midiPack registry, and writes MidiJingle
-// to the client. Silent no-op on empty name, id == -1, or nil server
-// (mirrors TS's `if (id !== -1)` guard at Player.ts:1930-1932).
-//
-// normalizeJingleName (TS-faithful): lowercase only. Asymmetric with
-// normalizeSongName (lowercase + spaces→underscores + strip).
-func (p *Player) PlayJingle(delay int, name string) {
-	name = normalizeJingleName(name)
-	if name == "" {
+// A10: the 244-era (delay, name) signature is retired — the script no
+// longer supplies the delay; the server derives it. Nil server (bare
+// test player) degrades the length to 0, matching the TS unknown-id
+// `lengths[id] ?? 0` posture.
+func (p *Player) PlayJingle(id int) {
+	if p.client == nil {
 		return
 	}
-	if p.client == nil || p.client.server == nil {
-		return
-	}
-	id := p.client.server.midiIDByName(name)
-	if id == -1 {
-		return
+	length := 0
+	if p.client.server != nil {
+		length = p.client.server.midi.GetLength(id)
 	}
 	buf := packet.NewPacket(make([]byte, 0, 4))
-	encodeMidiJingle(buf, id, delay)
+	encodeMidiJingle(buf, id, length)
 	p.writeOut(gameserver.OpMidiJingle, buf.Bytes())
 }
 

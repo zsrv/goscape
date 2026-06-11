@@ -54,22 +54,26 @@ func handleMapLive(s *ScriptState) error {
 	return nil
 }
 
-// handleMidiLength (MIDI_LENGTH, opcode 1022) — A10 STUB. TS ServerOps.ts
-// @2e3bcf43:
+// handleMidiLength (MIDI_LENGTH, opcode 1022) pushes the track's length
+// in 600ms game ticks. TS ServerOps.ts:383-387 @2e3bcf43:
 //
 //	[ScriptOpcode.MIDI_LENGTH]: state => {
 //	    const track = state.popInt();
 //	    state.pushInt(Midi.getTickLength(track));
 //	}
 //
-// Depends on the Midi cache (src/cache/midi/Midi.ts, new at the 254
-// pin-advance) which Task A10 ports. Until A10 lands Midi.getTickLength,
-// this errors like the other unimplemented-op stubs. The track id is
-// popped first so the stack contract already matches TS.
-// TODO(A10): replace the error with a midi-length registry lookup.
+// Midi.getTickLength = Math.ceil(getLength(id) / 600) + 1, where
+// getLength is the parsed track length in MILLISECONDS (TS
+// src/cache/midi/Midi.ts:293-299 @2e3bcf43; goscape port pkg/midi,
+// surfaced via WorldVars.MidiTickLength). Unknown track → 0ms → 1 tick.
+// A10 replaced the A1 unimplemented-stub.
 func handleMidiLength(s *ScriptState) error {
-	_ = s.PopInt() // track id — popped per the TS stack contract
-	return fmt.Errorf("MIDI_LENGTH: unimplemented — A10 lands Midi.getTickLength")
+	track := s.PopInt()
+	if s.World == nil {
+		return fmt.Errorf("MIDI_LENGTH: %w", ErrNoWorld)
+	}
+	s.PushInt(s.World.MidiTickLength(track))
+	return nil
 }
 
 // handleInZone pops [from, to, pos] (pos on top) and pushes 1 if pos

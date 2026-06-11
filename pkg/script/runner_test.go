@@ -609,17 +609,13 @@ type mockPlayer struct {
 	preventLogoutMessage string
 	preventLogoutUntil   int
 
-	// S7h: captured MIDI_SONG plays. Each entry records the normalized-name
-	// argument as seen by the mock; the mock does not perform TS
-	// normalization (that's (*Player).PlaySong's responsibility).
-	playSongCalls []struct{ name string }
+	// S7h/A10: captured MIDI_SONG plays. Each entry records the track id
+	// (A10 @2e3bcf43: id-based — names resolve at compile time).
+	playSongCalls []int
 
-	// S7h: captured MIDI_JINGLE plays. Each entry records the delay and
-	// the normalized-name argument as seen by the mock.
-	playJingleCalls []struct {
-		delay int
-		name  string
-	}
+	// S7h/A10: captured MIDI_JINGLE plays. Each entry records the track
+	// id (the wire delay is derived server-side from the Midi cache).
+	playJingleCalls []int
 
 	// NAI-87: captured SOUND_SYNTH plays. Each entry records the three
 	// int arguments passed to PlaySynth in TS argument order
@@ -1070,17 +1066,14 @@ func (m *mockPlayer) ApplyDamage(amount, dmgType int) {
 	m.applyDamageCalls = append(m.applyDamageCalls, struct{ amount, dmgType int }{amount, dmgType})
 }
 
-// S7h: PlaySong captures the MIDI_SONG name for handler tests.
-func (m *mockPlayer) PlaySong(name string) {
-	m.playSongCalls = append(m.playSongCalls, struct{ name string }{name})
+// S7h/A10: PlaySong captures the MIDI_SONG track id for handler tests.
+func (m *mockPlayer) PlaySong(id int) {
+	m.playSongCalls = append(m.playSongCalls, id)
 }
 
-// S7h: PlayJingle captures the MIDI_JINGLE delay + name for handler tests.
-func (m *mockPlayer) PlayJingle(delay int, name string) {
-	m.playJingleCalls = append(m.playJingleCalls, struct {
-		delay int
-		name  string
-	}{delay, name})
+// S7h/A10: PlayJingle captures the MIDI_JINGLE track id for handler tests.
+func (m *mockPlayer) PlayJingle(id int) {
+	m.playJingleCalls = append(m.playJingleCalls, id)
 }
 
 // NAI-87: PlaySynth captures the SOUND_SYNTH (synth, loops, delay)

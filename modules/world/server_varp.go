@@ -85,6 +85,18 @@ func (w worldVarsView) MapProduction() int {
 	return 1
 }
 
+// MidiTickLength returns the MIDI track's playback length in 600ms game
+// ticks. Implements script.WorldVars.MidiTickLength for the MIDI_LENGTH
+// op — TS ServerOps.ts:383-387 @2e3bcf43 pushes Midi.getTickLength(track)
+// = ceil(getLength(ms)/600) + 1. Nil server/cache degrades to 0ms → 1
+// tick (pkg/midi nil-safe receivers). A10.
+func (w worldVarsView) MidiTickLength(track int) int {
+	if w.s == nil {
+		return 1 // 0ms → ceil(0/600)+1
+	}
+	return w.s.midi.GetTickLength(track)
+}
+
 // NodeID returns the server's configured node ID. Used as the world_id
 // partition key on telemetry envelopes emitted from script handlers.
 func (w worldVarsView) NodeID() int {

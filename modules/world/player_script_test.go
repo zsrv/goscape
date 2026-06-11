@@ -1039,114 +1039,14 @@ func TestPlayerLowMemoryGetter(t *testing.T) {
 	}
 }
 
-// TestNormalizeSongNameB3 pins normalizeSongName (B3 TS-faithful):
-// lowercase + spaces→underscores + strip /[^a-z0-9_-]/g.
-// TS ref: Player.ts:1922 at 244.
-func TestNormalizeSongNameB3(t *testing.T) {
-	cases := []struct {
-		in, want string
-	}{
-		{"Harmony 1", "harmony_1"},
-		{"already_lower", "already_lower"},
-		{"ALLCAPS", "allcaps"},
-		{"Mixed CASE With Spaces", "mixed_case_with_spaces"},
-		// Strip: special chars removed after lowercase+underscore step.
-		{"Scape Main!", "scape_main"},
-		{"church music 1", "church_music_1"},
-		{"quest.complete", "questcomplete"},
-		{"a-b_c", "a-b_c"}, // hyphens and underscores are allowed
-	}
-	for _, tc := range cases {
-		t.Run(tc.in, func(t *testing.T) {
-			if got := normalizeSongName(tc.in); got != tc.want {
-				t.Errorf("normalizeSongName(%q) = %q, want %q", tc.in, got, tc.want)
-			}
-		})
-	}
-}
-
-func TestNormalizeSongNameEmptyReturnsEmpty(t *testing.T) {
-	if got := normalizeSongName(""); got != "" {
-		t.Errorf("normalizeSongName(\"\") = %q, want \"\"", got)
-	}
-}
-
-// TestPlaySong_EmptyNameIsNoOp pins that PlaySong("") is a no-op
-// (empty name guard fires after normalization, before registry lookup).
-func TestPlaySong_EmptyNameIsNoOp(t *testing.T) {
-	p, _ := newTestPlayer(t)
-	p.PlaySong("")
-	if n := p.client.bufw.Buffered(); n != 0 {
-		t.Errorf("empty name: PlaySong wrote %d bytes; want 0", n)
-	}
-}
-
-// TestPlaySong_NilServerIsNoOp pins that PlaySong with a non-empty name
-// is silent when p.client.server is nil (bare test player).
-// Mirrors TS Player.ts:1921 `if (id !== -1)` guard — nil server degrades
-// to id==-1 posture. Player.ts:1919-1925 at 244.
-func TestPlaySong_NilServerIsNoOp(t *testing.T) {
-	p, _ := newTestPlayer(t)
-	// p.client.server is nil; PlaySong must not panic and must write nothing.
-	p.PlaySong("adventure")
-	if n := p.client.bufw.Buffered(); n != 0 {
-		t.Errorf("PlaySong(nil server) wrote %d bytes; want 0", n)
-	}
-}
-
-// TestNormalizeJingleNameB3 pins normalizeJingleName (B3 TS-faithful):
-// lowercase ONLY — no underscore conversion.
-// TS ref: Player.ts:1929 at 244 (name.toLowerCase()).
-func TestNormalizeJingleNameB3(t *testing.T) {
-	cases := []struct {
-		in, want string
-	}{
-		// Underscores are preserved (TS does NOT convert them to spaces).
-		{"a_quick_jingle", "a_quick_jingle"},
-		// Spaces are preserved as-is (only casing changes).
-		{"Space Already", "space already"},
-		{"ALLCAPS", "allcaps"},
-		{"Mixed_CASE_With_Underscores", "mixed_case_with_underscores"},
-		// Real pack keys (from Content/pack/midi.pack): spaces preserved.
-		{"Sailing Journey", "sailing journey"},
-		{"Quest Complete 1", "quest complete 1"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.in, func(t *testing.T) {
-			if got := normalizeJingleName(tc.in); got != tc.want {
-				t.Errorf("normalizeJingleName(%q) = %q, want %q", tc.in, got, tc.want)
-			}
-		})
-	}
-}
-
-func TestNormalizeJingleNameEmptyReturnsEmpty(t *testing.T) {
-	if got := normalizeJingleName(""); got != "" {
-		t.Errorf("normalizeJingleName(\"\") = %q, want \"\"", got)
-	}
-}
-
-// TestPlayJingle_EmptyNameIsNoOp pins that PlayJingle("", ...) is a
-// no-op (empty-name guard fires after normalization, before registry lookup).
-func TestPlayJingle_EmptyNameIsNoOp(t *testing.T) {
-	p, _ := newTestPlayer(t)
-	p.PlayJingle(3, "")
-	if n := p.client.bufw.Buffered(); n != 0 {
-		t.Errorf("empty name: PlayJingle wrote %d bytes; want 0", n)
-	}
-}
-
-// TestPlayJingle_NilServerIsNoOp pins that PlayJingle with a non-empty name
-// is silent when p.client.server is nil (bare test player).
-// Mirrors TS Player.ts:1929 `if (id !== -1)` guard — nil server degrades
-// to id==-1 posture. Player.ts:1928-1933 at 244.
-func TestPlayJingle_NilServerIsNoOp(t *testing.T) {
-	p, _ := newTestPlayer(t)
-	p.PlayJingle(3, "fanfare")
-	if n := p.client.bufw.Buffered(); n != 0 {
-		t.Errorf("PlayJingle(nil server) wrote %d bytes; want 0", n)
-	}
-}
+// A10 @2e3bcf43: the B3 normalizeSongName/normalizeJingleName pins and
+// the name-based PlaySong/PlayJingle no-op pins are RETIRED with the
+// name-based runtime path — TS Player.playSong/playJingle are id-based
+// (Player.ts:1985-1991); name→id resolution happens at script compile
+// time (ScriptVarType MIDI, tools/pack/Compiler.ts:199). The id-based
+// wire pins live in midi_encoders_test.go
+// (TestPlaySongIDWritesUnconditionally / TestPlayJingleIDNilServerZeroLength
+// / TestPlayJingleUsesMidiCacheLength).
 
 // TestClearWeakQueueRemovesOnlyWeakEntries pins (*Player).clearWeakQueue:
 // drops every QueueWeak entry from p.queue, preserves relative order

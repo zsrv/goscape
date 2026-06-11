@@ -35,6 +35,7 @@ import (
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 	"github.com/zsrv/goscape/pkg/io/protocol/revision"
 	"github.com/zsrv/goscape/pkg/loginpb"
+	"github.com/zsrv/goscape/pkg/midi"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/packall"
 	tapper "github.com/zsrv/goscape/pkg/tapper"
@@ -210,11 +211,15 @@ type Server struct {
 	// encfilter.Empty(). TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:35-37.
 	wordenc *encfilter.Filter
 
-	// midiPack is the name→id registry loaded from <ContentPath>/pack/midi.pack
-	// at world start. Mirrors TS PackFileBase.ts:50-71 (load) + :129-131
-	// (getByName). Nil or empty map degrades every midiIDByName lookup to -1,
-	// mirroring TS's unknown-name posture (Player.ts:1921-1929 id!==-1 guard).
-	midiPack map[string]int
+	// midi caches per-track MIDI lengths parsed from the client cache's
+	// archive 3 at world start. Mirrors TS Midi (src/cache/midi/Midi.ts
+	// @2e3bcf43, loaded by World.start at World.ts:296). Feeds
+	// PlayJingle's delay field (Midi.getLength) and the MIDI_LENGTH op
+	// (Midi.getTickLength). A10 replaced the 244-era midiPack name→id
+	// registry — name resolution moved to compile time (ScriptVarType
+	// MIDI; tools/pack/Compiler.ts:199 loads midi.pack as a symbol table).
+	// Nil-safe: a nil *midi.Cache degrades every length to 0.
+	midi *midi.Cache
 
 	npcs          [16384]*Npc
 	npcLoop       []*Npc
@@ -624,26 +629,11 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		s.log.Info("script provider loaded", "count", count)
 	}
 
-	// Load MidiPack name→id registry from <ContentPath>/pack/midi.pack.
-	// TS: MidiPack = new PackFile('midi', …) loaded at server startup via
-	// PackFileBase.ts:50-71. Absent file → empty registry → every
-	// midiIDByName lookup returns -1 → PlaySong/PlayJingle are silent
-	// no-ops (TS unknown-name posture, Player.ts:1921-1929). ContentPath
-	// is empty in tests; os.ReadFile fails silently → empty map.
-	if cfg.ContentPath != "" {
-		midiPackPath := filepath.Join(cfg.ContentPath, "pack", "midi.pack")
-		s.midiPack = loadMidiPack(midiPackPath)
-		if len(s.midiPack) == 0 {
-			s.log.Warn("midi.pack not loaded; PlaySong/PlayJingle will be silent no-ops", "path", midiPackPath)
-		} else {
-			s.log.Info("midi.pack loaded", "count", len(s.midiPack))
-		}
-	} else {
-		// B6 live-smoke finding: an empty ContentPath used to skip this
-		// block silently — in-game music degraded to nothing with no log
-		// (the client keeps looping title music). Surface it.
-		s.log.Warn("world.content-path unset; midi name registry unavailable — PlaySong/PlayJingle will be silent no-ops")
-	}
+	// A10 @2e3bcf43: the 244-era midiPack name→id registry load that lived
+	// here is gone — TS deleted the runtime PackFile lookup; song/jingle
+	// names resolve to ids at COMPILE time (tools/pack/Compiler.ts:199)
+	// and playSong/playJingle are id-based. The runtime Midi length cache
+	// loads below, next to the OnDemand FileStream it reads from.
 
 	for _, spawn := range s.gamemap.NpcSpawns() {
 		// Nil/bounds guard: invalid type IDs are rejected before nid
@@ -682,6 +672,17 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// populates the files (B6-deferred-cache posture).
 	odFS := filestream.New(cfg.CachePath, false, true)
 	s.onDemand = newOnDemand(odFS)
+
+	// A10: load the MIDI length cache from the same client-cache
+	// FileStream (TS Midi.load reads OnDemand.cache archive 3; called
+	// from World.start at World.ts:296 @2e3bcf43, before reload()).
+	// Boot-time single-threaded read — the onDemand cacheMu concurrency
+	// guard is not yet needed. Degrades to an all-zero cache when the
+	// pack hasn't populated archive 3 ("No MIDI data in cache." warning,
+	// TS Midi.ts:266).
+	s.midi = midi.Load(odFS, func(format string, args ...any) {
+		s.log.Warn(fmt.Sprintf(format, args...))
+	})
 
 	return s, nil
 }

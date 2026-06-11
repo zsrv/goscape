@@ -93,7 +93,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// 2e3bcf43: MAP_LIVE (ServerOps.ts) pushes NODE_PRODUCTION.
 	OpMapLive: handleMapLive,
-	// 2e3bcf43: MIDI_LENGTH — A10 stub until the Midi cache lands.
+	// 2e3bcf43: MIDI_LENGTH (ServerOps.ts) pushes Midi.getTickLength(track).
 	OpMidiLength: handleMidiLength,
 
 	// NAI-35-T2: rect-bounded player-count enumeration.

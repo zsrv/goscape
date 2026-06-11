@@ -176,9 +176,18 @@ func TestMapLive_NilWorldReject(t *testing.T) {
 	}
 }
 
-// TestMidiLength_A10Stub pins the MIDI_LENGTH stub posture: pops the
-// track id, errors until Task A10 lands Midi.getTickLength.
-func TestMidiLength_A10Stub(t *testing.T) {
+// TestMidiLength pins the A10 contract (supersedes the A1 stub pin): pops
+// the track id and pushes Midi.getTickLength(track) — TS ServerOps.ts:383-387
+// @2e3bcf43:
+//
+//	[ScriptOpcode.MIDI_LENGTH]: state => {
+//	    const track = state.popInt();
+//	    state.pushInt(Midi.getTickLength(track));
+//	}
+func TestMidiLength(t *testing.T) {
+	w := newMockWorld()
+	w.midiTickLengths = map[int]int{3: 5} // 5 ticks for track 3
+
 	sf := &ScriptFile{
 		Name:             "midi_length",
 		Opcodes:          []Opcode{OpPushConstantInt, OpMidiLength, OpReturn},
@@ -187,11 +196,31 @@ func TestMidiLength_A10Stub(t *testing.T) {
 		InstructionCount: 3,
 	}
 	state := Init(sf, nil, false, nil, nil)
+	state.World = w
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 5 {
+		t.Errorf("MIDI_LENGTH: got %d, want 5 (mock tick length for track 3)", got)
+	}
+}
+
+// TestMidiLength_NilWorldReject verifies MIDI_LENGTH returns ErrNoWorld
+// when state.World is nil.
+func TestMidiLength_NilWorldReject(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "midi_length_nil_world",
+		Opcodes:          []Opcode{OpPushConstantInt, OpMidiLength, OpReturn},
+		IntOperands:      []int32{3, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, nil, false, nil, nil)
 	err := Execute(state)
 	if err == nil {
-		t.Fatal("Execute: want A10-stub error, got nil")
+		t.Fatal("Execute: want ErrNoWorld error, got nil")
 	}
-	if got := err.Error(); !strings.Contains(got, "MIDI_LENGTH: unimplemented") {
-		t.Errorf("error = %q, want it to contain %q", got, "MIDI_LENGTH: unimplemented")
+	if got := err.Error(); !strings.Contains(got, "MIDI_LENGTH") {
+		t.Errorf("error = %q, want it to contain MIDI_LENGTH", got)
 	}
 }

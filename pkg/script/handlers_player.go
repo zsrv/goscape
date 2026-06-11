@@ -1309,53 +1309,57 @@ func handlePFindUID(s *ScriptState) error {
 	return nil
 }
 
-// handleMidiSong (MIDI_SONG, opcode 2068) plays a MIDI song by name to
-// the active player. Silent no-op if the player has lowMemory set.
-// Mirrors TS PlayerOps.ts:796-804.
+// handleMidiSong (MIDI_SONG) plays a MIDI song by TRACK ID to the
+// active player. Silent no-op if the player has lowMemory set. Mirrors
+// TS PlayerOps.ts:807-816 @2e3bcf43:
 //
-// Pointer gate: require active_player (TS ScriptOpcodePointers.ts:272
-// require: ['active_player']).
+//	[ScriptOpcode.MIDI_SONG]: state => {
+//	    const id = state.popInt();
+//	    const player = state.activePlayer;
+//	    if (player.lowMemory) { return; }
+//	    player.playSong(id);
+//	}
+//
+// A10: id-based — the 244-era name pop + StringNotNull check are gone
+// (names resolve at compile time via ScriptVarType MIDI). The TS handler
+// is a bare function (no checkedHandler), but `state.activePlayer` is a
+// throwing getter — requireActivePlayer mirrors that throw. No id
+// validation (TS pops bare).
 func handleMidiSong(s *ScriptState) error {
-	name := s.PopString()
-	if err := checkStringNotNull(name, "MIDI_SONG"); err != nil {
-		return err
-	}
+	id := s.PopInt()
 	if err := requireActivePlayer(s, "MIDI_SONG"); err != nil {
 		return err
 	}
 	if s.activePlayer().LowMemory() {
 		return nil
 	}
-	s.activePlayer().PlaySong(name)
+	s.activePlayer().PlaySong(id)
 	return nil
 }
 
-// handleMidiJingle (MIDI_JINGLE, opcode 2067) plays a short MIDI jingle
-// by name and delay to the active player. Silent no-op if the player
-// has lowMemory set. Mirrors TS PlayerOps.ts:806-816.
+// handleMidiJingle (MIDI_JINGLE) plays a short MIDI jingle by TRACK ID
+// to the active player. Silent no-op if the player has lowMemory set.
+// Mirrors TS PlayerOps.ts:818-827 @2e3bcf43:
 //
-// Pointer gate: require active_player (TS ScriptOpcodePointers.ts:269
-// require: ['active_player']).
+//	[ScriptOpcode.MIDI_JINGLE]: state => {
+//	    const id = state.popInt();
+//	    const player = state.activePlayer;
+//	    if (player.lowMemory) { return; }
+//	    player.playJingle(id);
+//	}
 //
-// Pop order (top-of-stack first): delay (NumberNotNull), then name
-// (StringNotNull). Matches TS `check(state.popInt(), NumberNotNull)` /
-// `check(state.popString(), StringNotNull)` evaluation order.
+// A10: id-based — the 244-era delay+name pops (NumberNotNull /
+// StringNotNull) are gone; the wire delay now derives server-side from
+// the Midi length cache inside Player.playJingle (Player.ts:1989-1991).
 func handleMidiJingle(s *ScriptState) error {
-	delay := s.PopInt()
-	if err := checkNotNull(delay, "MIDI_JINGLE"); err != nil {
-		return err
-	}
-	name := s.PopString()
-	if err := checkStringNotNull(name, "MIDI_JINGLE"); err != nil {
-		return err
-	}
+	id := s.PopInt()
 	if err := requireActivePlayer(s, "MIDI_JINGLE"); err != nil {
 		return err
 	}
 	if s.activePlayer().LowMemory() {
 		return nil
 	}
-	s.activePlayer().PlayJingle(delay, name)
+	s.activePlayer().PlayJingle(id)
 	return nil
 }
 

@@ -73,6 +73,12 @@ type WorldVars interface {
 	// Go-side method name is historical).
 	MapProduction() int
 
+	// MidiTickLength returns the MIDI track's playback length in 600ms
+	// game ticks (ceil(ms/600) + 1; unknown id → 1). Mirrors TS
+	// Midi.getTickLength (src/cache/midi/Midi.ts:297-299 @2e3bcf43).
+	// Consumed by MIDI_LENGTH (opcode 1022). A10.
+	MidiTickLength(track int) int
+
 	// IsMapBlocked reports whether the tile at (level, x, z) blocks
 	// walking. Used by MAP_FINDSQUARE for candidate-square rejection.
 	// Mirrors TS World.gameMap.isMapBlocked. NAI-35-T6.

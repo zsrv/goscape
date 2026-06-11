@@ -33,6 +33,13 @@ const (
 	ScriptVarTypeNpcStat   ScriptVarType = 254 // þ
 	ScriptVarTypeIdkit     ScriptVarType = 75  // K
 	ScriptVarTypeDbrow     ScriptVarType = 208 // Ð
+	// ScriptVarTypeMidi — TS src/cache/config/ScriptVarType.ts:27
+	// @2e3bcf43 `static readonly MIDI = 77; // M` (new at the rev-254
+	// pin-advance). Engine-runtime consumers are limited to type-name
+	// mapping (TS ScriptVarType.getType / ParamType.getType debug
+	// naming); the heavy lifting (midi-name symbol resolution) happens
+	// in the pack compiler (pkg/pack/compiler/type ScriptVarMidi). A10.
+	ScriptVarTypeMidi ScriptVarType = 77 // M
 )
 
 // ScriptVarTypeFromName returns the ScriptVarType code for a type
@@ -92,6 +99,8 @@ func ScriptVarTypeFromName(name string) (ScriptVarType, bool) {
 		return ScriptVarTypeIdkit, true
 	case "dbrow":
 		return ScriptVarTypeDbrow, true
+	case "midi":
+		return ScriptVarTypeMidi, true
 	}
 	return 0, false
 }

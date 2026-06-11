@@ -752,21 +752,20 @@ type ActivePlayer interface {
 	// see handleMidiSong / handleMidiJingle in handlers_player.go.
 	LowMemory() bool
 
-	// PlaySong sends a MIDI song by name to the client. Called by the
-	// MIDI_SONG script opcode (PlayerOps.ts:796-804). Implementation
-	// performs TS name normalization (lowercase + spaces→underscores),
-	// looks up the preloaded blob + CRC, and writes MidiSong; silent
-	// no-op on empty name or missing PRELOADED entry (mirrors TS guard
-	// `if (song && crc)` at Player.ts:1910).
-	PlaySong(name string)
+	// PlaySong sends a MIDI song by TRACK ID to the client. Called by
+	// the MIDI_SONG script opcode (PlayerOps.ts:807-816 @2e3bcf43:
+	// `player.playSong(id)`). A10: id-based — the 244-era name
+	// normalization + registry lookup moved to script compile time
+	// (ScriptVarType MIDI).
+	PlaySong(id int)
 
-	// PlayJingle sends a short MIDI jingle by name to the client. Called
-	// by the MIDI_JINGLE script opcode (PlayerOps.ts:806-816).
-	// Implementation performs TS name normalization (lowercase +
-	// underscores→spaces), looks up the preloaded blob, and writes
-	// MidiJingle; silent no-op on empty name or missing PRELOADED entry
-	// (mirrors TS guard `if (jingle)` at Player.ts:1923).
-	PlayJingle(delay int, name string)
+	// PlayJingle sends a short MIDI jingle by TRACK ID to the client;
+	// the wire delay derives from the boot-time Midi length cache
+	// (TS Player.ts:1989-1991 @2e3bcf43: `this.write(new MidiJingle(id,
+	// Midi.getLength(id)))`). Called by the MIDI_JINGLE script opcode
+	// (PlayerOps.ts:818-827). A10: id-based; the script-supplied delay
+	// parameter is gone.
+	PlayJingle(id int)
 
 	// PlaySynth sends a synthesized sound effect to the client. Called
 	// by the SOUND_SYNTH script opcode (PlayerOps.ts:466-474). No name
