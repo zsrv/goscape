@@ -48,6 +48,7 @@ func freePort(t *testing.T) int {
 func TestFriendsClient_E2E_SmokeAgainstFriendsServer(t *testing.T) {
 	port := freePort(t)
 	cfg := friends.Config{
+		Profile:                 "main",
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
 		WorldPlayerLimit:        100,
@@ -143,6 +144,7 @@ func TestFriendsClient_E2E_SmokeAgainstFriendsServer(t *testing.T) {
 func TestFriendsClient_E2E_SubscribeUpdatesStream(t *testing.T) {
 	port := freePort(t)
 	cfg := friends.Config{
+		Profile:                 "main",
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
 		WorldPlayerLimit:        100,
@@ -276,6 +278,7 @@ func waitForPrivate(t *testing.T, disp *recordingFriendsDispatcher, d time.Durat
 func TestFriendsClient_E2E_PrivateMessageDelivery(t *testing.T) {
 	port := freePort(t)
 	cfg := friends.Config{
+		Profile:                 "main",
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
 		WorldPlayerLimit:        100,
@@ -364,6 +367,7 @@ func TestFriendsClient_E2E_PrivateMessagePersistsRow(t *testing.T) {
 	port := freePort(t)
 	dbPath := filepath.Join(t.TempDir(), "friends.db")
 	cfg := friends.Config{
+		Profile:                 "main",
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
 		WorldPlayerLimit:        100,
@@ -459,6 +463,7 @@ func TestFriendsClient_E2E_PrivateMessagePersistsRow(t *testing.T) {
 func TestFriendsClient_E2E_PlayerLoginCapRejected(t *testing.T) {
 	port := freePort(t)
 	cfg := friends.Config{
+		Profile:                 "main",
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
 		WorldPlayerLimit:        1,
@@ -536,6 +541,7 @@ func TestFriendsClient_E2E_RelayWorldEventsRoundTrip(t *testing.T) {
 	// follow the pattern from TestFriendsClient_E2E_SmokeAgainstFriendsServer).
 	port := freePort(t)
 	cfg := friends.Config{
+		Profile:                 "main",
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
 		WorldPlayerLimit:        100,
@@ -684,6 +690,7 @@ func TestFriendsClient_E2E_RelayWorldEventsRoundTrip(t *testing.T) {
 func TestFriendsClient_E2E_RelayShutdownAppliesAction(t *testing.T) {
 	port := freePort(t)
 	cfg := friends.Config{
+		Profile:                 "main",
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
 		WorldPlayerLimit:        100,
@@ -892,6 +899,7 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 	port := freePort(t)
 	dbPath := filepath.Join(t.TempDir(), "friends.db")
 	cfg := friends.Config{
+		Profile:                 "main",
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
 		WorldPlayerLimit:        100,
@@ -990,6 +998,7 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 func TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket(t *testing.T) {
 	port := freePort(t)
 	cfg := friends.Config{
+		Profile:                 "main",
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
 		WorldPlayerLimit:        100,
@@ -1148,6 +1157,7 @@ func TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket(t *testing.T) {
 func TestFriendsClient_E2E_RelayQueueScriptAppliesAction(t *testing.T) {
 	port := freePort(t)
 	cfg := friends.Config{
+		Profile:                 "main",
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
 		WorldPlayerLimit:        100,

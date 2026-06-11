@@ -270,28 +270,22 @@ func TestHandleOpObjRejectsEmptyOpSlot(t *testing.T) {
 	}
 }
 
-// TestHandleOpObjRejectsHiddenOpSlot — OVERTURNED at rev-244 (B2).
-//
-// At 225: TS OpObjHandler.ts:38 (`op == null || op == 'hidden'`) blocked
-// "hidden" verbatim. At 244 the `=== 'hidden'` branch was removed; TS now
-// only checks falsy (null/undefined). In goscape, "hidden" is stored as a
-// non-empty string and is therefore truthy, so it PASSES the gate at 244 —
-// matching the NPC handler precedent set in T7 (handler_opnpc.go:45).
-//
-// This test is kept with an INVERTED assertion to pin the 244 contract.
+// TestHandleOpObjRejectsHiddenOpSlot — RE-OVERTURNED at 2e3bcf43: the
+// explicit 'hidden' comparison is BACK (TS OpObjHandler.ts:38:
+// `type.op[message.op - 1] === null || type.op[message.op - 1] === 'hidden'`).
+// A 'hidden' op REJECTS with no interaction.
 func TestHandleOpObjRejectsHiddenOpSlot(t *testing.T) {
-	s, p, obj, _ := makeOpObjFixture(t)
-	s.objTypes.Configs[42].Op[0] = "hidden" // op=1 slot is "hidden" — passes at 244
+	s, p, _, _ := makeOpObjFixture(t)
+	s.objTypes.Configs[42].Op[0] = "hidden"
 
 	if err := handleOpObj1(p, p2x3ObjPayload(100, 100, 42)); err != nil {
 		t.Fatalf("handleOpObj1: %v", err)
 	}
-	// At 244 "hidden" is truthy: gate passes, interaction is set.
-	if p.target != obj {
-		t.Errorf("target: got %v, want obj (hidden op passes gate at 244 — TS OpObjHandler.ts:38 dropped 'hidden' check)", p.target)
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil ('hidden' op rejects at 2e3bcf43 — TS OpObjHandler.ts:38)", p.target)
 	}
-	if !p.opcalled {
-		t.Error("opcalled: want true (hidden op accepted at 244)")
+	if p.opcalled {
+		t.Error("opcalled: want false ('hidden' op rejected)")
 	}
 }
 
@@ -309,54 +303,48 @@ func TestHandleOpObjOutOfViewportClearsPendingAction(t *testing.T) {
 	p.client.flushWrite()
 	<-received // drain UnsetMapFlag
 
-	if p.targetOp != -1 {
-		t.Errorf("targetOp: got %d, want -1 (clearPendingAction called on viewport reject — TS:25)", p.targetOp)
+	if p.targetOp == -1 {
+		t.Errorf("targetOp cleared to -1; 254 @2e3bcf43: rejection branches no longer clearPendingAction (was: clearPendingAction called on viewport reject — TS:25)")
 	}
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil (clearPendingAction called on viewport reject)", p.target)
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
-// TestHandleOpObjMissingObjNoUnsetMapFlag pins the 244 delta:
-// when GetObj returns nil the 244 path does NOT write UnsetMapFlag —
-// it only sets moveClickRequest=false and clearPendingAction().
-// TS OpObjHandler.ts:29-34 (244): no UnsetMapFlag write.
+// TestHandleOpObjMissingObjNoUnsetMapFlag RE-PINNED at 2e3bcf43: a
+// missing obj writes UnsetMapFlag like the rest of the family (TS
+// OpObjHandler.ts:30-35) — the 244-era moveClickRequest=false +
+// clearPendingAction + silent-drop branch is GONE. Test name kept for
+// history greppability.
 func TestHandleOpObjMissingObjNoUnsetMapFlag(t *testing.T) {
 	_, p, obj, cc := makeOpObjFixture(t)
-	// Pre-seed a stale pending action.
+	// Pre-seed a stale pending action — must SURVIVE the reject.
 	p.target = obj
 	p.targetOp = 7
 	p.moveClickRequest = true
 
-	// Drain loop — if anything is written we capture it below.
 	received := drainConn(t, cc)
 	_ = handleOpObj1(p, p2x3ObjPayload(100, 100, 999)) // objId 999 → not found
 	p.client.flushWrite()
 
-	// Nothing should be sent (no UnsetMapFlag).
-	select {
-	case got := <-received:
-		if len(got) > 0 {
-			t.Errorf("expected no write for missing obj at 244, got %d bytes", len(got))
-		}
-	default:
-		// Correct: nothing written.
+	got := <-received
+	if len(got) == 0 {
+		t.Fatal("254 @2e3bcf43: missing obj must write UnsetMapFlag (TS OpObjHandler.ts:30-35)")
 	}
-	// pending action cleared
-	if p.targetOp != -1 {
-		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on missing obj — TS:31-33)", p.targetOp)
+	if p.targetOp == -1 {
+		t.Errorf("targetOp cleared to -1; 254 @2e3bcf43: rejection branches no longer clearPendingAction")
 	}
-	// moveClickRequest cleared
-	if p.moveClickRequest {
-		t.Error("moveClickRequest: want false after missing obj (TS:31)")
+	if !p.moveClickRequest {
+		t.Error("moveClickRequest: must be untouched at 2e3bcf43 (the 244 reset is gone)")
 	}
 }
 
-// TestHandleOpObjGateOnlyOp1Op4 pins TS OpObjHandler.ts:38 (244):
-// "todo: validate all options" — only op1 (index 0) and op4 (index 3) are
-// gated at 244; ops 2/3/5 pass even when their Op slot is empty.
+// TestHandleOpObjGateOnlyOp1Op4 RE-PINNED at 2e3bcf43: EVERY op is
+// gated on the type.op array (TS OpObjHandler.ts:38 — the 244-era
+// op1/op4-only partial gate plus its "todo: validate all options" are
+// gone). ops 2/3/5 with empty Op slots now REJECT; a populated slot
+// passes. Test name kept for history greppability.
 func TestHandleOpObjGateOnlyOp1Op4(t *testing.T) {
-	// op2, op3, op5 with empty Op slots must PASS (no gate on them at 244).
 	opsUnderTest := []struct {
 		op  int
 		fn  func(*Player, []byte) error
@@ -373,11 +361,20 @@ func TestHandleOpObjGateOnlyOp1Op4(t *testing.T) {
 			if err := c.fn(p, p2x3ObjPayload(100, 100, 42)); err != nil {
 				t.Fatalf("op%d: %v", c.op, err)
 			}
-			if p.target != obj {
-				t.Errorf("op%d: target got %v, want obj (no gate at 244 for ops 2/3/5 — TS:38)", c.op, p.target)
+			if p.target != nil {
+				t.Errorf("op%d: target got %v, want nil (all ops gated at 2e3bcf43 — TS OpObjHandler.ts:38)", c.op, p.target)
 			}
-			if !p.opcalled {
-				t.Errorf("op%d: opcalled want true", c.op)
+			if p.opcalled {
+				t.Errorf("op%d: opcalled want false (rejected)", c.op)
+			}
+
+			// Populated slot passes the gate.
+			s.objTypes.Configs[42].Op[c.idx] = "Use"
+			if err := c.fn(p, p2x3ObjPayload(100, 100, 42)); err != nil {
+				t.Fatalf("op%d (populated): %v", c.op, err)
+			}
+			if p.target != obj {
+				t.Errorf("op%d (populated): target got %v, want obj", c.op, p.target)
 			}
 		})
 	}
@@ -510,11 +507,11 @@ func TestHandleOpObjTComponentCheckClearsPendingAction(t *testing.T) {
 	p.client.flushWrite()
 	<-received // drain UnsetMapFlag
 
-	if p.targetOp != -1 {
-		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on component reject — TS:22)", p.targetOp)
+	if p.targetOp == -1 {
+		t.Errorf("targetOp cleared to -1; 254 @2e3bcf43: rejection branches no longer clearPendingAction (was: clearPendingAction on component reject — TS:22)")
 	}
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil", p.target)
+	if p.target == nil {
+		t.Error("target sentinel must survive the reject (no clearPendingAction at 2e3bcf43)")
 	}
 }
 
@@ -534,11 +531,11 @@ func TestHandleOpObjTOutOfViewportClearsPendingAction(t *testing.T) {
 	p.client.flushWrite()
 	<-received
 
-	if p.targetOp != -1 {
-		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on viewport reject — TS:32)", p.targetOp)
+	if p.targetOp == -1 {
+		t.Errorf("targetOp cleared to -1; 254 @2e3bcf43: rejection branches no longer clearPendingAction (was: clearPendingAction on viewport reject — TS:32)")
 	}
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil", p.target)
+	if p.target == nil {
+		t.Error("target sentinel must survive the reject (no clearPendingAction at 2e3bcf43)")
 	}
 }
 
@@ -558,11 +555,11 @@ func TestHandleOpObjTMissingObjClearsPendingAction(t *testing.T) {
 	p.client.flushWrite()
 	<-received
 
-	if p.targetOp != -1 {
-		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on missing obj — TS:39)", p.targetOp)
+	if p.targetOp == -1 {
+		t.Errorf("targetOp cleared to -1; 254 @2e3bcf43: rejection branches no longer clearPendingAction (was: clearPendingAction on missing obj — TS:39)")
 	}
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil", p.target)
+	if p.target == nil {
+		t.Error("target sentinel must survive the reject (no clearPendingAction at 2e3bcf43)")
 	}
 }
 
@@ -574,7 +571,7 @@ func TestHandleOpObjUSetsInteraction(t *testing.T) {
 	// Seed component so the component gate passes.
 	// 244: gate uses com.interactable (was com.usable at 225). TS OpObjUHandler.ts:22.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Interactable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 	})
 	p.tabs[0] = 149
 
@@ -685,7 +682,7 @@ func TestHandleOpObjUMissingListenerRejected(t *testing.T) {
 	s, p, _, cc := makeOpObjFixture(t)
 	// 244: gate uses com.interactable (was com.usable). TS OpObjUHandler.ts:22.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Interactable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 	})
 	p.tabs[0] = 149
 	if s.invs == nil {
@@ -715,7 +712,7 @@ func TestHandleOpObjUItemMismatchRejected(t *testing.T) {
 	s, p, _, cc := makeOpObjFixture(t)
 	// 244: gate uses com.interactable (was com.usable). TS OpObjUHandler.ts:22.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Interactable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 	})
 	p.tabs[0] = 149
 	if s.invs == nil {
@@ -751,7 +748,7 @@ func TestHandleOpObjUMembersOnFreeWorldClearsPendingAction(t *testing.T) {
 	s, p, obj, cc := makeOpObjFixture(t)
 	// 244: gate uses com.interactable (was com.usable). TS OpObjUHandler.ts:22.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Interactable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 	})
 	p.tabs[0] = 149
 	s.cfg.NodeMembers = false
@@ -788,12 +785,13 @@ func TestHandleOpObjUMembersOnFreeWorldClearsPendingAction(t *testing.T) {
 	if len(got) == 0 {
 		t.Fatal("expected MessageGame + UnsetMapFlag for members-on-free, got nothing")
 	}
-	// Ordering pin: ClearPendingAction must have run before members reject.
+	// Ordering pin: ClearPendingAction must have run before members reject
+	// (TS OpObjUHandler.ts:69-75 @2e3bcf43 — unchanged at the 254 pin).
 	if p.targetOp != -1 {
 		t.Errorf("targetOp: got %d, want -1 (cleared by ClearPendingAction before members reject)", p.targetOp)
 	}
 	if p.target != nil {
-		t.Errorf("target: got %v, want nil (cleared by ClearPendingAction before members reject)", p.target)
+		t.Error("target: want nil (ClearPendingAction precedes the members gate)")
 	}
 }
 
@@ -836,11 +834,11 @@ func TestHandleOpObjUComponentCheckClearsPendingAction(t *testing.T) {
 	p.client.flushWrite()
 	<-received
 
-	if p.targetOp != -1 {
-		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on component reject — TS:24)", p.targetOp)
+	if p.targetOp == -1 {
+		t.Errorf("targetOp cleared to -1; 254 @2e3bcf43: rejection branches no longer clearPendingAction")
 	}
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil", p.target)
+	if p.target == nil {
+		t.Error("target sentinel must survive the reject (no clearPendingAction at 2e3bcf43)")
 	}
 }
 
@@ -850,7 +848,7 @@ func TestHandleOpObjUComponentCheckClearsPendingAction(t *testing.T) {
 func TestHandleOpObjUOutOfViewportClearsPendingAction(t *testing.T) {
 	s, p, obj, cc := makeOpObjFixture(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Interactable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 	})
 	p.tabs[0] = 149
 	p.target = obj
@@ -861,11 +859,11 @@ func TestHandleOpObjUOutOfViewportClearsPendingAction(t *testing.T) {
 	p.client.flushWrite()
 	<-received
 
-	if p.targetOp != -1 {
-		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on viewport reject — TS:34)", p.targetOp)
+	if p.targetOp == -1 {
+		t.Errorf("targetOp cleared to -1; 254 @2e3bcf43: rejection branches no longer clearPendingAction")
 	}
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil", p.target)
+	if p.target == nil {
+		t.Error("target sentinel must survive the reject (no clearPendingAction at 2e3bcf43)")
 	}
 }
 
@@ -876,7 +874,7 @@ func TestHandleOpObjUOutOfViewportClearsPendingAction(t *testing.T) {
 func TestHandleOpObjUMissingObjClearsPendingAction(t *testing.T) {
 	s, p, obj, cc := makeOpObjFixture(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Interactable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 	})
 	p.tabs[0] = 149
 	if s.invs == nil {
@@ -894,39 +892,35 @@ func TestHandleOpObjUMissingObjClearsPendingAction(t *testing.T) {
 	p.client.flushWrite()
 	<-received
 
-	if p.targetOp != -1 {
-		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on missing obj — TS:55)", p.targetOp)
+	if p.targetOp == -1 {
+		t.Errorf("targetOp cleared to -1; 254 @2e3bcf43: rejection branches no longer clearPendingAction")
 	}
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil", p.target)
+	if p.target == nil {
+		t.Error("target sentinel must survive the reject (no clearPendingAction at 2e3bcf43)")
 	}
 }
 
-// TestHandleOpObjUComponentCheckBeforeObj pins the 244 reordering:
-// at 244 the component check fires BEFORE the obj lookup (was after at 225).
-// A missing obj that would have failed at 225's obj gate must now fail at
-// the component gate if the component is also bad — verifying ordering.
-//
-// More importantly: with a bad component + in-range coords, the rejection
-// must come from the component gate (clearPendingAction + UnsetMapFlag)
-// even when the obj does not exist.
+// TestHandleOpObjUComponentCheckBeforeObj RE-PINNED at 2e3bcf43: the
+// 254 pin reorders the gates again — viewport and obj lookup now fire
+// BEFORE the component check (TS OpObjUHandler.ts:23-49). With a
+// missing obj AND an unregistered component, the obj gate rejects
+// first; either way no clearPendingAction runs on a reject. Test name
+// kept for history greppability.
 func TestHandleOpObjUComponentCheckBeforeObj(t *testing.T) {
 	_, p, obj, cc := makeOpObjFixture(t)
-	// Do NOT register component 9999 — component gate fires first.
+	// Do NOT register component 9999.
 	p.target = obj
 	p.targetOp = 9
-	// coords in range so viewport gate won't fire before component gate is reached
-	// (only matters for ordering: component is first at 244)
 
 	received := drainConn(t, cc)
-	// objId=999 doesn't exist AND comId=9999 not registered — component fires first
+	// objId=999 doesn't exist AND comId=9999 not registered — the obj
+	// gate (TS:33-38) fires before the component gate (TS:40-49).
 	_ = handleOpObjU(p, p2x6ObjPayload(100, 100, 999, 1511, 3, 9999))
 	p.client.flushWrite()
-	<-received // should get UnsetMapFlag from component gate
+	<-received // UnsetMapFlag from the obj gate
 
-	// clearPendingAction from component gate
-	if p.targetOp != -1 {
-		t.Errorf("targetOp: got %d, want -1 (component gate fires before obj gate at 244)", p.targetOp)
+	if p.targetOp == -1 {
+		t.Errorf("targetOp cleared to -1; 254 @2e3bcf43: rejection branches no longer clearPendingAction")
 	}
 }
 

@@ -11,13 +11,12 @@ import (
 // Opcodes (254): OPPLAYER1=192, OPPLAYER2=17, OPPLAYER3=18, OPPLAYER4=72,
 // OPPLAYER5=230. Op is 1..5. Payload = u2 playerSlot (TS OpPlayer.playerSlot @2e3bcf43).
 //
-// Gates per TS OpPlayerHandler.ts (244):
-//  1. delayed player → UnsetMapFlag (no clearPendingAction). TS:15-18.
+// Gates per TS OpPlayerHandler.ts @2e3bcf43 (clearPendingAction only on
+// the success path at the 254 pin):
+//  1. delayed player → UnsetMapFlag. TS:15-19.
 //  2. payload too short → UnsetMapFlag (goscape-only guard; no TS analog).
-//  3. target not found (LookupPlayerBySlot returns nil) → UnsetMapFlag +
-//     clearPendingAction. TS:20-25.
-//  4. target not visible (rsbuf.HasPlayer == false) → UnsetMapFlag +
-//     clearPendingAction. TS:27-31.
+//  3. target not found (LookupPlayerBySlot returns nil) → UnsetMapFlag. TS:21-26.
+//  4. target not visible (rsbuf.HasPlayer == false) → UnsetMapFlag. TS:28-32.
 //
 // On success: clearPendingAction → SetInteraction(Engine, other, op, -1) →
 // opcalled=true.
@@ -36,7 +35,7 @@ func handleOpPlayer(p *Player, payload []byte, op int) error {
 	}
 	s := p.client.server
 
-	// Gate 1: delayed player — no clearPendingAction. TS OpPlayerHandler.ts:15-18 (244).
+	// Gate 1: delayed player. TS OpPlayerHandler.ts:15-19 @2e3bcf43.
 	if p.delayed && s.currentTick < p.delayedUntil {
 		sendUnsetMapFlag(p)
 		return nil
@@ -50,18 +49,16 @@ func handleOpPlayer(p *Player, payload []byte, op int) error {
 	r := packet.NewPacket(payload)
 	playerSlot := int(r.G2())
 
-	// Gate 3: target not found — clearPendingAction. TS OpPlayerHandler.ts:20-25 (244).
+	// Gate 3: target not found. TS OpPlayerHandler.ts:21-26 @2e3bcf43.
 	other := s.LookupPlayerBySlot(playerSlot)
 	if other == nil {
 		sendUnsetMapFlag(p)
-		p.ClearPendingAction()
 		return nil
 	}
 
-	// Gate 4: rsbuf visibility — clearPendingAction. TS OpPlayerHandler.ts:27-31 (244).
+	// Gate 4: rsbuf visibility. TS OpPlayerHandler.ts:28-32 @2e3bcf43.
 	if !s.rsbuf.HasPlayer(int32(p.slot), int32(other.slot)) {
 		sendUnsetMapFlag(p)
-		p.ClearPendingAction()
 		return nil
 	}
 
@@ -81,15 +78,14 @@ func handleOpPlayer5(p *Player, payload []byte) error { return handleOpPlayer(p,
 // Spell-on-Player: player drags a spell icon onto another player.
 // Payload = (playerSlot:G2, spellComponent:G2).
 //
-// Gates per TS OpPlayerTHandler.ts (244):
-//  1. delayed player → UnsetMapFlag (no clearPendingAction). TS:16-19.
+// Gates per TS OpPlayerTHandler.ts @2e3bcf43 (clearPendingAction only on
+// the success path at the 254 pin):
+//  1. delayed player → UnsetMapFlag. TS:16-20.
 //  2. payload too short → UnsetMapFlag (goscape-only guard).
-//  3. spellCom: nil || !isVisible || (actionTarget&PLAYER)==0 → UnsetMapFlag +
-//     clearPendingAction (combined check). TS:21-26.
-//  4. target not found (LookupPlayerBySlot returns nil) → UnsetMapFlag +
-//     clearPendingAction. TS:28-33.
-//  5. target not visible (rsbuf.HasPlayer == false) → UnsetMapFlag +
-//     clearPendingAction. TS:35-39.
+//  3. spellCom: nil || (actionTarget&PLAYER)==0, then !isVisible →
+//     UnsetMapFlag. TS:22-31 (two branches; Go combines — same accept set).
+//  4. target not found (LookupPlayerBySlot returns nil) → UnsetMapFlag. TS:33-38.
+//  5. target not visible (rsbuf.HasPlayer == false) → UnsetMapFlag. TS:40-44.
 //
 // On success: clearPendingAction → SetInteraction(Engine, other,
 // targetOpPlayerT, spellCom) → opcalled=true.
@@ -99,7 +95,7 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 	}
 	s := p.client.server
 
-	// Gate 1: delayed player — no clearPendingAction. TS OpPlayerTHandler.ts:16-19 (244).
+	// Gate 1: delayed player. TS OpPlayerTHandler.ts:16-20 @2e3bcf43.
 	if p.delayed && s.currentTick < p.delayedUntil {
 		sendUnsetMapFlag(p)
 		return nil
@@ -114,27 +110,23 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 	playerSlot := int(r.G2())
 	spellCom := int(r.G2())
 
-	// Gate 3: combined component check — clearPendingAction. TS OpPlayerTHandler.ts:21-26 (244).
-	// 244 combines nil/!visible/!actionTarget into a single if (was split at 225).
+	// Gate 3: component check. TS OpPlayerTHandler.ts:22-31 @2e3bcf43.
 	com := s.lookupComponent(spellCom)
 	if com == nil || !p.IsComponentVisible(com) || (com.ActionTarget&objtype.ComActionTargetPlayer) == 0 {
 		sendUnsetMapFlag(p)
-		p.ClearPendingAction()
 		return nil
 	}
 
-	// Gate 4: target not found — clearPendingAction. TS OpPlayerTHandler.ts:28-33 (244).
+	// Gate 4: target not found. TS OpPlayerTHandler.ts:33-38 @2e3bcf43.
 	other := s.LookupPlayerBySlot(playerSlot)
 	if other == nil {
 		sendUnsetMapFlag(p)
-		p.ClearPendingAction()
 		return nil
 	}
 
-	// Gate 5: rsbuf visibility — clearPendingAction. TS OpPlayerTHandler.ts:35-39 (244).
+	// Gate 5: rsbuf visibility. TS OpPlayerTHandler.ts:40-44 @2e3bcf43.
 	if !s.rsbuf.HasPlayer(int32(p.slot), int32(other.slot)) {
 		sendUnsetMapFlag(p)
-		p.ClearPendingAction()
 		return nil
 	}
 
@@ -148,19 +140,19 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 // Item-on-Player: player drags an inventory item onto another player.
 // Payload = (playerSlot:G2, useObj:G2, useSlot:G2, useComponent:G2).
 //
-// Gates per TS OpPlayerUHandler.ts (244):
-//  1. delayed player → UnsetMapFlag (no clearPendingAction). TS:18-21.
+// Gates per TS OpPlayerUHandler.ts @2e3bcf43 (clearPendingAction only on
+// the success path at the 254 pin; the component gate reverts to
+// com.usable):
+//  1. delayed player → UnsetMapFlag. TS:19-23.
 //  2. payload too short → UnsetMapFlag (goscape-only guard).
-//  3. com: nil || !isVisible || !interactable → UnsetMapFlag + clearPendingAction
-//     (combined check; was split at 225; usable renamed to interactable in 244). TS:23-27.
-//  4. listener missing → UnsetMapFlag + clearPendingAction. TS:29-35.
-//  5. inv nil or item-at-slot mismatch → UnsetMapFlag + clearPendingAction
-//     (combined check). TS:37-42.
-//  6. target not found → UnsetMapFlag + clearPendingAction. TS:44-48.
-//  7. target not visible (rsbuf.HasPlayer == false) → UnsetMapFlag +
-//     clearPendingAction. TS:50-54.
-//  8. members-only item on free world → MessageGame + UnsetMapFlag (no
-//     clearPendingAction here; clearPendingAction already called before). TS:58-62.
+//  3. useCom: nil || !usable, then !isVisible → UnsetMapFlag. TS:25-34
+//     (two branches; Go combines — same accept set).
+//     4+5. listener/inv unresolved || !validSlot || !hasAt → UnsetMapFlag.
+//     TS:36-52.
+//  6. target not found → UnsetMapFlag. TS:54-59.
+//  7. target not visible (rsbuf.HasPlayer == false) → UnsetMapFlag. TS:61-65.
+//  8. members-only item on free world → MessageGame + UnsetMapFlag
+//     (after clearPendingAction). TS:67-73.
 //
 // On success: clearPendingAction → snapshot p.lastUseItem=useObj,
 // p.lastUseSlot=useSlot → SetInteraction(Engine, other, targetOpPlayerU, useObj)
@@ -173,7 +165,7 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 	}
 	s := p.client.server
 
-	// Gate 1: delayed player — no clearPendingAction. TS OpPlayerUHandler.ts:18-21 (244).
+	// Gate 1: delayed player. TS OpPlayerUHandler.ts:19-23 @2e3bcf43.
 	if p.delayed && s.currentTick < p.delayedUntil {
 		sendUnsetMapFlag(p)
 		return nil
@@ -190,51 +182,44 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 	useSlot := int(r.G2())
 	useCom := int(r.G2())
 
-	// Gate 3: combined component check — clearPendingAction. TS OpPlayerUHandler.ts:23-27 (244).
-	// 244 combines nil/!visible/!interactable into a single if (was split at 225;
-	// field renamed from usable to interactable in 244).
+	// Gate 3: component check — 254 reverts to com.usable (TS
+	// OpPlayerUHandler.ts:25-34 @2e3bcf43 `!useCom.usable`; 244 had
+	// interactable here).
 	com := s.lookupComponent(useCom)
-	if com == nil || !p.IsComponentVisible(com) || !com.Interactable {
+	if com == nil || !p.IsComponentVisible(com) || !com.Usable {
 		sendUnsetMapFlag(p)
-		p.ClearPendingAction()
 		return nil
 	}
 
-	// Gate 4: listener missing — clearPendingAction. TS OpPlayerUHandler.ts:29-35 (244).
+	// Gates 4+5: listener → inv → slot → item. TS OpPlayerUHandler.ts:36-52 @2e3bcf43.
 	listener, ok := p.invListeners[useCom]
 	if !ok {
 		sendUnsetMapFlag(p)
-		p.ClearPendingAction()
 		return nil
 	}
 
-	// Gate 5: inv/slot/item combined check — clearPendingAction. TS OpPlayerUHandler.ts:37-42 (244).
-	// TS adds explicit inv.validSlot(slot) to the combined check; goscape's HasAt
-	// already covers slot-bounds via Inventory.Get (returns nil on out-of-bounds).
+	// HasAt covers both validSlot (OOB slot → false) and item identity.
 	inv := resolveListenerInv(s, listener)
 	if inv == nil || !inv.HasAt(useSlot, useObj) {
 		sendUnsetMapFlag(p)
-		p.ClearPendingAction()
 		return nil
 	}
 
-	// Gate 6: target not found — clearPendingAction. TS OpPlayerUHandler.ts:44-48 (244).
+	// Gate 6: target not found. TS OpPlayerUHandler.ts:54-59 @2e3bcf43.
 	other := s.LookupPlayerBySlot(playerSlot)
 	if other == nil {
 		sendUnsetMapFlag(p)
-		p.ClearPendingAction()
 		return nil
 	}
 
-	// Gate 7: rsbuf visibility — clearPendingAction. TS OpPlayerUHandler.ts:50-54 (244).
+	// Gate 7: rsbuf visibility. TS OpPlayerUHandler.ts:61-65 @2e3bcf43.
 	if !s.rsbuf.HasPlayer(int32(p.slot), int32(other.slot)) {
 		sendUnsetMapFlag(p)
-		p.ClearPendingAction()
 		return nil
 	}
 
 	// clearPendingAction fires here, before the members check.
-	// TS OpPlayerUHandler.ts:57 (244).
+	// TS OpPlayerUHandler.ts:67 @2e3bcf43.
 	p.ClearPendingAction()
 
 	if s.objTypes != nil && useObj >= 0 && useObj < len(s.objTypes.Configs) {

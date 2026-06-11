@@ -58,11 +58,10 @@ func setupOpHeldServer(t *testing.T) (*Server, *Player) {
 	return s, p
 }
 
-// TestHandleOpHeld_Delayed pins that a delayed player drops the packet AFTER
-// validation passes. In 244, delayed check moves to after all validation gates,
-// and its reject does NOT call clearPendingAction.
-// Mirrors TS OpHeldHandler.ts (244): delayed check after inv validation, returns
-// false without calling clearPendingAction.
+// TestHandleOpHeld_Delayed pins that a delayed player drops the packet.
+// At the 254 pin the delayed check is FIRST (TS OpHeldHandler.ts:16-19
+// @2e3bcf43; 244 had it after validation) and rejects without
+// clearPendingAction.
 func TestHandleOpHeld_Delayed(t *testing.T) {
 	s, p := setupOpHeldServer(t)
 	s.currentTick = 5
@@ -84,10 +83,9 @@ func TestHandleOpHeld_Delayed(t *testing.T) {
 	}
 }
 
-// TestHandleOpHeld_InvalidCom_WithDelayed_ClearsPending pins that invalid
-// component validation rejects even when p.delayed=true AND calls
-// clearPendingAction. In 244, validation runs before the delayed check.
-// Mirrors TS OpHeldHandler.ts (244): com validation first, clearPendingAction on reject.
+// TestHandleOpHeld_InvalidCom_WithDelayed_ClearsPending — at the 254 pin
+// the delayed gate fires FIRST (before component validation), rejecting
+// with no clearPendingAction; the invalid component is never reached.
 func TestHandleOpHeld_InvalidCom_WithDelayed_ClearsPending(t *testing.T) {
 	s, p := setupOpHeldServer(t)
 	s.currentTick = 5
@@ -108,8 +106,8 @@ func TestHandleOpHeld_InvalidCom_WithDelayed_ClearsPending(t *testing.T) {
 		t.Errorf("lastItem: got %d, want -1 (invalid com must reject)", p.lastItem)
 	}
 	// 244: validation rejects call clearPendingAction even when delayed.
-	if p.target != nil {
-		t.Error("244: invalid com reject must call clearPendingAction (target should be nil)")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
@@ -128,8 +126,8 @@ func TestHandleOpHeld_NoListener_ClearsPendingAction(t *testing.T) {
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (no listener must reject)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: no-listener reject must call clearPendingAction (target should be nil)")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
@@ -147,8 +145,8 @@ func TestHandleOpHeld_NilInv_ClearsPendingAction(t *testing.T) {
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (nil inv must reject)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: nil-inv reject must call clearPendingAction (target should be nil)")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
@@ -166,36 +164,48 @@ func TestHandleOpHeld_HasAtFalse_ClearsPendingAction(t *testing.T) {
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (HasAt false must reject)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: HasAt-false reject must call clearPendingAction (target should be nil)")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
-// TestHandleOpHeld_Op5_SkipsIopValidation pins that op=5 bypasses the iop check.
-// In 244, iop validation is skipped for op=5 (TS OpHeldHandler.ts: "message.op !== 5").
-// IOp[4]="" but op=5 should still reach state mutation.
+// TestHandleOpHeld_Op5_SkipsIopValidation RE-PINNED at 2e3bcf43: the
+// op-5 bypass is GONE — TS OpHeldHandler.ts:45-49 gates EVERY op on
+// `obj.iop[message.op - 1] === null`. An empty IOp[4] now rejects op 5.
+// (Ordinary items pass via the class-default 'Drop' at index 4; this
+// fixture's explicit "" overrides it.) Test name kept for greppability.
 func TestHandleOpHeld_Op5_SkipsIopValidation(t *testing.T) {
 	s, p := setupOpHeldServer(t)
-	// IOp has all slots empty except slot 0; op=5 maps to IOp[4]="" but must NOT reject.
+	// IOp[4]="" → op 5 REJECTS at the 254 pin (was bypassed at 244).
 	s.objTypes.Configs[555].IOp = []string{"op1", "", "", "", ""}
 
 	_ = handleOpHeld5(p, opHeldPayload(555, 3, 149))
 
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (op 5 iop gate active at 2e3bcf43 — TS OpHeldHandler.ts:45-49)", p.lastItem)
+	}
+
+	// With the class-default 'Drop' (or any non-null entry) at index 4,
+	// op 5 passes the gate.
+	s.objTypes.Configs[555].IOp = []string{"", "", "", "", "Drop"}
+	_ = handleOpHeld5(p, opHeldPayload(555, 3, 149))
 	if p.lastItem != 555 {
-		t.Errorf("lastItem: got %d, want 555 (op=5 must skip iop validation)", p.lastItem)
+		t.Errorf("lastItem: got %d, want 555 (IOp[4]='Drop' passes the op-5 gate)", p.lastItem)
 	}
 }
 
-// TestHandleOpHeld_Op5_NilIop_SkipsValidation pins that op=5 also skips when iop is nil.
-// Mirrors TS: "message.op !== 5" entirely bypasses the iop gate.
+// TestHandleOpHeld_Op5_NilIop_SkipsValidation RE-PINNED at 2e3bcf43:
+// nil iop rejects op 5 (the iop gate applies to all ops; goscape's nil
+// slice is the degenerate everything-null array). Test name kept for
+// greppability.
 func TestHandleOpHeld_Op5_NilIop_SkipsValidation(t *testing.T) {
 	s, p := setupOpHeldServer(t)
 	s.objTypes.Configs[555].IOp = nil // nil iop
 
 	_ = handleOpHeld5(p, opHeldPayload(555, 3, 149))
 
-	if p.lastItem != 555 {
-		t.Errorf("lastItem: got %d, want 555 (op=5 must skip nil iop validation)", p.lastItem)
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (nil iop rejects every op at 2e3bcf43)", p.lastItem)
 	}
 }
 
@@ -214,8 +224,8 @@ func TestHandleOpHeld_IopNil_Rejects_WithClearPendingAction(t *testing.T) {
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (nil IOp op≠5 must reject)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: nil-IOp reject must call clearPendingAction")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
@@ -233,8 +243,8 @@ func TestHandleOpHeld_IopEmpty_ClearsPendingAction(t *testing.T) {
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (IOp[op-1]=='' must reject)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: empty-IOp reject must call clearPendingAction")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
@@ -255,8 +265,8 @@ func TestHandleOpHeld_IopShortSlice_Rejects(t *testing.T) {
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (short-slice IOp op=3 must reject)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: short-slice IOp reject must call clearPendingAction (no panic)")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
@@ -494,8 +504,11 @@ func TestHandleOpHeld_RootLayerMismatch_ClearsPending(t *testing.T) {
 
 	_ = handleOpHeld1(p, opHeldPayload(555, 3, 149))
 
+	// SUCCESS-path conditional clear: com.RootLayer != modalMain →
+	// clearPendingAction fires (TS OpHeldHandler.ts:54-56 @2e3bcf43 —
+	// unchanged at the 254 pin).
 	if p.target != nil {
-		t.Error("ClearPendingAction was NOT called but rootLayer mismatched modalMain (should clear)")
+		t.Error("rootLayer mismatch on the success path must clearPendingAction (target sentinel → nil)")
 	}
 }
 
@@ -564,8 +577,8 @@ func TestHandleOpHeldT_InvalidCom_WithDelayed_ClearsPending(t *testing.T) {
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (invalid com must reject even when delayed)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: invalid com reject must call clearPendingAction")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
@@ -604,18 +617,19 @@ func TestHandleOpHeldT_SpellComMissingHeldFlag_ClearsPending(t *testing.T) {
 	p.target = p
 	p.opcalled = true
 	_ = handleOpHeldT(p, opHeldTPayload(555, 3, 149, 200))
-	if p.target != nil {
-		t.Error("244: spellCom HELD-flag reject must call clearPendingAction")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
-// TestHandleOpHeldT_ComNotInteractable pins that com.Interactable=false rejects.
-// In 244, com is checked first (before spellCom) for Interactable (not Usable).
-// TS OpHeldTHandler.ts (244): "!com.interactable" replaces "!com.usable".
+// TestHandleOpHeldT_ComNotInteractable RE-PINNED at 2e3bcf43: the
+// held-item component gate reverts to com.usable (TS
+// OpHeldTHandler.ts:32 `!com.usable`; 244 briefly used interactable).
+// Usable=false rejects regardless of Interactable.
 func TestHandleOpHeldT_ComNotInteractable(t *testing.T) {
 	s, p := setupOpHeldTServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Interactable: false, Usable: true}, // Interactable cleared
+		149: {RootLayer: 149, Interactable: true, Usable: false}, // Usable cleared
 		200: {RootLayer: 200, ActionTarget: objtype.ComActionTargetHeld},
 	})
 	p.tabs[1] = 200
@@ -625,8 +639,8 @@ func TestHandleOpHeldT_ComNotInteractable(t *testing.T) {
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (com not Interactable)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: com not-Interactable reject must call clearPendingAction")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
@@ -641,8 +655,8 @@ func TestHandleOpHeldT_NoListener_ClearsPending(t *testing.T) {
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (no listener must reject)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: no-listener reject must call clearPendingAction")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
@@ -656,8 +670,8 @@ func TestHandleOpHeldT_NilInv_ClearsPending(t *testing.T) {
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (nil inv must reject)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: nil-inv reject must call clearPendingAction")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
@@ -688,8 +702,9 @@ func TestHandleOpHeldT_HappyPath(t *testing.T) {
 	if p.lastSlot != 3 {
 		t.Errorf("lastSlot: got %d, want 3", p.lastSlot)
 	}
+	// SUCCESS path: unconditional ClearPendingAction (TS OpHeldTHandler.ts:58).
 	if p.target != nil {
-		t.Error("ClearPendingAction must be unconditional in OPHELDT (target should be nil)")
+		t.Error("success path must clearPendingAction unconditionally (target sentinel → nil)")
 	}
 	// A8/ee28c1aa @2e3bcf43: handler must no longer touch facing.
 	if p.faceEntity != 7 {
@@ -793,12 +808,11 @@ func TestHandleOpHeldU_ShortPayload(t *testing.T) {
 	}
 }
 
-// TestHandleOpHeldU_ComMismatch_244_Allowed pins that 244 REMOVED the comId==useComId
-// check. In 225 this was a hard reject; in 244 (TS OpHeldUHandler.ts 9aadcec4)
-// the check is gone entirely — different components are now valid.
-// We verify the packet proceeds past this former gate (com=149, useCom=200;
-// both must be seeded and visible for progress — the test verifies no early reject
-// from the mismatch check, though later gates may still reject on visibility).
+// TestHandleOpHeldU_ComMismatch_244_Allowed RE-PINNED at 2e3bcf43: the
+// comId == useComId gate is RESTORED (TS OpHeldUHandler.ts:21-24
+// "bad client: opheldu cannot target different components"; 244 had
+// dropped it). Different components now hard-reject before any other
+// gate. Test name kept for history greppability.
 func TestHandleOpHeldU_ComMismatch_244_Allowed(t *testing.T) {
 	s, p := setupOpHeldUServer(t)
 	// Seed useCom=200 as interactable and visible so the packet can proceed past
@@ -810,57 +824,51 @@ func TestHandleOpHeldU_ComMismatch_244_Allowed(t *testing.T) {
 	p.invListenOnCom(93, 200, -1) // listener for useCom=200
 	p.tabs[1] = 200               // make com=200 visible
 
-	// com=149, useCom=200 — different components. In 244 this must NOT be rejected by a mismatch check.
-	// (The packet may still fail at later gates; we just assert the mismatch gate is gone
-	// by checking that at minimum no immediate drop happens on the mismatch itself.)
-	// Since both items are in the same inv and both comIds have listeners + items,
-	// the packet should reach state mutation.
+	// com=149, useCom=200 — different components: hard reject at 2e3bcf43.
 	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 200))
-	// Both comId and useComId are valid interactable components with listeners and items;
-	// 244 removes comId==useComId gate so state mutation must occur.
-	if p.lastItem != 555 && p.lastItem != 777 {
-		t.Errorf("244: comId!=useComId must NOT be rejected (lastItem=%d, want 555 or 777)", p.lastItem)
+	if p.lastItem != -1 {
+		t.Errorf("254 @2e3bcf43: comId != useComId must REJECT (lastItem=%d, want -1)", p.lastItem)
 	}
 }
 
-// TestHandleOpHeldU_ComNotInteractable_ClearsPending pins that com.Interactable=false
-// rejects and calls clearPendingAction. In 244, Interactable replaces Usable.
-// Mirrors TS OpHeldUHandler.ts (244): "!com.interactable".
+// TestHandleOpHeldU_ComNotInteractable_ClearsPending RE-PINNED at
+// 2e3bcf43: the component gate reverts to com.usable (TS
+// OpHeldUHandler.ts:27 "!com.usable"; 244 briefly used interactable).
+// Usable=false rejects with NO clearPendingAction.
 func TestHandleOpHeldU_ComNotInteractable_ClearsPending(t *testing.T) {
 	s, p := setupOpHeldUServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Interactable: false, Usable: true}, // Interactable cleared
+		149: {RootLayer: 149, Interactable: true, Usable: false}, // Usable cleared
 	})
 	p.target = p
 	p.opcalled = true
 	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
 	if p.lastItem != -1 {
-		t.Errorf("lastItem: got %d, want -1 (com not Interactable must reject)", p.lastItem)
+		t.Errorf("lastItem: got %d, want -1 (com not Usable must reject — 2e3bcf43)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: com not-Interactable reject must call clearPendingAction")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
-// TestHandleOpHeldU_UseComNotInteractable_ClearsPending pins that useCom.Interactable=false
-// rejects and calls clearPendingAction (244 change).
+// TestHandleOpHeldU_UseComNotInteractable_ClearsPending RE-PINNED at
+// 2e3bcf43: the useCom gate is com.usable (TS OpHeldUHandler.ts:36);
+// rejects do NOT clearPendingAction. NOTE: with the restored
+// comId == useComId gate, useCom == com — the fixture clears Usable on
+// the single shared component (149).
 func TestHandleOpHeldU_UseComNotInteractable_ClearsPending(t *testing.T) {
 	s, p := setupOpHeldUServer(t)
-	// We need a second component for useCom. Seed useCom=200 as non-interactable.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Interactable: true, Usable: true},
-		200: {RootLayer: 200, Interactable: false, Usable: true}, // not interactable
+		149: {RootLayer: 149, Interactable: true, Usable: false}, // Usable cleared
 	})
-	p.invListenOnCom(93, 200, -1)
-	p.tabs[1] = 200
 	p.target = p
 	p.opcalled = true
-	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 200))
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
 	if p.lastItem != -1 {
-		t.Errorf("lastItem: got %d, want -1 (useCom not Interactable must reject)", p.lastItem)
+		t.Errorf("lastItem: got %d, want -1 (useCom not Usable must reject — 2e3bcf43)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: useCom not-Interactable reject must call clearPendingAction")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
@@ -875,30 +883,26 @@ func TestHandleOpHeldU_NoListener_ClearsPending(t *testing.T) {
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (no com listener must reject)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: no-listener reject must call clearPendingAction")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
-// TestHandleOpHeldU_NoUseListener_ClearsPending pins that listener-not-found for useCom
-// calls clearPendingAction (244 change).
+// TestHandleOpHeldU_NoUseListener_ClearsPending — at 2e3bcf43 the
+// restored comId == useComId gate means useCom always equals com, so a
+// missing useCom listener coincides with a missing com listener; the
+// reject is a plain drop with NO clearPendingAction.
 func TestHandleOpHeldU_NoUseListener_ClearsPending(t *testing.T) {
-	s, p := setupOpHeldUServer(t)
-	// useCom=200 with no listener.
-	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Interactable: true, Usable: true},
-		200: {RootLayer: 200, Interactable: true, Usable: true},
-	})
-	p.tabs[1] = 200
-	// No listener for useCom=200 — leave p.invListeners only having 149.
+	_, p := setupOpHeldUServer(t)
+	delete(p.invListeners, 149)
 	p.target = p
 	p.opcalled = true
-	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 200))
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
 	if p.lastItem != -1 {
 		t.Errorf("lastItem: got %d, want -1 (no useCom listener must reject)", p.lastItem)
 	}
-	if p.target != nil {
-		t.Error("244: no-useListener reject must call clearPendingAction")
+	if p.target == nil {
+		t.Error("254 @2e3bcf43: rejection branches no longer clearPendingAction — sentinel target must survive")
 	}
 }
 
@@ -915,10 +919,12 @@ func TestHandleOpHeldU_SlotMismatch_ClearsAndUnsetsMoveClick(t *testing.T) {
 	_ = handleOpHeldU(p, opHeldUPayload(555, 10, 149, 777, 5, 149))
 
 	if p.moveClickRequest {
-		t.Error("moveClickRequest: want false after slot-mismatch reject (gate 6)")
+		t.Error("moveClickRequest: want false after slot-mismatch reject (gate 7)")
 	}
+	// The hasAt reject KEEPS its cleanup pair at 2e3bcf43 (TS
+	// OpHeldUHandler.ts:55-59 "removed early osrs").
 	if p.target != nil {
-		t.Error("ClearPendingAction: want called (target nil) after slot-mismatch reject (gate 6)")
+		t.Error("hasAt reject must clearPendingAction (TS OpHeldUHandler.ts:55-59 @2e3bcf43)")
 	}
 }
 
@@ -935,10 +941,12 @@ func TestHandleOpHeldU_UseSlotMismatch_ClearsAndUnsetsMoveClick(t *testing.T) {
 	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 10, 149))
 
 	if p.moveClickRequest {
-		t.Error("moveClickRequest: want false after useSlot-mismatch reject (gate 8)")
+		t.Error("moveClickRequest: want false after useSlot-mismatch reject (gate 9)")
 	}
+	// The useInv hasAt reject KEEPS its cleanup pair at 2e3bcf43 (TS
+	// OpHeldUHandler.ts:72-76).
 	if p.target != nil {
-		t.Error("ClearPendingAction: want called (target nil) after useSlot-mismatch reject (gate 8)")
+		t.Error("useInv hasAt reject must clearPendingAction (TS OpHeldUHandler.ts:72-76 @2e3bcf43)")
 	}
 }
 

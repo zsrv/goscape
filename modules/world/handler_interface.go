@@ -141,14 +141,11 @@ func (s *Server) handleIfPlayerDesign(p *Player, payload []byte) error {
 	p.gender = gender
 	p.body = idkit
 	p.colors = color
-	// TS IfPlayerDesignHandler.ts:56: buildAppearance(InvType.WORN).
-	// Use s.invTypes.Worn when populated; fall back to p.appearanceInv
-	// (already set to Worn at login) when invTypes is nil (test paths).
-	wornId := p.appearanceInv
-	if s.invTypes != nil {
-		wornId = s.invTypes.Worn
-	}
-	p.SetAppearanceInv(wornId)
+	// 254 pin (TS IdkSaveDesignHandler.ts:55 @2e3bcf43):
+	// buildAppearance(player.appearanceInv) — reverts the 244-era
+	// buildAppearance(InvType.WORN). appearanceInv is already Worn at
+	// login (client.go); the -1 sentinel maps to Worn in appearance.go.
+	p.SetAppearanceInv(p.appearanceInv)
 	return nil
 }
 

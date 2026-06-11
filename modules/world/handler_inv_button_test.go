@@ -57,12 +57,9 @@ func setupInvButtonServer(t *testing.T) (*Server, *Player) {
 
 // --- INV_BUTTON1-5 tests ---
 
-// TestHandleInvButtonDelayed pins that a delayed player causes a drop after
-// passing all validation gates (mirrors TS InvButtonHandler.ts 244: delayed
-// check is AFTER component/listener/inv validation, not before).
-// In 244 the gate ordering is: component → inventoryOptions → listener → inv
-// → hasAt → THEN delayed. This test wires a valid component+inv so all prior
-// gates pass and the delayed check is the one that fires.
+// TestHandleInvButtonDelayed pins that a delayed player causes a drop.
+// At the 254 pin the delayed check is FIRST (TS InvButtonHandler.ts:15-18
+// @2e3bcf43; 244 had it after validation).
 func TestHandleInvButtonDelayed(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{

@@ -888,15 +888,14 @@ func (p *Player) calcCombatLevel() int {
 // guarded-rebuild blocks at TS Player.ts:1821-1824 (giveExp/advanceStat
 // path) and TS Player.ts:1841-1843 (setLevel/SetStat path).
 //
-// 244 delta (TS Player.ts:1823 + 1843): both rebuild sites call
-// buildAppearance(InvType.WORN) rather than buildAppearance(this.appearanceInv).
-// Use p.client.server.invTypes.Worn when available; fall back to
-// p.appearanceInv on test paths that call this without a fully-wired
-// server (production always has client+server+invTypes bound).
-// handleIfPlayerDesign uses the analogous invTypes nil-guard, though it
-// needs no client/server guards (it is a *Server method).
+// 254 pin (TS Player.ts:1889 + 1909 @2e3bcf43): both rebuild sites call
+// buildAppearance(this.appearanceInv) — reverting the 244-era
+// buildAppearance(InvType.WORN). The handler analog
+// (IdkSaveDesignHandler.ts:55) does the same. p.appearanceInv's -1
+// sentinel (pre-login test paths) maps to Worn inside the appearance
+// builder (appearance.go), matching TS getInventory fallback behavior.
 //
-// NAI-184.
+// NAI-184 (re-pinned at the 254 advance).
 func (p *Player) recomputeCombatLevel(triggerRebuild bool) {
 	newCL := p.calcCombatLevel()
 	if newCL == p.combatLevel {
@@ -904,13 +903,8 @@ func (p *Player) recomputeCombatLevel(triggerRebuild bool) {
 	}
 	p.combatLevel = newCL
 	if triggerRebuild {
-		// 244: buildAppearance(InvType.WORN), not buildAppearance(appearanceInv).
-		// Fall back to p.appearanceInv when invTypes is unavailable (no-server test paths).
-		wornId := p.appearanceInv
-		if p.client != nil && p.client.server != nil && p.client.server.invTypes != nil {
-			wornId = p.client.server.invTypes.Worn
-		}
-		p.SetAppearanceInv(wornId)
+		// 2e3bcf43: buildAppearance(this.appearanceInv).
+		p.SetAppearanceInv(p.appearanceInv)
 	}
 }
 

@@ -2550,12 +2550,12 @@ func TestAddXP_NoLevelUp_NoRecompute(t *testing.T) {
 	}
 }
 
-// TestRecomputeCombatLevel_Change_RebuildTrue_UsesWornInv pins TS Player.ts:1821-1824
-// and 1841-1843 (rev-244): on combat-level change with triggerRebuild=true,
-// buildAppearance must use InvType.WORN (not the current p.appearanceInv).
-// 225 called buildAppearance(this.appearanceInv); 244 calls buildAppearance(InvType.WORN).
-// Observable: after the rebuild, p.appearanceInv must equal invTypes.Worn,
-// even when the player had appearanceInv bound to a different inv id beforehand.
+// TestRecomputeCombatLevel_Change_RebuildTrue_UsesWornInv RE-PINNED at
+// 2e3bcf43 (TS Player.ts:1889 + 1909): on combat-level change with
+// triggerRebuild=true, buildAppearance uses this.appearanceInv again —
+// the 244-era InvType.WORN override is gone. Observable: after the
+// rebuild, p.appearanceInv KEEPS its bound value (customInvId), and
+// MaskAppearance is flagged. Test name kept for history greppability.
 func TestRecomputeCombatLevel_Change_RebuildTrue_UsesWornInv(t *testing.T) {
 	const wornId = 0
 	const customInvId = 5 // arbitrary non-Worn inv bound before the stat change
@@ -2588,9 +2588,9 @@ func TestRecomputeCombatLevel_Change_RebuildTrue_UsesWornInv(t *testing.T) {
 	if p.masks&rsbuf.MaskAppearance == 0 {
 		t.Errorf("masks: MaskAppearance not set after CL change")
 	}
-	// 244 delta: appearanceInv must be updated to invTypes.Worn, not kept at customInvId.
-	if p.appearanceInv != wornId {
-		t.Errorf("appearanceInv: got %d, want %d (244 must use InvType.WORN on rebuild, was customInvId=%d)",
-			p.appearanceInv, wornId, customInvId)
+	// 254 pin: appearanceInv keeps its bound value — buildAppearance(this.appearanceInv).
+	if p.appearanceInv != customInvId {
+		t.Errorf("appearanceInv: got %d, want %d (2e3bcf43 uses this.appearanceInv on rebuild — TS Player.ts:1889/1909)",
+			p.appearanceInv, customInvId)
 	}
 }

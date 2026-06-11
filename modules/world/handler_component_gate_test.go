@@ -24,7 +24,7 @@ type compGateCase struct {
 	rootLayer        int  // RootLayer for the test component; placed at p.tabs[0] to satisfy IsComponentVisible
 	flagBits         int  // T-variant: ActionTarget bitmask. U-variant: 0.
 	isUVariant       bool // U: gate boolean field (Usable or Interactable). T: gate ActionTarget bits.
-	usesInteractable bool // U-variant 244: gate Interactable instead of Usable. TS OpNpcUHandler.ts:24.
+	usesInteractable bool // U-variant: gate Interactable instead of Usable (254 pin: all four U handlers use Usable).
 	comId            int  // component id referenced by payloadOK
 }
 
@@ -237,7 +237,7 @@ func TestComponentGate_OpNpcU(t *testing.T) {
 		handler:          handleOpNpcU,
 		comId:            useCom,
 		isUVariant:       true,
-		usesInteractable: true, // 244: gate changed from Usable to Interactable. TS OpNpcUHandler.ts:24.
+		usesInteractable: false, // 254 @2e3bcf43: gate reverts to Usable. TS OpNpcUHandler.ts:25.
 		rootLayer:        rootLayer,
 		payloadOK: []byte{
 			0, npcSlot,
@@ -264,7 +264,7 @@ func TestComponentGate_OpObjU(t *testing.T) {
 		handler:          handleOpObjU,
 		comId:            useCom,
 		isUVariant:       true,
-		usesInteractable: true, // 244: gate changed from Usable to Interactable. TS OpObjUHandler.ts:22.
+		usesInteractable: false, // 254 @2e3bcf43: gate reverts to Usable. TS OpObjUHandler.ts:41.
 		rootLayer:        rootLayer,
 		payloadOK: []byte{
 			x >> 8, x & 0xFF,
@@ -293,7 +293,7 @@ func TestComponentGate_OpLocU(t *testing.T) {
 		handler:          handleOpLocU,
 		comId:            useCom,
 		isUVariant:       true,
-		usesInteractable: true, // 244: gate uses Interactable (was Usable at 225). TS OpLocUHandler.ts:22.
+		usesInteractable: false, // 254 @2e3bcf43: gate reverts to Usable. TS OpLocUHandler.ts:41.
 		rootLayer:        rootLayer,
 		payloadOK: []byte{
 			x >> 8, x & 0xFF,
@@ -321,7 +321,7 @@ func TestComponentGate_OpPlayerU(t *testing.T) {
 		handler:          handleOpPlayerU,
 		comId:            useCom,
 		isUVariant:       true,
-		usesInteractable: true, // 244: gate changed from Usable to Interactable. TS OpPlayerUHandler.ts:24.
+		usesInteractable: false, // 254 @2e3bcf43: gate reverts to Usable. TS OpPlayerUHandler.ts:26.
 		rootLayer:        rootLayer,
 		payloadOK: []byte{
 			0, otherSlot,
