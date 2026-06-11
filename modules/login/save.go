@@ -40,7 +40,9 @@ func verifySave(save []byte) bool {
 		return false
 	}
 	version := uint16(save[2])<<8 | uint16(save[3])
-	if version > savMaxVersion {
+	// Lower bound mirrors the world decoder (player_load.go: version < 1
+	// rejected) — a zeroed-version blob must not pass the login verifier.
+	if version < 1 || version > savMaxVersion {
 		return false
 	}
 	n := len(save)

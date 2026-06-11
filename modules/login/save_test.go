@@ -48,6 +48,13 @@ func TestVerifySave(t *testing.T) {
 		t.Error("version > savMaxVersion must fail verify")
 	}
 
+	// Version 0 (zeroed header) — lower bound mirrors the world decoder.
+	badVer0 := makeValidSave(1)
+	badVer0[2], badVer0[3] = 0x00, 0x00
+	if verifySave(badVer0) {
+		t.Error("version 0 must fail verify")
+	}
+
 	// Corrupt CRC.
 	badCrc := makeValidSave(1)
 	badCrc[len(badCrc)-1] ^= 0xFF
