@@ -36,6 +36,42 @@ func handleMapMembers(s *ScriptState) error {
 	return nil
 }
 
+// handleMapLive (MAP_LIVE, opcode 1011) pushes 1 if the server runs in
+// production mode, else 0. Mirrors TS ServerOps.ts @2e3bcf43:
+//
+//	[ScriptOpcode.MAP_LIVE]: state => {
+//	    state.pushInt(Environment.NODE_PRODUCTION ? 1 : 0);
+//	}
+//
+// 2e3bcf43 restores the 225-era MAP_LIVE op; the 244-era MAP_PRODUCTION
+// debug op (10001) carried the same body and was deleted upstream. The
+// WorldVars surface keeps its Go-side MapProduction() name.
+func handleMapLive(s *ScriptState) error {
+	if s.World == nil {
+		return fmt.Errorf("MAP_LIVE: %w", ErrNoWorld)
+	}
+	s.PushInt(s.World.MapProduction())
+	return nil
+}
+
+// handleMidiLength (MIDI_LENGTH, opcode 1022) — A10 STUB. TS ServerOps.ts
+// @2e3bcf43:
+//
+//	[ScriptOpcode.MIDI_LENGTH]: state => {
+//	    const track = state.popInt();
+//	    state.pushInt(Midi.getTickLength(track));
+//	}
+//
+// Depends on the Midi cache (src/cache/midi/Midi.ts, new at the 254
+// pin-advance) which Task A10 ports. Until A10 lands Midi.getTickLength,
+// this errors like the other unimplemented-op stubs. The track id is
+// popped first so the stack contract already matches TS.
+// TODO(A10): replace the error with a midi-length registry lookup.
+func handleMidiLength(s *ScriptState) error {
+	_ = s.PopInt() // track id — popped per the TS stack contract
+	return fmt.Errorf("MIDI_LENGTH: unimplemented — A10 lands Midi.getTickLength")
+}
+
 // handleInZone pops [from, to, pos] (pos on top) and pushes 1 if pos
 // is inside the box [from..to] on all of x/z/level, else 0. Matches
 // TS ServerOps.ts INZONE (axis-aligned inclusive bounds).
@@ -134,72 +170,6 @@ func handleMapIndoors(s *ScriptState) error {
 	} else {
 		s.PushInt(0)
 	}
-	return nil
-}
-
-// handleNpcCount (NPCCOUNT, opcode 1030) pushes the live NPC total.
-// Mirrors TS ServerOps.ts:403-405 (9aadcec4):
-//
-//	[ScriptOpcode.NPCCOUNT]: state => {
-//	    state.pushInt(World.getTotalNpcs());
-//	}
-//
-// getTotalNpcs returns this.npcs.count (World.ts:1734-1736).
-func handleNpcCount(s *ScriptState) error {
-	if s.World == nil {
-		return fmt.Errorf("NPCCOUNT: %w", ErrNoWorld)
-	}
-	s.PushInt(s.World.TotalNpcs())
-	return nil
-}
-
-// handleZoneCount (ZONECOUNT, opcode 1031) pushes the number of
-// materialised zones. Mirrors TS ServerOps.ts:407-409 (9aadcec4):
-//
-//	[ScriptOpcode.ZONECOUNT]: state => {
-//	    state.pushInt(World.gameMap.getTotalZones());
-//	}
-//
-// getTotalZones delegates to zonemap.zoneCount() (GameMap.ts:102-104).
-func handleZoneCount(s *ScriptState) error {
-	if s.World == nil {
-		return fmt.Errorf("ZONECOUNT: %w", ErrNoWorld)
-	}
-	s.PushInt(s.World.TotalZones())
-	return nil
-}
-
-// handleLocCount (LOCCOUNT, opcode 1032) pushes the total loc count
-// across all materialised zones. Mirrors TS ServerOps.ts:411-413 (9aadcec4):
-//
-//	[ScriptOpcode.LOCCOUNT]: state => {
-//	    state.pushInt(World.gameMap.getTotalLocs());
-//	}
-//
-// getTotalLocs delegates to zonemap.locCount() (GameMap.ts:106-108).
-func handleLocCount(s *ScriptState) error {
-	if s.World == nil {
-		return fmt.Errorf("LOCCOUNT: %w", ErrNoWorld)
-	}
-	s.PushInt(s.World.TotalLocs())
-	return nil
-}
-
-// handleZoneObjCount (OBJCOUNT, opcode 1033) pushes the total obj count
-// across all materialised zones. Named handleZoneObjCount (matching
-// OpZoneObjCount) to distinguish from handleObjCount (OBJ_COUNT/3503).
-// Mirrors TS ServerOps.ts:415-417 (9aadcec4):
-//
-//	[ScriptOpcode.OBJCOUNT]: state => {
-//	    state.pushInt(World.gameMap.getTotalObjs());
-//	}
-//
-// getTotalObjs delegates to zonemap.objCount() (GameMap.ts:110-112).
-func handleZoneObjCount(s *ScriptState) error {
-	if s.World == nil {
-		return fmt.Errorf("OBJCOUNT: %w", ErrNoWorld)
-	}
-	s.PushInt(s.World.TotalObjs())
 	return nil
 }
 

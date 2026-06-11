@@ -2,18 +2,17 @@ package script
 
 // ScriptOpcodeMap maps uppercase opcode name → Opcode value. Mirrors TS
 // ScriptOpcodeMap (src/engine/script/ScriptOpcode.ts, map section at pin
-// 9aadcec4). Consumed by the bytecode compiler's allCommands construction
-// in pkg/pack/compiler (NAI-202 runServerCompiler).
+// 2e3bcf43, 396 entries). Consumed by the bytecode compiler's allCommands
+// construction in pkg/pack/compiler (NAI-202 runServerCompiler).
 //
-// 244 changes vs 225: HUNTALL/HUNTNEXT moved to server block (1004–1005);
-// SPLIT_*/STRUCT_PARAM moved to server block; new server ops (1030–1034);
-// player block renumbered; BAS_* rename family; HINT_PLAYER/LOWMEMORY
-// renames; IF_SETRECOL/STAT_TOTAL/MAP_LIVE/PUSH_VARBIT/POP_VARBIT removed;
-// new player ops (BUFFER_FULL, IF_MULTIZONE, IF_OPENOVERLAY, etc.);
-// NPC block renumbered; inv block renumbered; MAP_LAST* debug ops added.
-//
-// 254 changes vs 245.2: PUSH_VARBIT (25) / POP_VARBIT (27) restored
-// (TS ScriptOpcode.ts:20-21 + map entries :484-485 @43e02957).
+// 254 pin-advance (43e02957 → 2e3bcf43): enum regen 418→396, 231 values
+// moved. Renames: BAS_READYANIM/RUNNING/TURNONSPOT/WALK_{B,F,L,R} →
+// READYANIM/RUNANIM/TURNANIM/WALKANIM{_B,,_L,_R}; HINT_PLAYER→HINT_PL;
+// LOWMEMORY→LOWMEM; IF_SETRESUMEBUTTONS→IF_ADDRESUMEBUTTON. Added:
+// MAP_LIVE (1011), MIDI_LENGTH (1022). Removed: NPCCOUNT/ZONECOUNT/
+// LOCCOUNT/OBJCOUNT, BUFFER_FULL, IF_MULTIZONE, PLAYER_FINDALLZONE,
+// PLAYER_FINDNEXT, IF_OPENMAINOVERLAY, LAST_COORD, NPC_HUNTNEXT,
+// MAP_PRODUCTION and the 12 MAP_LAST* debug ops.
 //
 // Naming: TS UPPER_SNAKE_CASE → goscape Op* constant in
 // pkg/script/opcode.go. Most names follow mechanical UPPER_SNAKE →
@@ -60,7 +59,10 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"PUSH_ARRAY_INT":                OpPushArrayInt,
 	"POP_ARRAY_INT":                 OpPopArrayInt,
 
-	// Server ops (1000–1034)
+	// Server ops (1000–1022). Map-section grouping follows TS at the
+	// 43e02957 layout; values follow 2e3bcf43 (HUNTALL/HUNTNEXT, SPLIT_*,
+	// STRUCT_PARAM, PROJANIM_NPC/PL live in other enum blocks now —
+	// grouping here is cosmetic, the map is unordered).
 	"COORDX":           OpCoordX,
 	"COORDY":           OpCoordY,
 	"COORDZ":           OpCoordZ,
@@ -72,6 +74,7 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"LINEOFWALK":       OpLineOfWalk,
 	"MAP_BLOCKED":      OpMapBlocked,
 	"MAP_INDOORS":      OpMapIndoors,
+	"MAP_LIVE":         OpMapLive,
 	"MAP_CLOCK":        OpMapClock,
 	"MAP_LOCADDUNSAFE": OpMapLocAddUnsafe,
 	"MAP_MEMBERS":      OpMapMembers,
@@ -91,23 +94,19 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"SPOTANIM_MAP":     OpSpotAnimMap,
 	"STRUCT_PARAM":     OpStructParam,
 	"WORLD_DELAY":      OpWorldDelay,
-	"NPCCOUNT":         OpNpcCount,
-	"ZONECOUNT":        OpZoneCount,
-	"LOCCOUNT":         OpLocCount,
-	"OBJCOUNT":         OpZoneObjCount,
+	"MIDI_LENGTH":      OpMidiLength,
 	"MAP_MULTIWAY":     OpMapMultiway,
 
 	// Player ops (2000–2137)
 	"ALLOWDESIGN":          OpAllowDesign,
 	"ANIM":                 OpAnim,
-	"BAS_READYANIM":        OpBasReadyAnim,
-	"BAS_RUNNING":          OpBasRunning,
-	"BAS_TURNONSPOT":       OpBasTurnOnSpot,
-	"BAS_WALK_B":           OpBasWalkB,
-	"BAS_WALK_F":           OpBasWalkF,
-	"BAS_WALK_L":           OpBasWalkL,
-	"BAS_WALK_R":           OpBasWalkR,
-	"BUFFER_FULL":          OpBufferFull,
+	"READYANIM":            OpReadyAnim,
+	"RUNANIM":              OpRunAnim,
+	"TURNANIM":             OpTurnAnim,
+	"WALKANIM_B":           OpWalkAnimB,
+	"WALKANIM":             OpWalkAnim,
+	"WALKANIM_L":           OpWalkAnimL,
+	"WALKANIM_R":           OpWalkAnimR,
 	"BUILDAPPEARANCE":      OpBuildAppearance,
 	"BUSY":                 OpBusy,
 	"CAM_LOOKAT":           OpCamLookAt,
@@ -131,11 +130,10 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"HEALENERGY":           OpHealEnergy,
 	"HINT_COORD":           OpHintCoord,
 	"HINT_NPC":             OpHintNpc,
-	"HINT_PLAYER":          OpHintPlayer,
+	"HINT_PL":              OpHintPl,
 	"HINT_STOP":            OpHintStop,
 	"IF_CLOSE":             OpIfClose,
 	"TUT_CLOSE":            OpTutClose,
-	"IF_MULTIZONE":         OpIfMultizone,
 	"IF_OPENCHAT":          OpIfOpenChat,
 	"TUT_OPEN":             OpTutOpen,
 	"IF_OPENMAIN":          OpIfOpenMain,
@@ -151,7 +149,7 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"IF_SETPLAYERHEAD":     OpIfSetPlayerHead,
 	"IF_SETPOSITION":       OpIfSetPosition,
 	"IF_SETSCROLLPOS":      OpIfSetScrollPos,
-	"IF_SETRESUMEBUTTONS":  OpIfSetResumeButtons,
+	"IF_ADDRESUMEBUTTON":   OpIfAddResumeButton,
 	"IF_SETTAB":            OpIfSetTab,
 	"IF_SETTABACTIVE":      OpIfSetTabActive,
 	"TUT_FLASH":            OpTutFlash,
@@ -191,8 +189,6 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"P_TELEJUMP":           OpPTeleJump,
 	"P_TELEPORT":           OpPTeleport,
 	"P_WALK":               OpPWalk,
-	"PLAYER_FINDALLZONE":   OpPlayerFindAllZone,
-	"PLAYER_FINDNEXT":      OpPlayerFindNext,
 	"QUEUE":                OpQueue,
 	"QUEUE*":               OpQueueVarArg,
 	"SAY":                  OpSay,
@@ -216,9 +212,8 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"UID":                  OpUID,
 	"WEAKQUEUE":            OpWeakQueue,
 	"WEAKQUEUE*":           OpWeakQueueVarArg,
-	"IF_OPENMAINOVERLAY":   OpIfOpenMainOverlay,
 	"AFK_EVENT":            OpAfkEvent,
-	"LOWMEMORY":            OpLowMemory,
+	"LOWMEM":               OpLowMem,
 	"SETIDKIT":             OpSetIdKit,
 	"P_CLEARPENDINGACTION": OpPClearPendingAction,
 	"GETWALKTRIGGER":       OpGetWalkTrigger,
@@ -230,7 +225,6 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"P_ANIMPROTECT":        OpPAnimProtect,
 	"RUNENERGY":            OpRunEnergy,
 	"WEIGHT":               OpWeight,
-	"LAST_COORD":           OpLastCoord,
 	"SESSION_LOG":          OpSessionLog,
 	"WEALTH_EVENT":         OpWealthEvent,
 	"P_RUN":                OpPRun,
@@ -267,7 +261,6 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"NPC_SAY":                OpNpcSay,
 	"NPC_HUNT":               OpNpcHunt,
 	"NPC_HUNTALL":            OpNpcHuntAll,
-	"NPC_HUNTNEXT":           OpNpcHuntNext,
 	"NPC_SETHUNT":            OpNpcSetHunt,
 	"NPC_SETHUNTMODE":        OpNpcSetHuntMode,
 	"NPC_SETMODE":            OpNpcSetMode,
@@ -455,21 +448,8 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"DB_LISTALL":                OpDbListAll,
 
 	// Debug ops (10000–10016)
-	"ERROR":                OpError,
-	"MAP_PRODUCTION":       OpMapProduction,
-	"MAP_LASTCLOCK":        OpMapLastClock,
-	"MAP_LASTWORLD":        OpMapLastWorld,
-	"MAP_LASTCLIENTIN":     OpMapLastClientIn,
-	"MAP_LASTNPC":          OpMapLastNpc,
-	"MAP_LASTPLAYER":       OpMapLastPlayer,
-	"MAP_LASTLOGOUT":       OpMapLastLogout,
-	"MAP_LASTLOGIN":        OpMapLastLogin,
-	"MAP_LASTZONE":         OpMapLastZone,
-	"MAP_LASTCLIENTOUT":    OpMapLastClientOut,
-	"MAP_LASTCLEANUP":      OpMapLastCleanup,
-	"MAP_LASTBANDWIDTHIN":  OpMapLastBandwidthIn,
-	"MAP_LASTBANDWIDTHOUT": OpMapLastBandwidthOut,
-	"TIMESPENT":            OpTimeSpent,
-	"GETTIMESPENT":         OpGetTimeSpent,
-	"CONSOLE":              OpConsole,
+	"ERROR":        OpError,
+	"TIMESPENT":    OpTimeSpent,
+	"GETTIMESPENT": OpGetTimeSpent,
+	"CONSOLE":      OpConsole,
 }

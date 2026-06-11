@@ -20,12 +20,9 @@ func TestNAI162B0StubsReturnUnimplemented(t *testing.T) {
 		{"LC_OP", OpLcOp, "LC_OP: unimplemented"},
 		{"OC_IOP", OpOcIop, "OC_IOP: unimplemented"},
 		{"OC_OP", OpOcOp, "OC_OP: unimplemented"},
-		// 244 new stubs
-		{"IF_MULTIZONE", OpIfMultizone, "IF_MULTIZONE: unimplemented"},
-		{"IF_OPENMAINOVERLAY", OpIfOpenMainOverlay, "IF_OPENMAINOVERLAY: unimplemented"},
-		{"PLAYER_FINDALLZONE", OpPlayerFindAllZone, "PLAYER_FINDALLZONE: unimplemented"},
-		{"PLAYER_FINDNEXT", OpPlayerFindNext, "PLAYER_FINDNEXT: unimplemented"},
-		{"LAST_COORD", OpLastCoord, "LAST_COORD: unimplemented"},
+		// 2e3bcf43 (254 pin-advance): the 244-era IF_MULTIZONE /
+		// IF_OPENMAINOVERLAY / PLAYER_FINDALLZONE / PLAYER_FINDNEXT /
+		// LAST_COORD stub rows left with their deleted ops.
 	}
 
 	for _, tc := range cases {

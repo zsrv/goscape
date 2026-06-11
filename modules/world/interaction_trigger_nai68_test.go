@@ -219,15 +219,16 @@ func TestFireOpTriggerObjClearsWaypoints(t *testing.T) {
 func TestFireOpTriggerPlayerCapturesNextTargetFromScript(t *testing.T) {
 	s, clicker, target, _, _ := newPlayerTriggerFixture(t)
 
-	// 244: HINT_PLAYER resolves target by uid. Register target so
-	// LookupPlayerByUID can find it.
-	const targetUID = 42
-	target.uid = targetUID
+	// 2e3bcf43: HINT_PL reads the secondary active player (the OPPLAYER
+	// trigger binds the clicked target into activePlayer2) — no uid
+	// lookup. Keep the target registered + active so the trigger fixture
+	// wiring stays realistic.
+	target.uid = 42
 	target.active = true
 
-	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1, targetUID))
+	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
 
-	// Make target visible to rsbuf so the HINT_PLAYER dispatch doesn't fail.
+	// Make target visible to rsbuf so the HINT_PL dispatch doesn't fail.
 	s.players.set(target.pid, target)
 	s.rsbuf.AddPlayer(int32(target.pid))
 	s.players.set(clicker.pid, clicker)
@@ -239,7 +240,7 @@ func TestFireOpTriggerPlayerCapturesNextTargetFromScript(t *testing.T) {
 	if clicker.target != target {
 		t.Errorf("clicker.target: got %v, want target (restored after OP-Player fire)", clicker.target)
 	}
-	// nextTarget: HINT_PLAYER doesn't call p_op_player, so no capture expected.
+	// nextTarget: HINT_PL doesn't call p_op_player, so no capture expected.
 	if clicker.nextTarget != nil {
 		t.Errorf("clicker.nextTarget: got %v, want nil (no p_op_player in script)", clicker.nextTarget)
 	}
@@ -254,10 +255,8 @@ func TestFireOpTriggerPlayerClearsWaypoints(t *testing.T) {
 	clicker.waypointIndex = 4
 	clicker.waypoints[4] = 0x0EADBEEF
 
-	// 244: HINT_PLAYER resolves target by uid. Register target so
-	// LookupPlayerByUID can find it.
-	const targetUID = 42
-	target.uid = targetUID
+	// 2e3bcf43: HINT_PL reads the secondary active player (no uid pop).
+	target.uid = 42
 	target.active = true
 
 	s.players.set(target.pid, target)
@@ -265,7 +264,7 @@ func TestFireOpTriggerPlayerClearsWaypoints(t *testing.T) {
 	s.players.set(clicker.pid, clicker)
 	s.rsbuf.AddPlayer(int32(clicker.pid))
 
-	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1, targetUID))
+	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
 
 	fireOpTriggerPlayer(clicker, s, target)
 

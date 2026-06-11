@@ -65,11 +65,10 @@ func checkStatID(id int, op string) error {
 // divergence is ever observed — not a sweeping replacement of this
 // gate.
 //
-// Note: requireActivePlayer2 was deleted at rev-244 B4 — its sole
-// production caller was handleHintPlayer (HINT_PL→HINT_PLAYER), which at
-// 244 pops a uid and resolves via PlayerLookup instead of reading
-// activePlayer2. The TS ScriptState.activePlayer2 getter was removed at the
-// same revision (ScriptState.ts 225:222-230 gone at 244).
+// Note: requireActivePlayer2 (deleted at rev-244 B4 when HINT_PLAYER popped
+// a uid) was reintroduced at the 254 pin-advance — TS restored the
+// ScriptState.activePlayer2 getter at 2e3bcf43 (ScriptState.ts:223-229) and
+// HINT_PL reads it again. See active_player.go.
 func requireActivePlayer(s *ScriptState, op string) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return fmt.Errorf("%s: %w", op, ErrNoActivePlayer)
@@ -935,96 +934,96 @@ func handleSpotAnimPl(s *ScriptState) error {
 	return nil
 }
 
-// handleBasReadyAnim implements BAS_READYANIM (renamed from READYANIM in 244) —
+// handleReadyAnim implements READYANIM (the BAS_READYANIM name reverted at 2e3bcf43) —
 // pops a seq id, stores as the player's idle/stand animation.
 // Mirrors TS PlayerOps.ts:935-937 (check(state.popInt(), SeqTypeValid).id).
-func handleBasReadyAnim(s *ScriptState) error {
-	if err := requireActivePlayer(s, "BAS_READYANIM"); err != nil {
+func handleReadyAnim(s *ScriptState) error {
+	if err := requireActivePlayer(s, "READYANIM"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
-	if err := checkSeqType(s, seq, "BAS_READYANIM"); err != nil {
+	if err := checkSeqType(s, seq, "READYANIM"); err != nil {
 		return err
 	}
 	s.activePlayer().SetReadyAnim(seq)
 	return nil
 }
 
-// handleBasTurnOnSpot implements BAS_TURNONSPOT (renamed from TURNANIM in 244).
+// handleTurnAnim implements TURNANIM (the BAS_TURNONSPOT name reverted at 2e3bcf43).
 // Mirrors TS PlayerOps.ts:939-941 (check(state.popInt(), SeqTypeValid).id).
-func handleBasTurnOnSpot(s *ScriptState) error {
-	if err := requireActivePlayer(s, "BAS_TURNONSPOT"); err != nil {
+func handleTurnAnim(s *ScriptState) error {
+	if err := requireActivePlayer(s, "TURNANIM"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
-	if err := checkSeqType(s, seq, "BAS_TURNONSPOT"); err != nil {
+	if err := checkSeqType(s, seq, "TURNANIM"); err != nil {
 		return err
 	}
 	s.activePlayer().SetTurnAnim(seq)
 	return nil
 }
 
-// handleBasWalkF implements BAS_WALK_F (renamed from WALKANIM in 244).
+// handleWalkAnim implements WALKANIM (the BAS_WALK_F name reverted at 2e3bcf43).
 // Mirrors TS PlayerOps.ts:943-945 (check(state.popInt(), SeqTypeValid).id).
-func handleBasWalkF(s *ScriptState) error {
-	if err := requireActivePlayer(s, "BAS_WALK_F"); err != nil {
+func handleWalkAnim(s *ScriptState) error {
+	if err := requireActivePlayer(s, "WALKANIM"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
-	if err := checkSeqType(s, seq, "BAS_WALK_F"); err != nil {
+	if err := checkSeqType(s, seq, "WALKANIM"); err != nil {
 		return err
 	}
 	s.activePlayer().SetWalkAnim(seq)
 	return nil
 }
 
-// handleBasWalkB implements BAS_WALK_B (renamed from WALKANIM_B in 244).
+// handleWalkAnimB implements WALKANIM_B (the BAS_WALK_B name reverted at 2e3bcf43).
 // Mirrors TS PlayerOps.ts:947-949 (check(state.popInt(), SeqTypeValid).id).
-func handleBasWalkB(s *ScriptState) error {
-	if err := requireActivePlayer(s, "BAS_WALK_B"); err != nil {
+func handleWalkAnimB(s *ScriptState) error {
+	if err := requireActivePlayer(s, "WALKANIM_B"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
-	if err := checkSeqType(s, seq, "BAS_WALK_B"); err != nil {
+	if err := checkSeqType(s, seq, "WALKANIM_B"); err != nil {
 		return err
 	}
 	s.activePlayer().SetWalkAnimB(seq)
 	return nil
 }
 
-// handleBasWalkL implements BAS_WALK_L (renamed from WALKANIM_L in 244).
+// handleWalkAnimL implements WALKANIM_L (the BAS_WALK_L name reverted at 2e3bcf43).
 // Mirrors TS PlayerOps.ts:951-953 (check(state.popInt(), SeqTypeValid).id).
-func handleBasWalkL(s *ScriptState) error {
-	if err := requireActivePlayer(s, "BAS_WALK_L"); err != nil {
+func handleWalkAnimL(s *ScriptState) error {
+	if err := requireActivePlayer(s, "WALKANIM_L"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
-	if err := checkSeqType(s, seq, "BAS_WALK_L"); err != nil {
+	if err := checkSeqType(s, seq, "WALKANIM_L"); err != nil {
 		return err
 	}
 	s.activePlayer().SetWalkAnimL(seq)
 	return nil
 }
 
-// handleBasWalkR implements BAS_WALK_R (renamed from WALKANIM_R in 244).
+// handleWalkAnimR implements WALKANIM_R (the BAS_WALK_R name reverted at 2e3bcf43).
 // Mirrors TS PlayerOps.ts:955-957 (check(state.popInt(), SeqTypeValid).id).
-func handleBasWalkR(s *ScriptState) error {
-	if err := requireActivePlayer(s, "BAS_WALK_R"); err != nil {
+func handleWalkAnimR(s *ScriptState) error {
+	if err := requireActivePlayer(s, "WALKANIM_R"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
-	if err := checkSeqType(s, seq, "BAS_WALK_R"); err != nil {
+	if err := checkSeqType(s, seq, "WALKANIM_R"); err != nil {
 		return err
 	}
 	s.activePlayer().SetWalkAnimR(seq)
 	return nil
 }
 
-// handleBasRunning implements BAS_RUNNING (renamed from RUNANIM in 244).
+// handleRunAnim implements RUNANIM (the BAS_RUNNING name reverted at 2e3bcf43).
 // Mirrors TS PlayerOps.ts:959-966 — -1 is a clear-sentinel that bypasses
 // SeqTypeValid; any other id is validated against SeqTypeValid before storing.
-func handleBasRunning(s *ScriptState) error {
-	if err := requireActivePlayer(s, "BAS_RUNNING"); err != nil {
+func handleRunAnim(s *ScriptState) error {
+	if err := requireActivePlayer(s, "RUNANIM"); err != nil {
 		return err
 	}
 	seq := s.PopInt()
@@ -1032,7 +1031,7 @@ func handleBasRunning(s *ScriptState) error {
 		s.activePlayer().SetRunAnim(-1)
 		return nil
 	}
-	if err := checkSeqType(s, seq, "BAS_RUNNING"); err != nil {
+	if err := checkSeqType(s, seq, "RUNANIM"); err != nil {
 		return err
 	}
 	s.activePlayer().SetRunAnim(seq)
@@ -1386,17 +1385,22 @@ func handleSoundSynth(s *ScriptState) error {
 	return nil
 }
 
-// handleHuntAll (HUNTALL, opcode 1004) pops [coord, distance, huntvis]
-// and stores a HuntAll-mode PlayerIterator in s.huntIterator
-// (consumed by HUNTNEXT). Mirrors TS ServerOps.ts:53-61 at pin 9aadcec4.
+// handleHuntAll (HUNTALL, opcode 2031) pops [coord, distance, huntvis]
+// and stores a HuntAll-mode PlayerIterator in s.playerIterator
+// (consumed by HUNTNEXT). Mirrors TS PlayerOps.ts @2e3bcf43 (HUNTALL
+// moved from ServerOps to PlayerOps at the pin-advance; the body is
+// unchanged apart from storing into the typed state.playerIterator):
+//
+//	state.playerIterator = new PlayerHuntAllCommandIterator(World.currentTick, ...);
 //
 // Pop order (top-of-stack first): huntvis, distance, coord.
 // Validation: checkCoord, checkNotNull(distance), checkHuntVis.
 // Nil-PlayerLookup degrades silently (matches NPC_HUNTALL convention).
 //
-// PlayerIterator is equivalent to the PLAYER branch of TS's HuntIterator
-// (ScriptIterators.ts:77-97 at pin 9aadcec4): same descending zone scan,
-// same getAllPlayersSafe, same player-as-src LoS argument order.
+// PlayerIterator is equivalent to TS's PlayerHuntAllCommandIterator
+// (ScriptIterators.ts:174-230 @2e3bcf43, identical scan to the 244
+// HuntIterator PLAYER branch): same descending zone scan, same
+// getAllPlayersSafe, same player-as-src LoS argument order.
 func handleHuntAll(s *ScriptState) error {
 	checkVis := s.PopInt()
 	distance := s.PopInt()
@@ -1416,93 +1420,77 @@ func handleHuntAll(s *ScriptState) error {
 	if s.PlayerLookup == nil {
 		return nil
 	}
-	s.huntIterator = NewHuntAllPlayerIterator(
+	s.playerIterator = NewHuntAllPlayerIterator(
 		s.PlayerLookup, s.LineValidator, s.World.CurrentTick(),
 		level, x, z, distance, checkVis,
 	)
 	return nil
 }
 
-// handleHuntNext (HUNTNEXT, opcode 1005) advances the active hunt iterator
-// and either sets active_player + pushes 1 on hit, or pushes 0 on
-// miss / nil-iterator. Mirrors TS ServerOps.ts:63-77 at pin 9aadcec4.
-//
-// TS drives next() BEFORE checking instanceof Player (ServerOps.ts:64-73):
-// an exhausted iterator's done-branch pushes 0 regardless of the iterator
-// type; only a YIELDED non-Player value trips the instanceof throw.
-// Stale-before-Next stays per iterator_state_pattern.md element 3.
+// handleHuntNext (HUNTNEXT, opcode 2032) advances the active player
+// iterator and either sets active_player + pushes 1 on hit, or pushes 0
+// on miss / nil-iterator. Mirrors TS PlayerOps.ts @2e3bcf43 (HUNTNEXT
+// consumes the typed state.playerIterator; the instanceof-Player throw
+// is statically unreachable with the typed field, so goscape drops the
+// 244-era NpcIterator arm).
 //
 // Active-player slot is selected by intOperand: 0 → Self + PtrActivePlayer,
 // 1 → Self2 + PtrActivePlayer2.
 //
-// Exhaustion does NOT clear s.huntIterator (iterator_state_pattern.md
+// Exhaustion does NOT clear s.playerIterator (iterator_state_pattern.md
 // element 7). NAI-35-T5.
 func handleHuntNext(s *ScriptState) error {
 	operand := s.Script.IntOperands[s.PC]
 	if operand != 0 && operand != 1 {
 		return fmt.Errorf("HUNTNEXT: invalid intOperand %d", operand)
 	}
-	switch it := s.huntIterator.(type) {
-	case nil:
-		// TS ServerOps.ts:64-68 — nil iterator → !result → push 0.
+	it := s.playerIterator
+	if it == nil {
+		// TS: nil iterator → !result → push 0.
 		s.PushInt(0)
 		return nil
-	case *PlayerIterator:
-		if it.Stale(s.World.CurrentTick()) {
-			return fmt.Errorf("HUNTNEXT: tried to use an old iterator. Create a new iterator instead.")
-		}
-		p, ok := it.Next()
-		if !ok {
-			s.PushInt(0)
-			return nil
-		}
-		if operand == 0 {
-			s.Self = p
-			s.Pointers |= PtrActivePlayer
-		} else {
-			s.Self2 = p
-			s.Pointers |= PtrActivePlayer2
-		}
-		s.PushInt(1)
-		return nil
-	case *NpcIterator:
-		// TS drives next() BEFORE the instanceof guard (ServerOps.ts:64-73):
-		// an exhausted iterator pushes 0 (done-branch short-circuits before
-		// instanceof); only a YIELDED wrong-type value trips the throw.
-		if it.Stale(s.World.CurrentTick()) {
-			return fmt.Errorf("HUNTNEXT: tried to use an old iterator. Create a new iterator instead.")
-		}
-		if _, ok := it.Next(); !ok {
-			s.PushInt(0)
-			return nil
-		}
-		return fmt.Errorf("HUNTNEXT: command must result instance of Player") // TS ServerOps.ts:71
-	default:
-		return fmt.Errorf("HUNTNEXT: unknown hunt iterator type %T", it)
 	}
+	if it.Stale(s.World.CurrentTick()) {
+		return fmt.Errorf("HUNTNEXT: tried to use an old iterator. Create a new iterator instead.")
+	}
+	p, ok := it.Next()
+	if !ok {
+		s.PushInt(0)
+		return nil
+	}
+	if operand == 0 {
+		s.Self = p
+		s.Pointers |= PtrActivePlayer
+	} else {
+		s.Self2 = p
+		s.Pointers |= PtrActivePlayer2
+	}
+	s.PushInt(1)
+	return nil
 }
 
-// handleHintNpc (HINT_NPC, opcode 2032) sends a HintArrow type=1 wire
-// packet to the active player, pointing at the given NPC. Mirrors TS
-// PlayerOps.ts:963-965 (244 pin):
+// handleHintNpc (HINT_NPC, opcode 2028) sends a HintArrow type=1 wire
+// packet to the active player, pointing at the active NPC. Mirrors TS
+// PlayerOps.ts @2e3bcf43:
 //
-//	state.activePlayer.hintNpc(check(state.popInt(), NumberNotNull))
+//	[ScriptOpcode.HINT_NPC]: state => {
+//	    state.activePlayer.hintNpc(state.activeNpc.nid);
+//	}
 //
-// 244 change: nid is popped from the int stack (was read from activeNpc in
-// 225). requireActiveNpc is gone from this handler (the compiler-side
-// pointer-table entry for HINT_NPC still requires active_npc; do NOT touch
-// opcode_pointers.go). Full HintArrowEncoder coverage: HINT_NPC (type=1,
-// NAI-37 T6), HINT_COORD (type=2..6, NAI-39), HINT_PLAYER (type=10,
-// NAI-39), HINT_STOP (type=-1, NAI-39).
+// 2e3bcf43 (254 pin-advance) reverts the 244-era pop-an-nid form back to
+// the 225 shape: nothing is popped, the nid is read from the active NPC
+// (the pointer row requires active_player + active_npc). Full
+// HintArrowEncoder coverage: HINT_NPC (type=1, NAI-37 T6), HINT_COORD
+// (type=2..6, NAI-39), HINT_PL (type=10, NAI-39), HINT_STOP (type=-1,
+// NAI-39).
 func handleHintNpc(s *ScriptState) error {
 	if err := requireActivePlayer(s, "HINT_NPC"); err != nil {
 		return err
 	}
-	nid := s.PopInt()
-	if err := checkNotNull(nid, "HINT_NPC"); err != nil {
+	if err := requireActiveNpc(s, "HINT_NPC"); err != nil {
 		return err
 	}
-	s.activePlayer().HintNpc(nid)
+	s.activePlayer().HintNpc(s.activeNpc().Nid())
 	return nil
 }
 
@@ -1526,35 +1514,28 @@ func handleHintCoord(s *ScriptState) error {
 	return nil
 }
 
-// handleHintPlayer (HINT_PLAYER, renamed from HINT_PL in 244) sends a
+// handleHintPl (HINT_PL, opcode 2029; was HINT_PLAYER at 43e02957) sends a
 // HintArrow type=10 (PL) wire packet to the active player, pointing at the
-// player identified by the popped uid. Mirrors TS PlayerOps.ts:967-974
-// (244 pin):
+// SECONDARY active player. Mirrors TS PlayerOps.ts @2e3bcf43:
 //
-//	const uid = check(state.popInt(), NumberNotNull)
-//	const player = World.getPlayerByUid(uid)
-//	if (!player) { return }
-//	state.activePlayer.hintPlayer(player.pid)
+//	[ScriptOpcode.HINT_PL]: state => {
+//	    state.activePlayer.hintPlayer(state.activePlayer2.slot);
+//	}
 //
-// 244 change: uid is popped from the int stack and resolved via
-// PlayerLookup; the old activePlayer2 gate is gone. A uid miss is a silent
-// no-op (matching sibling FINDUID nil-PlayerLookup convention). NAI-39.
-func handleHintPlayer(s *ScriptState) error {
-	if err := requireActivePlayer(s, "HINT_PLAYER"); err != nil {
+// 2e3bcf43 (254 pin-advance): the 244-era pop-a-uid + World.getPlayerByUid
+// form is gone — the target comes from the restored ScriptState
+// activePlayer2 getter (ScriptState.ts:223-229 @2e3bcf43), which throws on
+// null; goscape mirrors via requireActivePlayer2 + the operand-inverted
+// activePlayer2() accessor. TS passes player.slot; goscape's Slot() is the
+// same wire identity (pid→slot rename is Task A2). NAI-39.
+func handleHintPl(s *ScriptState) error {
+	if err := requireActivePlayer(s, "HINT_PL"); err != nil {
 		return err
 	}
-	uid := s.PopInt()
-	if err := checkNotNull(uid, "HINT_PLAYER"); err != nil {
+	if err := requireActivePlayer2(s, "HINT_PL"); err != nil {
 		return err
 	}
-	if s.PlayerLookup == nil {
-		return nil
-	}
-	p := s.PlayerLookup.LookupPlayerByUID(uid)
-	if p == nil {
-		return nil // silent miss — TS PlayerOps.ts:970-972
-	}
-	s.activePlayer().HintPlayer(p.Slot())
+	s.activePlayer().HintPlayer(s.activePlayer2().Slot())
 	return nil
 }
 
@@ -1631,11 +1612,12 @@ func handleP_OpObj(s *ScriptState) error {
 	return nil
 }
 
-// handleLowMemory (LOWMEMORY, renamed from LOWMEM in 244) pushes 1 if the active
+// handleLowMem (LOWMEM, opcode 2062; the LOWMEMORY name reverted at
+// 2e3bcf43) pushes 1 if the active
 // player's client requested low-memory mode at login, else 0. Mirrors TS
 // PlayerOps.ts:1062-1064: pushes state.activePlayer.lowMemory ? 1 : 0.
-func handleLowMemory(s *ScriptState) error {
-	if err := requireActivePlayer(s, "LOWMEMORY"); err != nil {
+func handleLowMem(s *ScriptState) error {
+	if err := requireActivePlayer(s, "LOWMEM"); err != nil {
 		return err
 	}
 	if s.activePlayer().LowMemory() {
@@ -2254,18 +2236,5 @@ func handleLastLoginInfo(s *ScriptState) error {
 		return err
 	}
 	s.activePlayer().LastLoginInfo()
-	return nil
-}
-
-// handleBufferFull implements BUFFER_FULL (opcode 2009).
-// TS PlayerOps.ts:198-203 — stubs bandwidth soft-limit awareness by pushing
-// 0 ("todo: should we have this yet?"). Preserved upstream posture for
-// the rev-244 pin.
-// https://x.com/JagexAsh/status/1694990340669747261
-func handleBufferFull(s *ScriptState) error {
-	if err := requireActivePlayer(s, "BUFFER_FULL"); err != nil {
-		return err
-	}
-	s.PushInt(0)
 	return nil
 }

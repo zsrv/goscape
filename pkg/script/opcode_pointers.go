@@ -83,7 +83,7 @@ func corruptExceptActive(extras ...string) []string {
 // constraints"). Mirrored in goscape via map miss (zero-value
 // Pointers{}).
 //
-// 242 entries at the rev-254 pin; verified by
+// 239 entries at the rev-254 pin 2e3bcf43; verified by
 // TestScriptOpcodePointers_LengthParity, which documents the
 // per-revision count history.
 // Entry order in this literal mirrors TS line ordering to support
@@ -96,13 +96,13 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		Require:  []string{"active_player"},
 		Require2: []string{"active_player2"},
 	},
-	OpBasReadyAnim:    {Require: []string{"active_player"}},
-	OpBasRunning:      {Require: []string{"active_player"}},
-	OpBasTurnOnSpot:   {Require: []string{"active_player"}},
-	OpBasWalkB:        {Require: []string{"active_player"}},
-	OpBasWalkF:        {Require: []string{"active_player"}},
-	OpBasWalkL:        {Require: []string{"active_player"}},
-	OpBasWalkR:        {Require: []string{"active_player"}},
+	OpReadyAnim:       {Require: []string{"active_player"}},
+	OpRunAnim:         {Require: []string{"active_player"}},
+	OpTurnAnim:        {Require: []string{"active_player"}},
+	OpWalkAnimB:       {Require: []string{"active_player"}},
+	OpWalkAnim:        {Require: []string{"active_player"}},
+	OpWalkAnimL:       {Require: []string{"active_player"}},
+	OpWalkAnimR:       {Require: []string{"active_player"}},
 	OpBuildAppearance: {Require: []string{"active_player"}},
 	OpBusy: {
 		Require:  []string{"active_player"},
@@ -157,9 +157,14 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		Require:  []string{"active_player"},
 		Require2: []string{"active_player2"},
 	},
+	// 2e3bcf43 (254 pin-advance): FINDUID gains corrupt rows
+	// (ScriptOpcodePointers.ts:103-108 @2e3bcf43 — corrupt
+	// p_active_player / corrupt2 p_active_player2).
 	OpFindUID: {
 		Set:         []string{"active_player"},
 		Set2:        []string{"active_player2"},
+		Corrupt:     []string{"p_active_player"},
+		Corrupt2:    []string{"p_active_player2"},
 		Conditional: true,
 	},
 	OpGender: {
@@ -176,7 +181,7 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 	OpHealEnergy:   {Require: []string{"active_player"}},
 	OpHintCoord:    {Require: []string{"active_player"}},
 	OpHintNpc:      {Require: []string{"active_player", "active_npc"}},
-	OpHintPlayer:   {Require: []string{"active_player", "active_player2"}},
+	OpHintPl:       {Require: []string{"active_player", "active_player2"}},
 	OpHintStop:     {Require: []string{"active_player"}},
 	OpHuntAll:      {Set: []string{"find_player"}},
 	OpHuntNext: {
@@ -227,8 +232,8 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 	// require active_player only — no require2.
 	OpSetPlayerOp: {Require: []string{"active_player"}},
 	// OpIfSetRecol deleted in 244 (ScriptOpcode.ts); row removed.
-	OpIfSetResumeButtons: {Require: []string{"active_player"}},
-	OpIfSetTab:           {Require: []string{"active_player"}},
+	OpIfAddResumeButton: {Require: []string{"active_player"}},
+	OpIfSetTab:          {Require: []string{"active_player"}},
 	OpIfSetTabActive: {
 		Require:  []string{"active_player"},
 		Require2: []string{"active_player2"},
@@ -254,7 +259,7 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		Require:  []string{"active_player"},
 		Require2: []string{"active_player2"},
 	},
-	OpLowMemory: {Require: []string{"active_player"}},
+	OpLowMem: {Require: []string{"active_player"}},
 	OpMes: {
 		Require:  []string{"active_player"},
 		Require2: []string{"active_player2"},
@@ -465,18 +470,9 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		Require:  []string{"active_player"},
 		Require2: []string{"active_player2"},
 	},
-	// New in 244: BUFFER_FULL, NPC_HUNTNEXT, IF_OPENOVERLAY, LAST_COORD.
-	// ScriptOpcodePointers.ts lines cited from TS pin 9aadcec4.
-	OpBufferFull: {Require: []string{"active_player"}},
-	OpNpcHuntNext: {
-		Require:     []string{"find_npc"},
-		Require2:    []string{"find_npc"},
-		Set:         []string{"active_npc"},
-		Set2:        []string{"active_npc2"},
-		Conditional: true,
-	},
+	// 2e3bcf43 (254 pin-advance): the 244-era BUFFER_FULL / NPC_HUNTNEXT /
+	// LAST_COORD rows were deleted with their ops; IF_OPENOVERLAY remains.
 	OpIfOpenOverlay: {Require: []string{"active_player"}, Require2: []string{"active_player2"}},
-	OpLastCoord:     {Require: []string{"active_player"}, Require2: []string{"active_player2"}},
 
 	// Npc ops
 	OpNpcAdd: {
@@ -553,13 +549,15 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		Set2:        []string{"active_npc2"},
 		Conditional: true,
 	},
-	// 254 (TS ScriptOpcodePointers.ts @43e02957): require2 removed;
-	// set2 active_player2 → active_player (both set and set2 are
-	// active_player).
+	// 2e3bcf43 (254 pin-advance): REVERTS the 43e02957-era shape (which
+	// had dropped require2 and pointed set2 at active_player) back to
+	// the pre-254 form — require2 active_npc2 restored, set2 is
+	// active_player2 again (ScriptOpcodePointers.ts:615-621 @2e3bcf43).
 	OpNpcFindHero: {
 		Require:     []string{"active_npc"},
+		Require2:    []string{"active_npc2"},
 		Set:         []string{"active_player"},
-		Set2:        []string{"active_player"},
+		Set2:        []string{"active_player2"},
 		Conditional: true,
 	},
 	OpNpcFindUID: {
@@ -734,11 +732,12 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 	},
 
 	// Obj ops
-	// 254 (TS ScriptOpcodePointers.ts @43e02957): require2
-	// active_player2 → active_player.
+	// 2e3bcf43 (254 pin-advance): REVERTS the 43e02957-era require2
+	// (active_player) back to active_player2
+	// (ScriptOpcodePointers.ts:791-796 @2e3bcf43).
 	OpObjAdd: {
 		Require:  []string{"active_player"},
-		Require2: []string{"active_player"},
+		Require2: []string{"active_player2"},
 		Set:      []string{"active_obj"},
 		Set2:     []string{"active_obj2"},
 	},
@@ -766,11 +765,12 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		Require:  []string{"active_obj"},
 		Require2: []string{"active_obj2"},
 	},
-	// 254 (TS ScriptOpcodePointers.ts @43e02957): require2
-	// active_obj2 → active_obj (active_player2 unchanged).
+	// 2e3bcf43 (254 pin-advance): REVERTS the 43e02957-era require2
+	// (active_obj) back to active_obj2
+	// (ScriptOpcodePointers.ts:820-823 @2e3bcf43).
 	OpObjTakeItem: {
 		Require:  []string{"active_obj", "active_player"},
-		Require2: []string{"active_obj", "active_player2"},
+		Require2: []string{"active_obj2", "active_player2"},
 	},
 	OpObjType: {
 		Require:  []string{"active_obj"},

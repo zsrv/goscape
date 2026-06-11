@@ -810,7 +810,7 @@ func TestPauseButtonResumesAfterClick(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	p.resumeButtons = [5]int{7, 0, 0, 0, 0}
+	p.resumeButtons = []int{7}
 
 	// Script: push "before", mes, p_pausebutton, push "after", mes, return
 	sf := &script.ScriptFile{
@@ -1711,10 +1711,10 @@ func TestBuildPlayerScriptState_ObjTarget(t *testing.T) {
 // client packet → handleOpPlayer1 sets interaction → tryFireOpTrigger
 // fires fireOpTriggerPlayer → runScript routes through
 // buildPlayerScriptState's case-ActivePlayer arm → script runs with
-// Self=clicker, Self2=target → HINT_PLAYER emits to clicker's outbound
+// Self=clicker, Self2=target → HINT_PL emits to clicker's outbound
 // (TS Player.ts:1129 + ScriptRunner.ts:84-87 binding; NAI-70).
 //
-// 244 contract: HINT_PLAYER pops a uid from the int stack and resolves it
+// 244 contract: HINT_PL pops a uid from the int stack and resolves it
 // via World.getPlayerByUid (PlayerOps.ts:967-974). The script fixture
 // pushes target.uid as a constant so the lookup resolves to target.
 //
@@ -1731,11 +1731,10 @@ func TestOpPlayer1_E2E_HintPlOnClicker(t *testing.T) {
 	s, clicker, target, clickerConn := makeOpPlayerFixture(t)
 	rsbufSeesPlayer(t, s, clicker.pid, target.pid)
 
-	// 244: HINT_PLAYER resolves target by uid. makeOpPlayerFixture already
-	// adds target to s.players; mark it active and assign a uid so
-	// LookupPlayerByUID can find it.
-	const targetUID = 42
-	target.uid = targetUID
+	// 2e3bcf43: HINT_PL reads the secondary active player's slot (the
+	// OPPLAYER trigger binds the clicked target into activePlayer2) —
+	// no uid lookup. Keep the target active for fixture realism.
+	target.uid = 42
 	target.active = true
 
 	// Compute expected first wire byte using a parallel encryptor seeded
@@ -1743,7 +1742,7 @@ func TestOpPlayer1_E2E_HintPlOnClicker(t *testing.T) {
 	wantEnc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1, targetUID))
+	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
 
 	// Drive the OPPLAYER1 wire packet through the handler.
 	if err := handleOpPlayer1(clicker, p2Payload(target.pid)); err != nil {

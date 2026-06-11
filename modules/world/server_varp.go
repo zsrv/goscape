@@ -75,22 +75,14 @@ func (w worldVarsView) MapMembers() int {
 }
 
 // MapProduction returns 1 if the server is in production mode, else 0.
-// Matches TS Environment.NODE_PRODUCTION. Renamed from MapLive at 244:
-// DebugOps.ts:16-18 MAP_PRODUCTION.
+// Matches TS Environment.NODE_PRODUCTION. Consumed by MAP_LIVE at the
+// 254 pin-advance (ServerOps.ts @2e3bcf43); the Go method name is
+// historical from the 244-era MAP_PRODUCTION debug op.
 func (w worldVarsView) MapProduction() int {
 	if w.s == nil || !w.s.cfg.NodeProduction {
 		return 0
 	}
 	return 1
-}
-
-// LastCycleStat returns lastCycleStats[stat] — delegates to Server.LastCycleStat.
-// Used by the MAP_LAST* debug ops (DebugOps.ts:20-66).
-func (w worldVarsView) LastCycleStat(stat int) int {
-	if w.s == nil {
-		return 0
-	}
-	return w.s.LastCycleStat(stat)
 }
 
 // NodeID returns the server's configured node ID. Used as the world_id
@@ -361,51 +353,6 @@ func (w worldVarsView) MergeLoc(loc script.ActiveLoc, player script.ActivePlayer
 		playerSlot = player.Slot()
 	}
 	w.s.MergeLoc(realLoc, playerSlot, startCycle, endCycle, east, south, west, north)
-}
-
-// TotalNpcs counts the live NPC registry entries. Mirrors TS
-// World.getTotalNpcs (npcs.count, World.ts:1734-1736). In goscape,
-// s.npcs is a fixed-size [16384]*Npc array (no count field); we count
-// non-nil slots. npcs is tick-goroutine-only — no lock needed (matches
-// the tick-side read in addNpc / removeNpc / npcLoop iteration).
-func (w worldVarsView) TotalNpcs() int {
-	if w.s == nil {
-		return 0
-	}
-	n := 0
-	for _, npc := range w.s.npcs {
-		if npc != nil {
-			n++
-		}
-	}
-	return n
-}
-
-// TotalZones delegates to Server.zoneMap.ZoneCount(). Mirrors TS
-// GameMap.getTotalZones (zonemap.zoneCount(), GameMap.ts:102-104).
-func (w worldVarsView) TotalZones() int {
-	if w.s == nil || w.s.zoneMap == nil {
-		return 0
-	}
-	return w.s.zoneMap.ZoneCount()
-}
-
-// TotalLocs delegates to Server.zoneMap.LocCount(). Mirrors TS
-// GameMap.getTotalLocs (zonemap.locCount(), GameMap.ts:106-108).
-func (w worldVarsView) TotalLocs() int {
-	if w.s == nil || w.s.zoneMap == nil {
-		return 0
-	}
-	return w.s.zoneMap.LocCount()
-}
-
-// TotalObjs delegates to Server.zoneMap.ObjCount(). Mirrors TS
-// GameMap.getTotalObjs (zonemap.objCount(), GameMap.ts:110-112).
-func (w worldVarsView) TotalObjs() int {
-	if w.s == nil || w.s.zoneMap == nil {
-		return 0
-	}
-	return w.s.zoneMap.ObjCount()
 }
 
 // Compile-time conformance assertion for script.WorldVars. Adding any

@@ -30,28 +30,25 @@ func isLargeOperand(op Opcode) bool {
 
 // Core language ops (0–99)
 const (
-	OpPushConstantInt    Opcode = 0
-	OpPushVarp           Opcode = 1
-	OpPopVarp            Opcode = 2
-	OpPushConstantString Opcode = 3
-	OpPushVarn           Opcode = 4
-	OpPopVarn            Opcode = 5
-	OpBranch             Opcode = 6
-	OpBranchNot          Opcode = 7
-	OpBranchEquals       Opcode = 8
-	OpBranchLessThan     Opcode = 9
-	OpBranchGreaterThan  Opcode = 10
-	OpPushVars           Opcode = 11
-	OpPopVars            Opcode = 12
-
-	OpReturn Opcode = 21
-	OpGosub  Opcode = 22
-	OpJump   Opcode = 23
-	OpSwitch Opcode = 24
-
-	OpPushVarbit Opcode = 25 // official (cs2); restored at 254 (TS ScriptOpcode.ts:20)
-	OpPopVarbit  Opcode = 27 // official (cs2); restored at 254 (TS ScriptOpcode.ts:21)
-
+	OpPushConstantInt           Opcode = 0
+	OpPushVarp                  Opcode = 1
+	OpPopVarp                   Opcode = 2
+	OpPushConstantString        Opcode = 3
+	OpPushVarn                  Opcode = 4
+	OpPopVarn                   Opcode = 5
+	OpBranch                    Opcode = 6
+	OpBranchNot                 Opcode = 7
+	OpBranchEquals              Opcode = 8
+	OpBranchLessThan            Opcode = 9
+	OpBranchGreaterThan         Opcode = 10
+	OpPushVars                  Opcode = 11
+	OpPopVars                   Opcode = 12
+	OpReturn                    Opcode = 21
+	OpGosub                     Opcode = 22
+	OpJump                      Opcode = 23
+	OpSwitch                    Opcode = 24
+	OpPushVarbit                Opcode = 25
+	OpPopVarbit                 Opcode = 27
 	OpBranchLessThanOrEquals    Opcode = 31
 	OpBranchGreaterThanOrEquals Opcode = 32
 	OpPushIntLocal              Opcode = 33
@@ -63,264 +60,241 @@ const (
 	OpPopStringDiscard          Opcode = 39
 	OpGosubWithParams           Opcode = 40
 	OpJumpWithParams            Opcode = 41
-
-	OpDefineArray  Opcode = 44
-	OpPushArrayInt Opcode = 45
-	OpPopArrayInt  Opcode = 46
+	OpDefineArray               Opcode = 44
+	OpPushArrayInt              Opcode = 45
+	OpPopArrayInt               Opcode = 46
 )
 
 // Server ops (1000–1999)
-// 244 renumbered: HUNTALL+HUNTNEXT moved from 2031–2032 to 1004–1005;
-// SPLIT_GET/GETANIM/INIT/LINECOUNT/PAGECOUNT moved from 4513–4517 to 1022–1026;
-// STRUCT_PARAM moved from 4700 to 1028; MAP_LIVE deleted;
-// NPCCOUNT/ZONECOUNT/LOCCOUNT/OBJCOUNT/MAP_MULTIWAY added.
+// 2e3bcf43 (254 pin-advance): HUNTALL/HUNTNEXT moved back to the player
+// block (2031–2032); SPLIT_* back to 4513–4517; STRUCT_PARAM back to 4700;
+// NPCCOUNT/ZONECOUNT/LOCCOUNT/OBJCOUNT (1030–1033) deleted; MAP_LIVE
+// restored at 1011; MIDI_LENGTH added at 1022.
 const (
 	OpCoordX          Opcode = 1000
 	OpCoordY          Opcode = 1001
 	OpCoordZ          Opcode = 1002
 	OpDistance        Opcode = 1003
-	OpHuntAll         Opcode = 1004
-	OpHuntNext        Opcode = 1005
-	OpInZone          Opcode = 1006
-	OpLineOfSight     Opcode = 1007
-	OpLineOfWalk      Opcode = 1008
-	OpMapBlocked      Opcode = 1009
+	OpInZone          Opcode = 1004
+	OpLineOfSight     Opcode = 1005
+	OpLineOfWalk      Opcode = 1006
+	OpMapBlocked      Opcode = 1007
+	OpMapClock        Opcode = 1008
+	OpMapFindSquare   Opcode = 1009
 	OpMapIndoors      Opcode = 1010
-	OpMapClock        Opcode = 1011
+	OpMapLive         Opcode = 1011
 	OpMapLocAddUnsafe Opcode = 1012
 	OpMapMembers      Opcode = 1013
-	OpMapPlayerCount  Opcode = 1014
-	OpMapFindSquare   Opcode = 1015
+	OpMapMultiway     Opcode = 1014
+	OpMapPlayerCount  Opcode = 1015
 	OpMoveCoord       Opcode = 1016
 	OpPlayerCount     Opcode = 1017
 	OpProjAnimMap     Opcode = 1018
-	OpProjAnimNpc     Opcode = 1019
-	OpProjAnimPl      Opcode = 1020
-	OpSeqLength       Opcode = 1021
-	OpSplitGet        Opcode = 1022
-	OpSplitGetAnim    Opcode = 1023
-	OpSplitInit       Opcode = 1024
-	OpSplitLineCount  Opcode = 1025
-	OpSplitPageCount  Opcode = 1026
-	OpSpotAnimMap     Opcode = 1027
-	OpStructParam     Opcode = 1028
-	OpWorldDelay      Opcode = 1029
-	OpNpcCount        Opcode = 1030
-	OpZoneCount       Opcode = 1031
-	OpLocCount        Opcode = 1032
-	OpZoneObjCount    Opcode = 1033 // OBJCOUNT (zone-wide); distinct from OBJ_COUNT (OpObjCount=3503)
-	OpMapMultiway     Opcode = 1034
+	OpSeqLength       Opcode = 1019
+	OpSpotAnimMap     Opcode = 1020
+	OpWorldDelay      Opcode = 1021
+	OpMidiLength      Opcode = 1022
 )
 
 // Player ops (2000–2499)
-// 244 renumbered substantially: many ops shifted due to BAS_* family
-// insertion and ALLOWDESIGN moved to 2000 (was AFK_EVENT).
-// Renames: READYANIM→BAS_READYANIM, RUNANIM→BAS_RUNNING, TURNANIM→BAS_TURNONSPOT,
-// WALKANIM_B→BAS_WALK_B, WALKANIM→BAS_WALK_F, WALKANIM_L→BAS_WALK_L,
-// WALKANIM_R→BAS_WALK_R, HINT_PL→HINT_PLAYER, LOWMEM→LOWMEMORY.
-// Deleted: IF_SETRECOL (and STAT_TOTAL, restored at 254 — see below).
-// New: BUFFER_FULL, IF_MULTIZONE, IF_OPENOVERLAY, PLAYER_FINDALLZONE,
-// PLAYER_FINDNEXT, IF_OPENMAINOVERLAY, LAST_COORD, STRONGQUEUEVARARG
-// (vararg keys for queue ops also renumbered).
-//
-// 254 inserts STAT_TOTAL after STAT and SET_PLAYER_OP after
-// IF_SETSCROLLPOS (TS ScriptOpcode.ts:179,210 @43e02957): every
-// implicitly-numbered op after STAT shifts +1 (STAT_ADD 2102→2103 ...
-// IF_SETSCROLLPOS 2131→2132) and the four *QUEUEVARARG tail ops shift
-// +2 (2132-2135 → 2134-2137). NPC section anchors at NPC_ADD=2500 so
-// nothing else moves.
+// 2e3bcf43 (254 pin-advance): 418→396 enum regen. BAS_* family renamed
+// back (READYANIM/RUNANIM/TURNANIM/WALKANIM{,_B,_L,_R}) and relocated;
+// HINT_PLAYER→HINT_PL (now reads activePlayer2, no uid pop);
+// IF_SETRESUMEBUTTONS→IF_ADDRESUMEBUTTON (appends one com id);
+// LOWMEMORY→LOWMEM; AFK_EVENT back at 2000; HUNTALL/HUNTNEXT rejoin at
+// 2031–2032; BUFFER_FULL/IF_MULTIZONE/PLAYER_FINDALLZONE/PLAYER_FINDNEXT/
+// IF_OPENMAINOVERLAY/LAST_COORD deleted.
 const (
-	OpAllowDesign         Opcode = 2000
-	OpAnim                Opcode = 2001
-	OpBasReadyAnim        Opcode = 2002
-	OpBasRunning          Opcode = 2003
-	OpBasTurnOnSpot       Opcode = 2004
-	OpBasWalkB            Opcode = 2005
-	OpBasWalkF            Opcode = 2006
-	OpBasWalkL            Opcode = 2007
-	OpBasWalkR            Opcode = 2008
-	OpBufferFull          Opcode = 2009
-	OpBuildAppearance     Opcode = 2010
-	OpBusy                Opcode = 2011
-	OpCamLookAt           Opcode = 2012
-	OpCamMoveTo           Opcode = 2013
-	OpCamReset            Opcode = 2014
-	OpCamShake            Opcode = 2015
-	OpClearQueue          Opcode = 2016
-	OpClearSoftTimer      Opcode = 2017
-	OpClearTimer          Opcode = 2018
-	OpGetTimer            Opcode = 2019
-	OpCoord               Opcode = 2020
-	OpDamage              Opcode = 2021
-	OpDisplayName         Opcode = 2022
-	OpFaceSquare          Opcode = 2023
-	OpFindUID             Opcode = 2024
-	OpGender              Opcode = 2025
-	OpGetQueue            Opcode = 2026
-	OpStatAdvance         Opcode = 2027
-	OpHeadIconsGet        Opcode = 2028
-	OpHeadIconsSet        Opcode = 2029
-	OpHealEnergy          Opcode = 2030
-	OpHintCoord           Opcode = 2031
-	OpHintNpc             Opcode = 2032
-	OpHintPlayer          Opcode = 2033
-	OpHintStop            Opcode = 2034
-	OpIfClose             Opcode = 2035
-	OpTutClose            Opcode = 2036
-	OpIfMultizone         Opcode = 2037
-	OpIfOpenChat          Opcode = 2038
-	OpTutOpen             Opcode = 2039
-	OpIfOpenMain          Opcode = 2040
-	OpIfOpenOverlay       Opcode = 2041
-	OpIfOpenMainSide      Opcode = 2042
-	OpIfOpenSide          Opcode = 2043
-	OpIfSetAnim           Opcode = 2044
-	OpIfSetColour         Opcode = 2045
-	OpIfSetHide           Opcode = 2046
-	OpIfSetModel          Opcode = 2047
-	OpIfSetNpcHead        Opcode = 2048
-	OpIfSetObject         Opcode = 2049
-	OpIfSetPlayerHead     Opcode = 2050
-	OpIfSetPosition       Opcode = 2051
-	OpIfSetResumeButtons  Opcode = 2052
-	OpIfSetTab            Opcode = 2053
-	OpIfSetTabActive      Opcode = 2054
-	OpTutFlash            Opcode = 2055
-	OpIfSetText           Opcode = 2056
-	OpLastLoginInfo       Opcode = 2057
-	OpLastCom             Opcode = 2058
-	OpLastInt             Opcode = 2059
-	OpLastItem            Opcode = 2060
-	OpLastSlot            Opcode = 2061
-	OpLastTargetSlot      Opcode = 2062
-	OpLastUseItem         Opcode = 2063
-	OpLastUseSlot         Opcode = 2064
-	OpLongQueue           Opcode = 2065
-	OpMes                 Opcode = 2066
-	OpMidiJingle          Opcode = 2067
-	OpMidiSong            Opcode = 2068
-	OpName                Opcode = 2069
-	OpPApRange            Opcode = 2070
-	OpPArriveDelay        Opcode = 2071
-	OpPCountDialog        Opcode = 2072
-	OpPDelay              Opcode = 2073
-	OpPExactMove          Opcode = 2074
-	OpPFindUID            Opcode = 2075
-	OpPLocMerge           Opcode = 2076
-	OpPLogout             Opcode = 2077
-	OpPPreventLogout      Opcode = 2078
-	OpPOpHeld             Opcode = 2079
-	OpPOpLoc              Opcode = 2080
-	OpPOpNpc              Opcode = 2081
-	OpPOpNpcT             Opcode = 2082
-	OpPOpObj              Opcode = 2083
-	OpPOpPlayer           Opcode = 2084
-	OpPOpPlayerT          Opcode = 2085
-	OpPPauseButton        Opcode = 2086
+	OpAfkEvent            Opcode = 2000
+	OpAllowDesign         Opcode = 2001
+	OpAnim                Opcode = 2002
+	OpBothHeroPoints      Opcode = 2003
+	OpBuildAppearance     Opcode = 2004
+	OpBusy                Opcode = 2005
+	OpBusy2               Opcode = 2006
+	OpCamLookAt           Opcode = 2007
+	OpCamMoveTo           Opcode = 2008
+	OpCamReset            Opcode = 2009
+	OpCamShake            Opcode = 2010
+	OpClearQueue          Opcode = 2011
+	OpClearSoftTimer      Opcode = 2012
+	OpClearTimer          Opcode = 2013
+	OpCoord               Opcode = 2014
+	OpDamage              Opcode = 2015
+	OpDisplayName         Opcode = 2016
+	OpFaceSquare          Opcode = 2017
+	OpFindHero            Opcode = 2018
+	OpFindUID             Opcode = 2019
+	OpGender              Opcode = 2020
+	OpGetQueue            Opcode = 2021
+	OpGetTimer            Opcode = 2022
+	OpGetWalkTrigger      Opcode = 2023
+	OpHeadIconsGet        Opcode = 2024
+	OpHeadIconsSet        Opcode = 2025
+	OpHealEnergy          Opcode = 2026
+	OpHintCoord           Opcode = 2027
+	OpHintNpc             Opcode = 2028
+	OpHintPl              Opcode = 2029
+	OpHintStop            Opcode = 2030
+	OpHuntAll             Opcode = 2031
+	OpHuntNext            Opcode = 2032
+	OpIfClose             Opcode = 2033
+	OpIfOpenChat          Opcode = 2034
+	OpIfOpenMainSide      Opcode = 2035
+	OpIfOpenMain          Opcode = 2036
+	OpIfOpenOverlay       Opcode = 2037
+	OpIfOpenSide          Opcode = 2038
+	OpIfSetAnim           Opcode = 2039
+	OpIfSetColour         Opcode = 2040
+	OpIfSetHide           Opcode = 2041
+	OpIfSetModel          Opcode = 2042
+	OpIfSetNpcHead        Opcode = 2043
+	OpIfSetObject         Opcode = 2044
+	OpIfSetPlayerHead     Opcode = 2045
+	OpIfSetPosition       Opcode = 2046
+	OpIfAddResumeButton   Opcode = 2047
+	OpIfSetScrollPos      Opcode = 2048
+	OpIfSetTab            Opcode = 2049
+	OpIfSetTabActive      Opcode = 2050
+	OpIfSetText           Opcode = 2051
+	OpLastCom             Opcode = 2052
+	OpLastInt             Opcode = 2053
+	OpLastItem            Opcode = 2054
+	OpLastLoginInfo       Opcode = 2055
+	OpLastSlot            Opcode = 2056
+	OpLastTargetSlot      Opcode = 2057
+	OpLastUseItem         Opcode = 2058
+	OpLastUseSlot         Opcode = 2059
+	OpLongQueue           Opcode = 2060
+	OpLongQueueVarArg     Opcode = 2061
+	OpLowMem              Opcode = 2062
+	OpMes                 Opcode = 2063
+	OpMidiJingle          Opcode = 2064
+	OpMidiSong            Opcode = 2065
+	OpName                Opcode = 2066
+	OpPAnimProtect        Opcode = 2067
+	OpPApRange            Opcode = 2068
+	OpPArriveDelay        Opcode = 2069
+	OpPClearPendingAction Opcode = 2070
+	OpPCountDialog        Opcode = 2071
+	OpPDelay              Opcode = 2072
+	OpPExactMove          Opcode = 2073
+	OpPFindUID            Opcode = 2074
+	OpPLocMerge           Opcode = 2075
+	OpPLogout             Opcode = 2076
+	OpPOpHeld             Opcode = 2077
+	OpPOpLoc              Opcode = 2078
+	OpPOpNpc              Opcode = 2079
+	OpPOpNpcT             Opcode = 2080
+	OpPOpObj              Opcode = 2081
+	OpPOpPlayer           Opcode = 2082
+	OpPOpPlayerT          Opcode = 2083
+	OpPPauseButton        Opcode = 2084
+	OpPPreventLogout      Opcode = 2085
+	OpPRun                Opcode = 2086
 	OpPStopAction         Opcode = 2087
 	OpPTeleJump           Opcode = 2088
 	OpPTeleport           Opcode = 2089
 	OpPWalk               Opcode = 2090
-	OpPlayerFindAllZone   Opcode = 2091
-	OpPlayerFindNext      Opcode = 2092
+	OpPlayerMember        Opcode = 2091
+	OpProjAnimPl          Opcode = 2092
 	OpQueue               Opcode = 2093
-	OpSay                 Opcode = 2094
-	OpWalkTrigger         Opcode = 2095
-	OpSetTimer            Opcode = 2096
-	OpSoftTimer           Opcode = 2097
-	OpSoundSynth          Opcode = 2098
-	OpSpotAnimPl          Opcode = 2099
-	OpStaffModLevel       Opcode = 2100
-	OpStat                Opcode = 2101
-	OpStatTotal           Opcode = 2102 // new in 254 (TS ScriptOpcode.ts:179 @43e02957)
-	OpStatAdd             Opcode = 2103
-	OpStatBase            Opcode = 2104
-	OpStatHeal            Opcode = 2105
-	OpStatSub             Opcode = 2106
-	OpStatBoost           Opcode = 2107
-	OpStatDrain           Opcode = 2108
-	OpStatRandom          Opcode = 2109
-	OpStrongQueue         Opcode = 2110
-	OpUID                 Opcode = 2111
-	OpWeakQueue           Opcode = 2112
-	OpIfOpenMainOverlay   Opcode = 2113
-	OpAfkEvent            Opcode = 2114
-	OpLowMemory           Opcode = 2115
-	OpSetIdKit            Opcode = 2116
-	OpPClearPendingAction Opcode = 2117
-	OpGetWalkTrigger      Opcode = 2118
-	OpBusy2               Opcode = 2119
-	OpFindHero            Opcode = 2120
-	OpBothHeroPoints      Opcode = 2121
-	OpSetGender           Opcode = 2122
-	OpSetSkinColour       Opcode = 2123
-	OpPAnimProtect        Opcode = 2124
-	OpRunEnergy           Opcode = 2125
-	OpWeight              Opcode = 2126
-	OpLastCoord           Opcode = 2127
-	OpSessionLog          Opcode = 2128
-	OpWealthEvent         Opcode = 2129
-	OpPRun                Opcode = 2130
-	OpPlayerMember        Opcode = 2131
-	OpIfSetScrollPos      Opcode = 2132 // new in 245.2 (TS ScriptOpcode.ts:208 @3c16994c)
-	OpSetPlayerOp         Opcode = 2133 // new in 254 (TS ScriptOpcode.ts:210 @43e02957)
-	OpQueueVarArg         Opcode = 2134 // 2131→2132 at 245.2 (IF_SETSCROLLPOS insert); →2134 at 254
-	OpLongQueueVarArg     Opcode = 2135
-	OpWeakQueueVarArg     Opcode = 2136
-	OpStrongQueueVarArg   Opcode = 2137
+	OpQueueVarArg         Opcode = 2094
+	OpReadyAnim           Opcode = 2095
+	OpRunAnim             Opcode = 2096
+	OpRunEnergy           Opcode = 2097
+	OpSay                 Opcode = 2098
+	OpSessionLog          Opcode = 2099
+	OpSetPlayerOp         Opcode = 2100
+	OpSetGender           Opcode = 2101
+	OpSetIdKit            Opcode = 2102
+	OpSetSkinColour       Opcode = 2103
+	OpSetTimer            Opcode = 2104
+	OpSoftTimer           Opcode = 2105
+	OpSoundSynth          Opcode = 2106
+	OpSpotAnimPl          Opcode = 2107
+	OpStaffModLevel       Opcode = 2108
+	OpStatAdd             Opcode = 2109
+	OpStatAdvance         Opcode = 2110
+	OpStatBase            Opcode = 2111
+	OpStatBoost           Opcode = 2112
+	OpStatDrain           Opcode = 2113
+	OpStatHeal            Opcode = 2114
+	OpStatRandom          Opcode = 2115
+	OpStatSub             Opcode = 2116
+	OpStatTotal           Opcode = 2117
+	OpStat                Opcode = 2118
+	OpStrongQueue         Opcode = 2119
+	OpStrongQueueVarArg   Opcode = 2120
+	OpTurnAnim            Opcode = 2121
+	OpTutClose            Opcode = 2122
+	OpTutFlash            Opcode = 2123
+	OpTutOpen             Opcode = 2124
+	OpUID                 Opcode = 2125
+	OpWalkAnimB           Opcode = 2126
+	OpWalkAnimL           Opcode = 2127
+	OpWalkAnimR           Opcode = 2128
+	OpWalkAnim            Opcode = 2129
+	OpWalkTrigger         Opcode = 2130
+	OpWeakQueue           Opcode = 2131
+	OpWeakQueueVarArg     Opcode = 2132
+	OpWealthEvent         Opcode = 2133
+	OpWeight              Opcode = 2134
 )
 
 // NPC ops (2500–2999)
-// 244 renumbered: ordering changed significantly within 2500–2547.
+// 2e3bcf43 (254 pin-advance): NPC_HUNTNEXT deleted (NPC_HUNTALL now feeds
+// the shared npcIterator, consumed by NPC_FINDNEXT); PROJANIM_NPC/
+// SPOTANIM_NPC live at the block tail (2546–2547).
 const (
 	OpNpcAdd               Opcode = 2500
 	OpNpcAnim              Opcode = 2501
-	OpNpcBaseStat          Opcode = 2502
-	OpNpcCategory          Opcode = 2503
-	OpNpcChangeType        Opcode = 2504
-	OpNpcChangeTypeKeepAll Opcode = 2505
-	OpNpcCoord             Opcode = 2506
-	OpNpcDamage            Opcode = 2507
-	OpNpcDel               Opcode = 2508
-	OpNpcDelay             Opcode = 2509
-	OpNpcFaceSquare        Opcode = 2510
-	OpNpcFind              Opcode = 2511
-	OpNpcFindCat           Opcode = 2512
-	OpNpcFindAllAny        Opcode = 2513
+	OpNpcArriveDelay       Opcode = 2502
+	OpNpcAttackRange       Opcode = 2503
+	OpNpcBaseStat          Opcode = 2504
+	OpNpcCategory          Opcode = 2505
+	OpNpcChangeTypeKeepAll Opcode = 2506
+	OpNpcChangeType        Opcode = 2507
+	OpNpcCoord             Opcode = 2508
+	OpNpcDamage            Opcode = 2509
+	OpNpcDel               Opcode = 2510
+	OpNpcDelay             Opcode = 2511
+	OpNpcFaceSquare        Opcode = 2512
+	OpNpcFind              Opcode = 2513
 	OpNpcFindAll           Opcode = 2514
-	OpNpcFindExact         Opcode = 2515
-	OpNpcFindHero          Opcode = 2516
-	OpNpcFindAllZone       Opcode = 2517
-	OpNpcFindNext          Opcode = 2518
-	OpNpcFindUID           Opcode = 2519
-	OpNpcGetMode           Opcode = 2520
-	OpNpcHeroPoints        Opcode = 2521
-	OpNpcName              Opcode = 2522
-	OpNpcParam             Opcode = 2523
-	OpNpcQueue             Opcode = 2524
-	OpNpcRange             Opcode = 2525
-	OpNpcSay               Opcode = 2526
-	OpNpcHunt              Opcode = 2527
-	OpNpcHuntAll           Opcode = 2528
-	OpNpcHuntNext          Opcode = 2529
-	OpNpcSetHunt           Opcode = 2530
-	OpNpcSetHuntMode       Opcode = 2531
-	OpNpcSetMode           Opcode = 2532
-	OpNpcWalkTrigger       Opcode = 2533
-	OpNpcSetTimer          Opcode = 2534
-	OpNpcStat              Opcode = 2535
-	OpNpcStatAdd           Opcode = 2536
-	OpNpcStatHeal          Opcode = 2537
-	OpNpcStatSub           Opcode = 2538
-	OpNpcTele              Opcode = 2539
-	OpNpcType              Opcode = 2540
-	OpNpcUID               Opcode = 2541
-	OpSpotAnimNpc          Opcode = 2542
-	OpNpcWalk              Opcode = 2543
-	OpNpcAttackRange       Opcode = 2544
-	OpNpcHasOp             Opcode = 2545
-	OpNpcArriveDelay       Opcode = 2546
-	OpNpcInRange           Opcode = 2547
+	OpNpcFindAllAny        Opcode = 2515
+	OpNpcFindAllZone       Opcode = 2516
+	OpNpcFindCat           Opcode = 2517
+	OpNpcFindExact         Opcode = 2518
+	OpNpcFindHero          Opcode = 2519
+	OpNpcFindNext          Opcode = 2520
+	OpNpcFindUID           Opcode = 2521
+	OpNpcGetMode           Opcode = 2522
+	OpNpcHasOp             Opcode = 2523
+	OpNpcHeroPoints        Opcode = 2524
+	OpNpcHunt              Opcode = 2525
+	OpNpcHuntAll           Opcode = 2526
+	OpNpcInRange           Opcode = 2527
+	OpNpcName              Opcode = 2528
+	OpNpcParam             Opcode = 2529
+	OpNpcQueue             Opcode = 2530
+	OpNpcRange             Opcode = 2531
+	OpNpcSay               Opcode = 2532
+	OpNpcSetHunt           Opcode = 2533
+	OpNpcSetHuntMode       Opcode = 2534
+	OpNpcSetMode           Opcode = 2535
+	OpNpcSetTimer          Opcode = 2536
+	OpNpcStat              Opcode = 2537
+	OpNpcStatAdd           Opcode = 2538
+	OpNpcStatHeal          Opcode = 2539
+	OpNpcStatSub           Opcode = 2540
+	OpNpcTele              Opcode = 2541
+	OpNpcType              Opcode = 2542
+	OpNpcUID               Opcode = 2543
+	OpNpcWalk              Opcode = 2544
+	OpNpcWalkTrigger       Opcode = 2545
+	OpProjAnimNpc          Opcode = 2546
+	OpSpotAnimNpc          Opcode = 2547
 )
 
 // Loc ops (3000–3499)
@@ -344,22 +318,21 @@ const (
 )
 
 // Obj ops (3500–4000)
-// 244: OBJ_FIND/FINDALLZONE/FINDNEXT moved from 3505–3507 to 3509–3511.
-// OBJ_COUNT (ground-obj stack count) stays at 3503, unchanged.
-// The zone-wide OBJCOUNT (1033) is a different op — see OpZoneObjCount above.
+// OBJ_COUNT (ground-obj stack count) at 3503. The zone-wide OBJCOUNT was
+// deleted upstream at 2e3bcf43 (was OpZoneObjCount=1033 at 43e02957).
 const (
 	OpObjAdd         Opcode = 3500
 	OpObjAddAll      Opcode = 3501
 	OpObjCoord       Opcode = 3502
 	OpObjCount       Opcode = 3503
 	OpObjDel         Opcode = 3504
-	OpObjName        Opcode = 3505
-	OpObjParam       Opcode = 3506
-	OpObjTakeItem    Opcode = 3507
-	OpObjType        Opcode = 3508
-	OpObjFind        Opcode = 3509
-	OpObjFindAllZone Opcode = 3510
-	OpObjFindNext    Opcode = 3511
+	OpObjFind        Opcode = 3505
+	OpObjFindAllZone Opcode = 3506
+	OpObjFindNext    Opcode = 3507
+	OpObjName        Opcode = 3508
+	OpObjParam       Opcode = 3509
+	OpObjTakeItem    Opcode = 3510
+	OpObjType        Opcode = 3511
 )
 
 // NPC config ops (4000–4099)
@@ -375,23 +348,19 @@ const (
 )
 
 // Loc config ops (4100–4199)
-// 244: LC_LENGTH moved from 4103 to 4107; LC_WIDTH from 4107 to 4106.
-// LC_OP stub at 4104 (no TS handler entry, no map entry in 244).
+// LC_OP stub at 4104 (no TS handler entry).
 const (
 	OpLcCategory  Opcode = 4100
 	OpLcDebugName Opcode = 4101
 	OpLcDesc      Opcode = 4102
-	OpLcName      Opcode = 4103
-	OpLcOp        Opcode = 4104
-	OpLcParam     Opcode = 4105
-	OpLcWidth     Opcode = 4106
-	OpLcLength    Opcode = 4107
+	OpLcLength    Opcode = 4103
+	OpLcName      Opcode = 4104
+	OpLcOp        Opcode = 4105
+	OpLcParam     Opcode = 4106
+	OpLcWidth     Opcode = 4107
 )
 
 // Obj config ops (4200–4299)
-// 244: OC_WEARPOS2/3/WEARPOS reordered (213→4213, 214→4214, 215→4215).
-// Was: WEARPOS=4213, WEARPOS2=4214, WEARPOS3=4215.
-// Now: WEARPOS2=4213, WEARPOS3=4214, WEARPOS=4215.
 const (
 	OpOcCategory  Opcode = 4200
 	OpOcCert      Opcode = 4201
@@ -406,48 +375,47 @@ const (
 	OpOcStackable Opcode = 4210
 	OpOcTradeable Opcode = 4211
 	OpOcUncert    Opcode = 4212
-	OpOcWearPos2  Opcode = 4213
-	OpOcWearPos3  Opcode = 4214
-	OpOcWearPos   Opcode = 4215
+	OpOcWearPos   Opcode = 4213
+	OpOcWearPos2  Opcode = 4214
+	OpOcWearPos3  Opcode = 4215
 	OpOcWeight    Opcode = 4216
 )
 
 // Inventory ops (4300–4399)
-// 244: entire block renumbered — INV_ALLSTOCK starts at 4300 (not BOTH_DROPSLOT).
 const (
-	OpInvAllStock        Opcode = 4300
-	OpInvSize            Opcode = 4301
-	OpInvStockBase       Opcode = 4302
-	OpInvAdd             Opcode = 4303
+	OpBothDropSlot       Opcode = 4300
+	OpBothMoveInv        Opcode = 4301
+	OpInvAdd             Opcode = 4302
+	OpInvAllStock        Opcode = 4303
 	OpInvChangeSlot      Opcode = 4304
 	OpInvClear           Opcode = 4305
-	OpInvDel             Opcode = 4306
-	OpInvDelSlot         Opcode = 4307
-	OpInvDropItem        Opcode = 4308
-	OpInvDropItemDelayed Opcode = 4309
-	OpInvDropSlot        Opcode = 4310
-	OpInvFreeSpace       Opcode = 4311
-	OpInvGetNum          Opcode = 4312
-	OpInvGetObj          Opcode = 4313
-	OpInvItemSpace       Opcode = 4314
-	OpInvItemSpace2      Opcode = 4315
-	OpInvMoveFromSlot    Opcode = 4316
-	OpInvMoveToSlot      Opcode = 4317
-	OpBothMoveInv        Opcode = 4318
-	OpInvMoveItem        Opcode = 4319
-	OpInvMoveItemCert    Opcode = 4320
-	OpInvMoveItemUncert  Opcode = 4321
-	OpInvSetSlot         Opcode = 4322
-	OpInvTotal           Opcode = 4323
-	OpInvTotalCat        Opcode = 4324
-	OpInvTransmit        Opcode = 4325
-	OpInvOtherTransmit   Opcode = 4326
-	OpInvStopTransmit    Opcode = 4327
-	OpBothDropSlot       Opcode = 4328
-	OpInvDropAll         Opcode = 4329
+	OpInvDebugName       Opcode = 4306
+	OpInvDel             Opcode = 4307
+	OpInvDelSlot         Opcode = 4308
+	OpInvDropAll         Opcode = 4309
+	OpInvDropItemDelayed Opcode = 4310
+	OpInvDropItem        Opcode = 4311
+	OpInvDropSlot        Opcode = 4312
+	OpInvFreeSpace       Opcode = 4313
+	OpInvGetNum          Opcode = 4314
+	OpInvGetObj          Opcode = 4315
+	OpInvItemSpace       Opcode = 4316
+	OpInvItemSpace2      Opcode = 4317
+	OpInvMoveFromSlot    Opcode = 4318
+	OpInvMoveItemCert    Opcode = 4319
+	OpInvMoveItemUncert  Opcode = 4320
+	OpInvMoveItem        Opcode = 4321
+	OpInvMoveToSlot      Opcode = 4322
+	OpInvSetSlot         Opcode = 4323
+	OpInvSize            Opcode = 4324
+	OpInvStockBase       Opcode = 4325
+	OpInvStopTransmit    Opcode = 4326
+	OpInvTotal           Opcode = 4327
+	OpInvTotalCat        Opcode = 4328
+	OpInvTotalParamStack Opcode = 4329
 	OpInvTotalParam      Opcode = 4330
-	OpInvTotalParamStack Opcode = 4331
-	OpInvDebugName       Opcode = 4332
+	OpInvTransmit        Opcode = 4331
+	OpInvOtherTransmit   Opcode = 4332
 )
 
 // Enum ops (4400–4499)
@@ -457,7 +425,8 @@ const (
 )
 
 // String ops (4500–4599)
-// 244: SPLIT_* ops moved to 1022–1026 (server block).
+// 2e3bcf43 (254 pin-advance): SPLIT_* ops return from the server block
+// (1022–1026 at 43e02957) to 4513–4517.
 const (
 	OpAppendNum           Opcode = 4500
 	OpAppend              Opcode = 4501
@@ -472,6 +441,11 @@ const (
 	OpSubstring           Opcode = 4510
 	OpStringIndexOfChar   Opcode = 4511
 	OpStringIndexOfString Opcode = 4512
+	OpSplitGet            Opcode = 4513
+	OpSplitGetAnim        Opcode = 4514
+	OpSplitInit           Opcode = 4515
+	OpSplitLineCount      Opcode = 4516
+	OpSplitPageCount      Opcode = 4517
 )
 
 // Number ops (4600–4699)
@@ -507,6 +481,13 @@ const (
 	OpAbs              Opcode = 4628
 )
 
+// Struct ops (4700)
+// 2e3bcf43 (254 pin-advance): STRUCT_PARAM returns from the server block
+// (1028 at 43e02957) to 4700 (TS handlers/StructOps.ts).
+const (
+	OpStructParam Opcode = 4700
+)
+
 // DB ops (7500–7599)
 const (
 	OpDbFindWithCount       Opcode = 7500
@@ -523,26 +504,14 @@ const (
 )
 
 // Debug ops (10000–11000)
-// 244: ERROR=10000, MAP_PRODUCTION=10001, MAP_LAST*=10002–10013,
-// TIMESPENT=10014, GETTIMESPENT=10015, CONSOLE=10016.
+// 2e3bcf43 (254 pin-advance): MAP_PRODUCTION (10001) and the 12 MAP_LAST*
+// stat probes (10002–10013) deleted upstream; ERROR/TIMESPENT/GETTIMESPENT/
+// CONSOLE renumber to 10000–10003.
 const (
-	OpError               Opcode = 10000
-	OpMapProduction       Opcode = 10001
-	OpMapLastClock        Opcode = 10002
-	OpMapLastWorld        Opcode = 10003
-	OpMapLastClientIn     Opcode = 10004
-	OpMapLastNpc          Opcode = 10005
-	OpMapLastPlayer       Opcode = 10006
-	OpMapLastLogout       Opcode = 10007
-	OpMapLastLogin        Opcode = 10008
-	OpMapLastZone         Opcode = 10009
-	OpMapLastClientOut    Opcode = 10010
-	OpMapLastCleanup      Opcode = 10011
-	OpMapLastBandwidthIn  Opcode = 10012
-	OpMapLastBandwidthOut Opcode = 10013
-	OpTimeSpent           Opcode = 10014
-	OpGetTimeSpent        Opcode = 10015
-	OpConsole             Opcode = 10016
+	OpConsole      Opcode = 10000
+	OpError        Opcode = 10001
+	OpGetTimeSpent Opcode = 10002
+	OpTimeSpent    Opcode = 10003
 )
 
 // String returns the uppercase mnemonic for the opcode, e.g. "PUSH_CONSTANT_INT".
@@ -637,6 +606,8 @@ func (o Opcode) String() string {
 		return "MAP_BLOCKED"
 	case OpMapIndoors:
 		return "MAP_INDOORS"
+	case OpMapLive:
+		return "MAP_LIVE"
 	case OpMapClock:
 		return "MAP_CLOCK"
 	case OpMapLocAddUnsafe:
@@ -675,36 +646,28 @@ func (o Opcode) String() string {
 		return "STRUCT_PARAM"
 	case OpWorldDelay:
 		return "WORLD_DELAY"
-	case OpNpcCount:
-		return "NPCCOUNT"
-	case OpZoneCount:
-		return "ZONECOUNT"
-	case OpLocCount:
-		return "LOCCOUNT"
-	case OpZoneObjCount:
-		return "OBJCOUNT"
+	case OpMidiLength:
+		return "MIDI_LENGTH"
 	case OpMapMultiway:
 		return "MAP_MULTIWAY"
 	case OpAllowDesign:
 		return "ALLOWDESIGN"
 	case OpAnim:
 		return "ANIM"
-	case OpBasReadyAnim:
-		return "BAS_READYANIM"
-	case OpBasRunning:
-		return "BAS_RUNNING"
-	case OpBasTurnOnSpot:
-		return "BAS_TURNONSPOT"
-	case OpBasWalkB:
-		return "BAS_WALK_B"
-	case OpBasWalkF:
-		return "BAS_WALK_F"
-	case OpBasWalkL:
-		return "BAS_WALK_L"
-	case OpBasWalkR:
-		return "BAS_WALK_R"
-	case OpBufferFull:
-		return "BUFFER_FULL"
+	case OpReadyAnim:
+		return "READYANIM"
+	case OpRunAnim:
+		return "RUNANIM"
+	case OpTurnAnim:
+		return "TURNANIM"
+	case OpWalkAnimB:
+		return "WALKANIM_B"
+	case OpWalkAnim:
+		return "WALKANIM"
+	case OpWalkAnimL:
+		return "WALKANIM_L"
+	case OpWalkAnimR:
+		return "WALKANIM_R"
 	case OpBuildAppearance:
 		return "BUILDAPPEARANCE"
 	case OpBusy:
@@ -751,16 +714,14 @@ func (o Opcode) String() string {
 		return "HINT_COORD"
 	case OpHintNpc:
 		return "HINT_NPC"
-	case OpHintPlayer:
-		return "HINT_PLAYER"
+	case OpHintPl:
+		return "HINT_PL"
 	case OpHintStop:
 		return "HINT_STOP"
 	case OpIfClose:
 		return "IF_CLOSE"
 	case OpTutClose:
 		return "TUT_CLOSE"
-	case OpIfMultizone:
-		return "IF_MULTIZONE"
 	case OpIfOpenChat:
 		return "IF_OPENCHAT"
 	case OpTutOpen:
@@ -789,8 +750,8 @@ func (o Opcode) String() string {
 		return "IF_SETPLAYERHEAD"
 	case OpIfSetPosition:
 		return "IF_SETPOSITION"
-	case OpIfSetResumeButtons:
-		return "IF_SETRESUMEBUTTONS"
+	case OpIfAddResumeButton:
+		return "IF_ADDRESUMEBUTTON"
 	case OpIfSetTab:
 		return "IF_SETTAB"
 	case OpIfSetTabActive:
@@ -867,10 +828,6 @@ func (o Opcode) String() string {
 		return "P_TELEPORT"
 	case OpPWalk:
 		return "P_WALK"
-	case OpPlayerFindAllZone:
-		return "PLAYER_FINDALLZONE"
-	case OpPlayerFindNext:
-		return "PLAYER_FINDNEXT"
 	case OpQueue:
 		return "QUEUE"
 	case OpSay:
@@ -911,12 +868,10 @@ func (o Opcode) String() string {
 		return "UID"
 	case OpWeakQueue:
 		return "WEAKQUEUE"
-	case OpIfOpenMainOverlay:
-		return "IF_OPENMAINOVERLAY"
 	case OpAfkEvent:
 		return "AFK_EVENT"
-	case OpLowMemory:
-		return "LOWMEMORY"
+	case OpLowMem:
+		return "LOWMEM"
 	case OpSetIdKit:
 		return "SETIDKIT"
 	case OpPClearPendingAction:
@@ -939,8 +894,6 @@ func (o Opcode) String() string {
 		return "RUNENERGY"
 	case OpWeight:
 		return "WEIGHT"
-	case OpLastCoord:
-		return "LAST_COORD"
 	case OpSessionLog:
 		return "SESSION_LOG"
 	case OpWealthEvent:
@@ -1019,8 +972,6 @@ func (o Opcode) String() string {
 		return "NPC_HUNT"
 	case OpNpcHuntAll:
 		return "NPC_HUNTALL"
-	case OpNpcHuntNext:
-		return "NPC_HUNTNEXT"
 	case OpNpcSetHunt:
 		return "NPC_SETHUNT"
 	case OpNpcSetHuntMode:
@@ -1353,32 +1304,6 @@ func (o Opcode) String() string {
 		return "DB_LISTALL"
 	case OpError:
 		return "ERROR"
-	case OpMapProduction:
-		return "MAP_PRODUCTION"
-	case OpMapLastClock:
-		return "MAP_LASTCLOCK"
-	case OpMapLastWorld:
-		return "MAP_LASTWORLD"
-	case OpMapLastClientIn:
-		return "MAP_LASTCLIENTIN"
-	case OpMapLastNpc:
-		return "MAP_LASTNPC"
-	case OpMapLastPlayer:
-		return "MAP_LASTPLAYER"
-	case OpMapLastLogout:
-		return "MAP_LASTLOGOUT"
-	case OpMapLastLogin:
-		return "MAP_LASTLOGIN"
-	case OpMapLastZone:
-		return "MAP_LASTZONE"
-	case OpMapLastClientOut:
-		return "MAP_LASTCLIENTOUT"
-	case OpMapLastCleanup:
-		return "MAP_LASTCLEANUP"
-	case OpMapLastBandwidthIn:
-		return "MAP_LASTBANDWIDTHIN"
-	case OpMapLastBandwidthOut:
-		return "MAP_LASTBANDWIDTHOUT"
 	case OpTimeSpent:
 		return "TIMESPENT"
 	case OpGetTimeSpent:

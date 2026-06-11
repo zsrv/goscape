@@ -14,19 +14,20 @@ import (
 
 // jagFileVersion is the .dat header version constant.
 //
-// Pinned to 26 to match Server225_2's `@lostcityrs/runescript@^0.9.4`
-// dependency. TS upstream RuneScriptTS bumped this to 27 in commit 750291c
-// ("chore: Bumped compiler version", 2026-03-02) — a pure marker bump with no
-// layout change — but that bump postdates the pinned 0.9.4 release. The Go
-// engine reads this header via pkg/script/provider.go:13 (CompilerVersion =
-// 26) and rejects mismatched versions, and the user-facing TS-packed cache
-// at Server225_2/engine/data/pack/server/script.dat also reports 26, so the
-// packer must emit 26 for byte-parity and engine-loadable output.
+// 27 at the rev-254 pin-advance (the Task A15 flip, fronted by Task A1's
+// reference-cache re-pin): the Arc-26 REFERENCES condition is met — the
+// pinned engine depends on `@lostcityrs/runescript@0.9.6`, which carries
+// upstream commit 750291c ("chore: Bumped compiler version", a pure marker
+// bump with no layout change), and the rev-254 reference cache
+// (Server254-ref/engine/data/pack/server/script.dat @2e3bcf43) reports 27
+// in its header. The Go engine reads this header via
+// pkg/script/provider.go (CompilerVersion = 27) and rejects mismatches,
+// so the packer must emit 27 for byte-parity and engine-loadable output.
 //
-// Companion to NAI-221 (lexer reverted to 0.9.4 grammar). If Server225_2
-// ever upgrades the pinned runescript dependency past the 750291c bump,
-// flip back to 27 and also bump pkg/script/provider.go CompilerVersion.
-const jagFileVersion = 26
+// History: pinned to 26 from Arc-26 (NAI-221 companion) through rev-245.2
+// because the then-pinned `@lostcityrs/runescript@^0.9.4` predated the
+// 750291c bump. Keep this constant and CompilerVersion in lockstep.
+const jagFileVersion = 27
 
 // JagFileScriptWriter buffers scripts in-memory and writes script.dat +
 // script.idx at Close. Mirrors TS src/runescript/writer/JagFileScriptWriter.ts.

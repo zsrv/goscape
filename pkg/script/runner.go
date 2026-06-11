@@ -72,11 +72,13 @@ func Execute(s *ScriptState) error {
 		h, ok := handlers[op]
 		if !ok {
 			s.Execution = Aborted
-			// 244 delta: TS ScriptRunner.ts:151 drops the name-map lookup
-			// (`Unknown opcode ${opcode}`) — the mnemonic is no longer
-			// prepended. Go mirrors by removing op.String() from the message.
-			return fmt.Errorf("script %q: unknown opcode %d at pc=%d",
-				s.Script.Name, op, s.PC)
+			// 2e3bcf43 (254 pin-advance): TS ScriptRunner.ts restores the
+			// name-map lookup in the message —
+			// `Unhandled command ${ScriptOpcodeNameMap.get(opcode) ?? opcode}`
+			// — i.e. the mnemonic when known, else the raw number. Go
+			// mirrors via opcodeNameOrNumber.
+			return fmt.Errorf("script %q: unhandled command %s at pc=%d",
+				s.Script.Name, opcodeNameOrNumber(op), s.PC)
 		}
 
 		if err := h(s); err != nil {
@@ -106,6 +108,22 @@ func Execute(s *ScriptState) error {
 		s.PC++
 	}
 	return nil
+}
+
+// opcodeNameOrNumber returns the uppercase mnemonic for op when it is a
+// known opcode, else the bare decimal number. Mirrors the TS fallback in
+// ScriptRunner.ts @2e3bcf43:
+//
+//	`Unhandled command ${ScriptOpcodeNameMap.get(opcode) ?? opcode}`
+//
+// Opcode.String()'s "opcode_<n>" synthetic form is the Go map-miss marker;
+// TS prints the raw number there.
+func opcodeNameOrNumber(op Opcode) string {
+	name := op.String()
+	if name == fmt.Sprintf("opcode_%d", uint16(op)) {
+		return fmt.Sprintf("%d", uint16(op))
+	}
+	return name
 }
 
 // scriptOpcodePrefix returns the lowercased opcode mnemonic at the current
@@ -169,12 +187,12 @@ func scriptOpcodePrefix(s *ScriptState, existingMsg string) string {
 // subsequent entries are "    N: <name> - <fileName>:<line>" — frame 1 is
 // the currently-executing script (state.Script @ state.PC), frames 2..N are
 // the GOSUB call stack from most-recent (Frames[FrameSP-1]) down to
-// Frames[1]. Frame 0 (the oldest GOSUB frame) is intentionally skipped.
+// Frames[0]. Frame 0 (the oldest GOSUB frame) is INCLUDED again.
 //
-// 244 delta: TS ScriptRunner.ts:196 (Player path) and ScriptRunner.ts:221
-// (console path) both changed from `i >= 0` to `i > 0` — frame 0 is
-// excluded from both traces. Go shares one Backtrace impl so this single
-// change covers both paths, matching TS exactly.
+// 2e3bcf43 (254 pin-advance): TS ScriptRunner.ts reverts both debug-frame
+// loops (Player path and console path) from the 244-era `i > 0` back to
+// `i >= 0` — frame 0 is part of the trace. Go shares one Backtrace impl so
+// this single change covers both paths, matching TS exactly.
 //
 // Source-line resolution uses ScriptFile.LineNumber, the PCs/Lines table
 // accessor added alongside this helper (script-core-5 closure).
@@ -189,9 +207,9 @@ func Backtrace(s *ScriptState) []string {
 	out = append(out, fmt.Sprintf("    1: %s - %s:%d",
 		s.Script.Name, s.Script.FileName, s.Script.LineNumber(s.PC)))
 	trace := 1
-	// 244: loop is i > 0, not i >= 0 — frame 0 (oldest GOSUB frame) is
-	// skipped. Mirrors TS ScriptRunner.ts:196 and :221.
-	for i := s.FrameSP - 1; i > 0; i-- {
+	// 2e3bcf43: loop is i >= 0 again — frame 0 (oldest GOSUB frame) is
+	// included. Mirrors TS ScriptRunner.ts (both error paths) at the pin.
+	for i := s.FrameSP - 1; i >= 0; i-- {
 		f := s.Frames[i]
 		if f.Script == nil {
 			continue

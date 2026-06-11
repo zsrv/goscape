@@ -1425,13 +1425,13 @@ func TestBASSetters(t *testing.T) {
 		op   Opcode
 		get  func(*mockPlayer) int
 	}{
-		{"BAS_READYANIM", OpBasReadyAnim, func(m *mockPlayer) int { return m.lastReadyAnim }},
-		{"BAS_TURNONSPOT", OpBasTurnOnSpot, func(m *mockPlayer) int { return m.lastTurnAnim }},
-		{"BAS_WALK_F", OpBasWalkF, func(m *mockPlayer) int { return m.lastWalkAnim }},
-		{"BAS_WALK_B", OpBasWalkB, func(m *mockPlayer) int { return m.lastWalkAnimB }},
-		{"BAS_WALK_L", OpBasWalkL, func(m *mockPlayer) int { return m.lastWalkAnimL }},
-		{"BAS_WALK_R", OpBasWalkR, func(m *mockPlayer) int { return m.lastWalkAnimR }},
-		{"BAS_RUNNING", OpBasRunning, func(m *mockPlayer) int { return m.lastRunAnim }},
+		{"READYANIM", OpReadyAnim, func(m *mockPlayer) int { return m.lastReadyAnim }},
+		{"TURNANIM", OpTurnAnim, func(m *mockPlayer) int { return m.lastTurnAnim }},
+		{"WALKANIM", OpWalkAnim, func(m *mockPlayer) int { return m.lastWalkAnim }},
+		{"WALKANIM_B", OpWalkAnimB, func(m *mockPlayer) int { return m.lastWalkAnimB }},
+		{"WALKANIM_L", OpWalkAnimL, func(m *mockPlayer) int { return m.lastWalkAnimL }},
+		{"WALKANIM_R", OpWalkAnimR, func(m *mockPlayer) int { return m.lastWalkAnimR }},
+		{"RUNANIM", OpRunAnim, func(m *mockPlayer) int { return m.lastRunAnim }},
 	}
 	mc := &mockConfigs{
 		seqs: map[int]*objtype.SeqType{
@@ -1472,13 +1472,13 @@ func TestBASSettersRejectInvalidSeq(t *testing.T) {
 		name string
 		op   Opcode
 	}{
-		{"BAS_READYANIM", OpBasReadyAnim},
-		{"BAS_TURNONSPOT", OpBasTurnOnSpot},
-		{"BAS_WALK_F", OpBasWalkF},
-		{"BAS_WALK_B", OpBasWalkB},
-		{"BAS_WALK_L", OpBasWalkL},
-		{"BAS_WALK_R", OpBasWalkR},
-		{"BAS_RUNNING", OpBasRunning},
+		{"READYANIM", OpReadyAnim},
+		{"TURNANIM", OpTurnAnim},
+		{"WALKANIM", OpWalkAnim},
+		{"WALKANIM_B", OpWalkAnimB},
+		{"WALKANIM_L", OpWalkAnimL},
+		{"WALKANIM_R", OpWalkAnimR},
+		{"RUNANIM", OpRunAnim},
 	}
 	mc := &mockConfigs{seqs: map[int]*objtype.SeqType{}} // empty registry
 	for _, tc := range cases {
@@ -1516,13 +1516,13 @@ func TestBASSettersRejectInvalidSeq(t *testing.T) {
 // TestBasRunningAcceptsMinusOne pins TS PlayerOps.ts:961-964 — -1 is a
 // clear-sentinel that bypasses SeqTypeValid and is forwarded directly
 // to SetRunAnim. Tested with an empty seq registry to confirm the -1
-// branch does NOT consult Configs. (BAS_RUNNING renamed from RUNANIM in 244.)
+// branch does NOT consult Configs. (RUNANIM renamed from RUNANIM in 244.)
 func TestBasRunningAcceptsMinusOne(t *testing.T) {
 	mp := &mockPlayer{}
 	sf := &ScriptFile{
 		Name: "bas_running_clear",
 		Opcodes: []Opcode{
-			OpPushConstantInt, OpBasRunning, OpReturn,
+			OpPushConstantInt, OpRunAnim, OpReturn,
 		},
 		IntOperands:      []int32{-1, 0, 0},
 		StringOperands:   []string{"", "", ""},
@@ -1534,19 +1534,19 @@ func TestBasRunningAcceptsMinusOne(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 	if mp.lastRunAnim != -1 {
-		t.Errorf("BAS_RUNNING -1: got %d, want -1", mp.lastRunAnim)
+		t.Errorf("RUNANIM -1: got %d, want -1", mp.lastRunAnim)
 	}
 }
 
 // TestBasRunningRejectsInvalidSeq pins TS PlayerOps.ts:965 — any non-(-1)
 // seq id is validated against SeqTypeValid and aborts the script on
-// miss. (BAS_RUNNING renamed from RUNANIM in 244.)
+// miss. (RUNANIM renamed from RUNANIM in 244.)
 func TestBasRunningRejectsInvalidSeq(t *testing.T) {
 	mp := &mockPlayer{lastRunAnim: -2} // sentinel to detect spurious write
 	sf := &ScriptFile{
 		Name: "bas_running_invalid",
 		Opcodes: []Opcode{
-			OpPushConstantInt, OpBasRunning, OpReturn,
+			OpPushConstantInt, OpRunAnim, OpReturn,
 		},
 		IntOperands:      []int32{99, 0, 0},
 		StringOperands:   []string{"", "", ""},
@@ -1556,10 +1556,10 @@ func TestBasRunningRejectsInvalidSeq(t *testing.T) {
 	state.Configs = &mockConfigs{seqs: map[int]*objtype.SeqType{}}
 	err := Execute(state)
 	if err == nil {
-		t.Fatal("BAS_RUNNING with unknown seq: Execute returned nil, want error")
+		t.Fatal("RUNANIM with unknown seq: Execute returned nil, want error")
 	}
-	if !strings.Contains(err.Error(), "BAS_RUNNING") {
-		t.Errorf("error %q does not mention BAS_RUNNING", err.Error())
+	if !strings.Contains(err.Error(), "RUNANIM") {
+		t.Errorf("error %q does not mention RUNANIM", err.Error())
 	}
 	if mp.lastRunAnim != -2 {
 		t.Errorf("SetRunAnim should not be called on validation failure (lastRunAnim=%d)", mp.lastRunAnim)
@@ -1775,13 +1775,13 @@ func TestHandlersRequireActivePlayer(t *testing.T) {
 		{"P_TELEJUMP", OpPTeleJump},
 		{"ANIM", OpAnim},
 		{"SPOTANIM_PL", OpSpotAnimPl},
-		{"BAS_READYANIM", OpBasReadyAnim},
-		{"BAS_TURNONSPOT", OpBasTurnOnSpot},
-		{"BAS_WALK_F", OpBasWalkF},
-		{"BAS_WALK_B", OpBasWalkB},
-		{"BAS_WALK_L", OpBasWalkL},
-		{"BAS_WALK_R", OpBasWalkR},
-		{"BAS_RUNNING", OpBasRunning},
+		{"READYANIM", OpReadyAnim},
+		{"TURNANIM", OpTurnAnim},
+		{"WALKANIM", OpWalkAnim},
+		{"WALKANIM_B", OpWalkAnimB},
+		{"WALKANIM_L", OpWalkAnimL},
+		{"WALKANIM_R", OpWalkAnimR},
+		{"RUNANIM", OpRunAnim},
 		// NAI-117 T1.
 		{"P_RUN", OpPRun},
 		// NAI-117 T2.
@@ -4268,9 +4268,9 @@ func TestHandleHuntAll_StoresHuntAllPlayerIterator(t *testing.T) {
 	if err := handleHuntAll(s); err != nil {
 		t.Fatalf("handleHuntAll: %v", err)
 	}
-	it, ok := s.huntIterator.(*PlayerIterator)
-	if !ok || it == nil {
-		t.Fatal("huntIterator should hold a *PlayerIterator after HUNTALL")
+	it := s.playerIterator
+	if it == nil {
+		t.Fatal("playerIterator should hold a *PlayerIterator after HUNTALL")
 	}
 	if it.mode != PlayerIteratorHuntAll {
 		t.Errorf("mode: got %v, want PlayerIteratorHuntAll", it.mode)
@@ -4300,8 +4300,8 @@ func TestHandleHuntAll_NilLookupDegrades(t *testing.T) {
 	if err := handleHuntAll(s); err != nil {
 		t.Fatalf("handleHuntAll with nil PlayerLookup: %v", err)
 	}
-	if s.huntIterator != nil {
-		t.Error("huntIterator should remain nil when PlayerLookup is nil (degrades to HUNTNEXT push-0)")
+	if s.playerIterator != nil {
+		t.Error("playerIterator should remain nil when PlayerLookup is nil (degrades to HUNTNEXT push-0)")
 	}
 }
 
@@ -4313,15 +4313,15 @@ func TestHandleHuntAll_InvalidHuntVisRejected(t *testing.T) {
 	} else if !strings.Contains(err.Error(), "HUNTALL") {
 		t.Errorf("error should be tagged HUNTALL: %v", err)
 	}
-	if s.huntIterator != nil {
-		t.Error("huntIterator should remain nil after validation error")
+	if s.playerIterator != nil {
+		t.Error("playerIterator should remain nil after validation error")
 	}
 }
 
 // --- NAI-35-T5: HUNTNEXT handler tests ---------------------------------
 
 // newHuntNextState mirrors newNpcFindNextState (handlers_npc_test.go:1860):
-// builds a ScriptState with a pre-set huntIterator (*PlayerIterator) and
+// builds a ScriptState with a pre-set playerIterator and
 // configurable World tick. Tests use this for direct handler-level coverage.
 func newHuntNextState(t *testing.T, tick int, iter *PlayerIterator) *ScriptState {
 	t.Helper()
@@ -4335,7 +4335,7 @@ func newHuntNextState(t *testing.T, tick int, iter *PlayerIterator) *ScriptState
 		StringStack: make([]string, StackCapacity),
 	}
 	if iter != nil {
-		s.huntIterator = iter
+		s.playerIterator = iter
 	}
 	return s
 }
@@ -4431,7 +4431,7 @@ func TestHandleHuntNext_ExhaustionPushesZero(t *testing.T) {
 
 // TestHandleHuntNext_ExhaustionDoesNotClearIterator pins
 // iterator_state_pattern.md element 7: exhaustion does NOT nil out
-// s.huntIterator. Mirrors NPC parity at handlers_npc_test.go:1926.
+// s.playerIterator. Mirrors NPC parity at handlers_npc_test.go:1926.
 func TestHandleHuntNext_ExhaustionDoesNotClearIterator(t *testing.T) {
 	lookup := &mockPlayerLookup{}
 	iter := NewHuntAllPlayerIterator(
@@ -4443,8 +4443,8 @@ func TestHandleHuntNext_ExhaustionDoesNotClearIterator(t *testing.T) {
 		t.Fatalf("first handleHuntNext: %v", err)
 	}
 	_ = s.PopInt() // discard first push
-	if s.huntIterator == nil {
-		t.Fatal("huntIterator should NOT be cleared on exhaustion (TS parity)")
+	if s.playerIterator == nil {
+		t.Fatal("playerIterator should NOT be cleared on exhaustion (TS parity)")
 	}
 
 	// Second call on the now-exhausted iterator must also push 0
@@ -4455,8 +4455,8 @@ func TestHandleHuntNext_ExhaustionDoesNotClearIterator(t *testing.T) {
 	if got := s.PopInt(); got != 0 {
 		t.Errorf("second exhaustion: got push %d, want 0", got)
 	}
-	if s.huntIterator == nil {
-		t.Error("huntIterator should still be non-nil after second call")
+	if s.playerIterator == nil {
+		t.Error("playerIterator should still be non-nil after second call")
 	}
 }
 
@@ -4481,7 +4481,7 @@ func newHuntNextStateWithOperand(t *testing.T, tick int, iter *PlayerIterator, o
 		StringStack: make([]string, StackCapacity),
 	}
 	if iter != nil {
-		s.huntIterator = iter
+		s.playerIterator = iter
 	}
 	return s
 }
@@ -4583,42 +4583,33 @@ func TestHandleHuntNext_InvalidOperand_Errors(t *testing.T) {
 	}
 }
 
-// --- NAI-37 Task 6 / rev-244 B4: HINT_NPC handler unit tests --------------
-//
-// 244 contract (PlayerOps.ts:963-965):
-//
-//	state.activePlayer.hintNpc(check(state.popInt(), NumberNotNull))
-//
-// HINT_NPC now pops the nid from the int stack rather than reading
-// state.activeNpc. The requireActiveNpc gate is gone from the handler
-// (though the compiler-side pointer-table entry retains it). Removed tests
-// that pinned the 225 activeNpc-based contract:
-//   - TestHintNpc_NoActiveNpc_Errors (225 gate is gone in 244)
-//   - TestHintNpc_Success_RecordsNid (pinned nid from activeNpc, not stack)
+// --- HINT_NPC handler unit tests (2e3bcf43 contract: reads activeNpc.nid,
+// nothing popped — the 244-era pop-an-nid form is gone) ---------------------
 
 func TestHintNpc_NoActivePlayer_Errors(t *testing.T) {
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	} // no Self
-	s.PushInt(42)
 	if err := handleHintNpc(s); err == nil {
 		t.Fatalf("expected error for no active player")
 	}
 }
 
-// TestHintNpc_PopsNidFromStack pins the 244 contract: nid is popped from the
-// int stack (not read from state.activeNpc). TS PlayerOps.ts:963-965.
-func TestHintNpc_PopsNidFromStack(t *testing.T) {
+// TestHintNpc_ReadsActiveNpcNid pins the 2e3bcf43 contract: nothing is
+// popped — the nid comes from the active NPC (TS PlayerOps.ts
+// `state.activePlayer.hintNpc(state.activeNpc.nid)`; the 244-era
+// pop-an-nid form is gone).
+func TestHintNpc_ReadsActiveNpcNid(t *testing.T) {
 	pl := &mockPlayer{}
+	npc := &mockNpc{nid: 42}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 		Self:        pl,
-		Pointers:    PtrActivePlayer,
-		// ActiveNpc intentionally NOT set — handler must not require it.
+		ActiveNpc:   npc,
+		Pointers:    PtrActivePlayer | PtrActiveNpc,
 	}
-	s.PushInt(42)
 	if err := handleHintNpc(s); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -4627,9 +4618,9 @@ func TestHintNpc_PopsNidFromStack(t *testing.T) {
 	}
 }
 
-// TestHintNpc_NullNid_Errors pins that a null(-1) nid is rejected via
-// checkNotNull, mirroring TS check(state.popInt(), NumberNotNull).
-func TestHintNpc_NullNid_Errors(t *testing.T) {
+// TestHintNpc_NoActiveNpc_Errors pins the restored active-npc gate
+// (the TS activeNpc getter throws on null at 2e3bcf43).
+func TestHintNpc_NoActiveNpc_Errors(t *testing.T) {
 	pl := &mockPlayer{}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
@@ -4637,12 +4628,11 @@ func TestHintNpc_NullNid_Errors(t *testing.T) {
 		Self:        pl,
 		Pointers:    PtrActivePlayer,
 	}
-	s.PushInt(-1) // null sentinel
 	if err := handleHintNpc(s); err == nil {
-		t.Fatal("expected error for null nid (-1)")
+		t.Fatal("expected error for no active npc")
 	}
 	if len(pl.hintNpcCalls) != 0 {
-		t.Errorf("hintNpcCalls: got %d, want 0 on validation failure", len(pl.hintNpcCalls))
+		t.Errorf("hintNpcCalls: got %d, want 0 on gate failure", len(pl.hintNpcCalls))
 	}
 }
 
@@ -4725,47 +4715,41 @@ func TestHintCoord_PopOrderDistinctValues(t *testing.T) {
 	}
 }
 
-// --- NAI-39 Task 4 / rev-244 B4: HINT_PLAYER handler unit tests -----------
+// --- NAI-39 Task 4 / 254 pin-advance: HINT_PL handler unit tests -----------
 //
-// 244 contract (PlayerOps.ts:967-974):
+// 2e3bcf43 contract (PlayerOps.ts):
 //
-//	const uid = check(state.popInt(), NumberNotNull)
-//	const player = World.getPlayerByUid(uid)
-//	if (!player) { return }
-//	state.activePlayer.hintPlayer(player.pid)
+//	state.activePlayer.hintPlayer(state.activePlayer2.slot);
 //
-// HINT_PLAYER now pops a uid, resolves via PlayerLookup, and hints by pid
-// (Slot() in the ActivePlayer interface). activePlayer2 is gone. Removed
-// tests that pinned the 225 activePlayer2-based contract:
-//   - TestHintPl_NoActivePlayer2_Errors (requireActivePlayer2 gate is gone)
-//   - TestHintPl_Success_RecordsSlot (pinned Self2.Slot(), not uid lookup)
+// HINT_PL reads the SECONDARY active player (the restored TS activePlayer2
+// getter) — nothing is popped. The 244-era uid-lookup tests were replaced
+// at the pin-advance.
 
 func TestHintPl_NoActivePlayer_Errors(t *testing.T) {
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	} // no Self
-	s.PushInt(7)
-	if err := handleHintPlayer(s); err == nil {
+	if err := handleHintPl(s); err == nil {
 		t.Fatal("expected error for no active player")
 	}
 }
 
-// TestHintPlayer_UidLookup_Hit pins: uid resolved → HintPlayer called with
-// the target player's pid (Slot()). TS PlayerOps.ts:967-974.
-func TestHintPlayer_UidLookup_Hit(t *testing.T) {
+// TestHintPl_ReadsActivePlayer2Slot pins the 2e3bcf43 contract: nothing
+// is popped — HintPlayer receives the SECONDARY active player's slot
+// (TS PlayerOps.ts `state.activePlayer.hintPlayer(state.activePlayer2.slot)`;
+// the 244-era pop-a-uid + World.getPlayerByUid form is gone).
+func TestHintPl_ReadsActivePlayer2Slot(t *testing.T) {
 	pl := &mockPlayer{}
 	target := &mockPlayer{slot: 3}
-	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{7: target}}
 	s := &ScriptState{
-		IntStack:     make([]int, StackCapacity),
-		StringStack:  make([]string, StackCapacity),
-		Self:         pl,
-		Pointers:     PtrActivePlayer,
-		PlayerLookup: lookup,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        pl,
+		Self2:       target,
+		Pointers:    PtrActivePlayer | PtrActivePlayer2,
 	}
-	s.PushInt(7) // uid
-	if err := handleHintPlayer(s); err != nil {
+	if err := handleHintPl(s); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if want := []int{3}; !slices.Equal(pl.hintPlayerCalls, want) {
@@ -4773,45 +4757,21 @@ func TestHintPlayer_UidLookup_Hit(t *testing.T) {
 	}
 }
 
-// TestHintPlayer_UidLookup_Miss pins the silent no-op on uid miss: TS
-// PlayerOps.ts:970-972 `if (!player) { return; }` — no error, no hint call.
-func TestHintPlayer_UidLookup_Miss(t *testing.T) {
+// TestHintPl_NoActivePlayer2_Errors pins the restored secondary-slot
+// gate (the TS activePlayer2 getter throws on null at 2e3bcf43).
+func TestHintPl_NoActivePlayer2_Errors(t *testing.T) {
 	pl := &mockPlayer{}
-	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{}} // uid 9999 not present
 	s := &ScriptState{
-		IntStack:     make([]int, StackCapacity),
-		StringStack:  make([]string, StackCapacity),
-		Self:         pl,
-		Pointers:     PtrActivePlayer,
-		PlayerLookup: lookup,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        pl,
+		Pointers:    PtrActivePlayer,
 	}
-	s.PushInt(9999) // unknown uid
-	if err := handleHintPlayer(s); err != nil {
-		t.Fatalf("unexpected error on uid miss: %v", err)
+	if err := handleHintPl(s); err == nil {
+		t.Fatal("expected error for missing active player2")
 	}
 	if len(pl.hintPlayerCalls) != 0 {
-		t.Errorf("hintPlayerCalls: got %d, want 0 on uid miss", len(pl.hintPlayerCalls))
-	}
-}
-
-// TestHintPlayer_NullUid_Errors pins that a null(-1) uid is rejected via
-// checkNotNull, mirroring TS check(state.popInt(), NumberNotNull).
-func TestHintPlayer_NullUid_Errors(t *testing.T) {
-	pl := &mockPlayer{}
-	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{}}
-	s := &ScriptState{
-		IntStack:     make([]int, StackCapacity),
-		StringStack:  make([]string, StackCapacity),
-		Self:         pl,
-		Pointers:     PtrActivePlayer,
-		PlayerLookup: lookup,
-	}
-	s.PushInt(-1) // null sentinel
-	if err := handleHintPlayer(s); err == nil {
-		t.Fatal("expected error for null uid (-1)")
-	}
-	if len(pl.hintPlayerCalls) != 0 {
-		t.Errorf("hintPlayerCalls: got %d, want 0 on validation failure", len(pl.hintPlayerCalls))
+		t.Errorf("hintPlayerCalls: got %d, want 0 on gate failure", len(pl.hintPlayerCalls))
 	}
 }
 
@@ -5590,11 +5550,11 @@ func TestHandleLowMemReturnsZeroWhenHighMem(t *testing.T) {
 	s.Self = &mockPlayer{}
 	s.Pointers |= PtrActivePlayer
 
-	if err := handleLowMemory(s); err != nil {
-		t.Fatalf("LOWMEMORY returned error: %v", err)
+	if err := handleLowMem(s); err != nil {
+		t.Fatalf("LOWMEM returned error: %v", err)
 	}
 	if got := s.PopInt(); got != 0 {
-		t.Errorf("LOWMEMORY high-mem: got %d, want 0", got)
+		t.Errorf("LOWMEM high-mem: got %d, want 0", got)
 	}
 }
 
@@ -5604,18 +5564,18 @@ func TestHandleLowMemReturnsOneWhenLowMem(t *testing.T) {
 	s.Self = pl
 	s.Pointers |= PtrActivePlayer
 
-	if err := handleLowMemory(s); err != nil {
-		t.Fatalf("LOWMEMORY returned error: %v", err)
+	if err := handleLowMem(s); err != nil {
+		t.Fatalf("LOWMEM returned error: %v", err)
 	}
 	if got := s.PopInt(); got != 1 {
-		t.Errorf("LOWMEMORY low-mem: got %d, want 1", got)
+		t.Errorf("LOWMEM low-mem: got %d, want 1", got)
 	}
 }
 
 func TestHandleLowMemNoActivePlayer(t *testing.T) {
 	s := newTestState(minimalScript(OpReturn))
-	if err := handleLowMemory(s); err == nil {
-		t.Errorf("LOWMEMORY no active player: expected error, got nil")
+	if err := handleLowMem(s); err == nil {
+		t.Errorf("LOWMEM no active player: expected error, got nil")
 	}
 }
 
@@ -7559,29 +7519,29 @@ func TestHandlePWalk_DispatchesWalkWithUnpackedXZ(t *testing.T) {
 	}
 }
 
-// --- rev-244 B4 Task 3: HUNTALL/HUNTNEXT re-pointed to huntIterator ------
+// --- 2e3bcf43 (254 pin-advance): HUNTALL/HUNTNEXT on typed playerIterator ---
 
-// TestHuntAll_StoresIntoHuntIterator pins that HUNTALL writes to
-// s.huntIterator (not the old playerIterator field) after the rev-244
-// unification. Mirrors TS ServerOps.ts:53-61 at pin 9aadcec4.
-func TestHuntAll_StoresIntoHuntIterator(t *testing.T) {
+// TestHuntAll_StoresIntoPlayerIterator pins that HUNTALL writes the typed
+// s.playerIterator (TS ScriptState.playerIterator @2e3bcf43; the 244-era
+// untyped huntIterator is gone).
+func TestHuntAll_StoresIntoPlayerIterator(t *testing.T) {
 	coord := (0 << 28) | (3200 << 14) | 3200
 	s := newHuntAllState(t, coord, 10, objtype.HuntVisLineOfSight, &mockPlayerLookup{})
 	if err := handleHuntAll(s); err != nil {
 		t.Fatalf("handleHuntAll: %v", err)
 	}
-	it, ok := s.huntIterator.(*PlayerIterator)
-	if !ok || it == nil {
-		t.Fatal("huntIterator should hold a *PlayerIterator after HUNTALL")
+	if s.playerIterator == nil {
+		t.Fatal("playerIterator should be set after HUNTALL")
 	}
-	if it.mode != PlayerIteratorHuntAll {
-		t.Errorf("mode: got %v, want PlayerIteratorHuntAll", it.mode)
+	if s.playerIterator.mode != PlayerIteratorHuntAll {
+		t.Errorf("mode: got %v, want PlayerIteratorHuntAll", s.playerIterator.mode)
 	}
 }
 
-// TestHuntNext_ConsumesHuntIterator verifies the HUNTALL→HUNTNEXT happy path
-// against the unified huntIterator. A seeded player is expected to be yielded.
-func TestHuntNext_ConsumesHuntIterator(t *testing.T) {
+// TestHuntNext_ConsumesPlayerIterator verifies the HUNTALL→HUNTNEXT happy
+// path against the typed playerIterator. A seeded player is expected to be
+// yielded.
+func TestHuntNext_ConsumesPlayerIterator(t *testing.T) {
 	target := &mockPlayer{username: "Hit2", x: 3204, z: 3204}
 	lookup := &mockPlayerLookup{
 		byZone: map[zoneKey][]ActivePlayer{
@@ -7601,52 +7561,5 @@ func TestHuntNext_ConsumesHuntIterator(t *testing.T) {
 	}
 	if s.Self != target {
 		t.Fatalf("Self: got %v, want target %v", s.Self, target)
-	}
-}
-
-// -- rev-244 B4: BUFFER_FULL (opcode 2009) ---------------------------------
-
-// TestBufferFull_PushesZero pins BUFFER_FULL: TS PlayerOps.ts:198-203 — the
-// handler stubs bandwidth soft-limit awareness by pushing 0 ("todo: should
-// we have this yet?"). The value is always 0 regardless of actual state.
-// https://x.com/JagexAsh/status/1694990340669747261
-func TestBufferFull_PushesZero(t *testing.T) {
-	mp := &mockPlayer{}
-	sf := &ScriptFile{
-		Name:             "buffer_full",
-		Opcodes:          []Opcode{OpBufferFull, OpReturn},
-		IntOperands:      []int32{0, 0},
-		StringOperands:   []string{"", ""},
-		InstructionCount: 2,
-	}
-	state := Init(sf, mp, false, nil, nil)
-	if err := Execute(state); err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if got := state.PopInt(); got != 0 {
-		t.Errorf("BUFFER_FULL: got %d, want 0", got)
-	}
-}
-
-// TestBufferFull_NoActivePlayer pins the requireActivePlayer gate:
-// Self=nil → error containing "BUFFER_FULL".
-func TestBufferFull_NoActivePlayer(t *testing.T) {
-	sf := &ScriptFile{
-		Name:             "buffer_full_nap",
-		Opcodes:          []Opcode{OpBufferFull, OpReturn},
-		IntOperands:      []int32{0, 0},
-		StringOperands:   []string{"", ""},
-		InstructionCount: 2,
-	}
-	state := Init(sf, nil, false, nil, nil)
-	err := Execute(state)
-	if err == nil {
-		t.Fatal("expected error from BUFFER_FULL with no active player, got nil")
-	}
-	if !strings.Contains(err.Error(), "BUFFER_FULL") {
-		t.Errorf("error: got %q, want contains %q", err.Error(), "BUFFER_FULL")
-	}
-	if state.Execution != Aborted {
-		t.Errorf("Execution: got %v, want Aborted", state.Execution)
 	}
 }

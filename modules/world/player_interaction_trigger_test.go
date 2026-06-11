@@ -43,19 +43,20 @@ func TestApPlayerTriggerForOp(t *testing.T) {
 }
 
 // buildOpPlayerHintPlScript returns an [opplayer1,_]-style script that
-// hints the player whose uid is targetUID. 244 contract: HINT_PLAYER pops
-// a uid and resolves it via World.getPlayerByUid (PlayerOps.ts:967-974);
-// the script pushes the uid as a constant.
+// hints the secondary active player. 2e3bcf43 (254 pin-advance) contract:
+// HINT_PL pops nothing and reads state.activePlayer2.slot (the OPPLAYER
+// trigger binds the clicked player into the secondary slot) — the 244-era
+// pop-a-uid form is gone.
 //
 // trigger should be the OPPLAYER trigger (TriggerOpPlayer1..4 / T / U).
-func buildOpPlayerHintPlScript(trigger script.ServerTriggerType, targetUID int) *script.ScriptFile {
+func buildOpPlayerHintPlScript(trigger script.ServerTriggerType) *script.ScriptFile {
 	return &script.ScriptFile{
 		Name:             "[opplayer1,_]",
 		LookupKey:        script.LookupKeyForGlobal(trigger),
-		Opcodes:          []script.Opcode{script.OpPushConstantInt, script.OpHintPlayer, script.OpReturn},
-		IntOperands:      []int32{int32(targetUID), 0, 0},
-		StringOperands:   []string{"", "", ""},
-		InstructionCount: 3,
+		Opcodes:          []script.Opcode{script.OpHintPl, script.OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
 	}
 }
 
@@ -89,7 +90,7 @@ func newPlayerTriggerFixture(t *testing.T) (s *Server, clicker, target *Player, 
 // dispatch pipeline for the OPPLAYER trigger family (NAI-70).
 //
 // Registering an [opplayer1,_] script that pushes target.uid and runs
-// HINT_PLAYER (244 contract: pops uid, resolves via PlayerLookup,
+// HINT_PL (244 contract: pops uid, resolves via PlayerLookup,
 // PlayerOps.ts:967-974) and observing the resulting HINT_ARROW packet on the
 // CLICKER's wire proves:
 //   - fireOpTriggerPlayer invoked runScript, which in turn executed the script.
@@ -97,7 +98,7 @@ func newPlayerTriggerFixture(t *testing.T) (s *Server, clicker, target *Player, 
 //     state.Self's *Player and the wire packet lands on clicker's conn.
 //   - The uid→pid lookup resolved target correctly (slot on the wire = target.pid).
 //
-// Note (244): HINT_PLAYER no longer reads Self2; uid is popped from the int
+// Note (244): HINT_PL no longer reads Self2; uid is popped from the int
 // stack. Self2 binding (buildPlayerScriptState sets activePlayer2 = target,
 // script.go:55-59, mirroring ScriptRunner.ts:84-87) is preserved by the engine
 // but is no longer directly observable via this opcode. The pipeline coverage
@@ -107,7 +108,7 @@ func newPlayerTriggerFixture(t *testing.T) (s *Server, clicker, target *Player, 
 func TestFireOpTriggerPlayer_ScriptFiresAndHintsTarget(t *testing.T) {
 	s, clicker, target, clickerConn, _ := newPlayerTriggerFixture(t)
 
-	// 244: HINT_PLAYER resolves target by uid. Register target so
+	// 244: HINT_PL resolves target by uid. Register target so
 	// LookupPlayerByUID can find it.
 	const targetUID = 42
 	target.uid = targetUID
@@ -118,7 +119,7 @@ func TestFireOpTriggerPlayer_ScriptFiresAndHintsTarget(t *testing.T) {
 	// identically to clicker.client.encryptor (NAI-70 fixture seed).
 	wantEnc, _ := isaacPair([4]uint32{5, 6, 7, 8})
 
-	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1, targetUID))
+	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
 
 	received := drainConn(t, clickerConn)
 	tryFireOpTrigger(clicker)
@@ -176,14 +177,14 @@ func TestFireApTriggerPlayer_NoScriptSetsApRangeMinusOne(t *testing.T) {
 func TestTryFireOpTrigger_PlayerArm(t *testing.T) {
 	s, clicker, target, clickerConn, _ := newPlayerTriggerFixture(t)
 
-	// 244: HINT_PLAYER resolves target by uid. Register target so
+	// 244: HINT_PL resolves target by uid. Register target so
 	// LookupPlayerByUID can find it.
 	const targetUID = 42
 	target.uid = targetUID
 	target.active = true
 	s.players.set(target.pid, target)
 
-	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1, targetUID))
+	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
 
 	received := drainConn(t, clickerConn)
 	tryFireOpTrigger(clicker)

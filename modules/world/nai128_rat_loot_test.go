@@ -19,7 +19,7 @@ import (
 // skipReason != "" the test should t.Skipf to keep CI-portable.
 func nai128CacheFixture(t *testing.T) (*Server, string) {
 	t.Helper()
-	cacheDir := ref245CacheDir(t)
+	cacheDir := ref254CacheDir(t)
 	for _, p := range []string{
 		filepath.Join(cacheDir, "server", "script.dat"),
 		filepath.Join(cacheDir, "server", "npc.dat"),
@@ -408,16 +408,17 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 			}
 		}
 
-		// G6 — worldVarsView.AddObj gateway. ai_queue3's two obj_add
-		// calls fire one record each (death_drop + raw_rat_meat).
+		// G6 — worldVarsView.AddObj gateway. 254 content: ai_queue3 has a
+		// single obj_add (death_drop) — the 245.2-era raw_rat_meat add was
+		// removed upstream (tut_giant_rat.rs2:4-12 in Server254-ref).
 		var addObjRecs []slog.Record
 		for _, r := range records {
 			if r.Message == "nai128.obj.add" {
 				addObjRecs = append(addObjRecs, r)
 			}
 		}
-		if len(addObjRecs) < 2 {
-			t.Errorf("G6: expected at least 2 %q records during cascade (death_drop + raw_rat_meat); got %d",
+		if len(addObjRecs) < 1 {
+			t.Errorf("G6: expected at least 1 %q record during cascade (death_drop); got %d",
 				"nai128.obj.add", len(addObjRecs))
 		}
 
@@ -442,11 +443,13 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 	})
 
 	t.Run("GroundObjs", func(t *testing.T) {
-		// Look up expected obj IDs.
-		ratMeatID, ok := s.objTypes.ConfigNames["raw_rat_meat"]
-		if !ok {
-			t.Fatalf("obj type 'raw_rat_meat' not in ConfigNames; binding candidate: ObjType cache gap")
-		}
+		// 254 content (Server254-ref @ the pin-advance): the
+		// [ai_queue3,newbiegiantrat] script drops ONLY
+		// obj_add(npc_coord, npc_param(death_drop), ...) — the 245.2-era
+		// second obj_add(npc_coord, raw_rat_meat, ...) was removed
+		// upstream (tut_giant_rat.rs2:4-12). Expectation re-pinned from
+		// 2 ground objs to 1 when the cache fixture moved to the 254
+		// reference cache (addendum Task A1).
 
 		// Resolve the death_drop param ID, then read it off the rat type.
 		// Pre-flight: NpcType.Params is map[uint32]any (paramtype.go:10);
@@ -486,8 +489,8 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 				atRat = append(atRat, o.Type)
 			}
 		}
-		if len(atRat) != 2 {
-			t.Errorf("ground obj count at rat coord = %d; want 2 (binding candidate E: OBJ_ADD not registering OR npc_findhero=false skipping the if-block)", len(atRat))
+		if len(atRat) != 1 {
+			t.Errorf("ground obj count at rat coord = %d; want 1 (binding candidate E: OBJ_ADD not registering OR npc_findhero=false skipping the if-block)", len(atRat))
 			t.Logf("  observed types at rat coord: %v", atRat)
 			t.Logf("  zone.Objs full: %d entries", len(z.Objs))
 			for i, o := range z.Objs {
@@ -497,27 +500,21 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 			return
 		}
 
-		// Specific-match dispatch verification (spec §6 R3 mitigation):
-		// raw_rat_meat is in the [ai_queue3,newbiegiantrat] specific match
-		// but NOT in [ai_queue3,_] / [proc,npc_default_death]. Its presence
-		// pins specific-trigger dispatch.
-		hasMeat := false
+		// The death_drop obj pins both npc_findhero=true (the obj_add sits
+		// inside the if-block) and OBJ_ADD registration. The 245.2-era
+		// raw_rat_meat specific-match probe is gone with the content change;
+		// specific-trigger dispatch stays pinned by the G4 queuefire records
+		// in CascadeDispatchTrace.
 		hasDrop := false
 		for _, typ := range atRat {
-			if typ == ratMeatID {
-				hasMeat = true
-			}
 			if typ == dropObjID {
 				hasDrop = true
 			}
 		}
-		if !hasMeat {
-			t.Errorf("raw_rat_meat (id=%d) not among ground objs at rat coord; binding candidate: [ai_queue3,newbiegiantrat] specific-match did not dispatch (fell through to [ai_queue3,_] generic)", ratMeatID)
-		}
 		if !hasDrop {
 			t.Errorf("death_drop (id=%d) not among ground objs at rat coord; binding candidate D: npc_param(death_drop) returned a value but obj_add for it did not register", dropObjID)
 		}
-		t.Logf("ground objs at rat coord: %v (expected death_drop=%d + raw_rat_meat=%d)", atRat, dropObjID, ratMeatID)
+		t.Logf("ground objs at rat coord: %v (expected death_drop=%d)", atRat, dropObjID)
 	})
 }
 

@@ -1460,10 +1460,12 @@ func (p *Player) FlashTutorial(tab int) {
 	p.writeOut(gameserver.OpTutFlash, []byte{byte(tab)})
 }
 
-// SetResumeButtons stores the 5 resume-button interface ids for later
-// consumption by P_PAUSEBUTTON. No wire op is emitted.
-func (p *Player) SetResumeButtons(b1, b2, b3, b4, b5 int) {
-	p.resumeButtons = [5]int{b1, b2, b3, b4, b5}
+// AddResumeButton appends one resume-button interface id for later
+// consumption by the if_button resume gate. No wire op is emitted.
+// Mirrors TS PlayerOps.ts IF_ADDRESUMEBUTTON @2e3bcf43
+// (`state.activePlayer.resumeButtons.push(comId)`).
+func (p *Player) AddResumeButton(comId int) {
+	p.resumeButtons = append(p.resumeButtons, comId)
 }
 
 // S5g: dialog suspension.

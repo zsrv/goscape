@@ -1,5 +1,7 @@
 package script
 
+import "fmt"
+
 // Operand-aware active-player resolution.
 //
 // In RuneScript a player command may be written bare (`mes`, `uid`) or with a
@@ -38,6 +40,39 @@ func (s *ScriptState) activePlayer() ActivePlayer {
 		return s.Self
 	}
 	return s.Self2
+}
+
+// activePlayer2 returns the operand-resolved SECONDARY active player: Self2
+// for operand 0, Self for operand 1 (the inverse of activePlayer). Mirrors
+// the TS ScriptState.activePlayer2 getter restored at 2e3bcf43
+// (ScriptState.ts:223-229):
+//
+//	get activePlayer2() {
+//	    const player = this.intOperand === 0 ? this._activePlayer2 : this._activePlayer;
+//	    if (player === null) throw new Error('Attempt to access null active_player');
+//	    return player;
+//	}
+//
+// Callers gate on requireActivePlayer2 first (goscape's typed-error
+// equivalent of the TS null-throw).
+func (s *ScriptState) activePlayer2() ActivePlayer {
+	if s.intOperand() == 0 {
+		return s.Self2
+	}
+	return s.Self
+}
+
+// requireActivePlayer2 is the secondary-slot dual of requireActivePlayer:
+// it checks PtrActivePlayer2 / s.Self2 (primary-slot convention — see the
+// requireActivePlayer rationale in handlers_player.go; the operand-1
+// inversion is handled by activePlayer2()). Reintroduced at the 254
+// pin-advance for HINT_PL (its only production caller, mirroring the
+// restored TS activePlayer2 getter).
+func requireActivePlayer2(s *ScriptState, op string) error {
+	if s.Pointers&PtrActivePlayer2 == 0 || s.Self2 == nil {
+		return fmt.Errorf("%s: %w", op, ErrNoActivePlayer2)
+	}
+	return nil
 }
 
 // activePlayerPointer returns the pointer-flag bit for the operand-resolved

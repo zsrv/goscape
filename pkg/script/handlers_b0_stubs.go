@@ -24,31 +24,7 @@ func handleOcOp(s *ScriptState) error {
 	return fmt.Errorf("OC_OP: unimplemented")
 }
 
-// handleIfMultizone (IF_MULTIZONE, opcode 2037) — TS-unimplemented at 244:
-// declared in ScriptOpcode.ts ("moved to engine, remove this") with no
-// handlers/* entry. rev-244-b4 stub posture per NAI-162.
-func handleIfMultizone(s *ScriptState) error {
-	return fmt.Errorf("IF_MULTIZONE: unimplemented")
-}
-
-// handleIfOpenMainOverlay (IF_OPENMAINOVERLAY, opcode 2113) — TS-unimplemented at 244.
-func handleIfOpenMainOverlay(s *ScriptState) error {
-	return fmt.Errorf("IF_OPENMAINOVERLAY: unimplemented")
-}
-
-// handlePlayerFindAllZone (PLAYER_FINDALLZONE, opcode 2091) — TS-unimplemented
-// at 244 ("todo: replace with huntall").
-func handlePlayerFindAllZone(s *ScriptState) error {
-	return fmt.Errorf("PLAYER_FINDALLZONE: unimplemented")
-}
-
-// handlePlayerFindNext (PLAYER_FINDNEXT, opcode 2092) — TS-unimplemented at 244.
-func handlePlayerFindNext(s *ScriptState) error {
-	return fmt.Errorf("PLAYER_FINDNEXT: unimplemented")
-}
-
-// handleLastCoord (LAST_COORD, opcode 2127) — TS-unimplemented at 244
-// (pointer row exists upstream, ScriptOpcodePointers.ts:528-531; handler does not).
-func handleLastCoord(s *ScriptState) error {
-	return fmt.Errorf("LAST_COORD: unimplemented")
-}
+// 2e3bcf43 (254 pin-advance): the five 244-era TS-unimplemented stubs
+// IF_MULTIZONE / IF_OPENMAINOVERLAY / PLAYER_FINDALLZONE / PLAYER_FINDNEXT /
+// LAST_COORD were deleted from the upstream enum entirely; their stub
+// handlers left with them.

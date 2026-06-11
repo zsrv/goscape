@@ -183,7 +183,7 @@ func TestHandleIfButtonResumesPauseButton(t *testing.T) {
 	s.npcLookup = serverNpcLookup{s: s}
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	p.resumeButtons = [5]int{7, 0, 0, 0, 0}
+	p.resumeButtons = []int{7}
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
 		7: {RootLayer: 7, ButtonType: objtype.Button},
 	})
@@ -215,7 +215,7 @@ func TestHandleIfButtonPauseButtonNotInResumeButtons(t *testing.T) {
 	s.scriptProvider = script.NewProvider()
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	p.resumeButtons = [5]int{99, 0, 0, 0, 0} // 7 is not in the list
+	p.resumeButtons = []int{99} // 7 is not in the list
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
 		7: {RootLayer: 7, ButtonType: objtype.Button},
 	})

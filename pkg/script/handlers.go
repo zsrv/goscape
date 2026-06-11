@@ -91,11 +91,10 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpSeqLength:  handleSeqLength,
 	OpMapIndoors: handleMapIndoors,
 
-	// 244 count ops (ServerOps.ts:402-417).
-	OpNpcCount:     handleNpcCount,
-	OpZoneCount:    handleZoneCount,
-	OpLocCount:     handleLocCount,
-	OpZoneObjCount: handleZoneObjCount,
+	// 2e3bcf43: MAP_LIVE (ServerOps.ts) pushes NODE_PRODUCTION.
+	OpMapLive: handleMapLive,
+	// 2e3bcf43: MIDI_LENGTH — A10 stub until the Midi cache lands.
+	OpMidiLength: handleMidiLength,
 
 	// NAI-35-T2: rect-bounded player-count enumeration.
 	OpMapPlayerCount: handleMapPlayerCount,
@@ -139,8 +138,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLineOfWalk:     handleLineOfWalk,
 	OpInvDropAll:     handleInvDropAll,
 	OpInvDropSlot:    handleInvDropSlot,
-	// NAI-115 stretch: LOWMEMORY (renamed from LOWMEM in 244).
-	OpLowMemory: handleLowMemory,
+	// NAI-115 stretch: LOWMEM (renamed from LOWMEM in 244).
+	OpLowMem: handleLowMem,
 	// NAI-149 T2: PLAYERMEMBER.
 	OpPlayerMember: handlePlayerMember,
 	// SET_PLAYER_OP new in 254 (TS PlayerOps.ts:1230-1239 @43e02957).
@@ -230,21 +229,6 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpGetTimeSpent: handleGetTimeSpent,
 	OpTimeSpent:    handleTimeSpent,
 
-	// 244: MAP_PRODUCTION + MAP_LAST* cycle-stat debug ops (DebugOps.ts:16-66).
-	OpMapProduction:       handleMapProduction,
-	OpMapLastClock:        handleMapLastClock,
-	OpMapLastWorld:        handleMapLastWorld,
-	OpMapLastClientIn:     handleMapLastClientIn,
-	OpMapLastNpc:          handleMapLastNpc,
-	OpMapLastPlayer:       handleMapLastPlayer,
-	OpMapLastLogout:       handleMapLastLogout,
-	OpMapLastLogin:        handleMapLastLogin,
-	OpMapLastZone:         handleMapLastZone,
-	OpMapLastClientOut:    handleMapLastClientOut,
-	OpMapLastCleanup:      handleMapLastCleanup,
-	OpMapLastBandwidthIn:  handleMapLastBandwidthIn,
-	OpMapLastBandwidthOut: handleMapLastBandwidthOut,
-
 	// S5a: array ops + SWITCH.
 	OpDefineArray:  handleDefineArray,
 	OpPushArrayInt: handlePushArrayInt,
@@ -285,17 +269,17 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPTeleJump:   handlePTeleJump,
 	// NAI-160 T4: P_EXACTMOVE.
 	OpPExactMove: handlePExactMove,
-	// Animation. BAS_* family renamed from READYANIM/RUNANIM/TURNANIM/WALKANIM_* in 244.
+	// Animation. *ANIM family names restored at 2e3bcf43 (were BAS_* at 43e02957).
 	OpAnim:           handleAnim,
 	OpBothHeroPoints: handleBothHeroPoints,
 	OpSpotAnimPl:     handleSpotAnimPl,
-	OpBasReadyAnim:   handleBasReadyAnim,
-	OpBasTurnOnSpot:  handleBasTurnOnSpot,
-	OpBasWalkF:       handleBasWalkF,
-	OpBasWalkB:       handleBasWalkB,
-	OpBasWalkL:       handleBasWalkL,
-	OpBasWalkR:       handleBasWalkR,
-	OpBasRunning:     handleBasRunning,
+	OpReadyAnim:      handleReadyAnim,
+	OpTurnAnim:       handleTurnAnim,
+	OpWalkAnim:       handleWalkAnim,
+	OpWalkAnimB:      handleWalkAnimB,
+	OpWalkAnimL:      handleWalkAnimL,
+	OpWalkAnimR:      handleWalkAnimR,
+	OpRunAnim:        handleRunAnim,
 	// NAI-51: walktrigger consumer ops (Player side).
 	OpWalkTrigger:    handleWalkTrigger,
 	OpGetWalkTrigger: handleGetWalkTrigger,
@@ -413,8 +397,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpIfSetPosition:   handleIfSetPosition,
 	OpIfSetScrollPos:  handleIfSetScrollPos,
 	// Misc (2).
-	OpIfSetTabActive:     handleIfSetTabActive,
-	OpIfSetResumeButtons: handleIfSetResumeButtons,
+	OpIfSetTabActive:    handleIfSetTabActive,
+	OpIfAddResumeButton: handleIfAddResumeButton,
 
 	// S5g: dialog suspension.
 	OpPPauseButton: handlePPauseButton,
@@ -525,11 +509,10 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcFindHero:    handleNpcFindHero,
 	OpNpcFindNext:    handleNpcFindNext,
 
-	// NPC hunt (NAI-35-T3 / rev-244 B4) — HuntAll iterator + unified
-	// huntIterator consumer (NPC_HUNTNEXT, opcode 2529).
-	OpNpcHunt:     handleNpcHunt,
-	OpNpcHuntAll:  handleNpcHuntAll,
-	OpNpcHuntNext: handleNpcHuntNext,
+	// NPC hunt (NAI-35-T3 / rev-244 B4; 2e3bcf43: NPC_HUNTNEXT deleted —
+	// NPC_HUNTALL stores into the shared npcIterator consumed by NPC_FINDNEXT).
+	OpNpcHunt:    handleNpcHunt,
+	OpNpcHuntAll: handleNpcHuntAll,
 
 	// Player hunt (NAI-35-T4/T5) — HuntAll iterator over players +
 	// HUNTNEXT consumer.
@@ -563,10 +546,10 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	//   - HINT_COORD (type=2..6)  — NAI-39
 	//   - HINT_PL    (type=10)    — NAI-39
 	//   - HINT_STOP  (type=-1)    — NAI-39
-	OpHintNpc:    handleHintNpc,
-	OpHintCoord:  handleHintCoord,
-	OpHintPlayer: handleHintPlayer, // renamed from HINT_PL in 244
-	OpHintStop:   handleHintStop,
+	OpHintNpc:   handleHintNpc,
+	OpHintCoord: handleHintCoord,
+	OpHintPl:    handleHintPl, // 2e3bcf43: HINT_PLAYER→HINT_PL, reads activePlayer2
+	OpHintStop:  handleHintStop,
 
 	// NAI-37 T7: world-script delay — WORLD_DELAY (handler-only; consumer wiring T8-T12).
 	OpWorldDelay: handleWorldDelay,
@@ -600,13 +583,6 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLcOp:  handleLcOp,  // opcode 4104
 	OpOcIop: handleOcIop, // opcode 4205
 	OpOcOp:  handleOcOp,  // opcode 4208
-	// 5 new 244 stubs (TS-declared, no handler body — rev-244 B4 posture per NAI-162).
-	OpIfMultizone:       handleIfMultizone,       // opcode 2037
-	OpIfOpenMainOverlay: handleIfOpenMainOverlay, // opcode 2113
-	OpPlayerFindAllZone: handlePlayerFindAllZone, // opcode 2091
-	OpPlayerFindNext:    handlePlayerFindNext,    // opcode 2092
-	OpLastCoord:         handleLastCoord,         // opcode 2127
-
 	// NAI-162 B1: trivial-handler sweep #4.
 	OpLastLoginInfo:      handleLastLoginInfo,      // opcode 2057 (244)
 	OpInvTotalParamStack: handleInvTotalParamStack, // opcode 4331 (244)
@@ -616,10 +592,6 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPLocMerge:   handlePLocMerge,   // opcode 2076 (244)
 	OpPOpPlayerT:  handlePOpPlayerT,  // opcode 2085 (244)
 
-	// rev-244 B4: BUFFER_FULL stub (opcode 2009). TS-upstream stub posture
-	// — pushes 0. PlayerOps.ts:198-203. IF_OPENOVERLAY (2041) is registered
-	// in the S5f modal block above.
-	OpBufferFull: handleBufferFull, // opcode 2009 (244)
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

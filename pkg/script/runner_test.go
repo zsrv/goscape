@@ -24,13 +24,12 @@ func TestExecuteUnknownOpcodeAborts(t *testing.T) {
 	}
 }
 
-// TestExecute_UnknownOpcodeMessage244 pins the 244 error shape for the
-// unknown-opcode dispatch: TS ScriptRunner.ts:151 drops the name-map
-// lookup → "Unknown opcode ${opcode}". The Go message must contain
-// "unknown opcode <N>" (case-insensitive substring) without the
-// op.String() mnemonic that was present pre-244.
-func TestExecute_UnknownOpcodeMessage244(t *testing.T) {
-	const missingOp Opcode = 60000 // well above any real handler
+// TestExecute_UnhandledCommandMessage pins the 2e3bcf43 error shape for
+// the unhandled-opcode dispatch: TS ScriptRunner.ts restores the name-map
+// lookup — `Unhandled command ${ScriptOpcodeNameMap.get(opcode) ?? opcode}`
+// — i.e. the mnemonic when known, the bare number when unknown.
+func TestExecute_UnhandledCommandMessage(t *testing.T) {
+	const missingOp Opcode = 60000 // well above any real opcode → number fallback
 	f := &ScriptFile{
 		Name:           "test_script",
 		Opcodes:        []Opcode{missingOp},
@@ -40,19 +39,19 @@ func TestExecute_UnknownOpcodeMessage244(t *testing.T) {
 	s := Init(f, nil, false, nil, nil)
 	err := Execute(s)
 	if err == nil {
-		t.Fatal("expected error for unknown opcode 60000, got nil")
+		t.Fatal("expected error for unhandled opcode 60000, got nil")
 	}
 	if s.Execution != Aborted {
 		t.Errorf("Execution: got %v want Aborted", s.Execution)
 	}
 	msg := err.Error()
-	if !strings.Contains(strings.ToLower(msg), "unknown opcode 60000") {
-		t.Errorf("error message should contain %q, got %q", "unknown opcode 60000", msg)
+	if !strings.Contains(strings.ToLower(msg), "unhandled command 60000") {
+		t.Errorf("error message should contain %q, got %q", "unhandled command 60000", msg)
 	}
-	// Pre-244 message included op.String() which for opcode 60000 is
-	// "opcode_60000" — must NOT appear in the 244 shape.
+	// The "opcode_60000" synthetic String() form is the Go map-miss
+	// marker — TS prints the bare number, so it must NOT appear.
 	if strings.Contains(msg, "opcode_60000") {
-		t.Errorf("error message must not include opcode mnemonic 'opcode_60000' (244 drop): got %q", msg)
+		t.Errorf("error message must not include synthetic mnemonic 'opcode_60000' (TS prints the bare number): got %q", msg)
 	}
 }
 
@@ -153,15 +152,15 @@ func TestScriptOpcodePrefixVarpSecondaryDotFlag(t *testing.T) {
 }
 
 // TestBacktrace pins the per-frame format and ordering of Backtrace.
-// Mirrors TS ScriptRunner.ts:196 (player) and ScriptRunner.ts:221
-// (console) — both loops are `i > 0` in 244, skipping frame 0 (the
-// oldest GOSUB frame). First frame is the current state.Script @
-// state.PC; subsequent frames iterate Frames[FrameSP-1] down to
-// Frames[1] (frame 0 excluded).
+// Mirrors TS ScriptRunner.ts at the 254 pin-advance 2e3bcf43 — both
+// debug-frame loops (player + console) are `i >= 0` again, so frame 0
+// (the oldest GOSUB frame) IS emitted. First frame is the current
+// state.Script @ state.PC; subsequent frames iterate Frames[FrameSP-1]
+// down to Frames[0].
 //
-// 244 delta: pre-244 the loop was `i >= 0`; it is now `i > 0`.
-// This test uses FrameSP=2 (frames 1 + 0) to demonstrate that only
-// frame 1 is emitted — frame 0 is silently skipped.
+// History: 244 used `i > 0` (frame 0 skipped); 2e3bcf43 reverts to the
+// pre-244 `i >= 0`. This test uses FrameSP=2 (frames 1 + 0) and expects
+// BOTH GOSUB frames in the trace.
 func TestBacktrace(t *testing.T) {
 	root := &ScriptFile{
 		Name:     "root_script",
@@ -181,25 +180,26 @@ func TestBacktrace(t *testing.T) {
 		PCs:      []uint32{0, 5},
 		Lines:    []uint32{100, 110},
 	}
-	// Frames[0] = root_script (oldest — frame 0, should be SKIPPED by 244 loop).
-	// Frames[1] = caller_script (frame index 1, should appear as frame 2 in trace).
+	// Frames[0] = root_script (oldest — frame 0, INCLUDED at 2e3bcf43).
+	// Frames[1] = caller_script (emitted as trace frame 2).
 	// current script = callee_script (frame 1 in output).
 	s := &ScriptState{
 		Script: callee,
 		PC:     5, // line 110
 		Frames: []Frame{
-			{Script: root, PC: 2},   // index 0 — skipped by 244's i > 0 loop
+			{Script: root, PC: 2},   // index 0 — emitted as trace frame 3
 			{Script: caller, PC: 7}, // index 1 — emitted as trace frame 2
 		},
 		FrameSP: 2,
 	}
 
 	got := Backtrace(s)
-	// 244: frame 0 (root_script) is skipped; only frames[1] (caller_script) appears.
+	// 2e3bcf43: frame 0 (root_script) is included again.
 	want := []string{
 		"stack backtrace:",
 		"    1: callee_script - callee.rs2:110",
 		"    2: caller_script - caller.rs2:42",
+		"    3: root_script - root.rs2:10",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("Backtrace lines: got %d want %d (got=%q)", len(got), len(want), got)
@@ -211,12 +211,11 @@ func TestBacktrace(t *testing.T) {
 	}
 }
 
-// TestBacktrace_SkipsFrameZero244 explicitly verifies the 244 loop
-// boundary: TS ScriptRunner.ts:196 and :221 both use `i > 0`, so
-// frame 0 (oldest GOSUB frame) is never emitted. With FrameSP=3 there
-// are frames at indices 0, 1, 2; only frames 2 and 1 appear in output
-// (frame 0 is skipped). Total output lines: header + current + 2 = 4.
-func TestBacktrace_SkipsFrameZero244(t *testing.T) {
+// TestBacktrace_IncludesFrameZero verifies the 2e3bcf43 loop boundary:
+// both TS debug-frame loops use `i >= 0`, so frame 0 (oldest GOSUB
+// frame) IS emitted. With FrameSP=3 there are frames at indices 0, 1, 2
+// and all three appear in output. Total lines: header + current + 3 = 5.
+func TestBacktrace_IncludesFrameZero(t *testing.T) {
 	mkScript := func(name, file string) *ScriptFile {
 		return &ScriptFile{
 			Name:     name,
@@ -229,7 +228,7 @@ func TestBacktrace_SkipsFrameZero244(t *testing.T) {
 		Script: mkScript("current", "current.rs2"),
 		PC:     0,
 		Frames: []Frame{
-			{Script: mkScript("frame0", "frame0.rs2"), PC: 0}, // skipped
+			{Script: mkScript("frame0", "frame0.rs2"), PC: 0}, // emitted (2e3bcf43)
 			{Script: mkScript("frame1", "frame1.rs2"), PC: 0}, // emitted
 			{Script: mkScript("frame2", "frame2.rs2"), PC: 0}, // emitted
 		},
@@ -237,23 +236,20 @@ func TestBacktrace_SkipsFrameZero244(t *testing.T) {
 	}
 
 	got := Backtrace(s)
-	// header + current + frame2 + frame1 = 4 lines; frame0 absent.
-	if len(got) != 4 {
-		t.Fatalf("Backtrace line count: got %d want 4 (frame 0 must be skipped): %q", len(got), got)
+	// header + current + frame2 + frame1 + frame0 = 5 lines.
+	if len(got) != 5 {
+		t.Fatalf("Backtrace line count: got %d want 5 (frame 0 must be included): %q", len(got), got)
 	}
-	// Verify frame0 is NOT in output.
-	for _, line := range got {
-		if strings.Contains(line, "frame0") {
-			t.Errorf("frame 0 must be skipped in 244 backtrace, but found: %q", line)
+	joined := strings.Join(got, "\n")
+	for _, name := range []string{"frame0", "frame1", "frame2"} {
+		if !strings.Contains(joined, name) {
+			t.Errorf("%s should appear in backtrace (got %q)", name, got)
 		}
 	}
-	// Verify frame1 and frame2 ARE in output.
-	joined := strings.Join(got, "\n")
-	if !strings.Contains(joined, "frame2") {
-		t.Error("frame2 (index 2) should appear in backtrace")
-	}
-	if !strings.Contains(joined, "frame1") {
-		t.Error("frame1 (index 1) should appear in backtrace")
+	// Most-recent-first ordering: frame2 before frame1 before frame0.
+	if !(strings.Index(joined, "frame2") < strings.Index(joined, "frame1") &&
+		strings.Index(joined, "frame1") < strings.Index(joined, "frame0")) {
+		t.Errorf("backtrace ordering must be most-recent-first: %q", got)
 	}
 }
 
@@ -434,7 +430,7 @@ type mockPlayer struct {
 	}
 	lastIfSetTabActive int // just tab
 
-	lastSetResumeButtons [5]int
+	addedResumeButtons []int
 
 	lastComValue         int
 	sendCountDialogCalls int
@@ -928,8 +924,8 @@ func (m *mockPlayer) SetPlayerOp(index int, text string, primary int) {
 // IfSetRecol deleted in 244 (IfSetRecolEncoder.ts removed upstream); mock method removed in B4 Task 2.
 func (m *mockPlayer) IfSetTabActive(tab int) { m.lastIfSetTabActive = tab }
 
-func (m *mockPlayer) SetResumeButtons(b1, b2, b3, b4, b5 int) {
-	m.lastSetResumeButtons = [5]int{b1, b2, b3, b4, b5}
+func (m *mockPlayer) AddResumeButton(comId int) {
+	m.addedResumeButtons = append(m.addedResumeButtons, comId)
 }
 
 func (m *mockPlayer) LastCom() int     { return m.lastComValue }

@@ -405,8 +405,12 @@ type Player struct {
 	overlay, lastOverlay int
 
 	// === resume buttons (sub-spec 5f) ===
-	// Stored by IF_SETRESUMEBUTTONS; consumed by P_PAUSEBUTTON (handlers_dialog.go:10).
-	resumeButtons [5]int
+	// Appended by IF_ADDRESUMEBUTTON; consumed by the if_button resume
+	// gate (handler_interface.go). 2e3bcf43 (254 pin-advance): growable
+	// slice mirroring TS Player.resumeButtons: number[] (was [5]int set
+	// wholesale by the deleted IF_SETRESUMEBUTTONS). Cleared in cleanup +
+	// on qualifying modal opens once Task A9 lands that machinery.
+	resumeButtons []int
 
 	// === per-tick rate limits (from sub-spec 1) ===
 	userLimit, clientLimit, restrictedLimit int

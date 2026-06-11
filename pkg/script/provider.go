@@ -10,7 +10,11 @@ import (
 
 // CompilerVersion is the expected RuneScript compiler version stored in script.dat.
 // Any mismatch is a fatal configuration error.
-const CompilerVersion = 26
+// 27 at the rev-254 pin-advance: `@lostcityrs/runescript@0.9.6` emits the
+// 750291c marker bump (no layout change) and the 2e3bcf43 reference cache
+// header reads 27. Keep in lockstep with pkg/pack/.../jag_file_writer.go
+// jagFileVersion.
+const CompilerVersion = 27
 
 // Provider holds all loaded scripts indexed by lookup key and name.
 type Provider struct {

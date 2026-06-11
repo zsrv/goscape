@@ -392,19 +392,27 @@ func handleIfSetTabActive(s *ScriptState) error {
 	return nil
 }
 
-// handleIfSetResumeButtons implements IF_SETRESUMEBUTTONS.
-// TS PlayerOps.ts:781-785 — popInts(5) → [b1, b2, b3, b4, b5], b5 on top.
-// No wire op is emitted; the Player stores the 5 ids for later
-// consumption by P_PAUSEBUTTON.
-func handleIfSetResumeButtons(s *ScriptState) error {
-	if err := requireActivePlayer(s, "IF_SETRESUMEBUTTONS"); err != nil {
+// handleIfAddResumeButton implements IF_ADDRESUMEBUTTON (opcode 2047;
+// replaced the 43e02957-era IF_SETRESUMEBUTTONS popInts(5) form at the
+// 254 pin-advance). Mirrors TS PlayerOps.ts @2e3bcf43:
+//
+//	[ScriptOpcode.IF_ADDRESUMEBUTTON]: checkedHandler(ActivePlayer, state => {
+//	    const comId = state.popInt();
+//	    state.activePlayer.resumeButtons.push(comId);
+//	});
+//
+// No wire op is emitted; the Player appends the id for later consumption
+// by the resume-button gate. No NumberNotNull check (TS pops bare).
+//
+// TODO(A9): TS clears resumeButtons in player cleanup and on modal open
+// while the active script is in COUNTDIALOG/PAUSEBUTTON — until A9 lands
+// that machinery, entries appended here persist (stale-entry hazard
+// tracked in the A9 task).
+func handleIfAddResumeButton(s *ScriptState) error {
+	if err := requireActivePlayer(s, "IF_ADDRESUMEBUTTON"); err != nil {
 		return err
 	}
-	b5 := s.PopInt()
-	b4 := s.PopInt()
-	b3 := s.PopInt()
-	b2 := s.PopInt()
-	b1 := s.PopInt()
-	s.activePlayer().SetResumeButtons(b1, b2, b3, b4, b5)
+	comId := s.PopInt()
+	s.activePlayer().AddResumeButton(comId)
 	return nil
 }

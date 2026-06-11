@@ -135,128 +135,63 @@ func TestGetTimeSpentNoActivePlayerOK(t *testing.T) {
 	}
 }
 
-// TestDebugWorldStatOps covers MAP_PRODUCTION (DebugOps.ts:16-18) and all
-// 12 MAP_LAST* ops (DebugOps.ts:20-66). Each op reads from the mockWorld's
-// mapProduction / lastCycleStats fields via the WorldVars interface.
-//
-// Index order follows the TS WorldStat enum (WorldStat.ts:1-14):
-//
-//	CYCLE=0 MAP_LASTCLOCK, WORLD=1, CLIENT_IN=2, NPC=3, PLAYER=4,
-//	LOGOUT=5, LOGIN=6, ZONE=7, CLIENT_OUT=8, CLEANUP=9,
-//	BANDWIDTH_IN=10, BANDWIDTH_OUT=11.
-func TestDebugWorldStatOps(t *testing.T) {
-	const (
-		wantProduction = 1
-		wantCycle      = 10
-		wantWorld      = 11
-		wantClientIn   = 12
-		wantNpc        = 13
-		wantPlayer     = 14
-		wantLogout     = 15
-		wantLogin      = 16
-		wantZone       = 17
-		wantClientOut  = 18
-		wantCleanup    = 19
-		wantBwIn       = 20
-		wantBwOut      = 21
-	)
-
+// TestMapLive covers MAP_LIVE (ServerOps.ts @2e3bcf43 pushes
+// Environment.NODE_PRODUCTION). The 244-era MAP_PRODUCTION + 12 MAP_LAST*
+// debug ops were deleted upstream at the 254 pin-advance; their tests
+// left with them.
+func TestMapLive(t *testing.T) {
 	w := newMockWorld()
-	w.mapProduction = wantProduction
-	w.lastCycleStats = [12]int{
-		wantCycle, wantWorld, wantClientIn, wantNpc, wantPlayer, wantLogout,
-		wantLogin, wantZone, wantClientOut, wantCleanup, wantBwIn, wantBwOut,
-	}
+	w.mapProduction = 1
 
-	tests := []struct {
-		name   string
-		opcode Opcode
-		want   int
-	}{
-		// TS DebugOps.ts:16-18
-		{"MAP_PRODUCTION", OpMapProduction, wantProduction},
-		// TS DebugOps.ts:20-22
-		{"MAP_LASTCLOCK", OpMapLastClock, wantCycle},
-		// TS DebugOps.ts:24-26
-		{"MAP_LASTWORLD", OpMapLastWorld, wantWorld},
-		// TS DebugOps.ts:28-30
-		{"MAP_LASTCLIENTIN", OpMapLastClientIn, wantClientIn},
-		// TS DebugOps.ts:32-34
-		{"MAP_LASTNPC", OpMapLastNpc, wantNpc},
-		// TS DebugOps.ts:36-38
-		{"MAP_LASTPLAYER", OpMapLastPlayer, wantPlayer},
-		// TS DebugOps.ts:40-42
-		{"MAP_LASTLOGOUT", OpMapLastLogout, wantLogout},
-		// TS DebugOps.ts:44-46
-		{"MAP_LASTLOGIN", OpMapLastLogin, wantLogin},
-		// TS DebugOps.ts:48-50
-		{"MAP_LASTZONE", OpMapLastZone, wantZone},
-		// TS DebugOps.ts:52-54
-		{"MAP_LASTCLIENTOUT", OpMapLastClientOut, wantClientOut},
-		// TS DebugOps.ts:56-58
-		{"MAP_LASTCLEANUP", OpMapLastCleanup, wantCleanup},
-		// TS DebugOps.ts:60-62
-		{"MAP_LASTBANDWIDTHIN", OpMapLastBandwidthIn, wantBwIn},
-		// TS DebugOps.ts:64-66
-		{"MAP_LASTBANDWIDTHOUT", OpMapLastBandwidthOut, wantBwOut},
+	sf := &ScriptFile{
+		Name:             "map_live",
+		Opcodes:          []Opcode{OpMapLive, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
 	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			sf := &ScriptFile{
-				Name:             tc.name,
-				Opcodes:          []Opcode{tc.opcode, OpReturn},
-				IntOperands:      []int32{0, 0},
-				StringOperands:   []string{"", ""},
-				InstructionCount: 2,
-			}
-			state := Init(sf, nil, false, nil, nil)
-			state.World = w
-			if err := Execute(state); err != nil {
-				t.Fatalf("Execute: %v", err)
-			}
-			got := state.PopInt()
-			if got != tc.want {
-				t.Errorf("%s: got %d, want %d", tc.name, got, tc.want)
-			}
-		})
+	state := Init(sf, nil, false, nil, nil)
+	state.World = w
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 1 {
+		t.Errorf("MAP_LIVE: got %d, want 1", got)
 	}
 }
 
-// TestDebugWorldStatOps_NilWorldReject verifies that each of the 13 world-stat
-// ops returns ErrNoWorld when state.World is nil.
-func TestDebugWorldStatOps_NilWorldReject(t *testing.T) {
-	ops := []Opcode{
-		OpMapProduction,
-		OpMapLastClock,
-		OpMapLastWorld,
-		OpMapLastClientIn,
-		OpMapLastNpc,
-		OpMapLastPlayer,
-		OpMapLastLogout,
-		OpMapLastLogin,
-		OpMapLastZone,
-		OpMapLastClientOut,
-		OpMapLastCleanup,
-		OpMapLastBandwidthIn,
-		OpMapLastBandwidthOut,
+// TestMapLive_NilWorldReject verifies MAP_LIVE returns ErrNoWorld when
+// state.World is nil.
+func TestMapLive_NilWorldReject(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "nil_world",
+		Opcodes:          []Opcode{OpMapLive, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
 	}
-	for _, op := range ops {
-		op := op
-		t.Run(op.String(), func(t *testing.T) {
-			sf := &ScriptFile{
-				Name:             "nil_world",
-				Opcodes:          []Opcode{op, OpReturn},
-				IntOperands:      []int32{0, 0},
-				StringOperands:   []string{"", ""},
-				InstructionCount: 2,
-			}
-			state := Init(sf, nil, false, nil, nil)
-			// state.World is nil — handler must return ErrNoWorld.
-			err := Execute(state)
-			if err == nil {
-				t.Fatal("Execute: want ErrNoWorld error, got nil")
-			}
-		})
+	state := Init(sf, nil, false, nil, nil)
+	if err := Execute(state); err == nil {
+		t.Fatal("Execute: want ErrNoWorld error, got nil")
+	}
+}
+
+// TestMidiLength_A10Stub pins the MIDI_LENGTH stub posture: pops the
+// track id, errors until Task A10 lands Midi.getTickLength.
+func TestMidiLength_A10Stub(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "midi_length",
+		Opcodes:          []Opcode{OpPushConstantInt, OpMidiLength, OpReturn},
+		IntOperands:      []int32{3, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want A10-stub error, got nil")
+	}
+	if got := err.Error(); !strings.Contains(got, "MIDI_LENGTH: unimplemented") {
+		t.Errorf("error = %q, want it to contain %q", got, "MIDI_LENGTH: unimplemented")
 	}
 }

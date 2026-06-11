@@ -12,7 +12,7 @@ import (
 // loads) is unavailable.
 //
 // Uses the Server245.2-ref pack (LoadComponentTypes expects the 245.2
-// component layout — swappable/activeOverColour; ref245CacheDir is defined
+// component layout — swappable/activeOverColour; ref254CacheDir is defined
 // in testdata_path_test.go).
 //
 // encfilter.Load() reads data/raw/wordenc relative to the working directory;
@@ -20,7 +20,7 @@ import (
 //
 // TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:35-37 (static WordEnc.load).
 func TestNewServer_LoadsWordencFilter(t *testing.T) {
-	cachePath := ref245CacheDir(t)
+	cachePath := ref254CacheDir(t)
 	// encfilter.Load() resolves data/raw/wordenc relative to cwd. Switch to the
 	// repo root so the committed data/raw/wordenc jagfile is reachable.
 	repoRoot := filepath.Join("..", "..")

@@ -431,9 +431,12 @@ type ActivePlayer interface {
 	// currently-active tab. Fire-and-forget; no server-side persistence.
 	IfSetTabActive(tab int)
 
-	// SetResumeButtons stores the 5 resume-button interface ids for
-	// later consumption by P_PAUSEBUTTON. No wire op is emitted.
-	SetResumeButtons(b1, b2, b3, b4, b5 int)
+	// AddResumeButton appends one resume-button interface id for later
+	// consumption by the resume-button gate. No wire op is emitted.
+	// 2e3bcf43 (254 pin-advance): replaces the 43e02957-era
+	// SetResumeButtons(b1..b5) — TS IF_ADDRESUMEBUTTON pushes one com id
+	// onto the growable Player.resumeButtons array.
+	AddResumeButton(comId int)
 
 	// S5g: dialog suspension.
 
@@ -576,7 +579,7 @@ type ActivePlayer interface {
 
 	// HintPlayer directs the client to render a hint arrow pointing at the
 	// player with the given pid. Mirrors TS Player.hintPlayer at
-	// Player.ts:2181-2183 (244); called by the HINT_PLAYER (opcode 2033) handler.
+	// Player.ts:2181-2183 (244); called by the HINT_PL (opcode 2033) handler.
 	// NAI-39.
 	HintPlayer(pid int)
 

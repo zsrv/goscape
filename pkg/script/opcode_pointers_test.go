@@ -46,13 +46,18 @@ func TestPointers_ZeroValue(t *testing.T) {
 	}
 }
 
-// TestScriptOpcodePointers_LengthParity pins 242 entries at 254 pin 43e02957.
-// Was 240 at 244 pin 9aadcec4; 245.2 adds IF_SETSCROLLPOS (+1) = 241;
-// 254 adds SET_PLAYER_OP (+1) = 242 (STAT_TOTAL has NO pointer row in TS).
+// TestScriptOpcodePointers_LengthParity pins 239 entries at the 254
+// pin-advance 2e3bcf43.
+// History: 240 at 244 pin 9aadcec4; 245.2 adds IF_SETSCROLLPOS (+1) = 241;
+// 254 pin 43e02957 adds SET_PLAYER_OP (+1) = 242 (STAT_TOTAL has NO pointer
+// row in TS); 254 pin-advance 2e3bcf43 deletes the BUFFER_FULL,
+// NPC_HUNTNEXT and LAST_COORD rows (-3) = 239 (renames BAS_*->*ANIM,
+// HINT_PLAYER->HINT_PL, LOWMEMORY->LOWMEM, IF_SETRESUMEBUTTONS->
+// IF_ADDRESUMEBUTTON are count-neutral; FINDUID gains corrupt rows only).
 func TestScriptOpcodePointers_LengthParity(t *testing.T) {
-	const wantLen = 242
+	const wantLen = 239
 	if got := len(ScriptOpcodePointers); got != wantLen {
-		t.Fatalf("len(ScriptOpcodePointers) = %d, want %d (re-verify against TS ScriptOpcodePointers.ts at pin 43e02957)", got, wantLen)
+		t.Fatalf("len(ScriptOpcodePointers) = %d, want %d (re-verify against TS ScriptOpcodePointers.ts at pin 2e3bcf43)", got, wantLen)
 	}
 }
 
@@ -82,6 +87,8 @@ func TestScriptOpcodePointers_SpotChecks(t *testing.T) {
 			want: Pointers{
 				Set:         []string{"active_player"},
 				Set2:        []string{"active_player2"},
+				Corrupt:     []string{"p_active_player"},
+				Corrupt2:    []string{"p_active_player2"},
 				Conditional: true,
 			},
 			desc: "TS:103 — Set + Set2 + Conditional=true",
@@ -266,29 +273,58 @@ func TestScriptOpcodePointers_CorruptExceptActiveCallSites(t *testing.T) {
 	}
 }
 
-// TestScriptOpcodePointers_244NewRows pins the four new rows added in rev-244 B4.
-// Each shape is verified against TS ScriptOpcodePointers.ts at pin 9aadcec4.
-func TestScriptOpcodePointers_244NewRows(t *testing.T) {
+// TestScriptOpcodePointers_254PinAdvanceRows pins the rows changed at the
+// 254 pin-advance (TS ScriptOpcodePointers.ts @2e3bcf43): FINDUID gains
+// corrupt rows; NPC_FINDHERO / OBJ_ADD / OBJ_TAKEITEM REVERT to their
+// pre-254 shapes (undoing the 43e02957-era variants); IF_OPENOVERLAY is
+// unchanged. The BUFFER_FULL / NPC_HUNTNEXT / LAST_COORD rows were deleted
+// with their ops (their constants no longer exist — absence is enforced by
+// TestScriptOpcodePointers_LengthParity + the NoOrphans sweep below).
+func TestScriptOpcodePointers_254PinAdvanceRows(t *testing.T) {
 	cases := []struct {
 		op   Opcode
 		want Pointers
 		desc string
 	}{
 		{
-			op:   OpBufferFull,
-			want: Pointers{Require: []string{"active_player"}},
-			desc: "BUFFER_FULL: Require active_player",
-		},
-		{
-			op: OpNpcHuntNext,
+			op: OpFindUID,
 			want: Pointers{
-				Require:     []string{"find_npc"},
-				Require2:    []string{"find_npc"},
-				Set:         []string{"active_npc"},
-				Set2:        []string{"active_npc2"},
+				Set:         []string{"active_player"},
+				Set2:        []string{"active_player2"},
+				Corrupt:     []string{"p_active_player"},
+				Corrupt2:    []string{"p_active_player2"},
 				Conditional: true,
 			},
-			desc: "NPC_HUNTNEXT: full quartet + Conditional=true",
+			desc: "FINDUID: corrupt rows added at 2e3bcf43",
+		},
+		{
+			op: OpNpcFindHero,
+			want: Pointers{
+				Require:     []string{"active_npc"},
+				Require2:    []string{"active_npc2"},
+				Set:         []string{"active_player"},
+				Set2:        []string{"active_player2"},
+				Conditional: true,
+			},
+			desc: "NPC_FINDHERO: reverted to pre-254 shape at 2e3bcf43",
+		},
+		{
+			op: OpObjAdd,
+			want: Pointers{
+				Require:  []string{"active_player"},
+				Require2: []string{"active_player2"},
+				Set:      []string{"active_obj"},
+				Set2:     []string{"active_obj2"},
+			},
+			desc: "OBJ_ADD: require2 reverted to active_player2 at 2e3bcf43",
+		},
+		{
+			op: OpObjTakeItem,
+			want: Pointers{
+				Require:  []string{"active_obj", "active_player"},
+				Require2: []string{"active_obj2", "active_player2"},
+			},
+			desc: "OBJ_TAKEITEM: require2 reverted to active_obj2 at 2e3bcf43",
 		},
 		{
 			op: OpIfOpenOverlay,
@@ -296,15 +332,7 @@ func TestScriptOpcodePointers_244NewRows(t *testing.T) {
 				Require:  []string{"active_player"},
 				Require2: []string{"active_player2"},
 			},
-			desc: "IF_OPENOVERLAY: Require + Require2",
-		},
-		{
-			op: OpLastCoord,
-			want: Pointers{
-				Require:  []string{"active_player"},
-				Require2: []string{"active_player2"},
-			},
-			desc: "LAST_COORD: Require + Require2",
+			desc: "IF_OPENOVERLAY: unchanged across the pin-advance",
 		},
 	}
 	for _, c := range cases {

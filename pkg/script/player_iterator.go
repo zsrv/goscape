@@ -17,19 +17,20 @@ const (
 
 // PlayerIterator is the script-VM iterator state for the player
 // iterator family (HUNTALL only at NAI-35). Lifetime: single-tick.
-// Created by HUNTALL (stored in s.huntIterator); consumed by HUNTNEXT.
+// Created by HUNTALL (stored in the typed s.playerIterator); consumed by
+// HUNTNEXT.
 //
 // Mirrors NpcIterator template (pkg/script/npc_iterator.go) closely:
 // same lazy zone-walking shape, same Stale check, same exhaustion
 // semantics. PlayerLookup.ZonePlayers provides the per-zone snapshot.
 //
-// Equivalence note (rev-244 B4): PlayerIterator is the Go equivalent of the
-// PLAYER branch of TS's HuntIterator (ScriptIterators.ts:77-97 at pin
-// 9aadcec4, HuntModeType.PLAYER). Both perform the same descending zone
-// scan, same getAllPlayersSafe(true), same player-as-src LoS argument order.
-// At 244, HUNTALL and NPC_HUNTALL both store into s.huntIterator (TS
-// ScriptState.huntIterator, ScriptState.ts:124), replacing the 225
-// playerIterator field.
+// Equivalence note (254 pin-advance 2e3bcf43): PlayerIterator is the Go
+// equivalent of TS's PlayerHuntAllCommandIterator (ScriptIterators.ts:
+// 174-230 @2e3bcf43 — the same scan the 244-era HuntIterator PLAYER branch
+// performed). Both perform the same descending zone scan, same
+// getAllPlayersSafe(true), same player-as-src LoS argument order. The
+// 244-era untyped shared s.huntIterator is gone — TS restored the typed
+// ScriptState.playerIterator field (ScriptState.ts:124 @2e3bcf43).
 type PlayerIterator struct {
 	mode          PlayerIteratorMode
 	creationTick  int

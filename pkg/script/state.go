@@ -64,17 +64,14 @@ type WorldVars interface {
 	CurrentTick() int
 	PlayerCount() int
 
-	// World-config queries: MAP_MEMBERS / MAP_PRODUCTION. Pushed as 0/1.
+	// World-config queries: MAP_MEMBERS / MAP_LIVE. Pushed as 0/1.
 	MapMembers() int
 	// MapProduction returns 1 if the server is in production mode, else 0.
-	// MAP_PRODUCTION — DebugOps.ts:16-18 at 244; the 225 MAP_LIVE body
-	// relocated+renamed.
+	// Consumed by MAP_LIVE (ServerOps.ts @2e3bcf43 pushes
+	// Environment.NODE_PRODUCTION; the 244-era MAP_PRODUCTION debug op
+	// that previously read this surface was deleted upstream — the
+	// Go-side method name is historical).
 	MapProduction() int
-
-	// LastCycleStat returns lastCycleStats[stat] — the per-cycle stats
-	// surface the MAP_LAST* debug ops read (DebugOps.ts:20-66). Stat
-	// indexes follow the TS WorldStat enum order.
-	LastCycleStat(stat int) int
 
 	// IsMapBlocked reports whether the tile at (level, x, z) blocks
 	// walking. Used by MAP_FINDSQUARE for candidate-square rejection.
@@ -194,14 +191,6 @@ type WorldVars interface {
 	// INV_DROPITEM). Mirrors the same value threaded through emission sites
 	// in modules/world/ that read cfg.NodeID directly.
 	NodeID() int
-
-	// 244 count ops (ServerOps.ts:402-417). TotalNpcs mirrors TS
-	// World.getTotalNpcs (npcs.count, World.ts:1734-1736); the rest mirror
-	// GameMap.getTotalZones/Locs/Objs (GameMap.ts:102-112).
-	TotalNpcs() int
-	TotalZones() int
-	TotalLocs() int
-	TotalObjs() int
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.
@@ -429,16 +418,18 @@ type ScriptState struct {
 	// Nil = no active iterator. Mirrors TS ScriptState.objIterator. NAI-154.
 	objIterator *ObjIterator
 
-	// huntIterator holds the active hunt-command iterator: *PlayerIterator
-	// (set by HUNTALL) or *NpcIterator (set by NPC_HUNTALL). Consumers
-	// drive next() first, then check the yielded type — mirroring TS
-	// ServerOps.ts:64-73 (HUNTNEXT) and :125-135 (NPC_HUNTNEXT): an
-	// exhausted iterator's done-branch pushes 0 before the instanceof guard;
-	// only a YIELDED wrong-type value returns an error. Single-tick lifetime
-	// — Stale() enforced by the consumers. Mirrors TS ScriptState.huntIterator
-	// (ScriptState.ts:124, IterableIterator<Entity>); replaces the 225
-	// playerIterator field. rev-244 B4.
-	huntIterator any
+	// playerIterator holds the active player hunt-command iterator. Set
+	// by HUNTALL; consumed by HUNTNEXT. Single-tick lifetime — Stale()
+	// enforced by the consumer. Mirrors TS ScriptState.playerIterator
+	// (ScriptState.ts:124 @2e3bcf43, IterableIterator<Player>).
+	//
+	// 2e3bcf43 (254 pin-advance): the 244-era untyped huntIterator
+	// (IterableIterator<Entity>, shared by HUNTALL and NPC_HUNTALL) is
+	// gone — HUNTALL stores a typed player iterator here and NPC_HUNTALL
+	// stores into the shared npcIterator (consumed by NPC_FINDNEXT;
+	// NPC_HUNTNEXT was deleted upstream). The TS instanceof-Player guard
+	// in HUNTNEXT is statically unreachable with the typed field.
+	playerIterator *PlayerIterator
 
 	// DB cursor state — populated by DB_LISTALL* (and DB_FIND*, deferred to a
 	// later sub-spec); consumed by DB_FINDNEXT, DB_FINDBYINDEX. DbTable == nil

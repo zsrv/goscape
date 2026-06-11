@@ -431,31 +431,31 @@ func TestIfSetTabActive(t *testing.T) {
 	}
 }
 
-func TestIfSetResumeButtons(t *testing.T) {
-	// TS: const [button1, button2, button3, button4, button5] =
-	// state.popInts(5); b5 is on stack top, so push b1..b5 in order.
+func TestIfAddResumeButton(t *testing.T) {
+	// 2e3bcf43: IF_ADDRESUMEBUTTON pops ONE com id and appends it to the
+	// player's resumeButtons (TS PlayerOps.ts:
+	// `state.activePlayer.resumeButtons.push(state.popInt())`).
+	// Two consecutive ops append in order.
 	sf := &ScriptFile{
-		Name: "if_setresumebuttons",
+		Name: "if_addresumebutton",
 		Opcodes: []Opcode{
-			OpPushConstantInt, // b1
-			OpPushConstantInt, // b2
-			OpPushConstantInt, // b3
-			OpPushConstantInt, // b4
-			OpPushConstantInt, // b5
-			OpIfSetResumeButtons,
+			OpPushConstantInt, // com id 1
+			OpIfAddResumeButton,
+			OpPushConstantInt, // com id 2
+			OpIfAddResumeButton,
 			OpReturn,
 		},
-		IntOperands:      []int32{11, 22, 33, 44, 55, 0, 0},
-		StringOperands:   []string{"", "", "", "", "", "", ""},
-		InstructionCount: 7,
+		IntOperands:      []int32{11, 0, 22, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
 	}
 	mp := &mockPlayer{}
 	state := Init(sf, mp, false, nil, nil)
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if mp.lastSetResumeButtons != [5]int{11, 22, 33, 44, 55} {
-		t.Errorf("SetResumeButtons: got %v, want [11 22 33 44 55]", mp.lastSetResumeButtons)
+	if len(mp.addedResumeButtons) != 2 || mp.addedResumeButtons[0] != 11 || mp.addedResumeButtons[1] != 22 {
+		t.Errorf("AddResumeButton: got %v, want [11 22]", mp.addedResumeButtons)
 	}
 }
 
@@ -496,21 +496,20 @@ func TestIfOpenMainNoActivePlayer(t *testing.T) {
 	}
 }
 
-func TestIfSetResumeButtonsNoActivePlayer(t *testing.T) {
+func TestIfAddResumeButtonNoActivePlayer(t *testing.T) {
 	sf := &ScriptFile{
-		Name: "if_setresumebuttons_nap",
+		Name: "if_addresumebutton_nap",
 		Opcodes: []Opcode{
-			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
-			OpPushConstantInt, OpPushConstantInt,
-			OpIfSetResumeButtons, OpReturn,
+			OpPushConstantInt,
+			OpIfAddResumeButton, OpReturn,
 		},
-		IntOperands:      []int32{1, 2, 3, 4, 5, 0, 0},
-		StringOperands:   []string{"", "", "", "", "", "", ""},
-		InstructionCount: 7,
+		IntOperands:      []int32{1, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
 	}
 	state := Init(sf, nil, false, nil, nil)
 	if err := Execute(state); err == nil {
-		t.Fatal("expected error from IF_SETRESUMEBUTTONS with no active player, got nil")
+		t.Fatal("expected error from IF_ADDRESUMEBUTTON with no active player, got nil")
 	}
 	if state.Execution != Aborted {
 		t.Errorf("Execution: got %v, want Aborted", state.Execution)

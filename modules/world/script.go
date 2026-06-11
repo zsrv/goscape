@@ -148,15 +148,16 @@ func (s *Server) runScript(
 // tick loop doesn't need to type-assert back to *Player.
 func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePlayer) {
 	if err := script.Execute(state); err != nil {
-		// 244 delta: TS ScriptRunner.ts:187 adds pid+name to the player
-		// error console line: `printError("Player script error -
-		// pid:${pid} name:${username}")`. Goscape folds these into the
+		// 2e3bcf43 (254 pin-advance): TS ScriptRunner.ts logs the player
+		// error console line by username only —
+		// `printError("Player script error - username:${username}")` —
+		// the 244-era pid attr is gone. Goscape folds this into the
 		// structured warn log attrs via the variadic extra path. Nil
 		// guard mirrors handlePlayerScriptError's (production callers
 		// always pass a live player; defensive only).
 		var extra []any
 		if self != nil {
-			extra = []any{"pid", self.Slot(), "name", self.Username()}
+			extra = []any{"username", self.Username()}
 		}
 		s.logScriptExecuteError("script execute error", state, err, extra...)
 		s.handlePlayerScriptError(state, self, err)
@@ -244,12 +245,14 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 // NAI-44 closure of NAI-37-D-WORLDQUEUE-CROSS-CONTEXT-DROP.
 func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 	if err := script.Execute(state); err != nil {
-		// 244 delta: TS's pid+name printError (ScriptRunner.ts:187) sits
-		// in the SHARED catch and fires for any player-anchored script —
-		// including world-queue resumes routed through here.
+		// 2e3bcf43 (254 pin-advance): TS's username-only printError
+		// (`Player script error - username:${username}`) sits in the
+		// SHARED catch and fires for any player-anchored script —
+		// including world-queue resumes routed through here. The 244-era
+		// pid attr is gone.
 		var extra []any
 		if state.Self != nil {
-			extra = []any{"pid", state.Self.Slot(), "name", state.Self.Username()}
+			extra = []any{"username", state.Self.Username()}
 		}
 		s.logScriptExecuteError("world script execute error", state, err, extra...)
 		// World-queue scripts can be either player- or npc-anchored
@@ -313,10 +316,11 @@ func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 // Mirrors TS ScriptRunner.ts:215-226 console.error block (file + backtrace).
 //
 // extra is a variadic slog attr list (key, value, key, value …). The
-// player call site (resumeOrFinish) passes "pid" + "name" to mirror
-// TS ScriptRunner.ts:187: `printError("Player script error - pid:…
-// name:…")`. NPC and world call sites pass nothing extra (TS does not
-// add pid/name for those paths).
+// player call sites (resumeOrFinish / resumeOrFinishWorld) pass "username"
+// to mirror TS ScriptRunner.ts @2e3bcf43:
+// `printError("Player script error - username:${username}")` (the 244-era
+// pid attr was dropped upstream). NPC and world call sites pass nothing
+// extra (TS does not add a username for those paths).
 func (s *Server) logScriptExecuteError(msg string, state *script.ScriptState, err error, extra ...any) {
 	attrs := []any{
 		"script", state.Script.Name,

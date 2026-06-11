@@ -57,9 +57,13 @@ func TestProviderRejectsVersionMismatch(t *testing.T) {
 }
 
 func TestProviderLoadRealCache(t *testing.T) {
-	cacheDir := filepath.Join("..", "..", "data", "pack", "server")
+	// Pinned to the rev-254 reference cache (Engine-TS 2e3bcf43, compiler
+	// version 27) — the repo's own data/pack is revision-specific generated
+	// output that refreshes later in the migration (Task T24); per-branch
+	// reference pinning avoids the cross-revision-cache hazard.
+	cacheDir := "/home/owner/Code/github.com/LostCityRS/Server254-ref/engine/data/pack/server"
 	if _, err := os.Stat(filepath.Join(cacheDir, "script.dat")); os.IsNotExist(err) {
-		t.Skip("real cache not present; skipping")
+		t.Skip("Server254-ref cache not present; skipping")
 	}
 
 	p := NewProvider()
