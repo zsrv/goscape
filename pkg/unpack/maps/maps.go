@@ -243,9 +243,13 @@ func Unpack(opts Options) error {
 		jm2Path := filepath.Join(mapsDir, fmt.Sprintf("m%d_%d.jm2", mapX, mapZ))
 		var saved []string
 		if existing, readErr := os.ReadFile(jm2Path); readErr == nil {
-			// TS line 176: replace \r, split by \n.
-			content := strings.ReplaceAll(string(existing), "\r", "")
-			lines := strings.Split(content, "\n")
+			// TS line 176 @2e3bcf43: split(/\r?\n/) — CRLF and bare LF both
+			// split; a lone \r NOT followed by \n stays inside its line
+			// (the old pin stripped ALL \r before splitting on \n).
+			lines := strings.Split(string(existing), "\n")
+			for i, line := range lines {
+				lines[i] = strings.TrimSuffix(line, "\r")
+			}
 			hasNpcObj := false
 			for _, line := range lines {
 				if strings.HasPrefix(line, "==== NPC ====") || strings.HasPrefix(line, "==== OBJ ====") {

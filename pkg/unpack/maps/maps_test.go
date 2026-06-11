@@ -431,6 +431,51 @@ func TestUnpack_NpcObjPreservation(t *testing.T) {
 	}
 }
 
+// TestUnpack_NpcObjPreservation_LineSplit254 pins the 254 split semantics for
+// the pre-existing .jm2 read: CRLF line endings split cleanly, but a lone \r
+// NOT followed by \n stays INSIDE its line (TS map/Unpack.ts:176 @2e3bcf43
+// switched from the old strip-all-\r-then-split-on-\n to .split(/\r?\n/)).
+func TestUnpack_NpcObjPreservation_LineSplit254(t *testing.T) {
+	scratch := t.TempDir()
+
+	mapsDir := filepath.Join(scratch, "maps")
+	if err := os.MkdirAll(mapsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// CRLF endings throughout + one lone \r embedded in an NPC line.
+	existing := "==== MAP ====\r\n0 0 0: u1\r\n\r\n==== NPC ====\r\n0 0 0: 9\r9 9\r\n"
+	if err := os.WriteFile(filepath.Join(mapsDir, "m53_53.jm2"), []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cacheDir := buildMinimalCache(t, []regionSpec{
+		{
+			mapX: 53, mapZ: 53,
+			landCodes: func(codes *[4][64][64][]byte) {
+				codes[0][0][0] = []byte{82} // underlay=1
+			},
+		},
+	})
+
+	if err := Unpack(Options{CacheDir: cacheDir, SrcDir: scratch}); err != nil {
+		t.Fatalf("Unpack: %v", err)
+	}
+
+	s, err := readJM2(t, scratch, "m53_53.jm2")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The CRLF \r must be stripped from the section header line…
+	if !strings.Contains(s, "==== NPC ====\n") {
+		t.Fatalf("NPC header not split cleanly from CRLF, content:\n%q", s)
+	}
+	// …while the lone \r inside the NPC data line survives.
+	if !strings.Contains(s, "0 0 0: 9\r9 9\n") {
+		t.Fatalf("lone \\r inside the NPC line must be preserved at 254, content:\n%q", s)
+	}
+}
+
 func TestUnpack_MissingMapFileWarning(t *testing.T) {
 	scratch := t.TempDir()
 	cacheDir := buildMinimalCacheNoData(t, []regionSpec{
