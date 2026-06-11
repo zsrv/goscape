@@ -578,20 +578,20 @@ type ActivePlayer interface {
 	HintCoord(offset, x, z, height int)
 
 	// HintPlayer directs the client to render a hint arrow pointing at the
-	// player with the given pid. Mirrors TS Player.hintPlayer at
-	// Player.ts:2181-2183 (244); called by the HINT_PL (opcode 2033) handler.
+	// player with the given slot. Mirrors TS Player.hintPlayer (254:
+	// HINT_PL reads activePlayer2.slot, PlayerOps.ts:989 @2e3bcf43).
 	// NAI-39.
-	HintPlayer(pid int)
+	HintPlayer(slot int)
 
 	// HintStop directs the client to clear any active hint arrow. Mirrors
 	// TS Player.stopHint at Player.ts:2186-2188; called by the HINT_STOP
 	// (opcode 2034) handler. NAI-39.
 	HintStop()
 
-	// Slot returns the player's pid (protocol identity). Name kept for the
-	// shared entity-interface shape (Npc's Slot() returns nid). Mirrors TS
-	// Player.pid at the 244 pin. Consumed by HINT_PL, which reads
-	// activePlayer2.pid. NAI-39.
+	// Slot returns the player's protocol slot (wire identity; Npc's
+	// Slot() returns nid). Mirrors TS Player.slot at the 254 pin
+	// (pid renamed to slot at a8186b95). Consumed by HINT_PL, which
+	// reads activePlayer2.slot. NAI-39.
 	Slot() int
 
 	// StaffModLevel returns the player's staff moderation level.

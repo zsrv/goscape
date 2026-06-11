@@ -145,7 +145,7 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 
 	switch t := target.(type) {
 	case *Player:
-		playerSlot := t.slot + 32768 // TS PathingEntity.ts:534 @2e3bcf43
+		playerSlot := t.slot + 32768 // TS PathingEntity.ts:509 @2e3bcf43
 		if p.faceEntity != playerSlot {
 			p.faceEntity = playerSlot
 			p.masks |= p.entitymask

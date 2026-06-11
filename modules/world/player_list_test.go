@@ -116,6 +116,35 @@ func TestPlayerLoopKeyDerivation(t *testing.T) {
 	}
 }
 
+// TestPlayerLoopKeyZeroStillProcessed pins the documented deviation on
+// playerLoopKey: a derived key of 0 (IPv6 third hextet 0, IPv4 0.0.0.0)
+// collides with TS HashTable's key-0 sentinel, so TS iteration would
+// never yield the player and would hide later bucket-0 logins behind
+// it — an upstream container bug goscape does NOT replicate. Both the
+// key-0 player and a later bucket-0 login must be iterated.
+func TestPlayerLoopKeyZeroStillProcessed(t *testing.T) {
+	if k := playerLoopKey("[2001:db8:0:1::5]:43594"); k != 0 {
+		t.Fatalf("IPv6 third-hextet-0 key = %#x, want 0", k)
+	}
+	if k := playerLoopKey("0.0.0.0:1"); k != 0 {
+		t.Fatalf("0.0.0.0 key = %#x, want 0", k)
+	}
+
+	l := newPlayerList(2048)
+	zeroKey := &Player{}
+	l.add(1, 0, zeroKey) // bucket 0, key 0 — TS sentinel collision
+	later := &Player{}
+	l.add(2, 8, later) // bucket 0 (8 & 7), behind the key-0 player
+
+	var got []*Player
+	for p := range l.all() {
+		got = append(got, p)
+	}
+	if len(got) != 2 || got[0] != zeroKey || got[1] != later {
+		t.Fatalf("key-0 iteration: got %d players (want both, in insertion order)", len(got))
+	}
+}
+
 // TS HashTable.all (HashTable.ts:49-60 @2e3bcf43): per-tick processing
 // iterates buckets 0..7 in ascending index order, each bucket in
 // insertion (login) order. Processing order is therefore IP-influenced

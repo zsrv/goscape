@@ -186,6 +186,16 @@ func splitHostPort(addr string) (host, port string) {
 // headless 127.0.0.1 bucket instead of silently never processing the
 // player.
 //
+// DEVIATION (key-0 sentinel skip NOT replicated): TS HashTable seeds
+// every bucket with a key-0 sentinel Linkable and its iteration stops
+// at the first key-0 node, so a player whose derived key is 0 — e.g.
+// IPv6 with third hextet 0 ("2001:db8:0:…" → 0 % 256 = 0) or IPv4
+// 0.0.0.0 — is never yielded AND hides every later login in bucket 0
+// from per-tick processing (TS HashTable.ts sentinel scan). That is an
+// upstream container bug, not intended behavior; goscape's slice
+// buckets iterate key-0 players normally. Pinned by
+// TestPlayerLoopKeyZeroStillProcessed.
+//
 // TS parses the raw address string (split on '.' / ':'), so the Go port
 // does the same rather than using net.IP. remoteAddr may be
 // "host:port", a bare host, or "" (no client).
