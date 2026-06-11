@@ -74,57 +74,56 @@ func (lx *Lexer) consumeStringExprStart() Token {
 	return lx.makeToken(STRING_EXPR_START, start, start, "<", startLn, startCol+1, startLn, startCol+1)
 }
 
-// consumeStringText emits one STRING_TEXT token per call. The token is
-// EITHER a single StringEscapeSequence (`\\`, `\"`, or `\<` — 2 source
-// chars) OR a run of non-special chars (stopping at `\`, `"`, `<`, or
-// newline). This split mirrors TS RuneScript 0.9.4's pre-ef6636e
-// STRING_TEXT grammar:
+// consumeStringText emits one STRING_TEXT token per call: a MAXIMAL run
+// of (StringEscapeSequence | plain char), stopping at `"`, `<`, or
+// newline. Mirrors the TS RuneScript 0.9.6 grammar
+// (RuneScriptLexer.g4:81 @ RuneScriptTS b8c3388):
 //
-//	STRING_TEXT : StringEscapeSequence | ~('\\' | '"' | '<' | '\r' | '\n')+ ;
+//	STRING_TEXT : (StringEscapeSequence | ~('\\' | '"' | '<' | '\r' | '\n'))+ ;
 //
-// (Alternation, not repetition over union — each escape is its own
-// token.) NAI-221: required for byte-identical script.dat output
-// against Server225_2's pinned @lostcityrs/runescript@0.9.4. Upstream
-// TS 0.9.6 changes the grammar to repetition and fuses escapes with
-// adjacent runs into one token; if Server225_2 ever upgrades, this
-// split can be reverted.
+// (Repetition over the union — escapes FUSE with adjacent runs into one
+// token, so `"a\\nb"` is ONE part `a\nb` after unescape.)
 //
-// NAI-203-D-LEXER-ERROR-RECOVERY: if a non-escape run is interrupted by
-// a newline, fires SyntaxError and force-pops to modeDefault so
-// subsequent tokens don't all parse as String-mode garbage.
+// History (NAI-221, retired at rev-254): 0.9.4's pre-ef6636e grammar was
+// the alternation form (each escape its own token), which split joined-
+// string parts at every escape. The 254 pin (@lostcityrs/runescript@0.9.6)
+// fuses; the T23 full-tree gate caught the split form producing separate
+// PUSH_CONSTANT_STRING parts in [label,flip_page_cocktail_guide]
+// ("Ingredients:\\n\\n<enum(...)>").
+//
+// Unrecognised escapes are still consumed verbatim (both chars) and
+// flagged later in unescapeStringPart so the full STRING_TEXT token
+// reaches the parser for a better error message.
+//
+// NAI-203-D-LEXER-ERROR-RECOVERY: if a run is interrupted by a newline,
+// fires SyntaxError and force-pops to modeDefault so subsequent tokens
+// don't all parse as String-mode garbage.
 func (lx *Lexer) consumeStringText() Token {
 	start := lx.pos
 	startLn, startCol := lx.line, lx.col
 
-	// Branch A: leading char is an escape — emit exactly the 2-char
-	// escape sequence as its own token (NAI-221 split).
-	if lx.input[lx.pos] == '\\' && lx.pos+1 < len(lx.input) {
-		next := lx.input[lx.pos+1]
-		if next != '\r' && next != '\n' {
-			// Consume the escape sequence verbatim (both chars) whether
-			// recognised or not. Unrecognised escapes are flagged later
-			// in unescapeStringPart so the full STRING_TEXT token reaches
-			// the parser for a better error message.
-			lx.advance(2)
-			stop := lx.pos - 1
-			endLn, endCol := lx.lineColAt(stop)
-			return lx.makeToken(STRING_TEXT, start, stop, lx.input[start:lx.pos], startLn, startCol+1, endLn, endCol+1)
-		}
-		// Escape followed by newline — fall through into the
-		// non-escape loop so the newline arm reports an unterminated
-		// string error.
-	}
-
-	// Branch B: run of non-special chars. Stops at the next escape
-	// (`\`), quote, expression-start `<`, or newline.
+	// Maximal munch over (escape-pair | plain char). Stops at quote,
+	// expression-start `<`, newline, or an escape whose second char is a
+	// newline/EOF (the unterminated-string error path below).
 	hitNewline := false
 	for lx.pos < len(lx.input) {
 		c := lx.input[lx.pos]
-		if c == '\\' || c == '"' || c == '<' {
+		if c == '"' || c == '<' {
 			break
 		}
 		if c == '\r' || c == '\n' {
 			hitNewline = true
+			break
+		}
+		if c == '\\' {
+			if lx.pos+1 < len(lx.input) {
+				if next := lx.input[lx.pos+1]; next != '\r' && next != '\n' {
+					lx.advance(2)
+					continue
+				}
+			}
+			// Escape followed by newline/EOF: end the run here; the
+			// newline arm (next call) reports the unterminated string.
 			break
 		}
 		lx.advance(1)
