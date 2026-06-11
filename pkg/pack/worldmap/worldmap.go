@@ -41,7 +41,7 @@ import (
 //   - f11-f30 font members RE-ADDED (Packet.load fonts/fNN.fm,
 //     Worldmap.ts:618-625).
 //   - Jag member writes batched at the end in fixed order
-//     (Worldmap.ts:648-669), replacing the 244 interleaved order.
+//     (Worldmap.ts:647-669), replacing the 244 interleaved order.
 //
 // Tag NAI-WORLDMAP-D-READDIR-SORTED (REVISED at 254): TS packWorldmap
 // does fs.readdirSync('data/pack/server/maps') (filesystem order) —
@@ -285,7 +285,7 @@ func Pack(srcDir, outDir string) error {
 		labelsPkt.P1(uint8(lab.Type))
 	}
 
-	// Assemble jagfile: batched write order per TS Worldmap.ts:648-669
+	// Assemble jagfile: batched write order per TS Worldmap.ts:647-669
 	// @ 2e3bcf43 (replaces the 244 interleaved order; f11-f30 re-added).
 	//
 	// Order: underlay → overlay → loc → obj → npc → multi → free →

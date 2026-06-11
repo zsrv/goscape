@@ -11,7 +11,7 @@ import (
 )
 
 // RunServerCompiler is the goscape equivalent of TS runServerCompiler's
-// final CompileServerScript({symbols}) call (Compiler.ts:330-365).
+// final CompileServerScript({symbols}) call (Compiler.ts:337-376).
 //
 // It chains:
 //  1. BuildSymbols(srcDir, dataPackDir) — assembles the 33-key
