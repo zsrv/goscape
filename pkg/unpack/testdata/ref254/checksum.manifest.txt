@@ -1,0 +1,62 @@
+# rev-254 TS-reference unpack changed-set manifest - family: checksum
+# Engine-TS pin 2e3bcf43 + Content pin caee3f2e; inputs: the rev-254
+# reference-pack client cache (Server254-ref/engine/data/pack
+# main_file_cache.dat/idx0-4) + the pin-generated mapview/worldmap.jag
+# (maps/ignore.csv exists at the 254 Content pin — vanilla worldmap path).
+# config family ran with the scratch engine's data/pack moved aside (plain
+# emission path, not the merge-compare path). Procedure: rev-244 B7 plan
+# Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md), re-run
+# at the 254 pins per the rev-254 plan Task 28.
+# Generated 2026-06-11. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
+# (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
+# prefix = cache dir; PackFile module-load registry rewrites subtracted;
+# renameSync moves preserve mtime so renames appear in ADDED/DELETED only);
+# STDOUT-NORM = sha256 of stdout with per-line 'M/D/YYYY H:MM:SS AM\t LEVEL\t '
+# TS-Logger prefixes stripped.
+# NEW at 254: pack/category.pack is ALSO subtracted from the changed-set —
+# TS validateCategoryPack (PackFile.ts:130-145 @2e3bcf43) regenerates it at
+# module load whenever any .loc/.npc/.obj source is mtime-newer (always true
+# in a fresh scratch copy) and the committed bytes at Content caee3f2e are
+# stale vs that regeneration; module-load noise, not unpack-family behavior.
+CACHE-ADDED config/flo.dat 578b0ce28acd803c8bf33b3001c2ac012a0bfc002936cb16af4c3813beba8f65
+CACHE-ADDED config/flo.idx 436d1daf5094a32a405fe167aef803562832164fa2274c7ab8971db346f270f1
+CACHE-ADDED config/idk.dat a8c167a19054464a0aeb9167678bc7409fc94712fc761e506ddc0832045ee29e
+CACHE-ADDED config/idk.idx 4ee139253659ffa8d2c93d342f2abfa3dc9188ce8ee016af2af260538df75fab
+CACHE-ADDED config/loc.dat a7d0baa995cef5518c09cf44b71bee07438984d72125f21e9c7fac3b66a1c366
+CACHE-ADDED config/loc.idx b192d52a9540299dfe1883e1385229999abc6e00cfc33ffc31abd31ae116bcec
+CACHE-ADDED config/npc.dat f0722df7dae9120dd59c8cecb1d04ccd13052b1637da7a4896f15e5f458798a0
+CACHE-ADDED config/npc.idx 73cfb0fe67a128ad7b5140c87f1150e22418679c4e806dfd76f12038dd467f77
+CACHE-ADDED config/obj.dat ca677ffb747950ae950f1e091cb7215a0045512500d00e347770e725c5691433
+CACHE-ADDED config/obj.idx fe215fd9f3922d16e809173d4b89d28a816d573fe29cc88057a80660ee2dedf4
+CACHE-ADDED config/seq.dat a03a6b79f234b656b05efd7418c57a86221e73b64b31bad3cb5fa88bb03a0b87
+CACHE-ADDED config/seq.idx e10b43c5adbcddc58aef0edd7866ca9aba87cb3dd107ab5a01ee4cdaf85fce87
+CACHE-ADDED config/spotanim.dat 11d494252bbf0d7789dbc396fa9472925897dd9399bb27a2f028ca1958fda744
+CACHE-ADDED config/spotanim.idx db2076a742209a870396f1d3714dd96c606a04e06cb5daf2a2c36cad61942003
+CACHE-ADDED config/varbit.dat b8572bf62589c1581b58f076f093e17ac31d734a785a521164dec8cad2540169
+CACHE-ADDED config/varbit.idx 29c4d7997e8058f10c94fb60129ec69d00ec4935f844dbcb314b2a2d80fe4eb8
+CACHE-ADDED config/varp.dat 45b5d963eb54c19ae957ed93dbfbb304a7cd6fb04f6313e4c57ae04fa970c54d
+CACHE-ADDED config/varp.idx 61ca0507e68624cc6a467818d9864ed5d66f651084495963983ca37d2bc0e60f
+CACHE-ADDED interface/data 0bc1b796cb0155c6679a29511fe013e42c1f1185c212939a615597a183734a91
+CACHE-ADDED synth/sounds.dat 814969a0b71e56a89c4374500b09c760ac9018d203e17a0e142eaac3e4efb108
+WROTE CACHE:config/flo.dat
+WROTE CACHE:config/flo.idx
+WROTE CACHE:config/idk.dat
+WROTE CACHE:config/idk.idx
+WROTE CACHE:config/loc.dat
+WROTE CACHE:config/loc.idx
+WROTE CACHE:config/npc.dat
+WROTE CACHE:config/npc.idx
+WROTE CACHE:config/obj.dat
+WROTE CACHE:config/obj.idx
+WROTE CACHE:config/seq.dat
+WROTE CACHE:config/seq.idx
+WROTE CACHE:config/spotanim.dat
+WROTE CACHE:config/spotanim.idx
+WROTE CACHE:config/varbit.dat
+WROTE CACHE:config/varbit.idx
+WROTE CACHE:config/varp.dat
+WROTE CACHE:config/varp.idx
+WROTE CACHE:interface/data
+WROTE CACHE:synth/sounds.dat
+STDOUT-NORM 92ceaaddb4d0c9fa08effb6226b694d1a641ec13436b04779327d116c82047a3

@@ -1,20 +1,27 @@
-# rev-245.2 TS-reference unpack changed-set manifest - family: anims
-# Engine-TS pin 3c16994c + Content pin cbcfe670; inputs: the rev-245.2
-# reference-pack client cache (Server245.2-ref/engine/data/pack
-# main_file_cache.dat/idx0-4) + worldmap.jag (generated at the pin by
-# tools/pack/map/Worldmap.ts run VANILLA — maps/ignore.csv exists at the
-# 245.2 Content pin, so the rev-244 empty-shim step was dropped).
+# rev-254 TS-reference unpack changed-set manifest - family: anims
+# Engine-TS pin 2e3bcf43 + Content pin caee3f2e; inputs: the rev-254
+# reference-pack client cache (Server254-ref/engine/data/pack
+# main_file_cache.dat/idx0-4) + the pin-generated mapview/worldmap.jag
+# (maps/ignore.csv exists at the 254 Content pin — vanilla worldmap path).
 # config family ran with the scratch engine's data/pack moved aside (plain
 # emission path, not the merge-compare path). Procedure: rev-244 B7 plan
-# Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md).
-# Generated 2026-06-10. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md), re-run
+# at the 254 pins per the rev-254 plan Task 28.
+# Generated 2026-06-11. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
 # (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
 # (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
 # prefix = cache dir; PackFile module-load registry rewrites subtracted;
 # renameSync moves preserve mtime so renames appear in ADDED/DELETED only);
 # STDOUT-NORM = sha256 of stdout with per-line 'M/D/YYYY H:MM:SS AM\t LEVEL\t '
 # TS-Logger prefixes stripped.
+# NEW at 254: pack/category.pack is ALSO subtracted from the changed-set —
+# TS validateCategoryPack (PackFile.ts:130-145 @2e3bcf43) regenerates it at
+# module load whenever any .loc/.npc/.obj source is mtime-newer (always true
+# in a fresh scratch copy) and the committed bytes at Content caee3f2e are
+# stale vs that regeneration; module-load noise, not unpack-family behavior.
 WROTE models/anim_0.anim
+WROTE models/anim_1.anim
+WROTE models/anim_10.anim
 WROTE models/anim_100.anim
 WROTE models/anim_101.anim
 WROTE models/anim_102.anim
@@ -25,7 +32,7 @@ WROTE models/anim_106.anim
 WROTE models/anim_107.anim
 WROTE models/anim_108.anim
 WROTE models/anim_109.anim
-WROTE models/anim_10.anim
+WROTE models/anim_11.anim
 WROTE models/anim_110.anim
 WROTE models/anim_111.anim
 WROTE models/anim_112.anim
@@ -36,7 +43,7 @@ WROTE models/anim_116.anim
 WROTE models/anim_117.anim
 WROTE models/anim_118.anim
 WROTE models/anim_119.anim
-WROTE models/anim_11.anim
+WROTE models/anim_12.anim
 WROTE models/anim_120.anim
 WROTE models/anim_121.anim
 WROTE models/anim_122.anim
@@ -47,7 +54,7 @@ WROTE models/anim_126.anim
 WROTE models/anim_127.anim
 WROTE models/anim_128.anim
 WROTE models/anim_129.anim
-WROTE models/anim_12.anim
+WROTE models/anim_13.anim
 WROTE models/anim_130.anim
 WROTE models/anim_131.anim
 WROTE models/anim_132.anim
@@ -58,7 +65,7 @@ WROTE models/anim_136.anim
 WROTE models/anim_137.anim
 WROTE models/anim_138.anim
 WROTE models/anim_139.anim
-WROTE models/anim_13.anim
+WROTE models/anim_14.anim
 WROTE models/anim_140.anim
 WROTE models/anim_141.anim
 WROTE models/anim_142.anim
@@ -69,7 +76,7 @@ WROTE models/anim_146.anim
 WROTE models/anim_147.anim
 WROTE models/anim_148.anim
 WROTE models/anim_149.anim
-WROTE models/anim_14.anim
+WROTE models/anim_15.anim
 WROTE models/anim_150.anim
 WROTE models/anim_151.anim
 WROTE models/anim_152.anim
@@ -80,7 +87,7 @@ WROTE models/anim_156.anim
 WROTE models/anim_157.anim
 WROTE models/anim_158.anim
 WROTE models/anim_159.anim
-WROTE models/anim_15.anim
+WROTE models/anim_16.anim
 WROTE models/anim_160.anim
 WROTE models/anim_161.anim
 WROTE models/anim_162.anim
@@ -91,7 +98,7 @@ WROTE models/anim_166.anim
 WROTE models/anim_167.anim
 WROTE models/anim_168.anim
 WROTE models/anim_169.anim
-WROTE models/anim_16.anim
+WROTE models/anim_17.anim
 WROTE models/anim_170.anim
 WROTE models/anim_171.anim
 WROTE models/anim_172.anim
@@ -102,7 +109,7 @@ WROTE models/anim_176.anim
 WROTE models/anim_177.anim
 WROTE models/anim_178.anim
 WROTE models/anim_179.anim
-WROTE models/anim_17.anim
+WROTE models/anim_18.anim
 WROTE models/anim_180.anim
 WROTE models/anim_181.anim
 WROTE models/anim_182.anim
@@ -113,7 +120,7 @@ WROTE models/anim_186.anim
 WROTE models/anim_187.anim
 WROTE models/anim_188.anim
 WROTE models/anim_189.anim
-WROTE models/anim_18.anim
+WROTE models/anim_19.anim
 WROTE models/anim_190.anim
 WROTE models/anim_191.anim
 WROTE models/anim_192.anim
@@ -124,8 +131,8 @@ WROTE models/anim_196.anim
 WROTE models/anim_197.anim
 WROTE models/anim_198.anim
 WROTE models/anim_199.anim
-WROTE models/anim_19.anim
-WROTE models/anim_1.anim
+WROTE models/anim_2.anim
+WROTE models/anim_20.anim
 WROTE models/anim_200.anim
 WROTE models/anim_201.anim
 WROTE models/anim_202.anim
@@ -136,7 +143,7 @@ WROTE models/anim_206.anim
 WROTE models/anim_207.anim
 WROTE models/anim_208.anim
 WROTE models/anim_209.anim
-WROTE models/anim_20.anim
+WROTE models/anim_21.anim
 WROTE models/anim_210.anim
 WROTE models/anim_211.anim
 WROTE models/anim_212.anim
@@ -147,7 +154,7 @@ WROTE models/anim_216.anim
 WROTE models/anim_217.anim
 WROTE models/anim_218.anim
 WROTE models/anim_219.anim
-WROTE models/anim_21.anim
+WROTE models/anim_22.anim
 WROTE models/anim_220.anim
 WROTE models/anim_221.anim
 WROTE models/anim_222.anim
@@ -158,7 +165,7 @@ WROTE models/anim_226.anim
 WROTE models/anim_227.anim
 WROTE models/anim_228.anim
 WROTE models/anim_229.anim
-WROTE models/anim_22.anim
+WROTE models/anim_23.anim
 WROTE models/anim_230.anim
 WROTE models/anim_231.anim
 WROTE models/anim_232.anim
@@ -169,7 +176,7 @@ WROTE models/anim_236.anim
 WROTE models/anim_237.anim
 WROTE models/anim_238.anim
 WROTE models/anim_239.anim
-WROTE models/anim_23.anim
+WROTE models/anim_24.anim
 WROTE models/anim_240.anim
 WROTE models/anim_241.anim
 WROTE models/anim_242.anim
@@ -180,7 +187,7 @@ WROTE models/anim_246.anim
 WROTE models/anim_247.anim
 WROTE models/anim_248.anim
 WROTE models/anim_249.anim
-WROTE models/anim_24.anim
+WROTE models/anim_25.anim
 WROTE models/anim_250.anim
 WROTE models/anim_251.anim
 WROTE models/anim_252.anim
@@ -191,16 +198,37 @@ WROTE models/anim_256.anim
 WROTE models/anim_257.anim
 WROTE models/anim_258.anim
 WROTE models/anim_259.anim
-WROTE models/anim_25.anim
+WROTE models/anim_26.anim
 WROTE models/anim_260.anim
 WROTE models/anim_261.anim
 WROTE models/anim_262.anim
 WROTE models/anim_263.anim
-WROTE models/anim_26.anim
+WROTE models/anim_264.anim
+WROTE models/anim_265.anim
+WROTE models/anim_266.anim
+WROTE models/anim_267.anim
+WROTE models/anim_268.anim
+WROTE models/anim_269.anim
 WROTE models/anim_27.anim
+WROTE models/anim_270.anim
+WROTE models/anim_271.anim
+WROTE models/anim_272.anim
+WROTE models/anim_273.anim
+WROTE models/anim_274.anim
+WROTE models/anim_275.anim
+WROTE models/anim_276.anim
+WROTE models/anim_277.anim
+WROTE models/anim_278.anim
+WROTE models/anim_279.anim
 WROTE models/anim_28.anim
+WROTE models/anim_280.anim
+WROTE models/anim_281.anim
+WROTE models/anim_282.anim
+WROTE models/anim_283.anim
+WROTE models/anim_284.anim
+WROTE models/anim_285.anim
 WROTE models/anim_29.anim
-WROTE models/anim_2.anim
+WROTE models/anim_3.anim
 WROTE models/anim_30.anim
 WROTE models/anim_31.anim
 WROTE models/anim_32.anim
@@ -211,7 +239,7 @@ WROTE models/anim_36.anim
 WROTE models/anim_37.anim
 WROTE models/anim_38.anim
 WROTE models/anim_39.anim
-WROTE models/anim_3.anim
+WROTE models/anim_4.anim
 WROTE models/anim_40.anim
 WROTE models/anim_41.anim
 WROTE models/anim_42.anim
@@ -222,7 +250,7 @@ WROTE models/anim_46.anim
 WROTE models/anim_47.anim
 WROTE models/anim_48.anim
 WROTE models/anim_49.anim
-WROTE models/anim_4.anim
+WROTE models/anim_5.anim
 WROTE models/anim_50.anim
 WROTE models/anim_51.anim
 WROTE models/anim_52.anim
@@ -233,7 +261,7 @@ WROTE models/anim_56.anim
 WROTE models/anim_57.anim
 WROTE models/anim_58.anim
 WROTE models/anim_59.anim
-WROTE models/anim_5.anim
+WROTE models/anim_6.anim
 WROTE models/anim_60.anim
 WROTE models/anim_61.anim
 WROTE models/anim_62.anim
@@ -244,7 +272,7 @@ WROTE models/anim_66.anim
 WROTE models/anim_67.anim
 WROTE models/anim_68.anim
 WROTE models/anim_69.anim
-WROTE models/anim_6.anim
+WROTE models/anim_7.anim
 WROTE models/anim_70.anim
 WROTE models/anim_71.anim
 WROTE models/anim_72.anim
@@ -255,7 +283,7 @@ WROTE models/anim_76.anim
 WROTE models/anim_77.anim
 WROTE models/anim_78.anim
 WROTE models/anim_79.anim
-WROTE models/anim_7.anim
+WROTE models/anim_8.anim
 WROTE models/anim_80.anim
 WROTE models/anim_81.anim
 WROTE models/anim_82.anim
@@ -266,7 +294,7 @@ WROTE models/anim_86.anim
 WROTE models/anim_87.anim
 WROTE models/anim_88.anim
 WROTE models/anim_89.anim
-WROTE models/anim_8.anim
+WROTE models/anim_9.anim
 WROTE models/anim_90.anim
 WROTE models/anim_91.anim
 WROTE models/anim_92.anim
@@ -277,5 +305,4 @@ WROTE models/anim_96.anim
 WROTE models/anim_97.anim
 WROTE models/anim_98.anim
 WROTE models/anim_99.anim
-WROTE models/anim_9.anim
 STDOUT-NORM e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

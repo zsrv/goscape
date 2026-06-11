@@ -7,10 +7,10 @@ import (
 )
 
 // TestSpriteMediaParity is the env-gated full sprite-media parity test.
-// It requires GOSCAPE_REF245_DIR to point at the engine directory of a
-// Server245.2-ref checkout. Run with:
+// It requires GOSCAPE_REF254_DIR to point at the engine directory of a
+// Server254-ref checkout. Run with:
 //
-//	GOSCAPE_REF245_DIR=/path/to/Server245.2-ref/engine \
+//	GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/sprite/ -run TestSpriteMediaParity -v -count=1 -timeout 900s
 func TestSpriteMediaParity(t *testing.T) {
@@ -46,10 +46,10 @@ func TestSpriteMediaParity(t *testing.T) {
 }
 
 // TestSpriteTexturesParity is the env-gated full sprite-textures parity test.
-// It requires GOSCAPE_REF245_DIR to point at the engine directory of a
-// Server245.2-ref checkout. Run with:
+// It requires GOSCAPE_REF254_DIR to point at the engine directory of a
+// Server254-ref checkout. Run with:
 //
-//	GOSCAPE_REF245_DIR=/path/to/Server245.2-ref/engine \
+//	GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/sprite/ -run TestSpriteTexturesParity -v -count=1 -timeout 900s
 func TestSpriteTexturesParity(t *testing.T) {
@@ -85,10 +85,10 @@ func TestSpriteTexturesParity(t *testing.T) {
 }
 
 // TestSpriteTitleParity is the env-gated full sprite-title parity test.
-// It requires GOSCAPE_REF245_DIR to point at the engine directory of a
-// Server245.2-ref checkout. Run with:
+// It requires GOSCAPE_REF254_DIR to point at the engine directory of a
+// Server254-ref checkout. Run with:
 //
-//	GOSCAPE_REF245_DIR=/path/to/Server245.2-ref/engine \
+//	GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/sprite/ -run TestSpriteTitleParity -v -count=1 -timeout 900s
 func TestSpriteTitleParity(t *testing.T) {

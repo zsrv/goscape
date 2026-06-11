@@ -370,7 +370,7 @@ func TestUnpackLoc_Opcode73_ForceDecor(t *testing.T) {
 }
 
 // TestUnpackLoc_Opcode74_BreakRouteFinding checks breakroutefinding=yes.
-// TS LocConfig.ts:293-294 (@3c16994c): else if (code === 74) { def.push('breakroutefinding=yes'); }
+// TS LocConfig.ts:317-318 (@2e3bcf43): else if (code === 74) { def.push('breakroutefinding=yes'); }
 func TestUnpackLoc_Opcode74_BreakRouteFinding(t *testing.T) {
 	body := []byte{74, 0}
 	cfg := buildLocCfgIdx(body)

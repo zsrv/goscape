@@ -1,4 +1,4 @@
-// Package config implements the config-archive unpackers for the RS2 245.2 tool chain.
+// Package config implements the config-archive unpackers for the RS2 254 tool chain.
 //
 // TS source: tools/unpack/config/Common.ts, tools/unpack/config/Unpack.ts (readConfigIdx only).
 package config

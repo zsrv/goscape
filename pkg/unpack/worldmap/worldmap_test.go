@@ -427,14 +427,14 @@ func TestUnpack_MultipleLabels(t *testing.T) {
 }
 
 // TestWorldmapParity is the env-gated parity test against the TS reference run.
-// It requires GOSCAPE_REF245_DIR. Run with:
+// It requires GOSCAPE_REF254_DIR. Run with:
 //
-//	GOSCAPE_REF245_DIR=/path/to/Server245.2-ref/engine \
+//	GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/worldmap/ -run TestWorldmapParity -v -count=1 -timeout 900s
 //
 // This is a stdout-only tool (no content or cache writes). cacheDir contains
-// worldmap.jag; packDir = GOSCAPE_REF245_DIR/data/pack (read-only);
+// worldmap.jag; packDir = GOSCAPE_REF254_DIR/data/pack (read-only);
 // srcDir = content scratch for TexturePack reads (pack/texture.pack).
 func TestWorldmapParity(t *testing.T) {
 	refRoot := unpacktest.RefDir(t)
@@ -443,7 +443,7 @@ func TestWorldmapParity(t *testing.T) {
 	cacheDir := unpacktest.CacheDir(t)
 	marker := unpacktest.Marker(t)
 
-	// packDir: Server245.2-ref engine data/pack (read-only).
+	// packDir: Server254-ref engine data/pack (read-only).
 	packDir := filepath.Join(refRoot, "engine", "data", "pack")
 
 	var out bytes.Buffer

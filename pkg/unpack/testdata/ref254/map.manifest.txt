@@ -1,21 +1,28 @@
-# rev-245.2 TS-reference unpack changed-set manifest - family: map
-# Engine-TS pin 3c16994c + Content pin cbcfe670; inputs: the rev-245.2
-# reference-pack client cache (Server245.2-ref/engine/data/pack
-# main_file_cache.dat/idx0-4) + worldmap.jag (generated at the pin by
-# tools/pack/map/Worldmap.ts run VANILLA — maps/ignore.csv exists at the
-# 245.2 Content pin, so the rev-244 empty-shim step was dropped).
+# rev-254 TS-reference unpack changed-set manifest - family: map
+# Engine-TS pin 2e3bcf43 + Content pin caee3f2e; inputs: the rev-254
+# reference-pack client cache (Server254-ref/engine/data/pack
+# main_file_cache.dat/idx0-4) + the pin-generated mapview/worldmap.jag
+# (maps/ignore.csv exists at the 254 Content pin — vanilla worldmap path).
 # config family ran with the scratch engine's data/pack moved aside (plain
 # emission path, not the merge-compare path). Procedure: rev-244 B7 plan
-# Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md).
-# Generated 2026-06-10. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md), re-run
+# at the 254 pins per the rev-254 plan Task 28.
+# Generated 2026-06-11. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
 # (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
 # (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
 # prefix = cache dir; PackFile module-load registry rewrites subtracted;
 # renameSync moves preserve mtime so renames appear in ADDED/DELETED only);
 # STDOUT-NORM = sha256 of stdout with per-line 'M/D/YYYY H:MM:SS AM\t LEVEL\t '
 # TS-Logger prefixes stripped.
+# NEW at 254: pack/category.pack is ALSO subtracted from the changed-set —
+# TS validateCategoryPack (PackFile.ts:130-145 @2e3bcf43) regenerates it at
+# module load whenever any .loc/.npc/.obj source is mtime-newer (always true
+# in a fresh scratch copy) and the committed bytes at Content caee3f2e are
+# stale vs that regeneration; module-load noise, not unpack-family behavior.
+MODIFIED maps/m45_55.jm2 9288ca2eed8322eb16eb4616e83bee1de8f262b4a3eeebb83a47ed6e74caf32a
 WROTE maps/m29_75.jm2
 WROTE maps/m30_75.jm2
+WROTE maps/m31_74.jm2
 WROTE maps/m31_75.jm2
 WROTE maps/m32_70.jm2
 WROTE maps/m32_71.jm2
@@ -38,6 +45,7 @@ WROTE maps/m34_74.jm2
 WROTE maps/m34_75.jm2
 WROTE maps/m34_76.jm2
 WROTE maps/m35_20.jm2
+WROTE maps/m35_74.jm2
 WROTE maps/m35_75.jm2
 WROTE maps/m35_76.jm2
 WROTE maps/m36_146.jm2
@@ -101,6 +109,7 @@ WROTE maps/m38_55.jm2
 WROTE maps/m38_72.jm2
 WROTE maps/m38_73.jm2
 WROTE maps/m38_74.jm2
+WROTE maps/m38_75.jm2
 WROTE maps/m39_147.jm2
 WROTE maps/m39_148.jm2
 WROTE maps/m39_149.jm2
@@ -175,6 +184,9 @@ WROTE maps/m41_75.jm2
 WROTE maps/m42_144.jm2
 WROTE maps/m42_145.jm2
 WROTE maps/m42_146.jm2
+WROTE maps/m42_148.jm2
+WROTE maps/m42_149.jm2
+WROTE maps/m42_150.jm2
 WROTE maps/m42_151.jm2
 WROTE maps/m42_152.jm2
 WROTE maps/m42_153.jm2
@@ -199,6 +211,9 @@ WROTE maps/m42_75.jm2
 WROTE maps/m43_144.jm2
 WROTE maps/m43_145.jm2
 WROTE maps/m43_146.jm2
+WROTE maps/m43_148.jm2
+WROTE maps/m43_149.jm2
+WROTE maps/m43_150.jm2
 WROTE maps/m43_153.jm2
 WROTE maps/m43_154.jm2
 WROTE maps/m43_44.jm2
@@ -229,6 +244,7 @@ WROTE maps/m44_152.jm2
 WROTE maps/m44_153.jm2
 WROTE maps/m44_154.jm2
 WROTE maps/m44_155.jm2
+WROTE maps/m44_157.jm2
 WROTE maps/m44_44.jm2
 WROTE maps/m44_45.jm2
 WROTE maps/m44_46.jm2
@@ -241,6 +257,8 @@ WROTE maps/m44_52.jm2
 WROTE maps/m44_53.jm2
 WROTE maps/m44_54.jm2
 WROTE maps/m44_55.jm2
+WROTE maps/m44_56.jm2
+WROTE maps/m44_57.jm2
 WROTE maps/m44_72.jm2
 WROTE maps/m44_73.jm2
 WROTE maps/m44_74.jm2
@@ -254,6 +272,8 @@ WROTE maps/m45_152.jm2
 WROTE maps/m45_153.jm2
 WROTE maps/m45_154.jm2
 WROTE maps/m45_155.jm2
+WROTE maps/m45_156.jm2
+WROTE maps/m45_157.jm2
 WROTE maps/m45_44.jm2
 WROTE maps/m45_45.jm2
 WROTE maps/m45_46.jm2
@@ -273,6 +293,7 @@ WROTE maps/m45_59.jm2
 WROTE maps/m45_60.jm2
 WROTE maps/m45_61.jm2
 WROTE maps/m45_62.jm2
+WROTE maps/m45_71.jm2
 WROTE maps/m45_73.jm2
 WROTE maps/m45_74.jm2
 WROTE maps/m45_75.jm2
@@ -440,7 +461,6 @@ WROTE maps/m52_59.jm2
 WROTE maps/m52_60.jm2
 WROTE maps/m52_61.jm2
 WROTE maps/m52_62.jm2
-WROTE maps/m53_151.jm2
 WROTE maps/m53_152.jm2
 WROTE maps/m53_154.jm2
 WROTE maps/m53_49.jm2
@@ -450,13 +470,11 @@ WROTE maps/m53_52.jm2
 WROTE maps/m53_53.jm2
 WROTE maps/m53_54.jm2
 WROTE maps/m53_55.jm2
+WROTE maps/m54_148.jm2
 WROTE maps/m54_151.jm2
-WROTE maps/m54_152.jm2
 WROTE maps/m54_51.jm2
 WROTE maps/m54_52.jm2
 WROTE maps/m54_53.jm2
 WROTE maps/m54_54.jm2
-WROTE maps/m54_55.jm2
 WROTE maps/m55_54.jm2
-WROTE maps/m55_55.jm2
 STDOUT-NORM e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

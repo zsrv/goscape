@@ -4,7 +4,7 @@
 // This is a faithful 1:1 Go port of the decode/export path of the TypeScript
 // class at:
 //
-//	Server245.2-ref/engine/src/cache/graphics/Pix.ts
+//	Server254-ref/engine/src/cache/graphics/Pix.ts
 //
 // Ported entry points:
 //   - [UnpackJag]  — TS Pix.ts:72-139  (binary sprite decode from jag)

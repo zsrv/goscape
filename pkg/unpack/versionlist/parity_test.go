@@ -8,9 +8,9 @@ import (
 )
 
 // TestVersionlistAnimParity is the env-gated parity test for anim_index.
-// It requires GOSCAPE_REF245_DIR. Run with:
+// It requires GOSCAPE_REF254_DIR. Run with:
 //
-//	GOSCAPE_REF245_DIR=/path/to/Server245.2-ref/engine \
+//	GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/versionlist/ -run TestVersionlistAnimParity -v -count=1 -timeout 900s
 func TestVersionlistAnimParity(t *testing.T) {
@@ -44,9 +44,9 @@ func TestVersionlistAnimParity(t *testing.T) {
 }
 
 // TestVersionlistMidiParity is the env-gated parity test for midi_index.
-// It requires GOSCAPE_REF245_DIR. Run with:
+// It requires GOSCAPE_REF254_DIR. Run with:
 //
-//	GOSCAPE_REF245_DIR=/path/to/Server245.2-ref/engine \
+//	GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/versionlist/ -run TestVersionlistMidiParity -v -count=1 -timeout 900s
 //
@@ -83,9 +83,9 @@ func TestVersionlistMidiParity(t *testing.T) {
 }
 
 // TestVersionlistModelParity is the env-gated parity test for model_index.
-// It requires GOSCAPE_REF245_DIR. Run with:
+// It requires GOSCAPE_REF254_DIR. Run with:
 //
-//	GOSCAPE_REF245_DIR=/path/to/Server245.2-ref/engine \
+//	GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/versionlist/ -run TestVersionlistModelParity -v -count=1 -timeout 900s
 //

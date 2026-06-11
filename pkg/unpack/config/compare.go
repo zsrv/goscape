@@ -1,4 +1,4 @@
-// Package config implements the config-archive unpackers for the RS2 245.2 tool chain.
+// Package config implements the config-archive unpackers for the RS2 254 tool chain.
 //
 // This file ports tools/unpack/config/Compare.ts.
 package config

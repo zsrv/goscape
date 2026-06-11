@@ -1,6 +1,6 @@
 // Package worldmap implements the worldmap floorcol/labels dump tool.
 //
-// Mirrors TS tools/unpack/worldmap/Unpack.ts (Engine-TS 3c16994c, rev-245.2;
+// Mirrors TS tools/unpack/worldmap/Unpack.ts (Engine-TS 2e3bcf43, rev-254;
 // identical to the 244 pin 9aadcec4 - the cross-pin diff does not touch it):
 //
 //	FloType.load('data/pack')
