@@ -939,20 +939,18 @@ func TestAddNpcAt_PopulatesSizeBlockWalkMoveRestrict(t *testing.T) {
 	}
 }
 
-// TestSpawnLoopNidGap pins rev-244 B3 gamemap-2: on a non-members world the
-// nid allocator must advance for every valid NpcType in the spawn list —
-// including members-only NPCs that are gated out — so that the nid sequence
-// has gaps where members NPCs were skipped. This mirrors TS
-// GameMap.loadNpcs:131-134 (pin 9aadcec4) which hoists `new Npc(...,
-// World.getNextNid(), ...)` ABOVE the members gate.
+// TestSpawnLoopNidGap pins the 254-pin gamemap-2 contract: on a
+// non-members world a gated-out members-only NPC must NOT consume a nid.
+// TS GameMap.loadNpcs at 2e3bcf43 (GameMap.ts:132-136) moves the Npc
+// ctor (which consumes World.getNextNid()) INSIDE the members gate,
+// reverting the 244 hoist that burned a nid per skipped NPC.
 //
-// Fixture: three spawns in order — F2P, members-only, F2P — on a non-members
-// world. The first F2P NPC gets nid N; the members NPC is skipped (gate) but
-// its nid N+1 is consumed; the second F2P NPC gets nid N+2.
+// Fixture: three spawns in order — F2P, members-only, F2P — on a
+// non-members world. The first F2P NPC gets nid N; the members NPC is
+// skipped with NO nid consumed; the second F2P NPC gets nid N+1.
 //
-// FAIL expected under 225-style gate-before-alloc (members skip → no nid
-// consumed → third NPC gets N+1). PASS after 244 hoist (nid consumed for
-// skipped members NPC → third NPC gets N+2).
+// FAIL expected under the 244 hoist (skipped members NPC consumed N+1 →
+// third NPC at N+2). PASS at the 254 pin (gate-before-alloc → N+1).
 func TestSpawnLoopNidGap(t *testing.T) {
 	s := newTestServer(t)
 
@@ -970,10 +968,8 @@ func TestSpawnLoopNidGap(t *testing.T) {
 	worldMembers := false
 	spawns := []*objtype.NpcType{f2pTyp, membersTyp, f2pTyp}
 
-	// Call spawnBootNpc — the 244-faithful helper that implements the hoisted
-	// nid-consumption loop. Under pre-hoist (225-style) code this helper does
-	// not exist and the inline loop in server.go gates before allocating; the
-	// test therefore fails until the hoist is applied.
+	// Call spawnBootNpc — the boot-pass helper. At the 254 pin it gates
+	// on members BEFORE allocating a nid (TS GameMap.ts:132 @2e3bcf43).
 	var registered []*Npc
 	for _, typ := range spawns {
 		n, err := s.spawnBootNpc(typ, int(typ.ConfigType.ID), 100, 100, 0, worldMembers)
@@ -992,11 +988,11 @@ func TestSpawnLoopNidGap(t *testing.T) {
 	firstNid := registered[0].nid
 	thirdNid := registered[1].nid
 
-	// The gap: members NPC consumed nid firstNid+1, so the second F2P NPC
-	// must be at firstNid+2 — NOT firstNid+1 (which would mean no gap).
-	wantThirdNid := firstNid + 2
+	// No gap: the skipped members NPC consumes no nid, so the second F2P
+	// NPC sits at firstNid+1 (TS GameMap.ts:132-136 @2e3bcf43).
+	wantThirdNid := firstNid + 1
 	if thirdNid != wantThirdNid {
-		t.Errorf("third NPC nid: got %d, want %d — members-skipped NPC must consume nid %d (244 hoist [gamemap-2])",
-			thirdNid, wantThirdNid, firstNid+1)
+		t.Errorf("third NPC nid: got %d, want %d — members-skipped NPC must NOT consume a nid (254 gate-before-alloc [gamemap-2])",
+			thirdNid, wantThirdNid)
 	}
 }

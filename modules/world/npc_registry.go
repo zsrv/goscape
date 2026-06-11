@@ -10,39 +10,38 @@ import (
 
 var errNpcsFull = errors.New("npc registry full")
 
-// spawnBootNpc is the 244-faithful single-spawn step for the boot-time NPC
-// pass. It mirrors TS GameMap.loadNpcs at 9aadcec4:131-134, where Npc
-// construction (consuming World.getNextNid()) is hoisted ABOVE the members
-// gate — so on a non-members world a nid is consumed for each members-only
-// NPC in the list, producing gaps in the F2P nid sequence that keep it
-// identical to the members-world sequence.
+// spawnBootNpc is the single-spawn step for the boot-time NPC pass. It
+// mirrors TS GameMap.loadNpcs at the 254 pin (GameMap.ts:132-136
+// @2e3bcf43), where Npc construction (consuming World.getNextNid()) sits
+// INSIDE the members gate — a non-members world consumes NO nid for a
+// skipped members-only NPC, so F2P nid sequences stay compact. (The
+// 244-era hoist that burned a nid per skipped NPC is gone.)
+//
+//	if ((npcType.members && this.members) || !npcType.members) {
+//	    const size: number = npcType.size;
+//	    const npc: Npc = new Npc(..., World.getNextNid(), npcType.id, npcType.blockwalk);
+//	    World.addNpc(npc, -1);
+//	}
 //
 // Contract:
 //   - typ nil-check must be done by the caller BEFORE calling (TS
-//     printFatalError+continue at :126-129 fires before `new Npc`; a nil
-//     typ must not consume a nid).
-//   - allocNpcSlot() is called unconditionally — nid consumed even if the
-//     members gate rejects the NPC (matching TS: Npc constructed with
-//     getNextNid() then not passed to addNpc).
+//     printFatalError+continue at :128-131 fires before the gate).
+//   - Returns (nil, nil) when the members gate rejects the NPC (no nid
+//     consumed); callers should continue.
 //   - Returns (nil, errNpcsFull) when the registry is full; callers must
 //     break the spawn loop on a non-nil error.
-//   - Returns (nil, nil) when the members gate rejects the NPC (nid burned,
-//     no Npc registered); callers should continue.
 //   - Returns (n, nil) on success: NPC is registered and ready.
 //
 // [gamemap-2]
 func (s *Server) spawnBootNpc(typ *objtype.NpcType, typeID, x, z, level int, worldMembers bool) (*Npc, error) {
-	// 244 hoist: allocate nid BEFORE the members gate (TS GameMap.ts:131
-	// at pin 9aadcec4 — `new Npc(..., World.getNextNid(), ...)` above the
-	// `if ((npcType.members && this.members) || !npcType.members)` check).
+	// 254 pin: members gate BEFORE nid allocation (TS GameMap.ts:132
+	// @2e3bcf43 moved the Npc ctor inside the gate).
+	if !shouldSpawnNpc(typ, worldMembers) {
+		return nil, nil
+	}
 	nid := s.allocNpcSlot()
 	if nid < 0 {
 		return nil, errNpcsFull
-	}
-	if !shouldSpawnNpc(typ, worldMembers) {
-		// Nid consumed but NPC discarded — F2P worlds burn a nid per skipped
-		// members NPC, keeping nid sequences identical across world types.
-		return nil, nil
 	}
 	n := NewNpc(nid, typeID, x, z, level, typ)
 	// NewNpc(nid, ...) already set n.nid and n.uid correctly — unlike the

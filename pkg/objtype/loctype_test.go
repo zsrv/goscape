@@ -299,12 +299,48 @@ func TestPostDecode_ActiveInference(t *testing.T) {
 		}
 	})
 
-	t.Run("shapes_single_10_sets_active_1", func(t *testing.T) {
+	// 254-pin condition (TS LocType.ts:220 @2e3bcf43):
+	// `this.models && (!this.shapes || (this.shapes && this.shapes[0] === 10))`
+	// — models REQUIRED; nil shapes counts as active; the 43e02957-era
+	// `length === 1` restriction is gone.
+	t.Run("models_with_shape10_sets_active_1", func(t *testing.T) {
 		lt := NewLocType(0)
+		lt.Models = []uint16{1}
 		lt.Shapes = []uint8{10}
 		lt.PostDecode()
 		if lt.Active != 1 {
-			t.Errorf("Active: got %d, want 1 (Shapes==[10] branch)", lt.Active)
+			t.Errorf("Active: got %d, want 1 (models + shapes[0]==10 branch)", lt.Active)
+		}
+	})
+
+	t.Run("shape10_without_models_stays_0", func(t *testing.T) {
+		lt := NewLocType(0)
+		lt.Shapes = []uint8{10}
+		lt.PostDecode()
+		if lt.Active != 0 {
+			t.Errorf("Active: got %d, want 0 (2e3bcf43 requires this.models truthy)", lt.Active)
+		}
+	})
+
+	t.Run("models_with_nil_shapes_sets_active_1", func(t *testing.T) {
+		lt := NewLocType(0)
+		lt.Models = []uint16{1, 2}
+		lt.Shapes = nil
+		lt.PostDecode()
+		if lt.Active != 1 {
+			t.Errorf("Active: got %d, want 1 (!this.shapes branch — code-5 models-only locs)", lt.Active)
+		}
+	})
+
+	t.Run("models_with_empty_shapes_stays_0", func(t *testing.T) {
+		// JS truthiness: an empty array is truthy, so `!this.shapes` is
+		// false and `this.shapes[0] === 10` reads undefined → false.
+		lt := NewLocType(0)
+		lt.Models = []uint16{}
+		lt.Shapes = []uint8{}
+		lt.PostDecode()
+		if lt.Active != 0 {
+			t.Errorf("Active: got %d, want 0 (empty shapes array is truthy in JS; shapes[0] undefined)", lt.Active)
 		}
 	})
 
@@ -326,17 +362,21 @@ func TestPostDecode_ActiveInference(t *testing.T) {
 		}
 	})
 
-	t.Run("shapes_multi_no_active_inference", func(t *testing.T) {
+	t.Run("shapes_multi_first10_sets_active_1", func(t *testing.T) {
+		// 2e3bcf43 drops the `length === 1` restriction — only shapes[0]
+		// matters.
 		lt := NewLocType(0)
+		lt.Models = []uint16{1, 2}
 		lt.Shapes = []uint8{10, 11}
 		lt.PostDecode()
-		if lt.Active != 0 {
-			t.Errorf("Active: got %d, want 0 (Shapes len != 1)", lt.Active)
+		if lt.Active != 1 {
+			t.Errorf("Active: got %d, want 1 (length restriction removed at 2e3bcf43)", lt.Active)
 		}
 	})
 
-	t.Run("shapes_single_non10_no_active_inference", func(t *testing.T) {
+	t.Run("shapes_first_non10_no_active_inference", func(t *testing.T) {
 		lt := NewLocType(0)
+		lt.Models = []uint16{1}
 		lt.Shapes = []uint8{5}
 		lt.PostDecode()
 		if lt.Active != 0 {
@@ -657,8 +697,8 @@ func TestLocTypeDecodeNewArms(t *testing.T) {
 		{
 			// TS LocType.ts:124-131 (43e02957), new in 254: code 5 is a
 			// models-only list (count=g1, then g2 per model) that sets
-			// shapes = null. Active inference must NOT fire (postDecode
-			// guards `this.shapes && ...`).
+			// shapes = null. At the 2e3bcf43 pin, postDecode treats
+			// models-with-nil-shapes as active (`!this.shapes` branch).
 			name: "code5_models_only_shapes_nil",
 			payload: func() []byte {
 				p := packet2.NewPacket(nil)
@@ -675,8 +715,8 @@ func TestLocTypeDecodeNewArms(t *testing.T) {
 				if lt.Shapes != nil {
 					t.Errorf("Shapes: got %v, want nil (TS LocType.ts:127 sets shapes = null)", lt.Shapes)
 				}
-				if lt.Active != 0 {
-					t.Errorf("Active: got %d, want 0 (nil Shapes must not trip the shape-10 inference)", lt.Active)
+				if lt.Active != 1 {
+					t.Errorf("Active: got %d, want 1 (models + nil shapes → active at 2e3bcf43)", lt.Active)
 				}
 				if lt.RaiseObject != -1 {
 					t.Errorf("RaiseObject default: got %d, want -1 (TS LocType.ts:104)", lt.RaiseObject)

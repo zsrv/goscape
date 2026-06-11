@@ -2,6 +2,7 @@ package objtype
 
 import (
 	"path/filepath"
+	"slices"
 	"testing"
 
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
@@ -50,26 +51,27 @@ func TestObjTypeDecodeCode200Rejected(t *testing.T) {
 	}
 }
 
-// TestNewObjTypeOpDefaults pins TS ObjType.ts:147-148 (244): op and iop class
-// fields default to null (nil in Go). The packer lazy-inits them on first
-// op/iop cache code (30-34 / 35-39). Items that have no op/iop in the cache
-// have nil slices, NOT a pre-populated ["","","Take","",""] / ["","","","","Drop"].
+// TestNewObjTypeOpDefaults pins TS ObjType.ts:151-152 @2e3bcf43: op and
+// iop class fields default to [null, null, 'Take', null, null] and
+// [null, null, null, null, 'Drop'] ("" encodes TS null). The 244-era
+// null-until-decoded posture is gone at the 254 pin.
 func TestNewObjTypeOpDefaults(t *testing.T) {
 	ot := NewObjType(0)
 
-	if ot.Op != nil {
-		t.Errorf("Op default: got %v, want nil (TS ObjType.ts:147 op = null)", ot.Op)
+	wantOp := []string{"", "", "Take", "", ""}
+	wantIOp := []string{"", "", "", "", "Drop"}
+	if !slices.Equal(ot.Op, wantOp) {
+		t.Errorf("Op default: got %v, want %v (TS ObjType.ts:151 @2e3bcf43)", ot.Op, wantOp)
 	}
-	if ot.IOp != nil {
-		t.Errorf("IOp default: got %v, want nil (TS ObjType.ts:148 iop = null)", ot.IOp)
+	if !slices.Equal(ot.IOp, wantIOp) {
+		t.Errorf("IOp default: got %v, want %v (TS ObjType.ts:152 @2e3bcf43)", ot.IOp, wantIOp)
 	}
 }
 
-// TestObjTypeDecodeSilentCachePreservesNilOp pins TS ObjType.ts:147-148 (244):
-// an item with no op/iop codes in the cache leaves Op/IOp as nil — there is no
-// "Take"/"Drop" default injected at decode time. The nil slice is the correct
-// representation of "no operations defined".
-func TestObjTypeDecodeSilentCachePreservesNilOp(t *testing.T) {
+// TestObjTypeDecodeSilentCachePreservesDefaults pins the 254-pin posture:
+// an item with no op/iop codes in the cache keeps the Take/Drop class
+// defaults — no decode-time mutation.
+func TestObjTypeDecodeSilentCachePreservesDefaults(t *testing.T) {
 	pkt := packet2.NewPacket(nil)
 	pkt.P1(0) // terminator only — no codes
 
@@ -78,18 +80,19 @@ func TestObjTypeDecodeSilentCachePreservesNilOp(t *testing.T) {
 		t.Fatalf("DecodeType: %v", err)
 	}
 
-	if ot.Op != nil {
-		t.Errorf("Op (silent cache): got %v, want nil (no op codes → no lazy-init)", ot.Op)
+	if !slices.Equal(ot.Op, []string{"", "", "Take", "", ""}) {
+		t.Errorf("Op (silent cache): got %v, want Take default preserved", ot.Op)
 	}
-	if ot.IOp != nil {
-		t.Errorf("IOp (silent cache): got %v, want nil (no iop codes → no lazy-init)", ot.IOp)
+	if !slices.Equal(ot.IOp, []string{"", "", "", "", "Drop"}) {
+		t.Errorf("IOp (silent cache): got %v, want Drop default preserved", ot.IOp)
 	}
 }
 
-// TestObjTypeDecodeCode32LazyInit pins the lazy-init path (TS ObjType.ts:228-231):
-// code 32 (op[2]) lazy-inits Op to a 5-slot null array and sets the slot.
-// IOp remains nil (no iop codes present).
-func TestObjTypeDecodeCode32LazyInit(t *testing.T) {
+// TestObjTypeDecodeCode32OverwritesDefault pins the 254-pin decode path
+// (TS ObjType.ts:231-232 @2e3bcf43): code 32 (op[2]) overwrites the
+// 'Take' default slot directly — no lazy-init. Untouched slots keep
+// their default values.
+func TestObjTypeDecodeCode32OverwritesDefault(t *testing.T) {
 	pkt := packet2.NewPacket(nil)
 	pkt.P1(32)
 	pkt.PJStrLF("Whatever")
@@ -100,31 +103,30 @@ func TestObjTypeDecodeCode32LazyInit(t *testing.T) {
 		t.Fatalf("DecodeType: %v", err)
 	}
 
-	if ot.Op == nil {
-		t.Fatal("Op after code 32: got nil, want lazy-inited 5-slot slice")
-	}
 	if got := ot.Op[2]; got != "Whatever" {
-		t.Errorf("Op[2] (code 32): got %q, want \"Whatever\"", got)
+		t.Errorf("Op[2] (code 32): got %q, want \"Whatever\" (overwrites the Take default)", got)
 	}
-	// Other Op slots are empty strings (fill(null) → "" in Go).
 	if got := ot.Op[0]; got != "" {
 		t.Errorf("Op[0] (unset slot): got %q, want \"\"", got)
 	}
-	// IOp remains nil because no iop codes appeared.
-	if ot.IOp != nil {
-		t.Errorf("IOp: got %v, want nil (no iop codes)", ot.IOp)
+	// IOp keeps the Drop default (no iop codes appeared).
+	if !slices.Equal(ot.IOp, []string{"", "", "", "", "Drop"}) {
+		t.Errorf("IOp: got %v, want Drop default preserved", ot.IOp)
 	}
 }
 
-// TestApplyPostDecodeFixupsF2PMembersNilsOpAndIop pins TS ObjType.ts:62-63 (244):
-// when NODE_MEMBERS=false and config.members=true, the F2P gating branch sets
-// op=null and iop=null (NOT the old [null,null,'Take',null,null] arrays).
-// Tradeable is still forced false. Category is NOT touched (244 removed that line).
-func TestApplyPostDecodeFixupsF2PMembersNilsOpAndIop(t *testing.T) {
+// TestApplyPostDecodeFixupsF2PMembersResetsOpsAndCategory pins TS
+// ObjType.ts:60-67 @2e3bcf43: when NODE_MEMBERS=false and
+// config.members=true, the F2P gating branch resets op/iop to the
+// Take/Drop default arrays AND category to -1 (both restored at the 254
+// pin; 244 nulled op/iop and left category alone). Tradeable is still
+// forced false.
+func TestApplyPostDecodeFixupsF2PMembersResetsOpsAndCategory(t *testing.T) {
 	t.Setenv("NODE_MEMBERS", "false")
 
 	ot := NewObjType(0)
 	ot.Members = true
+	ot.Category = 42 // simulates cache code 94
 	// Simulate an item that had op/iop set from cache codes.
 	ot.Op = []string{"Wear", "", "", "", ""}
 	ot.IOp = []string{"Examine", "", "", "", ""}
@@ -134,36 +136,17 @@ func TestApplyPostDecodeFixupsF2PMembersNilsOpAndIop(t *testing.T) {
 
 	applyPostDecodeFixups(otc, ptc)
 
-	if ot.Op != nil {
-		t.Errorf("Op: got %v, want nil (TS ObjType.ts:62 config.op = null)", ot.Op)
+	if !slices.Equal(ot.Op, []string{"", "", "Take", "", ""}) {
+		t.Errorf("Op: got %v, want Take default (TS ObjType.ts:62 @2e3bcf43)", ot.Op)
 	}
-	if ot.IOp != nil {
-		t.Errorf("IOp: got %v, want nil (TS ObjType.ts:63 config.iop = null)", ot.IOp)
+	if !slices.Equal(ot.IOp, []string{"", "", "", "", "Drop"}) {
+		t.Errorf("IOp: got %v, want Drop default (TS ObjType.ts:63 @2e3bcf43)", ot.IOp)
 	}
 	if ot.Tradeable != false {
 		t.Errorf("Tradeable: got %v, want false", ot.Tradeable)
 	}
-}
-
-// TestApplyPostDecodeFixupsF2PMembersCategoryUnchanged pins TS ObjType.ts:59-66 (244):
-// the 244 diff removed the `config.category = -1` line from the F2P gating branch.
-// Category is now LEFT UNCHANGED when NODE_MEMBERS=false — the old "auto-ignore
-// category triggers on f2p" zeroing is gone.
-func TestApplyPostDecodeFixupsF2PMembersCategoryUnchanged(t *testing.T) {
-	t.Setenv("NODE_MEMBERS", "false")
-
-	ot := NewObjType(0)
-	ot.Members = true
-	ot.Category = 42 // simulates cache code 94
-
-	otc := &ObjTypeConfigs{Configs: []*ObjType{ot}}
-	ptc := &ParamTypeConfigs{}
-
-	applyPostDecodeFixups(otc, ptc)
-
-	// 244 no longer resets category in the F2P branch — category stays 42.
-	if ot.Category != 42 {
-		t.Errorf("Category: got %d, want 42 (TS ObjType.ts:244 removed category=-1 from F2P branch)", ot.Category)
+	if ot.Category != -1 {
+		t.Errorf("Category: got %d, want -1 (TS ObjType.ts:67 @2e3bcf43 restores the F2P category reset)", ot.Category)
 	}
 }
 
@@ -495,12 +478,14 @@ func TestObjTypeDecodeCode114ContrastSigned(t *testing.T) {
 	}
 }
 
-// TestObjTypeDecodeIopLazyInit pins TS ObjType.ts:233-236 (244): code 35 (iop[0])
-// lazy-inits IOp to a 5-slot array and sets the slot. Op remains nil.
-func TestObjTypeDecodeIopLazyInit(t *testing.T) {
+// TestObjTypeDecodeIopCode39 pins the 254-pin decode path (TS
+// ObjType.ts:233-234 @2e3bcf43): code 39 (iop[4]) overwrites the slot
+// directly (here coinciding with the 'Drop' default value). Op keeps its
+// Take default (no op codes).
+func TestObjTypeDecodeIopCode39(t *testing.T) {
 	pkt := packet2.NewPacket(nil)
 	pkt.P1(39)
-	pkt.PJStrLF("Drop")
+	pkt.PJStrLF("Discard")
 	pkt.P1(0)
 
 	ot := NewObjType(0)
@@ -508,13 +493,10 @@ func TestObjTypeDecodeIopLazyInit(t *testing.T) {
 		t.Fatalf("DecodeType: %v", err)
 	}
 
-	if ot.IOp == nil {
-		t.Fatal("IOp after code 39: got nil, want lazy-inited 5-slot slice")
+	if got := ot.IOp[4]; got != "Discard" {
+		t.Errorf("IOp[4] (code 39): got %q, want \"Discard\" (overwrites the Drop default)", got)
 	}
-	if got := ot.IOp[4]; got != "Drop" {
-		t.Errorf("IOp[4] (code 39): got %q, want \"Drop\"", got)
-	}
-	if ot.Op != nil {
-		t.Errorf("Op: got %v, want nil (no op codes)", ot.Op)
+	if !slices.Equal(ot.Op, []string{"", "", "Take", "", ""}) {
+		t.Errorf("Op: got %v, want Take default preserved (no op codes)", ot.Op)
 	}
 }

@@ -646,10 +646,9 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		if typ == nil {
 			continue
 		}
-		// 244 hoist: spawnBootNpc consumes a nid BEFORE the members gate
-		// (TS GameMap.ts:131-134 at pin 9aadcec4). On F2P worlds, members-
-		// only NPCs are gated out but their nid is still consumed, keeping
-		// the nid sequence identical to a members world. [gamemap-2]
+		// 254 pin: spawnBootNpc gates on members BEFORE allocating a nid
+		// (TS GameMap.ts:132-136 @2e3bcf43 — the Npc ctor moved inside the
+		// members gate; the 244 nid-burn hoist is gone). [gamemap-2]
 		_, err := s.spawnBootNpc(typ, spawn.TypeID, spawn.X, spawn.Z, spawn.Level, cfg.NodeMembers)
 		if err != nil {
 			s.log.Warn("npc registry full; dropping remaining spawns", "err", err)
@@ -694,17 +693,16 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 // `(npcType.members && this.members) || !npcType.members` reduces to:
 // skip iff npcType is members-only AND world is F2P.
 //
-// At 244 (pin 9aadcec4) the members gate (GameMap.ts:132) is applied AFTER
-// Npc construction which consumes getNextNid() (GameMap.ts:131). goscape's
-// analog is spawnBootNpc (npc_registry.go [gamemap-2]) which calls
-// allocNpcSlot() before invoking shouldSpawnNpc, so nids are consumed even
-// for gated-out members NPCs. shouldSpawnNpc itself is unchanged by the hoist
-// — it remains the gate predicate used at the post-alloc decision point.
+// At the 254 pin (GameMap.ts:132-136 @2e3bcf43) the members gate wraps
+// Npc construction, so getNextNid() is only consumed for NPCs that pass.
+// goscape's analog is spawnBootNpc (npc_registry.go [gamemap-2]) which
+// calls shouldSpawnNpc BEFORE allocNpcSlot. shouldSpawnNpc itself is the
+// gate predicate.
 //
 // The tile F2P gate (GameMap.ts:122-124) is already enforced upstream in
 // pkg/gamemap/load.go's loadNPCs and stays orthogonal to this gate.
 // A nil typ is rejected by the spawn loop's bounds check before calling
-// spawnBootNpc — see the [gamemap-2] hoist comment in NewServer.
+// spawnBootNpc — see [gamemap-2] in npc_registry.go.
 // [gamemap-1]
 func shouldSpawnNpc(typ *objtype.NpcType, worldMembers bool) bool {
 	if typ == nil {

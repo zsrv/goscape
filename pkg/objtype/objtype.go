@@ -104,11 +104,22 @@ func applyPostDecodeFixups(otc *ObjTypeConfigs, ptc *ParamTypeConfigs) {
 		}
 
 		if os.Getenv("NODE_MEMBERS") == "false" && config.Members {
-			// TS ObjType.ts:61-67 (244): null out op/iop entirely (no "Take"/"Drop"
-			// fallback). The category=-1 reset present in rev-225 was removed in 244.
+			// TS ObjType.ts:60-67 @2e3bcf43: members objs on F2P worlds
+			// reset op/iop to the Take/Drop defaults and category to -1:
+			//
+			//	config.tradeable = false;
+			//	config.op = [null, null, 'Take', null, null];
+			//	config.iop = [null, null, null, null, 'Drop'];
+			//	// "Yeah, turns out some of the devs didn't realise that their
+			//	// 'category' triggers would be auto-ignored on F2P."
+			//	config.category = -1;
+			//
+			// (244 nulled op/iop entirely and dropped the category reset;
+			// the 254 pin restores both with the new default arrays.)
 			config.Tradeable = false
-			config.Op = nil
-			config.IOp = nil
+			config.Op = DefaultObjOps()
+			config.IOp = DefaultObjIOps()
+			config.Category = -1
 
 			// TS ObjType.ts:69-73 (244): delete params whose ParamType.autodisable is
 			// true. TS uses ParamType.get(key)?.autodisable — the optional-chain
@@ -148,8 +159,12 @@ type ObjType struct {
 	Stackable        bool
 	Cost             int
 	Members          bool
-	Op               []string
-	IOp              []string
+	// Op / IOp default to the 254-pin literals (TS ObjType.ts:151-152
+	// @2e3bcf43): op = [null, null, 'Take', null, null] and
+	// iop = [null, null, null, null, 'Drop'] — "" is the Go encoding of
+	// TS null. NewObjType seeds them via DefaultObjOps/DefaultObjIOps.
+	Op  []string
+	IOp []string
 	ManWear          int
 	ManWear2         int
 	ManWearOffsetY   int
@@ -259,17 +274,20 @@ func (ot *ObjType) Decode(code uint8, dat *packet2.Packet) error {
 	case 27:
 		ot.WearPos3 = int(dat.G1())
 	case 30, 31, 32, 33, 34:
-		// TS ObjType.ts:228-231 (244): lazy-init op on first code, then set
-		// slot verbatim (including "hidden" — no coercion). The op-click
-		// handler blocks null/"hidden"; OC_OP/P_OPOBJ report it as present.
+		// TS ObjType.ts:231-232 @2e3bcf43: set slot verbatim (including
+		// "hidden" — no coercion). The 244-era lazy-init is gone — op is
+		// always allocated with the Take/Drop defaults at the field
+		// declaration. The nil-guard is goscape-defensive for zero-value
+		// structs built outside NewObjType (tests); it seeds the same
+		// default array.
 		if ot.Op == nil {
-			ot.Op = make([]string, 5)
+			ot.Op = DefaultObjOps()
 		}
 		ot.Op[code-30] = dat.GJStrLF()
 	case 35, 36, 37, 38, 39:
-		// TS ObjType.ts:233-236 (244): lazy-init iop on first code, then set slot.
+		// TS ObjType.ts:233-234 @2e3bcf43: set slot verbatim; lazy-init gone.
 		if ot.IOp == nil {
-			ot.IOp = make([]string, 5)
+			ot.IOp = DefaultObjIOps()
 		}
 		ot.IOp[code-35] = dat.GJStrLF()
 	case 40:
@@ -373,9 +391,26 @@ func NewObjType(id int) *ObjType {
 		Category:    -1,
 		RespawnRate: 100,  // defaults to 1 minute
 		Tradeable:   true, // TS ObjType.ts:177 class-field default
-		// TS ObjType.ts:147-148 (244): op/iop default null; lazy-inited by decode codes 30-39.
+		// TS ObjType.ts:151-152 @2e3bcf43: op/iop class-field defaults
+		// (Take at index 2 / Drop at index 4); 244's null-until-decoded
+		// posture is gone.
+		Op:     DefaultObjOps(),
+		IOp:    DefaultObjIOps(),
 		Params: make(ParamMap),
 	}
+}
+
+// DefaultObjOps returns a fresh copy of the 254-pin ObjType.op default:
+// TS ObjType.ts:151 @2e3bcf43 `op = [null, null, 'Take', null, null]`
+// ("" encodes TS null).
+func DefaultObjOps() []string {
+	return []string{"", "", "Take", "", ""}
+}
+
+// DefaultObjIOps returns a fresh copy of the 254-pin ObjType.iop default:
+// TS ObjType.ts:152 @2e3bcf43 `iop = [null, null, null, null, 'Drop']`.
+func DefaultObjIOps() []string {
+	return []string{"", "", "", "", "Drop"}
 }
 
 func GetWearPosID(name string) int {

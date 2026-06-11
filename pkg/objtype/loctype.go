@@ -78,9 +78,10 @@ func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 		lt.Desc = dat.GJStrLF()
 	case 5:
 		// New in 254 (TS LocType.ts:124-131 @43e02957): models-only list.
-		// Replaces any prior code-1 pair and sets shapes = null — the
-		// PostDecode shape-10 Active inference therefore never fires for
-		// code-5 locs (TS guards `this.shapes && ...`).
+		// Replaces any prior code-1 pair and sets shapes = null. At the
+		// 2e3bcf43 pin the PostDecode Active inference treats null shapes
+		// as active (`this.models && (!this.shapes || ...)`), so code-5
+		// locs with models default to Active=1.
 		count := int(dat.G1())
 		lt.Models = make([]uint16, count)
 		lt.Shapes = nil
@@ -178,14 +179,25 @@ func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 	return nil
 }
 
-// PostDecode mirrors TS LocType.postDecode (LocType.ts:216-228 @43e02957).
-// Coerces the Active default (-1) to 0/1 based on Shapes/Op presence.
+// PostDecode mirrors TS LocType.postDecode (LocType.ts:216-228 @2e3bcf43).
+// Coerces the Active default (-1) to 0/1 based on Models/Shapes/Op.
 // Called after both server and client decode passes complete in
 // parseLocTypes.
+//
+// 254-pin condition (TS LocType.ts:220):
+//
+//	if (this.models && (!this.shapes || (this.shapes && this.shapes[0] === 10))) {
+//	    this.active = 1;
+//	}
+//
+// vs the 43e02957 shape: `shapes && shapes.length === 1 && shapes[0] === 10`.
+// JS truthiness mapping: a non-null (even empty) array is truthy → Go
+// nil-checks, NOT len-checks; `shapes[0] === 10` on an empty array reads
+// undefined → false → Go len guard on the index only.
 func (lt *LocType) PostDecode() {
 	if lt.Active == -1 {
 		lt.Active = 0
-		if len(lt.Shapes) == 1 && lt.Shapes[0] == 10 {
+		if lt.Models != nil && (lt.Shapes == nil || (len(lt.Shapes) > 0 && lt.Shapes[0] == 10)) {
 			lt.Active = 1
 		}
 		if lt.Op != nil {
