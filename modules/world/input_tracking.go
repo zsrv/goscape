@@ -158,8 +158,11 @@ func (t *InputTracking) MouseClick(info uint32) {
 // MouseMove appends event 4: p1(tag) p1(len) pdata; rejects len==0 or
 // len>160. NOTE the TS overflow check adds only len(data) — NOT the 2
 // tag/len bytes — so the append can overshoot the capacity check by up
-// to 2 bytes (TS InputTracking.ts:93; quirk kept — goscape's growable
-// buffer just grows where the fixed TS array would be at its edge).
+// to 2 bytes (TS InputTracking.ts:93; quirk kept). At the exact edge TS
+// pdata's TypedArray.set would throw RangeError, but the state is
+// unreachable: input is flushed at >=1500 BEFORE decode and the 20/tick
+// CLIENT_EVENT cap bounds pos to ~4740 max — goscape's growable buffer
+// just grows in the same dead zone.
 func (t *InputTracking) MouseMove(data []byte) {
 	if !t.Active || len(data) == 0 || len(data) > 160 {
 		return

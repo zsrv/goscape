@@ -106,7 +106,7 @@ func (p *Player) Save(invTypes *objtype.InvTypeConfigs, varpTypes *objtype.VarpT
 	}
 	pkt.Data[invCountPos] = byte(invCount)
 
-	// v3+ afk zones — current SavVersion=6 always writes this section.
+	// v3+ afk zones — every current version (SavVersion=7) writes this section.
 	pkt.P1(uint8(len(p.afkZones)))
 	for _, v := range p.afkZones {
 		pkt.P4(uint32(v))

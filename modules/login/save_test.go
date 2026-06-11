@@ -7,6 +7,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
+	world "github.com/zsrv/goscape/modules/world"
 )
 
 // makeValidSave builds a minimal SAV blob that passes verifySave: magic 0x2004,
@@ -187,5 +188,21 @@ func TestWouldResetSaveFile_CorruptExistingSaveReturnsError(t *testing.T) {
 				t.Fatal("TS PlayerLoading.load throws on bad magic/version/CRC (login-server-6) but wouldResetSaveFile returned nil error")
 			}
 		})
+	}
+}
+
+// TestSavMaxVersionMatchesWorld pins the duplicated login-side save
+// version gate to the world module's authoritative SavVersion. The
+// constants are duplicated to avoid a login→world production dependency
+// (save.go:12-21); this test-only import is the drift guard — rev-254 A6
+// bumped the world to 7 and the stale login gate silently discarded
+// every logout/autosave until caught in review.
+func TestSavMaxVersionMatchesWorld(t *testing.T) {
+	if savMaxVersion != int(world.SavVersion) {
+		t.Fatalf("savMaxVersion = %d, want world.SavVersion = %d — bump modules/login/save.go in the same commit as any world save-format change",
+			savMaxVersion, world.SavVersion)
+	}
+	if savMagic != int(world.SavMagic) {
+		t.Fatalf("savMagic = %#x, want world.SavMagic = %#x", savMagic, world.SavMagic)
 	}
 }

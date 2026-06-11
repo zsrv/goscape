@@ -11,12 +11,15 @@ import (
 
 const (
 	// savMagic / savMaxVersion mirror modules/world SavMagic / SavVersion
-	// (player_load.go:18,22). The login service reads opaque .sav blobs and
+	// (player_load.go). The login service reads opaque .sav blobs and
 	// only needs the header + trailing CRC to validate them, so the minimal
-	// constants are duplicated here to avoid a login→world dependency. Keep
-	// in sync if the world save format bumps.
-	savMagic      = 0x2004
-	savMaxVersion = 6
+	// constants are duplicated here to avoid a login→world dependency.
+	// A stale savMaxVersion SILENTLY DISCARDS every logout/autosave
+	// (persistSaveIfValid warns then returns nil) — drift is pinned by
+	// the cross-module test TestSavMaxVersionMatchesWorld.
+	savMagic = 0x2004
+	// 7 since rev-254 A6 (sparse varp encoding, SAV_VERSION 7).
+	savMaxVersion = 7
 
 	// savePlaytimeOffset is the byte offset of the int32 playtime field in a
 	// SAV blob: magic(2)+version(2)+x(2)+z(2)+level(1)+body(7)+colors(5)+
