@@ -59,14 +59,21 @@ func TestFaceCoordMultipliesBy2Plus1(t *testing.T) {
 	}
 }
 
+// TestFaceEntity — A8/ee28c1aa: the arbitrary-index SetFaceEntity(int)
+// setter is gone (TS removed all manual faceEntity writes); facing is
+// derived from the target by setFaceEntity() (face_entity.go). This pin
+// now exercises the *Player-target arm through the derived path.
 func TestFaceEntity(t *testing.T) {
 	p, _ := newTestPlayer(t)
-	p.SetFaceEntity(0x8005)
+	other, _ := newTestPlayer(t)
+	other.slot = 0x0005
+	p.target = other
+	p.setFaceEntity()
 	if p.masks&rsbuf.MaskFaceEntity == 0 {
 		t.Error("MaskFaceEntity bit should be set")
 	}
 	if p.faceEntity != 0x8005 {
-		t.Errorf("faceEntity: got %d, want 0x8005", p.faceEntity)
+		t.Errorf("faceEntity: got %d, want 0x8005 (slot 5 + 32768)", p.faceEntity)
 	}
 }
 
@@ -236,11 +243,11 @@ func TestNewPlayerSetsEntityMaskToMaskFaceEntity(t *testing.T) {
 //
 // Mirrors NPC-side coverage at npc_masks_test.go:230-281.
 
-// TestPlayerResetMasksTrailingClearFires — NAI-108 Task 1.
-// When p.target is nil but p.faceEntity still holds a prior NPC slot,
-// ResetMasks emits MaskFaceEntity and snaps faceEntity to -1, mirroring
-// TS PathingEntity.ts:611-614. Closes the NAI-91 smoke-surfaced
-// "player keeps facing NPC after walking away" symptom.
+// TestPlayerResetMasksTrailingClearFires — NAI-108 Task 1, re-cited at A8:
+// when p.target is nil but p.faceEntity still holds a prior NPC slot,
+// the ResetMasks-tail setFaceEntity() (TS PathingEntity.ts:626 @2e3bcf43,
+// ee28c1aa) emits MaskFaceEntity and snaps faceEntity to -1. Closes the
+// NAI-91 smoke-surfaced "player keeps facing NPC after walking away".
 func TestPlayerResetMasksTrailingClearFires(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.target = nil
@@ -255,22 +262,24 @@ func TestPlayerResetMasksTrailingClearFires(t *testing.T) {
 	}
 }
 
-// TestPlayerResetMasksTrailingClearSkippedWhenTargetPresent — NAI-108 Task 1.
-// Quirk guard: trailing clear must not fire when p.target is non-nil
-// (the player is still facing someone, by design). Pattern mirrors NPC
-// test at npc_masks_test.go:254-267.
-func TestPlayerResetMasksTrailingClearSkippedWhenTargetPresent(t *testing.T) {
+// TestPlayerResetMasksRefreshesFacingWhenTargetPresent — A8/ee28c1aa
+// @2e3bcf43. Supersedes the NAI-108 "skipped when target present" pin:
+// the old `if (!this.target && ...)` guard preserved a stale faceEntity;
+// the new setFaceEntity() tail (TS PathingEntity.ts:626) RE-DERIVES it
+// from the live *Player target (slot+32768) and emits the mask on change.
+func TestPlayerResetMasksRefreshesFacingWhenTargetPresent(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	other, _ := newTestPlayer(t)
+	other.slot = 6
 	p.target = other
-	p.faceEntity = 42
+	p.faceEntity = 42 // stale
 	p.masks = 0
 	p.ResetMasks()
-	if p.faceEntity != 42 {
-		t.Errorf("faceEntity: got %d, want 42 (trailing clear should be skipped — target present)", p.faceEntity)
+	if want := 6 + 32768; p.faceEntity != want {
+		t.Errorf("faceEntity: got %d, want %d (setFaceEntity tail must re-derive from target — ee28c1aa)", p.faceEntity, want)
 	}
-	if p.masks&rsbuf.MaskFaceEntity != 0 {
-		t.Error("masks & MaskFaceEntity: got nonzero, want 0 (trailing clear should not emit — target present)")
+	if p.masks&rsbuf.MaskFaceEntity == 0 {
+		t.Error("masks & MaskFaceEntity: got 0, want nonzero (changed → emit)")
 	}
 }
 

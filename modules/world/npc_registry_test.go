@@ -432,14 +432,15 @@ func TestResetEntityForRespawnInvokesUnfocus(t *testing.T) {
 }
 
 // TestResetEntityForRespawn_AppliesResetDefaultsTSFidelity pins the 2026-05-28
-// audit row npc-core-1. TS Npc.resetEntity(true) at Npc.ts:307 calls
-// resetDefaults(); TS resetDefaults (Npc.ts:411-425) clears target/targetOp/
-// apRange/apRangeCalled/targetSubject/faceEntity/timerInterval and sets
-// masks |= entitymask. goscape's (n *Npc).resetDefaults() is the NAI-11-
-// stripped subset (target/targetOp/faceEntity/masks only); the
-// apRange/apRangeCalled/targetSubject/timerInterval resets the stripped
-// subset omits must be re-applied inline by resetEntityForRespawn so the
-// respawn surface reaches full TS-fidelity.
+// audit row npc-core-1, re-cited at A8/ee28c1aa @2e3bcf43. TS
+// Npc.resetEntity(true) at Npc.ts:309 calls resetDefaults(); TS
+// resetDefaults (Npc.ts:412-422 @2e3bcf43) clears target/targetOp/apRange/
+// apRangeCalled/targetSubject/timerInterval — the faceEntity/mask tail was
+// REMOVED by ee28c1aa (facing is derived per-turn by setFaceEntity()).
+// goscape's (n *Npc).resetDefaults() is the NAI-11-stripped subset
+// (target/targetOp only); the apRange/apRangeCalled/targetSubject/
+// timerInterval resets the stripped subset omits must be re-applied inline
+// by resetEntityForRespawn so the respawn surface reaches full TS-fidelity.
 func TestResetEntityForRespawn_AppliesResetDefaultsTSFidelity(t *testing.T) {
 	s := newTestServer(t)
 	typ := &objtype.NpcType{
@@ -467,8 +468,10 @@ func TestResetEntityForRespawn_AppliesResetDefaultsTSFidelity(t *testing.T) {
 	if n.targetOp != objtype.NPCModePatrol {
 		t.Errorf("targetOp: got %d, want %d (NPCModePatrol from typ.DefaultMode per TS Npc.ts:414)", n.targetOp, objtype.NPCModePatrol)
 	}
-	if n.faceEntity != -1 {
-		t.Errorf("faceEntity: got %d, want -1 (TS Npc.ts:415)", n.faceEntity)
+	// A8/ee28c1aa: resetDefaults no longer clears faceEntity — the stale 7
+	// stays until the next setFaceEntity() derivation snaps it to -1.
+	if n.faceEntity != 7 {
+		t.Errorf("faceEntity: got %d, want 7 (resetDefaults must not touch facing — ee28c1aa)", n.faceEntity)
 	}
 	if n.apRange != 10 {
 		t.Errorf("apRange: got %d, want 10 (TS PathingEntity.clearInteraction defaultApRange)", n.apRange)
@@ -482,8 +485,9 @@ func TestResetEntityForRespawn_AppliesResetDefaultsTSFidelity(t *testing.T) {
 	if n.timerInterval != 42 {
 		t.Errorf("timerInterval: got %d, want 42 (typ.Timer per TS Npc.ts:424)", n.timerInterval)
 	}
-	if n.masks&rsbuf.NpcMaskFaceEntity == 0 {
-		t.Errorf("masks & NpcMaskFaceEntity: bit not set after reset (TS Npc.ts:416 `masks |= entitymask`); got masks=%d", n.masks)
+	// A8/ee28c1aa: no mask emission from resetDefaults either.
+	if n.masks&rsbuf.NpcMaskFaceEntity != 0 {
+		t.Errorf("masks & NpcMaskFaceEntity: bit must NOT be set by the reset (ee28c1aa removed `masks |= entitymask`); got masks=%d", n.masks)
 	}
 }
 

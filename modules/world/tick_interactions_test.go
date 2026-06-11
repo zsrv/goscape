@@ -59,6 +59,10 @@ func TestProcessInteractionsRunsPerPlayer(t *testing.T) {
 	// interact runs in the pre-move pass, post-step + auto-clear in the
 	// post-move pass. Both players are already adjacent, so the pre-step OP
 	// fires; no movement pass is needed between for this contact-range case.
+	// A8/ee28c1aa @2e3bcf43: the facing pass runs first (TS World.ts:708
+	// player.setFaceEntity() between processEngineQueue and
+	// processInteraction) — SetInteraction itself no longer writes faceEntity.
+	s.processPlayerFacing()
 	s.processInteractionsPreMove()
 	s.processInteractions()
 
@@ -77,6 +81,8 @@ func TestProcessInteractionsRunsPerPlayer(t *testing.T) {
 	if p2.target != nil {
 		t.Errorf("p2.target: got %v, want nil (auto-clear after contact-fire with npc2)", p2.target)
 	}
+	// Facing was derived by processPlayerFacing while the target was live;
+	// the auto-clear doesn't touch it (next tick's setFaceEntity would).
 	if p1.faceEntity != npc1.nid {
 		t.Errorf("p1.faceEntity: got %d, want %d", p1.faceEntity, npc1.nid)
 	}

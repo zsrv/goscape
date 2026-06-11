@@ -42,11 +42,6 @@ func (p *Player) FaceCoord(x, z int) {
 	p.masks |= rsbuf.MaskFaceCoord
 }
 
-func (p *Player) SetFaceEntity(entityIndex int) {
-	p.faceEntity = entityIndex
-	p.masks |= rsbuf.MaskFaceEntity
-}
-
 // UnsetMapFlag clears the player's map-click destination by sending the
 // matching client packet. Mirrors TS Player.unsetMapFlag (called by
 // P_EXACTMOVE at PlayerOps.ts:888 and by adjacent server-script paths).
@@ -96,12 +91,13 @@ func (p *Player) UnsetMapFlag() {
 // Also clears one-shot movement intents (tele, jump) so a single-tick
 // teleport emission doesn't repeat next tick.
 //
-// The trailing-clear mirrors TS PathingEntity.ts:611-614 byte-for-byte:
-// both engines arm the entitymask bit at TICK END (Go's ResetMasks via
-// tick.go processCleanup; TS's resetPathingEntity via World.ts:1138
-// World.processCleanup which itself runs after processClientsOut at
-// World.ts:1122). The armed mask is consumed by the NEXT tick's info-
-// pass in both engines — identical timing, identical observable
+// The trailing setFaceEntity() call mirrors TS PathingEntity.ts:626
+// @2e3bcf43 (ee28c1aa replaced the old `if (!this.target && faceEntity
+// !== -1)` clear at L611-614): both engines arm the entitymask bit at
+// TICK END (Go's ResetMasks via tick.go processCleanup; TS's
+// resetPathingEntity via World.processCleanup which itself runs after
+// processClientsOut). The armed mask is consumed by the NEXT tick's
+// info-pass in both engines — identical timing, identical observable
 // behavior. Closes NAI-91's "player keeps facing NPC after walking
 // away" smoke residual.
 //
@@ -161,10 +157,12 @@ func (p *Player) ResetMasks() {
 	p.exactBegin = -1
 	p.exactFinish = -1
 	p.exactDir = -1
-	if p.target == nil && p.faceEntity != -1 {
-		p.masks |= p.entitymask
-		p.faceEntity = -1
-	}
+	// ee28c1aa @2e3bcf43: the old `if (!this.target && this.faceEntity !==
+	// -1)` block at the resetPathingEntity tail was replaced by
+	// `this.setFaceEntity();` (TS PathingEntity.ts:626) — facing is now
+	// re-derived from the CURRENT target every tick end: live Player/Npc
+	// target refreshes, nil/Loc/Obj target clears. See face_entity.go.
+	p.setFaceEntity()
 	// TS Player.ts:460 — this.protect = false in resetEntity. Defensive
 	// tick-end clear of the Player-level protect gate. A suspended
 	// protected script's resume cycle next tick re-establishes the gate

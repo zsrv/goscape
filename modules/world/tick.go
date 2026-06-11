@@ -207,6 +207,13 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processPlayerEngineQueues()
 		s.addCycleTime(statPlayer, t0)
 
+		// "// Update target facing" — TS World.ts:707-708 @2e3bcf43
+		// (ee28c1aa): player.setFaceEntity() runs per player after
+		// processEngineQueue and before processInteraction.
+		t0 = time.Now()
+		s.processPlayerFacing()
+		s.addCycleTime(statPlayer, t0)
+
 		// TS Player.processInteraction interleaves updateMovement between its
 		// pre-step and post-step interact arms (Player.ts:1241). goscape splits
 		// that around the movement pass: the pre-step interact (+ path recompute)
@@ -1177,6 +1184,16 @@ func (s *Server) processZones() {
 	}
 	for z := range s.zonesTracking {
 		z.ComputeShared()
+	}
+}
+
+// processPlayerFacing runs the per-player "Update target facing" pass —
+// TS World.ts:707-708 @2e3bcf43 (ee28c1aa): `player.setFaceEntity();`
+// between processEngineQueue and processInteraction.
+func (s *Server) processPlayerFacing() {
+	players := s.snapshotPlayers()
+	for _, p := range players {
+		p.setFaceEntity()
 	}
 }
 

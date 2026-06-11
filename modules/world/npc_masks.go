@@ -142,11 +142,6 @@ func (n *Npc) FaceCoord(x, z int) {
 	n.masks |= rsbuf.NpcMaskFaceCoord
 }
 
-func (n *Npc) SetFaceEntity(entityIndex int) {
-	n.faceEntity = entityIndex
-	n.masks |= rsbuf.NpcMaskFaceEntity
-}
-
 // Damage applies `amount` damage of `dmgType` to the NPC this tick.
 // HP clamp is unchanged: levels[HP] decrements by amount (clamped at 0);
 // on overkill the emitted amount clamps to the pre-hit HP. Negative amount
@@ -207,20 +202,16 @@ func (n *Npc) Damage(amount, dmgType int) {
 // effectiveFaceCoord() falls back to faceAngle (unfocus-on-spawn south + M2's
 // per-step focus).
 // damageAmt / damageType remain per-tick hitsplat payload. faceEntity is
-// retained unless the trailing-clear condition below fires.
+// re-derived from the current target by the trailing setFaceEntity().
 //
-// The trailing clear mirrors TS PathingEntity.ts:611-614 byte-for-byte:
-// when the NPC has no target but still has a lingering faceEntity, the
-// entitymask bit is re-emitted and faceEntity is snapped to -1 so the
-// client receives the "stopped facing" update. Both engines run the
-// reset at TICK END (Go's ResetMasks via tick.go processCleanup; TS's
-// resetPathingEntity via World.ts:1138 World.processCleanup which runs
-// after processClientsOut at World.ts:1122) — the armed mask is
-// consumed by the next tick's info-pass in both engines, identical
-// timing. The "official" target-clear paths (resetDefaults,
-// clearInteraction at Npc.ts:404-409,411-417) still emit the mask
-// same-tick — this trailing-clear is a defensive net for stray
-// n.target = nil assignments, sibling-shape to the TS body at L611-614.
+// The trailing setFaceEntity() call mirrors TS PathingEntity.ts:626
+// @2e3bcf43 (ee28c1aa replaced the old `if (!this.target && faceEntity
+// !== -1)` clear at L611-614 — and removed the same-tick mask emission
+// from resetDefaults/clearInteraction entirely; see npc_interaction.go).
+// Both engines run the reset at TICK END (Go's ResetMasks via tick.go
+// processCleanup; TS's resetPathingEntity via World.processCleanup
+// which runs after processClientsOut) — the armed mask is consumed by
+// the next tick's info-pass in both engines, identical timing.
 //
 // (Investigated 2026-06-01: the prior comment claimed a "1-tick lag vs
 // TS which fires at tick start" but TS resetPathingEntity is called
@@ -253,10 +244,12 @@ func (n *Npc) ResetMasks() {
 	// NAI-157/NAI-167: walkDir/runDir are now reset in resetPathingEntity
 	// (called from processCleanup before ResetMasks). See resetPathingEntity
 	// doc-comment for the full NAI-157 rationale and TS source reference.
-	if n.target == nil && n.faceEntity != -1 {
-		n.masks |= n.entitymask
-		n.faceEntity = -1
-	}
+	// ee28c1aa @2e3bcf43: the old `if (!this.target && this.faceEntity !==
+	// -1)` block at the resetPathingEntity tail was replaced by
+	// `this.setFaceEntity();` (TS PathingEntity.ts:626) — facing is now
+	// re-derived from the CURRENT target every tick end: live Player/Npc
+	// target refreshes, nil/Loc/Obj target clears. See face_entity.go.
+	n.setFaceEntity()
 }
 
 // resetPathingEntity resets the per-tick PathingEntity fields at end-of-tick,

@@ -22,7 +22,6 @@ import (
 //
 // On pass: lastItem/lastSlot snapshot → ClearPendingAction iff
 // com.RootLayer != p.modalMain → moveClickRequest=false →
-// faceEntity=-1 + emit entitymask (unconditional) →
 // explicit per-op trigger dispatch (OPHELD1..OPHELD5) →
 // sessionlog (MODERATOR, "<iop> <debugname>") for ops 1-4 only →
 // fire [opheld<op>,<objId>] via GetByTrigger keyed on
@@ -106,11 +105,10 @@ func handleOpHeld(p *Player, payload []byte, op int) error {
 		p.ClearPendingAction()
 	}
 
+	// ee28c1aa @2e3bcf43 removed the `faceEntity = -1; masks |= entitymask`
+	// pair that followed (TS OpHeldHandler.ts diff) — facing is derived
+	// per-tick by setFaceEntity() now.
 	p.moveClickRequest = false
-	if p.faceEntity != -1 {
-		p.faceEntity = -1
-	}
-	p.masks |= p.entitymask
 
 	// Explicit per-op trigger dispatch (TS OpHeldHandler.ts:46-67, 244).
 	// Sessionlog emitted for ops 1-4; op=5 wealth-logged in content.
@@ -178,8 +176,8 @@ func handleOpHeld5(p *Player, payload []byte) error { return handleOpHeld(p, pay
 //  6. p.delayed → drop (no clearPendingAction)
 //
 // On pass: lastItem/lastSlot snapshot → ClearPendingAction
-// (unconditional, contrast OPHELD1-5 conditional) → faceEntity=-1 +
-// emit entitymask → fire [opheldt,<spellComId>] via
+// (unconditional, contrast OPHELD1-5 conditional) →
+// fire [opheldt,<spellComId>] via
 // GetByTrigger(typeID=spellComId, cat=-1). On no-script: emit
 // "Nothing interesting happens.".
 //
@@ -244,11 +242,9 @@ func handleOpHeldT(p *Player, payload []byte) error {
 
 	// Unconditional ClearPendingAction (contrast OPHELD1-5 conditional).
 	// TS OpHeldTHandler.ts:39 (244).
+	// ee28c1aa @2e3bcf43 removed the `faceEntity = -1; masks |= entitymask`
+	// pair that followed (TS OpHeldTHandler.ts diff).
 	p.ClearPendingAction()
-	if p.faceEntity != -1 {
-		p.faceEntity = -1
-	}
-	p.masks |= p.entitymask
 
 	// NAI-74: NAI-71-D close. TS OpHeldTHandler.ts:61 (244) — unconditional.
 	// Inline ObjType lookup is goscape-only (TS uses ObjType.get(obj).debugname which
@@ -289,7 +285,7 @@ func handleOpHeldT(p *Player, payload []byte) error {
 // Note: 244 REMOVES the 225 comId==useComId gate entirely.
 //
 // On pass: lastItem/lastSlot/lastUseItem/lastUseSlot snapshot →
-// ClearPendingAction (unconditional) → faceEntity=-1 + emit entitymask →
+// ClearPendingAction (unconditional) →
 // members-only gate: free world + (objType.Members || useObjType.Members) ⇒
 // MessageGame "To use this item please login..." + drop.
 //
@@ -412,11 +408,9 @@ func handleOpHeldU(p *Player, payload []byte) error {
 	useObjType := s.objTypes.Configs[useItem]
 
 	// Unconditional ClearPendingAction (TS OpHeldUHandler.ts:69).
+	// ee28c1aa @2e3bcf43 removed the `faceEntity = -1; masks |= entitymask`
+	// pair that followed (TS OpHeldUHandler.ts diff).
 	p.ClearPendingAction()
-	if p.faceEntity != -1 {
-		p.faceEntity = -1
-	}
-	p.masks |= p.entitymask
 
 	// Members-only gate (TS OpHeldUHandler.ts:73-76).
 	if (objType.Members || useObjType.Members) && !s.cfg.NodeMembers {

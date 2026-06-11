@@ -160,9 +160,9 @@ func TestProcessPostDecode_OuterGateSkipsWhenIdle(t *testing.T) {
 }
 
 // TestProcessPostDecode_DelayedFiresUnsetMapFlagAndReturns pins TS
-// L614-617: when delayed AND outer gate satisfied (userPath set),
-// unsetMapFlag fires (waypointIndex=-1 + OpUnsetMapFlag) and the
-// block returns BEFORE the faceEntity reset / moveClickRequest setter.
+// L616-619 @2e3bcf43: when delayed AND outer gate satisfied (userPath
+// set), unsetMapFlag fires (waypointIndex=-1 + OpUnsetMapFlag) and the
+// block returns BEFORE the moveClickRequest setter.
 //
 // newPostDecodeTestPlayerWithConn (defined above) returns the conn
 // alongside the player so this test can drainConn the wire output.
@@ -192,104 +192,44 @@ func TestProcessPostDecode_DelayedFiresUnsetMapFlagAndReturns(t *testing.T) {
 		t.Errorf("first emitted byte: got %d, want %d (encrypted OpUnsetMapFlag)", emitted[0], wantEnc)
 	}
 	if p.faceEntity != 42 {
-		t.Errorf("faceEntity: got %d, want 42 (delayed branch must return BEFORE faceEntity reset)", p.faceEntity)
+		t.Errorf("faceEntity: got %d, want 42 (post-decode never touches facing — ee28c1aa)", p.faceEntity)
 	}
 	if !p.moveClickRequest {
 		t.Error("moveClickRequest: want true (sentinel preserved — delayed branch must return BEFORE setter)")
 	}
 }
 
-// TestProcessPostDecode_FaceEntityResetForLocTarget pins TS L619-622
-// for *Loc target: faceEntity reset to -1, masks |= entitymask.
-func TestProcessPostDecode_FaceEntityResetForLocTarget(t *testing.T) {
-	p, _ := newPostDecodeTestPlayer(t)
-	p.target = &entitypkg.Loc{} // any *Loc satisfies the type-switch
-	p.faceEntity = 42
-	p.masks = 0
-	p.opcalled = true // satisfies outer L613 gate
-
-	p.processPostDecode()
-
-	if p.faceEntity != -1 {
-		t.Errorf("faceEntity: got %d, want -1 (Loc target → reset)", p.faceEntity)
+// TestProcessPostDecode_NeverTouchesFaceEntity — A8/ee28c1aa @2e3bcf43.
+// Supersedes the four TestProcessPostDecode_FaceEntityReset* /
+// _FaceEntityPreserved* / _FaceEntityNoOp* pins: ee28c1aa REMOVED the
+// World.ts post-decode faceEntity-reset block (old TS: `if ((!player.target
+// || target instanceof Loc || Obj) && faceEntity !== -1) { ... }`) —
+// nil/Loc/Obj clears now come from the per-tick setFaceEntity() derivation
+// (tick.go processPlayerFacing; pinned in face_entity_test.go). The
+// post-decode block must leave facing alone for EVERY target shape.
+func TestProcessPostDecode_NeverTouchesFaceEntity(t *testing.T) {
+	targets := map[string]entity{
+		"nil": nil,
+		"loc": &entitypkg.Loc{},
+		"obj": &entitypkg.Obj{},
 	}
-	if p.masks&p.entitymask == 0 {
-		t.Errorf("masks: entitymask bit (%d) not set; got masks=%d", p.entitymask, p.masks)
-	}
-}
+	for name, target := range targets {
+		t.Run(name, func(t *testing.T) {
+			p, _ := newPostDecodeTestPlayer(t)
+			p.target = target
+			p.faceEntity = 42
+			p.masks = 0
+			p.opcalled = true // satisfies the outer L615 gate
 
-// TestProcessPostDecode_FaceEntityResetForObjTarget pins same for *Obj.
-func TestProcessPostDecode_FaceEntityResetForObjTarget(t *testing.T) {
-	p, _ := newPostDecodeTestPlayer(t)
-	p.target = &entitypkg.Obj{}
-	p.faceEntity = 42
-	p.masks = 0
-	p.opcalled = true
+			p.processPostDecode()
 
-	p.processPostDecode()
-
-	if p.faceEntity != -1 {
-		t.Errorf("faceEntity: got %d, want -1 (Obj target → reset)", p.faceEntity)
-	}
-	if p.masks&p.entitymask == 0 {
-		t.Errorf("masks: entitymask bit (%d) not set; got masks=%d", p.entitymask, p.masks)
-	}
-}
-
-// TestProcessPostDecode_FaceEntityResetForNilTarget pins TS L619 nil
-// target arm: nil target + faceEntity!=-1 → reset.
-func TestProcessPostDecode_FaceEntityResetForNilTarget(t *testing.T) {
-	p, _ := newPostDecodeTestPlayer(t)
-	p.target = nil
-	p.faceEntity = 42
-	p.masks = 0
-	p.opcalled = true
-
-	p.processPostDecode()
-
-	if p.faceEntity != -1 {
-		t.Errorf("faceEntity: got %d, want -1 (nil target → reset)", p.faceEntity)
-	}
-}
-
-// TestProcessPostDecode_FaceEntityPreservedForPlayerTarget pins the
-// negative arm: PathingEntity targets (Player/Npc) do NOT trigger
-// the faceEntity reset.
-func TestProcessPostDecode_FaceEntityPreservedForPlayerTarget(t *testing.T) {
-	s := newTestServer(t)
-	other := newTestPlayerAt(t, s, 2, 3200, 3200, 0)
-	p, _ := newPostDecodeTestPlayer(t)
-	p.target = other
-	p.faceEntity = 42
-	p.masks = 0
-	p.opcalled = true
-
-	p.processPostDecode()
-
-	if p.faceEntity != 42 {
-		t.Errorf("faceEntity: got %d, want 42 (Player target → preserved)", p.faceEntity)
-	}
-	if p.masks != 0 {
-		t.Errorf("masks: got %d, want 0 (Player target → masks NOT touched)", p.masks)
-	}
-}
-
-// TestProcessPostDecode_FaceEntityNoOpWhenAlreadyMinusOne pins TS L620
-// guard: when faceEntity is already -1, masks is NOT touched.
-func TestProcessPostDecode_FaceEntityNoOpWhenAlreadyMinusOne(t *testing.T) {
-	p, _ := newPostDecodeTestPlayer(t)
-	p.target = &entitypkg.Loc{}
-	p.faceEntity = -1 // guard: already cleared
-	p.masks = 0
-	p.opcalled = true
-
-	p.processPostDecode()
-
-	if p.faceEntity != -1 {
-		t.Errorf("faceEntity: got %d, want -1 (no-op preserves)", p.faceEntity)
-	}
-	if p.masks != 0 {
-		t.Errorf("masks: got %d, want 0 (faceEntity already -1 → masks NOT touched)", p.masks)
+			if p.faceEntity != 42 {
+				t.Errorf("faceEntity: got %d, want 42 (post-decode must not touch facing — ee28c1aa)", p.faceEntity)
+			}
+			if p.masks != 0 {
+				t.Errorf("masks: got %d, want 0 (post-decode must not emit — ee28c1aa)", p.masks)
+			}
+		})
 	}
 }
 
@@ -347,11 +287,12 @@ func TestProcessPostDecode_MoveClickRequest_NotBusyNotOpcalled(t *testing.T) {
 }
 
 // TestProcessPostDecode_NoPathingNoWalktrigger pins the rev-254 (f0ccbe8a)
-// trim of the World.ts post-decode block (pinned World.ts:613-626): the
-// op-driven pathToTarget shortcut and the NODE_WALKTRIGGER_SETTING
-// pathToMoveClick/walktrigger fallbacks were REMOVED upstream —
-// processPostDecode now only manages unsetMapFlag/faceEntity/
-// moveClickRequest. Regardless of cfg, it must neither queue waypoints nor
+// trim of the World.ts post-decode block (pinned World.ts:614-627
+// @2e3bcf43): the op-driven pathToTarget shortcut and the
+// NODE_WALKTRIGGER_SETTING pathToMoveClick/walktrigger fallbacks were
+// REMOVED upstream (and ee28c1aa later removed the faceEntity reset) —
+// processPostDecode now only manages unsetMapFlag/moveClickRequest.
+// Regardless of cfg, it must neither queue waypoints nor
 // consume a pending walktrigger. (Supersedes the retired
 // TestProcessPostDecode_PathToTarget*/WalktriggerFallback_* pins.)
 func TestProcessPostDecode_NoPathingNoWalktrigger(t *testing.T) {

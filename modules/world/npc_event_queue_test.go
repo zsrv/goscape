@@ -172,9 +172,10 @@ func TestNpcTurnEventsDespawnEnqueuesEvent(t *testing.T) {
 	}
 }
 
-// TestNewNpcHoldsTypRegenRate: 244 has no regenInterval snapshot field;
-// the rate is read live from n.typ.RegenRate each processNpcRegen call.
-// Verify the NPC holds the type pointer with the expected RegenRate.
+// TestNewNpcHoldsTypRegenRate: rev-254 caches the period in n.regenInterval,
+// refreshed from the live type ONLY at each proc (TS Npc.ts:511-518
+// @2e3bcf43, dbfb82be). Verify the NPC holds the type pointer with the
+// expected RegenRate and the interval/clock zero-init (first-turn proc).
 func TestNewNpcHoldsTypRegenRate(t *testing.T) {
 	typ := &objtype.NpcType{
 		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
@@ -187,13 +188,18 @@ func TestNewNpcHoldsTypRegenRate(t *testing.T) {
 		if n.typ != nil {
 			got = n.typ.RegenRate
 		}
-		t.Errorf("n.typ.RegenRate: got %d, want 7 (live type rate; no snapshot field in 244)", got)
+		t.Errorf("n.typ.RegenRate: got %d, want 7", got)
+	}
+	if n.regenInterval != 0 || n.regenClock != 0 {
+		t.Errorf("regenInterval/regenClock: got %d/%d, want 0/0 (TS Npc.ts:62-63 zero-init → first-turn proc)", n.regenInterval, n.regenClock)
 	}
 }
 
-// TestProcessNpcRegenFirstCallProcs: 244 countdown — clock init 0, first call
-// pre-decrements to -1 which is <=0, so regen fires immediately (OSRS-accurate
-// per TS comment Npc.ts:517-519). regenClock resets to regenrate.
+// TestProcessNpcRegenFirstCallProcs: rev-254 count-up — clock and interval
+// init 0; first call pre-increments to 1 >= 0, so regen fires immediately.
+// regenClock resets to 0 and regenInterval caches type.regenrate
+// (TS Npc.ts:512-518 @2e3bcf43; supersedes the 244 countdown pin —
+// regenClock no longer resets to regenrate).
 func TestProcessNpcRegenFirstCallProcs(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.currentTick = 100
@@ -205,19 +211,22 @@ func TestProcessNpcRegenFirstCallProcs(t *testing.T) {
 
 	s.processNpcRegen(n)
 
-	if n.regenClock != 100 {
-		t.Errorf("regenClock: got %d, want 100 (reset to regenrate after first-turn proc)", n.regenClock)
+	if n.regenClock != 0 {
+		t.Errorf("regenClock: got %d, want 0 (reset to 0 after proc — TS Npc.ts:518)", n.regenClock)
+	}
+	if n.regenInterval != 100 {
+		t.Errorf("regenInterval: got %d, want 100 (cached from type at proc — TS Npc.ts:517)", n.regenInterval)
 	}
 	if n.CurHP() != 9 {
 		t.Errorf("curHP: got %d, want 9 (first-turn proc fired, 8→9)", n.CurHP())
 	}
 }
 
-// TestProcessNpcRegenCountdownCadence: 244 countdown — RegenRate=3 (ticks), clock
-// init 0. Call 1: 0-1=-1<=0 → fires (HP 5→6, regenClock=3). Calls 2-3: count
-// down 3→2→1 (no fire). Call 4: 1-1=0<=0 → fires (HP 6→7, regenClock=3).
-// Rate is read live from n.typ.RegenRate (no snapshot field).
-func TestProcessNpcRegenCountdownCadence(t *testing.T) {
+// TestProcessNpcRegenCountUpCadence: rev-254 count-up — RegenRate=3 (ticks).
+// Call 1: ++clock=1 >= interval 0 → fires (HP 5→6, interval=3, clock=0).
+// Calls 2-3: clock 1, 2 < 3 (no fire). Call 4: ++clock=3 >= 3 → fires
+// (HP 6→7). Supersedes TestProcessNpcRegenCountdownCadence's 244 contract.
+func TestProcessNpcRegenCountUpCadence(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.currentTick = 100
 	n := newNpcForLifecycleTest(t)
@@ -226,30 +235,29 @@ func TestProcessNpcRegenCountdownCadence(t *testing.T) {
 	n.regenClock = 0
 	n.levels[objtype.NpcStatHitpoints], n.baseLevels[objtype.NpcStatHitpoints] = 5, 10
 
-	// Call 1: first-turn proc. HP 5→6, regenClock→3.
+	// Call 1: first-turn proc. HP 5→6, interval=3, clock=0.
 	s.processNpcRegen(n)
-	if n.regenClock != 3 {
-		t.Fatalf("regenClock after call 1: got %d, want 3", n.regenClock)
+	if n.regenClock != 0 || n.regenInterval != 3 {
+		t.Fatalf("after call 1: clock/interval got %d/%d, want 0/3", n.regenClock, n.regenInterval)
 	}
 	if n.CurHP() != 6 {
 		t.Fatalf("curHP after call 1: got %d, want 6 (first-turn proc)", n.CurHP())
 	}
 
-	// Calls 2-3: countdown 3→2→1; no fire yet.
+	// Calls 2-3: clock counts up 1, 2; no fire yet.
 	s.processNpcRegen(n)
 	s.processNpcRegen(n)
-	if n.regenClock != 1 {
-		t.Fatalf("regenClock after call 3: got %d, want 1", n.regenClock)
+	if n.regenClock != 2 {
+		t.Fatalf("regenClock after call 3: got %d, want 2", n.regenClock)
 	}
 	if n.CurHP() != 6 {
 		t.Fatalf("curHP after call 3: got %d, want 6 (no mid-stream proc)", n.CurHP())
 	}
 
-	// Call 4: countdown 1→0 → proc. HP 6→7, regenClock→3.
-	// Rate read live from n.typ.RegenRate (244: no snapshot field).
+	// Call 4: ++clock=3 >= interval 3 → proc. HP 6→7, clock back to 0.
 	s.processNpcRegen(n)
-	if n.regenClock != 3 {
-		t.Errorf("regenClock after call 4: got %d, want 3 (reset to live regenrate)", n.regenClock)
+	if n.regenClock != 0 {
+		t.Errorf("regenClock after call 4: got %d, want 0", n.regenClock)
 	}
 	if n.CurHP() != 7 {
 		t.Errorf("curHP after call 4: got %d, want 7 (second proc)", n.CurHP())
@@ -294,18 +302,20 @@ func TestProcessNpcRegenDecrementsWhenAboveBase(t *testing.T) {
 	}
 }
 
-// --- 244 regen countdown pins (Npc.ts:514-532 @ 9aadcec4) ---
-// These tests encode the 244 contract:
-//   - countdown clock (pre-decrement then <= 0 check)
-//   - clock init 0 → first-turn-alive proc
-//   - regenrate 0 disables entirely (no decrement, no proc)
-//   - regenClock resets to regenrate (not 0) after proc
-//   - rate read from n.typ.RegenRate each call (no regenInterval snapshot)
+// --- rev-254 regen count-up pins (TS Npc.ts:511-531 @2e3bcf43, dbfb82be) ---
+// These tests encode the 254 contract (superseding the 244 countdown pins
+// that lived here — see npc_regen_interval_test.go for the full quote):
+//   - count-UP clock (pre-increment then >= interval check)
+//   - clock AND interval init 0 → first-turn-alive proc (1 >= 0)
+//   - regenInterval is a cached snapshot refreshed from the type ONLY at
+//     each proc (Vorkath quirk: mid-life type change waits for next regen)
+//   - regenClock resets to 0 (not regenrate) after proc
+//   - regenrate 0 NO LONGER disables (244's `regenrate !== 0` guard is gone)
 
-// TestProcessNpcRegen244FirstTurnProc: fresh NPC (regenClock=0, RegenRate=100)
-// must proc on the very first processNpcRegen call (244 countdown: 0-1=-1 <=0).
-// After: levels[HP]=6, regenClock=100.
-func TestProcessNpcRegen244FirstTurnProc(t *testing.T) {
+// TestProcessNpcRegen254SteadyStateCadence: after the first-turn proc
+// (interval=100, clock=0), the next proc happens exactly 100 calls later
+// (call 101 total; level 5→6 at call 1, then 6→7 at call 101).
+func TestProcessNpcRegen254SteadyStateCadence(t *testing.T) {
 	s := newServerForScriptTest(t)
 	n := newNpcForLifecycleTest(t)
 	n.server = s
@@ -314,115 +324,33 @@ func TestProcessNpcRegen244FirstTurnProc(t *testing.T) {
 	n.levels[objtype.NpcStatHitpoints] = 5
 	n.baseLevels[objtype.NpcStatHitpoints] = 10
 
-	s.processNpcRegen(n)
-
-	if n.CurHP() != 6 {
-		t.Errorf("curHP after first call: got %d, want 6 (first-turn proc)", n.CurHP())
-	}
-	if n.regenClock != 100 {
-		t.Errorf("regenClock after first call: got %d, want 100 (reset to regenrate)", n.regenClock)
-	}
-}
-
-// TestProcessNpcRegen244SteadyStateCadence: after first-turn proc (regenClock=100),
-// next proc happens exactly 100 calls later (call 101 total; level goes 5→6 at
-// call 1, then 6→7 at call 101). Verifies no premature fire and exact cadence.
-func TestProcessNpcRegen244SteadyStateCadence(t *testing.T) {
-	s := newServerForScriptTest(t)
-	n := newNpcForLifecycleTest(t)
-	n.server = s
-	n.typ.RegenRate = 100
-	n.regenClock = 0
-	n.levels[objtype.NpcStatHitpoints] = 5
-	n.baseLevels[objtype.NpcStatHitpoints] = 10
-
-	// Call 1: first-turn proc → level 5→6, regenClock reset to 100.
+	// Call 1: first-turn proc → level 5→6, interval=100, clock=0.
 	s.processNpcRegen(n)
 	if n.CurHP() != 6 {
 		t.Fatalf("call 1: curHP got %d, want 6", n.CurHP())
 	}
-	if n.regenClock != 100 {
-		t.Fatalf("call 1: regenClock got %d, want 100", n.regenClock)
+	if n.regenClock != 0 || n.regenInterval != 100 {
+		t.Fatalf("call 1: clock/interval got %d/%d, want 0/100", n.regenClock, n.regenInterval)
 	}
 
-	// Calls 2..100: countdown ticks 99 down to 1; no proc yet.
+	// Calls 2..100: clock counts up 1..99; no proc yet.
 	for i := 2; i <= 100; i++ {
 		s.processNpcRegen(n)
 	}
 	if n.CurHP() != 6 {
 		t.Fatalf("after call 100: curHP got %d, want 6 (no mid-stream proc)", n.CurHP())
 	}
-	if n.regenClock != 1 {
-		t.Fatalf("after call 100: regenClock got %d, want 1", n.regenClock)
+	if n.regenClock != 99 {
+		t.Fatalf("after call 100: regenClock got %d, want 99", n.regenClock)
 	}
 
-	// Call 101: countdown 1-1=0 <=0 → proc; level 6→7, regenClock reset to 100.
+	// Call 101: ++clock=100 >= 100 → proc; level 6→7, clock reset to 0.
 	s.processNpcRegen(n)
 	if n.CurHP() != 7 {
 		t.Errorf("call 101: curHP got %d, want 7 (second proc)", n.CurHP())
 	}
-	if n.regenClock != 100 {
-		t.Errorf("call 101: regenClock got %d, want 100", n.regenClock)
-	}
-}
-
-// TestProcessNpcRegen244RegenRateZeroDisables: RegenRate=0 must disable regen
-// entirely — the clock must not underflow, the level must stay damaged, even
-// after many calls. (225 countup logic: ++regenClock >= regenInterval=0 was always true, so regen fired EVERY tick instead of being disabled; 244 short-circuits on regenrate==0 before any decrement.)
-func TestProcessNpcRegen244RegenRateZeroDisables(t *testing.T) {
-	s := newServerForScriptTest(t)
-	n := newNpcForLifecycleTest(t)
-	n.server = s
-	n.typ.RegenRate = 0
-	n.regenClock = 0
-	n.levels[objtype.NpcStatHitpoints] = 5
-	n.baseLevels[objtype.NpcStatHitpoints] = 10
-
-	for i := 0; i < 150; i++ {
-		s.processNpcRegen(n)
-	}
-
-	if n.CurHP() != 5 {
-		t.Errorf("curHP after 150 calls (regenrate=0): got %d, want 5 (regen disabled)", n.CurHP())
-	}
-	// Clock must remain 0 (no decrement applied when regenrate=0).
 	if n.regenClock != 0 {
-		t.Errorf("regenClock after 150 calls (regenrate=0): got %d, want 0 (no decrement)", n.regenClock)
-	}
-}
-
-// TestProcessNpcRegen244LiveTypeRate: regenClock resets to n.typ.RegenRate as
-// read at proc time, with no snapshot field. After a type change (n.typ.RegenRate
-// mutated), the NEXT proc adopts the new rate automatically.
-func TestProcessNpcRegen244LiveTypeRate(t *testing.T) {
-	s := newServerForScriptTest(t)
-	n := newNpcForLifecycleTest(t)
-	n.server = s
-	n.typ.RegenRate = 5
-	n.regenClock = 0
-	n.levels[objtype.NpcStatHitpoints] = 5
-	n.baseLevels[objtype.NpcStatHitpoints] = 10
-
-	// First-turn proc → regenClock=5.
-	s.processNpcRegen(n)
-	if n.regenClock != 5 {
-		t.Fatalf("after first proc: regenClock got %d, want 5", n.regenClock)
-	}
-
-	// Change rate live (simulates changeType).
-	n.typ.RegenRate = 20
-
-	// Count down 5 ticks to next proc: regenClock goes 5→4→3→2→1→0.
-	// The 5th call (regenClock 1→0) fires: HP 6→7, regenClock resets to 20.
-	for i := 0; i < 5; i++ {
-		s.processNpcRegen(n)
-	}
-
-	if n.regenClock != 20 {
-		t.Errorf("after rate-change proc: regenClock got %d, want 20 (live type rate)", n.regenClock)
-	}
-	if n.CurHP() != 7 {
-		t.Errorf("after rate-change proc: curHP got %d, want 7 (6 from first proc + 1 from second proc)", n.CurHP())
+		t.Errorf("call 101: regenClock got %d, want 0", n.regenClock)
 	}
 }
 

@@ -413,11 +413,15 @@ func TestHandleOpHeld_HappyPath(t *testing.T) {
 	if p.moveClickRequest {
 		t.Error("moveClickRequest: want false post-fire")
 	}
-	if p.faceEntity != -1 {
-		t.Errorf("faceEntity: got %d, want -1", p.faceEntity)
+	// A8/ee28c1aa @2e3bcf43: the handler's `faceEntity = -1; masks |=
+	// entitymask` pair was REMOVED upstream (TS OpHeldHandler.ts diff) —
+	// the handler must no longer touch facing (the per-tick
+	// setFaceEntity() derivation owns it; see face_entity.go).
+	if p.faceEntity != 7 {
+		t.Errorf("faceEntity: got %d, want 7 (handler must NOT touch facing)", p.faceEntity)
 	}
-	if p.masks&p.entitymask == 0 {
-		t.Errorf("masks: entitymask bit not set (got %d)", p.masks)
+	if p.masks&p.entitymask != 0 {
+		t.Errorf("masks: entitymask bit must NOT be set by the handler (got %d)", p.masks)
 	}
 	if p.activeScript != nil {
 		t.Error("activeScript: want nil after RETURN, got non-nil")
@@ -658,7 +662,8 @@ func TestHandleOpHeldT_NilInv_ClearsPending(t *testing.T) {
 }
 
 // TestHandleOpHeldT_HappyPath pins the success path: state mutated,
-// ClearPendingAction unconditional, faceEntity=-1, mask emitted.
+// ClearPendingAction unconditional, facing UNTOUCHED (A8/ee28c1aa
+// @2e3bcf43 removed the handler's faceEntity=-1 + mask pair).
 // Mirrors TS OpHeldTHandler.ts:57-73.
 func TestHandleOpHeldT_HappyPath(t *testing.T) {
 	s, p := setupOpHeldTServer(t)
@@ -686,11 +691,12 @@ func TestHandleOpHeldT_HappyPath(t *testing.T) {
 	if p.target != nil {
 		t.Error("ClearPendingAction must be unconditional in OPHELDT (target should be nil)")
 	}
-	if p.faceEntity != -1 {
-		t.Errorf("faceEntity: got %d, want -1", p.faceEntity)
+	// A8/ee28c1aa @2e3bcf43: handler must no longer touch facing.
+	if p.faceEntity != 7 {
+		t.Errorf("faceEntity: got %d, want 7 (handler must NOT touch facing)", p.faceEntity)
 	}
-	if p.masks&p.entitymask == 0 {
-		t.Error("masks: entitymask bit not set")
+	if p.masks&p.entitymask != 0 {
+		t.Error("masks: entitymask bit must NOT be set by the handler")
 	}
 }
 

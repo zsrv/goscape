@@ -50,13 +50,14 @@ func (s *Server) processNpcHunt(n *Npc) {
 	// matches TS Npc.ts:164 "hunt && hunt.type !== HuntModeType.PLAYER".
 	// HuntModePlayer is driven instead by the world-level pass
 	// processNpcHuntPlayers (mirroring TS World.processWorld at
-	// World.ts:577-589), which runs before processNpcs each tick. huntClock
-	// is still advanced here for player hunts (TS Npc.ts:169 is outside the
-	// non-player guard), so the world pass's huntAll sees a current clock.
-	// hunt is resolved here for the gate check; huntAll re-derives it
-	// internally — matches TS Npc.ts:160+165 (resolve then call no-arg).
+	// World.ts:577-589 @2e3bcf43), which runs before processNpcs each tick.
+	// huntClock is still advanced here for player hunts (TS Npc.ts:169 is
+	// outside the non-player guard), so the world pass's huntAll sees a
+	// current clock. The already-resolved hunt is passed down — TS
+	// Npc.ts:165 @2e3bcf43 `this.huntAll(hunt);` (the pin range changed
+	// huntAll from no-arg re-derivation to caller-passed).
 	if hunt.Type != objtype.HuntModePlayer {
-		n.huntAll(s)
+		n.huntAll(s, hunt)
 	}
 	n.huntClock++
 }
@@ -95,36 +96,30 @@ func (s *Server) processNpcHuntPlayers() {
 		}
 		hunt := s.huntTypes.Configs[n.huntMode]
 		if hunt != nil && hunt.Type == objtype.HuntModePlayer {
-			// hunt is resolved here for the gate check; huntAll re-derives it
-			// internally — matches TS World.ts:610+613 (resolve then call no-arg).
-			n.huntAll(s)
+			// The resolved hunt is passed down — TS World.ts:582-585
+			// @2e3bcf43: `const hunt = HuntType.get(npc.huntMode); if (hunt
+			// && hunt.type === HuntModeType.PLAYER) { npc.huntAll(hunt); }`.
+			n.huntAll(s, hunt)
 		}
 	}
 }
 
 // huntAll dispatches to a hunted-type variant and sets huntTarget.
-// Matches TS Npc.ts:249-277 (pin 9aadcec4). Variants are stubs at NAI-7;
-// NAI-8 fills huntPlayers; NAI-9 fills huntNpcs/huntObjs/huntLocs.
+// Matches TS Npc.huntAll at Npc.ts:251-279 @2e3bcf43. Variants are stubs
+// at NAI-7; NAI-8 fills huntPlayers; NAI-9 fills huntNpcs/huntObjs/huntLocs.
 //
-// 244: hunt is no longer passed as an arg; it is derived internally from
-// n.huntMode (TS Npc.ts:252 "const hunt: HuntType = HuntType.get(this.huntMode)").
-// Both callers (processNpcHunt and processNpcHuntPlayers) still resolve
-// hunt locally for their gate checks, then call huntAll() without it — the
-// redundant resolution matches TS exactly.
+// rev-254 (pin range 43e02957..2e3bcf43): hunt is once again passed by
+// the caller — TS `huntAll(hunt: HuntType): void` (the internal
+// `HuntType.get(this.huntMode)` re-derivation was removed). Both callers
+// (processNpcHunt and processNpcHuntPlayers) resolve hunt for their gate
+// checks and hand it down. s is a Go-only plumbing param for the variant
+// iterators.
 //
-// Go-defensive guard: if s.huntTypes is nil or huntMode is out of bounds,
-// huntAll silently no-ops. TS HuntType.get() would throw on invalid id; we
-// keep the guard as a pre-existing Go-defensive extension.
-func (n *Npc) huntAll(s *Server) {
+// Go-defensive guard: nil hunt no-ops (TS would have thrown at the
+// caller's HuntType.get on an invalid id).
+func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 	n.huntTarget = nil
 
-	// Derive hunt from huntMode — TS Npc.ts:252.
-	if s.huntTypes == nil ||
-		n.huntMode < 0 ||
-		n.huntMode >= len(s.huntTypes.Configs) {
-		return
-	}
-	hunt := s.huntTypes.Configs[n.huntMode]
 	if hunt == nil {
 		return
 	}
@@ -374,11 +369,14 @@ func invTotalParam(inv *inventory.Inventory, param int,
 
 // consumeHuntTarget converts a hunt-phase result (n.huntTarget) into
 // interaction state. Matches TS Npc.consumeHuntTarget at
-// Engine-TS/.../Npc.ts:887-919.
+// Engine-TS/.../Npc.ts:893-925 @2e3bcf43.
 //
 // Control flow:
 //   - Entry guards: huntTarget non-nil, huntMode in bounds, hunt config
 //     non-nil, hunt.Type != HuntModeOff. Any guard fires → no-op.
+//     The hunt-config nil guard is the Go analog of the 93b6e557
+//     undefined-guard at TS Npc.ts:897 @2e3bcf43: `if (!this.huntTarget
+//     || typeof hunt === 'undefined' || hunt.type === HuntModeType.OFF)`.
 //   - Branch on hunt.FindNewMode:
 //     QUEUE1..QUEUE20 → fire TriggerAiQueueN directly via runNpcScript.
 //     else           → n.SetInteraction(InteractionScript, huntTarget,

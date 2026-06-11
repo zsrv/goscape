@@ -239,11 +239,12 @@ func (s *Server) resetEntityForRespawn(n *Npc) {
 		}
 	}
 
-	// TS Npc.resetEntity(true) at Npc.ts:307 calls resetDefaults() after the
-	// varsString fill. TS resetDefaults (Npc.ts:411-425) clears interaction
-	// state and re-seeds targetOp/timerInterval from the type. goscape's
-	// (n *Npc).resetDefaults() is the NAI-11-stripped subset
-	// (target/targetOp/faceEntity/masks|=entitymask only); the
+	// TS Npc.resetEntity(true) at Npc.ts:309 @2e3bcf43 calls resetDefaults()
+	// after the varsString fill. TS resetDefaults (Npc.ts:412-422 @2e3bcf43)
+	// clears interaction state and re-seeds targetOp/timerInterval from the
+	// type (the faceEntity/mask tail was removed by ee28c1aa — facing is
+	// derived per-turn by setFaceEntity()). goscape's (n *Npc).resetDefaults()
+	// is the NAI-11-stripped subset (target/targetOp only); the
 	// apRange/apRangeCalled/targetSubject/timerInterval resets the stripped
 	// subset omits are re-applied inline here so the respawn surface reaches
 	// full TS-fidelity. 2026-05-28 fresh-audit row npc-core-1.

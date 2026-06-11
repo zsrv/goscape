@@ -611,7 +611,8 @@ func TestHuntAllPicksFromVariantResult(t *testing.T) {
 	}
 	s.huntTypes.Configs[huntModeIdx] = hunt
 
-	n.huntAll(s)
+	// A8 @2e3bcf43: hunt is caller-passed (TS Npc.ts:165 `this.huntAll(hunt)`).
+	n.huntAll(s, hunt)
 
 	if n.huntTarget == nil {
 		t.Fatalf("huntTarget: got nil, want candidate NPC")

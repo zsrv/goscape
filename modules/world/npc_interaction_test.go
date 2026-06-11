@@ -978,7 +978,6 @@ func TestNpcSetInteraction(t *testing.T) {
 		op         int
 		com        int
 		wantOK     bool
-		wantFace   int // faceEntity; -1 if not applicable
 		wantTX     int // targetX; -1 if not applicable
 		wantTZ     int
 		wantSubCom int
@@ -989,19 +988,18 @@ func TestNpcSetInteraction(t *testing.T) {
 		{
 			name: "Player target", target: targetPlayer, kind: InteractionScript,
 			op: objtype.NPCModeOpPlayer1, com: -1, wantOK: true,
-			wantFace: 3 + 32768, wantTX: -1, wantTZ: -1,
+			wantTX: -1, wantTZ: -1,
 			wantSubCom: -1, wantSubTyp: -1,
 		},
 		{
 			name: "Npc target", target: targetNpc, kind: InteractionScript,
 			op: objtype.NPCModeOpNpc1, com: -1, wantOK: true,
-			wantFace: 7, wantTX: -1, wantTZ: -1,
+			wantTX: -1, wantTZ: -1,
 			wantSubCom: -1, wantSubTyp: 99,
 		},
 		{
 			name: "Loc target", target: targetLoc, kind: InteractionEngine,
 			op: objtype.NPCModeOpLoc1, com: 5, wantOK: true,
-			wantFace:   -1,
 			wantTX:     coordgrid.Fine(105, 1),
 			wantTZ:     coordgrid.Fine(105, 1),
 			wantSubCom: 5, wantSubTyp: 42,
@@ -1009,7 +1007,6 @@ func TestNpcSetInteraction(t *testing.T) {
 		{
 			name: "Obj target", target: targetObj, kind: InteractionEngine,
 			op: objtype.NPCModeOpObj1, com: -1, wantOK: true,
-			wantFace:   -1,
 			wantTX:     coordgrid.Fine(105, 1),
 			wantTZ:     coordgrid.Fine(105, 1),
 			wantSubCom: -1, wantSubTyp: 88,
@@ -1017,7 +1014,7 @@ func TestNpcSetInteraction(t *testing.T) {
 		{
 			name: "com==0 → subject.com==-1 (TS quirk)", target: targetNpc, kind: InteractionScript,
 			op: objtype.NPCModeOpNpc1, com: 0, wantOK: true,
-			wantFace: 7, wantTX: -1, wantTZ: -1,
+			wantTX: -1, wantTZ: -1,
 			wantSubCom: -1, wantSubTyp: 99,
 		},
 	}
@@ -1047,8 +1044,11 @@ func TestNpcSetInteraction(t *testing.T) {
 			if n.targetSubject.typ != r.wantSubTyp {
 				t.Errorf("subject.typ: got %d, want %d", n.targetSubject.typ, r.wantSubTyp)
 			}
-			if r.wantFace != -1 && n.faceEntity != r.wantFace {
-				t.Errorf("faceEntity: got %d, want %d", n.faceEntity, r.wantFace)
+			// A8/ee28c1aa @2e3bcf43: SetInteraction never writes
+			// faceEntity (the Player/Npc arms were removed upstream);
+			// derivation happens at turn() time via setFaceEntity().
+			if n.faceEntity != -1 {
+				t.Errorf("faceEntity: got %d, want -1 (SetInteraction must not write — ee28c1aa)", n.faceEntity)
 			}
 			if r.wantTX != -1 && n.targetX != r.wantTX {
 				t.Errorf("targetX: got %d, want %d", n.targetX, r.wantTX)
@@ -1136,11 +1136,13 @@ func TestNpcResetDefaultsClearsTargetKeepsOtherState(t *testing.T) {
 	if n.targetOp != objtype.NPCModeWander {
 		t.Errorf("targetOp: got %d, want NPCModeWander", n.targetOp)
 	}
-	// NAI-14: resetDefaults now clears faceEntity per TS Npc.ts:415.
+	// A8/ee28c1aa @2e3bcf43: resetDefaults no longer touches faceEntity
+	// (TS removed the `faceEntity = -1; masks |= entitymask` tail at
+	// Npc.ts:412-422) — the per-turn setFaceEntity() clears it instead.
 	// apRange/apRangeCalled/targetSubject deliberately stay untouched
 	// (NAI-11 stripped shape — next SetInteraction call overwrites).
-	if n.faceEntity != -1 {
-		t.Errorf("faceEntity: got %d, want -1 (resetDefaults should clear per TS Npc.ts:415)", n.faceEntity)
+	if n.faceEntity != 99 {
+		t.Errorf("faceEntity: got %d, want 99 (resetDefaults must NOT touch facing — ee28c1aa)", n.faceEntity)
 	}
 	if n.masks != 0xff {
 		t.Errorf("masks: got 0x%x, want 0xff (resetDefaults must not clear)", n.masks)
@@ -1181,13 +1183,23 @@ func TestNpcClearInteractionResetsState(t *testing.T) {
 	if n.targetSubject.com != -1 || n.targetSubject.typ != -1 {
 		t.Errorf("targetSubject: got %+v, want {-1,-1}", n.targetSubject)
 	}
-	// NAI-14: clearInteraction now clears faceEntity and emits the
-	// entitymask bit per TS Npc.ts:407-408.
+	// A8/ee28c1aa @2e3bcf43: clearInteraction no longer touches faceEntity
+	// or masks (TS removed the tail at Npc.ts:407-410) — the per-turn
+	// setFaceEntity() (called after processMovementInteraction and at the
+	// ResetMasks tail) snaps facing to -1 once the target is gone.
+	if n.faceEntity != 42 {
+		t.Errorf("faceEntity: got %d, want 42 (clearInteraction must NOT touch facing — ee28c1aa)", n.faceEntity)
+	}
+	if n.masks&rsbuf.NpcMaskFaceEntity != 0 {
+		t.Error("masks & NpcMaskFaceEntity: got nonzero, want 0 (clearInteraction must NOT emit — ee28c1aa)")
+	}
+	// The follow-up derivation clears it (target is nil now).
+	n.setFaceEntity()
 	if n.faceEntity != -1 {
-		t.Errorf("faceEntity: got %d, want -1 (clearInteraction should clear per TS Npc.ts:407)", n.faceEntity)
+		t.Errorf("faceEntity after setFaceEntity: got %d, want -1", n.faceEntity)
 	}
 	if n.masks&rsbuf.NpcMaskFaceEntity == 0 {
-		t.Error("masks & NpcMaskFaceEntity: got 0, want nonzero (clearInteraction should emit per TS Npc.ts:408)")
+		t.Error("masks & NpcMaskFaceEntity after setFaceEntity: got 0, want nonzero")
 	}
 }
 

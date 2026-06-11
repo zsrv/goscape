@@ -89,7 +89,12 @@ func (n *Npc) turn(s *Server) {
 	// === Movement / interaction (NAI-11) ===
 	n.processMovementInteraction(s)
 
-	// PORTING-EXCEPTION (M3, npc-validateDistanceWalked): TS Npc.ts:184 calls
+	// "// Update target facing" — TS Npc.ts:183-184 @2e3bcf43 (ee28c1aa):
+	// setFaceEntity() runs after processMovementInteraction, deriving
+	// faceEntity from the (possibly just-cleared/just-set) target.
+	n.setFaceEntity()
+
+	// PORTING-EXCEPTION (M3, npc-validateDistanceWalked): TS Npc.ts:186 calls
 	// validateDistanceWalked() here, which sets this.jump. But rsbuf.computeNpc
 	// (World.ts:1047-1073) passes npc.tele and never npc.jump — the NpcInfo
 	// protocol has no jump bit — so the NPC call is a no-op on the wire (note

@@ -74,12 +74,11 @@ func (p *Player) unsetMapFlag() {
 // PathingEntity.ts:520) so the lookup-side != -1 override check in
 // resolveTriggerTypeId behaves identically to TS !== -1.
 //
-// faceEntity dispatch mirrors TS PathingEntity.setInteraction
-// (PathingEntity.ts:530-541) and the in-codebase Npc.SetInteraction
-// template (npc_interaction.go:651-666). NAI-41 closed
-// NAI-40-D-PLAYER-NO-FACEENTITY-ON-OPCLICK and the pre-existing
-// *Player→*Npc contact-time-write divergence by moving the faceEntity
-// write here from processInteraction's contact branch.
+// faceEntity is NOT written here — ee28c1aa @2e3bcf43 removed the
+// Player/Npc faceEntity arms from setInteraction; facing is derived
+// per-tick from the target by setFaceEntity() (face_entity.go). (The
+// NAI-41 contact-time→SetInteraction-time migration is superseded by
+// that per-tick derivation.)
 //
 // TS PathingEntity.ts:528 — focus() is called on every SetInteraction with
 // the target's fine coord. The four (kind × target-shape) wire-write cases:
@@ -149,23 +148,14 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 	}
 	p.focus(fx, fz, isNonPathing && kind == InteractionEngine)
 
-	switch t := target.(type) {
-	case *Player:
-		playerSlot := t.slot + 32768 // TS PathingEntity.ts:509 @2e3bcf43
-		if p.faceEntity != playerSlot {
-			p.faceEntity = playerSlot
-			p.masks |= p.entitymask
-		}
-	case *Npc:
-		if p.faceEntity != t.nid {
-			p.faceEntity = t.nid
-			p.masks |= p.entitymask
-		}
-	default:
-		// Loc/Obj target — cache fine-coord for reorient consumption.
-		// TS PathingEntity.ts:542-545. Closes
-		// NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ in NAI-66 (consumer is
-		// (*Player).reorient at modules/world/movement.go).
+	// ee28c1aa @2e3bcf43: setInteraction no longer writes faceEntity — the
+	// Player/Npc faceEntity arms moved to setFaceEntity() (face_entity.go),
+	// called per-tick (tick.go processPlayerFacing + ResetMasks tail). Only
+	// the NonPathingEntity targetX/Z cache remains here:
+	// TS PathingEntity.ts:551-554 @2e3bcf43 `if (target instanceof
+	// NonPathingEntity) { this.targetX = ...; this.targetZ = ...; }`.
+	// (Consumer is (*Player).reorient at modules/world/movement.go, NAI-66.)
+	if isNonPathing {
 		p.targetX = fx
 		p.targetZ = fz
 	}

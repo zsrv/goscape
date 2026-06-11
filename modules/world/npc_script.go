@@ -487,31 +487,46 @@ func (s *Server) processNpcTimer(n *Npc) {
 	n.timerClock = 0
 }
 
-// processNpcRegen ticks the regen countdown clock and, when it reaches zero,
-// converges every levels[i] one step toward baseLevels[i]. Matches TS
-// Npc.processRegen at Engine-TS/src/engine/entity/Npc.ts:514-532 @ 9aadcec4.
+// processNpcRegen ticks the regen clock UP against a cached interval and,
+// at each expiry, converges every levels[i] one step toward baseLevels[i].
+// Matches TS Npc.processRegen at Engine-TS/src/engine/entity/Npc.ts:511-531
+// @2e3bcf43 (dbfb82be "fix: NPC stat regen (#74)" rewrote the 244 countdown):
 //
-// 244 contract (Npc.ts:520-521):
-//   - regenrate 0 disables regen entirely — the decrement is skipped
-//     (TS short-circuit: `type.regenrate !== 0 && --this.regenClock <= 0`).
-//   - Clock is a countdown: pre-decremented then checked against <= 0.
-//   - Clock init 0 → first-turn-alive proc (0-1=-1, -1<=0 true).
-//   - On proc: regenClock resets to n.typ.RegenRate (live read — no
-//     snapshot field; changeType replaces n.typ so the new rate takes
-//     effect at the next proc naturally, matching TS NpcType.get(this.type)).
+//	private processRegen() {
+//	    if (++this.regenClock >= this.regenInterval) {
+//	        // Every time we regen, let's reload regen interval from NPC type
+//	        // This seems to match NPC behavior for when they change type, the
+//	        // regenrate doesn't update until a regen happens
+//	        // See: Vorkath in OSRS
+//	        const type = NpcType.get(this.type);
+//	        this.regenInterval = type.regenrate;
+//	        this.regenClock = 0;
+//	        // Regen the stats
+//	        ...converge levels toward baseLevels...
+//	    }
+//	}
+//
+// Contract changes vs 244:
+//   - Clock counts UP (pre-incremented, >= interval), not down.
+//   - regenInterval is a CACHED snapshot refreshed from NpcType only at
+//     each proc — a changeType mid-interval keeps the OLD period until
+//     the next regen happens, then adopts the new type's regenrate.
+//   - Both clock and interval init 0 → first-turn-alive proc (1 >= 0).
+//   - regenrate 0 no longer disables regen: interval caches 0, so the
+//     stats converge EVERY tick (TS has no zero-guard at the pin).
 func (s *Server) processNpcRegen(n *Npc) {
-	// TS Npc.ts:520 — `if (type.regenrate !== 0 && --this.regenClock <= 0)`
-	// Decrement only happens inside the regenrate!=0 branch (short-circuit).
-	if n.typ == nil || n.typ.RegenRate == 0 {
+	n.regenClock++
+	if n.regenClock < n.regenInterval {
 		return
 	}
-	n.regenClock--
-	if n.regenClock > 0 {
+	// goscape defensive (TS NpcType.get would throw on a missing type).
+	if n.typ == nil {
 		return
 	}
-	n.regenClock = n.typ.RegenRate
+	n.regenInterval = n.typ.RegenRate
+	n.regenClock = 0
 	// NAI-17: iterate all 6 stats, converging levels[i] toward
-	// baseLevels[i]. Mirrors TS Npc.ts:522-529 (unchanged from 225).
+	// baseLevels[i]. Mirrors TS Npc.ts:521-529 (unchanged logic).
 	for i := range objtype.NpcStatCount {
 		switch {
 		case n.levels[i] < n.baseLevels[i]:

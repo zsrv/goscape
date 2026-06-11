@@ -50,6 +50,11 @@ type Npc struct {
 	startX, startZ, startLevel int
 	baseType                   int
 	regenClock                 int
+	// regenInterval caches the regen period, refreshed from NpcType ONLY
+	// at each regen proc — TS Npc.ts:62 `regenInterval: number = 0`
+	// @2e3bcf43 (dbfb82be "NPC stat regen (#74)"): a changeType mid-life
+	// doesn't take effect until the next regen happens ("See: Vorkath").
+	regenInterval int
 
 	// === coords ===
 	x, z, level                     int

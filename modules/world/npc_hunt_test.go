@@ -336,9 +336,11 @@ func TestConsumeHuntTargetInteractionBranchCallsSetInteraction(t *testing.T) {
 		t.Errorf("targetSubject.typ: got %d, want %d (NAI-10 deferral #3 closed)",
 			n.targetSubject.typ, target.typeId)
 	}
-	if n.faceEntity != target.nid {
-		t.Errorf("faceEntity: got %d, want %d (NAI-10 deferral #5 closed)",
-			n.faceEntity, target.nid)
+	// A8/ee28c1aa @2e3bcf43: SetInteraction no longer writes faceEntity —
+	// facing is derived at turn() time by setFaceEntity() (face_entity.go).
+	if n.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (SetInteraction must not write — ee28c1aa)",
+			n.faceEntity)
 	}
 }
 

@@ -156,27 +156,24 @@ func TestNewNpcSetsEntityMaskToFaceEntity(t *testing.T) {
 	}
 }
 
-// TestResetDefaultsEmitsEntityMask — NAI-13 Task 1.
-// Mirrors TS Npc.ts:416 where resetDefaults ends with `this.masks |=
-// this.entitymask`. Before NAI-13 the `|=` line in resetDefaults did
-// not exist; this test guards the new line + proves entitymask is
-// non-zero post-construction.
-func TestResetDefaultsEmitsEntityMask(t *testing.T) {
+// TestResetDefaultsDoesNotEmitEntityMask — A8/ee28c1aa @2e3bcf43.
+// Supersedes the NAI-13 pin (`masks |= entitymask` tail at the old TS
+// Npc.ts:416): ee28c1aa REMOVED the resetDefaults faceEntity/mask tail.
+// The per-turn setFaceEntity() (npc_ai.go turn + ResetMasks tail) now
+// emits the bit when the derived facing actually changes.
+func TestResetDefaultsDoesNotEmitEntityMask(t *testing.T) {
 	n := newTestNpc(1)
 	n.masks = 0 // clear any construction-time bits
 	n.resetDefaults()
-	if n.masks&rsbuf.NpcMaskFaceEntity == 0 {
-		t.Errorf("masks & NpcMaskFaceEntity: got 0, want nonzero (resetDefaults should emit faceEntity bit)")
+	if n.masks&rsbuf.NpcMaskFaceEntity != 0 {
+		t.Errorf("masks & NpcMaskFaceEntity: got nonzero, want 0 (resetDefaults must not emit — ee28c1aa)")
 	}
 }
 
-// TestSetInteractionEmitsEntityMask — NAI-13 Task 1.
-// The line `n.masks |= n.entitymask` at npc_interaction.go SetInteraction
-// was a no-op before NAI-13 because entitymask was 0. With entitymask
-// now wired in NewNpc (Step 1.3), that line emits the faceEntity bit.
-// Uses an *Npc target to avoid Player construction overhead — SetInteraction's
-// target branch that sets faceEntity fires for both Player and Npc targets.
-func TestSetInteractionEmitsEntityMask(t *testing.T) {
+// TestSetInteractionDoesNotEmitEntityMask — A8/ee28c1aa @2e3bcf43.
+// Supersedes the NAI-13 pin: ee28c1aa removed the Player/Npc faceEntity
+// arms from setInteraction (TS PathingEntity.ts:526-557 has none).
+func TestSetInteractionDoesNotEmitEntityMask(t *testing.T) {
 	n := newTestNpc(1)
 	n.masks = 0
 	n.server = &Server{log: discardLogger()} // SetInteraction does not touch log on happy path
@@ -188,52 +185,53 @@ func TestSetInteractionEmitsEntityMask(t *testing.T) {
 	if !ok {
 		t.Fatal("SetInteraction returned false (target.IsValid failed?)")
 	}
-	if n.masks&rsbuf.NpcMaskFaceEntity == 0 {
-		t.Errorf("masks & NpcMaskFaceEntity: got 0, want nonzero (SetInteraction should emit faceEntity bit for *Npc target)")
+	if n.masks&rsbuf.NpcMaskFaceEntity != 0 {
+		t.Errorf("masks & NpcMaskFaceEntity: got nonzero, want 0 (SetInteraction must not emit — ee28c1aa)")
+	}
+	if n.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (SetInteraction must not write — ee28c1aa)", n.faceEntity)
 	}
 }
 
-// TestNpcResetDefaultsClearsFaceEntity — NAI-14 Task 1.
-// Named companion for the faceEntity-clear half of resetDefaults that
-// lands with NAI-14. Separated from TestResetDefaultsEmitsEntityMask
-// (NAI-13 mask-bit assertion) and from
-// TestNpcResetDefaultsClearsTargetKeepsOtherState (the regression guard
-// for the stripped NAI-11 shape). Mirrors TS Npc.ts:415:
-// `this.faceEntity = -1;`.
-func TestNpcResetDefaultsClearsFaceEntity(t *testing.T) {
+// TestNpcResetDefaultsKeepsFaceEntity — A8/ee28c1aa @2e3bcf43.
+// Supersedes TestNpcResetDefaultsClearsFaceEntity (NAI-14): the TS
+// `faceEntity = -1` at old Npc.ts:415 was removed; the clear now happens
+// at the next setFaceEntity() derivation (target is nil → else arm).
+func TestNpcResetDefaultsKeepsFaceEntity(t *testing.T) {
 	n := newTestNpc(1)
 	n.faceEntity = 42
 	n.resetDefaults()
+	if n.faceEntity != 42 {
+		t.Errorf("faceEntity: got %d, want 42 (resetDefaults must not touch facing — ee28c1aa)", n.faceEntity)
+	}
+	n.setFaceEntity()
 	if n.faceEntity != -1 {
-		t.Errorf("faceEntity: got %d, want -1 (resetDefaults should clear per TS Npc.ts:415)", n.faceEntity)
+		t.Errorf("faceEntity after setFaceEntity: got %d, want -1", n.faceEntity)
 	}
 }
 
-// TestNpcClearInteractionEmitsEntityMaskAndClearsFaceEntity — NAI-14 Task 1.
-// Named companion for the faceEntity-clear + mask-emit pair that
-// clearInteraction gains in NAI-14. Mirrors TS Npc.ts:407-408:
-// `this.faceEntity = -1; this.masks |= NpcInfoProt.FACE_ENTITY;`.
-// Separated from TestNpcClearInteractionResetsState (the full-state
-// regression guard) so the TS-line mapping is explicit in one test name.
-func TestNpcClearInteractionEmitsEntityMaskAndClearsFaceEntity(t *testing.T) {
+// TestNpcClearInteractionKeepsFaceEntity — A8/ee28c1aa @2e3bcf43.
+// Supersedes TestNpcClearInteractionEmitsEntityMaskAndClearsFaceEntity
+// (NAI-14): the `faceEntity = -1; masks |= FACE_ENTITY` pair at the old
+// TS Npc.ts:407-408 was removed by ee28c1aa.
+func TestNpcClearInteractionKeepsFaceEntity(t *testing.T) {
 	n := newTestNpc(1)
 	n.faceEntity = 42
 	n.masks = 0
 	n.clearInteraction()
-	if n.faceEntity != -1 {
-		t.Errorf("faceEntity: got %d, want -1 (clearInteraction should clear per TS Npc.ts:407)", n.faceEntity)
+	if n.faceEntity != 42 {
+		t.Errorf("faceEntity: got %d, want 42 (clearInteraction must not touch facing — ee28c1aa)", n.faceEntity)
 	}
-	if n.masks&rsbuf.NpcMaskFaceEntity == 0 {
-		t.Error("masks & NpcMaskFaceEntity: got 0, want nonzero (clearInteraction should emit per TS Npc.ts:408)")
+	if n.masks&rsbuf.NpcMaskFaceEntity != 0 {
+		t.Error("masks & NpcMaskFaceEntity: got nonzero, want 0 (clearInteraction must not emit — ee28c1aa)")
 	}
 }
 
-// TestResetMasksTrailingClearFires — NAI-14 Task 2.
-// When target is nil but faceEntity is still set, ResetMasks emits the
-// entitymask bit and clears faceEntity. Mirrors TS
-// PathingEntity.ts:611-614 with one-tick-lag deviation (Go's ResetMasks
-// runs at tick end, so the mask bit is consumed by the next tick's
-// info-pass).
+// TestResetMasksTrailingClearFires — NAI-14 Task 2, re-cited at A8:
+// when target is nil but faceEntity is still set, the ResetMasks-tail
+// setFaceEntity() (TS PathingEntity.ts:626 @2e3bcf43, ee28c1aa) emits
+// the entitymask bit and clears faceEntity. The mask is armed at tick
+// end and consumed by the next tick's info-pass (both engines).
 func TestResetMasksTrailingClearFires(t *testing.T) {
 	n := newTestNpc(1)
 	n.target = nil
@@ -248,21 +246,23 @@ func TestResetMasksTrailingClearFires(t *testing.T) {
 	}
 }
 
-// TestResetMasksTrailingClearSkippedWhenTargetPresent — NAI-14 Task 2.
-// Quirk guard: trailing clear must not fire when target is non-nil
-// (the NPC is still facing someone, by design).
-func TestResetMasksTrailingClearSkippedWhenTargetPresent(t *testing.T) {
+// TestResetMasksRefreshesFacingWhenTargetPresent — A8/ee28c1aa @2e3bcf43.
+// Supersedes TestResetMasksTrailingClearSkippedWhenTargetPresent: the old
+// `if (!this.target && ...)` guard preserved a stale faceEntity when a
+// target was present; the new setFaceEntity() tail RE-DERIVES it from the
+// live *Npc target (nid) and emits the mask on change.
+func TestResetMasksRefreshesFacingWhenTargetPresent(t *testing.T) {
 	n := newTestNpc(1)
 	other := newTestNpc(2)
 	n.target = other
-	n.faceEntity = 42
+	n.faceEntity = 42 // stale
 	n.masks = 0
 	n.ResetMasks()
-	if n.faceEntity != 42 {
-		t.Errorf("faceEntity: got %d, want 42 (trailing clear should be skipped — target present)", n.faceEntity)
+	if n.faceEntity != other.nid {
+		t.Errorf("faceEntity: got %d, want %d (setFaceEntity tail must re-derive from target — ee28c1aa)", n.faceEntity, other.nid)
 	}
-	if n.masks&rsbuf.NpcMaskFaceEntity != 0 {
-		t.Error("masks & NpcMaskFaceEntity: got nonzero, want 0 (trailing clear should not emit — target present)")
+	if n.masks&rsbuf.NpcMaskFaceEntity == 0 {
+		t.Error("masks & NpcMaskFaceEntity: got 0, want nonzero (changed → emit)")
 	}
 }
 

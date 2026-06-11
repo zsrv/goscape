@@ -32,10 +32,11 @@ func checkApTrigger(op int) bool {
 		(op >= objtype.NPCModeApNpc1 && op <= objtype.NPCModeApNpc5)
 }
 
-// resetDefaults clears target/targetOp to defaultMode baseline, clears
-// faceEntity, and emits the faceEntity mask bit. Matches TS
-// Npc.resetDefaults at Engine-TS/.../Npc.ts:411-425 — specifically the
-// `faceEntity = -1` at :415 and `this.masks |= this.entitymask` at :416.
+// resetDefaults clears target/targetOp to defaultMode baseline. Matches
+// TS Npc.resetDefaults at Engine-TS/.../Npc.ts:412-422 @2e3bcf43 —
+// ee28c1aa REMOVED the `faceEntity = -1; masks |= entitymask` tail
+// (facing is now derived per-turn by setFaceEntity(), called from
+// turn() after processMovementInteraction and from the ResetMasks tail).
 //
 // INTENTIONALLY retains NAI-11's stripped-flat shape — apRange,
 // apRangeCalled, targetSubject, huntMode, huntrange, huntClock,
@@ -46,24 +47,23 @@ func checkApTrigger(op int) bool {
 func (n *Npc) resetDefaults() {
 	n.target = nil
 	n.targetOp = n.defaultMode()
-	n.faceEntity = -1
-	n.masks |= n.entitymask
 }
 
 // clearInteraction resets interaction state to idle: target, targetOp,
-// apRange, apRangeCalled, targetSubject, faceEntity. Emits the
-// faceEntity mask bit so clients see the NPC stop facing its old target.
-// Matches TS Npc.clearInteraction at Engine-TS/.../Npc.ts:402-409,
-// which overrides PathingEntity.clearInteraction (PathingEntity.ts:550-556)
-// with the `faceEntity = -1` and `masks |= FACE_ENTITY` tail at :407-408.
+// apRange, apRangeCalled, targetSubject. Matches TS Npc.clearInteraction
+// at Engine-TS/.../Npc.ts:407-410 @2e3bcf43 — ee28c1aa REMOVED the
+// `faceEntity = -1; masks |= FACE_ENTITY` tail (clients see the NPC stop
+// facing via the per-turn setFaceEntity() derivation instead).
+//
+// Pre-existing deviation (NOT ee28c1aa scope): TS sets targetOp =
+// NpcMode.NONE (0); goscape keeps -1 (NPCModeNull), which the
+// processMovementInteraction failsafe coerces to defaultMode() next turn.
 func (n *Npc) clearInteraction() {
 	n.target = nil
 	n.targetOp = -1
 	n.apRange = 10
 	n.apRangeCalled = false
 	n.targetSubject = npcTargetSubject{com: -1, typ: -1}
-	n.faceEntity = -1
-	n.masks |= n.entitymask
 }
 
 // noMode is the NPCMode.NONE branch — just walks the existing path if
@@ -74,18 +74,22 @@ func (n *Npc) noMode(s *Server) {
 
 // wanderMode is the NPCMode.WANDER branch — a 1/8-tick random walk
 // within WanderRange of spawn plus movement + a 500-tick
-// teleport-to-spawn counter. Matches TS wanderMode at Npc.ts:697-715.
+// teleport-to-spawn counter. Matches TS wanderMode at Npc.ts:703-721
+// @2e3bcf43. (The pin range renamed TS's private Npc.randomWalk(range)
+// to wander(range) — goscape inlines that roll right here, so the
+// rename is a no-op for Go; PathingEntity.randomWalk() (no-arg, one
+// tile) is a DIFFERENT method, ported at movement.go/npc_interaction.go.)
 //
 // The QueueWaypoint skip-if-equal-to-current guard mirrors the TS
 // "if we rolled our own tile, don't queue a null path" check.
 //
 // The 1/8 roll gate is `moverestrict !== NOMOVE && Math.random() < 0.125`
-// per TS Npc.ts:701; TS then calls `randomWalk(wanderrange)` UNCONDITIONALLY
-// (Npc.ts:702). For WanderRange=0, the inner block's
+// per TS Npc.ts:707; TS then calls `wander(wanderrange)` UNCONDITIONALLY
+// (Npc.ts:708). For WanderRange=0, the inner block's
 // `rand.IntN(rng*2+1)` reduces to `rand.IntN(1) == 0` so dx=dz=0; the
 // QueueWaypoint skip-if-equal-to-current guard then re-queues
 // (startX, startZ) only when the NPC has drifted off-spawn — matching
-// TS randomWalk(0) at Npc.ts:682-691. 2026-05-28 audit row npc-ai-4
+// TS wander(0) at Npc.ts:688-697. 2026-05-28 audit row npc-ai-4
 // removed the goscape-only `&& WanderRange > 0` clause that suppressed
 // the wander roll entirely for 0-range NPCs.
 func (n *Npc) wanderMode(s *Server) {
@@ -977,15 +981,18 @@ func (n *Npc) inApproachDistance(rng int, target entity) bool {
 }
 
 // SetInteraction anchors the NPC's interaction on target. Mirrors TS
-// PathingEntity.setInteraction at Engine-TS/.../PathingEntity.ts:510-548.
-// Closes the seven NAI-10 deferred setInteraction fields:
+// PathingEntity.setInteraction at Engine-TS/.../PathingEntity.ts:526-557
+// @2e3bcf43. Side-effect set (ex-NAI-10 deferrals):
 //  1. apRange = 10
 //  2. apRangeCalled = false
 //  3. targetSubject.com/typ snapshot
 //  4. focus() → faceAngleX/Z
-//  5. faceEntity + masks|=entitymask (Player/Npc targets)
-//  6. targetX/targetZ (Loc/Obj targets)
-//  7. target.IsValid() pre-check
+//  5. targetX/targetZ (Loc/Obj targets)
+//  6. target.IsValid() pre-check
+//
+// faceEntity is NOT written here — ee28c1aa @2e3bcf43 removed the
+// Player/Npc faceEntity arms; facing is derived per-turn by
+// setFaceEntity() (face_entity.go).
 //
 // TS quirk preserved: `com ? com : -1` coerces 0 → -1 on subject.com.
 func (n *Npc) SetInteraction(kind InteractionKind, target entity, op, com int) bool {
@@ -1037,20 +1044,12 @@ func (n *Npc) SetInteraction(kind InteractionKind, target entity, op, com int) b
 	}
 	n.focus(fx, fz, isNonPathing && kind == InteractionEngine)
 
-	// faceEntity (Player/Npc) or targetX/Z (Loc/Obj) dispatch.
-	switch t := target.(type) {
-	case *Player:
-		playerSlot := t.slot + 32768 // TS PathingEntity.ts:509 @2e3bcf43
-		if n.faceEntity != playerSlot {
-			n.faceEntity = playerSlot
-			n.masks |= n.entitymask
-		}
-	case *Npc:
-		if n.faceEntity != t.nid {
-			n.faceEntity = t.nid
-			n.masks |= n.entitymask
-		}
-	default:
+	// ee28c1aa @2e3bcf43: setInteraction no longer writes faceEntity — the
+	// Player/Npc faceEntity arms moved to setFaceEntity() (face_entity.go),
+	// called per-turn (npc_ai.go turn() + ResetMasks tail). Only the
+	// NonPathingEntity targetX/Z cache remains: TS PathingEntity.ts:551-554
+	// @2e3bcf43.
+	if isNonPathing {
 		n.targetX = fx
 		n.targetZ = fz
 	}

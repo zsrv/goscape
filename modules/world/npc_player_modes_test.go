@@ -161,14 +161,16 @@ func playerModeFixture(t *testing.T) (*Server, *Npc, *Player) {
 // PLAYERFACE is a no-op mode (type guard only) — after dispatch, the NPC's
 // target MUST still be set (resetDefaults-stub behavior from NAI-11 clears
 // target; NAI-13 dispatch must route to playerFaceMode which leaves state
-// alone). Mask-wise, the faceEntity bit comes from the earlier
-// SetInteraction call, not from playerFaceMode itself.
+// alone). A8/ee28c1aa: SetInteraction no longer emits the faceEntity bit
+// — the turn()-time setFaceEntity() derivation does (TS Npc.ts:184
+// @2e3bcf43), exercised here via the post-dispatch call.
 func TestProcessMovementInteractionDispatchPlayerFace(t *testing.T) {
 	s, n, p := playerModeFixture(t)
 	p.x, p.z = 3094, 3108 // close enough for validateTarget
 	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerFace, 0)
 
 	n.processMovementInteraction(s)
+	n.setFaceEntity() // turn() tail — TS Npc.ts:183-184 @2e3bcf43
 
 	if n.target == nil {
 		t.Error("target: got nil, want non-nil — PLAYERFACE dispatch must NOT reset (this is the NAI-11 stub behavior)")
@@ -177,7 +179,7 @@ func TestProcessMovementInteractionDispatchPlayerFace(t *testing.T) {
 		t.Errorf("targetOp: got %d, want NPCModePlayerFace (%d)", n.targetOp, objtype.NPCModePlayerFace)
 	}
 	if n.masks&rsbuf.NpcMaskFaceEntity == 0 {
-		t.Error("masks & NpcMaskFaceEntity: got 0, want nonzero (was set by SetInteraction earlier)")
+		t.Error("masks & NpcMaskFaceEntity: got 0, want nonzero (derived by setFaceEntity at turn-time)")
 	}
 }
 

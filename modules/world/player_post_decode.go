@@ -1,11 +1,7 @@
 package world
 
-import (
-	entitypkg "github.com/zsrv/goscape/pkg/entity"
-)
-
 // processPostDecode runs the per-tick post-decode block at TS
-// Engine-TS/src/engine/World.ts (rev-254 pin: :613-626). Called from end of
+// Engine-TS/src/engine/World.ts (rev-254 pin @2e3bcf43: :614-627). Called from end of
 // processIn, before processInputTracking (matching TS ordering).
 //
 // Activates the NAI-144 moveClickRequest gate at movement.go by porting the
@@ -16,11 +12,11 @@ import (
 // initial path comes from pathToPathingTarget/pathToTarget in
 // processInteraction.
 func (p *Player) processPostDecode() {
-	// TS L611: isClientConnected(player) && player.decodeIn()
+	// TS L614: isClientConnected(player) && player.decodeIn()
 	if !p.decodedThisTick {
 		return
 	}
-	// TS L613: userPath.length > 0 || opcalled
+	// TS L615: userPath.length > 0 || opcalled
 	if len(p.userPath) == 0 && !p.opcalled {
 		return
 	}
@@ -31,22 +27,19 @@ func (p *Player) processPostDecode() {
 		return
 	}
 
-	// TS L614-617: delayed → unsetMapFlag and skip the rest of the block.
+	// TS L616-619: delayed → unsetMapFlag and skip the rest of the block.
 	if p.delayed {
 		p.unsetMapFlag()
 		return
 	}
 
-	// TS L619-622: faceEntity reset for non-PathingEntity targets.
-	if p.faceEntity != -1 {
-		switch p.target.(type) {
-		case nil, *entitypkg.Loc, *entitypkg.Obj:
-			p.faceEntity = -1
-			p.masks |= p.entitymask
-		}
-	}
+	// ee28c1aa @2e3bcf43 REMOVED the faceEntity-reset block that lived here
+	// (old TS: `if ((!player.target || target instanceof Loc || Obj) &&
+	// player.faceEntity !== -1) { faceEntity = -1; masks |= entitymask; }`)
+	// — facing for nil/Loc/Obj targets is now cleared by the per-tick
+	// setFaceEntity() derivation (face_entity.go).
 
-	// TS L620-624: moveClickRequest setter. Activates the gate at
+	// TS L621-625: moveClickRequest setter. Activates the gate at
 	// modules/world/movement.go (NAI-144).
 	if !p.Busy() && p.opcalled {
 		p.moveClickRequest = false
