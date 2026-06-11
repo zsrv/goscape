@@ -74,27 +74,36 @@ func parseInvConfigFor(objPack *PackFile) ParseFn {
 }
 
 // packInvConfigs walks every id and emits opcodes 1/2/3/5/6/7/8/9 inline.
-// Stock entries are collected into a dense slice in file-scan (declaration)
-// order — the N in stockN is ignored — then the stock block (opcode 4) is
-// emitted after all other opcodes.
+// Stock entries are collected into a SPARSE slice indexed by the N in
+// stockN (stockN → slot N-1), then the stock block (opcode 4) is emitted
+// after all other opcodes with 0xffff,0,0 filler rows for the holes.
 //
-// 244 changes vs 225:
-//   - No size pre-scan pass.
-//   - No duplicate-stockN error.
-//   - No stockN-index->=size bounds check.
-//   - Stock is a dense push list: stock.push(value) in line order.
-//   - Filler slots (0xffff,0,0) are never emitted.
+// 254 changes vs 244 (TS InvConfig.ts:104-184 @ 2e3bcf43 — surfaced at
+// the T23 full-tree gate via adventurershop, which skips stock2):
+//   - size pre-scan pass restored (TS:106-113).
+//   - stock[index] keyed by parseInt(key[5:]) - 1 (TS:125), not push order.
+//   - Duplicate-stockN → packStepError (TS:126-128).
+//   - stockN index >= size → packStepError (TS:130-132).
+//   - Holes emit p2(-1) p2(0) p4(0) filler rows (TS:167-172).
 //
 // modelFlags is accepted for TS ConfigPackCallback parity
 // (PackShared.ts:137-141); inv does not write any model flags.
 //
-// TS source: tools/pack/config/InvConfig.ts:94-172 (9aadcec4).
+// TS source: tools/pack/config/InvConfig.ts:94-197 (2e3bcf43).
 func packInvConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []int) (*PackedData, error) {
 	pd := NewPackedData(pf.Max)
 	for id := range pf.Max {
 		name := pf.GetByID(id)
 		if cfg, ok := configs[name]; ok {
-			// Collect stock entries in declaration order (dense, TS:115-116).
+			// TS:106-113: size pre-scan (last size= line wins).
+			size := 0
+			for _, line := range cfg {
+				if line.Key == "size" {
+					size = line.Value.(int)
+				}
+			}
+
+			// Sparse stock slots; nil = hole (TS sparse array, :125-134).
 			var stock [][]int
 			for _, line := range cfg {
 				switch {
@@ -105,7 +114,25 @@ func packInvConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []
 					pd.P1(2)
 					pd.P2(uint16(line.Value.(int)))
 				case strings.HasPrefix(line.Key, "stock"):
-					stock = append(stock, line.Value.([]int))
+					// TS:125: index = parseInt(key.substring(5)) - 1.
+					// A non-numeric/absent suffix gives NaN in TS; the
+					// stock[NaN] write is a no-op on the array proper
+					// (named property, length unchanged) → drop the line.
+					n, err := strconv.Atoi(line.Key[len("stock"):])
+					if err != nil || n-1 < 0 {
+						break
+					}
+					index := n - 1
+					if index < len(stock) && stock[index] != nil {
+						return nil, packStepError(name, "Duplicate stock%d lines, one will overwrite the other.", index+1)
+					}
+					if index >= size {
+						return nil, packStepError(name, "stock%d is larger than size=%d", index+1, size)
+					}
+					for len(stock) <= index {
+						stock = append(stock, nil)
+					}
+					stock[index] = line.Value.([]int)
 				case line.Key == "stackall":
 					if line.Value.(bool) {
 						pd.P1(3)
@@ -133,11 +160,18 @@ func packInvConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []
 				}
 			}
 
-			// TS:144-159: emit stock block only when non-empty; no filler slots.
+			// TS:162-184: emit stock block only when non-empty; holes
+			// (skipped stockN) become 0xffff,0,0 filler rows (TS:167-172).
 			if len(stock) > 0 {
 				pd.P1(4)
 				pd.P1(uint8(len(stock)))
 				for _, entry := range stock {
+					if entry == nil {
+						pd.P2(0xffff) // TS p2(-1)
+						pd.P2(0)
+						pd.P4(0)
+						continue
+					}
 					pd.P2(uint16(entry[0]))
 					pd.P2(uint16(entry[1]))
 					if len(entry) == 3 {
