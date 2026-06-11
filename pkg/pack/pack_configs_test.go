@@ -785,33 +785,33 @@ func TestPackConfigsConfigJagCacheWrite(t *testing.T) {
 	}
 }
 
-// TestClientConfigCRCConstants_Rev2452 pins the BUILD_VERIFY CRC magic
-// numbers to their rev-245.2 values (TS PackShared.ts @ 3c16994c).
+// TestClientConfigCRCConstants_Rev254 pins the BUILD_VERIFY CRC magic
+// numbers to their rev-254 values (TS PackShared.ts @ 2e3bcf43).
 //
-// Old 244 values for reference (updated at 9aadcec4 → now 3c16994c):
-//   seq      1638136604 → 1405403166 → -1858954999 (PackShared.ts:438)
-//   loc       891497087 → 1195428820 →  626415911  (PackShared.ts:462)
-//   flo          (new)  → 1976597026 → -532285888  (PackShared.ts:486)
-//   spotanim -1279835623 →  117013845 →   96621343  (PackShared.ts:510)
-//   npc      -2140681882 →  -997428438 →  417024969  (PackShared.ts:534)
-//   obj       -840233510 → 1589810970 →  344600333  (PackShared.ts:558)
-//   idk          (new)  → -359342366 → -359342366  (PackShared.ts:582) UNCHANGED
-//   varp       705633567 → -1961744050 → 1480086078  (PackShared.ts:606)
-func TestClientConfigCRCConstants_Rev2452(t *testing.T) {
+// History (244 @ 9aadcec4 → 245.2 @ 3c16994c → 254 @ 2e3bcf43):
+//   seq      1405403166 → -1858954999 →  -716271600 (PackShared.ts:445)
+//   loc      1195428820 →  626415911  →  -826309209 (PackShared.ts:469)
+//   flo      1976597026 → -532285888  → -1566957964 (PackShared.ts:493)
+//   spotanim  117013845 →   96621343  →  -555849646 (PackShared.ts:517)
+//   npc      -997428438 →  417024969  →  1077655221 (PackShared.ts:541)
+//   obj      1589810970 →  344600333  →   535204494 (PackShared.ts:565)
+//   idk      -359342366 → -359342366  →  -359342366 (PackShared.ts:589) UNCHANGED
+//   varp    -1961744050 → 1480086078  →  1039564548 (PackShared.ts:613)
+//   varbit       (new at 254)         → -1387031023 (PackShared.ts:637)
+func TestClientConfigCRCConstants_Rev254(t *testing.T) {
 	tests := []struct {
 		name string
 		got  int32
 		want int32
 	}{
-		{"seq", clientConfigCRCSeq, -1858954999},
-		{"loc", clientConfigCRCLoc, 626415911},
-		{"flo", clientConfigCRCFlo, -532285888},
-		{"spotanim", clientConfigCRCSpotAnim, 96621343},
-		{"npc", clientConfigCRCNpc, 417024969},
-		{"obj", clientConfigCRCObj, 344600333},
+		{"seq", clientConfigCRCSeq, -716271600},
+		{"loc", clientConfigCRCLoc, -826309209},
+		{"flo", clientConfigCRCFlo, -1566957964},
+		{"spotanim", clientConfigCRCSpotAnim, -555849646},
+		{"npc", clientConfigCRCNpc, 1077655221},
+		{"obj", clientConfigCRCObj, 535204494},
 		{"idk", clientConfigCRCIdk, -359342366},
-		{"varp", clientConfigCRCVarp, 1480086078},
-		// varbit is NEW at rev-254 (TS PackShared.ts:637 @ 2e3bcf43).
+		{"varp", clientConfigCRCVarp, 1039564548},
 		{"varbit", clientConfigCRCVarbit, -1387031023},
 	}
 	for _, tc := range tests {

@@ -46,6 +46,20 @@ func readMap(lines []string) mapData {
 		if len(line) == 0 {
 			continue
 		}
+		if line[0] == '/' {
+			// Comment-line skip. The pre-restructure TS shape carried an
+			// explicit `if (line[0] === '/') continue;` (map/Pack.js:31-34
+			// @ 43e02957, MAP section). The restructured Map-based parser
+			// at 2e3bcf43 DROPPED the explicit check — there a comment
+			// line yields level = '/'-48 = -1 and a negative packKey,
+			// whose Int16Array writes are silent no-ops in JS, so the
+			// observable output is still "packs identically to none".
+			// Go has no negative-index no-op to hide behind; the explicit
+			// skip reproduces that observable behavior (and extends it to
+			// LOC/NPC/OBJ sections where a '/' line would otherwise append
+			// a garbage entry at a bogus key).
+			continue
+		}
 		if line[0] == '=' {
 			// TS: line.slice(4, -4).slice(1, 4) on "==== SEC ===="
 			// yields the 3-char section name in caps.

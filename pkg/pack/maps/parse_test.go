@@ -1,6 +1,9 @@
 package maps
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 // TestPackKey pins (level << 12) | (x << 6) | z encoding from TS
 // map/Pack.js:13-15.
@@ -74,5 +77,47 @@ func TestReadMap_NpcAndObj(t *testing.T) {
 	}
 	if objs, ok := got.Obj[packKey(0, 3, 4)]; !ok || len(objs) != 1 || objs[0] != (objEntry{ID: 99, Count: 10}) {
 		t.Errorf("Obj = %v, want [{99 10}]", objs)
+	}
+}
+
+// TestReadMap_CommentLineSkipped pins the '/'-prefixed comment-line
+// skip: a "// comment" line parses identically to its absence, in every
+// section. The pre-restructure TS shape had the explicit skip
+// (map/Pack.js:31-34 @ 43e02957); the restructured parser @ 2e3bcf43
+// dropped it but stays observably equivalent because the resulting
+// negative packKey only feeds JS Int16Array writes, which are silent
+// no-ops at negative indices. Go needs the explicit skip.
+func TestReadMap_CommentLineSkipped(t *testing.T) {
+	clean := []string{
+		"==== MAP ====",
+		"0 5 7: h10 o2;4;1 f8 u3",
+		"==== LOC ====",
+		"1 4 4: 100",
+		"==== NPC ====",
+		"0 3 3: 9",
+		"==== OBJ ====",
+		"0 2 2: 995 50",
+	}
+	commented := []string{
+		"// header comment",
+		"==== MAP ====",
+		"// map comment",
+		"0 5 7: h10 o2;4;1 f8 u3",
+		"==== LOC ====",
+		"// loc comment",
+		"1 4 4: 100",
+		"==== NPC ====",
+		"// npc comment",
+		"0 3 3: 9",
+		"==== OBJ ====",
+		"// obj comment",
+		"0 2 2: 995 50",
+	}
+
+	got := readMap(commented)
+	want := readMap(clean)
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("readMap with comments = %+v\nwant (identical to no comments) %+v", got, want)
 	}
 }
