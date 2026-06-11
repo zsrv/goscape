@@ -41,16 +41,18 @@ const (
 	restrictedEventLimit = 2
 	afkEventRate         = 500
 
-	// afkChance1 / afkChance2 are the 244 inline decimal literals from
-	// TS World.ts:638 (pin `9aadcec4`):
+	// afkChance1 / afkChance2 are the 254 named constants from TS
+	// World.ts:128-129 (pin 2e3bcf43):
 	//
-	//   player.afkEventReady = Math.random() < (player.zonesAfk() ? 0.1666 : 0.0833);
+	//   private static readonly AFK_CHANCE1: number = 1 / (120 / 5); // 1/24 - 4% chance every 5 mins: avg 1 event every 2 hrs
+	//   private static readonly AFK_CHANCE2: number = 1 / (60 / 5);  // 1/12 - 8% chance every 5 mins: avg 1 event every 1 hr while "aggro zone" hasn't changed
 	//
-	// 225 expressed these as fractions (1/24 ≈ 0.04167, 1/12 ≈ 0.08333);
-	// 244 doubled both and wrote inline decimal literals. We use the exact
-	// literals — not fractions — so the float64 representation matches TS.
-	afkChance1 = 0.0833
-	afkChance2 = 0.1666
+	// History: 225 used fractions (1/24, 1/12); 244 doubled both as inline
+	// decimal literals (0.0833 / 0.1666); the 254 pin restores the 225
+	// fractions as named constants. We use the same division expressions —
+	// not decimal literals — so the float64 representation matches TS.
+	afkChance1 = 1.0 / (120.0 / 5.0)
+	afkChance2 = 1.0 / (60.0 / 5.0)
 
 	modalStateNone = 0x0
 	modalStateMain = 0x1
@@ -1144,15 +1146,22 @@ func (p *Player) processIn(currentTick int) {
 	p.playtime++
 
 	if currentTick%afkEventRate == 0 {
-		// TS World.ts:638 (pin 9aadcec4) — players whose afk-zone tracker has
-		// saturated (zonesAfk()) roll against afkChance2 (0.1666); everyone
-		// else rolls against afkChance1 (0.0833). Both are 244 inline literals.
+		// TS World.ts:608 (pin 2e3bcf43) — players whose afk-zone tracker has
+		// saturated (zonesAfk()) roll against AFK_CHANCE2 (1/12); everyone
+		// else rolls against AFK_CHANCE1 (1/24).
 		chance := afkChance1
 		if p.IsZonesAfk() {
 			chance = afkChance2
 		}
 		p.afkEventReady = rand.Float64() < chance
 	}
+
+	// Per-tick input-tracking dispatch. TS World.ts:612 (pin 2e3bcf43) runs
+	// player.processInputTracking() BEFORE the decodeIn block (it moved from
+	// the tail of the per-player client-input iteration at the 254 pin
+	// advance) — events decoded later this tick flush no earlier than the
+	// next tick's pass.
+	p.processInputTracking()
 
 	// player-net-1: TS NetworkPlayer.decodeIn (NetworkPlayer.ts:55-57)
 	// clears userPath and opcalled at the very top — BEFORE the
@@ -1240,18 +1249,14 @@ func (p *Player) processIn(currentTick int) {
 	}
 	p.decodedThisTick = readAny // NAI-146 T1: TS decodeIn() return value
 
-	p.processPostDecode() // NAI-146 T3: TS World.ts:611-641
-
-	// Per-tick input-tracking dispatch. Mirrors TS World.ts:679
-	// placement (last step of per-player client-input phase iteration).
-	p.processInputTracking()
+	p.processPostDecode() // NAI-146 T3: TS World.ts:614-627 (pin 2e3bcf43)
 }
 
 // processInputTracking dispatches the per-tick input-tracking flush
-// check. Mirrors TS Player.processInputTracking (Player.ts:1289-1291
-// @43e02957) → this.input.onCycle(). Called from the end of processIn,
-// mirroring TS World.ts:679 placement (last step of the per-player
-// iteration in the client-input phase).
+// check. Mirrors TS Player.processInputTracking → this.input.onCycle().
+// Called from processIn after the afk-event roll and BEFORE the decode
+// loop, mirroring TS World.ts:612 placement at pin 2e3bcf43 (the call
+// moved above decodeIn at the 254 pin advance).
 //
 // Nil-guard is goscape-defensive for direct struct-literal Players in
 // tests; newPlayer always allocates p.input (TS ctor parity).

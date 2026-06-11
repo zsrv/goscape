@@ -341,3 +341,26 @@ func TestHandleEventPackets(t *testing.T) {
 		})
 	}
 }
+
+// TestProcessIn_InputTrackingRunsBeforeDecodeGate pins the 254-pin call
+// order: TS World.ts:612 (pin 2e3bcf43) runs player.processInputTracking()
+// BEFORE the decodeIn block, so the flush check fires even for a player
+// whose client is not in game state (TS runs it unconditionally for every
+// playerLoop entry). Prior placement (tail of processIn) sat behind the
+// c.state-not-game early-return and never ran for such players.
+func TestProcessIn_InputTrackingRunsBeforeDecodeGate(t *testing.T) {
+	tt, p, rec := inputTrackingTestSetup(t)
+	tt.Active = true
+	p.client.state = ClientStateClosed
+
+	// Reach the 1500-byte soft limit: 300 mouse clicks x 5 bytes.
+	for range 300 {
+		tt.MouseClick(0x11223344)
+	}
+
+	p.processIn(0)
+
+	if got := len(rec.inputTracks); got != 1 {
+		t.Fatalf("bridge calls after processIn on closed client: got %d, want 1 (input tracking dispatch must run before the decode gate — TS World.ts:612 @2e3bcf43)", got)
+	}
+}
