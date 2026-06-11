@@ -30,6 +30,7 @@ Sev: 🔥 HIGH (real-world incident risk) / ⚠ MED (correctness or future-fragi
 | Sev | Go file:line | TS source | Status | Size | Note |
 |---|---|---|---|---|---|
 | ⚠ MED | `modules/world/npc_ai.go:53` + `modules/world/tick_recovery.go:54-67` | TS `Npc.ts:144-150` + `World.ts:534-559` try/catch | 🚧 ARCH-1 | — | Go's `tick_recovery.go` swallows world-script panic (entry already removed); TS retries via top-level catch. NAI-5: synchronous despawn vs TS try/catch retry. Risk: masks logic bugs that TS would propagate. **Documented; deferred indefinitely** (Arc 15+18+20+22). |
+| ℹ LOW | `pkg/pack/compiler/symbols_export.go` (package header) | TS `tools/pack/CompilerSymbols.ts` — **DELETED at 2e3bcf43** | ✅ EXCEPTION-DOCUMENTED | — | `PORTING-EXCEPTION (symbols-export-go-only)` — rev-254 A16. Upstream 254 holds compiler symbols in-memory (`CompilerTypeInfo`, @lostcityrs/runescript 0.9.x) and writes no `.sym` files; the 254 reference cache has no `data/symbols`. goscape KEEPS `WriteCompilerSymbols` (32 `.sym` files) as a Go-only debugging/tooling feature (controller-approved). The `GOSCAPE_REF*` symbols byte-parity gate is retired — coverage is the self-consistency format test in `symbols_export_ref_parity_test.go`. T23's full-tree parity manifest regeneration must EXCLUDE `data/symbols/` (the ref245 manifest included it). |
 
 ---
 

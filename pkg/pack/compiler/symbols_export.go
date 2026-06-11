@@ -1,9 +1,22 @@
 // Package compiler — WriteCompilerSymbols generates the 32 .sym files that
-// CompilerSymbols.ts produces at 9aadcec4. These are pack-pipeline OUTPUT
-// artifacts: written after configs+interface are packed, before the RuneScript
-// compiler jar is invoked.
+// CompilerSymbols.ts produced at 9aadcec4 (rev-244/245.2). These are
+// pack-pipeline OUTPUT artifacts: written after configs+interface are packed,
+// before the script compiler runs.
 //
-// CompilerSymbols.ts reference: Engine-TS@9aadcec4 tools/pack/CompilerSymbols.ts
+// GO-ONLY FEATURE as of the rev-254 pin (Engine-TS 2e3bcf43): upstream
+// DELETED tools/pack/CompilerSymbols.ts — the @lostcityrs/runescript 0.9.x
+// compiler consumes symbols in-memory (CompilerTypeInfo) and writes no .sym
+// files; the 254 reference cache has NO data/symbols directory. goscape
+// KEEPS this export (controller-approved decision, rev-254 A16) because the
+// on-disk .sym files remain useful for debugging and external tooling. There
+// is no upstream baseline to byte-compare against any more — the
+// GOSCAPE_REF*-driven parity gate was retired at A16; coverage lives in the
+// self-consistency format test (symbols_export_ref_parity_test.go).
+//
+// PORTING-EXCEPTION (symbols-export-go-only, see PORTING.md).
+//
+// CompilerSymbols.ts reference (historical): Engine-TS@9aadcec4
+// tools/pack/CompilerSymbols.ts.
 package compiler
 
 import (

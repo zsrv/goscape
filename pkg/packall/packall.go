@@ -88,11 +88,16 @@ func PackAll(srcDir, outDir, dataPackDir, rawDir string) error {
 	if err := clientinterface.Pack(reg, srcDir, outDir, modelFlags, cache); err != nil {
 		return fmt.Errorf("PackAll: ClientInterface: %w", err)
 	}
-	// TS PackAll.ts:49 @ 9aadcec4: generateCompilerSymbols() runs BEFORE
-	// the RuneScriptCompiler jar invocation. Go: WriteCompilerSymbols writes
-	// the 32 .sym files that the jar would consume; RunServerCompiler then
-	// runs the native Go compiler. symbolsDir is a sibling of outDir named
-	// "symbols" (e.g. data/pack → data/symbols), matching TS's hardcoded
+	// TS PackAll.ts:49 @ 9aadcec4: generateCompilerSymbols() ran BEFORE
+	// the RuneScriptCompiler jar invocation. At the rev-254 pin (2e3bcf43)
+	// upstream DELETED CompilerSymbols.ts (symbols live in-memory in the
+	// @lostcityrs/runescript compiler); goscape KEEPS the export as a
+	// documented Go-only feature — PORTING-EXCEPTION
+	// (symbols-export-go-only), see pkg/pack/compiler/symbols_export.go.
+	// NOTE for T23: the regenerated full-tree parity manifest must EXCLUDE
+	// data/symbols/ (no upstream baseline exists; the ref245 manifest
+	// included it). symbolsDir is a sibling of outDir named "symbols"
+	// (e.g. data/pack → data/symbols), matching TS's historical hardcoded
 	// 'data/symbols' output path.
 	symbolsDir := filepath.Join(filepath.Dir(outDir), "symbols")
 	if err := compiler.WriteCompilerSymbols(srcDir, outDir, symbolsDir); err != nil {

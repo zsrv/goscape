@@ -1,157 +1,167 @@
 package compiler
 
-// TestWriteCompilerSymbols_RefParity validates that WriteCompilerSymbols
-// produces .sym files byte-identical to the reference output at
-// Server245.2-ref/engine/data/symbols/*.sym.
+// RETIRED GATE (rev-254 A16): TestWriteCompilerSymbols_RefParity used to
+// byte-compare WriteCompilerSymbols output against the reference checkout's
+// data/symbols/*.sym, activated via GOSCAPE_REF245_DIR. At the rev-254 pin
+// (Engine-TS 2e3bcf43) upstream DELETED tools/pack/CompilerSymbols.ts — the
+// @lostcityrs/runescript compiler holds symbols in-memory (CompilerTypeInfo)
+// and the 254 reference cache contains NO data/symbols directory, so the
+// upstream-parity comparison is unsatisfiable. The .sym export is now a
+// documented Go-only feature (see the symbols_export.go package header:
+// PORTING-EXCEPTION (symbols-export-go-only)).
 //
-// Activation: set GOSCAPE_REF245_DIR to the engine root of the reference
-// checkout (the directory that contains data/pack and data/symbols):
-//
-//	GOSCAPE_REF245_DIR=/home/owner/Code/github.com/LostCityRS/Server245.2-ref/engine \
-//	  go test ./pkg/pack/compiler/ -run TestWriteCompilerSymbols_RefParity -v
-//
-// Without the env var the test is skipped (clean CI).
-//
-// Directory conventions assumed:
-//   - refDir/data/pack    — packed server .dat files (outDir for loaders)
-//   - refDir/../content   — srcDir (has scripts/ and pack/)
-//   - refDir/data/symbols — reference .sym files to compare against
+// What replaces it: TestWriteCompilerSymbols_SelfConsistency below — a
+// synthetic-fixture format test that pins the export surface (the full
+// 32-file census) and the per-family line formats (constant/pack-driven/
+// registry-driven), keeping the seam clean for future per-file unit tests
+// (e.g. T18's varbit.sym writer).
+
 import (
-	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/io/jagfile"
+	"github.com/zsrv/goscape/pkg/io/packet"
 )
 
-func TestWriteCompilerSymbols_RefParity(t *testing.T) {
-	refDir := os.Getenv("GOSCAPE_REF245_DIR")
-	if refDir == "" {
-		t.Skip("GOSCAPE_REF245_DIR not set — skipping ref-parity test")
+// wantSymCensus is the full set of .sym files WriteCompilerSymbols emits —
+// the 32 files CompilerSymbols.ts generated at 9aadcec4. The census is the
+// export surface: a missing or extra file is a format regression.
+var wantSymCensus = []string{
+	"category.sym", "commands.sym", "component.sym", "constant.sym",
+	"dbcolumn.sym", "dbrow.sym", "dbtable.sym", "enum.sym",
+	"fontmetrics.sym", "hunt.sym", "idk.sym", "interface.sym",
+	"inv.sym", "loc.sym", "locshape.sym", "mesanim.sym",
+	"npc.sym", "npc_mode.sym", "npc_stat.sym", "obj.sym",
+	"overlayinterface.sym", "param.sym", "runescript.sym", "seq.sym",
+	"spotanim.sym", "stat.sym", "struct.sym", "synth.sym",
+	"varn.sym", "varp.sym", "vars.sym", "writeinv.sym",
+}
+
+// TestWriteCompilerSymbols_SelfConsistency exercises WriteCompilerSymbols
+// against a minimal synthetic content tree and pins:
+//
+//  1. the full 32-file census (no more, no less);
+//  2. constant.sym: name\tvalue lines from scripts/**/*.constant;
+//  3. obj.sym (pack-driven): id\tname lines from pack/obj.pack;
+//  4. stat.sym (registry-driven): deterministic value-sorted
+//     value\tlowername lines from objtype.PlayerStatMap;
+//  5. missing pack files produce EMPTY .sym files (TS loadPack-on-absent
+//     parity), not errors.
+func TestWriteCompilerSymbols_SelfConsistency(t *testing.T) {
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+	symbolsDir := filepath.Join(t.TempDir(), "symbols")
+
+	// Zero-count server .dat stubs for the config loaders (2-byte big-endian
+	// count header = 0), plus a minimal client/config jagfile holding a
+	// zero-count varp.dat (LoadVarpTypes hard-requires it). The
+	// client/interface jagfile stays absent — LoadComponentTypes tolerates
+	// ErrNotExist.
+	serverDir := filepath.Join(outDir, "server")
+	if err := os.MkdirAll(serverDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"inv.dat", "varp.dat", "varn.dat", "vars.dat", "param.dat", "dbtable.dat"} {
+		if err := os.WriteFile(filepath.Join(serverDir, f), []byte{0, 0}, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	clientDir := filepath.Join(outDir, "client")
+	if err := os.MkdirAll(clientDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfgJag := jagfile.NewEmptyJagfile(false)
+	cfgJag.Write("varp.dat", packet.NewPacket([]byte{0, 0}))
+	if err := cfgJag.Save(filepath.Join(clientDir, "config")); err != nil {
+		t.Fatal(err)
 	}
 
-	// srcDir = refDir/../content (has scripts/ and pack/ sub-dirs)
-	srcDir := filepath.Join(refDir, "..", "content")
-	// outDir = refDir/data/pack (packed .dat files for config loaders)
-	outDir := filepath.Join(refDir, "data", "pack")
-	// refSymDir = refDir/data/symbols (32 reference .sym files)
-	refSymDir := filepath.Join(refDir, "data", "symbols")
+	// scripts/<f>.constant → constant.sym input.
+	scriptsDir := filepath.Join(srcDir, "scripts")
+	if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	constSrc := "^max_int = 2147483647\n^true = 1\n"
+	if err := os.WriteFile(filepath.Join(scriptsDir, "test.constant"), []byte(constSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
-	// Write symbols into a temp dir.
-	tmpDir := t.TempDir()
-	if err := WriteCompilerSymbols(srcDir, outDir, tmpDir); err != nil {
+	// pack/obj.pack → obj.sym input (sparse ids to pin the gap-fill
+	// behaviour: obj is in the non-skipEmpty family, so ids 1-4 emit
+	// empty-name lines — matching TS CompilerSymbols obj output).
+	packDir := filepath.Join(srcDir, "pack")
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	objPack := "0=coins\n5=bronze_sword\n"
+	if err := os.WriteFile(filepath.Join(packDir, "obj.pack"), []byte(objPack), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := WriteCompilerSymbols(srcDir, outDir, symbolsDir); err != nil {
 		t.Fatalf("WriteCompilerSymbols: %v", err)
 	}
 
-	// Collect reference .sym files.
-	refEntries, err := os.ReadDir(refSymDir)
+	// 1. Census.
+	entries, err := os.ReadDir(symbolsDir)
 	if err != nil {
-		t.Fatalf("ReadDir %s: %v", refSymDir, err)
+		t.Fatal(err)
 	}
-	var refSymFiles []string
-	for _, e := range refEntries {
+	var got []string
+	for _, e := range entries {
 		if !e.IsDir() && strings.HasSuffix(e.Name(), ".sym") {
-			refSymFiles = append(refSymFiles, e.Name())
+			got = append(got, e.Name())
 		}
 	}
-	sort.Strings(refSymFiles)
-
-	t.Logf("comparing %d .sym files from %s", len(refSymFiles), refSymDir)
-
-	// For each reference file, compare against the generated output.
-	// Track residuals for the final report (stop after 3 unexplained diffs).
-	type residual struct {
-		name string
-		diff string
+	sort.Strings(got)
+	want := append([]string(nil), wantSymCensus...)
+	sort.Strings(want)
+	if len(got) != len(want) {
+		t.Fatalf("census: got %d .sym files %v, want %d", len(got), got, len(want))
 	}
-	var residuals []residual
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("census[%d]: got %q, want %q", i, got[i], want[i])
+		}
+	}
 
-	for _, fname := range refSymFiles {
-		refPath := filepath.Join(refSymDir, fname)
-		gotPath := filepath.Join(tmpDir, fname)
-
-		refData, err := os.ReadFile(refPath)
+	read := func(name string) string {
+		t.Helper()
+		b, err := os.ReadFile(filepath.Join(symbolsDir, name))
 		if err != nil {
-			t.Errorf("%s: cannot read reference: %v", fname, err)
-			continue
+			t.Fatalf("read %s: %v", name, err)
 		}
-		gotData, err := os.ReadFile(gotPath)
-		if err != nil {
-			// File not generated.
-			residuals = append(residuals, residual{
-				name: fname,
-				diff: fmt.Sprintf("NOT GENERATED (WriteCompilerSymbols did not produce this file)"),
-			})
-			if len(residuals) >= 3 {
-				break
-			}
-			continue
-		}
+		return string(b)
+	}
 
-		if bytes.Equal(refData, gotData) {
-			t.Logf("  MATCH  %s", fname)
-			continue
-		}
+	// 2. constant.sym format: name\tvalue\n (caret stripped).
+	if got := read("constant.sym"); got != "max_int\t2147483647\ntrue\t1\n" {
+		t.Errorf("constant.sym: got %q", got)
+	}
 
-		// Files differ — build a line-level diff summary.
-		diff := lineDiff(refData, gotData)
-		residuals = append(residuals, residual{name: fname, diff: diff})
-		if len(residuals) >= 3 {
-			break
+	// 3. obj.sym format: id\tname\n with empty-name gap fill (non-skipEmpty).
+	if got := read("obj.sym"); got != "0\tcoins\n1\t\n2\t\n3\t\n4\t\n5\tbronze_sword\n" {
+		t.Errorf("obj.sym: got %q", got)
+	}
+
+	// 4. stat.sym: registry-driven, value-sorted, lowercase names. Pin the
+	// first two lines + line shape rather than the whole 21-stat table.
+	statLines := strings.Split(strings.TrimSuffix(read("stat.sym"), "\n"), "\n")
+	if len(statLines) < 2 || statLines[0] != "0\tattack" || statLines[1] != "1\tdefence" {
+		t.Errorf("stat.sym head: got %v", statLines[:min(2, len(statLines))])
+	}
+	for i, l := range statLines {
+		if !strings.Contains(l, "\t") {
+			t.Errorf("stat.sym line %d not tab-separated: %q", i, l)
 		}
 	}
 
-	// Also check for generated files not in the reference.
-	gotEntries, err := os.ReadDir(tmpDir)
-	if err != nil {
-		t.Fatalf("ReadDir %s: %v", tmpDir, err)
+	// 5. Missing pack file → empty .sym, not an error.
+	if got := read("npc.sym"); got != "" {
+		t.Errorf("npc.sym: got %q, want empty (no npc.pack in fixture)", got)
 	}
-	refSet := make(map[string]bool, len(refSymFiles))
-	for _, f := range refSymFiles {
-		refSet[f] = true
-	}
-	for _, e := range gotEntries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".sym") && !refSet[e.Name()] {
-			t.Errorf("generated extra file not in reference: %s", e.Name())
-		}
-	}
-
-	if len(residuals) > 0 {
-		for _, r := range residuals {
-			t.Errorf("MISMATCH %s:\n%s", r.name, r.diff)
-		}
-		t.Fatalf("ref-parity FAILED: %d residual(s) — see DONE_WITH_CONCERNS notes above", len(residuals))
-	}
-}
-
-// lineDiff returns a human-readable summary of the first N differing lines
-// between ref and got.
-func lineDiff(ref, got []byte) string {
-	refLines := strings.Split(strings.ReplaceAll(string(ref), "\r\n", "\n"), "\n")
-	gotLines := strings.Split(strings.ReplaceAll(string(got), "\r\n", "\n"), "\n")
-
-	var sb strings.Builder
-	maxLines := max(len(refLines), len(gotLines))
-	shown := 0
-	for i := range maxLines {
-		var rl, gl string
-		if i < len(refLines) {
-			rl = refLines[i]
-		}
-		if i < len(gotLines) {
-			gl = gotLines[i]
-		}
-		if rl != gl {
-			fmt.Fprintf(&sb, "  line %d: ref=%q got=%q\n", i+1, rl, gl)
-			shown++
-			if shown >= 20 {
-				fmt.Fprintf(&sb, "  ... (truncated after 20 differing lines)\n")
-				break
-			}
-		}
-	}
-	fmt.Fprintf(&sb, "  ref lines=%d got lines=%d", len(refLines), len(gotLines))
-	return sb.String()
 }
