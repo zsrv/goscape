@@ -3,6 +3,7 @@ package pack
 import (
 	"bytes"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
 
@@ -13,7 +14,7 @@ func newVarbitTestVarpPack(t *testing.T, names ...string) *PackFile {
 	dir := t.TempDir()
 	var sb bytes.Buffer
 	for i, n := range names {
-		sb.WriteString(intToStr(i))
+		sb.WriteString(strconv.Itoa(i))
 		sb.WriteByte('=')
 		sb.WriteString(n)
 		sb.WriteByte('\n')
@@ -26,9 +27,6 @@ func newVarbitTestVarpPack(t *testing.T, names ...string) *PackFile {
 	return pf
 }
 
-func intToStr(i int) string {
-	return string(rune('0' + i))
-}
 
 func TestParseVarbitConfig_StartbitDecimal(t *testing.T) {
 	parse := parseVarbitConfigFor(newVarbitTestVarpPack(t, "run"))
