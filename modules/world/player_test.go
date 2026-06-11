@@ -3,7 +3,6 @@ package world
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"testing"
@@ -1226,53 +1225,26 @@ func TestEncodeOutTutorialIndependentOfMain(t *testing.T) {
 
 func TestPlayer_BlockWalkFlag_Unconditional(t *testing.T) {
 	// TS Player.blockWalkFlag (Player.ts:706-708) is unconditional —
-	// returns CollisionFlag.PLAYER regardless of moveRestrict. Pin that
-	// goscape behaves identically across all MoveRestrict variants.
-	cases := []MoveRestrict{
-		MoveRestrictNormal,
-		MoveRestrictBlocked,
-		MoveRestrictIndoors,
-		MoveRestrictOutdoors,
-		MoveRestrictNoMove,
-		MoveRestrictPassthru,
-	}
-	for _, mr := range cases {
-		t.Run(fmt.Sprintf("MR%d", mr), func(t *testing.T) {
-			p := &Player{}
-			p.moveRestrict = mr
-			if got := p.blockWalkFlag(); got != collision.FlagBlockPlayers {
-				t.Errorf("blockWalkFlag(%v) = %d, want FlagBlockPlayers (%d)", mr, got, collision.FlagBlockPlayers)
-			}
-		})
+	// returns CollisionFlag.PLAYER. (2787f1fb removed the PathingEntity
+	// moveRestrict field, so there is nothing left to vary.)
+	p := &Player{}
+	if got := p.blockWalkFlag(); got != collision.FlagBlockPlayers {
+		t.Errorf("blockWalkFlag() = %d, want FlagBlockPlayers (%d)", got, collision.FlagBlockPlayers)
 	}
 }
 
 func TestPlayer_GetCollisionStrategy_PerMoveRestrict(t *testing.T) {
-	// Mirrors TS PathingEntity.getCollisionStrategy (PathingEntity.ts:558-575).
-	// goscape MoveRestrict has no BLOCKED_NORMAL — that branch is skipped.
-	cases := []struct {
-		mr   MoveRestrict
-		want *collision.Type
-	}{
-		{MoveRestrictNormal, ptrType(collision.TypeNormal)},
-		{MoveRestrictBlocked, ptrType(collision.TypeBlocked)},
-		{MoveRestrictIndoors, ptrType(collision.TypeIndoors)},
-		{MoveRestrictOutdoors, ptrType(collision.TypeOutdoors)},
-		{MoveRestrictNoMove, nil},
-		{MoveRestrictPassthru, ptrType(collision.TypeNormal)},
+	// rev-254 (2787f1fb): moveRestrict left PathingEntity; the base
+	// getCollisionStrategy (PathingEntity.ts:567-587) switches on
+	// moverestrict only for Npc — a Player is unconditionally NORMAL and
+	// can never be nomove. (Supersedes the pre-rev-254 per-value table.)
+	p := &Player{}
+	got := p.getCollisionStrategy()
+	if got == nil {
+		t.Fatal("getCollisionStrategy() = nil, want NORMAL (players can never be nomove)")
 	}
-	for _, tc := range cases {
-		t.Run(fmt.Sprintf("MR%d", tc.mr), func(t *testing.T) {
-			p := &Player{}
-			p.moveRestrict = tc.mr
-			got := p.getCollisionStrategy()
-			if (got == nil) != (tc.want == nil) {
-				t.Fatalf("getCollisionStrategy(%v) nil-mismatch: got %v want %v", tc.mr, got, tc.want)
-			}
-			if got != nil && *got != *tc.want {
-				t.Errorf("getCollisionStrategy(%v) = %v, want %v", tc.mr, *got, *tc.want)
-			}
-		})
+	if *got != collision.TypeNormal {
+		t.Errorf("getCollisionStrategy() = %v, want %v", *got, ptrType(collision.TypeNormal))
 	}
 }
 

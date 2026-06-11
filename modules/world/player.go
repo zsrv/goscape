@@ -138,8 +138,10 @@ type Player struct {
 	zoneListElement *zone.Element[zone.PlayerLike]
 
 	// === movement (PathingEntity) ===
+	// moveRestrict is NOT a field: Engine-TS 2787f1fb removed it from
+	// PathingEntity — players are unconditionally NORMAL (see
+	// getCollisionStrategy).
 	moveSpeed              MoveSpeed
-	moveRestrict           MoveRestrict
 	moveStrategy           MoveStrategy
 	blockWalk              BlockWalk
 	walkDir, runDir        int
@@ -684,7 +686,6 @@ func newPlayer(c *client) *Player {
 		lastRunEnergy:  -1,
 		moveSpeed:      MoveSpeedInstant,
 		moveStrategy:   playerMoveStrategy(c),
-		moveRestrict:   MoveRestrictNormal,
 		blockWalk:      BlockWalkNpc,
 		combatLevel:    3,
 		colors:         [5]int{0, 0, 0, 0, 0},
@@ -825,34 +826,15 @@ func (p *Player) blockWalkFlag() int {
 	return collision.FlagBlockPlayers
 }
 
-// getCollisionStrategy returns the collision search type for this player,
-// or nil for MoveRestrictNoMove. Mirrors TS PathingEntity.getCollisionStrategy
-// (PathingEntity.ts:558-575).
+// getCollisionStrategy returns the collision search type for this player.
+// Mirrors TS PathingEntity.getCollisionStrategy at the rev-254 pin
+// (PathingEntity.ts:567-587, 2787f1fb): the moverestrict switch applies
+// only to Npc; everything else — players included — is unconditionally
+// CollisionType.NORMAL (never nil), so the nomove waypoint-clear branch in
+// validateAndAdvanceStep can no longer fire for players.
 func (p *Player) getCollisionStrategy() *collision.Type {
-	switch p.moveRestrict {
-	case MoveRestrictNormal:
-		t := collision.TypeNormal
-		return &t
-	case MoveRestrictBlocked:
-		t := collision.TypeBlocked
-		return &t
-	case MoveRestrictBlockedNormal:
-		t := collision.TypeLineOfSight
-		return &t
-	case MoveRestrictIndoors:
-		t := collision.TypeIndoors
-		return &t
-	case MoveRestrictOutdoors:
-		t := collision.TypeOutdoors
-		return &t
-	case MoveRestrictNoMove:
-		return nil
-	case MoveRestrictPassthru:
-		t := collision.TypeNormal
-		return &t
-	default:
-		return nil
-	}
+	t := collision.TypeNormal
+	return &t
 }
 
 // X is the script-VM ActivePlayer.X accessor. NAI-35.

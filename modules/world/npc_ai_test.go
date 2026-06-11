@@ -41,8 +41,8 @@ func TestTeleportHomeAfterStuck(t *testing.T) {
 	// Without it the random roll occasionally moves the NPC, resetting the
 	// counter and making this teleport-home assertion flaky — which is exactly
 	// the correct stuck-recovery semantics. NoMove must live on the TYPE:
-	// wanderMode/updateMovement read moverestrict live from NpcType.
-	n.moveRestrict = MoveRestrictNoMove
+	// wanderMode/updateMovement read moverestrict live from NpcType
+	// (2787f1fb removed the PathingEntity field).
 	n.typ.MoveRestrict = int(MoveRestrictNoMove)
 	// rev-254: updateMovement's moved-check is positional vs lastTick;
 	// seed the snapshot so the fresh-NPC -1 sentinel doesn't read as

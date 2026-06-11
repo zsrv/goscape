@@ -83,30 +83,15 @@ func TestNpcMoveRestrictBehavior(t *testing.T) {
 	}
 }
 
-// TestPlayerMoveRestrictCollisionStrategy pins Player.getCollisionStrategy (its
-// own copy of the PathingEntity.ts:558-575 switch), driving moveRestrict by the
-// raw canonical value via cast so it catches the same enum shift.
+// TestPlayerMoveRestrictCollisionStrategy pins the rev-254 (2787f1fb)
+// Player contract: moveRestrict left PathingEntity, and the base
+// getCollisionStrategy (PathingEntity.ts:567-587) only switches on
+// moverestrict for Npc — a Player is unconditionally CollisionType.NORMAL.
+// (Supersedes the pre-rev-254 per-value player switch pins.)
 func TestPlayerMoveRestrictCollisionStrategy(t *testing.T) {
-	los := collision.TypeLineOfSight
-	indoors := collision.TypeIndoors
-	outdoors := collision.TypeOutdoors
-
-	cases := []struct {
-		name      string
-		raw       int
-		wantStrat *collision.Type
-	}{
-		{"BLOCKED_NORMAL", objtype.MoveRestrictBlockedNormal, &los},
-		{"INDOORS", objtype.MoveRestrictIndoors, &indoors},
-		{"OUTDOORS", objtype.MoveRestrictOutdoors, &outdoors},
-		{"NOMOVE", objtype.MoveRestrictNoMove, nil},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			p := &Player{moveRestrict: MoveRestrict(c.raw)}
-			assertCollisionStrategy(t, p.getCollisionStrategy(), c.wantStrat)
-		})
-	}
+	normal := collision.TypeNormal
+	p := &Player{}
+	assertCollisionStrategy(t, p.getCollisionStrategy(), &normal)
 }
 
 func assertCollisionStrategy(t *testing.T, got, want *collision.Type) {

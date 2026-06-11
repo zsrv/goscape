@@ -450,35 +450,11 @@ func TestPlayerStepOnce_AxisFallback_XOnly(t *testing.T) {
 	}
 }
 
-// TestPlayerValidateAndAdvanceStep_NoMoveRestrict_ReturnsBlocked pins
-// the rev-254 (f0ccbe8a) nomove response: a nil collision strategy now
-// CLEARS the waypoint queue outright (TS PathingEntity.ts:206-209
-// "Clear waypoints if no movement is allowed") and returns -1 with the
-// position unchanged.
-func TestPlayerValidateAndAdvanceStep_NoMoveRestrict_ReturnsBlocked(t *testing.T) {
-	s := newTestServer(t)
-	c, _ := newTestClient(t)
-	p := newPlayer(c)
-	p.client.server = s
-	p.x, p.z, p.level = 3200, 3200, 0
-	p.moveRestrict = MoveRestrictNoMove
-	if err := s.addPlayer(p); err != nil {
-		t.Fatalf("addPlayer: %v", err)
-	}
-	p.queueWaypoint(3201, 3200)
-
-	dir := p.validateAndAdvanceStep()
-
-	if dir != -1 {
-		t.Fatalf("NoMove: got dir=%d, want -1", dir)
-	}
-	if p.waypointIndex != -1 {
-		t.Fatalf("NoMove: waypointIndex=%d, want -1 (queue cleared per TS L206-209)", p.waypointIndex)
-	}
-	if p.x != 3200 || p.z != 3200 {
-		t.Fatalf("NoMove: position changed to (%d,%d), want (3200,3200)", p.x, p.z)
-	}
-}
+// (TestPlayerValidateAndAdvanceStep_NoMoveRestrict_ReturnsBlocked retired by
+// 2787f1fb: moveRestrict left PathingEntity and players are unconditionally
+// NORMAL, so the nomove waypoint-clear branch can never fire for a player.
+// The branch is pinned on the NPC side by
+// TestNpcValidateAndAdvanceStep_NoMoveType_ClearsWaypoints.)
 
 // TestValidateDistanceWalked pins M3: a player whose net displacement from its
 // start-of-tick position (lastTickX/Z) exceeds 2 tiles is flagged jump=true so

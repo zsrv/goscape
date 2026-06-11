@@ -25,13 +25,8 @@ func TestUpdateMovement_LiveMoveRestrict(t *testing.T) {
 	n.waypoints[0] = coordgrid.PackCoord(0, 103, 100)
 	n.waypointIndex = 0
 
-	// Sanity: frozen n.moveRestrict matches the constructed typ.
-	if n.moveRestrict != MoveRestrictNormal {
-		t.Fatalf("precondition: n.moveRestrict=%v, want Normal", n.moveRestrict)
-	}
-
-	// Simulate a ChangeType refresh that updated n.typ but the
-	// pre-fix frozen n.moveRestrict snapshot stayed Normal.
+	// Simulate a ChangeType refresh updating n.typ (2787f1fb removed the
+	// frozen PathingEntity field; the live type is the only source now).
 	n.typ.MoveRestrict = int(MoveRestrictNoMove)
 
 	s := newTestServer(t)
@@ -62,11 +57,7 @@ func TestWanderMode_LiveMoveRestrict(t *testing.T) {
 	}
 	n := NewNpc(1, 0, 3094, 3106, 0, typ)
 
-	if n.moveRestrict != MoveRestrictNormal {
-		t.Fatalf("precondition: n.moveRestrict=%v, want Normal", n.moveRestrict)
-	}
-
-	// Refresh typ to NoMove without touching the frozen snapshot.
+	// Refresh typ to NoMove (the live type is the only source — 2787f1fb).
 	n.typ.MoveRestrict = int(MoveRestrictNoMove)
 
 	s := &Server{}

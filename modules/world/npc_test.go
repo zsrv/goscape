@@ -958,14 +958,17 @@ func TestSetAnimEqualPriorityOverwrites_Npc(t *testing.T) {
 }
 
 func TestNpc_BlockWalkFlag_PerMoveRestrict(t *testing.T) {
-	// Mirrors TS Npc.blockWalkFlag (Npc.ts:381-398). goscape MoveRestrict
-	// has no BLOCKED_NORMAL — that branch is skipped.
+	// Mirrors TS Npc.blockWalkFlag at the rev-254 pin (Npc.ts:383-401,
+	// 2787f1fb): reads moverestrict LIVE from NpcType (the PathingEntity
+	// field is gone). Full-fidelity enum incl. BLOCKED_NORMAL (the prior
+	// HIGH bug pathing-1 dropped that value from the runtime enum).
 	cases := []struct {
 		mr   MoveRestrict
 		want int
 	}{
 		{MoveRestrictNormal, collision.FlagBlockNPCs},
 		{MoveRestrictBlocked, collision.FlagOpen},
+		{MoveRestrictBlockedNormal, collision.FlagBlockNPCs},
 		{MoveRestrictIndoors, collision.FlagBlockNPCs},
 		{MoveRestrictOutdoors, collision.FlagBlockNPCs},
 		{MoveRestrictNoMove, collision.FlagNull},
@@ -973,8 +976,7 @@ func TestNpc_BlockWalkFlag_PerMoveRestrict(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("MR%d", tc.mr), func(t *testing.T) {
-			n := &Npc{}
-			n.moveRestrict = tc.mr
+			n := &Npc{typ: &objtype.NpcType{MoveRestrict: int(tc.mr)}}
 			if got := n.blockWalkFlag(); got != tc.want {
 				t.Errorf("blockWalkFlag(%v) = %d, want %d", tc.mr, got, tc.want)
 			}
@@ -983,22 +985,27 @@ func TestNpc_BlockWalkFlag_PerMoveRestrict(t *testing.T) {
 }
 
 func TestNpc_GetCollisionStrategy_PerMoveRestrict(t *testing.T) {
-	// Mirrors TS PathingEntity.getCollisionStrategy (PathingEntity.ts:558-575).
+	// Mirrors TS PathingEntity.getCollisionStrategy at the rev-254 pin
+	// (PathingEntity.ts:567-587, 2787f1fb): the Npc branch reads
+	// moverestrict LIVE from NpcType; an unknown value falls through to
+	// NORMAL (pre-2787f1fb: nil). Full-fidelity enum incl.
+	// BLOCKED_NORMAL → LINE_OF_SIGHT.
 	cases := []struct {
 		mr   MoveRestrict
 		want *collision.Type
 	}{
 		{MoveRestrictNormal, ptrTypeNpc(collision.TypeNormal)},
 		{MoveRestrictBlocked, ptrTypeNpc(collision.TypeBlocked)},
+		{MoveRestrictBlockedNormal, ptrTypeNpc(collision.TypeLineOfSight)},
 		{MoveRestrictIndoors, ptrTypeNpc(collision.TypeIndoors)},
 		{MoveRestrictOutdoors, ptrTypeNpc(collision.TypeOutdoors)},
 		{MoveRestrictNoMove, nil},
 		{MoveRestrictPassthru, ptrTypeNpc(collision.TypeNormal)},
+		{MoveRestrict(99), ptrTypeNpc(collision.TypeNormal)}, // unknown → NORMAL (TS L586)
 	}
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("MR%d", tc.mr), func(t *testing.T) {
-			n := &Npc{}
-			n.moveRestrict = tc.mr
+			n := &Npc{typ: &objtype.NpcType{MoveRestrict: int(tc.mr)}}
 			got := n.getCollisionStrategy()
 			if (got == nil) != (tc.want == nil) {
 				t.Fatalf("getCollisionStrategy(%v) nil-mismatch: got %v want %v", tc.mr, got, tc.want)

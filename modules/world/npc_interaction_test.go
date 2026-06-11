@@ -2263,7 +2263,8 @@ func TestNpc_PathToTarget_NaiveStrategy_NullBlockWalkFlag_NoOp(t *testing.T) {
 	srv, rec := newPathToTargetTestServer(t)
 	n := newPathToTargetTestNpc(t, srv, 100, 100, 0, 1)
 	n.moveStrategy = MoveStrategyNaive
-	n.moveRestrict = MoveRestrictNoMove // both cs==nil AND blockWalkFlag==FlagNull
+	// 2787f1fb: moverestrict is read LIVE from the type (no field).
+	n.typ.MoveRestrict = int(MoveRestrictNoMove) // both cs==nil AND blockWalkFlag==FlagNull
 	n.target = newPathToTargetTestPlayer(t, srv, 105, 105, 0)
 
 	n.pathToTarget()
@@ -2508,6 +2509,35 @@ func TestNpcStepOnce_TransientBlock_PreservesWaypointIndex(t *testing.T) {
 	if n.x != 3221 || n.z != 3220 {
 		t.Fatalf("position after blocked step: got (%d,%d), want (3221,3220) unchanged",
 			n.x, n.z)
+	}
+}
+
+// TestNpcValidateAndAdvanceStep_NoMoveType_ClearsWaypoints pins the rev-254
+// nomove response (f0ccbe8a validateAndAdvanceStep + 2787f1fb live type
+// read): a NoMove TYPE makes getCollisionStrategy nil, which CLEARS the
+// waypoint queue outright (TS PathingEntity.ts:206-209 "Clear waypoints if
+// no movement is allowed") and returns -1 with the position unchanged.
+func TestNpcValidateAndAdvanceStep_NoMoveType_ClearsWaypoints(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{
+		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "nomove"},
+		MoveRestrict: int(MoveRestrictNoMove),
+		Size:         1,
+	}
+	n := NewNpc(1, 1, 3221, 3220, 0, typ)
+	n.server = s
+	n.QueueWaypoint(3222, 3220)
+
+	dir := n.validateAndAdvanceStep(s)
+
+	if dir != -1 {
+		t.Fatalf("NoMove: got dir=%d, want -1", dir)
+	}
+	if n.waypointIndex != -1 {
+		t.Fatalf("NoMove: waypointIndex=%d, want -1 (queue cleared per TS L206-209)", n.waypointIndex)
+	}
+	if n.x != 3221 || n.z != 3220 {
+		t.Fatalf("NoMove: position changed to (%d,%d), want (3221,3220)", n.x, n.z)
 	}
 }
 

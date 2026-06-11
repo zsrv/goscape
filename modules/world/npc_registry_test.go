@@ -929,8 +929,9 @@ func TestAddNpcAt_PopulatesSizeBlockWalkMoveRestrict(t *testing.T) {
 	if real.blockWalk != typ.BlockWalk {
 		t.Fatalf("blockWalk = %v, want %v", real.blockWalk, typ.BlockWalk)
 	}
-	if real.moveRestrict != MoveRestrict(typ.MoveRestrict) {
-		t.Fatalf("moveRestrict = %v, want %v", real.moveRestrict, typ.MoveRestrict)
+	// 2787f1fb: no moveRestrict field — the live type carries it.
+	if real.liveMoveRestrict() != MoveRestrict(typ.MoveRestrict) {
+		t.Fatalf("liveMoveRestrict = %v, want %v", real.liveMoveRestrict(), typ.MoveRestrict)
 	}
 }
 

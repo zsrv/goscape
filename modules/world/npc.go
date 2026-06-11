@@ -62,8 +62,11 @@ type Npc struct {
 	zoneListElement *zone.Element[zone.NpcLike]
 
 	// === movement ===
+	// moveRestrict is NOT a field: Engine-TS 2787f1fb removed it from
+	// PathingEntity — NPCs read NpcType.moverestrict live (blockWalkFlag /
+	// getCollisionStrategy / updateMovement / wanderMode all consult n.typ),
+	// players are always NORMAL.
 	moveSpeed       MoveSpeed
-	moveRestrict    MoveRestrict
 	moveStrategy    MoveStrategy
 	walkDir, runDir int
 	waypointIndex   int
@@ -189,7 +192,6 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		lastLevel:       -1,
 		moveSpeed:       MoveSpeedInstant,
 		moveStrategy:    MoveStrategyNaive,
-		moveRestrict:    MoveRestrict(typ.MoveRestrict),
 		walkDir:         -1,
 		runDir:          -1,
 		waypointIndex:   -1,
@@ -247,11 +249,28 @@ func (n *Npc) Width() int { return n.size }
 // Length returns the NPC's tile footprint length. Square: equals Width().
 func (n *Npc) Length() int { return n.size }
 
+// liveMoveRestrict reads the NPC's moverestrict LIVE from its current type,
+// the goscape analog of TS `NpcType.get(this.type).moverestrict` (n.typ is
+// refreshed on ChangeType, npc_masks.go). Engine-TS 2787f1fb removed the
+// PathingEntity moveRestrict field in favor of this on-demand read, so a
+// mid-interaction changetype to a different-moverestrict type takes effect
+// immediately everywhere.
+//
+// typ==nil (bare &Npc{}/test literals) defaults to NORMAL — goscape
+// defensive; TS NpcType.get throws on a missing type.
+func (n *Npc) liveMoveRestrict() MoveRestrict {
+	if n.typ == nil {
+		return MoveRestrictNormal
+	}
+	return MoveRestrict(n.typ.MoveRestrict)
+}
+
 // blockWalkFlag returns the CollisionFlag this NPC imposes on its
-// occupied tile during pathfinding. Mirrors TS Npc.blockWalkFlag
-// (Npc.ts:381-398).
+// occupied tile during pathfinding. Mirrors TS Npc.blockWalkFlag at the
+// rev-254 pin (Npc.ts:383-401, 2787f1fb): reads moverestrict live from
+// NpcType instead of the removed PathingEntity field.
 func (n *Npc) blockWalkFlag() int {
-	switch n.moveRestrict {
+	switch n.liveMoveRestrict() {
 	case MoveRestrictNormal:
 		return collision.FlagBlockNPCs
 	case MoveRestrictBlocked:
@@ -273,10 +292,11 @@ func (n *Npc) blockWalkFlag() int {
 
 // getCollisionStrategy returns the collision search type for this NPC,
 // or nil for MoveRestrictNoMove. Mirrors TS PathingEntity.getCollisionStrategy
-// (PathingEntity.ts:558-575). Same as Player.getCollisionStrategy because
-// the TS impl lives on the PathingEntity base.
+// at the rev-254 pin (PathingEntity.ts:567-587, 2787f1fb): the Npc branch
+// reads moverestrict live from NpcType; an unknown value now falls through
+// to CollisionType.NORMAL (pre-2787f1fb it returned null).
 func (n *Npc) getCollisionStrategy() *collision.Type {
-	switch n.moveRestrict {
+	switch n.liveMoveRestrict() {
 	case MoveRestrictNormal:
 		t := collision.TypeNormal
 		return &t
@@ -298,7 +318,10 @@ func (n *Npc) getCollisionStrategy() *collision.Type {
 		t := collision.TypeNormal
 		return &t
 	default:
-		return nil
+		// TS falls out of the Npc if/else chain → CollisionType.NORMAL
+		// (PathingEntity.ts:586).
+		t := collision.TypeNormal
+		return &t
 	}
 }
 

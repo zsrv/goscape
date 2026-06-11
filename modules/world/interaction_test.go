@@ -2725,22 +2725,24 @@ func TestPlayer_PathToTarget_NaiveStrategy_LocTarget_QueuesSingleWaypoint(t *tes
 	}
 }
 
-// TestPlayer_PathToTarget_NaiveStrategy_NoMove_NoOp pins the
-// getCollisionStrategy() == nil early-return for MoveRestrictNoMove.
-func TestPlayer_PathToTarget_NaiveStrategy_NoMove_NoOp(t *testing.T) {
-	srv, rec := newPathToTargetTestServer(t)
+// TestPlayer_GetCollisionStrategy_AlwaysNormal pins the rev-254 (2787f1fb)
+// contract: moveRestrict left PathingEntity; the base getCollisionStrategy
+// switch applies only to Npc, so a player's strategy is unconditionally
+// CollisionType.NORMAL — the nomove early-returns in pathToTargetNaive /
+// pathToTargetNoStrategy and the waypoint-clear branch in
+// validateAndAdvanceStep can never fire for players.
+// (Supersedes TestPlayer_PathToTarget_NaiveStrategy_NoMove_NoOp, which
+// drove the retired p.moveRestrict field.)
+func TestPlayer_GetCollisionStrategy_AlwaysNormal(t *testing.T) {
+	srv, _ := newPathToTargetTestServer(t)
 	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
-	p.moveStrategy = MoveStrategyNaive
-	p.moveRestrict = MoveRestrictNoMove
-	p.target = newPathToTargetTestNpc(t, srv, 105, 105, 0, 1)
 
-	p.pathToTarget()
-
-	if p.waypointIndex >= 0 {
-		t.Errorf("expected no waypoints (NoMove early return), got waypointIndex=%d", p.waypointIndex)
+	cs := p.getCollisionStrategy()
+	if cs == nil {
+		t.Fatal("getCollisionStrategy: got nil, want NORMAL (players can never be nomove per 2787f1fb)")
 	}
-	if _, ok := rec.lastFindNaivePath(); ok {
-		t.Errorf("FindNaivePath unexpectedly called for NoMove player")
+	if *cs != collision.TypeNormal {
+		t.Errorf("getCollisionStrategy: got %v, want TypeNormal", *cs)
 	}
 }
 
@@ -2772,21 +2774,9 @@ func TestPlayer_PathToTarget_NoStrategyBranch_QueuesSingleWaypoint(t *testing.T)
 	}
 }
 
-// TestPlayer_PathToTarget_NoStrategyBranch_NoMove_NoOp pins the same
-// nomove early-return for the no-strategy else branch.
-func TestPlayer_PathToTarget_NoStrategyBranch_NoMove_NoOp(t *testing.T) {
-	srv, _ := newPathToTargetTestServer(t)
-	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
-	p.moveStrategy = MoveStrategy(99)
-	p.moveRestrict = MoveRestrictNoMove
-	p.target = newPathToTargetTestNpc(t, srv, 105, 105, 0, 1)
-
-	p.pathToTarget()
-
-	if p.waypointIndex >= 0 {
-		t.Errorf("expected no waypoints (NoMove early return), got waypointIndex=%d", p.waypointIndex)
-	}
-}
+// (TestPlayer_PathToTarget_NoStrategyBranch_NoMove_NoOp retired by
+// 2787f1fb: players can no longer be nomove — see
+// TestPlayer_GetCollisionStrategy_AlwaysNormal.)
 
 // TestPlayerInteractedDoesNotLeakAcrossIdleTick — NAI-108 Task 4 (δ) verify-and-pin.
 // TS PathingEntity.ts:587 resets interacted=false every tick. goscape
