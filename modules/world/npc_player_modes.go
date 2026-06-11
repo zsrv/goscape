@@ -69,68 +69,53 @@ func (n *Npc) playerFollowMode(s *Server) {
 	n.updateMovement(s)
 }
 
-// escapeDirection captures the per-quadrant flee data for playerEscapeMode.
-// Each record maps "where the player is relative to the NPC" to the flee
-// step delta, the wall-flag pair that blocks the candidate tile, and the
-// axis-fallback formula. Mirrors TS Npc.ts:758-797's quadrant if/else.
-type escapeDirection struct {
-	dx, dz    int
-	wallFlags int
-	// fallbackUseNpcX: true → fallback waypoint is (n.x, mz)  [N variants]
-	//                  false → fallback waypoint is (mx, n.z) [S variants]
-	fallbackUseNpcX bool
-}
-
-// pickEscapeDirection picks the quadrant record for a target relative to
-// the NPC. Matches TS Npc.ts:758-770 exactly. Orientation in RS coords:
-// +x = east, +z = north. So target at (+x, +z) from NPC is NE of NPC; NPC
-// flees SW (delta (-1, -1)), checking WALL_SOUTH|WALL_WEST on the candidate
-// tile. Fallback-axis comments: "NPC fallback X" means the fallback
-// waypoint uses the NPC's x and the candidate's z (keeps X fixed).
-func pickEscapeDirection(npcX, npcZ, targetX, targetZ int) escapeDirection {
+// pickEscapeDirection returns the flee-step deltas (dx, dz) for a target
+// relative to the NPC. Matches the quadrant if/else at the head of TS
+// playerEscapeMode (d39e707d Npc.ts:778-787 — the per-quadrant wall-flag
+// pairs were removed by that commit). Orientation in RS coords: +x = east,
+// +z = north. Target at (+x, +z) from the NPC is NE of it → the NPC flees
+// SW (delta (-1, -1)), etc.
+func pickEscapeDirection(npcX, npcZ, targetX, targetZ int) (dx, dz int) {
 	switch {
 	case targetX >= npcX && targetZ >= npcZ:
-		// Target NE of NPC → flee SW. TS: direction = SOUTH_WEST.
-		// fallbackUseNpcX=false → axis fallback moves along X (mx, n.z).
-		return escapeDirection{dx: -1, dz: -1,
-			wallFlags:       collision.FlagWallSouth | collision.FlagWallWest,
-			fallbackUseNpcX: false}
+		return -1, -1 // target NE → flee SW (TS: Direction.SOUTH_WEST)
 	case targetX >= npcX && targetZ < npcZ:
-		// Target SE of NPC → flee NW. TS: direction = NORTH_WEST.
-		// fallbackUseNpcX=true → axis fallback moves along Z (n.x, mz).
-		return escapeDirection{dx: -1, dz: +1,
-			wallFlags:       collision.FlagWallNorth | collision.FlagWallWest,
-			fallbackUseNpcX: true}
+		return -1, +1 // target SE → flee NW (TS: Direction.NORTH_WEST)
 	case targetX < npcX && targetZ >= npcZ:
-		// Target NW of NPC → flee SE. TS: direction = SOUTH_EAST.
-		// fallbackUseNpcX=false → axis fallback moves along X (mx, n.z).
-		return escapeDirection{dx: +1, dz: -1,
-			wallFlags:       collision.FlagWallSouth | collision.FlagWallEast,
-			fallbackUseNpcX: false}
+		return +1, -1 // target NW → flee SE (TS: Direction.SOUTH_EAST)
 	default:
-		// Target SW of NPC → flee NE. TS: direction = NORTH_EAST.
-		// fallbackUseNpcX=true → axis fallback moves along Z (n.x, mz).
-		return escapeDirection{dx: +1, dz: +1,
-			wallFlags:       collision.FlagWallNorth | collision.FlagWallEast,
-			fallbackUseNpcX: true}
+		return +1, +1 // target SW → flee NE (TS: Direction.NORTH_EAST)
 	}
 }
 
-// playerEscapeMode — TS Npc.ts:746-799. Each tick:
+// playerEscapeMode — TS Npc.playerEscapeMode as rewritten by Engine-TS
+// d39e707d "fix: Retreat logic (#97)". Each tick:
 //
-//  1. Type-guard on *Player.
-//  2. Abandon if SW-distance to target > 25.
-//  3. Pick flee quadrant → candidate tile.
-//  4. If the candidate tile's wall flags block the flee direction,
-//     resetDefaults (can't move there; give up).
-//  5. If the candidate is still within the NPC's MaxRange of its start,
-//     queue a diagonal waypoint at (mx, mz).
-//  6. Otherwise fall back to a single-axis waypoint: NE/NW → (n.x, mz);
-//     SE/SW → (mx, n.z). This is the "walk along other axis" branch.
+//  1. Type-guard on *Player (TS throws; Go logs + returns).
+//  2. Abandon if SW-distance to target > 25 (unchanged).
+//  3. Pick flee quadrant → diagonal candidate (mx, mz).
+//  4. diagonalStepValid = canTravel(dx, dz) AND candidate within maxrange
+//     of spawn (DistanceToSW <= maxrange — d39e707d widened the old
+//     strict `<`). The pre-d39e707d wall-flag IsFlagged check (which
+//     resetDefaults'd on a misread wall pair) is GONE — real step
+//     validation replaces it.
+//  5. Otherwise try the single-axis steps: primary = X-axis (mx, n.z),
+//     secondary = Z-axis (n.x, mz) — TS spells four direction branches
+//     that are all literally identical (X preferred over Z in every
+//     quadrant), so a single arm is the faithful port. Each axis arm
+//     needs BOTH canTravel and the maxrange bound; if neither is valid,
+//     nothing is queued this tick.
+//  6. updateMovement; a tick with no movement increments the stuck
+//     counter (goscape: wanderCounter — TS d39e707d calls it
+//     stuckCounter, the post-pin #91 rename of the same wanderCounter
+//     field; updateMovement resets it on movement in both engines).
+//  7. After 5+ stuck ticks, resetDefaults + counter reset — UNLESS the
+//     NPC is already at max range from spawn on BOTH axes
+//     (atMaxRangeBoth), in which case it holds position.
 //
-// Step 4's wall check requires a wired gamemap. When s.gamemap is nil
-// (test fixtures that don't seed collision data), the wall check is
-// skipped — same convention as NAI-12's inApproachDistance LoS short-circuit.
+// canTravel needs a wired gamemap. When s.gamemap is nil (test fixtures
+// without collision data) the travel checks pass — same convention as
+// takeStep's fixture path.
 func (n *Npc) playerEscapeMode(s *Server) {
 	p, ok := n.target.(*Player)
 	if !ok {
@@ -141,39 +126,80 @@ func (n *Npc) playerEscapeMode(s *Server) {
 
 	tx, tz, _ := p.Coords()
 
-	// TS :751-754 — abandon if already > 25 tiles SW-distance. TS uses
-	// distanceToSW here (NOT distanceTo); KEEP DistanceToSW (NAI-20 audit).
+	// d39e707d pre-image :757-760 (unchanged) — abandon if already > 25
+	// tiles SW-distance. TS uses distanceToSW (NOT distanceTo).
 	if coordgrid.DistanceToSW(n.x, n.z, tx, tz) > 25 {
 		n.resetDefaults()
 		return
 	}
 
-	// TS :756-770 — quadrant pick + flee-direction deltas.
-	dir := pickEscapeDirection(n.x, n.z, tx, tz)
-	mx := n.x + dir.dx
-	mz := n.z + dir.dz
+	// Quadrant pick + flee-direction deltas.
+	dx, dz := pickEscapeDirection(n.x, n.z, tx, tz)
+	mx := n.x + dx
+	mz := n.z + dz
+	maxRange := int(n.typ.MaxRange)
 
-	// TS :775-778 — wall-flag check. Skip when gamemap is nil (test fixture).
-	if s != nil && s.gamemap != nil &&
-		s.gamemap.Pathfinder.Flags.IsFlagged(mx, mz, n.level, dir.wallFlags) {
-		n.resetDefaults()
-		return
+	// TS: getCollisionStrategy() ?? CollisionType.NORMAL. (Since 2787f1fb
+	// the nil case is exactly NoMove; the ?? keeps retreat stepping
+	// validatable rather than nil-crashing.)
+	collisionStrategy := collision.TypeNormal
+	if cs := n.getCollisionStrategy(); cs != nil {
+		collisionStrategy = *cs
+	}
+	extraFlag := n.blockWalkFlag()
+
+	canTravel := func(ddx, ddz int) bool {
+		if s == nil || s.gamemap == nil {
+			// Test-fixture path: no gamemap → travel checks pass.
+			// (goscape defensive; TS always has rsmod loaded.)
+			return true
+		}
+		return s.gamemap.CanTravel(n.level, n.x, n.z, ddx, ddz, n.Width(), extraFlag, collisionStrategy)
 	}
 
-	// TS :780-790 — within-maxrange diagonal waypoint. TS uses distanceToSW
-	// here (the start-coord arg has no width/length); KEEP DistanceToSW
-	// (NAI-20 audit).
-	if coordgrid.DistanceToSW(mx, mz, n.startX, n.startZ) < int(n.typ.MaxRange) {
+	diagonalTravelValid := canTravel(dx, dz)
+	diagonalStepValid := diagonalTravelValid &&
+		coordgrid.DistanceToSW(mx, mz, n.startX, n.startZ) <= maxRange
+
+	if diagonalStepValid {
 		n.QueueWaypoint(mx, mz)
-		n.updateMovement(s)
-		return
+	} else {
+		// TS d39e707d: four identical direction branches — primary is
+		// always the X-axis step (mx, this.z), secondary always the
+		// Z-axis step (this.x, mz).
+		primaryTravelValid := canTravel(dx, 0)
+		secondaryTravelValid := canTravel(0, dz)
+		primaryValid := primaryTravelValid &&
+			coordgrid.DistanceToSW(mx, n.z, n.startX, n.startZ) <= maxRange
+		secondaryValid := secondaryTravelValid &&
+			coordgrid.DistanceToSW(n.x, mz, n.startX, n.startZ) <= maxRange
+
+		if primaryValid {
+			n.QueueWaypoint(mx, n.z)
+		} else if secondaryValid {
+			n.QueueWaypoint(n.x, mz)
+		}
 	}
 
-	// TS :793-797 — axis fallback.
-	if dir.fallbackUseNpcX {
-		n.QueueWaypoint(n.x, mz)
-	} else {
-		n.QueueWaypoint(mx, n.z)
+	if !n.updateMovement(s) {
+		n.wanderCounter++
 	}
-	n.updateMovement(s)
+
+	// distanceToSW({x, startZ}, start) collapses to per-axis displacement.
+	distX := n.x - n.startX
+	if distX < 0 {
+		distX = -distX
+	}
+	distZ := n.z - n.startZ
+	if distZ < 0 {
+		distZ = -distZ
+	}
+	atMaxRangeBoth := distX >= maxRange && distZ >= maxRange
+
+	// Resets if it has been stuck for 5 ticks and is not at max range in
+	// both directions.
+	if n.wanderCounter >= 5 && !atMaxRangeBoth {
+		n.resetDefaults()
+		n.wanderCounter = 0
+	}
 }

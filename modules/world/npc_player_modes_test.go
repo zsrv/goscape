@@ -446,42 +446,132 @@ func TestPlayerEscapeDistanceGateAbandons(t *testing.T) {
 	}
 }
 
-// withWallFlag installs a single directional wall flag at (x, z, level).
-// Unlike withBlockingWall (which is bidirectional LoS+LoW), this seeds
-// exactly one flag bit — the PLAYERESCAPE wall-check test requires a
-// direction-pair match against the quadrant's WALL_{N|S}|WALL_{E|W} mask.
-// The NPC's own tile's zone must be allocated so Get() returns tile-level
-// flags (not FlagNull).
-func withWallFlag(t *testing.T, s *Server, x, z, level, flag int) {
-	t.Helper()
-	s.gamemap.Pathfinder.Flags.Add(x, z, level, flag)
-}
-
-// TestPlayerEscapeBlockedByWallResetsDefaults — NAI-13 Task 6.
-// TS Npc.ts:775-778: when the candidate flee tile's wall flags match the
-// quadrant's direction-pair, resetDefaults fires instead of a waypoint.
-// Setup: target at (+1, +1) → direction SW → candidate tile (nx-1, nz-1) →
-// flags WALL_SOUTH | WALL_WEST must trigger the reject.
-func TestPlayerEscapeBlockedByWallResetsDefaults(t *testing.T) {
+// TestPlayerEscapeWallNoLongerAborts pins the d39e707d retreat fix: the
+// pre-rev-254 wall-flag IsFlagged check (which resetDefaults'd whenever the
+// candidate tile carried the quadrant's WALL_{S|N}|WALL_{W|E} pair — a
+// misread, since those dest-tile walls don't even block entry from the NE)
+// is GONE. The seeded WALL_SOUTH|WALL_WEST tile is traversable from the NE
+// per real canTravel semantics, so the diagonal flee proceeds and the
+// interaction survives.
+func TestPlayerEscapeWallNoLongerAborts(t *testing.T) {
 	s, n, p := playerModeFixture(t)
 	s.gamemap = gamemap.New(discardLogger())
 	n.x, n.z = 3100, 3100
 	n.startX, n.startZ = 3100, 3100
 	p.x, p.z = 3101, 3101 // target at (+1, +1) → flee to (3099, 3099)
 
-	// Seed the candidate tile with WALL_SOUTH|WALL_WEST so IsFlagged returns true.
+	// The flags that aborted retreat pre-d39e707d.
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3099, 3099, 0)
-	withWallFlag(t, s, 3099, 3099, 0, collision.FlagWallSouth|collision.FlagWallWest)
+	s.gamemap.Pathfinder.Flags.Add(3099, 3099, 0, collision.FlagWallSouth|collision.FlagWallWest)
 
 	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
 
 	n.playerEscapeMode(s)
 
-	if n.target != nil {
-		t.Errorf("target: got %v, want nil (wall-check should resetDefaults)", n.target)
+	if n.target == nil {
+		t.Fatal("target: got nil — d39e707d removed the wall-flag abort; retreat must continue")
 	}
-	if n.waypointIndex != -1 {
-		t.Errorf("waypointIndex: got %d, want -1 (no waypoint on wall block)", n.waypointIndex)
+	pos := coordgrid.UnpackCoord(n.waypoints[0])
+	if pos.X != 3099 || pos.Z != 3099 {
+		t.Errorf("waypoint: got (%d, %d), want (3099, 3099) [diagonal flee proceeds]", pos.X, pos.Z)
+	}
+}
+
+// TestPlayerEscapeDiagonalBlockedFallsBackToXAxis pins the d39e707d
+// step-validation replacement: when the diagonal candidate genuinely fails
+// canTravel (FlagBlockWalk on the dest tile), the NPC falls back to the
+// PRIMARY single-axis step — the X axis (mx, n.z) in every quadrant.
+func TestPlayerEscapeDiagonalBlockedFallsBackToXAxis(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	s.gamemap = gamemap.New(discardLogger())
+	n.x, n.z = 3100, 3100
+	n.startX, n.startZ = 3100, 3100
+	n.typ.MaxRange = 10
+	p.x, p.z = 3101, 3101 // target NE → flee SW; diagonal candidate (3099, 3099)
+
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3099, 3099, 0)
+	s.gamemap.Pathfinder.Flags.Add(3099, 3099, 0, collision.FlagBlockWalk)
+
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
+
+	n.playerEscapeMode(s)
+
+	if n.target == nil {
+		t.Fatal("target: got nil, want preserved (axis fallback, not abort)")
+	}
+	pos := coordgrid.UnpackCoord(n.waypoints[0])
+	if pos.X != 3099 || pos.Z != 3100 {
+		t.Errorf("waypoint: got (%d, %d), want (3099, 3100) [primary X-axis fallback]", pos.X, pos.Z)
+	}
+}
+
+// TestPlayerEscapeStuckFiveTicksResets pins the d39e707d stuck-recovery: a
+// retreat tick that cannot move (every flee arm blocked) increments the
+// stuck counter (goscape: wanderCounter, TS post-#91: stuckCounter); after
+// 5 such ticks — and only while NOT at max range on both axes — the NPC
+// resetDefaults and zeroes the counter.
+func TestPlayerEscapeStuckFiveTicksResets(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	s.gamemap = gamemap.New(discardLogger())
+	n.x, n.z = 3100, 3100
+	n.startX, n.startZ = 3100, 3100
+	n.typ.MaxRange = 10
+	n.lastTickX, n.lastTickZ = n.x, n.z // steady-state lastTick snapshot
+	p.x, p.z = 3101, 3101               // target NE → flee SW
+
+	// Block all three flee arms: diagonal (3099,3099), X (3099,3100), Z (3100,3099).
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3099, 3099, 0)
+	for _, tile := range [][2]int{{3099, 3099}, {3099, 3100}, {3100, 3099}} {
+		s.gamemap.Pathfinder.Flags.Add(tile[0], tile[1], 0, collision.FlagBlockWalk)
+	}
+
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
+
+	for tick := 1; tick <= 4; tick++ {
+		n.playerEscapeMode(s)
+		if n.target == nil {
+			t.Fatalf("tick %d: target cleared early (counter=%d); reset must wait for >= 5 stuck ticks", tick, n.wanderCounter)
+		}
+	}
+	if n.wanderCounter != 4 {
+		t.Fatalf("after 4 stuck ticks: wanderCounter=%d, want 4", n.wanderCounter)
+	}
+
+	n.playerEscapeMode(s) // 5th stuck tick → reset
+
+	if n.target != nil {
+		t.Error("target: want nil after 5 stuck ticks (d39e707d stuck-recovery resetDefaults)")
+	}
+	if n.wanderCounter != 0 {
+		t.Errorf("wanderCounter: got %d, want 0 (zeroed with the reset)", n.wanderCounter)
+	}
+}
+
+// TestPlayerEscapeStuckAtMaxRangeBothHolds pins the atMaxRangeBoth guard:
+// when the NPC already sits at >= maxrange displacement from spawn on BOTH
+// axes, the 5-tick stuck reset is suppressed — it holds position and keeps
+// the interaction.
+func TestPlayerEscapeStuckAtMaxRangeBothHolds(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	n.x, n.z = 3100, 3100
+	n.startX, n.startZ = 3100, 3100
+	n.typ.MaxRange = 0 // distX=0 >= 0 && distZ=0 >= 0 → atMaxRangeBoth
+	n.lastTickX, n.lastTickZ = n.x, n.z
+	p.x, p.z = 3101, 3101
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
+
+	// MaxRange=0 also invalidates every flee arm's range bound (no gamemap →
+	// travel passes, but DistanceToSW(...)=1 > 0), so no waypoint is ever
+	// queued and every tick is a stuck tick.
+	for range 8 {
+		n.playerEscapeMode(s)
+	}
+
+	if n.target == nil {
+		t.Error("target: got nil — atMaxRangeBoth must suppress the stuck reset")
+	}
+	if n.wanderCounter < 8 {
+		t.Errorf("wanderCounter: got %d, want >= 8 (accumulates while held)", n.wanderCounter)
 	}
 }
 
@@ -507,45 +597,54 @@ func TestPlayerEscapeWithinMaxRangeQueuesDiagonal(t *testing.T) {
 	}
 }
 
-// TestPlayerEscapeBeyondMaxRangeNorthAxisFallback — NAI-13 Task 6.
-// TS Npc.ts:793-794: direction NE or NW + candidate beyond MaxRange of
-// startXZ → single-axis fallback on Z (queue at (n.x, mz) — keep X fixed).
-// Setup: NPC at startXZ; target at (-5, -5) so direction is NE;
-// candidate is (nx+1, nz+1) = (3101, 3101). MaxRange = 0 forces the
-// fallback. Fallback waypoint: (n.x, mz) = (3100, 3101).
-func TestPlayerEscapeBeyondMaxRangeNorthAxisFallback(t *testing.T) {
+// TestPlayerEscapeDiagonalBeyondMaxRangePrefersXAxis pins the d39e707d
+// axis-fallback ordering: when the diagonal candidate's range bound fails,
+// the primary fallback is ALWAYS the X-axis step (mx, n.z) — TS d39e707d
+// spells four identical direction branches, all "Prefer East/West over
+// North/South". (Pre-rev-254 the NE/NW quadrants fell back on the Z axis;
+// this pin supersedes that contract.)
+//
+// Setup: NPC displaced +5 on Z from spawn (start (3100,3100), npc
+// (3100,3105)), MaxRange 5, target SW → flee NE. Diagonal (3101,3106):
+// DistanceToSW from spawn = 6 > 5 → invalid. Primary X (3101,3105):
+// 5 <= 5 → valid. Z fallback would have gone to (3100,3106) — invalid too.
+func TestPlayerEscapeDiagonalBeyondMaxRangePrefersXAxis(t *testing.T) {
 	s, n, p := playerModeFixture(t)
-	n.x, n.z = 3100, 3100
+	n.x, n.z = 3100, 3105
 	n.startX, n.startZ = 3100, 3100
-	n.typ.MaxRange = 0    // candidate's distance-from-start (=1) >= MaxRange → fallback
-	p.x, p.z = 3095, 3095 // target to NE direction (tx < nx && tz < nz)
+	n.typ.MaxRange = 5
+	p.x, p.z = 3095, 3095 // target SW → flee NE
 	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
 
 	n.playerEscapeMode(s)
 
 	pos := coordgrid.UnpackCoord(n.waypoints[0])
-	if pos.X != 3100 || pos.Z != 3101 {
-		t.Errorf("waypoint: got (%d, %d), want (3100, 3101) [NE/NW fallback on Z axis]", pos.X, pos.Z)
+	if pos.X != 3101 || pos.Z != 3105 {
+		t.Errorf("waypoint: got (%d, %d), want (3101, 3105) [primary X-axis step]", pos.X, pos.Z)
 	}
 }
 
-// TestPlayerEscapeBeyondMaxRangeSouthAxisFallback — NAI-13 Task 6.
-// TS Npc.ts:795-796: direction SE or SW + beyond MaxRange → fallback on
-// X axis (queue at (mx, n.z)). Setup: target at (+5, +5) → direction SW
-// → candidate (nx-1, nz-1). MaxRange = 0 forces fallback: (3099, 3100).
-func TestPlayerEscapeBeyondMaxRangeSouthAxisFallback(t *testing.T) {
+// TestPlayerEscapePrimaryBeyondMaxRangeFallsBackToZAxis pins the secondary
+// arm: when the diagonal AND the X-axis step both fail the range bound, the
+// Z-axis step (n.x, mz) queues.
+//
+// Setup: NPC displaced +5 on X from spawn (start (3100,3100), npc
+// (3105,3100)), MaxRange 5, target SW → flee NE. Diagonal (3106,3101):
+// 6 > 5 invalid. Primary X (3106,3100): 6 > 5 invalid. Secondary Z
+// (3105,3101): 5 <= 5 valid.
+func TestPlayerEscapePrimaryBeyondMaxRangeFallsBackToZAxis(t *testing.T) {
 	s, n, p := playerModeFixture(t)
-	n.x, n.z = 3100, 3100
+	n.x, n.z = 3105, 3100
 	n.startX, n.startZ = 3100, 3100
-	n.typ.MaxRange = 0
-	p.x, p.z = 3105, 3105 // SW direction
+	n.typ.MaxRange = 5
+	p.x, p.z = 3095, 3095 // target SW → flee NE
 	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
 
 	n.playerEscapeMode(s)
 
 	pos := coordgrid.UnpackCoord(n.waypoints[0])
-	if pos.X != 3099 || pos.Z != 3100 {
-		t.Errorf("waypoint: got (%d, %d), want (3099, 3100) [SE/SW fallback on X axis]", pos.X, pos.Z)
+	if pos.X != 3105 || pos.Z != 3101 {
+		t.Errorf("waypoint: got (%d, %d), want (3105, 3101) [secondary Z-axis step]", pos.X, pos.Z)
 	}
 }
 
