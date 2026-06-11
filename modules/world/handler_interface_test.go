@@ -295,11 +295,22 @@ func TestHandleIfButton_NilComponentRejects(t *testing.T) {
 	}
 }
 
-// TestHandleIfButton_NoButtonTypePassesSince244: at rev-244 TS removed the
-// com.buttonType === NO_BUTTON rejection gate (IfButtonHandler.ts diff
-// e1dea19f..9aadcec4). A ButtonNone component that IS visible must now
-// proceed to set lastCom (previously rejected before lastCom was written).
-func TestHandleIfButton_NoButtonTypePassesSince244(t *testing.T) {
+// TestHandleIfButton_NoButtonTypeRejectsAt254 — A9 @2e3bcf43. Supersedes
+// the 244 TestHandleIfButton_NoButtonTypePassesSince244 pin: TS 7efd4827
+// "Cleaning up some client prot classes" (in the 43e02957..2e3bcf43 range)
+// RE-ADDED the NO_BUTTON gate. TS IfButtonHandler.ts:15-18 @2e3bcf43:
+//
+//	const com = Component.get(comId);
+//	if (typeof com === 'undefined' || com.buttonType === Component.NO_BUTTON) {
+//	    // bad client: component is not acceptable for this packet
+//	    return false;
+//	}
+//
+// Component.NO_BUTTON = 0 (Component.ts:16); the unconfigured default is
+// -1 in both engines (TS Component.ts:279, goscape componenttype.go:111),
+// so only an explicit buttonType=0 rejects. Rejection happens BEFORE the
+// visibility check and the lastCom write.
+func TestHandleIfButton_NoButtonTypeRejectsAt254(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	p, _ := newTestPlayer(t)
@@ -312,8 +323,8 @@ func TestHandleIfButton_NoButtonTypePassesSince244(t *testing.T) {
 	if err := s.handleIfButton(p, []byte{0, 42}); err != nil {
 		t.Fatalf("handleIfButton: %v", err)
 	}
-	if p.lastCom != 42 {
-		t.Errorf("lastCom: got %d, want 42 (ButtonNone gate removed at 244; visible component must pass)", p.lastCom)
+	if p.lastCom != -1 {
+		t.Errorf("lastCom: got %d, want -1 (NO_BUTTON gate restored at 254; reject before lastCom write)", p.lastCom)
 	}
 }
 

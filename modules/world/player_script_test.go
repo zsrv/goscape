@@ -90,8 +90,9 @@ func TestAddXPAppliesNodeXPRate(t *testing.T) {
 
 // TestOpenModalPreservesTutAndClearsSuspendedDialog pins M8: opening a modal
 // clears only the relevant modal bits (not the entire bitmap) so the TUT bit
-// survives. The sub-tests that checked suspended-script clearing reflect the
-// 225 contract; 244 deletes that block (see TestOpenModalSuspendedScriptSurvives).
+// survives. Suspended-DIALOG clearing is back at rev-254 (TS 93ef2d7f, see
+// TestOpenModalClearsSuspendedDialogAndResumeButtons); a Running activeScript
+// is still preserved (the block only matches COUNTDIALOG/PAUSEBUTTON).
 func TestOpenModalPreservesTutAndClearsSuspendedDialog(t *testing.T) {
 	t.Run("OpenMain_preserves_TUT_clears_chat", func(t *testing.T) {
 		p, _ := newTestPlayer(t)
@@ -123,19 +124,24 @@ func TestOpenModalPreservesTutAndClearsSuspendedDialog(t *testing.T) {
 	})
 }
 
-// TestOpenModalSuspendedScriptSurvives pins the rev-244 delta: the
-// "clear old suspended scripts" block (activeScript = null when
-// COUNTDIALOG or PAUSEBUTTON) was deleted from all four modal-open
-// methods in TS 9aadcec4 (openMainModal→Player.ts:1928-1953,
-// openChat→:1967-1983, openSideModal→:1985-2001,
-// openMainModalSide→:2009-2021). 225 e1dea19f had the block at
-// Player.ts:1948-1949, :1971-1972, :1994-1995, :2019-2020.
+// TestOpenModalClearsSuspendedDialogAndResumeButtons pins the rev-254
+// contract (supersedes the 244 TestOpenModalSuspendedScriptSurvives pin):
+// TS 93ef2d7f "fix: Clear old suspended scripts on modal open" RE-ADDED
+// the block to all four modal-open methods, and 2dc4a811 extended it to
+// also clear resumeButtons. At pin @2e3bcf43 (openMainModal
+// Player.ts:2012-2016, openChatModal :2048-2052, openSideModal
+// :2072-2076, openMainSideModal :2098-2102):
 //
-// 244 contract: a suspended COUNTDIALOG or PAUSEBUTTON activeScript
-// survives a modal open. The script was waiting on user input from
-// the old modal; the engine no longer force-clears it when a new
-// modal opens. TDD pin: assert activeScript != nil after each Open*.
-func TestOpenModalSuspendedScriptSurvives(t *testing.T) {
+//	// clear old suspended scripts
+//	if (this.activeScript?.execution === ScriptState.COUNTDIALOG ||
+//	    this.activeScript?.execution === ScriptState.PAUSEBUTTON) {
+//	    this.activeScript = null;
+//	    this.resumeButtons = [];
+//	}
+//
+// A suspended COUNTDIALOG or PAUSEBUTTON activeScript (and its pending
+// resume buttons) is dropped when a new modal opens.
+func TestOpenModalClearsSuspendedDialogAndResumeButtons(t *testing.T) {
 	cases := []struct {
 		name string
 		exec script.Execution
@@ -187,9 +193,13 @@ func TestOpenModalSuspendedScriptSurvives(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p, _ := newTestPlayer(t)
 			p.activeScript = &script.ScriptState{Execution: tc.exec}
+			p.resumeButtons = []int{101, 102}
 			tc.open(p)
-			if p.activeScript == nil {
-				t.Errorf("%s: suspended script cleared; 244 wants it preserved", tc.name)
+			if p.activeScript != nil {
+				t.Errorf("%s: suspended dialog script must be cleared on modal open (TS 93ef2d7f @2e3bcf43)", tc.name)
+			}
+			if len(p.resumeButtons) != 0 {
+				t.Errorf("%s: resumeButtons must be cleared on modal open (TS 2dc4a811 @2e3bcf43); got %v", tc.name, p.resumeButtons)
 			}
 		})
 	}

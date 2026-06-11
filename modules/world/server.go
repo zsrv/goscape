@@ -1559,6 +1559,12 @@ func (s *Server) removePlayerInternal(p *Player) {
 	// path calls clear(true), which is a TS no-op (BuildArea.ts:24-28).
 	p.buildArea.clear(false)
 	p.appearanceInv = -1
+	// A9 @2e3bcf43: TS Player.cleanup clears resumeButtons — twice, a
+	// 2dc4a811 sync quirk (Player.ts:454 `this.resumeButtons = []` AND
+	// :456 `this.resumeButtons.length = 0`). One nil-out suffices; mostly
+	// hygiene since goscape allocates a fresh *Player per login, but it
+	// also guards a late RESUME/IF_BUTTON packet racing the teardown.
+	p.resumeButtons = nil
 	// 254 delta: TS Player.cleanup (Player.ts:458 @43e02957) ends with
 	// this.input.flush() so a tracked player logging out mid-buffer
 	// still submits the partial accumulation blob. Nil-guard is

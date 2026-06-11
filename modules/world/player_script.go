@@ -224,23 +224,33 @@ func (p *Player) ClearActiveScript() {
 
 // OnScriptFinishedOrAborted handles the Finished/Aborted post-Execute
 // tail for a player-anchored script. If state is the player's current
-// activeScript, nulls it; and if no MAIN modal is open, fires
-// CloseModal(false) to auto-close any open chat / side dialogue.
+// activeScript, nulls it (and the pending resumeButtons); and if no MAIN
+// modal is open, fires CloseModal(false) to auto-close any open chat /
+// side dialogue.
 //
 // Mirrors TS Player.executeScript Finished/Aborted tail
-// (Player.ts:2143-2148). The match-guard preserves a Suspended /
-// PauseButton / CountDialog activeScript when a different fresh script
-// Finishes on the same player in the same tick. The MAIN-bit gate on
-// CloseModal preserves any open main modal while dropping chat /
-// side dialogues — TS comment: "close chat dialogues automatically
-// and leave main modals alone".
+// (Player.ts:2224-2231 @2e3bcf43, resumeButtons clear from 2dc4a811):
 //
-// NAI-54 T1.
+//	} else if (script === this.activeScript) {
+//	    this.activeScript = null;
+//	    this.resumeButtons = [];
+//	    if ((this.modalState & ModalState.MAIN) === ModalState.NONE) {
+//	        // close chat dialogues automatically and leave main modals alone
+//	        this.closeModal(false);
+//	    }
+//	}
+//
+// The match-guard preserves a Suspended / PauseButton / CountDialog
+// activeScript when a different fresh script Finishes on the same player
+// in the same tick.
+//
+// NAI-54 T1; A9 resumeButtons.
 func (p *Player) OnScriptFinishedOrAborted(state *script.ScriptState) {
 	if p.activeScript != state {
 		return
 	}
 	p.activeScript = nil
+	p.resumeButtons = nil
 	if p.modalState&modalStateMain == modalStateNone {
 		p.CloseModal(false)
 	}
@@ -1206,11 +1216,20 @@ func (p *Player) CloseModal(clearWeakQueue bool) {
 	// NAI-111-D1.
 	p.protect = false
 
-	// Close any input-dialogue suspended scripts. NAI-52-F1.
+	// Close any input-dialogue suspended scripts. NAI-52-F1; A9 adds the
+	// resumeButtons clear — TS Player.ts:775-779 @2e3bcf43 (2dc4a811):
+	//
+	//	// close any input dialogue suspended scripts.
+	//	if (this.activeScript?.execution === ScriptState.COUNTDIALOG ||
+	//	    this.activeScript?.execution === ScriptState.PAUSEBUTTON) {
+	//	    this.activeScript = null;
+	//	    this.resumeButtons = [];
+	//	}
 	if p.activeScript != nil &&
 		(p.activeScript.Execution == script.CountDialog ||
 			p.activeScript.Execution == script.PauseButton) {
 		p.activeScript = nil
+		p.resumeButtons = nil
 	}
 
 	// Per-slot IF_CLOSE dispatch (Main → Chat → Side, TS order).
@@ -1261,13 +1280,20 @@ func (p *Player) runIfCloseTrigger(s *Server, slotCom int) {
 // individually (not assigned) so unrelated bits — notably TUT (0x8) — survive,
 // matching TS Player.openMainModal (Player.ts:1928-1953 at 244 pin 9aadcec4).
 //
-// 244 delta: the "clear old suspended scripts" block (activeScript = null
-// when COUNTDIALOG or PAUSEBUTTON) is DELETED from this method at 244 —
-// a suspended script now survives a modal open. 225 had the block at
-// Player.ts:1948-1949 (e1dea19f).
+// rev-254 delta (A9): the "clear old suspended scripts" block is BACK —
+// TS 93ef2d7f re-added it (the 244 pin had deleted it) and 2dc4a811
+// extended it to clear resumeButtons. TS openMainModal Player.ts:2012-2016
+// @2e3bcf43:
+//
+//	// clear old suspended scripts
+//	if (this.activeScript?.execution === ScriptState.COUNTDIALOG ||
+//	    this.activeScript?.execution === ScriptState.PAUSEBUTTON) {
+//	    this.activeScript = null;
+//	    this.resumeButtons = [];
+//	}
 //
 // h-interface-1: TS writes `new IfClose()` per displaced slot
-// (Player.ts:1929-1934 for CHAT, :1936-1940 for SIDE) BEFORE the
+// (Player.ts:1994-2006 for CHAT/SIDE) BEFORE the
 // refreshModal-driven IF_OPEN. encodeOut's close-before-open order
 // (player.go:466-477 → IF_CLOSE then IF_OPEN) makes setting
 // refreshModalClose here equivalent to TS's inline writes. TS's two
@@ -1286,20 +1312,20 @@ func (p *Player) OpenMain(com int) {
 	p.modalState |= modalStateMain
 	p.modalMain = com
 	p.refreshModal = true
+	p.clearSuspendedDialogScript()
 }
 
 // OpenChat opens com as the chat modal. Per TS, opening chat closes any
-// currently-open main and side modals. M8: bit-wise clear/OR preserves TUT
-// (TS Player.openChat at 244, Player.ts:1967-1983 at 9aadcec4; was
-// openChatModal at 225, Player.ts:1952-1972 at e1dea19f — TS rename, Go
-// already used OpenChat: NO-OP rename).
+// currently-open main and side modals. M8: bit-wise clear/OR preserves TUT.
+// TS name at the 254 pin: openChatModal (93ef2d7f renamed openChat back to
+// the 225-style name; Go keeps OpenChat — Go-idiomatic, mapping only).
+// TS Player.openChatModal @2e3bcf43, Player.ts:2031-2053.
 //
-// 244 delta: the "clear old suspended scripts" block is DELETED —
-// suspended COUNTDIALOG/PAUSEBUTTON scripts survive a modal open.
-// 225 had the block at Player.ts:1971-1972 (e1dea19f).
+// rev-254 delta (A9): the "clear old suspended scripts" block is BACK
+// (TS Player.ts:2048-2052 — see OpenMain doc for the quote/history).
 //
 // h-interface-1: TS writes `new IfClose()` per displaced slot
-// (Player.ts:1968-1972 for MAIN, :1974-1978 for SIDE). See OpenMain
+// (Player.ts:2032-2042 for MAIN/SIDE). See OpenMain
 // for the close-coalescing rationale.
 func (p *Player) OpenChat(com int) {
 	if p.modalState&(modalStateMain|modalStateSide) != modalStateNone {
@@ -1312,18 +1338,18 @@ func (p *Player) OpenChat(com int) {
 	p.modalState |= modalStateChat
 	p.modalChat = com
 	p.refreshModal = true
+	p.clearSuspendedDialogScript()
 }
 
 // OpenSide opens com as the side modal. Per TS, opening side closes any
 // currently-open main and chat modals. M8: bit-wise clear/OR preserves TUT
-// (TS Player.openSideModal at 244, Player.ts:1985-2001 at 9aadcec4).
+// (TS Player.openSideModal @2e3bcf43, Player.ts:2055-2077).
 //
-// 244 delta: the "clear old suspended scripts" block is DELETED —
-// suspended COUNTDIALOG/PAUSEBUTTON scripts survive a modal open.
-// 225 had the block at Player.ts:1994-1995 (e1dea19f).
+// rev-254 delta (A9): the "clear old suspended scripts" block is BACK
+// (TS Player.ts:2072-2076 — see OpenMain doc for the quote/history).
 //
 // h-interface-1: TS writes `new IfClose()` per displaced slot
-// (Player.ts:1986-1990 for MAIN, :1992-1996 for CHAT). See OpenMain
+// (Player.ts:2056-2066 for MAIN/CHAT). See OpenMain
 // for the close-coalescing rationale.
 func (p *Player) OpenSide(com int) {
 	if p.modalState&(modalStateMain|modalStateChat) != modalStateNone {
@@ -1336,20 +1362,21 @@ func (p *Player) OpenSide(com int) {
 	p.modalState |= modalStateSide
 	p.modalSide = com
 	p.refreshModal = true
+	p.clearSuspendedDialogScript()
 }
 
 // OpenMainModalSide opens mainCom as the main modal and sideCom as the side
 // modal simultaneously. Per TS, this closes any currently-open chat modal.
-// M8: bit-wise clear/OR preserves TUT and existing side state (TS
-// Player.openMainModalSide at 244, Player.ts:2009-2021 at 9aadcec4; was
-// openMainSideModal at 225 — TS rename, Go OpenMainSide → OpenMainModalSide).
+// M8: bit-wise clear/OR preserves TUT and existing side state. TS name at
+// the 254 pin: openMainSideModal (93ef2d7f renamed openMainModalSide back
+// to the 225-style name; Go keeps OpenMainModalSide — mapping only).
+// TS Player.openMainSideModal @2e3bcf43, Player.ts:2085-2103.
 //
-// 244 delta: the "clear old suspended scripts" block is DELETED —
-// suspended COUNTDIALOG/PAUSEBUTTON scripts survive a modal open.
-// 225 had the block at Player.ts:2019-2020 (e1dea19f).
+// rev-254 delta (A9): the "clear old suspended scripts" block is BACK
+// (TS Player.ts:2098-2102 — see OpenMain doc for the quote/history).
 //
 // h-interface-1: TS writes `new IfClose()` only when CHAT was open
-// (Player.ts:2010-2014) — MAIN and SIDE are about to be set to new
+// (Player.ts:2086-2090) — MAIN and SIDE are about to be set to new
 // coms, so a per-slot close for them would be meaningless (TS uses
 // |= to OR them on without an IfClose). See OpenMain for the close-
 // coalescing rationale.
@@ -1364,6 +1391,31 @@ func (p *Player) OpenMainModalSide(mainCom, sideCom int) {
 	p.modalState |= modalStateSide
 	p.modalSide = sideCom
 	p.refreshModal = true
+	p.clearSuspendedDialogScript()
+}
+
+// clearSuspendedDialogScript is the shared "clear old suspended scripts"
+// tail of the four modal-open methods — TS @2e3bcf43 (93ef2d7f re-add +
+// 2dc4a811 resumeButtons):
+//
+//	// clear old suspended scripts
+//	if (this.activeScript?.execution === ScriptState.COUNTDIALOG ||
+//	    this.activeScript?.execution === ScriptState.PAUSEBUTTON) {
+//	    this.activeScript = null;
+//	    this.resumeButtons = [];
+//	}
+//
+// TS inlines the block in each method (openMainModal :2012-2016,
+// openChatModal :2048-2052, openSideModal :2072-2076, openMainSideModal
+// :2098-2102); goscape factors it to keep the four copies byte-identical.
+// openMainOverlay and openTutorial do NOT have the block.
+func (p *Player) clearSuspendedDialogScript() {
+	if p.activeScript != nil &&
+		(p.activeScript.Execution == script.CountDialog ||
+			p.activeScript.Execution == script.PauseButton) {
+		p.activeScript = nil
+		p.resumeButtons = nil
+	}
 }
 
 // OpenTutorial sets the player's tutorial-overlay component and writes
@@ -1417,11 +1469,13 @@ func (p *Player) CloseTutorial() {
 	p.writeOut(gameserver.OpTutOpen, payload)
 }
 
-// OpenOverlay sets the player's full-screen overlay interface. Mirrors TS
-// Player.openOverlay at Engine-TS/src/engine/entity/Player.ts:1955-1965
-// (rev-244 pin 9aadcec4):
+// OpenOverlay sets the player's full-screen overlay interface. TS name at
+// the 254 pin: openMainOverlay (93ef2d7f renamed openOverlay; Go keeps
+// OpenOverlay — mapping only). Mirrors TS Player.openMainOverlay at
+// Engine-TS/src/engine/entity/Player.ts:2019-2029 @2e3bcf43 (body
+// unchanged from 244; NO "clear old suspended scripts" block here):
 //
-//	openOverlay(com: number) {
+//	openMainOverlay(com: number) {
 //	    if (this.overlay === com) { return; }
 //	    if (com === -1) { this.clearComListeners(this.overlay); }
 //	    this.overlay = com;

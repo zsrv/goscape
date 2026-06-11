@@ -11,6 +11,20 @@ import (
 // handler never inspects payload, lastCom, or resumeButtons). Resumes
 // the active script if it is PauseButton-suspended; no-ops otherwise.
 //
+// A9 re-verified @2e3bcf43 — the handler is UNCHANGED at the 254 pin
+// (still no resumeButtons validation):
+//
+//	handle(_message: ResumePauseButton, player: Player): boolean {
+//	    if (!player.activeScript || player.activeScript.execution !== ScriptState.PAUSEBUTTON) {
+//	        return false;
+//	    }
+//	    player.executeScript(player.activeScript, true, true);
+//	    return true;
+//	}
+//
+// resumeButtons validation lives ONLY in IfButtonHandler (the IF_BUTTON
+// membership branch, handler_interface.go handleIfButton).
+//
 // Why this matters: the standard chatnpc proc (chat.rs2:303-311) never
 // calls if_setresumebuttons, so resumeButtons is empty when "Click here
 // to continue" fires. A resumeButtons match-gate would deadlock chat

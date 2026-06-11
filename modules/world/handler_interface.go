@@ -24,15 +24,19 @@ func (s *Server) lookupComponent(id int) *objtype.ComponentType {
 // handleIfButton handles client opcode 39 (IF_BUTTON).
 // Body: u16 component-id.
 //
-// Gates per TS IfButtonHandler.ts (9aadcec4):
-//   - Component must be registered
-//   - Component must be IsComponentVisible to the player
-//
-// Note: the buttonType != NO_BUTTON check was present in e1dea19f but
-// removed at 9aadcec4 — any registered, visible component passes now.
+// Gates per TS IfButtonHandler.ts:15-22 @2e3bcf43:
+//   - Component must be registered AND not buttonType NO_BUTTON (the
+//     NO_BUTTON gate was dropped at 9aadcec4/244 and RE-ADDED by 7efd4827
+//     in the 254 pin range): `if (typeof com === 'undefined' ||
+//     com.buttonType === Component.NO_BUTTON) { return false; }` — "bad
+//     client: component is not acceptable for this packet". NO_BUTTON = 0;
+//     the unconfigured default is -1 in both engines, so only an explicit
+//     buttontype=0 rejects.
+//   - Component must be IsComponentVisible to the player.
 //
 // On pass, sets lastCom and either resumes a PauseButton-suspended script
-// or fires [if_button,<comId>]. The trigger fires with protect = !root.Overlay
+// (comId in resumeButtons — TS IfButtonHandler.ts:26-29) or fires
+// [if_button,<comId>]. The trigger fires with protect = !root.Overlay
 // (root = rootLayer's component).
 func (s *Server) handleIfButton(p *Player, payload []byte) error {
 	if len(payload) < 2 {
@@ -41,7 +45,7 @@ func (s *Server) handleIfButton(p *Player, payload []byte) error {
 	comId := int(uint16(payload[0])<<8 | uint16(payload[1]))
 
 	com := s.lookupComponent(comId)
-	if com == nil || !p.IsComponentVisible(com) {
+	if com == nil || com.ButtonType == objtype.ButtonNone || !p.IsComponentVisible(com) {
 		return nil
 	}
 

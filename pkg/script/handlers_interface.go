@@ -404,10 +404,12 @@ func handleIfSetTabActive(s *ScriptState) error {
 // No wire op is emitted; the Player appends the id for later consumption
 // by the resume-button gate. No NumberNotNull check (TS pops bare).
 //
-// TODO(A9): TS clears resumeButtons in player cleanup and on modal open
-// while the active script is in COUNTDIALOG/PAUSEBUTTON — until A9 lands
-// that machinery, entries appended here persist (stale-entry hazard
-// tracked in the A9 task).
+// A9 LANDED the full lifecycle: resumeButtons is cleared in player
+// cleanup (removePlayerInternal), in CloseModal when the active script is
+// COUNTDIALOG/PAUSEBUTTON-suspended, in every modal-open method
+// (clearSuspendedDialogScript), and in the executeScript Finished/Aborted
+// tail (OnScriptFinishedOrAborted) — all in modules/world, mirroring TS
+// Player.ts @2e3bcf43 (93ef2d7f + 2dc4a811). No stale-entry hazard remains.
 func handleIfAddResumeButton(s *ScriptState) error {
 	if err := requireActivePlayer(s, "IF_ADDRESUMEBUTTON"); err != nil {
 		return err
