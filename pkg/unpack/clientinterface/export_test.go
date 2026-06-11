@@ -629,6 +629,29 @@ func TestExport_ColourHexFormat(t *testing.T) {
 	}
 }
 
+// TestFmtHex6_TSFaithful pins fmtHex6 against TS
+// `toString(16).toUpperCase().padStart(6, '0')` (Unpack.ts:685 @2e3bcf43):
+// NO 24-bit mask — values above 0xFFFFFF emit 7+ digits (the 254 cache
+// carries colour=0xAAAAAAA in thormac.if), and negatives emit the JS
+// '-'-prefixed absolute hex padded to width 6 including the sign.
+func TestFmtHex6_TSFaithful(t *testing.T) {
+	cases := []struct {
+		in   int
+		want string
+	}{
+		{0x00C000, "00C000"},
+		{0xFFFFFF, "FFFFFF"},
+		{0xAAAAAAA, "AAAAAAA"}, // 7 digits, unmasked (the old &0xFFFFFF bug gave AAAAAA)
+		{0x1, "000001"},
+		{-255, "000-FF"}, // JS: (-255).toString(16) = "-ff" → padStart(6,'0') = "000-ff" → upper
+	}
+	for _, tc := range cases {
+		if got := fmtHex6(tc.in); got != tc.want {
+			t.Errorf("fmtHex6(%#x): want %q got %q", tc.in, tc.want, got)
+		}
+	}
+}
+
 // TestExport_ActionTarget_BitfieldAll verifies all five bits of actionTarget.
 func TestExport_ActionTarget_BitfieldAll(t *testing.T) {
 	ifPack := makeIfPack(t)

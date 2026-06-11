@@ -6,6 +6,7 @@ package clientinterface
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/pack"
@@ -804,11 +805,19 @@ func exportComponentInner(
 	return temp
 }
 
-// fmtHex6 formats a colour value as exactly 6 uppercase hex digits, mirroring
-// TS toString(16).toUpperCase().padStart(6, '0').
-// Handles both positive and negative values (only low 24 bits).
+// fmtHex6 formats a colour value mirroring TS
+// `toString(16).toUpperCase().padStart(6, '0')` EXACTLY (Unpack.ts:685
+// @2e3bcf43): JS does NOT mask to 24 bits, so values above 0xFFFFFF emit
+// 7-8 digits unpadded (the 254 cache contains colour=0xAAAAAAA), and a
+// negative value emits its '-'-prefixed absolute hex, zero-padded to width
+// 6 including the sign (padStart pads the whole string).
+//
+// The former 24-bit mask was a Go deviation caught by the 254 interface
+// parity gate.
 func fmtHex6(colour int) string {
-	// Take lower 24 bits, handle sign by masking.
-	v := uint32(colour) & 0xFFFFFF
-	return fmt.Sprintf("%06X", v)
+	s := strings.ToUpper(strconv.FormatInt(int64(colour), 16))
+	for len(s) < 6 {
+		s = "0" + s
+	}
+	return s
 }
