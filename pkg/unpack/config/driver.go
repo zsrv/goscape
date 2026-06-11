@@ -285,6 +285,10 @@ func unpackConfig(
 						break
 					}
 				}
+				// Go-side guard TS lacks (TS iterates only unpacked2's
+				// length, so a longer prefix-matching unpacked would read
+				// equal). Unreachable: the "" sentinel pushed above pins
+				// position len2-1, forcing equal lengths on a prefix match.
 				if !differs && len(unpacked) != len(unpacked2) {
 					differs = true
 				}
