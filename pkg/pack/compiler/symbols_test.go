@@ -557,9 +557,9 @@ func writeConstantFile(t *testing.T, dir, rel, content string) {
 }
 
 // TestBuildSymbolsCore_AllCategoriesPresent pins §5.8: the returned map
-// has exactly 33 keys covering the TS symbols dict at Compiler.ts:337-376
-// @ 2e3bcf43 ("varbit" joined at rev-254), minus the TS-only "midi" key
-// (Compiler.ts:368) which goscape has not bridged yet.
+// has exactly 34 keys covering the TS symbols dict at Compiler.ts:337-376
+// @ 2e3bcf43 ("varbit" joined at rev-254; "midi" at Compiler.ts:199+368,
+// bridged at T23 — plain pack/midi.pack load, no enrichment).
 func TestBuildSymbolsCore_AllCategoriesPresent(t *testing.T) {
 	dir := t.TempDir()
 	// Seed a few .pack files so Load returns non-nil TypeInfo; absent ones
@@ -579,8 +579,8 @@ func TestBuildSymbolsCore_AllCategoriesPresent(t *testing.T) {
 		"idk", "spotanim", "loc", "component", "interface",
 		"overlayinterface", "varp", "varbit", "varn", "vars", "param", "struct",
 		"enum", "hunt", "mesanim", "synth", "category", "runescript",
-		"dbtable", "dbcolumn", "dbrow", "stat", "npc_stat", "npc_mode",
-		"fontmetrics", "locshape",
+		"dbtable", "dbcolumn", "dbrow", "midi", "stat", "npc_stat",
+		"npc_mode", "fontmetrics", "locshape",
 	}
 	if got, want := len(symbols), len(wantKeys); got != want {
 		t.Errorf("len(symbols) = %d, want %d", got, want)

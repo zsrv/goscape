@@ -518,10 +518,11 @@ func loadConfigs(dataPackDir string) (*configLoaders, error) {
 // .dat/.idx for InvType, Component, VarP, VarBit, VarN, VarS, Param,
 // DbTableType.
 //
-// Returns the 33-key symbol-category dict the bytecode compiler's
+// Returns the 34-key symbol-category dict the bytecode compiler's
 // typechecker consumes. Categories match TS Compiler.ts:337-376
-// @ 2e3bcf43 ("varbit" joined at rev-254), EXCEPT the TS-only "midi"
-// key (Compiler.ts:368) which is not yet bridged here.
+// @ 2e3bcf43 ("varbit" joined at rev-254; "midi" from pack/midi.pack,
+// Compiler.ts:199+368, joined at T23 when the 254 full-tree gate hit
+// unresolved midi_song() symbols in tutorial scripts).
 func BuildSymbols(srcDir, dataPackDir string) (map[string]*TypeInfo, error) {
 	loaders, err := loadConfigs(dataPackDir)
 	if err != nil {
@@ -583,6 +584,9 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 	dbtableInfo := loadOrFail("dbtable")
 	dbcolumnInfo := newTypeInfo() // synthesized below
 	dbrowInfo := loadOrFail("dbrow")
+	// TS Compiler.ts:199 @ 2e3bcf43: midiInfo from pack/midi.pack — plain
+	// load, no enrichment (feeds midi_song()/midi_jingle() string symbols).
+	midiInfo := loadOrFail("midi")
 	// TS Compiler.ts:204 re-loads inv.pack for writeinv (separate
 	// TypeInfo with its own .Protect map enriched below).
 	writeinvInfo := loadOrFail("inv")
@@ -626,8 +630,8 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 		"grounddecor",
 	})
 
-	// 10. Assemble the 33-key dict, mirroring TS Compiler.ts:337-376
-	// @ 2e3bcf43 order (sans the TS-only "midi" key).
+	// 10. Assemble the 34-key dict, mirroring TS Compiler.ts:337-376
+	// @ 2e3bcf43 order (incl. the "midi" key, Compiler.ts:368).
 	symbols := map[string]*TypeInfo{
 		"command":          commandInfo,
 		"constant":         constantInfo,
@@ -657,6 +661,7 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 		"dbtable":          dbtableInfo,
 		"dbcolumn":         dbcolumnInfo,
 		"dbrow":            dbrowInfo,
+		"midi":             midiInfo,
 		"stat":             statInfo,
 		"npc_stat":         npcStatInfo,
 		"npc_mode":         npcModeInfo,
