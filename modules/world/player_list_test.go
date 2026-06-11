@@ -60,17 +60,17 @@ func TestGetNextPlayerSlot(t *testing.T) {
 		a, b := pl(), pl()
 		l.set(7, a)
 		l.set(9, b)
-		if l.count != 2 {
-			t.Fatalf("count = %d, want 2", l.count)
+		if l.count.Load() != 2 {
+			t.Fatalf("count = %d, want 2", l.count.Load())
 		}
 		l.remove(a)
-		if l.count != 1 || l.get(7) != nil || l.get(9) != b {
-			t.Fatalf("count/get after remove: count=%d", l.count)
+		if l.count.Load() != 1 || l.get(7) != nil || l.get(9) != b {
+			t.Fatalf("count/get after remove: count=%d", l.count.Load())
 		}
 		// removing twice is a no-op
 		l.remove(a)
-		if l.count != 1 {
-			t.Fatalf("count after double remove = %d, want 1", l.count)
+		if l.count.Load() != 1 {
+			t.Fatalf("count after double remove = %d, want 1", l.count.Load())
 		}
 	})
 }

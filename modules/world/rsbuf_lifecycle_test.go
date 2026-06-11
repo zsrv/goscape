@@ -17,20 +17,20 @@ func TestServer_PlayerLifecycleRoundTripSmoke(t *testing.T) {
 		t.Fatalf("addPlayer: %v", err)
 	}
 	if p.slot < 1 {
-		t.Fatalf("addPlayer didn't assign pid (got %d)", p.slot)
+		t.Fatalf("addPlayer didn't assign slot (got %d)", p.slot)
 	}
-	pid := p.slot
+	slot := p.slot
 
 	s.removePlayerInternal(p)
 
 	// After removePlayer:
 	//  - s.players[slot] should be nil (existing assertion)
 	//  - s.rsbuf must not panic on follow-up queries (nil-slot guards in *Buf)
-	if s.players.get(pid) != nil {
-		t.Errorf("after removePlayer: s.players[%d] = %v, want nil", pid, s.players.get(pid))
+	if s.players.get(slot) != nil {
+		t.Errorf("after removePlayer: s.players[%d] = %v, want nil", slot, s.players.get(slot))
 	}
 	// Smoke: query rsbuf — must not panic.
-	_ = s.rsbuf.HasPlayer(int32(pid), 99)
+	_ = s.rsbuf.HasPlayer(int32(slot), 99)
 	_ = s.rsbuf.GetNpcObservers(0)
 
 	// Re-add at same slot must succeed.

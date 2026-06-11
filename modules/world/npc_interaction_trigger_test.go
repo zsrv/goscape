@@ -12,9 +12,9 @@ import (
 // newActivePlayer builds a Player in the "live session" state for use as
 // an npc-target: active, default visibility, attached client. Mirrors
 // the post-NAI-11-Task-4 IsValid semantics.
-func newActivePlayer(pid int) *Player {
+func newActivePlayer(slot int) *Player {
 	return &Player{
-		slot:       pid,
+		slot:       slot,
 		active:     true,
 		visibility: rsbuf.VisibilityDefault,
 		client:     &client{},

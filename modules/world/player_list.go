@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 )
 
 // playerList ports the rev-254 World player containers (TS World.ts:145-148
@@ -37,8 +38,11 @@ type playerList struct {
 	// count caches the occupied-slot total. TS getTotalPlayers
 	// (World.ts:1691-1702) recounts slots 1..2046 on every call, with a
 	// "todo: could cache this, or increment/decrement on add/remove"
-	// note; the cached value is identical.
-	count int
+	// note; the cached value is identical. Atomic because connection
+	// goroutines read it (handleLogin's NodeMaxConnected gate) while
+	// the tick goroutine mutates, and tick-side readers can sit inside
+	// playersMu critical sections (an RLock there would self-deadlock).
+	count atomic.Int32
 }
 
 // playerLoopBuckets mirrors `new HashTable(8)` (TS World.ts:146). The
@@ -85,7 +89,7 @@ func (l *playerList) nextSlot() int {
 // tail (HashTable.ts:30-43); add replicates both behaviors.
 func (l *playerList) add(slot int, key uint64, p *Player) {
 	if l.entities[slot] == nil {
-		l.count++
+		l.count.Add(1)
 	}
 	l.entities[slot] = p
 	p.slot = slot
@@ -112,7 +116,7 @@ func (l *playerList) remove(p *Player) {
 	}
 	if p.slot >= 0 && p.slot < len(l.entities) && l.entities[p.slot] == p {
 		l.entities[p.slot] = nil
-		l.count--
+		l.count.Add(-1)
 	}
 	l.loopUnlink(p)
 }

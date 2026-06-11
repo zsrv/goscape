@@ -1401,9 +1401,12 @@ func (s *Server) addPlayer(p *Player) error {
 // TS World.ts:1691-1702 @2e3bcf43 recounts occupied slots 1..2046 on
 // every call (with a "todo: could cache this" note); playerList.count
 // caches the identical value.
-// Lock-free read — playersMu guards writes only.
+// Takes the read lock: called from connection goroutines (handleLogin's
+// NodeMaxConnected gate) concurrently with tick-goroutine mutations.
 func (s *Server) getTotalPlayers() int {
-	return s.players.count
+	s.playersMu.RLock()
+	defer s.playersMu.RUnlock()
+	return int(s.players.count.Load())
 }
 
 // isUsernameLoggingOut reports whether a player slot is occupied by an
@@ -1412,8 +1415,13 @@ func (s *Server) getTotalPlayers() int {
 // (World.ts:2194) performs against its in-flight-logout set; goscape
 // stores the equivalent signal on Player.loggingOut (player.go:310,
 // flipped in world_state_ops.go:101 / tick.go:342,350 / reboot.go:56).
-// Lock-free read — playersMu guards writes only.
+// Takes the read lock: called from connection goroutines while the tick
+// goroutine's loopUnlink rewrites bucket-slice headers via slices.Delete
+// (the pre-A2 fixed array tolerated lock-free pointer reads; the bucket
+// slices do NOT).
 func (s *Server) isUsernameLoggingOut(safeName string) bool {
+	s.playersMu.RLock()
+	defer s.playersMu.RUnlock()
 	for p := range s.players.all() {
 		if p.username == safeName && p.loggingOut {
 			return true
