@@ -1379,7 +1379,7 @@ func loginResultToRS2(result loginpb.LoginResult) byte {
 	case loginpb.LoginResult_LOGIN_RESULT_IP_BANNED:
 		return loginresp.OpLoginServerRejected.Opcode
 	case loginpb.LoginResult_LOGIN_RESULT_RATE_LIMITED:
-		// TS response 8 → byte 16 "too many attempts" (World.ts:1901-1906).
+		// TS response 8 → byte 16 "too many attempts" (World.ts:1851-1855 @2e3bcf43).
 		return loginresp.OpTooManyAttempts.Opcode
 	case loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER:
 		// rev-254: the hop timer moved off the response-6/byte-9 rendering
