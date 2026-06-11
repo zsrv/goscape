@@ -7,34 +7,23 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
-// Save serializes p to a fresh SAV byte slice at version SavVersion.
-// Inventories iterate over typeIds in ascending order (deviation
-// NAI-PLAYERLOADING-D-INVS-SORTED-BY-TYPEID). Varps are written
-// verbatim from p.varps (deviation
-// NAI-PLAYERLOADING-D-SAVE-VARPS-VERBATIM — TS Player.save() zeros
-// non-SCOPE_PERM slots; goscape trusts the in-memory slice and relies
-// on the runtime not writing to temp-scope slots). Mirrors
-// Player.save() at Engine-TS/.../Player.ts:190-270.
+// Save serializes p to a fresh SAV byte slice at version SavVersion
+// (v7 since rev-254 A6). Inventories iterate over typeIds in ascending
+// order (deviation NAI-PLAYERLOADING-D-INVS-SORTED-BY-TYPEID). Mirrors
+// Player.save() at Engine-TS Player.ts:192-277 @2e3bcf43.
 //
 // invTypes is consulted to skip non-SCOPE_PERM inventories at encode
 // time. Pass nil to encode every entry in p.invs unconditionally
 // (test setups; production should always pass the real config).
 //
-// NAI-220 closes the previous NAI-PLAYERLOADING-D-SAVE-VARPS-VERBATIM
-// deviation. TS Player.save() writes 0 for any varp slot whose
-// VarpType.Scope != PERM; goscape now matches via the varpTypes
-// scope check below. Pre-NAI-220 goscape wrote every value verbatim,
-// which let combat-related temp varns like %lastcombat and
-// %aggressive_npc persist across save/load and accumulate stale state
-// that broke player_in_combat_check on existing accounts — new
-// accounts (no save yet) worked because they started with zeroed
-// varps, while existing accounts hit "I'm already under attack!" on
-// every attempted retarget because the saved %lastcombat was within
-// +8 ticks of the in-RAM map_clock after reload.
-//
-// Nil-tolerant: if varpTypes is nil (test fixtures that don't model
-// scope), Save falls back to verbatim — preserves the pre-NAI-220
-// shape for those tests.
+// Varps (rev-254 A6, SAV v7): sparse encoding — only non-zero
+// SCOPE_PERM varps are saved, as p2(id) + pVarInt(value) pairs behind
+// a p2 count (TS Player.ts:215-229 @2e3bcf43). This subsumes NAI-220
+// (the v6-era zero-out of non-PERM slots, which had fixed the
+// %lastcombat / %aggressive_npc stale-temp-varp combat bug): temp
+// scope varps are now simply absent from the save. Nil-tolerant: if
+// varpTypes is nil (test fixtures that don't model scope), every
+// non-zero varp is saved.
 func (p *Player) Save(invTypes *objtype.InvTypeConfigs, varpTypes *objtype.VarpTypeConfigs) []byte {
 	pkt := packet.NewPacket(make([]byte, 0, 1500))
 	pkt.P2(SavMagic)
@@ -57,18 +46,26 @@ func (p *Player) Save(invTypes *objtype.InvTypeConfigs, varpTypes *objtype.VarpT
 		pkt.P1(p.levels[i])
 	}
 
-	// Varps scope-filtered (NAI-220, TS-faithful). Non-PERM scope varps
-	// are written as 0; PERM (and the nil-varpTypes fallback) write
-	// verbatim. See the Save doc-comment for the rationale.
-	pkt.P2(uint16(len(p.varps)))
-	for i, v := range p.varps {
-		out := v
-		if varpTypes != nil && i < len(varpTypes.Configs) {
-			if vt := varpTypes.Configs[i]; vt != nil && vt.Scope != objtype.VarpScopePerm {
-				out = 0
-			}
+	// Varps: rev-254 A6 sparse encoding (SAV v7; TS Player.save
+	// @2e3bcf43 Player.ts:215-229): p2 count of non-zero SCOPE_PERM
+	// varps, then per saved varp p2(id) + pVarInt(value). Non-PERM and
+	// zero-valued varps are never written — the v6 dense
+	// zero-out-non-PERM shape (NAI-220) is subsumed by simply skipping
+	// them. Nil-tolerance keeps the pre-A6 convention: a nil varpTypes,
+	// an out-of-range id, or a nil config slot is treated as PERM (test
+	// fixtures that don't model scope save non-zero values verbatim).
+	saved := 0
+	for id, v := range p.varps {
+		if v != 0 && varpScopeIsPerm(varpTypes, id) {
+			saved++
 		}
-		pkt.P4(uint32(out))
+	}
+	pkt.P2(uint16(saved))
+	for id, v := range p.varps {
+		if v != 0 && varpScopeIsPerm(varpTypes, id) {
+			pkt.P2(uint16(id))
+			pkt.PVarInt(v)
+		}
 	}
 
 	// Inventories. Placeholder count, then per-inv body, then backfill
@@ -127,4 +124,18 @@ func (p *Player) Save(invTypes *objtype.InvTypeConfigs, varpTypes *objtype.VarpT
 	crc := packet.GetCRC(pkt.Data, 0, len(pkt.Data))
 	pkt.P4(crc)
 	return pkt.Data
+}
+
+// varpScopeIsPerm reports whether varp id should be treated as
+// SCOPE_PERM for save purposes. TS Player.save consults
+// VarPlayerType.get(id).scope (Player.ts:217-228 @2e3bcf43); goscape's
+// nil-tolerance convention (nil varpTypes / out-of-range id / nil
+// config slot → PERM) is kept from the pre-A6 dense writer so test
+// fixtures that don't model scope still round-trip values.
+func varpScopeIsPerm(varpTypes *objtype.VarpTypeConfigs, id int) bool {
+	if varpTypes == nil || id >= len(varpTypes.Configs) {
+		return true
+	}
+	vt := varpTypes.Configs[id]
+	return vt == nil || vt.Scope == objtype.VarpScopePerm
 }

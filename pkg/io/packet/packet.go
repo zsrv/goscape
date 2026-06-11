@@ -306,6 +306,23 @@ func (p *Packet) GSmartS() uint16 {
 	}
 }
 
+// GVarInt gets a variable-length int written by PVarInt: bytes with the
+// MSB set are continuation groups carrying 7 payload bits each; the
+// first byte without the MSB terminates. Matches TS gVarInt
+// (Packet.ts:291-300 @Engine-TS 2e3bcf43): TS accumulates in int32
+// space (JS bitwise ops) and returns `(result | byte) >>> 0`; callers
+// store into an Int32Array, wrapping back to int32 — Go returns the
+// int32 bit pattern directly, which is bit-identical.
+func (p *Packet) GVarInt() int32 {
+	b := p.G1()
+	var result int32
+	for b&0x80 != 0 {
+		result = (result | int32(b&0x7F)) << 7
+		b = p.G1()
+	}
+	return result | int32(b)
+}
+
 // Writers
 
 // P1 puts 1 unsigned byte.
@@ -503,6 +520,29 @@ func (p *Packet) PSmartS(value int32) {
 	} else {
 		panic("value out of range")
 	}
+}
+
+// PVarInt puts a variable-length int: big-endian base-128 groups, MSB
+// continuation bit on every byte except the last (which carries the
+// low 7 bits). 1 byte for 0..0x7F, up to 5 bytes for values with bit
+// 28+ set. Negative values always encode as 5 bytes (the TS bit-mask
+// checks coerce to int32, so a negative has every high group non-zero).
+// Matches TS pVarInt (Packet.ts:388-404 @Engine-TS 2e3bcf43).
+func (p *Packet) PVarInt(value int32) {
+	u := uint32(value)
+	if u&0xFFFFFF80 != 0 {
+		if u&0xFFFFC000 != 0 {
+			if u&0xFFE00000 != 0 {
+				if u&0xF0000000 != 0 {
+					p.P1(uint8(u>>28) | 0x80)
+				}
+				p.P1(uint8(u>>21) | 0x80)
+			}
+			p.P1(uint8(u>>14) | 0x80)
+		}
+		p.P1(uint8(u>>7) | 0x80)
+	}
+	p.P1(uint8(u & 0x7F))
 }
 
 // RSA

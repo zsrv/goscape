@@ -1,11 +1,11 @@
 package world
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/inventory"
@@ -13,41 +13,16 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
-// TestSave_FiltersTempScopeVarpsToZero pins the TS-faithful save-side
-// varp-scope filter (NAI-220). TS Player.save() writes 0 for any varp
-// slot whose VarpType.Scope != PERM; goscape's pre-NAI-220 deviation
-// (NAI-PLAYERLOADING-D-SAVE-VARPS-VERBATIM) wrote every value verbatim,
-// which let combat varns like %lastcombat and %aggressive_npc persist
-// across save/load and accumulate into stale state that broke
-// player_in_combat_check on existing accounts. New accounts (no save
-// yet) worked because they started with zeroed varps; existing
-// accounts hit "I'm already under attack!" on every attempted retarget
-// because the saved %lastcombat was always within +8 ticks of the
-// in-RAM map_clock after reload.
-//
-// Test setup: two varps, indices 0 and 1.
-//   - Index 0: scope=PERM, value=42 → must save verbatim.
-//   - Index 1: scope=TEMP, value=99 → must save as 0.
-func TestSave_FiltersTempScopeVarpsToZero(t *testing.T) {
-	p, invTypes := newTestPlayerForLoadSave(t)
-	p.varps = []int32{42, 99}
-
-	v0 := &objtype.VarPlayerType{Scope: objtype.VarpScopePerm}
-	v0.ID = 0
-	v1 := &objtype.VarPlayerType{Scope: objtype.VarpScopeTemp}
-	v1.ID = 1
-	varpTypes := &objtype.VarpTypeConfigs{Configs: []*objtype.VarPlayerType{v0, v1}}
-
-	sav := p.Save(invTypes, varpTypes)
-
-	// Find the varp block in the SAV. Header layout (post-PlayerStat
-	// loop) is: u2 varpCount, varpCount × u4. Decode header to seek.
-	pkt := packet.NewPacket(sav)
+// seekToVarpBlock walks pkt past the SAV header (magic, version, coords,
+// appearance, energy, playtime, 21 stats) so the next read is the u2
+// varp count. Fails the test on magic/version mismatch.
+func seekToVarpBlock(t *testing.T, pkt *packet.Packet, wantVersion uint16) {
+	t.Helper()
 	if got := pkt.G2(); got != SavMagic {
 		t.Fatalf("magic: got 0x%04x, want 0x%04x", got, SavMagic)
 	}
-	if got := pkt.G2(); got != SavVersion {
-		t.Fatalf("version: got %d, want %d", got, SavVersion)
+	if got := pkt.G2(); got != wantVersion {
+		t.Fatalf("version: got %d, want %d", got, wantVersion)
 	}
 	pkt.G2() // x
 	pkt.G2() // z
@@ -65,19 +40,59 @@ func TestSave_FiltersTempScopeVarpsToZero(t *testing.T) {
 		pkt.G4() // stat xp
 		pkt.G1() // level
 	}
+}
+
+// TestSave_SparseVarps_SkipsTempScopeAndZeros pins the rev-254 A6
+// sparse varp save block (TS Player.save @2e3bcf43 Player.ts:215-229):
+// p2 count of non-zero SCOPE_PERM varps, then per varp p2(id) +
+// pVarInt(value). Non-PERM varps are NEVER saved (subsumes NAI-220's
+// v6-era zero-out, which had fixed the %lastcombat / %aggressive_npc
+// stale-temp-varp combat bug) and zero-valued PERM varps are skipped.
+//
+// Test setup: four varps.
+//   - Index 0: scope=PERM, value=42 → saved as (id=0, varint 42).
+//   - Index 1: scope=TEMP, value=99 → never saved.
+//   - Index 2: scope=PERM, value=0  → skipped (zero).
+//   - Index 3: scope=PERM, value=-1 → saved as (id=3, varint -1)
+//     (pins the negative pVarInt path: 5-byte encoding).
+func TestSave_SparseVarps_SkipsTempScopeAndZeros(t *testing.T) {
+	p, invTypes := newTestPlayerForLoadSave(t)
+	p.varps = []int32{42, 99, 0, -1}
+
+	v0 := &objtype.VarPlayerType{Scope: objtype.VarpScopePerm}
+	v0.ID = 0
+	v1 := &objtype.VarPlayerType{Scope: objtype.VarpScopeTemp}
+	v1.ID = 1
+	v2 := &objtype.VarPlayerType{Scope: objtype.VarpScopePerm}
+	v2.ID = 2
+	v3 := &objtype.VarPlayerType{Scope: objtype.VarpScopePerm}
+	v3.ID = 3
+	varpTypes := &objtype.VarpTypeConfigs{Configs: []*objtype.VarPlayerType{v0, v1, v2, v3}}
+
+	sav := p.Save(invTypes, varpTypes)
+
+	pkt := packet.NewPacket(sav)
+	seekToVarpBlock(t, pkt, SavVersion)
 
 	varpCount := int(pkt.G2())
 	if varpCount != 2 {
-		t.Fatalf("varpCount: got %d, want 2", varpCount)
+		t.Fatalf("varpCount: got %d, want 2 (only non-zero PERM varps)", varpCount)
 	}
-	v0Saved := int32(pkt.G4())
-	v1Saved := int32(pkt.G4())
-
-	if v0Saved != 42 {
-		t.Errorf("varp[0] (PERM): got %d, want 42 (verbatim)", v0Saved)
+	if id := pkt.G2(); id != 0 {
+		t.Errorf("entry 0 id: got %d, want 0", id)
 	}
-	if v1Saved != 0 {
-		t.Errorf("varp[1] (TEMP): got %d, want 0 (scope-filtered) — stale temp varps cause combat to fail across save/load", v1Saved)
+	if v := pkt.GVarInt(); v != 42 {
+		t.Errorf("entry 0 value: got %d, want 42", v)
+	}
+	if id := pkt.G2(); id != 3 {
+		t.Errorf("entry 1 id: got %d, want 3 (TEMP id 1 and zero id 2 skipped)", id)
+	}
+	if v := pkt.GVarInt(); v != -1 {
+		t.Errorf("entry 1 value: got %d, want -1 (negative pVarInt)", v)
+	}
+	// Stream alignment: the next byte is the inv count (2 seeded invs).
+	if got := pkt.G1(); got != 2 {
+		t.Errorf("byte after varp block: got %d, want invCount=2 — sparse block over/under-wrote", got)
 	}
 }
 
@@ -95,6 +110,12 @@ func TestVerifySave_AcceptsWellFormed(t *testing.T) {
 	if !VerifySave(sav) {
 		t.Error("VerifySave on well-formed v6 sav should be true")
 	}
+	// v7 (rev-254 A6 sparse-varp format) is the current version and must
+	// verify too.
+	sav = buildValidSav(t, 7, []byte{0xAA, 0xBB})
+	if !VerifySave(sav) {
+		t.Error("VerifySave on well-formed v7 sav should be true")
+	}
 }
 
 func TestVerifySave_RejectsBadMagic(t *testing.T) {
@@ -106,9 +127,9 @@ func TestVerifySave_RejectsBadMagic(t *testing.T) {
 }
 
 func TestVerifySave_RejectsUnsupportedVer(t *testing.T) {
-	sav := buildValidSav(t, 7, []byte{0x00})
+	sav := buildValidSav(t, 8, []byte{0x00})
 	if VerifySave(sav) {
-		t.Error("VerifySave with version=7 should be false")
+		t.Error("VerifySave with version=8 should be false (SavVersion=7 at rev-254 A6)")
 	}
 	sav = buildValidSav(t, 0, []byte{0x00})
 	if VerifySave(sav) {
@@ -465,31 +486,187 @@ func buildValidSav(t *testing.T, version uint16, payload []byte) []byte {
 	return out
 }
 
-func TestSave_V6_RoundTripsBytePerfect(t *testing.T) {
+// TestSave_V6Fixture_MigratesToV7AndRoundTrips replaces the v6
+// byte-perfect pin (Save now emits v7 — the sparse varp block can't be
+// byte-identical to the dense fixture): load the TS-generated v6
+// fixture, re-save (must emit v7), and reload — every field must
+// survive the dense→sparse migration. This is the upgrade path every
+// pre-A6 save takes on its first post-A6 login.
+func TestSave_V6Fixture_MigratesToV7AndRoundTrips(t *testing.T) {
 	raw := mustReadFixture(t, "v6.sav")
 	p, cfgs := newTestPlayerForLoadSave(t)
 	if err := LoadSave(p, raw, cfgs, nil); err != nil {
 		t.Fatalf("LoadSave(v6): %v", err)
 	}
-	// The committed v6.sav fixture has invCount=0 — the tsx
-	// fixture-generation script's addInv helper did not populate
-	// player.invs in Engine-TS's checkout. newTestPlayerForLoadSave
-	// pre-seeds p.invs with two empty perm-scoped inventories so the
-	// decode-side tests have somewhere to write into; but on the
-	// round-trip we must clear them, because TS save() emits every
-	// entry in `this.invs` regardless of contents and the source
-	// player on the TS side had an empty map.
+	// The committed v6.sav fixture has invCount=0 (see the fixture
+	// README); clear the test-seeded invs so the re-save matches the
+	// fixture player's empty map.
 	p.invs = nil
 	got := p.Save(cfgs, nil)
-	if !bytes.Equal(got, raw) {
-		diff := firstDiff(got, raw)
-		t.Fatalf("Save() drift vs v6.sav (got %d bytes, want %d):\n"+
-			"  first-diff at byte %d\n"+
-			"  got [%d..%d]: %x\n"+
-			"  want[%d..%d]: %x",
-			len(got), len(raw), diff,
-			max(0, diff-8), min(len(got), diff+16), got[max(0, diff-8):min(len(got), diff+16)],
-			max(0, diff-8), min(len(raw), diff+16), raw[max(0, diff-8):min(len(raw), diff+16)])
+
+	// Header: same magic, NEW version.
+	if magic := binary.BigEndian.Uint16(got[0:2]); magic != SavMagic {
+		t.Fatalf("re-save magic: got 0x%04x, want 0x%04x", magic, SavMagic)
+	}
+	if ver := binary.BigEndian.Uint16(got[2:4]); ver != 7 {
+		t.Fatalf("re-save version: got %d, want 7 (rev-254 A6)", ver)
+	}
+
+	// Reload the v7 bytes into a fresh player and compare all fields.
+	q, _ := newTestPlayerForLoadSave(t)
+	if err := LoadSave(q, got, cfgs, nil); err != nil {
+		t.Fatalf("LoadSave(re-saved v7): %v", err)
+	}
+	if q.x != p.x || q.z != p.z || q.level != p.level {
+		t.Errorf("coords: got (%d,%d,%d), want (%d,%d,%d)", q.x, q.z, q.level, p.x, p.z, p.level)
+	}
+	if q.body != p.body || q.colors != p.colors || q.gender != p.gender {
+		t.Errorf("appearance drifted across v6→v7 migration")
+	}
+	if q.runenergy != p.runenergy || q.playtime != p.playtime {
+		t.Errorf("energy/playtime: got (%d,%d), want (%d,%d)", q.runenergy, q.playtime, p.runenergy, p.playtime)
+	}
+	if q.stats != p.stats || q.levels != p.levels || q.baseLevels != p.baseLevels {
+		t.Errorf("stats drifted across v6→v7 migration")
+	}
+	if !slices.Equal(q.varps, p.varps) {
+		t.Errorf("varps drifted across v6→v7 migration:\n got %v\nwant %v", q.varps, p.varps)
+	}
+	if q.afkZones != p.afkZones || q.lastAfkZone != p.lastAfkZone {
+		t.Errorf("afk zones drifted across v6→v7 migration")
+	}
+	if q.publicChat != p.publicChat || q.privateChat != p.privateChat || q.tradeDuel != p.tradeDuel {
+		t.Errorf("chat modes drifted across v6→v7 migration")
+	}
+	if q.lastLoginTime != p.lastLoginTime {
+		t.Errorf("lastLoginTime: got %d, want %d", q.lastLoginTime, p.lastLoginTime)
+	}
+}
+
+// TestLoadSave_V6Dense_SyntheticVarps pins the legacy dense varp-block
+// decode behind the version gate (PlayerLoading.ts:104-108 @2e3bcf43:
+// version < 7 reads varpCount × g4s indexed by position). Old saves
+// must keep loading with identical varps after the A6 format change.
+func TestLoadSave_V6Dense_SyntheticVarps(t *testing.T) {
+	pkt := packet.NewPacket(make([]byte, 0, 256))
+	pkt.P2(SavMagic)
+	pkt.P2(6) // OLD version: dense varp block
+	pkt.P2(0)
+	pkt.P2(0)
+	pkt.P1(0) // x, z, level
+	for range 7 {
+		pkt.P1(0)
+	}
+	for range 5 {
+		pkt.P1(0)
+	}
+	pkt.P1(0)   // gender
+	pkt.P2(100) // runenergy
+	pkt.P4(0)   // playtime (v2+)
+	for range 21 {
+		pkt.P4(0)
+		pkt.P1(1)
+	}
+	// Dense varp block: count=3, i32 values by position (incl. negative).
+	pkt.P2(3)
+	pkt.P4(7)
+	negThree := int32(-3)
+	pkt.P4(uint32(negThree))
+	pkt.P4(0)
+	pkt.P1(0) // invCount=0
+	pkt.P1(0) // v3+: afkCount=0
+	pkt.P2(0) // lastAfkZone
+	pkt.P1(0) // v4+: chat modes
+	pkt.P8(uint64(1718000000000)) // v6+: lastLoginTime
+	crc := packet.GetCRC(pkt.Data, 0, len(pkt.Data))
+	pkt.P4(crc)
+	sav := pkt.Data
+
+	p, cfgs := newTestPlayerForLoadSave(t)
+	p.varps = make([]int32, 3)
+	if err := LoadSave(p, sav, cfgs, nil); err != nil {
+		t.Fatalf("LoadSave(synthetic dense v6): %v", err)
+	}
+	if want := []int32{7, -3, 0}; !slices.Equal(p.varps, want) {
+		t.Errorf("varps: got %v, want %v (dense v6 load must stay positional)", p.varps, want)
+	}
+	if p.lastLoginTime != 1718000000000 {
+		t.Errorf("lastLoginTime: got %d, want 1718000000000 — dense varp decode desynced the stream", p.lastLoginTime)
+	}
+}
+
+// TestLoadSave_V7_OutOfRangeVarpIDSkipped pins the f4334477 contract on
+// the NEW sparse branch: a saved varp id >= the registry size is
+// dropped WITHOUT panicking and WITHOUT desyncing the stream (the
+// varint value is still consumed). TS parity: Int32Array out-of-range
+// writes are silent no-ops (PlayerLoading.ts:100-103 @2e3bcf43).
+func TestLoadSave_V7_OutOfRangeVarpIDSkipped(t *testing.T) {
+	pkt := packet.NewPacket(make([]byte, 0, 256))
+	pkt.P2(SavMagic)
+	pkt.P2(7) // NEW version: sparse varp block
+	pkt.P2(0)
+	pkt.P2(0)
+	pkt.P1(0) // x, z, level
+	for range 7 {
+		pkt.P1(0)
+	}
+	for range 5 {
+		pkt.P1(0)
+	}
+	pkt.P1(0)   // gender
+	pkt.P2(100) // runenergy
+	pkt.P4(0)   // playtime
+	for range 21 {
+		pkt.P4(0)
+		pkt.P1(1)
+	}
+	// Sparse varp block: count=3 — in-range id 1, OOB id 300 (registry
+	// has 2 slots) with a 5-byte negative varint, then another in-range
+	// id 0 AFTER the OOB entry to prove alignment survived.
+	pkt.P2(3)
+	pkt.P2(1)
+	pkt.PVarInt(5)
+	pkt.P2(300)
+	pkt.PVarInt(-9)
+	pkt.P2(0)
+	pkt.PVarInt(11)
+	pkt.P1(0)                     // invCount=0
+	pkt.P1(0)                     // afkCount=0
+	pkt.P2(0)                     // lastAfkZone
+	pkt.P1(0)                     // chat modes
+	pkt.P8(uint64(1718000000001)) // lastLoginTime
+	crc := packet.GetCRC(pkt.Data, 0, len(pkt.Data))
+	pkt.P4(crc)
+	sav := pkt.Data
+
+	p, cfgs := newTestPlayerForLoadSave(t)
+	p.varps = make([]int32, 2) // registry smaller than saved id 300
+	if err := LoadSave(p, sav, cfgs, nil); err != nil {
+		t.Fatalf("LoadSave(v7 with OOB varp id): %v — must skip, not fail", err)
+	}
+	if want := []int32{11, 5}; !slices.Equal(p.varps, want) {
+		t.Errorf("varps: got %v, want %v (OOB id dropped; later entries still applied)", p.varps, want)
+	}
+	if p.lastLoginTime != 1718000000001 {
+		t.Errorf("lastLoginTime: got %d, want 1718000000001 — OOB varint not consumed, stream desynced", p.lastLoginTime)
+	}
+}
+
+// TestSaveLoad_V7_RoundTripVarpsInclNegatives pins the full
+// Save→LoadSave v7 round-trip through the sparse encoder: negative
+// values (5-byte varints), max int32, and zero-skip all survive.
+func TestSaveLoad_V7_RoundTripVarpsInclNegatives(t *testing.T) {
+	src, cfgs := newTestPlayerForLoadSave(t)
+	src.varps = []int32{-1000000, 0, 2147483647, -1, 128}
+	sav := src.Save(cfgs, nil) // nil varpTypes: all non-zero varps saved
+
+	dst, _ := newTestPlayerForLoadSave(t)
+	dst.varps = make([]int32, 5)
+	if err := LoadSave(dst, sav, cfgs, nil); err != nil {
+		t.Fatalf("LoadSave(v7 round-trip): %v", err)
+	}
+	if !slices.Equal(dst.varps, src.varps) {
+		t.Errorf("varps: got %v, want %v", dst.varps, src.varps)
 	}
 }
 
@@ -574,7 +751,7 @@ func TestLoadSave_BadMagicReturnsErr(t *testing.T) {
 func TestLoadSave_VersionTooHigh_Err(t *testing.T) {
 	raw := mustReadFixture(t, "v6.sav")
 	raw[2] = 0x00
-	raw[3] = 0x07 // version 7
+	raw[3] = 0x08 // version 8 (one past SavVersion=7)
 	// Header mutation invalidates the trailing CRC. Recompute so the
 	// version-check arm fires, not the CRC arm.
 	binary.BigEndian.PutUint32(raw[len(raw)-4:], packet.GetCRC(raw, 0, len(raw)-4))
@@ -756,6 +933,8 @@ func TestLoadSave_SaveShorterThanRegistry_KeepsSeededTail(t *testing.T) {
 // direction: a save with MORE varps than the registry drops the extras
 // (TS Int32Array out-of-range writes are silent no-ops) while keeping the
 // stream aligned, so fields decoded after the varp block still land.
+// Since rev-254 A6 this exercises the v7 sparse path: ids 2 and 3 are
+// beyond the shrunken 2-slot registry and must be skipped.
 func TestLoadSave_SaveLongerThanRegistry_DropsExtras(t *testing.T) {
 	src, cfgs := newTestPlayerForLoadSave(t)
 	src.varps = []int32{7, 8, 9, 10} // save carries 4 varps

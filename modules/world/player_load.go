@@ -18,8 +18,12 @@ const (
 	SavMagic uint16 = 0x2004
 
 	// SavVersion is the current SAV format version emitted by (*Player).Save().
-	// Decoder supports v1..SavVersion. Matches TS PlayerLoading.SAV_VERSION.
-	SavVersion uint16 = 6
+	// Decoder supports v1..SavVersion. Matches TS PlayerLoading.SAV_VERSION
+	// (PlayerLoading.ts:14 @2e3bcf43). v7 (rev-254 A6) introduces the
+	// sparse varp block: p2 count, then per varp p2(id) + pVarInt(value)
+	// — only non-zero SCOPE_PERM varps; v1..v6 carry the dense
+	// count × i32 block.
+	SavVersion uint16 = 7
 )
 
 var (
@@ -155,41 +159,56 @@ func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs, varpTypes
 		p.levels[i] = pkt.G1()
 	}
 
-	// Varps: u16 count, then count × i32, OVERLAID into the existing
-	// p.varps. TS allocates player.vars once, registry-sized, in the
-	// Player constructor (Player.ts:423 `new Int32Array(VarPlayerType.count)`
-	// with per-type seeds at :429-435 — goscape mirror: initPlayerVarps),
-	// then PlayerLoading.ts:98-101 writes saved values in WITHOUT resizing.
+	// Varps: u16 count, then the version-gated block (PlayerLoading.ts:
+	// 98-108 @2e3bcf43), OVERLAID into the existing p.varps —
+	//   v7+:   varpCount × (u2 id + gVarInt value)   (sparse, rev-254 A6)
+	//   v1-v6: varpCount × i32, indexed by position  (dense)
+	// TS allocates player.vars once, registry-sized, in the Player
+	// constructor (Player.ts:433 `new Int32Array(VarPlayerType.count)`
+	// with per-type seeds at :439-447 — goscape mirror: initPlayerVarps),
+	// then PlayerLoading writes saved values in WITHOUT resizing.
 	// A save with fewer varps than the registry leaves the extra slots on
-	// their constructor seeds; a save with more silently drops the extras
-	// (JS Int32Array out-of-range writes are no-ops). Resizing p.varps to
-	// the SAVE count here (the pre-rev-245.2 behavior) crashed the login
-	// varp resync the first time the registry grew past an old save
-	// (found live in the rev-245.2 client smoke: 244-era save with 302
-	// varps vs 305 registry configs → index-out-of-range panic in
-	// processLogins).
-	//
-	// NAI-220 defensive cleanup: zero non-PERM scope varps at load time
-	// too. TS-faithful saves (post-NAI-220) already write 0 for these
-	// slots, so this is a no-op for new saves. The defensive read-side
-	// filter exists to retroactively scrub stale data from saves written
-	// by pre-NAI-220 goscape builds (NAI-PLAYERLOADING-D-SAVE-VARPS-VERBATIM
-	// era), where temp-scope combat varns like %lastcombat /
-	// %aggressive_npc persisted across save→load and broke
-	// player_in_combat_check on subsequent attacks. Nil-tolerant: if
-	// varpTypes is nil, loads verbatim.
+	// their constructor seeds; a save with more (dense) or with ids beyond
+	// the registry (sparse) silently drops them (JS Int32Array out-of-range
+	// writes are no-ops). Resizing p.varps to the SAVE count here (the
+	// pre-rev-245.2 behavior) crashed the login varp resync the first time
+	// the registry grew past an old save (found live in the rev-245.2
+	// client smoke: 244-era save with 302 varps vs 305 registry configs →
+	// index-out-of-range panic in processLogins, f4334477).
 	varpCount := int(pkt.G2())
-	for i := range varpCount {
-		v := int32(pkt.G4())
-		if i >= len(p.varps) {
-			continue // save longer than registry: drop, like TS OOB writes
-		}
-		if varpTypes != nil && i < len(varpTypes.Configs) {
-			if vt := varpTypes.Configs[i]; vt != nil && vt.Scope != objtype.VarpScopePerm {
-				v = 0
+	if version >= 7 {
+		for range varpCount {
+			id := int(pkt.G2())
+			v := pkt.GVarInt()
+			if id >= len(p.varps) {
+				// Saved id beyond the registry (registry shrank, or a
+				// corrupt id): drop, like TS Int32Array OOB writes —
+				// but only AFTER consuming the value so the stream
+				// stays aligned. The f4334477 contract holds: p.varps
+				// stays registry-sized, the save only overlays.
+				continue
 			}
+			p.varps[id] = v
 		}
-		p.varps[i] = v
+	} else {
+		// NAI-220 defensive scrub (legacy formats only): zero non-PERM
+		// scope varps at load time. v7+ saves never contain non-PERM
+		// varps (the sparse writer skips them), so the filter stays on
+		// the dense branch where pre-NAI-220 saves with stale temp
+		// varps (%lastcombat / %aggressive_npc) live. Nil-tolerant: if
+		// varpTypes is nil, loads verbatim.
+		for i := range varpCount {
+			v := int32(pkt.G4())
+			if i >= len(p.varps) {
+				continue // save longer than registry: drop, like TS OOB writes
+			}
+			if varpTypes != nil && i < len(varpTypes.Configs) {
+				if vt := varpTypes.Configs[i]; vt != nil && vt.Scope != objtype.VarpScopePerm {
+					v = 0
+				}
+			}
+			p.varps[i] = v
+		}
 	}
 
 	// Inventories: u1 count, then per-inv:
