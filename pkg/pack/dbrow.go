@@ -146,6 +146,13 @@ func packDbRowConfigs(
 					pd.P1(uint8(len(fields)))
 					for _, field := range fields {
 						for k, t := range types {
+							if k >= len(field.values) {
+								// Go-side guard: TS reads values[k] as
+								// undefined and fails inside
+								// lookupParamValue; Go would panic.
+								return nil, packStepError(name, "Data invalid in row, too few values for column %s (want %d, got %d)",
+									field.column, len(types), len(field.values))
+							}
 							val, err := lookupParamValue(t, field.values[k], lk)
 							if err != nil {
 								return nil, packStepError(name, "Data invalid in row, double-check the reference exists: data=%s,%s",

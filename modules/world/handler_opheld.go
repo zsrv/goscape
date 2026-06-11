@@ -279,6 +279,10 @@ func handleOpHeldU(p *Player, payload []byte) error {
 	}
 	s := p.client.server
 
+	// Decode stage (TS OpHeldUDecoder runs BEFORE the handler, so the
+	// length guard + field reads sitting ahead of gate 1 mirror the TS
+	// decoder/handler split; a short payload is unreachable from the
+	// framed read loop and drops the same way in both engines).
 	if len(payload) < 12 {
 		return nil
 	}
@@ -291,7 +295,8 @@ func handleOpHeldU(p *Player, payload []byte) error {
 	useSlot := int(r.G2())
 	useComId := int(r.G2())
 
-	// Gate 1: delayed FIRST. TS OpHeldUHandler.ts:16-19 @2e3bcf43.
+	// Gate 1: delayed FIRST among the handler gates.
+	// TS OpHeldUHandler.ts:16-19 @2e3bcf43.
 	if p.delayed && s.currentTick < p.delayedUntil {
 		return nil
 	}

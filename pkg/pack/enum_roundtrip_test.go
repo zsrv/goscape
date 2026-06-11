@@ -20,8 +20,8 @@ func TestPackConfigs_EnumRoundTrip_IntInt(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(srcDir, "pack", "enum.pack"), "0=days_per_month\n")
-	// Empty .pack files for the other 12 paramLookups slots so loadParamLookups succeeds.
-	for _, p := range []string{"obj", "loc", "interface", "struct", "category", "spotanim", "npc", "inv", "synth", "seq", "varp", "dbrow", "param"} {
+	// Empty .pack files for the other 13 paramLookups slots so loadParamLookups succeeds.
+	for _, p := range []string{"obj", "loc", "interface", "struct", "category", "spotanim", "npc", "inv", "synth", "seq", "varp", "dbrow", "param", "midi"} {
 		writeFile(t, filepath.Join(srcDir, "pack", p+".pack"), "")
 	}
 	writeFile(t, filepath.Join(scripts, "test.enum"),

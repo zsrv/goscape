@@ -142,6 +142,13 @@ func packDbTableConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *param
 					if flags&0x80 != 0 {
 						pd.P1(1) // field-count (always 1 per TS line 163)
 						for j, t := range col.types {
+							if j >= len(defaults[i]) {
+								// Go-side guard mirroring the dbrow one:
+								// short default tuples error instead of
+								// panicking on the index.
+								return nil, packStepError(name, "Data invalid in column, too few default values for %s (want %d, got %d)",
+									col.name, len(col.types), len(defaults[i]))
+							}
 							resolved, err := lookupParamValue(t, defaults[i][j], lk)
 							if err != nil {
 								// 2e3bcf43 (upstream 2dc4a811): TS

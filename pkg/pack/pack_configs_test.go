@@ -281,13 +281,13 @@ func setupParamFixture(t *testing.T, srcDir string, slotName, typeName, defaultV
 	}
 }
 
-// emptyTypedPacks creates the 12 non-varp typed-id .pack files as
+// emptyTypedPacks creates the 13 non-varp typed-id .pack files as
 // empty stubs, so loadParamLookups doesn't fail when the .param branch
 // fires. Used when the test's param uses a primitive default.
 func writeEmptyTypedPacks(t *testing.T, srcDir string) {
 	t.Helper()
 	packDir := filepath.Join(srcDir, "pack")
-	for _, kind := range []string{"enum", "obj", "loc", "interface", "struct", "category", "spotanim", "npc", "inv", "synth", "seq", "dbrow"} {
+	for _, kind := range []string{"enum", "obj", "loc", "interface", "struct", "category", "spotanim", "npc", "inv", "synth", "seq", "dbrow", "midi"} {
 		writeFile(t, filepath.Join(packDir, kind+".pack"), "")
 	}
 }
@@ -322,7 +322,7 @@ func TestPackConfigs_ParamWithTypedDefault(t *testing.T) {
 		"npc": {42: "kalphite_queen"},
 	})
 	// Stub the remaining 11 typed packs so loadParamLookups doesn't fail.
-	for _, kind := range []string{"enum", "obj", "loc", "interface", "struct", "category", "spotanim", "inv", "synth", "seq", "dbrow"} {
+	for _, kind := range []string{"enum", "obj", "loc", "interface", "struct", "category", "spotanim", "inv", "synth", "seq", "dbrow", "midi"} {
 		writeFile(t, filepath.Join(srcDir, "pack", kind+".pack"), "")
 	}
 	// npc.pack carries entry "kalphite_queen"; the unconditional packAndSaveNpc
@@ -399,7 +399,7 @@ func TestPackConfigs_ParamUnknownTypedDefault(t *testing.T) {
 	setupParamFixture(t, srcDir, "boss", "npc", "nonexistent_npc", map[string]map[int]string{
 		"npc": {0: "kalphite_queen"}, // doesn't include nonexistent_npc
 	})
-	for _, kind := range []string{"enum", "obj", "loc", "interface", "struct", "category", "spotanim", "inv", "synth", "seq", "dbrow"} {
+	for _, kind := range []string{"enum", "obj", "loc", "interface", "struct", "category", "spotanim", "inv", "synth", "seq", "dbrow", "midi"} {
 		writeFile(t, filepath.Join(srcDir, "pack", kind+".pack"), "")
 	}
 

@@ -192,6 +192,7 @@ func TestScriptVarTypeName_KnownCodes(t *testing.T) {
 		{objtype.ScriptVarTypeNpcStat, "npc_stat"},
 		{objtype.ScriptVarTypeIdkit, "idkit"},
 		{objtype.ScriptVarTypeDbrow, "dbrow"},
+		{objtype.ScriptVarTypeMidi, "midi"}, // 254 (2dc4a811)
 	}
 	for _, c := range cases {
 		if got := scriptVarTypeName(c.t); got != c.want {

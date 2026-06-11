@@ -230,6 +230,10 @@ func scriptVarTypeName(t objtype.ScriptVarType) string {
 		return "idkit"
 	case objtype.ScriptVarTypeDbrow:
 		return "dbrow"
+	case objtype.ScriptVarTypeMidi:
+		// 254 (2dc4a811): midi column type — ScriptVarType.getType
+		// 'midi' case. Same omission class as pack-media-compiler-1.
+		return "midi"
 	default:
 		return "unknown"
 	}
