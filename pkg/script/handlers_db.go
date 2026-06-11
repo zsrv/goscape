@@ -69,21 +69,25 @@ func handleDbGetFieldCount(s *ScriptState) error {
 }
 
 // handleDbGetField (DB_GETFIELD, opcode 7502) pops listIndex, a
-// (table << 12 | column << 4) packed key, and a row id, then pushes ALL
-// values in the column in order. Type-directed push uses the table's type
-// schema (not the row's). When the row's TableID doesn't match the packed
-// table, falls back to the table's column default.
+// (table << 12 | column << 4 | (tupleIndex+1)) packed key, and a row id,
+// then pushes the requested column values. Type-directed push uses the
+// table's type schema (not the row's). When the row's TableID doesn't
+// match the packed table, falls back to the table's column default.
 //
-// 244 change (TS DbOps.ts:97-121): the low 4 bits of the packed key (the
-// 225 tupleIndex nibble) are no longer read; the tuple-index derivation,
-// its bounds check, and the off/length windowing are all removed. The loop
-// now runs over the full column width (len(valueTypes)), matching TS's
-// `for (let i = 0; i < values.length; i++)` where values.length ==
-// len(valueTypes) for a single list entry.
+// 254 pin (TS DbOps.ts:97-133 @2e3bcf43) RESTORES the tuple-index nibble
+// that 244 dropped: `tupleIndex = (packed & 0xF) - 1`; when >= 0 the push
+// loop windows to [tupleIndex, tupleIndex+1) after an out-of-bounds check:
+//
+//	if (tupleIndex >= len) {
+//	    throw new Error(`Tuple index out-of-bounds. Requested: ${tupleIndex}, Max: ${len}`);
+//	}
+//
+// tupleIndex < 0 (nibble 0) pushes the full column width, matching TS's
+// `for (let i = off; i < len; i++)`.
 //
 // Note on Go shape: GetValue / GetDefault return parallel ints/strs slices
 // positionally indexed by the column's type list — valueTypes[i] selects
-// which slice to read at position i. The full-width loop preserves that.
+// which slice to read at position i. The windowed loop preserves that.
 func handleDbGetField(s *ScriptState) error {
 	listIndex := s.PopInt()
 	tableColumnPacked := s.PopInt()
@@ -91,6 +95,7 @@ func handleDbGetField(s *ScriptState) error {
 
 	table := (tableColumnPacked >> 12) & 0xffff
 	column := (tableColumnPacked >> 4) & 0x7f
+	tupleIndex := (tableColumnPacked & 0xf) - 1
 
 	if err := checkDbRow(s, row, "DB_GETFIELD"); err != nil {
 		return err
@@ -103,6 +108,17 @@ func handleDbGetField(s *ScriptState) error {
 	tableType := s.Configs.DbTableType(table)
 	valueTypes := tableType.Types[column]
 
+	// TS DbOps.ts:104-113 @2e3bcf43 — tuple windowing with bounds check.
+	off := 0
+	end := len(valueTypes)
+	if tupleIndex >= 0 {
+		if tupleIndex >= end {
+			return fmt.Errorf("DB_GETFIELD: Tuple index out-of-bounds. Requested: %d, Max: %d", tupleIndex, end)
+		}
+		off = tupleIndex
+		end = tupleIndex + 1
+	}
+
 	var ints []int32
 	var strs []string
 	if rowType.TableID != table {
@@ -111,7 +127,7 @@ func handleDbGetField(s *ScriptState) error {
 		ints, strs, _ = rowType.GetValue(column, listIndex, tableType)
 	}
 
-	for i := range valueTypes {
+	for i := off; i < end; i++ {
 		if valueTypes[i] == objtype.ScriptVarTypeString {
 			s.PushString(strs[i])
 		} else {

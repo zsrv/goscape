@@ -140,6 +140,10 @@ func (pt *ParamType) GetType() string {
 		return "stat"
 	case ScriptVarTypeInterface:
 		return "interface"
+	case ScriptVarTypeMidi:
+		// TS ParamType.getType case ScriptVarType.MIDI → 'midi'
+		// (ParamType.ts:120-121 @2e3bcf43, added at the 254 pin).
+		return "midi"
 	default:
 		return "unknown"
 	}

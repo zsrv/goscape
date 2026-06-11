@@ -2,7 +2,6 @@ package script
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"math/bits"
 	"math/rand/v2"
@@ -289,41 +288,42 @@ func handleSetBitRangeToInt(s *ScriptState) error {
 // -- Random --
 //
 // TS uses the shared JavaRandom PRNG (java.util.Random port); goscape uses
-// math/rand/v2 — sequences differ but the distribution contract is the same
-// (uniform over [0, bound)). 254 (TS NumberOps.ts:32-40 @43e02957) drops the
-// 245.2 Math.max(0,·) clamp, exposing JavaRandom.nextInt's bound guard:
-// checkIsPositiveInt throws RangeError on bound < 0 (JavaRandom.ts:58-62),
-// while bound == 0 does NOT throw — it satisfies the power-of-two branch
-// ((0 & -0) === 0, JavaRandom.ts:93-96) and returns 0.
+// math/rand/v2 — sequences differ but the distribution contract is the same.
+// At the 254 pin (TS NumberOps.ts:31-39 @2e3bcf43) RANDOM/RANDOMINC moved
+// off nextInt onto nextDouble:
+//
+//	[ScriptOpcode.RANDOM]:    state.pushInt(JavaRandom.nextDouble() * n);
+//	[ScriptOpcode.RANDOMINC]: state.pushInt(JavaRandom.nextDouble() * (n + 1));
+//
+// pushInt coerces via toInt32 (truncation toward zero), so:
+//   - bound > 0: uniform over [0, bound) — same as rand.IntN(bound).
+//   - bound == 0: always 0.
+//   - bound < 0: nextDouble()*bound ∈ (bound, 0], truncated toward zero —
+//     uniform over {bound+1, ..., 0}, i.e. -rand.IntN(-bound). The 43e02957
+//     RangeError on negative bounds is GONE (nextDouble has no bound guard).
+
+// randTruncDouble mirrors TS `toInt32(nextDouble() * bound)` for any sign
+// of bound (see the block comment above).
+func randTruncDouble(bound int) int {
+	switch {
+	case bound > 0:
+		return rand.IntN(bound)
+	case bound < 0:
+		return -rand.IntN(-bound)
+	default:
+		return 0
+	}
+}
 
 func handleRandom(s *ScriptState) error {
 	n := s.PopInt()
-	if n < 0 {
-		// TS: JavaRandom.nextInt(n) throws RangeError (JavaRandom.ts:58-62).
-		return fmt.Errorf("RANDOM: bound must be non-negative: %d", n)
-	}
-	if n == 0 {
-		// TS: nextInt(0) hits the power-of-two branch and returns 0;
-		// Go rand.IntN(0) would panic, so special-case it.
-		s.PushInt(0)
-		return nil
-	}
-	s.PushInt(rand.IntN(n))
+	s.PushInt(randTruncDouble(n))
 	return nil
 }
 
 func handleRandomInc(s *ScriptState) error {
 	n := s.PopInt()
-	if n+1 < 0 {
-		// TS: JavaRandom.nextInt(n+1) throws RangeError (JavaRandom.ts:58-62).
-		return fmt.Errorf("RANDOMINC: bound must be non-negative: n=%d, bound=n+1=%d", n, n+1)
-	}
-	if n+1 == 0 {
-		// TS: nextInt(0) returns 0 (power-of-two branch); avoid IntN(0) panic.
-		s.PushInt(0)
-		return nil
-	}
-	s.PushInt(rand.IntN(n + 1))
+	s.PushInt(randTruncDouble(n + 1))
 	return nil
 }
 

@@ -61,3 +61,14 @@ func TestNewParamType_DefaultAutoDisableTrue(t *testing.T) {
 		t.Fatalf("AutoDisable default = false, want true (TS ParamType.ts:64)")
 	}
 }
+
+// TestParamTypeGetType_Midi pins TS ParamType.getType case
+// ScriptVarType.MIDI -> 'midi' (ParamType.ts:120-121 @2e3bcf43, added
+// at the 254 pin).
+func TestParamTypeGetType_Midi(t *testing.T) {
+	pt := NewParamType(0)
+	pt.Type = ScriptVarTypeMidi
+	if got := pt.GetType(); got != "midi" {
+		t.Errorf("GetType(MIDI=77): got %q, want \"midi\" (TS ParamType.ts:120-121 @2e3bcf43)", got)
+	}
+}

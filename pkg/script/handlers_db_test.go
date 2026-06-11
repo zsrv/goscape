@@ -232,15 +232,17 @@ func TestHandleDbGetField_ListIndexOutOfRangeFallsBack(t *testing.T) {
 	}
 }
 
-// TestHandleDbGetField_TupleIndexIgnored244 pins the 244 contract: the low
-// 4 bits of the packed key (the 225 tupleIndex nibble) are now ignored.
-// GETFIELD pushes ALL values of the column regardless of the nibble value.
-// TS 244 DbOps.ts:97-121 — tupleIndex derivation and bounds-check removed;
-// the loop runs over the full column width (values.length == len(valueTypes)).
+// TestHandleDbGetField_TupleIndexWindows pins the 254-pin contract: the
+// low 4 bits of the packed key (the tupleIndex nibble, encoded as
+// tupleIndex+1) RE-select a single tuple position. TS DbOps.ts:97-133
+// @2e3bcf43 restores the derivation 244 dropped:
 //
-// 225 would have sub-selected tuple index 1 and pushed only IntStack[20].
-// 244 pushes BOTH 10 and 20.
-func TestHandleDbGetField_TupleIndexIgnored244(t *testing.T) {
+//	const tupleIndex = (packed & 0xF) - 1;
+//	if (tupleIndex >= 0) { off = tupleIndex; len = tupleIndex + 1; }
+//
+// With column [INT, INT] = [10, 20] and nibble 2 (tupleIndex 1), only 20
+// is pushed (244 pushed both).
+func TestHandleDbGetField_TupleIndexWindows(t *testing.T) {
 	// Column 0 becomes [INT, INT]; row 0 has values [10, 20].
 	cfg := buildDbFixture()
 	cfg.tables[7].Types[0] = []objtype.ScriptVarType{objtype.ScriptVarTypeInt, objtype.ScriptVarTypeInt}
@@ -250,47 +252,51 @@ func TestHandleDbGetField_TupleIndexIgnored244(t *testing.T) {
 
 	s := newDbState(cfg)
 	s.PushInt(0)
-	// packed = (table<<12)|(column<<4)|2 — low nibble non-zero (225 would
-	// sub-select tuple index 1); 244 ignores it and pushes both values.
-	s.PushInt(pack(7, 0, 1)) // low 4 bits = 2 (tupleIndex+1 encoding)
+	s.PushInt(pack(7, 0, 1)) // low 4 bits = 2 (tupleIndex+1 encoding) → select index 1
 	s.PushInt(0)             // listIndex
 
 	if err := handleDbGetField(s); err != nil {
 		t.Fatalf("handleDbGetField: %v", err)
 	}
-	// Both values must be pushed: IntStack[0]=10 (first), IntStack[1]=20 (second).
-	if s.ISP != 2 {
-		t.Fatalf("ISP: want 2 (both values pushed), got %d", s.ISP)
+	if s.ISP != 1 {
+		t.Fatalf("ISP: want 1 (only the selected tuple pushed — TS off/len windowing @2e3bcf43), got %d", s.ISP)
 	}
-	if s.IntStack[0] != 10 {
-		t.Errorf("IntStack[0]: want 10, got %d", s.IntStack[0])
+	if s.IntStack[0] != 20 {
+		t.Errorf("IntStack[0]: want 20 (tuple index 1), got %d", s.IntStack[0])
 	}
-	if s.IntStack[1] != 20 {
-		t.Errorf("IntStack[1]: want 20, got %d", s.IntStack[1])
+
+	// Nibble 0 (tupleIndex -1) still pushes the full column.
+	s2 := newDbState(cfg)
+	s2.PushInt(0)
+	s2.PushInt(pack(7, 0, -1))
+	s2.PushInt(0)
+	if err := handleDbGetField(s2); err != nil {
+		t.Fatalf("handleDbGetField (no tuple): %v", err)
+	}
+	if s2.ISP != 2 || s2.IntStack[0] != 10 || s2.IntStack[1] != 20 {
+		t.Errorf("full-column push: want ISP=2 [10 20], got ISP=%d [%d %d]", s2.ISP, s2.IntStack[0], s2.IntStack[1])
 	}
 }
 
-// TestHandleDbGetField_TupleIndex_OutOfBounds_244 — the 225 "tuple index
-// out-of-bounds" error path no longer exists at 244 (TS DbOps.ts:97-121
-// removed the nibble derivation and its bounds check entirely). Packing a
-// nibble that would have been OOB at 225 now succeeds and pushes the full
-// column.
-func TestHandleDbGetField_TupleIndex_OutOfBounds_244(t *testing.T) {
+// TestHandleDbGetField_TupleIndex_OutOfBounds errors with the TS message
+// shape when the selected tuple index is >= the column width. TS
+// DbOps.ts:106-108 @2e3bcf43:
+//
+//	throw new Error(`Tuple index out-of-bounds. Requested: ${tupleIndex}, Max: ${len}`);
+func TestHandleDbGetField_TupleIndex_OutOfBounds(t *testing.T) {
 	cfg := buildDbFixture()
-	// Column 0 is [INT] (width 1). At 225, tupleIndex=1 in a width-1 column
-	// was OOB. At 244, the nibble is ignored; the full column (one INT) is
-	// pushed without error.
+	// Column 0 is [INT] (width 1) — tupleIndex 1 is OOB.
 	s := newDbState(cfg)
 	s.PushInt(0)
-	s.PushInt(pack(7, 0, 1)) // nibble that was OOB at 225
+	s.PushInt(pack(7, 0, 1))
 	s.PushInt(0)
 
-	if err := handleDbGetField(s); err != nil {
-		t.Fatalf("244 contract: no error expected for non-zero nibble, got %v", err)
+	err := handleDbGetField(s)
+	if err == nil {
+		t.Fatal("want tuple OOB error (TS DbOps.ts:106-108 @2e3bcf43), got nil")
 	}
-	// Column 0 has a single INT value of 42.
-	if s.ISP != 1 || s.IntStack[0] != 42 {
-		t.Errorf("244 full-column push: want ISP=1 top=42, got ISP=%d top=%d", s.ISP, s.IntStack[0])
+	if !strings.Contains(err.Error(), "Tuple index out-of-bounds. Requested: 1, Max: 1") {
+		t.Errorf("error message: got %q, want TS shape 'Tuple index out-of-bounds. Requested: 1, Max: 1'", err.Error())
 	}
 }
 

@@ -168,43 +168,54 @@ func runSingleOpExpectAbort(t *testing.T, op Opcode, inputs []int) {
 	}
 }
 
-// TestRandomNegativeBoundAborts — 254 drops the 245.2 Math.max(0,·) clamp
-// (TS NumberOps.ts:32-40 @43e02957). JavaRandom.nextInt throws RangeError
-// on bound < 0 (JavaRandom.ts:58-62 checkIsPositiveInt). Note nextInt(0)
-// does NOT throw: bound=0 satisfies the power-of-two branch
-// ((0 & -0) === 0, JavaRandom.ts:93-96) and returns 0 — so only strictly
-// negative bounds abort the script.
-func TestRandomNegativeBoundAborts(t *testing.T) {
-	runSingleOpExpectAbort(t, OpRandom, []int{-5})
-	runSingleOpExpectAbort(t, OpRandom, []int{-1})
+// TestRandomNegativeBoundTruncatesTowardZero — the 254 pin moves RANDOM
+// off nextInt onto nextDouble (TS NumberOps.ts:31-34 @2e3bcf43):
+// pushInt(nextDouble() * n) with toInt32 truncation. For n < 0 the
+// product lies in (n, 0] and truncates toward zero, so the result is
+// uniform over {n+1, ..., 0} — no RangeError (the 43e02957-era
+// nextInt bound guard no longer runs).
+func TestRandomNegativeBoundTruncatesTowardZero(t *testing.T) {
+	for range 100 {
+		got := runSingleOp(t, OpRandom, []int{-5})
+		if got < -4 || got > 0 {
+			t.Errorf("OpRandom(-5): got %d, want [-4..0] (nextDouble()*-5 truncated toward zero)", got)
+		}
+	}
+	if got := runSingleOp(t, OpRandom, []int{-1}); got != 0 {
+		t.Errorf("OpRandom(-1): got %d, want 0 (nextDouble()*-1 ∈ (-1,0] truncates to 0)", got)
+	}
 }
 
-// TestRandomZeroBoundPushesZero — random(0) → nextInt(0) → 0 (the TS
-// power-of-two branch, JavaRandom.ts:93-96; no throw since
-// checkIsPositiveInt only rejects bound < 0).
+// TestRandomZeroBoundPushesZero — random(0) → nextDouble()*0 → 0.
 func TestRandomZeroBoundPushesZero(t *testing.T) {
 	if got := runSingleOp(t, OpRandom, []int{0}); got != 0 {
-		t.Errorf("OpRandom(0): got %d, want 0 (nextInt(0) power-of-two branch)", got)
+		t.Errorf("OpRandom(0): got %d, want 0 (nextDouble()*0)", got)
 	}
 }
 
-// TestRandomIncNegativeBoundAborts — randominc(n) calls nextInt(n+1), so
-// n <= -2 aborts (bound < 0) while n = -1 (nextInt(0)) and n = 0
-// (nextInt(1)) both push 0. TS NumberOps.ts:37-40 + JavaRandom.ts:58-62
-// @43e02957.
-func TestRandomIncNegativeBoundAborts(t *testing.T) {
-	runSingleOpExpectAbort(t, OpRandomInc, []int{-2})
-	runSingleOpExpectAbort(t, OpRandomInc, []int{-100})
+// TestRandomIncNegativeBoundTruncatesTowardZero — randominc(n) pushes
+// toInt32(nextDouble() * (n+1)) at the 254 pin (TS NumberOps.ts:36-39
+// @2e3bcf43); n <= -2 yields a negative bound, uniform over {n+2..0}.
+func TestRandomIncNegativeBoundTruncatesTowardZero(t *testing.T) {
+	for range 100 {
+		got := runSingleOp(t, OpRandomInc, []int{-6})
+		if got < -4 || got > 0 {
+			t.Errorf("OpRandomInc(-6): got %d, want [-4..0] (nextDouble()*-5 truncated)", got)
+		}
+	}
+	if got := runSingleOp(t, OpRandomInc, []int{-2}); got != 0 {
+		t.Errorf("OpRandomInc(-2): got %d, want 0 (nextDouble()*-1 truncates to 0)", got)
+	}
 }
 
-// TestRandomIncBoundaryPushesZero — randominc(-1) → nextInt(0) → 0;
-// randominc(0) → nextInt(1) → 0.
+// TestRandomIncBoundaryPushesZero — randominc(-1) → nextDouble()*0 → 0;
+// randominc(0) → toInt32(nextDouble()*1) → 0.
 func TestRandomIncBoundaryPushesZero(t *testing.T) {
 	if got := runSingleOp(t, OpRandomInc, []int{-1}); got != 0 {
-		t.Errorf("OpRandomInc(-1): got %d, want 0 (nextInt(0))", got)
+		t.Errorf("OpRandomInc(-1): got %d, want 0 (nextDouble()*0)", got)
 	}
 	if got := runSingleOp(t, OpRandomInc, []int{0}); got != 0 {
-		t.Errorf("OpRandomInc(0): got %d, want 0 (nextInt(1))", got)
+		t.Errorf("OpRandomInc(0): got %d, want 0 (toInt32(nextDouble()*1))", got)
 	}
 }
 

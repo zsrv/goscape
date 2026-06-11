@@ -1989,9 +1989,9 @@ func handleInvDebugName(s *ScriptState) error {
 // with RecipientSession from toPlayer.RecipientSession() (rev-254 A3:
 // session-only recipient keying, TS InvOps.ts:702-709 @2e3bcf43).
 //
-// rev-244 B4 delta: untradeables stop after invDel (no AddObj); tradeable
-// objs go to toPlayer (receiverID = toPlayer.UID()).
-// Mirrors TS InvOps.ts:672-727.
+// 254 pin delta: untradeables still drop, to the primary (from) player;
+// tradeables go to toPlayer (244 dropped untradeables entirely).
+// Mirrors TS InvOps.ts:672-722 @2e3bcf43.
 func handleBothDropSlot(s *ScriptState) error {
 	if err := requireActivePlayer(s, "BOTH_DROPSLOT"); err != nil {
 		return err
@@ -2112,13 +2112,22 @@ func handleBothDropSlot(s *ScriptState) error {
 		return nil
 	}
 
-	// rev-244 B4 delta: untradeables stop after delete — no AddObj call.
-	// Tradeable objs go to toPlayer. TS InvOps.ts:722-726.
+	// 254 pin (TS InvOps.ts:716-722 @2e3bcf43) — untradeables STILL drop,
+	// but to the primary (from) player; tradeables drop to toPlayer:
+	//
+	//	const dropObj: Obj = new Obj(..., obj.id, completed);
+	//	if (!objType.tradeable) { // untradeables still drop to the primary player
+	//	    World.addObj(dropObj, fromPlayer.hash64, duration);
+	//	} else {
+	//	    World.addObj(dropObj, toPlayer.hash64, duration);
+	//	}
+	//
+	// (244 stopped untradeables after the delete with no AddObj.)
+	receiver := toPlayer
 	if !objType.Tradeable {
-		return nil // TS 244 InvOps.ts:722-724 — stop untradables after delete.
+		receiver = fromPlayer
 	}
-
-	s.World.AddObj(level, x, z, objID, completed, duration, toPlayer.UID(), s.activePlayer().AccountID())
+	s.World.AddObj(level, x, z, objID, completed, duration, receiver.UID(), s.activePlayer().AccountID())
 	return nil
 }
 
@@ -2135,11 +2144,11 @@ func handleBothDropSlot(s *ScriptState) error {
 // PtrProtectedActivePlayer (intOperand=0) or PtrProtectedActivePlayer2
 // (intOperand=1). Gate checked after validators, before slot walk.
 //
-// rev-244 B4 delta: after inventory.delete(slot), untradeables continue
-// (no AddObj). Tradeable objs go to NO_RECEIVER (-1).
-// TS InvOps.ts:773-775: `if (!objType.tradeable) { continue; }`.
+// 254 pin delta: after inventory.delete(slot), untradeables still drop —
+// to the primary player; tradeables go to NO_RECEIVER (-1). TS
+// InvOps.ts:768-774 @2e3bcf43 (244 skipped untradeables with no AddObj).
 // Wealth log accumulates ALL items (including untradeables) before the
-// tradeable gate — matches TS InvOps.ts:758-769.
+// tradeable fork — matches TS InvOps.ts:752-765.
 func handleInvDropAll(s *ScriptState) error {
 	if err := requireActivePlayer(s, "INV_DROPALL"); err != nil {
 		return err
@@ -2239,14 +2248,21 @@ func handleInvDropAll(s *ScriptState) error {
 
 		inv.Delete(slot)
 
-		// rev-244 B4: untradeables stop after delete — no AddObj.
-		// Tradeable objs go to PublicReceiver (-1 / Obj.NO_RECEIVER).
-		// TS InvOps.ts:773-777.
+		// 254 pin (TS InvOps.ts:768-774 @2e3bcf43) — untradeables STILL
+		// drop, to the primary player; tradeables go to NO_RECEIVER (-1):
+		//
+		//	if (!objType.tradeable) { // untradeables still drop to the primary player
+		//	    World.addObj(dropObj, state.activePlayer.hash64, duration);
+		//	} else {
+		//	    World.addObj(dropObj, Obj.NO_RECEIVER, duration);
+		//	}
+		//
+		// (244 skipped untradeables after the delete with no AddObj.)
+		receiver := -1
 		if !tradeable {
-			continue // TS 244 InvOps.ts:773-775 — stop untradables after delete.
+			receiver = s.activePlayer().UID()
 		}
-
-		s.World.AddObj(level, x, z, objID, count, duration, -1, s.activePlayer().AccountID())
+		s.World.AddObj(level, x, z, objID, count, duration, receiver, s.activePlayer().AccountID())
 	}
 
 	// Post-loop: emit single Death event if anything was accumulated.

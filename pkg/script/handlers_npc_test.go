@@ -4784,11 +4784,13 @@ func TestHandleNpcStatHeal_PartialHeal(t *testing.T) {
 	}
 }
 
-// TestHandleNpcStatHeal_HpFullClearsHeroPoints was the 225 pin for the
-// HP-full → HeroPointsClear branch. Replaced by
-// TestNpcStatHeal_FullHealKeepsHeroPoints244 below; 244 deleted the branch
-// (TS NpcOps.ts:240-252). Kept as a renamed no-op stub so git history
-// remains auditable. NAI-162 B1.9 → re-pointed rev-244 B4.
+// TestHandleNpcStatHeal_HpFullClearsHeroPoints pins the HP-full →
+// HeroPointsClear branch. History: present at 225, deleted at 244,
+// RESTORED at the 254 pin (TS NpcOps.ts:251-253 @2e3bcf43):
+//
+//	if (stat === NpcStat.HITPOINTS && npc.levels[stat] >= npc.baseLevels[stat]) {
+//	    npc.heroPoints.clear();
+//	}
 func TestHandleNpcStatHeal_HpFullClearsHeroPoints(t *testing.T) {
 	mn := &mockNpc{levels: make(map[int]int), baseLevels: make(map[int]int)}
 	mn.baseLevels[objtype.NpcStatHitpoints] = 20
@@ -4810,9 +4812,9 @@ func TestHandleNpcStatHeal_HpFullClearsHeroPoints(t *testing.T) {
 	if got := mn.levels[objtype.NpcStatHitpoints]; got != 20 {
 		t.Errorf("levels[Hitpoints]: got %d, want 20", got)
 	}
-	// 244: branch deleted — HeroPointsClear must NOT be called.
-	if mn.heroPointsClearCalls != 0 {
-		t.Errorf("heroPointsClear: got %d calls, want 0 (244: branch deleted)", mn.heroPointsClearCalls)
+	// 254 pin: branch restored — HP healed to base clears hero points.
+	if mn.heroPointsClearCalls != 1 {
+		t.Errorf("heroPointsClear: got %d calls, want 1 (TS NpcOps.ts:251-253 @2e3bcf43)", mn.heroPointsClearCalls)
 	}
 }
 
@@ -4873,36 +4875,10 @@ func TestHandleNpcStatHeal_NonHpStatNeverClears(t *testing.T) {
 	}
 }
 
-// TestNpcStatHeal_FullHealKeepsHeroPoints244 asserts that a full-HP heal no
-// longer calls HeroPointsClear. TS 244 NpcOps.ts:240-252 deleted that branch.
-// Discriminating condition: HP healed to base (18+12=30, capped at 20); 225
-// code would call HeroPointsClear once — 244 must NOT call it.
-func TestNpcStatHeal_FullHealKeepsHeroPoints244(t *testing.T) {
-	mn := &mockNpc{levels: make(map[int]int), baseLevels: make(map[int]int)}
-	mn.baseLevels[objtype.NpcStatHitpoints] = 20
-	mn.levels[objtype.NpcStatHitpoints] = 18
-
-	s := &ScriptState{
-		IntStack:    make([]int, StackCapacity),
-		StringStack: make([]string, StackCapacity),
-		ActiveNpc:   mn,
-		Pointers:    PtrActiveNpc,
-	}
-	s.PushInt(objtype.NpcStatHitpoints) // stat
-	s.PushInt(5)                        // constant
-	s.PushInt(50)                       // percent → healed=33 capped at 20 (full)
-
-	if err := handleNpcStatHeal(s); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got := mn.levels[objtype.NpcStatHitpoints]; got != 20 {
-		t.Errorf("levels[Hitpoints]: got %d, want 20", got)
-	}
-	// 244 change: HeroPointsClear must NOT be called even on full heal.
-	if mn.heroPointsClearCalls != 0 {
-		t.Errorf("heroPointsClear: got %d calls, want 0 (244: branch deleted)", mn.heroPointsClearCalls)
-	}
-}
+// TestNpcStatHeal_FullHealKeepsHeroPoints244 (rev-244 pin) RETIRED at the
+// 254 pin advance: 2e3bcf43 restores the HP-full → heroPoints.clear()
+// branch (TS NpcOps.ts:251-253). The restored contract is pinned by
+// TestHandleNpcStatHeal_HpFullClearsHeroPoints above.
 
 // TestNpcInRangeRequiresActiveNpc pins the ActiveNpc gate. NAI-160 T7.
 func TestNpcInRangeRequiresActiveNpc(t *testing.T) {
