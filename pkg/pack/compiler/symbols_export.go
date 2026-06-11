@@ -1,5 +1,7 @@
-// Package compiler — WriteCompilerSymbols generates the 32 .sym files that
-// CompilerSymbols.ts produced at 9aadcec4 (rev-244/245.2). These are
+// Package compiler — WriteCompilerSymbols generates the 33 .sym files that
+// CompilerSymbols.ts produced at 43e02957 (the last upstream commit shipping
+// CompilerSymbols.ts; the 32 rev-244/245.2 files from 9aadcec4 plus
+// varbit.sym, which joined with the rev-254 varbit family). These are
 // pack-pipeline OUTPUT artifacts: written after configs+interface are packed,
 // before the script compiler runs.
 //
@@ -30,13 +32,14 @@ import (
 	"github.com/zsrv/goscape/pkg/script"
 )
 
-// WriteCompilerSymbols writes all 32 .sym files to symbolsDir. It mirrors
-// CompilerSymbols.ts generateCompilerSymbols() at Engine-TS@9aadcec4.
+// WriteCompilerSymbols writes all 33 .sym files to symbolsDir. It mirrors
+// CompilerSymbols.ts generateCompilerSymbols() at Engine-TS@43e02957
+// (9aadcec4 shape + the rev-254 varbit.sym addition).
 //
 // srcDir:     content root — has scripts/ (*.constant files) and pack/
 //             (*.pack files). In packall: the content directory.
 // outDir:     the data/pack directory holding packed server/*.dat files
-//             consumed by InvType, Component, VarP, VarN, VarS, Param, DbTable
+//             consumed by InvType, Component, VarP, VarBit, VarN, VarS, Param, DbTable
 //             loaders. In packall: outDir (same as packall.PackAll outDir).
 // symbolsDir: destination directory; created if absent. In packall: sibling
 //             of outDir named "symbols" (e.g. data/pack → data/symbols).
@@ -151,6 +154,19 @@ func WriteCompilerSymbols(srcDir, outDir, symbolsDir string) error {
 		return fmt.Errorf("WriteCompilerSymbols: varp.pack: %w", err)
 	}
 	if err := writeVarpSym(symbolsDir, varpPackInfo, loaders.varp); err != nil {
+		return err
+	}
+
+	// ── varbit.sym ───────────────────────────────────────────────────────────
+	// CompilerSymbols.ts:168-181 @ 43e02957 (rev-254; file deleted upstream
+	// at 2e3bcf43): id\tdebugname\t<basevar type>\t<basevar protect>\n,
+	// empty-skip. Type + protect come from the BASE VAR
+	// (VarPlayerType.get(varbit.basevar)), not the varbit itself.
+	varbitPackInfo, err := Load(filepath.Join(packDir, "varbit.pack"))
+	if err != nil {
+		return fmt.Errorf("WriteCompilerSymbols: varbit.pack: %w", err)
+	}
+	if err := writeVarbitSym(symbolsDir, varbitPackInfo, loaders.varbit, loaders.varp); err != nil {
 		return err
 	}
 
@@ -586,6 +602,41 @@ func writeVarpSym(symbolsDir string, varpInfo *TypeInfo, configs *objtype.VarpTy
 		fmt.Fprintf(&sb, "%d\t%s\t%s\t%v\n", i, debugname, typeName, protect)
 	}
 	return writeSym(symbolsDir, "varp", sb.String())
+}
+
+// writeVarbitSym writes varbit.sym (NEW with the rev-254 varbit family).
+// CompilerSymbols.ts:168-181 @ 43e02957:
+// id\tdebugname\t<basevar type>\t<basevar protect>\n, empty-skip.
+//
+//	const varbit = VarBitType.get(i);
+//	const basevar = VarPlayerType.get(varbit.basevar);
+//	varbitSymbols += `${i}\t${varbit.debugname}\t${ScriptVarType.getType(basevar.type)}\t${basevar.protect}\n`;
+//
+// Defaults ("int"/false) cover missing configs the same way writeVarpSym
+// does; an out-of-range basevar (unreachable through the packer, which
+// enforces basevar via requiredProperties) keeps the defaults rather
+// than throwing as TS would.
+func writeVarbitSym(symbolsDir string, varbitInfo *TypeInfo, varbits *objtype.VarBitTypeConfigs, varps *objtype.VarpTypeConfigs) error {
+	var sb strings.Builder
+	for i := 0; i <= varbitInfo.Max; i++ {
+		_, ok := varbitInfo.Map[i]
+		if !ok {
+			continue
+		}
+		debugname := ""
+		typeName := "int"
+		protect := false
+		if vb := varbits.Get(i); vb != nil {
+			debugname = vb.DebugName
+			if varps != nil && vb.Basevar >= 0 && vb.Basevar < len(varps.Configs) && varps.Configs[vb.Basevar] != nil {
+				basevar := varps.Configs[vb.Basevar]
+				typeName = scriptVarTypeName(basevar.Type)
+				protect = basevar.Protect
+			}
+		}
+		fmt.Fprintf(&sb, "%d\t%s\t%s\t%v\n", i, debugname, typeName, protect)
+	}
+	return writeSym(symbolsDir, "varbit", sb.String())
 }
 
 // writeVarnSym writes varn.sym.

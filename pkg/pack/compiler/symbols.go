@@ -335,6 +335,43 @@ func enrichVarpInfo(info *TypeInfo, configs *objtype.VarpTypeConfigs) {
 	}
 }
 
+// enrichVarbitInfo populates varbit.VarType and varbit.Protect from the
+// BASE VAR's VarPlayerType fields — a varbit inherits both its script
+// var type and its protect flag from the varp it overlays. NEW at
+// rev-254. Mirrors TS Compiler.ts:240-250 @ 2e3bcf43:
+//
+//	const varbit = VarBitType.get(id);
+//	const basevar = VarPlayerType.get(varbit.basevar);
+//	varbitInfo.vartype[id] = ScriptVarType.getType(basevar.type);
+//	varbitInfo.protect[id] = basevar.protect;
+//
+// Go adds nil/bounds guards where TS would throw on an undefined
+// basevar (defensive; varbit.pack entries always have basevar set via
+// the readConfigs requiredProperties check).
+func enrichVarbitInfo(info *TypeInfo, varbits *objtype.VarBitTypeConfigs, varps *objtype.VarpTypeConfigs) {
+	if varbits == nil || varps == nil {
+		return
+	}
+	for id := 0; id <= info.Max; id++ {
+		if _, ok := info.Map[id]; !ok {
+			continue
+		}
+		varbit := varbits.Get(id)
+		if varbit == nil {
+			continue
+		}
+		if varbit.Basevar < 0 || varbit.Basevar >= len(varps.Configs) {
+			continue
+		}
+		basevar := varps.Configs[varbit.Basevar]
+		if basevar == nil {
+			continue
+		}
+		info.VarType[id] = scriptVarTypeName(basevar.Type)
+		info.Protect[id] = basevar.Protect
+	}
+}
+
 // enrichVarnInfo populates varn.VarType from VarNpcType.Type.
 //
 // NEW semantics (CompilerSymbols.ts:167-178 @ Engine-TS@9aadcec4):
@@ -423,15 +460,16 @@ type configLoaders struct {
 	inv     *objtype.InvTypeConfigs
 	comp    *objtype.ComponentTypeConfigs
 	varp    *objtype.VarpTypeConfigs
+	varbit  *objtype.VarBitTypeConfigs
 	varn    *objtype.VarnTypeConfigs
 	varsCfg *objtype.VarsTypeConfigs
 	param   *objtype.ParamTypeConfigs
 	dbtable *objtype.DbTableTypeConfigs
 }
 
-// loadConfigs reads the 7 entity-type configurations from dataPackDir.
-// Mirrors the cluster of TS .load() calls at Compiler.ts:203, 214, 234,
-// 245, 255, 265, 275.
+// loadConfigs reads the 8 entity-type configurations from dataPackDir.
+// Mirrors the cluster of TS .load() calls at Compiler.ts:202, 213, 229,
+// 240, 252, 262, 272, 282 @ 2e3bcf43 (varbit joined at rev-254).
 func loadConfigs(dataPackDir string) (*configLoaders, error) {
 	inv, err := objtype.LoadInvTypes(dataPackDir)
 	if err != nil {
@@ -444,6 +482,10 @@ func loadConfigs(dataPackDir string) (*configLoaders, error) {
 	varp, err := objtype.LoadVarpTypes(dataPackDir)
 	if err != nil {
 		return nil, fmt.Errorf("LoadVarpTypes: %w", err)
+	}
+	varbit, err := objtype.LoadVarBitTypes(dataPackDir)
+	if err != nil {
+		return nil, fmt.Errorf("LoadVarBitTypes: %w", err)
 	}
 	varn, err := objtype.LoadVarnTypes(dataPackDir)
 	if err != nil {
@@ -462,7 +504,7 @@ func loadConfigs(dataPackDir string) (*configLoaders, error) {
 		return nil, fmt.Errorf("LoadDbTableTypes: %w", err)
 	}
 	return &configLoaders{
-		inv: inv, comp: comp, varp: varp, varn: varn,
+		inv: inv, comp: comp, varp: varp, varbit: varbit, varn: varn,
 		varsCfg: varsCfg, param: param, dbtable: dbtable,
 	}, nil
 }
@@ -473,10 +515,13 @@ func loadConfigs(dataPackDir string) (*configLoaders, error) {
 //
 // srcDir: path containing scripts/ and pack/ subdirs.
 // dataPackDir: path containing client/ and server/ subdirs with cache
-// .dat/.idx for InvType, Component, VarP, VarN, VarS, Param, DbTableType.
+// .dat/.idx for InvType, Component, VarP, VarBit, VarN, VarS, Param,
+// DbTableType.
 //
-// Returns the 32-key symbol-category dict the bytecode compiler's
-// typechecker consumes. Categories match TS Compiler.ts:330-365 exactly.
+// Returns the 33-key symbol-category dict the bytecode compiler's
+// typechecker consumes. Categories match TS Compiler.ts:337-376
+// @ 2e3bcf43 ("varbit" joined at rev-254), EXCEPT the TS-only "midi"
+// key (Compiler.ts:368) which is not yet bridged here.
 func BuildSymbols(srcDir, dataPackDir string) (map[string]*TypeInfo, error) {
 	loaders, err := loadConfigs(dataPackDir)
 	if err != nil {
@@ -503,7 +548,7 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 	}
 	constantInfo := LoadRecords(constants, false)
 
-	// 3. 22 .pack file Loads.
+	// 3. 23 .pack file Loads (varbit joined at rev-254).
 	var loadErr error
 	loadOrFail := func(packType string) *TypeInfo {
 		p := filepath.Join(packDir, packType+".pack")
@@ -524,6 +569,7 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 	interfaceInfo := newTypeInfo() // synthesized below
 	overlayInfo := newTypeInfo()   // synthesized below
 	varpInfo := loadOrFail("varp")
+	varbitInfo := loadOrFail("varbit")
 	varnInfo := loadOrFail("varn")
 	varsInfo := loadOrFail("vars")
 	paramInfo := loadOrFail("param")
@@ -550,8 +596,9 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 	// 5. interface / overlayinterface (Component.ComName + Component.Overlay).
 	populateInterfaceOverlay(componentInfo, interfaceInfo, overlayInfo, loaders.comp)
 
-	// 6. varp/varn/vars/param vartype + protect enrichments.
+	// 6. varp/varbit/varn/vars/param vartype + protect enrichments.
 	enrichVarpInfo(varpInfo, loaders.varp)
+	enrichVarbitInfo(varbitInfo, loaders.varbit, loaders.varp)
 	enrichVarnInfo(varnInfo, loaders.varn)
 	enrichVarsInfo(varsInfo, loaders.varsCfg)
 	enrichParamInfo(paramInfo, loaders.param)
@@ -579,7 +626,8 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 		"grounddecor",
 	})
 
-	// 10. Assemble the 32-key dict, mirroring TS Compiler.ts:330-365 order.
+	// 10. Assemble the 33-key dict, mirroring TS Compiler.ts:337-376
+	// @ 2e3bcf43 order (sans the TS-only "midi" key).
 	symbols := map[string]*TypeInfo{
 		"command":          commandInfo,
 		"constant":         constantInfo,
@@ -595,6 +643,7 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 		"interface":        interfaceInfo,
 		"overlayinterface": overlayInfo,
 		"varp":             varpInfo,
+		"varbit":           varbitInfo,
 		"varn":             varnInfo,
 		"vars":             varsInfo,
 		"param":            paramInfo,

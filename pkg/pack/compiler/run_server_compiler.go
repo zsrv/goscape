@@ -14,8 +14,8 @@ import (
 // final CompileServerScript({symbols}) call (Compiler.ts:330-365).
 //
 // It chains:
-//  1. BuildSymbols(srcDir, dataPackDir) — assembles the 32-key
-//     symbol-category dict (NAI-202).
+//  1. BuildSymbols(srcDir, dataPackDir) — assembles the 33-key
+//     symbol-category dict (NAI-202; "varbit" joined at rev-254).
 //  2. ToCompilerTypeInfo per entry — bridges NAI-200 dual-map shape
 //     into NAI-210 single-map shape (NAI-212 T1).
 //  3. runescript.Compile(cfg) — drives parse → analyze → codegen →
@@ -23,8 +23,8 @@ import (
 //
 // srcDir: directory containing scripts/ and pack/ subdirs.
 // outDir: directory under which <outDir>/server/script.{dat,idx} land.
-// dataPackDir: cache directory with the 7 .dat/.idx pairs BuildSymbols
-// reads (InvType, Component, VarP, VarN, VarS, Param, DbTableType).
+// dataPackDir: cache directory with the 8 .dat/.idx pairs BuildSymbols
+// reads (InvType, Component, VarP, VarBit, VarN, VarS, Param, DbTableType).
 // In practice callers pass outDir for dataPackDir (i.e. read back the
 // cache PackConfigs just wrote).
 //
@@ -130,7 +130,7 @@ func translateCommandPointerNames(cmd *runescript.CompilerTypeInfo) {
 // RunServerCompiler runs before invoking runescript.Compile.
 //
 // srcDir: directory containing scripts/ and pack/ subdirs.
-// dataPackDir: cache directory with the 7 .dat/.idx pairs (read back
+// dataPackDir: cache directory with the 8 .dat/.idx pairs (read back
 // the cache PackConfigs writes).
 //
 // The NAI-212-D-POINTER-NAME-TRANSLATION translation is applied to the

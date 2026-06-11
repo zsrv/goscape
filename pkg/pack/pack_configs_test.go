@@ -218,6 +218,71 @@ func TestPackConfigs_NoVarpSource_ClientJagfileAlwaysWritten(t *testing.T) {
 	}
 }
 
+// TestPackConfigs_VarbitEndToEnd pins the rev-254 .varbit pipeline
+// branch (TS PackShared.ts:618-640 @ 2e3bcf43): server varbit.dat/.idx
+// land next to varp's, and the client jagfile gains varbit.dat/.idx
+// entries.
+func TestPackConfigs_VarbitEndToEnd(t *testing.T) {
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+
+	writeFile(t, filepath.Join(srcDir, "scripts", "a.varp"),
+		"[run]\nscope=perm\ntype=int\n")
+	writeFile(t, filepath.Join(srcDir, "scripts", "b.varbit"),
+		"[run_low]\nbasevar=run\nstartbit=0\nendbit=3\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "varp.pack"), "0=run\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "varbit.pack"), "0=run_low\n")
+	ClearFsCache()
+
+	if err := PackConfigs(srcDir, outDir); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join(outDir, "server", "varbit.dat"),
+		filepath.Join(outDir, "server", "varbit.idx"),
+		filepath.Join(outDir, "client", "config"),
+	} {
+		if _, err := os.Stat(p); err != nil {
+			t.Fatalf("expected %s to exist: %v", p, err)
+		}
+	}
+
+	jag, err := jagfile.LoadJagfile(filepath.Join(outDir, "client", "config"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"varbit.dat", "varbit.idx"} {
+		if _, err := jag.Read(name); err != nil {
+			t.Fatalf("client/config missing %s: %v", name, err)
+		}
+	}
+}
+
+// TestPackConfigs_VarbitDuplicateVarpNameRejected pins the rev-254
+// extension of the cross-domain var-name uniqueness check: varbit names
+// share the global var domain (TS PackShared.ts:300-305 @ 2e3bcf43).
+func TestPackConfigs_VarbitDuplicateVarpNameRejected(t *testing.T) {
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+
+	writeFile(t, filepath.Join(srcDir, "scripts", "a.varp"),
+		"[dup_name]\nscope=perm\ntype=int\n")
+	writeFile(t, filepath.Join(srcDir, "scripts", "b.varbit"),
+		"[dup_name]\nbasevar=dup_name\nstartbit=0\nendbit=1\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "varp.pack"), "0=dup_name\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "varbit.pack"), "0=dup_name\n")
+	ClearFsCache()
+
+	err := PackConfigs(srcDir, outDir)
+	if err == nil {
+		t.Fatal("want non-unique var name error for varp/varbit collision")
+	}
+	if !strings.Contains(err.Error(), "non-unique var name") {
+		t.Fatalf("err=%v, want non-unique var name", err)
+	}
+}
+
 func TestPackConfigs_CrossDomainUniquenessRejection(t *testing.T) {
 	srcDir := t.TempDir()
 	outDir := t.TempDir()
@@ -497,7 +562,7 @@ func TestPackConfigs_TwentyConfigsLand(t *testing.T) {
 	server := filepath.Join(outDir, "server")
 	for _, typ := range []string{
 		"varp", "varn", "vars", "param", "enum", "inv", "mesanim", "struct",
-		"dbtable", "dbrow", "loc", "npc", "obj", "seq", "flo", "spotanim", "idk", "hunt",
+		"dbtable", "dbrow", "loc", "npc", "obj", "seq", "flo", "spotanim", "idk", "hunt", "varbit",
 	} {
 		if _, err := os.Stat(filepath.Join(server, typ+".dat")); err != nil {
 			t.Errorf("%s.dat missing: %v", typ, err)
@@ -535,6 +600,8 @@ func TestPackConfigs_TwentyConfigsLand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadJagfile: %v", err)
 	}
+	// varbit.dat/.idx join the client jagfile at rev-254
+	// (TS PackShared.ts:626-629 @ 2e3bcf43), after varp.
 	expected := []string{
 		"seq.dat", "seq.idx",
 		"loc.dat", "loc.idx",
@@ -544,6 +611,7 @@ func TestPackConfigs_TwentyConfigsLand(t *testing.T) {
 		"obj.dat", "obj.idx",
 		"idk.dat", "idk.idx",
 		"varp.dat", "varp.idx",
+		"varbit.dat", "varbit.idx",
 	}
 	for _, name := range expected {
 		if _, err := jag.Read(name); err != nil {
@@ -562,6 +630,7 @@ func TestPackConfigs_TwentyConfigsLand(t *testing.T) {
 		"obj.dat", "obj.idx",
 		"idk.dat", "idk.idx",
 		"varp.dat", "varp.idx",
+		"varbit.dat", "varbit.idx",
 	}
 	if !slices.Equal(jag.FileName, wantOrder) {
 		t.Errorf("client jag entry order: got %v, want %v", jag.FileName, wantOrder)
@@ -742,6 +811,8 @@ func TestClientConfigCRCConstants_Rev2452(t *testing.T) {
 		{"obj", clientConfigCRCObj, 344600333},
 		{"idk", clientConfigCRCIdk, -359342366},
 		{"varp", clientConfigCRCVarp, 1480086078},
+		// varbit is NEW at rev-254 (TS PackShared.ts:637 @ 2e3bcf43).
+		{"varbit", clientConfigCRCVarbit, -1387031023},
 	}
 	for _, tc := range tests {
 		if tc.got != tc.want {

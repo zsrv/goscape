@@ -17,7 +17,7 @@ type Registry struct {
 	SrcDir string
 
 	Interface, Obj, Seq, Loc, Npc, Model, Anim, Base,
-	Synth, Texture, Varp, Varn, Vars, Inv, SpotAnim, Idk,
+	Synth, Texture, Varp, Varbit, Varn, Vars, Inv, SpotAnim, Idk,
 	Flo, Category, Hunt, Param, DbTable, DbRow, MesAnim, Struct,
 	AnimSet, Map, Midi *PackFile
 }
@@ -45,6 +45,12 @@ func (r *Registry) EnsureBase() (*PackFile, error)      { return r.ensure(&r.Bas
 func (r *Registry) EnsureSynth() (*PackFile, error)     { return r.ensure(&r.Synth, "synth") }
 func (r *Registry) EnsureTexture() (*PackFile, error)   { return r.ensure(&r.Texture, "texture") }
 func (r *Registry) EnsureVarp() (*PackFile, error)      { return r.ensure(&r.Varp, "varp") }
+
+// EnsureVarbit lazy-constructs the varbit PackFile (NEW at rev-254).
+//
+// TS: VarbitPack = new PackFile('varbit', validateConfigPack, '.varbit', true)
+// TS source: tools/pack/PackFile.ts:220 @ 2e3bcf43.
+func (r *Registry) EnsureVarbit() (*PackFile, error) { return r.ensure(&r.Varbit, "varbit") }
 func (r *Registry) EnsureVarn() (*PackFile, error)      { return r.ensure(&r.Varn, "varn") }
 func (r *Registry) EnsureVars() (*PackFile, error)      { return r.ensure(&r.Vars, "vars") }
 func (r *Registry) EnsureInv() (*PackFile, error)       { return r.ensure(&r.Inv, "inv") }

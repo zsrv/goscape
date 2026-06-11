@@ -12,9 +12,9 @@ package compiler
 //
 // What replaces it: TestWriteCompilerSymbols_SelfConsistency below — a
 // synthetic-fixture format test that pins the export surface (the full
-// 32-file census) and the per-family line formats (constant/pack-driven/
-// registry-driven), keeping the seam clean for future per-file unit tests
-// (e.g. T18's varbit.sym writer).
+// 33-file census; varbit.sym joined at T18) and the per-family line
+// formats (constant/pack-driven/registry-driven), keeping the seam clean
+// for future per-file unit tests.
 
 import (
 	"os"
@@ -25,11 +25,14 @@ import (
 
 	"github.com/zsrv/goscape/pkg/io/jagfile"
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // wantSymCensus is the full set of .sym files WriteCompilerSymbols emits —
-// the 32 files CompilerSymbols.ts generated at 9aadcec4. The census is the
-// export surface: a missing or extra file is a format regression.
+// the 32 files CompilerSymbols.ts generated at 9aadcec4 plus varbit.sym
+// (CompilerSymbols.ts:168-181 @ 43e02957, the rev-254 varbit family). The
+// census is the export surface: a missing or extra file is a format
+// regression.
 var wantSymCensus = []string{
 	"category.sym", "commands.sym", "component.sym", "constant.sym",
 	"dbcolumn.sym", "dbrow.sym", "dbtable.sym", "enum.sym",
@@ -38,13 +41,13 @@ var wantSymCensus = []string{
 	"npc.sym", "npc_mode.sym", "npc_stat.sym", "obj.sym",
 	"overlayinterface.sym", "param.sym", "runescript.sym", "seq.sym",
 	"spotanim.sym", "stat.sym", "struct.sym", "synth.sym",
-	"varn.sym", "varp.sym", "vars.sym", "writeinv.sym",
+	"varbit.sym", "varn.sym", "varp.sym", "vars.sym", "writeinv.sym",
 }
 
 // TestWriteCompilerSymbols_SelfConsistency exercises WriteCompilerSymbols
 // against a minimal synthetic content tree and pins:
 //
-//  1. the full 32-file census (no more, no less);
+//  1. the full 33-file census (no more, no less);
 //  2. constant.sym: name\tvalue lines from scripts/**/*.constant;
 //  3. obj.sym (pack-driven): id\tname lines from pack/obj.pack;
 //  4. stat.sym (registry-driven): deterministic value-sorted
@@ -163,5 +166,45 @@ func TestWriteCompilerSymbols_SelfConsistency(t *testing.T) {
 	// 5. Missing pack file → empty .sym, not an error.
 	if got := read("npc.sym"); got != "" {
 		t.Errorf("npc.sym: got %q, want empty (no npc.pack in fixture)", got)
+	}
+}
+
+// TestWriteVarbitSym_Format pins the varbit.sym line format against
+// CompilerSymbols.ts:168-181 @ 43e02957 (the rev-254 varbit family;
+// upstream deleted CompilerSymbols.ts at 2e3bcf43 so this is part of
+// the Go-only export): id\tdebugname\t<basevar type>\t<basevar protect>\n
+// with empty-skip, where type + protect are inherited from the BASE VAR.
+func TestWriteVarbitSym_Format(t *testing.T) {
+	symbolsDir := t.TempDir()
+
+	varbitInfo := newTypeInfo()
+	varbitInfo.Add(0, "run_low", true)
+	varbitInfo.Add(2, "chat_hidden", true) // id=1 absent → skipped
+
+	varbits := &objtype.VarBitTypeConfigs{
+		Configs: []*objtype.VarBitType{
+			{ConfigType: objtype.ConfigType{ID: 0, DebugName: "run_low"}, Basevar: 1, Startbit: 0, Endbit: 3},
+			nil,
+			{ConfigType: objtype.ConfigType{ID: 2, DebugName: "chat_hidden"}, Basevar: 0, Startbit: 4, Endbit: 4},
+		},
+	}
+	varps := &objtype.VarpTypeConfigs{
+		Configs: []*objtype.VarPlayerType{
+			{ConfigType: objtype.ConfigType{ID: 0}, Type: objtype.ScriptVarTypeBoolean, Protect: false},
+			{ConfigType: objtype.ConfigType{ID: 1}, Type: objtype.ScriptVarTypeInt, Protect: true},
+		},
+	}
+
+	if err := writeVarbitSym(symbolsDir, varbitInfo, varbits, varps); err != nil {
+		t.Fatalf("writeVarbitSym: %v", err)
+	}
+
+	b, err := os.ReadFile(filepath.Join(symbolsDir, "varbit.sym"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "0\trun_low\tint\ttrue\n2\tchat_hidden\tboolean\tfalse\n"
+	if string(b) != want {
+		t.Errorf("varbit.sym: got %q, want %q", string(b), want)
 	}
 }

@@ -557,7 +557,9 @@ func writeConstantFile(t *testing.T, dir, rel, content string) {
 }
 
 // TestBuildSymbolsCore_AllCategoriesPresent pins §5.8: the returned map
-// has exactly 32 keys covering the TS symbols dict at Compiler.ts:330-365.
+// has exactly 33 keys covering the TS symbols dict at Compiler.ts:337-376
+// @ 2e3bcf43 ("varbit" joined at rev-254), minus the TS-only "midi" key
+// (Compiler.ts:368) which goscape has not bridged yet.
 func TestBuildSymbolsCore_AllCategoriesPresent(t *testing.T) {
 	dir := t.TempDir()
 	// Seed a few .pack files so Load returns non-nil TypeInfo; absent ones
@@ -575,7 +577,7 @@ func TestBuildSymbolsCore_AllCategoriesPresent(t *testing.T) {
 	wantKeys := []string{
 		"command", "constant", "npc", "obj", "inv", "writeinv", "seq",
 		"idk", "spotanim", "loc", "component", "interface",
-		"overlayinterface", "varp", "varn", "vars", "param", "struct",
+		"overlayinterface", "varp", "varbit", "varn", "vars", "param", "struct",
 		"enum", "hunt", "mesanim", "synth", "category", "runescript",
 		"dbtable", "dbcolumn", "dbrow", "stat", "npc_stat", "npc_mode",
 		"fontmetrics", "locshape",
@@ -725,6 +727,7 @@ func emptyConfigLoaders() *configLoaders {
 		inv:     &objtype.InvTypeConfigs{Configs: []*objtype.InvType{}},
 		comp:    &objtype.ComponentTypeConfigs{Configs: []*objtype.ComponentType{}},
 		varp:    &objtype.VarpTypeConfigs{Configs: []*objtype.VarPlayerType{}},
+		varbit:  &objtype.VarBitTypeConfigs{Configs: []*objtype.VarBitType{}},
 		varn:    &objtype.VarnTypeConfigs{Configs: []*objtype.VarNpcType{}},
 		varsCfg: &objtype.VarsTypeConfigs{Configs: []*objtype.VarSharedType{}},
 		param:   &objtype.ParamTypeConfigs{Configs: []*objtype.ParamType{}},
@@ -959,6 +962,66 @@ func TestEnrichVarpInfo(t *testing.T) {
 	}
 	if got, want := varp.Protect[0], true; got != want {
 		t.Errorf("Protect[0] = %v, want %v", got, want)
+	}
+}
+
+// TestEnrichVarbitInfo pins TS Compiler.ts:240-250 @ 2e3bcf43 (NEW at
+// rev-254) — varbit.VarType[id] and varbit.Protect[id] come from the
+// BASE VAR's VarPlayerType (type + protect inheritance through
+// varbit.basevar), NOT from the varbit itself.
+func TestEnrichVarbitInfo(t *testing.T) {
+	varbit := newTypeInfo()
+	varbit.Add(0, "vb0", true)
+
+	varbits := &objtype.VarBitTypeConfigs{
+		Configs: []*objtype.VarBitType{
+			{
+				ConfigType: objtype.ConfigType{ID: 0},
+				Basevar:    2,
+				Startbit:   0,
+				Endbit:     3,
+			},
+		},
+	}
+	varps := &objtype.VarpTypeConfigs{
+		Configs: make([]*objtype.VarPlayerType, 3),
+	}
+	varps.Configs[2] = &objtype.VarPlayerType{
+		ConfigType: objtype.ConfigType{ID: 2},
+		Type:       objtype.ScriptVarTypeBoolean,
+		Protect:    true,
+	}
+
+	enrichVarbitInfo(varbit, varbits, varps)
+
+	if got, want := varbit.VarType[0], "boolean"; got != want {
+		t.Errorf("VarType[0] = %q, want %q (must inherit from basevar)", got, want)
+	}
+	if got, want := varbit.Protect[0], true; got != want {
+		t.Errorf("Protect[0] = %v, want %v (must inherit from basevar)", got, want)
+	}
+}
+
+// TestEnrichVarbitInfo_OOBBasevarSkipped pins the Go-side defensive
+// guard: a varbit whose Basevar is out of range (e.g. the -1 default
+// from NewVarBitType) is skipped instead of panicking — TS would throw
+// on the undefined VarPlayerType.get access; this state is unreachable
+// through the packer (requiredProperties enforce basevar).
+func TestEnrichVarbitInfo_OOBBasevarSkipped(t *testing.T) {
+	varbit := newTypeInfo()
+	varbit.Add(0, "vb0", true)
+
+	varbits := &objtype.VarBitTypeConfigs{
+		Configs: []*objtype.VarBitType{
+			{ConfigType: objtype.ConfigType{ID: 0}, Basevar: -1},
+		},
+	}
+	varps := &objtype.VarpTypeConfigs{Configs: []*objtype.VarPlayerType{}}
+
+	enrichVarbitInfo(varbit, varbits, varps)
+
+	if _, present := varbit.VarType[0]; present {
+		t.Errorf("VarType[0]: present; want absent (OOB basevar → skip)")
 	}
 }
 

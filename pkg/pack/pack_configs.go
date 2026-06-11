@@ -10,9 +10,10 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
-// clientConfigCRC* are the rev-245.2 BUILD_VERIFY CRC magic numbers for
-// the eight client-jagfile config sub-files. Updated from the 244 values
-// at TS PackShared.ts:438,462,486,510,534,558,582,606 @ 3c16994c.
+// clientConfigCRC* are the BUILD_VERIFY CRC magic numbers for the
+// client-jagfile config sub-files (eight at rev-245.2; varbit joins as
+// the ninth at rev-254). The eight rev-245.2 values are from TS
+// PackShared.ts:438,462,486,510,534,558,582,606 @ 3c16994c.
 // idk did NOT change at 245.2.
 //
 // 225 values (for reference, updated at 9aadcec4):
@@ -43,6 +44,9 @@ const (
 	clientConfigCRCObj      int32 = 344600333
 	clientConfigCRCIdk      int32 = -359342366
 	clientConfigCRCVarp     int32 = 1480086078
+	// varbit is NEW at rev-254: TS PackShared.ts:637 @ 2e3bcf43
+	// (Packet.checkcrc(client.data, 0, client.pos, -1387031023)).
+	clientConfigCRCVarbit int32 = -1387031023
 )
 
 // PackConfigsForRegistry runs the per-config packing pipeline,
@@ -70,8 +74,8 @@ const (
 // convention (see packAndSave* functions and pkg/pack/build_verify.go).
 //
 // NAI-196-D-UNCONDITIONAL-CLIENT-PACK: .param, .seq, .loc, .flo,
-// .spotanim, .npc, .obj, .idk, .varp run on EVERY PackConfigs
-// invocation regardless of source freshness, matching TS
+// .spotanim, .npc, .obj, .idk, .varp, .varbit (rev-254) run on EVERY
+// PackConfigs invocation regardless of source freshness, matching TS
 // PackShared.ts:337 (`const rebuildClient = true`) which ungates
 // shouldBuild on the eight configs that write to client jag, plus
 // .param whose server-side output (param.dat/.idx) other configs
@@ -89,7 +93,7 @@ const (
 //
 // NAI-192-D-NO-SRC-NO-OP: applies only to the nine server-only
 // freshness-gated branches (.enum, .inv, .mesanim, .struct, .dbtable,
-// .dbrow, .hunt, .varn, .vars). The nine unconditional branches always
+// .dbrow, .hunt, .varn, .vars). The ten unconditional branches always
 // run; an empty source directory produces an empty .dat/.idx pair
 // (matching TS shouldBuild-output-missing arm).
 //
@@ -175,9 +179,14 @@ func packConfigsCoreWithModelFlags(srcDir, outDir string, reg *Registry, modelFl
 		return err
 	}
 
-	// Construct all three var-domain PackFiles up-front for the
-	// cross-domain uniqueness check across all three name maps.
+	// Construct all four var-domain PackFiles up-front for the
+	// cross-domain uniqueness check across all four name maps. varbit
+	// joined the domain at rev-254 (TS PackShared.ts:292-317 @ 2e3bcf43;
+	// check order varp → varbit → varn → vars).
 	if _, err := reg.EnsureVarp(); err != nil {
+		return err
+	}
+	if _, err := reg.EnsureVarbit(); err != nil {
 		return err
 	}
 	if _, err := reg.EnsureVarn(); err != nil {
@@ -187,7 +196,7 @@ func packConfigsCoreWithModelFlags(srcDir, outDir string, reg *Registry, modelFl
 		return err
 	}
 
-	if err := checkVarNameUniqueness(reg.Varp, reg.Varn, reg.Vars); err != nil {
+	if err := checkVarNameUniqueness(reg.Varp, reg.Varbit, reg.Varn, reg.Vars); err != nil {
 		return err
 	}
 
@@ -462,6 +471,12 @@ func packConfigsCoreWithModelFlags(srcDir, outDir string, reg *Registry, modelFl
 		return err
 	}
 
+	// .varbit — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
+	// NEW at rev-254. TS PackShared.ts:618-640 @ 2e3bcf43.
+	if err := packAndSaveVarbit(srcDir, serverOut, reg.Varbit, reg.Varp, constants, clientJag, modelFlags); err != nil {
+		return err
+	}
+
 	// .hunt — server-only, freshness-gated.
 	// TS PackShared.ts:638-645. Eight reference registries — largest
 	// fan-out of any single config.
@@ -571,6 +586,46 @@ func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, client
 	}
 	clientJag.Write("varp.dat", client.Dat)
 	clientJag.Write("varp.idx", client.Idx)
+	return nil
+}
+
+// packAndSaveVarbit reads .varbit sources, packs them, writes server
+// .dat/.idx, and queues the client .dat/.idx into clientJag. NEW at
+// rev-254.
+//
+// NAI-196-D-UNCONDITIONAL-CLIENT-PACK: this branch runs every
+// PackConfigs invocation regardless of source freshness, matching the
+// rebuildClient arm at TS PackShared.ts:618.
+//
+// Required properties ['basevar', 'startbit', 'endbit'] mirror the TS
+// readConfigs call (PackShared.ts:622 @ 2e3bcf43) — varbit is the only
+// client-jag config family with a non-empty requiredProperties list.
+//
+// TS source: tools/pack/config/PackShared.ts:618-640 +
+// tools/pack/config/VarbitConfig.ts @ 2e3bcf43.
+func packAndSaveVarbit(srcDir, serverOut string, pf, varpPack *PackFile, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
+	cfgs, err := ReadTypedConfigs(srcDir, ".varbit",
+		[]string{"basevar", "startbit", "endbit"},
+		parseVarbitConfigFor(varpPack), c)
+	if err != nil {
+		return err
+	}
+	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".varbit"); err != nil {
+		return err
+	}
+	server, client := packVarbitConfigs(cfgs, pf, modelFlags)
+	// TS PackShared.ts:637 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, -1387031023)
+	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCVarbit); err != nil {
+		fmt.Fprintf(os.Stderr, "packAndSaveVarbit: %v (BUILD_VERIFY)\n", err)
+	}
+	if err := server.Save(
+		filepath.Join(serverOut, "varbit.dat"),
+		filepath.Join(serverOut, "varbit.idx"),
+	); err != nil {
+		return err
+	}
+	clientJag.Write("varbit.dat", client.Dat)
+	clientJag.Write("varbit.idx", client.Idx)
 	return nil
 }
 
