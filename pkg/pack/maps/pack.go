@@ -4,6 +4,7 @@ package maps
 import (
 	"cmp"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -106,7 +107,30 @@ func Pack(srcDir, outDir string, mapPack *pack.PackFile, cache *filestream.FileS
 	// At 244/245.2 the worldmap was a standalone tool outside packAll.
 	rebuildWorldmap := !pack.FileExists(filepath.Join(outDir, "mapview", "worldmap.jag"))
 
-	files := pack.ListFilesExt(mapsSrc, ".jm2")
+	// 254: TS packMaps iterates the MapPack registry in ID order, not the
+	// source directory (Pack.js:179-197 @ 2e3bcf43: for id 0..MapPack.max,
+	// keep names starting with 'm'; a registered map whose .jm2 is missing
+	// warns and skips). The cache.write(4,...) sequence — and therefore the
+	// main_file_cache.dat block layout and idx4 — depends on this order.
+	// When mapPack is nil (unit tests without a registry) fall back to the
+	// sorted directory scan; production callers always pass the registry.
+	var files []string
+	if mapPack != nil {
+		for id := range mapPack.Max {
+			name := mapPack.GetByID(id)
+			if !strings.HasPrefix(name, "m") {
+				continue
+			}
+			f := filepath.Join(mapsSrc, name+".jm2")
+			if !pack.FileExists(f) {
+				slog.Warn("missing map " + name)
+				continue
+			}
+			files = append(files, f)
+		}
+	} else {
+		files = pack.ListFilesExt(mapsSrc, ".jm2")
+	}
 	for _, file := range files {
 		base := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
 		if len(base) < 2 {

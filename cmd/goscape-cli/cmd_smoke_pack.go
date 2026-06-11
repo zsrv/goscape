@@ -33,8 +33,9 @@ import (
 // Worldmap packer, with per-stage logging and an end-of-run summary table.
 // See docs/superpowers/specs/2026-05-17-smoke-pack-verb-design.md for the
 // design contract. The stages mirror pkg/packall/packall.go; Worldmap is
-// appended last (TS parity keeps it out of PackAll itself but it produces a
-// Jagfile worth byte-pinning against the TS reference).
+// appended last as an explicit re-run stage. (Since 254 the Maps stage
+// already packs the worldmap when maps were rebuilt — TS Pack.js:383-385
+// @ 2e3bcf43; the standalone stage forces a repack for inspection.)
 //
 // Exit codes:
 //
