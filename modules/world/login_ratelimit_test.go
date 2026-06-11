@@ -101,6 +101,11 @@ func TestTTLAttemptCacheSlidingWindow(t *testing.T) {
 // sends the zeros at World.ts:2105 before the check at :2107-2117), and
 // the connection closes (errCloseConn).
 func TestOp14AddressLimitThirtiethAttemptRejected(t *testing.T) {
+	// NOTE: the loop reuses one *client across 30 handleLogin calls.
+	// That works because the op-14 path only consumes c.in (refilled per
+	// attempt) and writes c.bufw — sendLoginError neither closes the
+	// conn nor flips c.state. If handleLogin ever starts doing either on
+	// reject, give each attempt a fresh client instead.
 	c, clientConn, _ := newRatelimitedClient(t, 30, 5)
 
 	for i := 1; i <= 29; i++ {

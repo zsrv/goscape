@@ -62,15 +62,21 @@ type ttlAttemptCache struct {
 // happens unconditionally, BEFORE any threshold comparison: rejected
 // attempts keep the window armed, exactly as in TS.
 func (c *ttlAttemptCache) bump(key string, ttl time.Duration) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// nowFn is read under the lock: bump runs on per-connection
+	// goroutines, and an unsynchronized read would race with a test
+	// installing the seam.
 	now := time.Now()
 	if c.nowFn != nil {
 		now = c.nowFn()
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.entries == nil {
 		c.entries = make(map[string]ttlAttemptEntry)
 	} else if len(c.entries) >= ttlAttemptPurgeThreshold {
+		// Expired-entry sweep. When every entry is still live the map
+		// can sit one entry above the threshold after the insert below
+		// — bounded slack, not a leak.
 		for k, e := range c.entries {
 			if !now.Before(e.expires) {
 				delete(c.entries, k)
