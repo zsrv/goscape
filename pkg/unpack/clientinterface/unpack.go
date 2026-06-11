@@ -100,6 +100,12 @@ func Unpack(opts Options) error {
 	if err != nil {
 		return fmt.Errorf("ensure varp pack: %w", err)
 	}
+	// NEW at rev-254: script op 14 (push_varbit) resolves through VarbitPack
+	// (TS interface/Unpack.ts:9 import + :530-534 @2e3bcf43).
+	varbitPack, err := reg.EnsureVarbit()
+	if err != nil {
+		return fmt.Errorf("ensure varbit pack: %w", err)
+	}
 
 	// TS line 872: IfType.exportOrder()
 	orderPath := filepath.Join(opts.SrcDir, "pack", "interface.order")
@@ -108,7 +114,7 @@ func Unpack(opts Options) error {
 	}
 
 	// TS line 873: IfType.exportSrc()
-	if err := ExportSrc(dec, interfacePack, modelPack, objPack, seqPack, varpPack, opts.SrcDir, opts.Errorf, nil); err != nil {
+	if err := ExportSrc(dec, interfacePack, modelPack, objPack, seqPack, varpPack, varbitPack, opts.SrcDir, opts.Errorf, nil); err != nil {
 		return fmt.Errorf("exportSrc: %w", err)
 	}
 

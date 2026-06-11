@@ -122,6 +122,8 @@ func ExportOrder(dec *Decoded, destPath string) error {
 //   - objPack: registry for obj names (EnsureObj result)
 //   - seqPack: registry for seq names (EnsureSeq result)
 //   - varpPack: registry for varp names (EnsureVarp result)
+//   - varbitPack: registry for varbit names (EnsureVarbit result; NEW at 254
+//     for the script op 14 push_varbit resolution)
 //   - srcDir: content tree root (BUILD_SRC_DIR)
 //   - errorf: console.error sink (nil = no-op)
 //   - renameFn: filesystem rename hook (nil = real os.Rename)
@@ -136,6 +138,7 @@ func ExportSrc(
 	objPack *pack.PackFile,
 	seqPack *pack.PackFile,
 	varpPack *pack.PackFile,
+	varbitPack *pack.PackFile,
 	srcDir string,
 	errorf func(format string, args ...any),
 	renameFn func(src, dst string) error,
@@ -231,7 +234,7 @@ func ExportSrc(
 		}
 
 		name := interfacePack.GetByID(com.ID)
-		src := exportComponent(com, dec.Components, interfacePack, objPack, seqPack, varpPack, rmFn, nil, 0, 0, "")
+		src := exportComponent(com, dec.Components, interfacePack, objPack, seqPack, varpPack, varbitPack, rmFn, nil, 0, 0, "")
 
 		// TS lines 353-355: find existing .if or fall back to scripts/interfaces/<name>.if
 		destFile := ""
@@ -279,13 +282,14 @@ func exportComponent(
 	objPack *pack.PackFile,
 	seqPack *pack.PackFile,
 	varpPack *pack.PackFile,
+	varbitPack *pack.PackFile,
 	rmFn func(int) string,
 	temp []string,
 	x, y int,
 	parent string,
 ) []string {
 	visited := make(map[int]struct{})
-	return exportComponentInner(com, components, ifPack, objPack, seqPack, varpPack, rmFn, temp, x, y, parent, visited)
+	return exportComponentInner(com, components, ifPack, objPack, seqPack, varpPack, varbitPack, rmFn, temp, x, y, parent, visited)
 }
 
 func exportComponentInner(
@@ -295,6 +299,7 @@ func exportComponentInner(
 	objPack *pack.PackFile,
 	seqPack *pack.PackFile,
 	varpPack *pack.PackFile,
+	varbitPack *pack.PackFile,
 	rmFn func(int) string,
 	temp []string,
 	x, y int,
@@ -482,6 +487,30 @@ func exportComponentInner(
 						varpName = fmt.Sprintf("varp_%d", varp)
 					}
 					str += fmt.Sprintf("testbit,%s,%d", varpName, bit)
+				case 14:
+					// TS Unpack.ts:530-534 @2e3bcf43: push_varbit with the
+					// VarbitPack name (varbit_<id> fallback).
+					varbit := int(popStack())
+					varbitName := varbitPack.GetByID(varbit)
+					if varbitName == "" {
+						varbitName = fmt.Sprintf("varbit_%d", varbit)
+					}
+					str += fmt.Sprintf("push_varbit,%s", varbitName)
+				case 15:
+					str += "subtract" // TS Unpack.ts:535-537
+				case 16:
+					str += "divide" // TS Unpack.ts:538-540
+				case 17:
+					str += "multiply" // TS Unpack.ts:541-543
+				case 18:
+					str += "coordx" // TS Unpack.ts:544-546
+				case 19:
+					str += "coordz" // TS Unpack.ts:547-549
+				case 20:
+					// TS Unpack.ts:550-554 @2e3bcf43: push_constant with the
+					// literal operand value.
+					value := popStack()
+					str += fmt.Sprintf("push_constant,%d", value)
 				}
 
 				temp = append(temp, str)
@@ -768,7 +797,7 @@ func exportComponentInner(
 				}
 			}
 
-			temp = exportComponentInner(child, components, ifPack, objPack, seqPack, varpPack, rmFn, temp, com.ChildX[i], com.ChildY[i], parentName, visited)
+			temp = exportComponentInner(child, components, ifPack, objPack, seqPack, varpPack, varbitPack, rmFn, temp, com.ChildX[i], com.ChildY[i], parentName, visited)
 		}
 	}
 

@@ -192,6 +192,13 @@ func makeVarpPack(t *testing.T) *pack.PackFile {
 	return pf
 }
 
+func makeVarbitPack(t *testing.T) *pack.PackFile {
+	t.Helper()
+	dir := t.TempDir()
+	pf, _ := pack.NewPackFile(dir, "varbit", nil)
+	return pf
+}
+
 // noRenameModel is a renameModel stub that returns id as "model_<id>" for tests.
 func noRenameModel(id int) string {
 	return "test_model"
@@ -235,7 +242,7 @@ func TestExport_TypeText(t *testing.T) {
 	components[0] = root
 	components[1] = child
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 
 	joined := strings.Join(lines, "\n")
 	checks := []string{
@@ -281,7 +288,7 @@ func TestExport_TypeLayer_Root(t *testing.T) {
 	}
 	components := []*Component{root}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	// Root should NOT emit [myui] header
@@ -334,7 +341,7 @@ func TestExport_TypeModel(t *testing.T) {
 	components[0] = root
 	components[1] = child
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), seqPack, makeVarpPack(t), rmFn, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), seqPack, makeVarpPack(t), makeVarbitPack(t), rmFn, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	checks := []string{
@@ -410,7 +417,7 @@ func TestExport_TypeInv(t *testing.T) {
 	}
 	components := []*Component{root, child}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	checks := []string{
@@ -456,7 +463,7 @@ func TestExport_TypeGraphic(t *testing.T) {
 	}
 	components := []*Component{root, child}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	if !strings.Contains(joined, "graphic=coins,1") {
@@ -499,7 +506,7 @@ func TestExport_ScriptOp_PushVar(t *testing.T) {
 	}
 	components := []*Component{root, child}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), varpPack, noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), varpPack, makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	if !strings.Contains(joined, "script1op1=pushvar,com_mode") {
@@ -508,6 +515,84 @@ func TestExport_ScriptOp_PushVar(t *testing.T) {
 	if !strings.Contains(joined, "script1=eq,0") {
 		t.Errorf("missing comparator: %s", joined)
 	}
+}
+
+// scriptOpFixture builds the standard two-component layer/child fixture with
+// the given script array on the child and returns the joined export lines.
+func scriptOpFixture(t *testing.T, script [][]uint16, varbitPack *pack.PackFile) string {
+	t.Helper()
+	ifPack := makeIfPack(t)
+	ifPack.Register(0, "ui")
+	ifPack.Register(1, "ui:com_0")
+	ifPack.RefreshNames()
+
+	child := &Component{
+		ID:               1,
+		RootLayer:        0,
+		ComType:          TypeRect,
+		Fill:             true,
+		Script:           script,
+		ScriptComparator: []uint8{1},
+		ScriptOperand:    []uint16{0},
+	}
+	root := &Component{
+		ID:        0,
+		RootLayer: 0,
+		ComType:   TypeLayer,
+		ChildID:   []int{1},
+		ChildX:    []int{0},
+		ChildY:    []int{0},
+	}
+	components := []*Component{root, child}
+
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), varbitPack, noRenameModel, nil, 0, 0, "")
+	return strings.Join(lines, "\n")
+}
+
+// TestExport_ScriptOps14to20 pins the 254 script ops: push_varbit (14, varbit
+// name resolution + varbit_<id> fallback), subtract/divide/multiply/coordx/
+// coordz (15-19, bare), push_constant (20, literal operand).
+//
+// TS source: interface/Unpack.ts:530-555 @2e3bcf43.
+func TestExport_ScriptOps14to20(t *testing.T) {
+	t.Run("push_varbit_named", func(t *testing.T) {
+		varbitPack := makeVarbitPack(t)
+		varbitPack.Register(5, "quest_bits")
+		varbitPack.RefreshNames()
+		joined := scriptOpFixture(t, [][]uint16{{14, 5, 0}}, varbitPack)
+		if !strings.Contains(joined, "script1op1=push_varbit,quest_bits") {
+			t.Errorf("missing push_varbit: %s", joined)
+		}
+	})
+
+	t.Run("push_varbit_fallback", func(t *testing.T) {
+		joined := scriptOpFixture(t, [][]uint16{{14, 261, 0}}, makeVarbitPack(t))
+		if !strings.Contains(joined, "script1op1=push_varbit,varbit_261") {
+			t.Errorf("missing push_varbit fallback: %s", joined)
+		}
+	})
+
+	t.Run("arith_and_coord_ops", func(t *testing.T) {
+		joined := scriptOpFixture(t, [][]uint16{{15, 16, 17, 18, 19, 0}}, makeVarbitPack(t))
+		for _, want := range []string{
+			"script1op1=subtract",
+			"script1op2=divide",
+			"script1op3=multiply",
+			"script1op4=coordx",
+			"script1op5=coordz",
+		} {
+			if !strings.Contains(joined, want) {
+				t.Errorf("missing %s: %s", want, joined)
+			}
+		}
+	})
+
+	t.Run("push_constant", func(t *testing.T) {
+		joined := scriptOpFixture(t, [][]uint16{{20, 1234, 0}}, makeVarbitPack(t))
+		if !strings.Contains(joined, "script1op1=push_constant,1234") {
+			t.Errorf("missing push_constant: %s", joined)
+		}
+	})
 }
 
 // TestExport_ColourHexFormat verifies that colours are emitted as uppercase
@@ -536,7 +621,7 @@ func TestExport_ColourHexFormat(t *testing.T) {
 	}
 	components := []*Component{root, child}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	if !strings.Contains(joined, "colour=0x00C000") {
@@ -570,7 +655,7 @@ func TestExport_ActionTarget_BitfieldAll(t *testing.T) {
 	}
 	components := []*Component{root, child}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	if !strings.Contains(joined, "actiontarget=obj,npc,loc,player,heldobj") {
@@ -616,7 +701,7 @@ func TestExport_ChildLayerRecursion(t *testing.T) {
 	}
 	components := []*Component{root, subLayer, grandchild}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	// sub-layer header
@@ -671,7 +756,7 @@ func TestExportSrc_NamingPasses(t *testing.T) {
 		Order:      []int{0, 1, 5, 6},
 	}
 
-	err := ExportSrc(dec, ifPack, modelPack, objPack, seqPack, varpPack, dir, nil, func(src, dst string) error { return nil })
+	err := ExportSrc(dec, ifPack, modelPack, objPack, seqPack, varpPack, makeVarbitPack(t), dir, nil, func(src, dst string) error { return nil })
 	if err != nil {
 		t.Fatalf("ExportSrc: %v", err)
 	}
@@ -718,7 +803,7 @@ func TestExportSrc_FatalCondition(t *testing.T) {
 		Order:      []int{0, 1},
 	}
 
-	err := ExportSrc(dec, ifPack, modelPack, objPack, seqPack, varpPack, dir, nil, func(src, dst string) error { return nil })
+	err := ExportSrc(dec, ifPack, modelPack, objPack, seqPack, varpPack, makeVarbitPack(t), dir, nil, func(src, dst string) error { return nil })
 	if err == nil {
 		t.Error("expected fatal error for child with non-colon name, got nil")
 	}
@@ -759,7 +844,7 @@ func TestExportComponent_CycleGuard(t *testing.T) {
 	components := []*Component{compA, compB}
 
 	// Must terminate (no stack overflow).
-	lines := exportComponent(compA, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(compA, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	// B's header must be present (non-cyclic output was still emitted).
@@ -798,7 +883,7 @@ func TestExport_Trans_Emitted(t *testing.T) {
 	}
 	components := []*Component{root, child}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	if !strings.Contains(joined, "trans=128") {
@@ -843,7 +928,7 @@ func TestExport_Trans_Zero_Omitted(t *testing.T) {
 	}
 	components := []*Component{root, child}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	if strings.Contains(joined, "trans=") {
@@ -880,7 +965,7 @@ func TestExport_Trans_PositionedBeforeOverlayer(t *testing.T) {
 	}
 	components := []*Component{root, child}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	transIdx := strings.Index(joined, "trans=")
@@ -929,7 +1014,7 @@ func TestExport_Swappable_Emitted(t *testing.T) {
 	}
 	components := []*Component{root, child}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	if !strings.Contains(joined, "swappable=yes") {
@@ -973,7 +1058,7 @@ func TestExport_Swappable_False_Omitted(t *testing.T) {
 	}
 	components := []*Component{root, child}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	if strings.Contains(joined, "swappable=") {
@@ -1010,7 +1095,7 @@ func TestExport_ActiveOverColour_Emitted(t *testing.T) {
 	}
 	components := []*Component{root, child}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	if !strings.Contains(joined, "activeovercolour=0x00AABB") {
@@ -1054,7 +1139,7 @@ func TestExport_ActiveOverColour_Zero_Omitted(t *testing.T) {
 	}
 	components := []*Component{root, child}
 
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	if strings.Contains(joined, "activeovercolour=") {
@@ -1090,7 +1175,7 @@ func TestExportComponent_StatNameOutOfRange(t *testing.T) {
 	components := []*Component{root, child}
 
 	// Must not panic.
-	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), noRenameModel, nil, 0, 0, "")
+	lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
 	joined := strings.Join(lines, "\n")
 
 	// TS STATS[99] → undefined → string coercion "undefined".
