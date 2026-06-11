@@ -138,7 +138,7 @@ var (
 
 	// MIDI client-audio packets. Wire: MIDI_SONG = p2(id); MIDI_JINGLE = p2(id) p2(delay).
 	// The name+crc+length blob is gone; client now fetches by pack id via OnDemand.
-	// Name→id lookup via midiIDByName() returns -1 until B3 MidiPack lands.
+	// Name→id resolution happens at compile time since 254 A10 (midi symbol table); the runtime plays by id.
 	// TS ServerGameProt.ts (254): MIDI_SONG=163/2, MIDI_JINGLE=242/4.
 	OpMidiSong   = Op{Opcode: 163, PayloadSize: 2}
 	OpMidiJingle = Op{Opcode: 242, PayloadSize: 4}
