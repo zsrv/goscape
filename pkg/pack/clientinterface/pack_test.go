@@ -410,3 +410,87 @@ func TestPack_ModelFlagsSet(t *testing.T) {
 		t.Errorf("flags[0] = %d, want 0x2 bit set (TS PackShared.ts:511 modelFlags[modelId] |= 0x2)", flags[0])
 	}
 }
+
+// TestPack_254_ScriptOps14to20 pins the rev-254 interface script ops
+// (TS PackShared.ts:91-104 name map, :353-358 opcount, :438-450 emission
+// @ 2e3bcf43): push_varbit(14, operand = VarbitPack id) and
+// push_constant(20, operand = parseInt) carry one operand word each;
+// subtract(15)/divide(16)/multiply(17)/coordx(18)/coordz(19) carry none.
+// Verified via Pack -> LoadComponentTypes round-trip on the raw script
+// word list (the runtime decoder reads opcodeCount p2 words verbatim).
+func TestPack_254_ScriptOps14to20(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "src")
+	scriptsDir := filepath.Join(src, "scripts")
+	packDir := filepath.Join(src, "pack")
+	if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "interface.pack"),
+		[]byte("0=myif\n1=myif:lay\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile interface.pack: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "interface.order"),
+		[]byte("0\n1\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile interface.order: %v", err)
+	}
+	for _, name := range []string{"obj", "model", "seq", "varp"} {
+		if err := os.WriteFile(filepath.Join(packDir, name+".pack"), []byte(""), 0o644); err != nil {
+			t.Fatalf("WriteFile %s: %v", name, err)
+		}
+	}
+	// varbit registry for the push_varbit operand lookup.
+	if err := os.WriteFile(filepath.Join(packDir, "varbit.pack"), []byte("0=vb_unused\n1=vb_target\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile varbit.pack: %v", err)
+	}
+
+	body := "[lay]\ntype=layer\nwidth=10\nheight=10\n" +
+		"script1=eq,1\n" +
+		"script1op1=push_varbit,vb_target\n" +
+		"script1op2=subtract\n" +
+		"script1op3=divide\n" +
+		"script1op4=multiply\n" +
+		"script1op5=coordx\n" +
+		"script1op6=coordz\n" +
+		"script1op7=push_constant,42\n"
+	if err := os.WriteFile(filepath.Join(scriptsDir, "myif.if"), []byte(body), 0o644); err != nil {
+		t.Fatalf("WriteFile myif.if: %v", err)
+	}
+
+	reg := &pack.Registry{SrcDir: src}
+	out := filepath.Join(tmp, "out")
+	if err := Pack(reg, src, out, nil, nil); err != nil {
+		t.Fatalf("Pack: %v", err)
+	}
+
+	configs, err := objtype.LoadComponentTypes(out)
+	if err != nil {
+		t.Fatalf("LoadComponentTypes: %v (likely word-count drift in ops 14-20)", err)
+	}
+	if configs == nil || len(configs.Configs) < 2 {
+		t.Fatalf("LoadComponentTypes returned %d configs, want >=2", len(configs.Configs))
+	}
+	lay := configs.Configs[1]
+	if lay == nil {
+		t.Fatalf("configs[1] is nil")
+	}
+	if len(lay.Scripts) != 1 {
+		t.Fatalf("Scripts count = %d, want 1", len(lay.Scripts))
+	}
+	// opCount = 7 ops + 1 (push_varbit operand) + 1 (push_constant operand)
+	// = 9; script1op1 non-empty so the stored word count is opCount+1 = 10,
+	// which includes the trailing 0 terminator word.
+	want := []uint16{14, 1, 15, 16, 17, 18, 19, 20, 42, 0}
+	got := lay.Scripts[0]
+	if len(got) != len(want) {
+		t.Fatalf("Scripts[0] = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("Scripts[0][%d] = %d, want %d (full: %v)", i, got[i], want[i], got)
+		}
+	}
+}

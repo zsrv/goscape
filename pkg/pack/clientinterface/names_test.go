@@ -44,6 +44,9 @@ func TestNameToScript(t *testing.T) {
 		"stat_level": 1, "stat_base_level": 2, "stat_xp": 3, "inv_count": 4,
 		"pushvar": 5, "stat_xp_remaining": 6, "op7": 7, "op8": 8, "op9": 9,
 		"inv_contains": 10, "runenergy": 11, "runweight": 12, "testbit": 13,
+		// rev-254 (TS PackShared.ts:91-104 @ 2e3bcf43):
+		"push_varbit": 14, "subtract": 15, "divide": 16, "multiply": 17,
+		"coordx": 18, "coordz": 19, "push_constant": 20,
 		"unknown": 0,
 	}
 	for in, want := range cases {

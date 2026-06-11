@@ -56,7 +56,9 @@ func nameToComparator(name string) int {
 	return 0
 }
 
-// nameToScript ports PackShared.ts:63-94.
+// nameToScript ports PackShared.ts:63-108 @ 2e3bcf43 (ops 14-20 —
+// push_varbit, subtract, divide, multiply, coordx, coordz,
+// push_constant — joined at rev-254).
 func nameToScript(name string) int {
 	switch name {
 	case "stat_level":
@@ -85,6 +87,20 @@ func nameToScript(name string) int {
 		return 12
 	case "testbit":
 		return 13
+	case "push_varbit":
+		return 14
+	case "subtract":
+		return 15
+	case "divide":
+		return 16
+	case "multiply":
+		return 17
+	case "coordx":
+		return 18
+	case "coordz":
+		return 19
+	case "push_constant":
+		return 20
 	}
 	return 0
 }

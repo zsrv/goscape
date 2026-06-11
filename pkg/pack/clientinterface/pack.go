@@ -15,11 +15,13 @@ import (
 	"github.com/zsrv/goscape/pkg/pack"
 )
 
-// interfaceCRCMagic is the TS PackClient.ts:16 build-verify constant.
+// interfaceCRCMagic is the TS PackClient.ts build-verify constant.
 // Rev-244 (9aadcec4) PackClient.ts:21: updated from the rev-225 value
 // (-2146838800) to the rev-244 value. Rev-245.2 (3c16994c) PackClient.ts:19:
-// updated again to reflect the new swappable + activeovercolour fields.
-const interfaceCRCMagic int32 = 587792799
+// updated again (587792799) to reflect the new swappable +
+// activeovercolour fields. Rev-254 (2e3bcf43) PackClient.ts:19: updated
+// from 587792799 to the rev-254 value alongside the new script ops 14-20.
+const interfaceCRCMagic int32 = 1728499832
 
 // component mirrors the TS Component type (PackShared.ts:156-160).
 //
@@ -148,6 +150,10 @@ func packInterface(reg *pack.Registry, srcDir string, modelFlags []int) (client,
 		return nil, nil, err
 	}
 	varpPack, err := reg.EnsureVarp()
+	if err != nil {
+		return nil, nil, err
+	}
+	varbitPack, err := reg.EnsureVarbit()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -313,7 +319,11 @@ func packInterface(reg *pack.Registry, srcDir string, modelFlags []int) (client,
 				opCount++
 				parts := strings.Split(op, ",")
 				switch parts[0] {
-				case "stat_level", "stat_base_level", "stat_xp", "pushvar", "stat_xp_remaining":
+				// push_varbit + push_constant carry one operand word
+				// (TS PackShared.ts:353-358 @ 2e3bcf43, new at rev-254);
+				// subtract/divide/multiply/coordx/coordz carry none.
+				case "stat_level", "stat_base_level", "stat_xp", "pushvar",
+					"stat_xp_remaining", "push_varbit", "push_constant":
 					opCount += 1
 				case "inv_count", "inv_contains", "testbit":
 					opCount += 2
@@ -348,6 +358,15 @@ func packInterface(reg *pack.Registry, srcDir string, modelFlags []int) (client,
 				case "testbit":
 					client.P2(uint16(varpPack.GetByName(parts[1])))
 					client.P2(uint16(atoiOr0(parts[2])))
+				case "push_varbit":
+					// TS PackShared.ts:438-446 @ 2e3bcf43 (rev-254):
+					// printError on -1 is log-only; -1 still lands on the
+					// wire as 0xFFFF — mirrored by the direct uint16 cast
+					// (same posture as the testbit/pushvar lookups above).
+					client.P2(uint16(varbitPack.GetByName(parts[1])))
+				case "push_constant":
+					// TS PackShared.ts:447-450 @ 2e3bcf43 (rev-254).
+					client.P2(uint16(atoiOr0(parts[1])))
 				}
 			}
 			if opCount > 0 {
