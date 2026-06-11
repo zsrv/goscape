@@ -10,10 +10,15 @@ import (
 // unpackSpotAnim is the core implementation of SpotAnimConfig unpacking.
 // Called by Env.UnpackSpotAnim; also directly by tests.
 //
-// TS source: tools/unpack/config/SpotAnimConfig.ts:41-142.
+// compare/modelRenameOffset feed the 254 model-rename guard at the code-1
+// model site (see keepPackedName). Pass nil/0 for the pre-254 behavior.
+//
+// TS source: tools/unpack/config/SpotAnimConfig.ts:41-147 @2e3bcf43.
 func unpackSpotAnim(
 	cfg *ConfigIdx,
 	id int,
+	compare *ConfigIdx,
+	modelRenameOffset int,
 	spotAnimPack, texturePack *pack.PackFile,
 	seqPack *pack.PackFile,
 	modelPack *pack.PackFile,
@@ -46,12 +51,16 @@ func unpackSpotAnim(
 
 		switch {
 		case code == 1:
-			// TS lines 59-65: modelId = g2; renameModel; push model=
+			// TS lines 59-71 @2e3bcf43: modelId = g2; guarded renameModel; push model=
 			modelID := int(dat.G2())
 			modelIDs = append(modelIDs, modelID)
 			var modelName string
 			if modelPack != nil {
-				modelName = renameModelSpot(modelID, debugname, modelPack, srcDir, errorf)
+				if keepPackedName(compare, id, modelID, modelRenameOffset) {
+					modelName = modelPack.GetByID(modelID)
+				} else {
+					modelName = renameModelSpot(modelID, debugname, modelPack, srcDir, errorf)
+				}
 			}
 			def = append(def, fmt.Sprintf("model=%s", modelName))
 

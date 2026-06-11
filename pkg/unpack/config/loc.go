@@ -44,26 +44,23 @@ type LocModelShape struct {
 	Shape int
 }
 
-// LocModels is the result of unpackLocModels: models discovered from opcode 1,
-// and ldModels (always empty at this revision — ported as-is with a comment).
-// TS source: LocConfig.ts:23 (type LocModels).
+// LocModels is the result of unpackLocModels: models discovered from opcodes
+// 1 and 5. The 254 TS dropped the ldModels half entirely (code 77 gone).
+// TS source: LocConfig.ts:23 (type LocModels @2e3bcf43).
 type LocModels struct {
-	Models   []LocModelShape
-	LdModels []LocModelShape // always empty (TS ldModels stays empty, no ld path triggers)
+	Models []LocModelShape
 }
 
 // unpackLocModels performs a skip-read pass over a loc entry collecting only
-// model-shape pairs from opcode 1. All other opcodes are consumed and discarded.
-// Called by Env.UnpackLocModels; also directly by tests.
+// model-shape pairs from opcodes 1 and 5. All other opcodes are consumed and
+// discarded. Called by Env.UnpackLocModels; also directly by tests.
 //
-// TS source: tools/unpack/config/LocConfig.ts:25-129.
+// TS source: tools/unpack/config/LocConfig.ts:26-135 @2e3bcf43.
 func unpackLocModels(cfg *ConfigIdx, id int, warnf func(string, ...any)) LocModels {
 	dat := cfg.Dat
 	dat.Pos = cfg.Pos[id]
 
 	var models []LocModelShape
-	// ldModels is always empty at this revision; TS LocConfig.ts:129 returns it empty.
-	var ldModels []LocModelShape
 
 	for {
 		code := int(dat.G1())
@@ -73,12 +70,20 @@ func unpackLocModels(cfg *ConfigIdx, id int, warnf func(string, ...any)) LocMode
 
 		switch {
 		case code == 1:
-			// TS lines 38-49: count = g1; for each: model = g2; shape = g1; push
+			// TS lines 37-50: 1 model per shape — count = g1; for each: model = g2; shape = g1; push
 			count := int(dat.G1())
 			for range count {
 				m := int(dat.G2())
 				shape := int(dat.G1())
 				models = append(models, LocModelShape{Model: m, Shape: shape})
+			}
+		case code == 5:
+			// TS lines 54-66: multiple models for the default shape — count = g1;
+			// for each: model = g2 with the fixed centrepiece shape (_8 = 10).
+			count := int(dat.G1())
+			for range count {
+				m := int(dat.G2())
+				models = append(models, LocModelShape{Model: m, Shape: 10})
 			}
 		case code == 2:
 			dat.GJStrLF() // skip name
@@ -147,25 +152,31 @@ func unpackLocModels(cfg *ConfigIdx, id int, warnf func(string, ...any)) LocMode
 			// no-op
 		case code == 75:
 			dat.G1() // skip bool (gbool)
-		case code == 77:
-			// TS lines 117-125: multivariant block
-			dat.G2() // skip
-			dat.G2() // skip
-			states := int(dat.G1())
-			for range states + 1 {
-				dat.G2()
-			}
 		default:
+			// Code 77 (the old multivariant/ldModels block) is GONE at 254
+			// (TS LocConfig.ts @2e3bcf43 no longer handles it) — it lands here.
 			// TS LocConfig.ts has no default either and would loop forever on unknown
 			// opcodes here (unlike unpackLoc which calls printFatalError). Go bails
 			// instead — cannot affect parity because no reference output exists for
 			// data that hangs TS.
 			warnf("unknown loc model code %d", code)
-			return LocModels{Models: models, LdModels: ldModels}
+			return LocModels{Models: models}
 		}
 	}
 
-	return LocModels{Models: models, LdModels: ldModels}
+	return LocModels{Models: models}
+}
+
+// exclusiveAdd appends value to collection only when it is not already present.
+//
+// TS source: LocConfig.ts:157-161 @2e3bcf43.
+func exclusiveAdd(collection []string, value string) []string {
+	for _, v := range collection {
+		if v == value {
+			return collection
+		}
+	}
+	return append(collection, value)
 }
 
 // unpackLoc is the core implementation of LocConfig unpacking.
@@ -247,6 +258,27 @@ func unpackLoc(
 			// TS line 199-201: desc = gjstr
 			desc := dat.GJStrLF()
 			def = append(def, fmt.Sprintf("desc=%s", desc))
+
+		case code == 5:
+			// TS lines 213-226 @2e3bcf43: multiple models for the default
+			// centrepiece shape — index-suffixed model lines via exclusiveAdd
+			// (identical lines deduplicated; first index has no suffix).
+			count := int(dat.G1())
+			for i := range count {
+				index := i + 1
+				modelID := int(dat.G2())
+				modelIDs = append(modelIDs, modelID)
+
+				var name string
+				if modelPack != nil {
+					name = renameModelLoc(modelID, 10, modelPack) // LocShapeSuffix._8
+				}
+				line := fmt.Sprintf("model=%s", name)
+				if index > 1 {
+					line = fmt.Sprintf("model%d=%s", index, name)
+				}
+				def = exclusiveAdd(def, line)
+			}
 
 		case code == 14:
 			// TS line 202-204: width = g1
@@ -400,8 +432,17 @@ func unpackLoc(
 			def = append(def, "forcedecor=yes")
 
 		case code == 74:
-			// TS LocConfig.ts:293-294 (@3c16994c): push breakroutefinding=yes
+			// TS LocConfig.ts:317-318 (@2e3bcf43): push breakroutefinding=yes
 			def = append(def, "breakroutefinding=yes")
+
+		case code == 75:
+			// TS LocConfig.ts:319-321 (@2e3bcf43): raiseobject = gbool
+			raiseobject := dat.GBool()
+			if raiseobject {
+				def = append(def, "raiseobject=yes")
+			} else {
+				def = append(def, "raiseobject=no")
+			}
 
 		default:
 			// TS line 293-294: printFatalError(`unknown loc code ${code}, last code ${lastCode}`)

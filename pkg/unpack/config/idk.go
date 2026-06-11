@@ -29,10 +29,15 @@ var idkPartTypeName = [14]string{
 // unpackIdk is the core implementation of IdkConfig unpacking.
 // Called by Env.UnpackIdk; also directly by tests.
 //
-// TS source: tools/unpack/config/IdkConfig.ts:58-149.
+// compare/modelRenameOffset feed the 254 model-rename guard at both model
+// sites (see keepPackedName). Pass nil/0 for the pre-254 behavior.
+//
+// TS source: tools/unpack/config/IdkConfig.ts:58-159 @2e3bcf43.
 func unpackIdk(
 	cfg *ConfigIdx,
 	id int,
+	compare *ConfigIdx,
+	modelRenameOffset int,
 	idkPack, texturePack *pack.PackFile,
 	modelPack *pack.PackFile,
 	models *model.Store,
@@ -46,6 +51,18 @@ func unpackIdk(
 	// TS line 62: def.push(`[${IdkPack.getById(id)}]`)
 	debugname := getByID(idkPack, id)
 	def = append(def, fmt.Sprintf("[%s]", debugname))
+
+	// resolveModel applies the 254 rename guard before each renameModel call
+	// (TS IdkConfig.ts:87-93, 113-119 @2e3bcf43).
+	resolveModel := func(modelID int, name string) string {
+		if modelPack == nil {
+			return ""
+		}
+		if keepPackedName(compare, id, modelID, modelRenameOffset) {
+			return modelPack.GetByID(modelID)
+		}
+		return renameModelIdk(modelID, name, modelPack, srcDir, errorf)
+	}
 
 	var modelIDs []int
 	// TS uses JS sparse arrays; we use maps to replicate undefined-skip semantics.
@@ -78,16 +95,13 @@ func unpackIdk(
 			def = append(def, fmt.Sprintf("type=%s", name))
 
 		case code == 2:
-			// TS lines 80-89: count = g1; for each: modelId = g2; renameModel; push model{i+1}=
+			// TS lines 80-95 @2e3bcf43: count = g1; for each: modelId = g2;
+			// guarded renameModel; push model{i+1}=
 			count := int(dat.G1())
 			for i := range count {
 				modelID := int(dat.G2())
 				modelIDs = append(modelIDs, modelID)
-				var modelName string
-				if modelPack != nil {
-					modelName = renameModelIdk(modelID, debugname, modelPack, srcDir, errorf)
-				}
-				def = append(def, fmt.Sprintf("model%d=%s", i+1, modelName))
+				def = append(def, fmt.Sprintf("model%d=%s", i+1, resolveModel(modelID, debugname)))
 			}
 
 		case code == 3:
@@ -111,16 +125,11 @@ func unpackIdk(
 			}
 
 		case code >= 60 && code < 70:
-			// TS lines 102-109: head models, index = code-60+1
+			// TS lines 106-120 @2e3bcf43: head models, index = code-60+1, guarded rename
 			index := code - 60 + 1
 			modelID := int(dat.G2())
 			modelIDs = append(modelIDs, modelID)
-			headName := debugname + "_head"
-			var modelName string
-			if modelPack != nil {
-				modelName = renameModelIdk(modelID, headName, modelPack, srcDir, errorf)
-			}
-			def = append(def, fmt.Sprintf("head%d=%s", index, modelName))
+			def = append(def, fmt.Sprintf("head%d=%s", index, resolveModel(modelID, debugname+"_head")))
 
 		default:
 			// TS line 111: printWarning(`unknown idk code ${code}`)

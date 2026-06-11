@@ -32,7 +32,9 @@ func TestReorderUnpacked_BucketOrder(t *testing.T) {
 	})
 
 	t.Run("all_true", func(t *testing.T) {
-		// All flags true: order = debugname, name, desc, model, ldmodel, recol, retex, others.
+		// All flags true: order = debugname, name, desc, model, recol, retex, others.
+		// 254 delta: "ldmodel" no longer matches the model bucket (TS Unpack.ts:102
+		// @2e3bcf43 checks startsWith('model') only) → it lands in others.
 		in := []string{
 			"[myname]",
 			"name=Foo",
@@ -50,13 +52,32 @@ func TestReorderUnpacked_BucketOrder(t *testing.T) {
 			"name=Foo",
 			"desc=A desc",
 			"model=m1",
-			"ldmodel=m2",
 			"recol1s=100",
 			"retex1s=200",
+			"ldmodel=m2",
 			"active=yes",
 		}
 		if !slices.Equal(got, want) {
 			t.Errorf("all_true:\n got  %v\n want %v", got, want)
+		}
+	})
+
+	t.Run("drops_hasalpha_and_code9", func(t *testing.T) {
+		// 254 delta: hasalpha=/code9= lines are dropped from the output entirely
+		// (TS Unpack.ts:106 @2e3bcf43 — the others bucket excludes them).
+		in := []string{
+			"[myname]",
+			"hasalpha=yes",
+			"code9=yes",
+			"active=yes",
+		}
+		got := reorderUnpacked(in, reorderUnpackedSettings{})
+		want := []string{
+			"[myname]",
+			"active=yes",
+		}
+		if !slices.Equal(got, want) {
+			t.Errorf("drops_hasalpha_and_code9:\n got  %v\n want %v", got, want)
 		}
 	})
 
@@ -215,7 +236,7 @@ func TestUnpackConfigNames_DefaultRegistration(t *testing.T) {
 	// Instead, use ReadConfigIdx directly with synthetic packets.
 
 	// Build idx packet: count=3, len[0]=0, len[1]=0, len[2]=0
-	idxBytes := make([]byte, 2+3*2) // 2 for count + 3*2 for per-entry lengths
+	idxBytes := make([]byte, 2+3*2)              // 2 for count + 3*2 for per-entry lengths
 	binary.BigEndian.PutUint16(idxBytes[0:2], 3) // count
 	// all lengths = 0, already zeroed
 
@@ -267,21 +288,6 @@ func TestUnpackConfigNames_DefaultRegistration(t *testing.T) {
 func TestUnpackConfig_MergeEmission(t *testing.T) {
 	srcDir := t.TempDir()
 
-	// Synthetic unpack function: returns different lines for id 0, same for id 1.
-	calls := 0
-	unpackFn := func(idx *ConfigIdx, id int) ([]string, error) {
-		calls++
-		if id == 0 {
-			// First call (primary cache) returns version A; second call (compare cache) returns version B.
-			if calls%2 == 1 {
-				return []string{"[flo_0]", "colour=1"}, nil
-			}
-			return []string{"[flo_0]", "colour=2"}, nil
-		}
-		// id 1: always same → no merge entry
-		return []string{"[flo_1]", "colour=99"}, nil
-	}
-
 	// Build minimal ConfigIdx objects: size=2, all positions/lengths at 0.
 	// We need two Jagfile objects. Since unpackConfig calls ReadConfigIdx via jag.Read,
 	// but our fn signature takes *ConfigIdx directly, test via direct internal call.
@@ -296,22 +302,30 @@ func TestUnpackConfig_MergeEmission(t *testing.T) {
 	jag2 := makeTinyJagWithFloIdx(t, 2)
 
 	// Track calls: primary jag produces "colour=1", compare produces "colour=2" for id 0.
+	// 254 signature: the driver threads (compare, modelRenameOffset) into the impl —
+	// the main-loop call passes the compareIdx, the compare-side call passes nil
+	// (TS Unpack.ts:166+171 @2e3bcf43).
 	callCount := 0
-	fn := func(idx *ConfigIdx, id int) ([]string, error) {
+	fn := func(idx *ConfigIdx, id int, compare *ConfigIdx, offset int) ([]string, error) {
 		callCount++
 		if id == 0 {
 			if callCount%2 == 1 {
+				if compare == nil {
+					t.Error("main-loop call must receive the compareIdx")
+				}
 				return []string{"[flo_0]", "colour=1"}, nil
+			}
+			if compare != nil {
+				t.Error("compare-side call must receive nil compare")
 			}
 			return []string{"[flo_0]", "colour=2"}, nil
 		}
 		// id 1: always same
 		return []string{"[flo_1]", "colour=99"}, nil
 	}
-	_ = unpackFn // suppress unused lint
 
 	printInfo := func(string) {}
-	if err := unpackConfig("244", "flo", fn, jag1, jag2, srcDir, printInfo); err != nil {
+	if err := unpackConfig("244", "flo", fn, jag1, jag2, 0, srcDir, printInfo); err != nil {
 		t.Fatalf("unpackConfig: %v", err)
 	}
 
@@ -403,4 +417,124 @@ func makeTinyJagWithFloIdx(t *testing.T, count int) *jagfile.Jagfile {
 		t.Fatalf("jagfile load: %v", err)
 	}
 	return loaded
+}
+
+// makeTinyJagWithLoc builds a *jagfile.Jagfile containing loc.idx and loc.dat
+// from the given per-entry opcode bodies.
+func makeTinyJagWithLoc(t *testing.T, bodies [][]byte) *jagfile.Jagfile {
+	t.Helper()
+
+	idxBytes := make([]byte, 2+len(bodies)*2)
+	binary.BigEndian.PutUint16(idxBytes[0:2], uint16(len(bodies)))
+	datBytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(datBytes[0:2], uint16(len(bodies)))
+	for i, b := range bodies {
+		binary.BigEndian.PutUint16(idxBytes[2+i*2:], uint16(len(b)))
+		datBytes = append(datBytes, b...)
+	}
+
+	jf := jagfile.NewEmptyJagfile(false)
+	jf.Write("loc.idx", packet.NewPacket(idxBytes))
+	jf.Write("loc.dat", packet.NewPacket(datBytes))
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "loc.jag")
+	if err := jf.Save(path); err != nil {
+		t.Fatalf("jagfile save: %v", err)
+	}
+	loaded, err := jagfile.LoadJagfile(path)
+	if err != nil {
+		t.Fatalf("jagfile load: %v", err)
+	}
+	return loaded
+}
+
+// namedPackFile builds an in-memory PackFile with Type/SrcDir set so Save works.
+func namedPackFile(srcDir, typ string, entries map[int]string) *pack.PackFile {
+	nameToID := make(map[string]int, len(entries))
+	names := make(map[string]struct{}, len(entries))
+	maxID := 0
+	for id, name := range entries {
+		nameToID[name] = id
+		names[name] = struct{}{}
+		if id > maxID {
+			maxID = id
+		}
+	}
+	return &pack.PackFile{
+		Type:     typ,
+		SrcDir:   srcDir,
+		Pack:     entries,
+		NameToID: nameToID,
+		Names:    names,
+		Max:      maxID + 1,
+	}
+}
+
+// TestUnpackModelNames_254Guards pins the 254 unpackModelNames deltas:
+// the compare cache sets the loop start to compareIdx.size, and models below
+// modelRenameOffset are skipped; the ldModels rename pass is GONE.
+//
+// TS source: Unpack.ts:205-276 @2e3bcf43.
+func TestUnpackModelNames_254Guards(t *testing.T) {
+	// Two locs, each one centrepiece model: loc 0 → model 5, loc 1 → model 6.
+	bodies := [][]byte{
+		{1, 1, 0x00, 5, 10, 0},
+		{1, 1, 0x00, 6, 10, 0},
+	}
+
+	newEnv := func(srcDir string) *Env {
+		return &Env{
+			Loc:   namedPackFile(srcDir, "loc", map[int]string{0: "statue", 1: "fountain"}),
+			Model: namedPackFile(srcDir, "model", map[int]string{5: "model_5", 6: "model_6"}),
+		}
+	}
+
+	t.Run("offset_skips_low_models", func(t *testing.T) {
+		srcDir := t.TempDir()
+		env := newEnv(srcDir)
+		jag := makeTinyJagWithLoc(t, bodies)
+		if err := unpackModelNames(jag, nil, 6, env, srcDir); err != nil {
+			t.Fatalf("unpackModelNames: %v", err)
+		}
+		// model 5 < offset 6 → untouched; model 6 >= 6 → renamed fountain_8.
+		if got := env.Model.GetByID(5); got != "model_5" {
+			t.Errorf("model 5: want model_5 got %q", got)
+		}
+		if got := env.Model.GetByID(6); got != "fountain_8" {
+			t.Errorf("model 6: want fountain_8 got %q", got)
+		}
+	})
+
+	t.Run("compare_sets_loop_start", func(t *testing.T) {
+		srcDir := t.TempDir()
+		env := newEnv(srcDir)
+		jag := makeTinyJagWithLoc(t, bodies)
+		// compare cache has 1 loc → start=1 → loc 0 (model 5) skipped entirely.
+		jag2 := makeTinyJagWithLoc(t, bodies[:1])
+		if err := unpackModelNames(jag, jag2, 0, env, srcDir); err != nil {
+			t.Fatalf("unpackModelNames: %v", err)
+		}
+		if got := env.Model.GetByID(5); got != "model_5" {
+			t.Errorf("model 5: want model_5 (skipped via start) got %q", got)
+		}
+		if got := env.Model.GetByID(6); got != "fountain_8" {
+			t.Errorf("model 6: want fountain_8 got %q", got)
+		}
+	})
+
+	t.Run("no_compare_no_offset_renames_all", func(t *testing.T) {
+		srcDir := t.TempDir()
+		env := newEnv(srcDir)
+		jag := makeTinyJagWithLoc(t, bodies)
+		if err := unpackModelNames(jag, nil, 0, env, srcDir); err != nil {
+			t.Fatalf("unpackModelNames: %v", err)
+		}
+		if got := env.Model.GetByID(5); got != "statue_8" {
+			t.Errorf("model 5: want statue_8 got %q", got)
+		}
+		if got := env.Model.GetByID(6); got != "fountain_8" {
+			t.Errorf("model 6: want fountain_8 got %q", got)
+		}
+	})
 }

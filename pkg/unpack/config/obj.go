@@ -10,10 +10,15 @@ import (
 // unpackObj is the core implementation of ObjConfig unpacking.
 // Called by Env.UnpackObj; also directly by tests.
 //
-// TS source: tools/unpack/config/ObjConfig.ts:41-258.
+// compare/modelRenameOffset feed the 254 model-rename guard at every model
+// site (see keepPackedName). Pass nil/0 for the pre-254 behavior.
+//
+// TS source: tools/unpack/config/ObjConfig.ts:41-308 @2e3bcf43.
 func unpackObj(
 	cfg *ConfigIdx,
 	id int,
+	compare *ConfigIdx,
+	modelRenameOffset int,
 	objPack, texturePack *pack.PackFile,
 	seqPack *pack.PackFile,
 	modelPack *pack.PackFile,
@@ -28,6 +33,18 @@ func unpackObj(
 	// TS line 45: debugname = ObjPack.getById(id)
 	debugname := getByID(objPack, id)
 	def = append(def, fmt.Sprintf("[%s]", debugname))
+
+	// resolveModel applies the 254 rename guard before each renameModel call
+	// (TS ObjConfig.ts:64-70 et al @2e3bcf43).
+	resolveModel := func(modelID int, name string) string {
+		if modelPack == nil {
+			return ""
+		}
+		if keepPackedName(compare, id, modelID, modelRenameOffset) {
+			return modelPack.GetByID(modelID)
+		}
+		return renameModelObj(modelID, name, modelPack, srcDir, errorf)
+	}
 
 	var modelIDs []int
 	// ObjConfig opcode 40 reads pairs into parallel slices (dense).
@@ -44,14 +61,10 @@ func unpackObj(
 
 		switch {
 		case code == 1:
-			// TS lines 59-65: modelId = g2; renameModel; push model=
+			// TS lines 59-71: modelId = g2; guarded renameModel; push model=
 			modelID := int(dat.G2())
 			modelIDs = append(modelIDs, modelID)
-			var modelName string
-			if modelPack != nil {
-				modelName = renameModelObj(modelID, debugname, modelPack, srcDir, errorf)
-			}
-			def = append(def, fmt.Sprintf("model=%s", modelName))
+			def = append(def, fmt.Sprintf("model=%s", resolveModel(modelID, debugname)))
 
 		case code == 2:
 			// TS line 66-68: name = gjstr
@@ -115,46 +128,30 @@ func unpackObj(
 			def = append(def, "members=yes")
 
 		case code == 23:
-			// TS lines 101-108: modelId = g2; offset = g1b (signed); manwear=model,offset
+			// TS lines 106-119: modelId = g2; offset = g1b (signed); guarded rename; manwear=model,offset
 			modelID := int(dat.G2())
 			offset := int(int8(dat.G1()))
 			modelIDs = append(modelIDs, modelID)
-			var modelName string
-			if modelPack != nil {
-				modelName = renameModelObj(modelID, debugname+"_manwear", modelPack, srcDir, errorf)
-			}
-			def = append(def, fmt.Sprintf("manwear=%s,%d", modelName, offset))
+			def = append(def, fmt.Sprintf("manwear=%s,%d", resolveModel(modelID, debugname+"_manwear"), offset))
 
 		case code == 24:
-			// TS lines 109-115: modelId = g2; manwear2=model
+			// TS lines 120-131: modelId = g2; guarded rename; manwear2=model
 			modelID := int(dat.G2())
 			modelIDs = append(modelIDs, modelID)
-			var modelName string
-			if modelPack != nil {
-				modelName = renameModelObj(modelID, debugname+"_manwear2", modelPack, srcDir, errorf)
-			}
-			def = append(def, fmt.Sprintf("manwear2=%s", modelName))
+			def = append(def, fmt.Sprintf("manwear2=%s", resolveModel(modelID, debugname+"_manwear2")))
 
 		case code == 25:
-			// TS lines 116-123: modelId = g2; offset = g1b (signed); womanwear=model,offset
+			// TS lines 132-145: modelId = g2; offset = g1b (signed); guarded rename; womanwear=model,offset
 			modelID := int(dat.G2())
 			offset := int(int8(dat.G1()))
 			modelIDs = append(modelIDs, modelID)
-			var modelName string
-			if modelPack != nil {
-				modelName = renameModelObj(modelID, debugname+"_womanwear", modelPack, srcDir, errorf)
-			}
-			def = append(def, fmt.Sprintf("womanwear=%s,%d", modelName, offset))
+			def = append(def, fmt.Sprintf("womanwear=%s,%d", resolveModel(modelID, debugname+"_womanwear"), offset))
 
 		case code == 26:
-			// TS lines 124-130: modelId = g2; womanwear2=model
+			// TS lines 146-157: modelId = g2; guarded rename; womanwear2=model
 			modelID := int(dat.G2())
 			modelIDs = append(modelIDs, modelID)
-			var modelName string
-			if modelPack != nil {
-				modelName = renameModelObj(modelID, debugname+"_womanwear2", modelPack, srcDir, errorf)
-			}
-			def = append(def, fmt.Sprintf("womanwear2=%s", modelName))
+			def = append(def, fmt.Sprintf("womanwear2=%s", resolveModel(modelID, debugname+"_womanwear2")))
 
 		case code >= 30 && code < 35:
 			// TS lines 131-134: op index = (code-30)+1; gjstr
@@ -179,64 +176,40 @@ func unpackObj(
 			}
 
 		case code == 78:
-			// TS lines 146-152: manwear3=model
+			// TS lines 170-181: guarded rename; manwear3=model
 			modelID := int(dat.G2())
 			modelIDs = append(modelIDs, modelID)
-			var modelName string
-			if modelPack != nil {
-				modelName = renameModelObj(modelID, debugname+"_manwear3", modelPack, srcDir, errorf)
-			}
-			def = append(def, fmt.Sprintf("manwear3=%s", modelName))
+			def = append(def, fmt.Sprintf("manwear3=%s", resolveModel(modelID, debugname+"_manwear3")))
 
 		case code == 79:
-			// TS lines 153-159: womanwear3=model
+			// TS lines 182-193: guarded rename; womanwear3=model
 			modelID := int(dat.G2())
 			modelIDs = append(modelIDs, modelID)
-			var modelName string
-			if modelPack != nil {
-				modelName = renameModelObj(modelID, debugname+"_womanwear3", modelPack, srcDir, errorf)
-			}
-			def = append(def, fmt.Sprintf("womanwear3=%s", modelName))
+			def = append(def, fmt.Sprintf("womanwear3=%s", resolveModel(modelID, debugname+"_womanwear3")))
 
 		case code == 90:
-			// TS lines 160-166: manhead=model
+			// TS lines 194-205: guarded rename; manhead=model
 			modelID := int(dat.G2())
 			modelIDs = append(modelIDs, modelID)
-			var modelName string
-			if modelPack != nil {
-				modelName = renameModelObj(modelID, debugname+"_manhead", modelPack, srcDir, errorf)
-			}
-			def = append(def, fmt.Sprintf("manhead=%s", modelName))
+			def = append(def, fmt.Sprintf("manhead=%s", resolveModel(modelID, debugname+"_manhead")))
 
 		case code == 91:
-			// TS lines 167-173: womanhead=model
+			// TS lines 206-217: guarded rename; womanhead=model
 			modelID := int(dat.G2())
 			modelIDs = append(modelIDs, modelID)
-			var modelName string
-			if modelPack != nil {
-				modelName = renameModelObj(modelID, debugname+"_womanhead", modelPack, srcDir, errorf)
-			}
-			def = append(def, fmt.Sprintf("womanhead=%s", modelName))
+			def = append(def, fmt.Sprintf("womanhead=%s", resolveModel(modelID, debugname+"_womanhead")))
 
 		case code == 92:
-			// TS lines 174-180: manhead2=model
+			// TS lines 218-229: guarded rename; manhead2=model
 			modelID := int(dat.G2())
 			modelIDs = append(modelIDs, modelID)
-			var modelName string
-			if modelPack != nil {
-				modelName = renameModelObj(modelID, debugname+"_manhead2", modelPack, srcDir, errorf)
-			}
-			def = append(def, fmt.Sprintf("manhead2=%s", modelName))
+			def = append(def, fmt.Sprintf("manhead2=%s", resolveModel(modelID, debugname+"_manhead2")))
 
 		case code == 93:
-			// TS lines 181-187: womanhead2=model
+			// TS lines 230-241: guarded rename; womanhead2=model
 			modelID := int(dat.G2())
 			modelIDs = append(modelIDs, modelID)
-			var modelName string
-			if modelPack != nil {
-				modelName = renameModelObj(modelID, debugname+"_womanhead2", modelPack, srcDir, errorf)
-			}
-			def = append(def, fmt.Sprintf("womanhead2=%s", modelName))
+			def = append(def, fmt.Sprintf("womanhead2=%s", resolveModel(modelID, debugname+"_womanhead2")))
 
 		case code == 95:
 			// TS line 188-190: zan2d = g2; push 2dzan=

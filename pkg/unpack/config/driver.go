@@ -1,10 +1,10 @@
 // Package config — driver.go implements Unpack, the top-level config-family
 // unpack entry point that mirrors TS tools/unpack/config/Unpack.ts unpackConfigs
-// (lines 294-368) plus its private helpers unpackConfigNames (lines 47-79),
-// reorderUnpacked (lines 81-108), unpackConfig (lines 112-198), and
-// unpackModelNames (lines 202-292).
+// (lines 278-354) plus its private helpers unpackConfigNames (lines 47-82),
+// reorderUnpacked (lines 84-111), unpackConfig (lines 115-201), and
+// unpackModelNames (lines 205-276).
 //
-// TS source: tools/unpack/config/Unpack.ts (Engine-TS 9aadcec4).
+// TS source: tools/unpack/config/Unpack.ts (Engine-TS 2e3bcf43).
 package config
 
 import (
@@ -46,7 +46,7 @@ type Options struct {
 	DisplaySrcDir string
 
 	// Revision is embedded in the output path scripts/_unpack/<Revision>/all.<type>.
-	// TS hardcodes "254" at the call site (Unpack.ts:356 @43e02957;
+	// TS hardcodes "254" at the call site (Unpack.ts:356 @2e3bcf43;
 	// was "245" at Unpack.ts:368 @3c16994c).
 	Revision string
 
@@ -68,12 +68,16 @@ type reorderUnpackedSettings struct {
 	moveModel bool
 }
 
-// reorderUnpacked mirrors TS Unpack.ts:81-108.
+// reorderUnpacked mirrors TS Unpack.ts:84-111 @2e3bcf43.
 // Splits the config lines into buckets and returns them in the canonical order:
-// debugname (lines starting with '['), name=, desc=, model/ldmodel, recol/retex, others.
+// debugname (lines starting with '['), name=, desc=, model, recol/retex, others.
 // Buckets are only populated when the corresponding settings flag is true.
 //
-// TS source: tools/unpack/config/Unpack.ts:81-108.
+// 254 deltas: the model bucket matches only the 'model' prefix ('ldmodel' is
+// gone from the check), and hasalpha=/code9= lines are DROPPED entirely
+// (TS line 106 excludes them from the others bucket).
+//
+// TS source: tools/unpack/config/Unpack.ts:84-111 @2e3bcf43.
 func reorderUnpacked(config []string, settings reorderUnpackedSettings) []string {
 	var debugname, name, desc, model, recol, others []string
 
@@ -85,11 +89,11 @@ func reorderUnpacked(config []string, settings reorderUnpackedSettings) []string
 			name = append(name, line)
 		case settings.moveDesc && strings.HasPrefix(line, "desc="):
 			desc = append(desc, line)
-		case settings.moveModel && (strings.HasPrefix(line, "model") || strings.HasPrefix(line, "ldmodel")):
+		case settings.moveModel && strings.HasPrefix(line, "model"):
 			model = append(model, line)
 		case settings.moveRecol && (strings.HasPrefix(line, "recol") || strings.HasPrefix(line, "retex")):
 			recol = append(recol, line)
-		default:
+		case !strings.HasPrefix(line, "hasalpha=") && !strings.HasPrefix(line, "code9="):
 			others = append(others, line)
 		}
 	}
@@ -143,6 +147,9 @@ func unpackConfigNames(typeName string, jag *jagfile.Jagfile, reg *pack.Registry
 		pf, err = reg.EnsureFlo()
 	case "varp":
 		pf, err = reg.EnsureVarp()
+	case "varbit":
+		// NEW at rev-254 (TS Unpack.ts:63-64 @2e3bcf43).
+		pf, err = reg.EnsureVarbit()
 	case "spotanim":
 		pf, err = reg.EnsureSpotAnim()
 	default:
@@ -182,21 +189,25 @@ func unpackConfigNames(typeName string, jag *jagfile.Jagfile, reg *pack.Registry
 	return nil
 }
 
-// unpackConfig mirrors TS Unpack.ts:112-198.
+// unpackConfig mirrors TS Unpack.ts:115-201 @2e3bcf43.
 // Reads all entries from jag (and optionally jag2 for merge-compare),
 // reorders each unpacked entry, and appends to scripts/_unpack/<revision>/all.<type>.
 // When jag2 is non-nil, differing entries are appended to all.<type>.merge instead.
 //
-// TS source: tools/unpack/config/Unpack.ts:112-198.
+// modelRenameOffset is threaded into every unpackFn call; the main loop also
+// passes compareIdx, the compare-side call passes nil (TS lines 166+171).
+//
+// TS source: tools/unpack/config/Unpack.ts:115-201 @2e3bcf43.
 func unpackConfig(
 	revision, typeName string,
-	unpackFn func(*ConfigIdx, int) ([]string, error),
+	unpackFn func(*ConfigIdx, int, *ConfigIdx, int) ([]string, error),
 	jag *jagfile.Jagfile,
 	jag2 *jagfile.Jagfile,
+	modelRenameOffset int,
 	srcDir string,
 	printInfoFn func(string),
 ) error {
-	// TS line 113: readConfigIdx
+	// TS line 116: readConfigIdx
 	idxPkt, err := jag.Read(typeName + ".idx")
 	if err != nil {
 		return fmt.Errorf("read %s.idx: %w", typeName, err)
@@ -210,17 +221,23 @@ func unpackConfig(
 		return fmt.Errorf("readConfigIdx %s: %w", typeName, err)
 	}
 
-	// TS line 114: printInfo(`Unpacking ${sourceIdx.size} ${type} configs`)
+	// TS line 117: printInfo(`Unpacking ${sourceIdx.size} ${type} configs`)
 	printInfoFn(fmt.Sprintf("Unpacking %d %s configs", sourceIdx.Size, typeName))
 
-	// TS lines 116-119: optional compareIdx from config2
+	// TS lines 119-122 @2e3bcf43: optional compareIdx, guarded by
+	// `config2 && config2.has(type + '.idx')`. Go probes via Read error:
+	// a missing .idx means no compare; a present .idx with a missing .dat is
+	// the TS readConfigIdx printFatalError path → error.
 	var compareIdx *ConfigIdx
 	if jag2 != nil {
-		idxPkt2, err2 := jag2.Read(typeName + ".idx")
-		if err2 == nil {
+		if idxPkt2, err2 := jag2.Read(typeName + ".idx"); err2 == nil {
 			datPkt2, err3 := jag2.Read(typeName + ".dat")
-			if err3 == nil {
-				compareIdx, _ = ReadConfigIdx(idxPkt2, datPkt2)
+			if err3 != nil {
+				return fmt.Errorf("compare cache has %s.idx but no %s.dat: %w", typeName, typeName, err3)
+			}
+			compareIdx, err = ReadConfigIdx(idxPkt2, datPkt2)
+			if err != nil {
+				return fmt.Errorf("readConfigIdx compare %s: %w", typeName, err)
 			}
 		}
 	}
@@ -239,9 +256,10 @@ func unpackConfig(
 
 	settings := settingsForType(typeName)
 
-	// TS lines 162-196: main loop
+	// TS lines 165-200: main loop
 	for id := range sourceIdx.Size {
-		unpacked, err := unpackFn(sourceIdx, id)
+		// TS line 166: unpack(sourceIdx, id, compareIdx, modelRenameOffset)
+		unpacked, err := unpackFn(sourceIdx, id, compareIdx, modelRenameOffset)
 		if err != nil {
 			return fmt.Errorf("unpack %s id %d: %w", typeName, id, err)
 		}
@@ -249,9 +267,10 @@ func unpackConfig(
 		unpacked = append(unpacked, "") // TS: unpacked.push('')
 
 		if compareIdx != nil {
-			// TS lines 166-193: merge-compare path
+			// TS lines 169-196: merge-compare path
 			if id < compareIdx.Size {
-				unpacked2, err := unpackFn(compareIdx, id)
+				// TS line 171: unpack(compareIdx, id, undefined, modelRenameOffset)
+				unpacked2, err := unpackFn(compareIdx, id, nil, modelRenameOffset)
 				if err != nil {
 					return fmt.Errorf("unpack %s compare id %d: %w", typeName, id, err)
 				}
@@ -319,14 +338,17 @@ func packFileMax(pf *pack.PackFile) int {
 	return maxID + 1
 }
 
-// unpackModelNames mirrors TS Unpack.ts:202-292.
+// unpackModelNames mirrors TS Unpack.ts:205-276 @2e3bcf43.
 // Performs the loc-models pass: collects LocModels for all ids, builds the
-// seenAsNonCentrepiece table, then renames model files for both models and
-// ldModels sub-arrays.
+// seenAsNonCentrepiece table, then renames model files.
 //
-// TS source: tools/unpack/config/Unpack.ts:202-292.
-func unpackModelNames(jag *jagfile.Jagfile, env *Env, srcDir string) error {
-	// TS line 203: readConfigIdx(config.read('loc.idx'), config.read('loc.dat'))
+// 254 deltas: the optional compare cache (jag2) sets the loop start to its
+// loc count (entries the old cache already named are skipped wholesale);
+// models below modelRenameOffset are skipped; the ldModels pass is GONE.
+//
+// TS source: tools/unpack/config/Unpack.ts:205-276 @2e3bcf43.
+func unpackModelNames(jag, jag2 *jagfile.Jagfile, modelRenameOffset int, env *Env, srcDir string) error {
+	// TS line 206: readConfigIdx(config.read('loc.idx'), config.read('loc.dat'))
 	idxPkt, err := jag.Read("loc.idx")
 	if err != nil {
 		return fmt.Errorf("read loc.idx: %w", err)
@@ -340,13 +362,29 @@ func unpackModelNames(jag *jagfile.Jagfile, env *Env, srcDir string) error {
 		return fmt.Errorf("readConfigIdx loc: %w", err)
 	}
 
-	// TS lines 205-208: collect LocModels for all ids
+	// TS lines 208-211: optional compareIdx, guarded by
+	// `config2 && config2.has(type + '.dat')` (NOTE: .dat here, not .idx).
+	var compareIdx *ConfigIdx
+	if jag2 != nil {
+		if datPkt2, err2 := jag2.Read("loc.dat"); err2 == nil {
+			idxPkt2, err3 := jag2.Read("loc.idx")
+			if err3 != nil {
+				return fmt.Errorf("compare cache has loc.dat but no loc.idx: %w", err3)
+			}
+			compareIdx, err = ReadConfigIdx(idxPkt2, datPkt2)
+			if err != nil {
+				return fmt.Errorf("readConfigIdx compare loc: %w", err)
+			}
+		}
+	}
+
+	// TS lines 213-216: collect LocModels for all ids
 	locs := make([]LocModels, sourceIdx.Size)
 	for id := range sourceIdx.Size {
 		locs[id] = env.UnpackLocModels(sourceIdx, id)
 	}
 
-	// TS lines 210-223: build seenAsNonCentrepiece table
+	// TS lines 218-225: build seenAsNonCentrepiece table
 	// shape 10 = centrepiece_straight (_8 suffix); everything else = non-centrepiece.
 	seenAsNonCentrepiece := make(map[int]bool)
 	for _, cfg := range locs {
@@ -355,33 +393,33 @@ func unpackModelNames(jag *jagfile.Jagfile, env *Env, srcDir string) error {
 				seenAsNonCentrepiece[info.Model] = true
 			}
 		}
-		for _, info := range cfg.LdModels {
-			if info.Shape != 10 {
-				seenAsNonCentrepiece[info.Model] = true
-			}
-		}
 	}
 
-	// TS line 225: existingFiles = listFilesExt(`${BUILD_SRC_DIR}/models`, '.ob2')
+	// TS line 227: existingFiles = listFilesExt(`${BUILD_SRC_DIR}/models`, '.ob2')
 	existingFiles := pack.ListFilesExt(filepath.Join(srcDir, "models"), ".ob2")
 
 	locPack := env.Loc
 	modelPack := env.Model
 
-	for id := range len(locs) {
+	// TS lines 229-232: start at the compare cache's size when present.
+	start := 0
+	if compareIdx != nil {
+		start = compareIdx.Size
+	}
+	for id := start; id < len(locs); id++ {
 		cfg := locs[id]
 
-		// TS line 229: debugname = LocPack.getById(id)
+		// TS line 235: debugname = LocPack.getById(id)
 		debugname := ""
 		if locPack != nil {
 			debugname = locPack.GetByID(id)
 		}
 
-		// TS lines 231-235: strip the shape suffix to get the base loc name.
+		// TS lines 237-242: strip the shape suffix to get the base loc name.
 		// "debugname.endsWith(LocShapeSuffix[shape])" → remove the last "_X" part.
 		for shape := range 23 {
 			if strings.HasSuffix(debugname, LocShapeSuffix[shape]) {
-				// TS line 233: debugname.substring(0, debugname.lastIndexOf('_'))
+				// TS line 239: debugname.substring(0, debugname.lastIndexOf('_'))
 				//               + debugname.substring(debugname.length - 1)
 				lastUnderscore := strings.LastIndex(debugname, "_")
 				if lastUnderscore >= 0 {
@@ -391,14 +429,19 @@ func unpackModelNames(jag *jagfile.Jagfile, env *Env, srcDir string) error {
 			}
 		}
 
-		// TS lines 238-261: models pass
+		// TS lines 244-272: models pass
 		for _, info := range cfg.Models {
 			modelID := info.Model
 			shape := info.Shape
 
-			// TS line 240: skip if shape==_8 && seenAsNonCentrepiece[model]
+			// TS line 246: skip if shape==_8 && seenAsNonCentrepiece[model]
 			// LocShapeSuffix[10] == "_8" is the centrepiece_straight suffix.
 			if LocShapeSuffix[shape] == "_8" && seenAsNonCentrepiece[modelID] {
+				continue
+			}
+
+			// TS lines 250-252 @2e3bcf43: skip models below the rename offset.
+			if modelID < modelRenameOffset {
 				continue
 			}
 
@@ -406,12 +449,12 @@ func unpackModelNames(jag *jagfile.Jagfile, env *Env, srcDir string) error {
 				continue
 			}
 			modelName := modelPack.GetByID(modelID)
-			// TS line 245: skip if !modelName.startsWith('model_')
+			// TS line 255: skip if !modelName.startsWith('model_')
 			if !strings.HasPrefix(modelName, "model_") {
 				continue
 			}
 
-			// TS lines 249-254: collision loop
+			// TS lines 259-264: collision loop
 			// initial name = `${debugname}${LocShapeSuffix[shape]}`
 			// collision: `${debugname}i${i}${LocShapeSuffix[shape]}`
 			suffix := LocShapeSuffix[shape]
@@ -422,7 +465,7 @@ func unpackModelNames(jag *jagfile.Jagfile, env *Env, srcDir string) error {
 				i++
 			}
 
-			// TS lines 256-259: renameSync if file found
+			// TS lines 266-269: renameSync if file found
 			// filePath = existingFiles.find(x => x.endsWith(`/${modelName}.ob2`))
 			filePath := findFileInList(existingFiles, modelName+".ob2")
 			if filePath != "" {
@@ -431,49 +474,12 @@ func unpackModelNames(jag *jagfile.Jagfile, env *Env, srcDir string) error {
 					env.errorf("rename loc model %s -> %s: %v", modelName, name, err)
 				}
 			}
-			// TS line 261: ModelPack.register(model, name)
-			modelPack.Register(modelID, name)
-		}
-
-		// TS lines 264-288: ldModels pass (same logic with `_ld` inserted)
-		for _, info := range cfg.LdModels {
-			modelID := info.Model
-			shape := info.Shape
-
-			if LocShapeSuffix[shape] == "_8" && seenAsNonCentrepiece[modelID] {
-				continue
-			}
-
-			if modelPack == nil {
-				continue
-			}
-			modelName := modelPack.GetByID(modelID)
-			if !strings.HasPrefix(modelName, "model_") {
-				continue
-			}
-
-			// TS line 275: name = `${debugname}_ld${LocShapeSuffix[shape]}`
-			// TS line 278: collision: `${debugname}i${i}_ld${LocShapeSuffix[shape]}`
-			suffix := LocShapeSuffix[shape]
-			name := debugname + "_ld" + suffix
-			i := 2
-			for modelPack.GetByName(name) != -1 {
-				name = fmt.Sprintf("%si%d_ld%s", debugname, i, suffix)
-				i++
-			}
-
-			filePath := findFileInList(existingFiles, modelName+".ob2")
-			if filePath != "" {
-				dest := filepath.Join(srcDir, "models", "loc", name+".ob2")
-				if err := os.Rename(filePath, dest); err != nil && env.Errorf != nil {
-					env.errorf("rename loc ldmodel %s -> %s: %v", modelName, name, err)
-				}
-			}
+			// TS line 271: ModelPack.register(model, name)
 			modelPack.Register(modelID, name)
 		}
 	}
 
-	// TS line 291: ModelPack.save()
+	// TS line 275: ModelPack.save()
 	if modelPack != nil {
 		if err := modelPack.Save(); err != nil {
 			return fmt.Errorf("save model pack (unpackModelNames): %w", err)
@@ -519,14 +525,16 @@ func printInfoLine(w io.Writer, msg string) {
 //  1. Opens the FileStream cache at opts.CacheDir and reads archive 0 / file 2
 //     (the config jagfile).
 //  2. Optionally reads a second cache at opts.PackDir (merge-compare path).
+//     modelRenameOffset = the model-archive count (cache.count(1)), or the
+//     compare cache's count when one is present (TS lines 292-299).
 //  3. Preloads all model metadata from archive 1 (Model.unpack pass).
-//  4. Runs unpackConfigNames for all eight config types.
+//  4. Runs unpackConfigNames for all nine config types (varbit NEW at 254).
 //  5. Creates models/obj, models/spot, models/idk, models/loc, models/npc.
-//  6. Runs unpackModelNames (loc-model renaming).
-//  7. Runs unpackConfig for all eight types in TS order.
+//  6. Runs unpackModelNames (loc-model renaming, compare/offset-gated).
+//  7. Runs unpackConfig for all nine types in TS order.
 //  8. Saves ModelPack; prints "Done!".
 //
-// TS source: tools/unpack/config/Unpack.ts:294-368.
+// TS source: tools/unpack/config/Unpack.ts:278-354 @2e3bcf43.
 func Unpack(opts Options) error {
 	out := opts.Out
 	if out == nil {
@@ -562,17 +570,22 @@ func Unpack(opts Options) error {
 		return fmt.Errorf("parse config jagfile: %w", err)
 	}
 
-	// TS lines 307-313: optional config2 from data/pack
+	// TS lines 291-300 @2e3bcf43: optional config2 from data/pack, plus the
+	// modelRenameOffset — the model-archive count of the authoritative cache
+	// (the compare cache when present, else the unpack cache).
+	modelRenameOffset := cache.Count(1)
 	var jag2 *jagfile.Jagfile
 	if opts.PackDir != "" {
 		packDatPath := filepath.Join(opts.PackDir, "main_file_cache.dat")
 		if _, err2 := os.Stat(packDatPath); err2 == nil {
 			cache2 := filestream.New(opts.PackDir, false, false)
 			temp2 := cache2.Read(0, 2, false)
-			cache2.Close()
 			if temp2 != nil {
 				jag2, _ = jagfile.NewJagfile(packet.NewPacket(temp2))
 			}
+			// TS line 299: set even when the config jag read fails.
+			modelRenameOffset = cache2.Count(1)
+			cache2.Close()
 		}
 	}
 
@@ -600,8 +613,9 @@ func Unpack(opts Options) error {
 		return fmt.Errorf("build env: %w", err)
 	}
 
-	// TS lines 323-330: unpackConfigNames for all 8 types (loc, npc, obj, seq, idk, flo, spotanim, varp)
-	for _, typeName := range []string{"loc", "npc", "obj", "seq", "idk", "flo", "spotanim", "varp"} {
+	// TS lines 309-317 @2e3bcf43: unpackConfigNames for all 9 types
+	// (loc, npc, obj, seq, idk, flo, spotanim, varp, varbit — varbit NEW at 254)
+	for _, typeName := range []string{"loc", "npc", "obj", "seq", "idk", "flo", "spotanim", "varp", "varbit"} {
 		if err := unpackConfigNames(typeName, jag, reg); err != nil {
 			return fmt.Errorf("unpackConfigNames %s: %w", typeName, err)
 		}
@@ -615,31 +629,59 @@ func Unpack(opts Options) error {
 		}
 	}
 
-	// TS line 352: unpackModelNames('loc', unpackLocModels, config)
-	if err := unpackModelNames(jag, env, opts.SrcDir); err != nil {
+	// TS line 339: unpackModelNames('loc', unpackLocModels, config, config2, modelRenameOffset)
+	if err := unpackModelNames(jag, jag2, modelRenameOffset, env, opts.SrcDir); err != nil {
 		return fmt.Errorf("unpackModelNames: %w", err)
 	}
 
 	// Build the unpack functions for each type.
-	// TS lines 354-361: unpackConfig calls in order (loc, obj, spotanim, idk, npc, seq, flo, varp)
+	// TS lines 341-349 @2e3bcf43: unpackConfig calls in order
+	// (loc, obj, spotanim, idk, npc, seq, flo, varp, varbit). The first five
+	// receive modelRenameOffset; the last four do not (TS passes undefined →
+	// Go threads 0, and their impls ignore the extra args anyway).
 	type typeEntry struct {
-		name string
-		fn   func(*ConfigIdx, int) ([]string, error)
+		name   string
+		offset bool // thread the real modelRenameOffset (TS lines 341-345)
+		fn     func(*ConfigIdx, int, *ConfigIdx, int) ([]string, error)
 	}
 
 	typeList := []typeEntry{
-		{"loc", func(idx *ConfigIdx, id int) ([]string, error) { return env.UnpackLoc(idx, id) }},
-		{"obj", func(idx *ConfigIdx, id int) ([]string, error) { return env.UnpackObj(idx, id), nil }},
-		{"spotanim", func(idx *ConfigIdx, id int) ([]string, error) { return env.UnpackSpotAnim(idx, id), nil }},
-		{"idk", func(idx *ConfigIdx, id int) ([]string, error) { return env.UnpackIdk(idx, id), nil }},
-		{"npc", func(idx *ConfigIdx, id int) ([]string, error) { return env.UnpackNpc(idx, id), nil }},
-		{"seq", func(idx *ConfigIdx, id int) ([]string, error) { return env.UnpackSeq(idx, id), nil }},
-		{"flo", func(idx *ConfigIdx, id int) ([]string, error) { return env.UnpackFlo(idx, id), nil }},
-		{"varp", func(idx *ConfigIdx, id int) ([]string, error) { return env.UnpackVarp(idx, id), nil }},
+		{"loc", true, func(idx *ConfigIdx, id int, _ *ConfigIdx, _ int) ([]string, error) {
+			// TS unpackLocConfig keeps the (config, id) signature — the extra args are unused.
+			return env.UnpackLoc(idx, id)
+		}},
+		{"obj", true, func(idx *ConfigIdx, id int, cmp *ConfigIdx, off int) ([]string, error) {
+			return env.UnpackObj(idx, id, cmp, off), nil
+		}},
+		{"spotanim", true, func(idx *ConfigIdx, id int, cmp *ConfigIdx, off int) ([]string, error) {
+			return env.UnpackSpotAnim(idx, id, cmp, off), nil
+		}},
+		{"idk", true, func(idx *ConfigIdx, id int, cmp *ConfigIdx, off int) ([]string, error) {
+			return env.UnpackIdk(idx, id, cmp, off), nil
+		}},
+		{"npc", true, func(idx *ConfigIdx, id int, cmp *ConfigIdx, off int) ([]string, error) {
+			return env.UnpackNpc(idx, id, cmp, off), nil
+		}},
+		{"seq", false, func(idx *ConfigIdx, id int, _ *ConfigIdx, _ int) ([]string, error) {
+			return env.UnpackSeq(idx, id), nil
+		}},
+		{"flo", false, func(idx *ConfigIdx, id int, _ *ConfigIdx, _ int) ([]string, error) {
+			return env.UnpackFlo(idx, id), nil
+		}},
+		{"varp", false, func(idx *ConfigIdx, id int, _ *ConfigIdx, _ int) ([]string, error) {
+			return env.UnpackVarp(idx, id), nil
+		}},
+		{"varbit", false, func(idx *ConfigIdx, id int, _ *ConfigIdx, _ int) ([]string, error) {
+			return env.UnpackVarbit(idx, id), nil
+		}},
 	}
 
 	for _, te := range typeList {
-		if err := unpackConfig(opts.Revision, te.name, te.fn, jag, jag2, opts.SrcDir, printInfo); err != nil {
+		off := 0
+		if te.offset {
+			off = modelRenameOffset
+		}
+		if err := unpackConfig(opts.Revision, te.name, te.fn, jag, jag2, off, opts.SrcDir, printInfo); err != nil {
 			return fmt.Errorf("unpackConfig %s: %w", te.name, err)
 		}
 	}
@@ -698,6 +740,10 @@ func buildEnv(reg *pack.Registry, srcDir string, modelStore *model.Store, out io
 	if err != nil {
 		return nil, fmt.Errorf("ensure varp: %w", err)
 	}
+	varbit, err := reg.EnsureVarbit()
+	if err != nil {
+		return nil, fmt.Errorf("ensure varbit: %w", err)
+	}
 	spotanim, err := reg.EnsureSpotAnim()
 	if err != nil {
 		return nil, fmt.Errorf("ensure spotanim: %w", err)
@@ -719,6 +765,7 @@ func buildEnv(reg *pack.Registry, srcDir string, modelStore *model.Store, out io
 		Flo:      flo,
 		Texture:  texture,
 		Varp:     varp,
+		Varbit:   varbit,
 		Seq:      seq,
 		Anim:     anim,
 		Obj:      obj,

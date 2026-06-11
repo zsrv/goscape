@@ -68,6 +68,7 @@ type Env struct {
 	Flo      *pack.PackFile
 	Texture  *pack.PackFile
 	Varp     *pack.PackFile
+	Varbit   *pack.PackFile // NEW at rev-254 (TS VarbitPack)
 	Seq      *pack.PackFile
 	Anim     *pack.PackFile
 	Obj      *pack.PackFile
@@ -120,6 +121,14 @@ func (e *Env) UnpackVarp(cfg *ConfigIdx, id int) []string {
 	return unpackVarp(cfg, id, e.Varp, e.warnf)
 }
 
+// UnpackVarbit mirrors tools/unpack/config/VarbitConfig.ts:unpackVarbitConfig
+// (NEW at rev-254).
+//
+// TS source: tools/unpack/config/VarbitConfig.ts:6-38 @2e3bcf43.
+func (e *Env) UnpackVarbit(cfg *ConfigIdx, id int) []string {
+	return unpackVarbit(cfg, id, e.Varbit, e.Varp, e.warnf)
+}
+
 // UnpackSeq mirrors tools/unpack/config/SeqConfig.ts:unpackSeqConfig.
 //
 // TS source: tools/unpack/config/SeqConfig.ts:6-138.
@@ -128,31 +137,35 @@ func (e *Env) UnpackSeq(cfg *ConfigIdx, id int) []string {
 }
 
 // UnpackIdk mirrors tools/unpack/config/IdkConfig.ts:unpackIdkConfig.
+// compare/modelRenameOffset feed the 254 model-rename guard.
 //
-// TS source: tools/unpack/config/IdkConfig.ts:58-149.
-func (e *Env) UnpackIdk(cfg *ConfigIdx, id int) []string {
-	return unpackIdk(cfg, id, e.Idk, e.Texture, e.Model, e.Models, e.SrcDir, e.warnf, e.errorf)
+// TS source: tools/unpack/config/IdkConfig.ts:58-159 @2e3bcf43.
+func (e *Env) UnpackIdk(cfg *ConfigIdx, id int, compare *ConfigIdx, modelRenameOffset int) []string {
+	return unpackIdk(cfg, id, compare, modelRenameOffset, e.Idk, e.Texture, e.Model, e.Models, e.SrcDir, e.warnf, e.errorf)
 }
 
 // UnpackNpc mirrors tools/unpack/config/NpcConfig.ts:unpackNpcConfig.
+// compare/modelRenameOffset feed the 254 model-rename guard.
 //
-// TS source: tools/unpack/config/NpcConfig.ts:41-188.
-func (e *Env) UnpackNpc(cfg *ConfigIdx, id int) []string {
-	return unpackNpc(cfg, id, e.Npc, e.Texture, e.Seq, e.Model, e.Models, e.SrcDir, e.warnf, e.errorf)
+// TS source: tools/unpack/config/NpcConfig.ts:41-198 @2e3bcf43.
+func (e *Env) UnpackNpc(cfg *ConfigIdx, id int, compare *ConfigIdx, modelRenameOffset int) []string {
+	return unpackNpc(cfg, id, compare, modelRenameOffset, e.Npc, e.Texture, e.Seq, e.Model, e.Models, e.SrcDir, e.warnf, e.errorf)
 }
 
 // UnpackObj mirrors tools/unpack/config/ObjConfig.ts:unpackObjConfig.
+// compare/modelRenameOffset feed the 254 model-rename guard.
 //
-// TS source: tools/unpack/config/ObjConfig.ts:41-258.
-func (e *Env) UnpackObj(cfg *ConfigIdx, id int) []string {
-	return unpackObj(cfg, id, e.Obj, e.Texture, e.Seq, e.Model, e.Models, e.SrcDir, e.warnf, e.errorf)
+// TS source: tools/unpack/config/ObjConfig.ts:41-308 @2e3bcf43.
+func (e *Env) UnpackObj(cfg *ConfigIdx, id int, compare *ConfigIdx, modelRenameOffset int) []string {
+	return unpackObj(cfg, id, compare, modelRenameOffset, e.Obj, e.Texture, e.Seq, e.Model, e.Models, e.SrcDir, e.warnf, e.errorf)
 }
 
 // UnpackSpotAnim mirrors tools/unpack/config/SpotAnimConfig.ts:unpackSpotAnimConfig.
+// compare/modelRenameOffset feed the 254 model-rename guard.
 //
-// TS source: tools/unpack/config/SpotAnimConfig.ts:41-142.
-func (e *Env) UnpackSpotAnim(cfg *ConfigIdx, id int) []string {
-	return unpackSpotAnim(cfg, id, e.SpotAnim, e.Texture, e.Seq, e.Model, e.Models, e.SrcDir, e.warnf, e.errorf)
+// TS source: tools/unpack/config/SpotAnimConfig.ts:41-147 @2e3bcf43.
+func (e *Env) UnpackSpotAnim(cfg *ConfigIdx, id int, compare *ConfigIdx, modelRenameOffset int) []string {
+	return unpackSpotAnim(cfg, id, compare, modelRenameOffset, e.SpotAnim, e.Texture, e.Seq, e.Model, e.Models, e.SrcDir, e.warnf, e.errorf)
 }
 
 // UnpackLoc mirrors tools/unpack/config/LocConfig.ts:unpackLocConfig.
@@ -169,4 +182,3 @@ func (e *Env) UnpackLoc(cfg *ConfigIdx, id int) ([]string, error) {
 func (e *Env) UnpackLocModels(cfg *ConfigIdx, id int) LocModels {
 	return unpackLocModels(cfg, id, e.warnf)
 }
-

@@ -273,6 +273,22 @@ func renameModelLoc(modelID int, shape int, modelPack *pack.PackFile) string {
 	return name
 }
 
+// keepPackedName is the 254 model-rename guard shared by the npc/obj/idk/
+// spotanim unpackers: when the entry exists in the compare cache, or the model
+// id predates the rename offset (the model-archive count of the authoritative
+// cache), the packed model name is kept and renameModel is skipped.
+//
+// With no compare and offset 0 it is always false, matching the TS
+// `modelId < undefined` → false posture when the args are omitted.
+//
+// TS source: NpcConfig.ts:68 (and the parallel sites in ObjConfig.ts,
+// IdkConfig.ts, SpotAnimConfig.ts) @2e3bcf43:
+//
+//	if ((compare && id < compare.size) || modelId < modelRenameOffset!) { ... }
+func keepPackedName(compare *ConfigIdx, id, modelID, modelRenameOffset int) bool {
+	return (compare != nil && id < compare.Size) || modelID < modelRenameOffset
+}
+
 // findFileInList returns the first path in list whose base filename equals basename.
 // TS: existingFiles.find(x => x.endsWith(`/${model}.ob2`)).
 func findFileInList(list []string, basename string) string {

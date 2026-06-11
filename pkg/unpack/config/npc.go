@@ -10,10 +10,17 @@ import (
 // unpackNpc is the core implementation of NpcConfig unpacking.
 // Called by Env.UnpackNpc; also directly by tests.
 //
-// TS source: tools/unpack/config/NpcConfig.ts:41-188.
+// compare/modelRenameOffset feed the 254 model-rename guard:
+// `(compare && id < compare.size) || modelId < modelRenameOffset` keeps the
+// packed model name instead of renaming (TS NpcConfig.ts:68-74, 129-135).
+// Pass nil/0 for the pre-254 behavior (TS `modelId < undefined` is false).
+//
+// TS source: tools/unpack/config/NpcConfig.ts:41-198 @2e3bcf43.
 func unpackNpc(
 	cfg *ConfigIdx,
 	id int,
+	compare *ConfigIdx,
+	modelRenameOffset int,
 	npcPack, texturePack *pack.PackFile,
 	seqPack *pack.PackFile,
 	modelPack *pack.PackFile,
@@ -44,7 +51,8 @@ func unpackNpc(
 
 		switch {
 		case code == 1:
-			// TS lines 59-70: count = g1; for each: index=i+1; modelId = g2; renameModel; push model{index}=
+			// TS lines 59-76 @2e3bcf43: count = g1; for each: index=i+1; modelId = g2;
+			// guard keeps the packed name, otherwise renameModel; push model{index}=
 			count := int(dat.G1())
 			for i := range count {
 				index := i + 1
@@ -52,7 +60,11 @@ func unpackNpc(
 				modelIDs = append(modelIDs, modelID)
 				var modelName string
 				if modelPack != nil {
-					modelName = renameModelNpc(modelID, debugname, modelPack, srcDir, errorf)
+					if keepPackedName(compare, id, modelID, modelRenameOffset) {
+						modelName = modelPack.GetByID(modelID)
+					} else {
+						modelName = renameModelNpc(modelID, debugname, modelPack, srcDir, errorf)
+					}
 				}
 				def = append(def, fmt.Sprintf("model%d=%s", index, modelName))
 			}
@@ -141,7 +153,8 @@ func unpackNpc(
 			}
 
 		case code == 60:
-			// TS lines 115-126: count = g1; for each: index=i+1; modelId = g2; head model
+			// TS lines 120-137 @2e3bcf43: count = g1; for each: index=i+1; modelId = g2;
+			// head model with the same rename guard as code 1.
 			count := int(dat.G1())
 			for i := range count {
 				index := i + 1
@@ -150,7 +163,11 @@ func unpackNpc(
 				headName := debugname + "_head"
 				var modelName string
 				if modelPack != nil {
-					modelName = renameModelNpc(modelID, headName, modelPack, srcDir, errorf)
+					if keepPackedName(compare, id, modelID, modelRenameOffset) {
+						modelName = modelPack.GetByID(modelID)
+					} else {
+						modelName = renameModelNpc(modelID, headName, modelPack, srcDir, errorf)
+					}
 				}
 				def = append(def, fmt.Sprintf("head%d=%s", index, modelName))
 			}
@@ -196,6 +213,11 @@ func unpackNpc(
 			// TS line 149-151: headicon = g2
 			headicon := dat.G2()
 			def = append(def, fmt.Sprintf("headicon=%d", headicon))
+
+		case code == 103:
+			// TS lines 163-165 @2e3bcf43: turnspeed = g2
+			turnspeed := dat.G2()
+			def = append(def, fmt.Sprintf("turnspeed=%d", turnspeed))
 
 		default:
 			// TS line 153-154: printWarning(`unknown npc code ${code}`)

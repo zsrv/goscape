@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/pack"
 )
 
 // buildNpcCfgIdx builds a single-entry ConfigIdx from raw opcode bytes.
@@ -28,7 +29,7 @@ func TestUnpackNpc_Opcode2_Name(t *testing.T) {
 	body := append([]byte{2}, []byte("Hans\x0a")...)
 	body = append(body, 0)
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "hans"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "hans"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[hans]", "name=Hans"}
 	assertLines(t, want, got)
 }
@@ -38,7 +39,7 @@ func TestUnpackNpc_Opcode3_Desc(t *testing.T) {
 	body := append([]byte{3}, []byte("A goblin.\x0a")...)
 	body = append(body, 0)
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "goblin"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "goblin"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[goblin]", "desc=A goblin."}
 	assertLines(t, want, got)
 }
@@ -47,7 +48,7 @@ func TestUnpackNpc_Opcode3_Desc(t *testing.T) {
 func TestUnpackNpc_Opcode12_Size(t *testing.T) {
 	body := []byte{12, 0xFF, 0} // -1 as signed byte
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[npc]", "size=-1"}
 	assertLines(t, want, got)
 }
@@ -57,7 +58,7 @@ func TestUnpackNpc_Opcode12_Size(t *testing.T) {
 func TestUnpackNpc_Opcode13_ReadyAnimFallback_OddSpace(t *testing.T) {
 	body := []byte{13, 0x00, 42, 0} // readyanimId=42, not in SeqPack
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[npc]", "readyanim=seq_ 42"}
 	assertLines(t, want, got)
 }
@@ -67,7 +68,7 @@ func TestUnpackNpc_Opcode13_ReadyAnimFallback_OddSpace(t *testing.T) {
 func TestUnpackNpc_Opcode14_WalkAnimFallback_OddSpace(t *testing.T) {
 	body := []byte{14, 0x00, 99, 0} // walkanimId=99, not in SeqPack
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[npc]", "walkanim=seq_ 99"}
 	assertLines(t, want, got)
 }
@@ -84,7 +85,7 @@ func TestUnpackNpc_Opcode17_WalkAnim_FallbackNoSpace(t *testing.T) {
 		0,
 	}
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[npc]", "walkanim=seq_10,seq_11,seq_12,seq_13"}
 	assertLines(t, want, got)
 }
@@ -100,7 +101,7 @@ func TestUnpackNpc_Opcode17_WalkAnim_RegistryHit(t *testing.T) {
 		0,
 	}
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "npc"), nil, seqPack, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "npc"), nil, seqPack, nil, nil, "", nil, nil)
 	want := []string{"[npc]", "walkanim=walk_f,walk_b,walk_l,walk_r"}
 	assertLines(t, want, got)
 }
@@ -109,7 +110,7 @@ func TestUnpackNpc_Opcode17_WalkAnim_RegistryHit(t *testing.T) {
 func TestUnpackNpc_Opcode16_HasAlpha(t *testing.T) {
 	body := []byte{16, 0}
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[npc]", "hasalpha=yes"}
 	assertLines(t, want, got)
 }
@@ -118,7 +119,7 @@ func TestUnpackNpc_Opcode16_HasAlpha(t *testing.T) {
 func TestUnpackNpc_Opcode95_Vislevel0_Hide(t *testing.T) {
 	body := []byte{95, 0x00, 0x00, 0} // vislevel=0
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[npc]", "vislevel=hide"}
 	assertLines(t, want, got)
 }
@@ -127,7 +128,7 @@ func TestUnpackNpc_Opcode95_Vislevel0_Hide(t *testing.T) {
 func TestUnpackNpc_Opcode95_Vislevel_Nonzero(t *testing.T) {
 	body := []byte{95, 0x00, 0x05, 0} // vislevel=5
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[npc]", "vislevel=5"}
 	assertLines(t, want, got)
 }
@@ -143,7 +144,7 @@ func TestUnpackNpc_RenameModel_CollisionSuffix_i2(t *testing.T) {
 
 	body := []byte{1, 1, 0x00, 0x01, 0} // count=1, modelId=1
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "goblin"), nil, nil, modelPack, nil, srcDir, nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "goblin"), nil, nil, modelPack, nil, srcDir, nil, nil)
 	want := []string{"[goblin]", "model1=npc_goblini2"}
 	assertLines(t, want, got)
 }
@@ -155,7 +156,7 @@ func TestUnpackNpc_Opcode60_HeadModels(t *testing.T) {
 
 	body := []byte{60, 1, 0x00, 0x14, 0} // count=1, modelId=20
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "hans"), nil, nil, modelPack, nil, srcDir, nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "hans"), nil, nil, modelPack, nil, srcDir, nil, nil)
 	want := []string{"[hans]", "head1=npc_hans_head"}
 	assertLines(t, want, got)
 
@@ -169,7 +170,7 @@ func TestUnpackNpc_Opcode60_HeadModels(t *testing.T) {
 func TestUnpackNpc_Opcode93_Minimap(t *testing.T) {
 	body := []byte{93, 0}
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[npc]", "minimap=no"}
 	assertLines(t, want, got)
 }
@@ -178,7 +179,7 @@ func TestUnpackNpc_Opcode93_Minimap(t *testing.T) {
 func TestUnpackNpc_Opcode99_AlwaysOnTop(t *testing.T) {
 	body := []byte{99, 0}
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[npc]", "alwaysontop=yes"}
 	assertLines(t, want, got)
 }
@@ -187,7 +188,7 @@ func TestUnpackNpc_Opcode99_AlwaysOnTop(t *testing.T) {
 func TestUnpackNpc_Opcode102_Headicon(t *testing.T) {
 	body := []byte{102, 0x00, 0x07, 0} // headicon=7
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[npc]", "headicon=7"}
 	assertLines(t, want, got)
 }
@@ -202,7 +203,7 @@ func TestUnpackNpc_Recol_DenseThreshold100(t *testing.T) {
 		0,
 	}
 	cfg := buildNpcCfgIdx(body)
-	got := unpackNpc(cfg, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "npc"), nil, nil, nil, nil, "", nil, nil)
 	foundS, foundD := false, false
 	for _, line := range got {
 		if len(line) >= 8 && line[:8] == "recol1s=" {
@@ -222,8 +223,83 @@ func TestUnpackNpc_UnknownOpcode(t *testing.T) {
 	body := []byte{77, 0}
 	cfg := buildNpcCfgIdx(body)
 	var warns []string
-	unpackNpc(cfg, 0, nil, nil, nil, nil, nil, "", captureWarnings(&warns), nil)
+	unpackNpc(cfg, 0, nil, 0, nil, nil, nil, nil, nil, "", captureWarnings(&warns), nil)
 	if len(warns) == 0 || warns[0] != "unknown npc code 77" {
 		t.Errorf("want [\"unknown npc code 77\"], got %v", warns)
 	}
+}
+
+// --- rev-254 additions (TS @2e3bcf43) ---
+
+// TestUnpackNpc_Opcode103_Turnspeed pins turnspeed= from g2.
+//
+// TS source: NpcConfig.ts:163-165 @2e3bcf43.
+func TestUnpackNpc_Opcode103_Turnspeed(t *testing.T) {
+	body := []byte{103, 0x01, 0x00, 0} // turnspeed=256
+	cfg := buildNpcCfgIdx(body)
+	got := unpackNpc(cfg, 0, nil, 0, makePackFile(0, "imp"), nil, nil, nil, nil, "", nil, nil)
+	want := []string{"[imp]", "turnspeed=256"}
+	assertLines(t, want, got)
+}
+
+// TestUnpackNpc_RenameGuard pins the 254 model-rename guard at both code 1 and
+// code 60: `(compare && id < compare.size) || modelId < modelRenameOffset` keeps
+// the packed name (no rename, no fs move); otherwise renameModel runs.
+//
+// TS source: NpcConfig.ts:68-74 + 129-135 @2e3bcf43.
+func TestUnpackNpc_RenameGuard(t *testing.T) {
+	body := []byte{1, 1, 0x00, 0x01, 0} // count=1, modelId=1
+
+	t.Run("compare_id_in_range_keeps_packed_name", func(t *testing.T) {
+		srcDir := setupModelTree(t, "model_1")
+		modelPack := makePackFile(1, "model_1")
+		cfg := buildNpcCfgIdx(body)
+		compare := &ConfigIdx{Size: 5} // id 0 < 5 → guard fires
+		got := unpackNpcWith(cfg, 0, compare, 0, makePackFile(0, "goblin"), modelPack, srcDir)
+		assertLines(t, []string{"[goblin]", "model1=model_1"}, got)
+		// no fs move
+		if _, err := os.Stat(filepath.Join(srcDir, "models", "npc", "npc_goblin.ob2")); err == nil {
+			t.Error("guard must not move the model file")
+		}
+	})
+
+	t.Run("model_below_offset_keeps_packed_name", func(t *testing.T) {
+		srcDir := setupModelTree(t, "model_1")
+		modelPack := makePackFile(1, "model_1")
+		cfg := buildNpcCfgIdx(body)
+		got := unpackNpcWith(cfg, 0, nil, 10, makePackFile(0, "goblin"), modelPack, srcDir) // 1 < 10
+		assertLines(t, []string{"[goblin]", "model1=model_1"}, got)
+	})
+
+	t.Run("model_at_or_above_offset_renames", func(t *testing.T) {
+		srcDir := setupModelTree(t, "model_1")
+		modelPack := makePackFile(1, "model_1")
+		cfg := buildNpcCfgIdx(body)
+		got := unpackNpcWith(cfg, 0, nil, 1, makePackFile(0, "goblin"), modelPack, srcDir) // 1 >= 1
+		assertLines(t, []string{"[goblin]", "model1=npc_goblin"}, got)
+	})
+
+	t.Run("compare_id_out_of_range_renames", func(t *testing.T) {
+		srcDir := setupModelTree(t, "model_1")
+		modelPack := makePackFile(1, "model_1")
+		cfg := buildNpcCfgIdx(body)
+		compare := &ConfigIdx{Size: 0} // id 0 >= 0 → guard half false; offset 0 → rename
+		got := unpackNpcWith(cfg, 0, compare, 0, makePackFile(0, "goblin"), modelPack, srcDir)
+		assertLines(t, []string{"[goblin]", "model1=npc_goblin"}, got)
+	})
+
+	t.Run("head_guard_keeps_packed_name", func(t *testing.T) {
+		srcDir := setupModelTree(t, "model_20")
+		modelPack := makePackFile(20, "model_20")
+		headBody := []byte{60, 1, 0x00, 0x14, 0}
+		cfg := buildNpcCfgIdx(headBody)
+		got := unpackNpcWith(cfg, 0, nil, 21, makePackFile(0, "hans"), modelPack, srcDir) // 20 < 21
+		assertLines(t, []string{"[hans]", "head1=model_20"}, got)
+	})
+}
+
+// unpackNpcWith is a test shorthand threading compare/modelRenameOffset into
+// the full unpackNpc parameter list.
+func unpackNpcWith(cfg *ConfigIdx, id int, compare *ConfigIdx, offset int, npcPack, modelPack *pack.PackFile, srcDir string) []string {
+	return unpackNpc(cfg, id, compare, offset, npcPack, nil, nil, modelPack, nil, srcDir, nil, nil)
 }

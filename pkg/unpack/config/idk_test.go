@@ -82,7 +82,7 @@ func TestUnpackIdk_Opcode1_TypeName(t *testing.T) {
 	// type=3 → man_arms
 	body := []byte{1, 3, 0}
 	cfg := buildCfgIdx(body)
-	got := unpackIdk(cfg, 0, makePackFile(0, "myidk"), nil, nil, nil, "", captureWarnings(new([]string)), nil)
+	got := unpackIdk(cfg, 0, nil, 0, makePackFile(0, "myidk"), nil, nil, nil, "", captureWarnings(new([]string)), nil)
 	want := []string{"[myidk]", "type=man_arms"}
 	assertLines(t, want, got)
 }
@@ -91,7 +91,7 @@ func TestUnpackIdk_Opcode1_TypeName(t *testing.T) {
 func TestUnpackIdk_Opcode3_Disable(t *testing.T) {
 	body := []byte{3, 0}
 	cfg := buildCfgIdx(body)
-	got := unpackIdk(cfg, 0, makePackFile(0, "myidk"), nil, nil, nil, "", nil, nil)
+	got := unpackIdk(cfg, 0, nil, 0, makePackFile(0, "myidk"), nil, nil, nil, "", nil, nil)
 	want := []string{"[myidk]", "disable=yes"}
 	assertLines(t, want, got)
 }
@@ -106,7 +106,7 @@ func TestUnpackIdk_Opcode2_ModelRename(t *testing.T) {
 	cfg := buildCfgIdx(body)
 	idkPack := makePackFile(0, "myhair")
 
-	got := unpackIdk(cfg, 0, idkPack, nil, modelPack, nil, srcDir, nil, captureWarnings(new([]string)))
+	got := unpackIdk(cfg, 0, nil, 0, idkPack, nil, modelPack, nil, srcDir, nil, captureWarnings(new([]string)))
 
 	// Expected: model name is idk_myhair (model_5 starts with model_, name doesn't start with idk_)
 	want := []string{"[myhair]", "model1=idk_myhair"}
@@ -135,7 +135,7 @@ func TestUnpackIdk_Opcode2_ModelAlreadyNamed(t *testing.T) {
 
 	body := []byte{2, 1, 0x00, 0x07, 0}
 	cfg := buildCfgIdx(body)
-	got := unpackIdk(cfg, 0, makePackFile(0, "somehair"), nil, modelPack, nil, srcDir, nil, nil)
+	got := unpackIdk(cfg, 0, nil, 0, makePackFile(0, "somehair"), nil, modelPack, nil, srcDir, nil, nil)
 	want := []string{"[somehair]", "model1=idk_somehair"}
 	assertLines(t, want, got)
 }
@@ -151,7 +151,7 @@ func TestUnpackIdk_RenameIdk_CollisionSuffix(t *testing.T) {
 
 	body := []byte{2, 1, 0x00, 0x0A, 0}
 	cfg := buildCfgIdx(body)
-	got := unpackIdk(cfg, 0, makePackFile(0, "myhair"), nil, modelPack, nil, srcDir, nil, nil)
+	got := unpackIdk(cfg, 0, nil, 0, makePackFile(0, "myhair"), nil, modelPack, nil, srcDir, nil, nil)
 	// Collision → idk_myhair_2
 	want := []string{"[myhair]", "model1=idk_myhair_2"}
 	assertLines(t, want, got)
@@ -167,7 +167,7 @@ func TestUnpackIdk_HeadModel(t *testing.T) {
 	body := []byte{60, 0x00, 0x03, 0}
 	cfg := buildCfgIdx(body)
 
-	got := unpackIdk(cfg, 0, makePackFile(0, "myidk"), nil, modelPack, nil, srcDir, nil, nil)
+	got := unpackIdk(cfg, 0, nil, 0, makePackFile(0, "myidk"), nil, modelPack, nil, srcDir, nil, nil)
 	want := []string{"[myidk]", "head1=idk_myidk_head"}
 	assertLines(t, want, got)
 }
@@ -182,7 +182,7 @@ func TestUnpackIdk_Recol_RawAbove100(t *testing.T) {
 	// Opcodes: 40=recolSrc[0]=200, 50=recolDst[0]=201, 0=terminator.
 	body := []byte{40, 0x00, 200, 50, 0x00, 201, 0}
 	cfg := buildCfgIdx(body)
-	got := unpackIdk(cfg, 0, makePackFile(0, "myidk"), nil, nil, nil, "", nil, nil)
+	got := unpackIdk(cfg, 0, nil, 0, makePackFile(0, "myidk"), nil, nil, nil, "", nil, nil)
 	// Should emit recol1s and recol1d (RGB values from reverseHsl or raw fallback)
 	if len(got) < 3 {
 		t.Fatalf("expected at least 3 lines, got %d: %v", len(got), got)
@@ -223,7 +223,7 @@ func TestUnpackIdk_Recol_TexturePath(t *testing.T) {
 		0,
 	}
 	cfg := buildCfgIdx(body)
-	got := unpackIdk(cfg, 0, makePackFile(0, "myidk"), texPack, nil, ms, "", nil, nil)
+	got := unpackIdk(cfg, 0, nil, 0, makePackFile(0, "myidk"), texPack, nil, ms, "", nil, nil)
 
 	// Should contain retex1s=snow and retex1d=... (since model has texture 5)
 	foundS := false
@@ -250,7 +250,7 @@ func TestUnpackIdk_Recol_SparseSkip(t *testing.T) {
 		0,
 	}
 	cfg := buildCfgIdx(body)
-	got := unpackIdk(cfg, 0, makePackFile(0, "myidk"), nil, nil, nil, "", nil, nil)
+	got := unpackIdk(cfg, 0, nil, 0, makePackFile(0, "myidk"), nil, nil, nil, "", nil, nil)
 	// Should have header + recol1s + recol1d + recol3s + recol3d (index 2 missing)
 	// recol2s/recol2d should NOT be present
 	for _, line := range got {
@@ -283,7 +283,7 @@ func TestUnpackIdk_ModelFileMissing_Errorf(t *testing.T) {
 	var errs []string
 	errorf := func(f string, a ...any) { errs = append(errs, fmt.Sprintf(f, a...)) }
 
-	unpackIdk(cfg, 0, makePackFile(0, "myhair"), nil, modelPack, nil, srcDir, nil, errorf)
+	unpackIdk(cfg, 0, nil, 0, makePackFile(0, "myhair"), nil, modelPack, nil, srcDir, nil, errorf)
 	if len(errs) == 0 {
 		t.Error("expected errorf call for missing model file, got none")
 	}
@@ -462,7 +462,7 @@ func TestUnpackIdk_UnknownOpcodeWarning(t *testing.T) {
 	body := []byte{200, 0}
 	cfg := buildCfgIdx(body)
 	var warns []string
-	unpackIdk(cfg, 0, nil, nil, nil, nil, "", captureWarnings(&warns), nil)
+	unpackIdk(cfg, 0, nil, 0, nil, nil, nil, nil, "", captureWarnings(&warns), nil)
 	if len(warns) == 0 || warns[0] != "unknown idk code 200" {
 		t.Errorf("want [\"unknown idk code 200\"], got %v", warns)
 	}

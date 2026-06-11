@@ -26,7 +26,7 @@ func TestUnpackObj_Opcode2_Name(t *testing.T) {
 	body := append([]byte{2}, []byte("Bronze sword\x0a")...)
 	body = append(body, 0)
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword_bronze"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword_bronze"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[sword_bronze]", "name=Bronze sword"}
 	assertLines(t, want, got)
 }
@@ -35,7 +35,7 @@ func TestUnpackObj_Opcode2_Name(t *testing.T) {
 func TestUnpackObj_Opcode4_2dZoom(t *testing.T) {
 	body := []byte{4, 0x04, 0xD2, 0} // zoom2d=1234
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[sword]", "2dzoom=1234"}
 	assertLines(t, want, got)
 }
@@ -45,7 +45,7 @@ func TestUnpackObj_Opcode7_2dxof_Signed(t *testing.T) {
 	// g2s of 0xFFFF = -1 (signed i16)
 	body := []byte{7, 0xFF, 0xFF, 0}
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[sword]", "2dxof=-1"}
 	assertLines(t, want, got)
 }
@@ -54,7 +54,7 @@ func TestUnpackObj_Opcode7_2dxof_Signed(t *testing.T) {
 func TestUnpackObj_Opcode9_Code9(t *testing.T) {
 	body := []byte{9, 0}
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[sword]", "code9=yes"}
 	assertLines(t, want, got)
 }
@@ -63,7 +63,7 @@ func TestUnpackObj_Opcode9_Code9(t *testing.T) {
 func TestUnpackObj_Opcode10_Code10_Fallback(t *testing.T) {
 	body := []byte{10, 0x00, 0x07, 0} // seqId=7
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[sword]", "code10=seq_7"}
 	assertLines(t, want, got)
 }
@@ -72,7 +72,7 @@ func TestUnpackObj_Opcode10_Code10_Fallback(t *testing.T) {
 func TestUnpackObj_Opcode11_Stackable(t *testing.T) {
 	body := []byte{11, 0}
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "coins"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "coins"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[coins]", "stackable=yes"}
 	assertLines(t, want, got)
 }
@@ -82,7 +82,7 @@ func TestUnpackObj_Opcode12_Cost_Negative(t *testing.T) {
 	// g4s of 0xFFFFFFFF = -1
 	body := []byte{12, 0xFF, 0xFF, 0xFF, 0xFF, 0}
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[sword]", "cost=-1"}
 	assertLines(t, want, got)
 }
@@ -91,7 +91,7 @@ func TestUnpackObj_Opcode12_Cost_Negative(t *testing.T) {
 func TestUnpackObj_Opcode16_Members(t *testing.T) {
 	body := []byte{16, 0}
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[sword]", "members=yes"}
 	assertLines(t, want, got)
 }
@@ -104,7 +104,7 @@ func TestUnpackObj_Opcode23_ManWear_WithOffset(t *testing.T) {
 	// opcode 23: g2=50 (modelId), g1b=-2 (signed offset)
 	body := []byte{23, 0x00, 0x32, 0xFE, 0} // offset = -2 (signed byte 0xFE)
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword_bronze"), nil, nil, modelPack, nil, srcDir, nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword_bronze"), nil, nil, modelPack, nil, srcDir, nil, nil)
 	want := []string{"[sword_bronze]", "manwear=obj_sword_bronze_manwear,-2"}
 	assertLines(t, want, got)
 }
@@ -116,7 +116,7 @@ func TestUnpackObj_Opcode25_WomanWear_WithOffset(t *testing.T) {
 
 	body := []byte{25, 0x00, 0x33, 0x05, 0} // offset=5
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "robe"), nil, nil, modelPack, nil, srcDir, nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "robe"), nil, nil, modelPack, nil, srcDir, nil, nil)
 	want := []string{"[robe]", "womanwear=obj_robe_womanwear,5"}
 	assertLines(t, want, got)
 }
@@ -126,7 +126,7 @@ func TestUnpackObj_Opcode30_35_Op(t *testing.T) {
 	body := append([]byte{30}, []byte("Wield\x0a")...)
 	body = append(body, 0)
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[sword]", "op1=Wield"}
 	assertLines(t, want, got)
 }
@@ -136,7 +136,7 @@ func TestUnpackObj_Opcode35_40_Iop(t *testing.T) {
 	body := append([]byte{35}, []byte("Wear\x0a")...)
 	body = append(body, 0)
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[sword]", "iop1=Wear"}
 	assertLines(t, want, got)
 }
@@ -145,7 +145,7 @@ func TestUnpackObj_Opcode35_40_Iop(t *testing.T) {
 func TestUnpackObj_Opcode97_CertLink_Fallback(t *testing.T) {
 	body := []byte{97, 0x00, 0x64, 0} // objId=100
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[sword]", "certlink=obj_100"}
 	assertLines(t, want, got)
 }
@@ -155,7 +155,7 @@ func TestUnpackObj_Opcode97_CertLink_Pack(t *testing.T) {
 	body := []byte{97, 0x00, 0x03, 0} // objId=3
 	cfg := buildObjCfgIdx(body)
 	objPack := makeMultiPackFile(map[int]string{0: "sword_bronze", 3: "cert_sword"})
-	got := unpackObj(cfg, 0, objPack, nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, objPack, nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[sword_bronze]", "certlink=cert_sword"}
 	assertLines(t, want, got)
 }
@@ -165,7 +165,7 @@ func TestUnpackObj_Opcode100_109_CountN(t *testing.T) {
 	body := []byte{100, 0x00, 0x05, 0x00, 0x0A, 0} // code=100→count1; objId=5; count=10
 	cfg := buildObjCfgIdx(body)
 	objPack := makeMultiPackFile(map[int]string{0: "rune_platebody", 5: "rune_legs"})
-	got := unpackObj(cfg, 0, objPack, nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, objPack, nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[rune_platebody]", "count1=rune_legs,10"}
 	assertLines(t, want, got)
 }
@@ -174,7 +174,7 @@ func TestUnpackObj_Opcode100_109_CountN(t *testing.T) {
 func TestUnpackObj_Opcode100_109_CountN_Fallback(t *testing.T) {
 	body := []byte{101, 0x00, 0x09, 0x00, 0x05, 0} // code=101→count2; objId=9; count=5
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[sword]", "count2=obj_9,5"}
 	assertLines(t, want, got)
 }
@@ -183,7 +183,7 @@ func TestUnpackObj_Opcode100_109_CountN_Fallback(t *testing.T) {
 func TestUnpackObj_Opcode110_113_Resize(t *testing.T) {
 	body := []byte{110, 0x00, 200, 111, 0x01, 0x00, 112, 0x00, 128, 0}
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
 	want := []string{"[sword]", "resizex=200", "resizey=256", "resizez=128"}
 	assertLines(t, want, got)
 }
@@ -198,7 +198,7 @@ func TestUnpackObj_RenameModel_CollisionSuffix_i2(t *testing.T) {
 
 	body := []byte{1, 0x00, 0x02, 0} // modelId=2
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword"), nil, nil, modelPack, nil, srcDir, nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword"), nil, nil, modelPack, nil, srcDir, nil, nil)
 	want := []string{"[sword]", "model=obj_swordi2"}
 	assertLines(t, want, got)
 }
@@ -212,7 +212,7 @@ func TestUnpackObj_Recol_Dense(t *testing.T) {
 		0,
 	}
 	cfg := buildObjCfgIdx(body)
-	got := unpackObj(cfg, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
+	got := unpackObj(cfg, 0, nil, 0, makePackFile(0, "sword"), nil, nil, nil, nil, "", nil, nil)
 	foundS, foundD := false, false
 	for _, line := range got {
 		if len(line) >= 8 && line[:8] == "recol1s=" {
@@ -232,7 +232,7 @@ func TestUnpackObj_UnknownOpcode(t *testing.T) {
 	body := []byte{55, 0}
 	cfg := buildObjCfgIdx(body)
 	var warns []string
-	unpackObj(cfg, 0, nil, nil, nil, nil, nil, "", captureWarnings(&warns), nil)
+	unpackObj(cfg, 0, nil, 0, nil, nil, nil, nil, nil, "", captureWarnings(&warns), nil)
 	if len(warns) == 0 || warns[0] != "unknown obj code 55" {
 		t.Errorf("want [\"unknown obj code 55\"], got %v", warns)
 	}

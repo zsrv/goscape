@@ -30,15 +30,15 @@ func TestLocShapeSuffix_Table(t *testing.T) {
 		shape  int
 		suffix string
 	}{
-		{0, "_1"},   // wall_straight
-		{1, "_2"},   // wall_diagonalcorner
-		{4, "_q"},   // walldecor_straight_nooffset
-		{5, "_w"},   // walldecor_straight_offset
-		{9, "_5"},   // wall_diagonal
-		{10, "_8"},  // centrepiece_straight
-		{22, "_0"},  // grounddecor
-		{18, "_z"},  // roofedge_straight
-		{21, "_v"},  // roofedge_squarecorner
+		{0, "_1"},  // wall_straight
+		{1, "_2"},  // wall_diagonalcorner
+		{4, "_q"},  // walldecor_straight_nooffset
+		{5, "_w"},  // walldecor_straight_offset
+		{9, "_5"},  // wall_diagonal
+		{10, "_8"}, // centrepiece_straight
+		{22, "_0"}, // grounddecor
+		{18, "_z"}, // roofedge_straight
+		{21, "_v"}, // roofedge_squarecorner
 	}
 	for _, tc := range cases {
 		if LocShapeSuffix[tc.shape] != tc.suffix {
@@ -64,50 +64,40 @@ func TestUnpackLocModels_Opcode1_CollectsModels(t *testing.T) {
 	}
 }
 
-// TestUnpackLocModels_LdModels_AlwaysEmpty verifies ldModels is always empty.
-func TestUnpackLocModels_LdModels_AlwaysEmpty(t *testing.T) {
-	body := []byte{1, 1, 0x00, 5, 0, 0}
-	cfg := buildLocCfgIdx(body)
-	result := unpackLocModels(cfg, 0, nil)
-	if len(result.LdModels) != 0 {
-		t.Errorf("expected empty ldModels, got %d entries", len(result.LdModels))
-	}
-}
-
 // TestUnpackLocModels_SkipAllOpcodes verifies all non-model opcodes are consumed.
 func TestUnpackLocModels_SkipAllOpcodes(t *testing.T) {
 	// Sequence of skip-read opcodes followed by terminator.
 	body := []byte{
-		14, 3,       // width=3
-		15, 2,       // length=2
-		17,          // no-op (blockwalk)
-		18,          // no-op (blockrange)
-		19, 1,       // active=true
+		14, 3, // width=3
+		15, 2, // length=2
+		17,    // no-op (blockwalk)
+		18,    // no-op (blockrange)
+		19, 1, // active=true
 		21,          // no-op (hillskew)
 		22,          // no-op (sharelight)
 		23,          // no-op (occlude)
 		24, 0x00, 5, // seq anim
-		25,          // no-op (hasalpha)
-		28, 4,       // wallwidth=4
-		29, 0xFE,    // ambient=-2 (g1b)
-		39, 0x02,    // contrast=2 (g1b)
+		25,    // no-op (hasalpha)
+		28, 4, // wallwidth=4
+		29, 0xFE, // ambient=-2 (g1b)
+		39, 0x02, // contrast=2 (g1b)
 		30, 0x41, 0x0a, // op1 "A" + LF
 		40, 1, 0x00, 10, 0x00, 20, // recol pair
 		60, 0x00, 7, // mapfunction=7
-		62,          // no-op (mirror)
-		64,          // no-op (shadow)
+		62,            // no-op (mirror)
+		64,            // no-op (shadow)
 		65, 0x00, 100, // resizex
 		66, 0x00, 100, // resizey
 		67, 0x00, 100, // resizez
-		68, 0x00, 5,   // mapscene
-		69, 0x0F,      // forceapproach flags
-		70, 0x00, 5,   // offsetx
-		71, 0x00, 5,   // offsety
-		72, 0x00, 5,   // offsetz
-		73,            // no-op (forcedecor)
-		74,            // no-op
-		75, 1,         // bool
-		0,             // terminator
+		68, 0x00, 5, // mapscene
+		69, 0x0F, // forceapproach flags
+		70, 0x00, 5, // offsetx
+		71, 0x00, 5, // offsety
+		72, 0x00, 5, // offsetz
+		73,    // no-op (forcedecor)
+		74,    // no-op
+		75, 1, // bool
+		0, // terminator
 	}
 	cfg := buildLocCfgIdx(body)
 	// Should not panic; models should be empty.
@@ -126,8 +116,8 @@ func TestUnpackLocModels_UnknownOpcode_BailsAndWarns(t *testing.T) {
 	// never be reached in TS (infinite loop). Go must return before the terminator.
 	body := []byte{
 		1, 1, 0x00, 42, 5, // opcode 1: count=1, model=42, shape=5
-		200,               // unknown opcode — triggers bail
-		0,                 // terminator (unreachable in TS; Go bails before this)
+		200, // unknown opcode — triggers bail
+		0,   // terminator (unreachable in TS; Go bails before this)
 	}
 	cfg := buildLocCfgIdx(body)
 
@@ -259,7 +249,7 @@ func TestUnpackLoc_Opcode70_72_Offsets(t *testing.T) {
 	// offsetx=-1, offsety=100, offsetz=0
 	body := []byte{
 		70, 0xFF, 0xFF, // offsetx = -1
-		71, 0x00, 100,  // offsety = 100
+		71, 0x00, 100, // offsety = 100
 		72, 0x00, 0x00, // offsetz = 0
 		0,
 	}
@@ -413,7 +403,7 @@ func TestUnpackLoc_Recol_Threshold100(t *testing.T) {
 	body := []byte{
 		40, 1,
 		0x00, 101, // recolSrc[0]=101 (>=100)
-		0x00, 50,  // recolDst[0]=50
+		0x00, 50, // recolDst[0]=50
 		0,
 	}
 	cfg := buildLocCfgIdx(body)
@@ -479,11 +469,11 @@ func TestUnpackLoc_Recol_LocMode_RetexWhenReverseHslEmpty(t *testing.T) {
 // All N recol pairs from opcode 40 are emitted without gaps.
 func TestUnpackLoc_Recol_Dense_NotSparse(t *testing.T) {
 	body := []byte{
-		40, 2,     // count=2
+		40, 2, // count=2
 		0x00, 110, // recolSrc[0]=110
-		0x00, 50,  // recolDst[0]=50
+		0x00, 50, // recolDst[0]=50
 		0x00, 120, // recolSrc[1]=120
-		0x00, 60,  // recolDst[1]=60
+		0x00, 60, // recolDst[1]=60
 		0,
 	}
 	cfg := buildLocCfgIdx(body)
@@ -536,4 +526,112 @@ func TestRenameModelLoc_NoStrip(t *testing.T) {
 	if result != "mywall" {
 		t.Errorf("want mywall got %q", result)
 	}
+}
+
+// --- rev-254 additions (TS @2e3bcf43) ---
+
+// TestUnpackLocModels_Opcode5_CollectsCentrepieceModels verifies code 5 collects
+// each model with the fixed centrepiece shape (10).
+//
+// TS source: LocConfig.ts:54-66 @2e3bcf43.
+func TestUnpackLocModels_Opcode5_CollectsCentrepieceModels(t *testing.T) {
+	// opcode 5, count=2, model=200, model=201, terminator
+	body := []byte{5, 2, 0x00, 200, 0x00, 201, 0}
+	cfg := buildLocCfgIdx(body)
+	result := unpackLocModels(cfg, 0, nil)
+	if len(result.Models) != 2 {
+		t.Fatalf("want 2 models, got %d", len(result.Models))
+	}
+	if result.Models[0].Model != 200 || result.Models[0].Shape != 10 {
+		t.Errorf("models[0]: want {200,10} got %+v", result.Models[0])
+	}
+	if result.Models[1].Model != 201 || result.Models[1].Shape != 10 {
+		t.Errorf("models[1]: want {201,10} got %+v", result.Models[1])
+	}
+}
+
+// TestUnpackLocModels_Opcode77_NowUnknown verifies the code-77 multivariant path
+// is GONE at 254 (TS LocConfig.ts dropped it; 254 caches don't carry it) — it
+// now hits the Go unknown-opcode bail.
+func TestUnpackLocModels_Opcode77_NowUnknown(t *testing.T) {
+	body := []byte{77, 0x00, 1, 0x00, 2, 0, 0}
+	cfg := buildLocCfgIdx(body)
+	var warns []string
+	warnf := func(f string, a ...any) { warns = append(warns, fmt.Sprintf(f, a...)) }
+	unpackLocModels(cfg, 0, warnf)
+	if len(warns) != 1 || warns[0] != "unknown loc model code 77" {
+		t.Errorf("want [\"unknown loc model code 77\"], got %v", warns)
+	}
+}
+
+// TestUnpackLoc_Opcode5_ModelEmission pins the code-5 model lines: index-based
+// suffix (first has none), names via renameModel with the centrepiece shape.
+//
+// TS source: LocConfig.ts:213-226 @2e3bcf43.
+func TestUnpackLoc_Opcode5_ModelEmission(t *testing.T) {
+	modelPack := makeMultiPackFile(map[int]string{
+		100: "statue_a",
+		101: "statue_b",
+		102: "statue_c",
+	})
+	// opcode 5, count=3, models 100..102, terminator
+	body := []byte{5, 3, 0x00, 100, 0x00, 101, 0x00, 102, 0}
+	cfg := buildLocCfgIdx(body)
+	got, err := unpackLoc(cfg, 0, makePackFile(0, "statue"), nil, nil, modelPack, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"[statue]", "model=statue_a", "model2=statue_b", "model3=statue_c"}
+	assertLines(t, want, got)
+}
+
+// TestUnpackLoc_Opcode5_ExclusiveAdd pins the dedupe semantics: a repeated
+// identical line (same index AND same name from a second code-5 block) is added
+// only once, while a same-name different-index line is still added.
+//
+// TS source: LocConfig.ts:157-161 (exclusiveAdd) + 224 @2e3bcf43.
+func TestUnpackLoc_Opcode5_ExclusiveAdd(t *testing.T) {
+	modelPack := makeMultiPackFile(map[int]string{
+		100: "statue_a",
+		101: "statue_a", // same name at a different index
+	})
+	// two opcode-5 blocks: first {100}, second {100, 101}
+	body := []byte{
+		5, 1, 0x00, 100,
+		5, 2, 0x00, 100, 0x00, 101,
+		0,
+	}
+	cfg := buildLocCfgIdx(body)
+	got, err := unpackLoc(cfg, 0, makePackFile(0, "statue"), nil, nil, modelPack, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Block 1 adds "model=statue_a". Block 2's i=0 regenerates the identical
+	// line → skipped; i=1 produces "model2=statue_a" → added (different line).
+	want := []string{"[statue]", "model=statue_a", "model2=statue_a"}
+	assertLines(t, want, got)
+}
+
+// TestUnpackLoc_Opcode75_RaiseObject pins raiseobject=yes/no from gbool.
+//
+// TS source: LocConfig.ts:319-321 @2e3bcf43.
+func TestUnpackLoc_Opcode75_RaiseObject(t *testing.T) {
+	t.Run("yes", func(t *testing.T) {
+		body := []byte{75, 1, 0}
+		cfg := buildLocCfgIdx(body)
+		got, err := unpackLoc(cfg, 0, makePackFile(0, "table"), nil, nil, nil, nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertLines(t, []string{"[table]", "raiseobject=yes"}, got)
+	})
+	t.Run("no", func(t *testing.T) {
+		body := []byte{75, 0, 0}
+		cfg := buildLocCfgIdx(body)
+		got, err := unpackLoc(cfg, 0, makePackFile(0, "table"), nil, nil, nil, nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertLines(t, []string{"[table]", "raiseobject=no"}, got)
+	})
 }
