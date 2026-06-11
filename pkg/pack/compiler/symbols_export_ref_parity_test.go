@@ -2,7 +2,8 @@ package compiler
 
 // RETIRED GATE (rev-254 A16): TestWriteCompilerSymbols_RefParity used to
 // byte-compare WriteCompilerSymbols output against the reference checkout's
-// data/symbols/*.sym, activated via GOSCAPE_REF245_DIR. At the rev-254 pin
+// data/symbols/*.sym, activated via the GOSCAPE_REF*_DIR env gate (now
+// GOSCAPE_REF254_DIR). At the rev-254 pin
 // (Engine-TS 2e3bcf43) upstream DELETED tools/pack/CompilerSymbols.ts — the
 // @lostcityrs/runescript compiler holds symbols in-memory (CompilerTypeInfo)
 // and the 254 reference cache contains NO data/symbols directory, so the
