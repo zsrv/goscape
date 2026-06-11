@@ -8,7 +8,7 @@ package compiler
 // and the 254 reference cache contains NO data/symbols directory, so the
 // upstream-parity comparison is unsatisfiable. The .sym export is now a
 // documented Go-only feature (see the symbols_export.go package header:
-// PORTING-EXCEPTION (symbols-export-go-only)).
+// the symbols-export-go-only exception in symbols_export.go).
 //
 // What replaces it: TestWriteCompilerSymbols_SelfConsistency below — a
 // synthetic-fixture format test that pins the export surface (the full

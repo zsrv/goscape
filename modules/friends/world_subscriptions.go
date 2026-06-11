@@ -48,8 +48,10 @@ func newWorldSubscriber(profile string, worldId int32) *worldSubscriber {
 // worldSubscriptions is the per-(profile, world) subscriber registry.
 // All methods are goroutine-safe. Exactly one subscriber per (profile,
 // worldId); re-subscribe kicks the prior (matches TS
-// FriendServer.initializeWorld at FriendServer.ts:436-440 —
-// `socketByWorld[profile][world].terminate()` on re-WORLD_CONNECT).
+// FriendServer.initializeWorld at FriendServer.ts:412-419 @2e3bcf43 —
+// single-profile `socketByWorld[world].terminate()` on re-WORLD_CONNECT;
+// goscape keeps the (profile, world) key for its multi-profile registry
+// while the 254 server itself is single-profile).
 type worldSubscriptions struct {
 	mu  sync.Mutex
 	by  map[wsubKey]*worldSubscriber
