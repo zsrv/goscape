@@ -9,8 +9,8 @@ import (
 // PUSH_VARBIT (25) and POP_VARBIT (27) were deleted from the 244 enum
 // (ScriptOpcode.ts:20-21) — those stubs are removed.
 // Remaining stubs: LC_OP, OC_IOP, OC_OP (TS-unimplemented per NAI-162).
-// New 244 stubs: IF_MULTIZONE, IF_OPENMAINOVERLAY, PLAYER_FINDALLZONE,
-// PLAYER_FINDNEXT, LAST_COORD (TS-declared with no handler body).
+// The five 244-era stubs (IF_MULTIZONE, IF_OPENMAINOVERLAY, PLAYER_FINDALLZONE,
+// PLAYER_FINDNEXT, LAST_COORD) were removed with their ops at the 254 pin-advance.
 func TestNAI162B0StubsReturnUnimplemented(t *testing.T) {
 	cases := []struct {
 		name string

@@ -86,7 +86,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPlayerCount: handlePlayerCount,
 	OpMoveCoord:   handleMoveCoord,
 	OpMapMembers:  handleMapMembers,
-	// MAP_LIVE deleted in 244 (ScriptOpcode.ts); MAP_PRODUCTION lands in Task 12.
+	// MAP_LIVE restored at the 254 pin-advance (2e3bcf43) — handleMapLive below.
 	OpInZone:     handleInZone,
 	OpSeqLength:  handleSeqLength,
 	OpMapIndoors: handleMapIndoors,
@@ -138,7 +138,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLineOfWalk:     handleLineOfWalk,
 	OpInvDropAll:     handleInvDropAll,
 	OpInvDropSlot:    handleInvDropSlot,
-	// NAI-115 stretch: LOWMEM (renamed from LOWMEM in 244).
+	// NAI-115 stretch: LOWMEM (LOWMEMORY at 244/245.2; renamed at the 254 pin-advance 2e3bcf43).
 	OpLowMem: handleLowMem,
 	// NAI-149 T2: PLAYERMEMBER.
 	OpPlayerMember: handlePlayerMember,

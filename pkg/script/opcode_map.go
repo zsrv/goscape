@@ -447,7 +447,7 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"DB_FIND_REFINE":            OpDbFindRefine,
 	"DB_LISTALL":                OpDbListAll,
 
-	// Debug ops (10000–10016)
+	// Debug ops (10000–10003 at the 254 pin 2e3bcf43)
 	"ERROR":        OpError,
 	"TIMESPENT":    OpTimeSpent,
 	"GETTIMESPENT": OpGetTimeSpent,

@@ -503,7 +503,7 @@ const (
 	OpDbListAll             Opcode = 7510
 )
 
-// Debug ops (10000–11000)
+// Debug ops (10000–10003 at the 254 pin 2e3bcf43)
 // 2e3bcf43 (254 pin-advance): MAP_PRODUCTION (10001) and the 12 MAP_LAST*
 // stat probes (10002–10013) deleted upstream; ERROR/TIMESPENT/GETTIMESPENT/
 // CONSOLE renumber to 10000–10003.

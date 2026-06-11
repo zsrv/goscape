@@ -103,7 +103,8 @@ func TestScriptOpcodeMap_ReverseCoverage(t *testing.T) {
 	}
 
 	missing := []Opcode{}
-	for i := 0; i <= int(OpConsole); i++ {
+	// OpTimeSpent (10003) is the highest opcode at the 254 pin 2e3bcf43.
+	for i := 0; i <= int(OpTimeSpent); i++ {
 		op := Opcode(i)
 		name := op.String()
 		if strings.HasPrefix(name, "opcode_") {
