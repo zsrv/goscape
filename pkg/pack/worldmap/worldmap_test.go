@@ -72,11 +72,14 @@ func TestPack_RealContent_Integration(t *testing.T) {
 		t.Fatalf("LoadJagfile: %v", err)
 	}
 
-	// f11-f30 font members removed from jag at rev-244 (TS 9aadcec4).
+	// f11-f30 font members re-added at rev-254 (TS Worldmap.ts:618-625
+	// @ 2e3bcf43; they were removed at rev-244 / 9aadcec4).
 	expectedNames := []string{
 		"underlay.dat", "overlay.dat", "loc.dat", "obj.dat", "npc.dat",
 		"multi.dat", "free.dat", "floorcol.dat",
 		"mapscene.dat", "mapfunction.dat", "b12.dat",
+		"f11.dat", "f12.dat", "f14.dat", "f17.dat",
+		"f19.dat", "f22.dat", "f26.dat", "f30.dat",
 		"mapdots.dat", "index.dat", "labels.dat",
 	}
 	for _, n := range expectedNames {

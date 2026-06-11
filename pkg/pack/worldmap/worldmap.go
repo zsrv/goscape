@@ -14,6 +14,7 @@ import (
 	"github.com/zsrv/goscape/pkg/io/jagfile"
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pack"
 	pf "github.com/zsrv/goscape/pkg/pathfinder/loc"
 	"github.com/zsrv/goscape/pkg/pixpack"
 )
@@ -42,18 +43,17 @@ import (
 //   - Jag member writes batched at the end in fixed order
 //     (Worldmap.ts:648-669), replacing the 244 interleaved order.
 //
-// Tag NAI-WORLDMAP-D-READDIR-SORTED: os.ReadDir returns lexically
-// sorted entries; TS fs.readdirSync is filesystem-order. The per-
-// (mx,mz) data blocks in the seven mapsquare-output entries
-// (underlay/overlay/loc/obj/npc/multi/free) are concatenated in
-// iteration order, so reordering changes bzip2 output bytes even
-// though the total uncompressed size and decoded data are unchanged.
-// Goscape uses sorted order for cross-machine determinism. Sample
-// canonical RS jags (openrs2 #33025, #33160, #33021) and Engine-TS's
-// own pack output are each in different ad-hoc orders (historical
-// build add-order or filesystem-baked), with no portable algorithmic
-// rule, so byte-pin against any external reference is intrinsically
-// fragile. Sorted iteration is the defensible permanent choice.
+// Tag NAI-WORLDMAP-D-READDIR-SORTED (REVISED at 254): TS packWorldmap
+// does fs.readdirSync('data/pack/server/maps') (filesystem order) —
+// but since 254 packWorldmap runs INSIDE packMaps, which populates
+// that directory in MapPack registry id order, and the upstream
+// toolchain's readdir empirically returns insertion order: the 254
+// reference worldmap.jag's per-(mx,mz) blocks are EXACTLY in MapPack
+// id order (verified block-by-block against Server254-ref). goscape
+// therefore iterates srcDir/pack/map.pack id order — deterministic
+// across machines AND byte-equal to the reference — falling back to
+// the (pre-254) sorted os.ReadDir scan only when map.pack is absent
+// or registers no maps.
 func Pack(srcDir, outDir string) error {
 	mapsDir := filepath.Join(outDir, "server", "maps")
 	if _, err := os.Stat(mapsDir); errors.Is(err, fs.ErrNotExist) {
@@ -122,12 +122,38 @@ func Pack(srcDir, outDir string) error {
 	out := newMapPackets()
 	defer out.release()
 
-	entries, err := os.ReadDir(mapsDir)
-	if err != nil {
-		return fmt.Errorf("readdir %s: %w", mapsDir, err)
+	// Map iteration order: MapPack registry id order (see the revised
+	// NAI-WORLDMAP-D-READDIR-SORTED tag in the Pack doc above). Skip
+	// names whose packed m-file is absent (packMaps skipped them too).
+	var mapNames []string
+	if mapPack, mpErr := pack.NewPackFile(srcDir, "map", nil); mpErr == nil {
+		for id := range mapPack.Max {
+			name := mapPack.GetByID(id)
+			if !strings.HasPrefix(name, "m") {
+				continue
+			}
+			if _, statErr := os.Stat(filepath.Join(mapsDir, name)); statErr != nil {
+				continue
+			}
+			mapNames = append(mapNames, name)
+		}
+	} else {
+		return fmt.Errorf("load map.pack: %w", mpErr)
 	}
-	for _, ent := range entries {
-		name := ent.Name()
+	if len(mapNames) == 0 {
+		// Fallback: sorted directory scan (pre-254 behavior) for trees
+		// without a map.pack registry.
+		entries, err := os.ReadDir(mapsDir)
+		if err != nil {
+			return fmt.Errorf("readdir %s: %w", mapsDir, err)
+		}
+		for _, ent := range entries {
+			if strings.HasPrefix(ent.Name(), "m") {
+				mapNames = append(mapNames, ent.Name())
+			}
+		}
+	}
+	for _, name := range mapNames {
 		if !strings.HasPrefix(name, "m") {
 			continue
 		}
