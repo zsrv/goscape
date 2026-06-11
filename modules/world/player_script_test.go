@@ -148,42 +148,42 @@ func TestOpenModalClearsSuspendedDialogAndResumeButtons(t *testing.T) {
 		open func(p *Player)
 	}{
 		{
-			name: "OpenMain_CountDialog_survives",
+			name: "OpenMain_CountDialog_cleared",
 			exec: script.CountDialog,
 			open: func(p *Player) { p.OpenMain(100) },
 		},
 		{
-			name: "OpenMain_PauseButton_survives",
+			name: "OpenMain_PauseButton_cleared",
 			exec: script.PauseButton,
 			open: func(p *Player) { p.OpenMain(100) },
 		},
 		{
-			name: "OpenChat_CountDialog_survives",
+			name: "OpenChat_CountDialog_cleared",
 			exec: script.CountDialog,
 			open: func(p *Player) { p.OpenChat(200) },
 		},
 		{
-			name: "OpenChat_PauseButton_survives",
+			name: "OpenChat_PauseButton_cleared",
 			exec: script.PauseButton,
 			open: func(p *Player) { p.OpenChat(200) },
 		},
 		{
-			name: "OpenSide_CountDialog_survives",
+			name: "OpenSide_CountDialog_cleared",
 			exec: script.CountDialog,
 			open: func(p *Player) { p.OpenSide(300) },
 		},
 		{
-			name: "OpenSide_PauseButton_survives",
+			name: "OpenSide_PauseButton_cleared",
 			exec: script.PauseButton,
 			open: func(p *Player) { p.OpenSide(300) },
 		},
 		{
-			name: "OpenMainModalSide_CountDialog_survives",
+			name: "OpenMainModalSide_CountDialog_cleared",
 			exec: script.CountDialog,
 			open: func(p *Player) { p.OpenMainModalSide(400, 401) },
 		},
 		{
-			name: "OpenMainModalSide_PauseButton_survives",
+			name: "OpenMainModalSide_PauseButton_cleared",
 			exec: script.PauseButton,
 			open: func(p *Player) { p.OpenMainModalSide(400, 401) },
 		},

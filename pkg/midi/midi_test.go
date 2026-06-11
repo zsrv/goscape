@@ -59,6 +59,27 @@ func TestParseLengthTempoEvent(t *testing.T) {
 	}
 }
 
+// TestParseLengthSMPTEDivision pins the SMPTE branch (TS Midi.ts:191-198):
+// division bit 15 set → frames/second = two's complement of the high
+// byte, ticks/frame = low byte. fps 25 (high byte 0x100-25 = 0xE7) ×
+// 40 ticks/frame = 1000 ticks/second; maxTick 500 → 500ms. Tempo events
+// are IGNORED on this path (wall-clock division).
+func TestParseLengthSMPTEDivision(t *testing.T) {
+	events := []byte{
+		0x00, 0x90, 0x3c, 0x40, // delta 0, NoteOn
+		0x83, 0x74, 0x80, 0x3c, 0x40, // delta 500 (varlen 83 74), NoteOff
+	}
+	events = append(events, endOfTrack...)
+	division := 0xE7<<8 | 40 // SMPTE 25fps, 40 ticks/frame
+	ms, ok := ParseLength(buildMidi(division, events))
+	if !ok {
+		t.Fatal("ParseLength: ok=false, want true")
+	}
+	if ms != 500 {
+		t.Errorf("ms: got %d, want 500 (500 ticks @ 1000 ticks/sec SMPTE)", ms)
+	}
+}
+
 // TestParseLengthRunningStatus: a data byte (<0x80) reuses the previous
 // channel status (TS Midi.ts:110-122).
 func TestParseLengthRunningStatus(t *testing.T) {
