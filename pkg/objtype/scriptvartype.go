@@ -42,6 +42,74 @@ const (
 	ScriptVarTypeMidi ScriptVarType = 77 // M
 )
 
+// ScriptVarTypeName returns the type name for a ScriptVarType code,
+// or "unknown" for unrecognized codes. Matches TS ScriptVarType.getType
+// (src/cache/config/ScriptVarType.ts:29-85 @2e3bcf43), used by the
+// rev-254 varp scope=perm persistable-type validation
+// (tools/pack/config/VarpConfig.ts:105-110 @2e3bcf43).
+//
+// NOTE: ParamType.GetType (paramtype.go) keeps its own SMALLER switch —
+// TS ParamType.getType is an independent, truncated copy (no autoint/
+// varp/player_uid/npc_uid/npc_stat/idkit/dbrow cases); do not unify.
+func ScriptVarTypeName(t ScriptVarType) string {
+	switch t {
+	case ScriptVarTypeInt:
+		return "int"
+	case ScriptVarTypeAutoInt:
+		return "autoint"
+	case ScriptVarTypeString:
+		return "string"
+	case ScriptVarTypeEnum:
+		return "enum"
+	case ScriptVarTypeObj:
+		return "obj"
+	case ScriptVarTypeLoc:
+		return "loc"
+	case ScriptVarTypeComponent:
+		return "component"
+	case ScriptVarTypeNamedObj:
+		return "namedobj"
+	case ScriptVarTypeStruct:
+		return "struct"
+	case ScriptVarTypeBoolean:
+		return "boolean"
+	case ScriptVarTypeCoord:
+		return "coord"
+	case ScriptVarTypeCategory:
+		return "category"
+	case ScriptVarTypeSpotanim:
+		return "spotanim"
+	case ScriptVarTypeNPC:
+		return "npc"
+	case ScriptVarTypeInv:
+		return "inv"
+	case ScriptVarTypeSynth:
+		return "synth"
+	case ScriptVarTypeSeq:
+		return "seq"
+	case ScriptVarTypeStat:
+		return "stat"
+	case ScriptVarTypeInterface:
+		return "interface"
+	case ScriptVarTypeVarp:
+		return "varp"
+	case ScriptVarTypePlayerUid:
+		return "player_uid"
+	case ScriptVarTypeNpcUid:
+		return "npc_uid"
+	case ScriptVarTypeNpcStat:
+		return "npc_stat"
+	case ScriptVarTypeIdkit:
+		return "idkit"
+	case ScriptVarTypeDbrow:
+		return "dbrow"
+	case ScriptVarTypeMidi:
+		return "midi"
+	default:
+		return "unknown"
+	}
+}
+
 // ScriptVarTypeFromName returns the ScriptVarType code for a type
 // name, or (0, false) for unknown names. Matches TS
 // ScriptVarType.getTypeChar.

@@ -578,10 +578,13 @@ func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, client
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".varp"); err != nil {
+	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".varp", true); err != nil {
 		return err
 	}
-	server, client := packVarpConfigs(cfgs, pf, modelFlags)
+	server, client, err := packVarpConfigs(cfgs, pf, modelFlags)
+	if err != nil {
+		return err
+	}
 	// TS PackShared.ts:613 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, 1039564548)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCVarp); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveVarp: %v (BUILD_VERIFY)\n", err)
@@ -618,7 +621,7 @@ func packAndSaveVarbit(srcDir, serverOut string, pf, varpPack *PackFile, c Const
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".varbit"); err != nil {
+	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".varbit", true); err != nil {
 		return err
 	}
 	server, client := packVarbitConfigs(cfgs, pf, modelFlags)
@@ -642,7 +645,7 @@ func packAndSaveVarn(srcDir, serverOut string, pf *PackFile, c Constants, modelF
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".varn"); err != nil {
+	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".varn", false); err != nil {
 		return err
 	}
 	pd := packVarnConfigs(cfgs, pf, modelFlags)
@@ -654,7 +657,7 @@ func packAndSaveVars(srcDir, serverOut string, pf *PackFile, c Constants, modelF
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".vars"); err != nil {
+	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".vars", false); err != nil {
 		return err
 	}
 	pd := packVarsConfigs(cfgs, pf, modelFlags)
@@ -711,7 +714,7 @@ func packAndSaveParam(srcDir, serverOut string, pf *PackFile, lk *paramLookups, 
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".param"); err != nil {
+	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".param", false); err != nil {
 		return err
 	}
 	server, _, err := packParamConfigs(cfgs, pf, lk, modelFlags)
@@ -729,7 +732,7 @@ func packAndSaveEnum(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".enum"); err != nil {
+	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".enum", false); err != nil {
 		return err
 	}
 	pd, err := packEnumConfigs(cfgs, pf, lk, modelFlags)
@@ -744,7 +747,7 @@ func packAndSaveInv(srcDir, serverOut string, pf, objPack *PackFile, c Constants
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".inv"); err != nil {
+	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".inv", false); err != nil {
 		return err
 	}
 	pd, err := packInvConfigs(cfgs, pf, modelFlags)
@@ -759,7 +762,7 @@ func packAndSaveMesAnim(srcDir, serverOut string, pf, seqPack *PackFile, c Const
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".mesanim"); err != nil {
+	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".mesanim", false); err != nil {
 		return err
 	}
 	pd := packMesAnimConfigs(cfgs, pf, modelFlags)
@@ -771,7 +774,7 @@ func packAndSaveStruct(srcDir, serverOut string, pf *PackFile, paramTypes *objty
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".struct"); err != nil {
+	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".struct", false); err != nil {
 		return err
 	}
 	pd := packStructConfigs(cfgs, pf, modelFlags)
@@ -792,7 +795,7 @@ func packAndSaveLoc(srcDir, serverOut string, locPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(locPack, cfgs, ".loc"); err != nil {
+	if err := validatePackNamesAgainstCfgs(locPack, cfgs, ".loc", true); err != nil {
 		return err
 	}
 	server, client, err := packLocConfigs(cfgs, locPack, modelPack, modelFlags)
@@ -827,7 +830,7 @@ func packAndSaveNpc(srcDir, serverOut string, npcPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(npcPack, cfgs, ".npc"); err != nil {
+	if err := validatePackNamesAgainstCfgs(npcPack, cfgs, ".npc", true); err != nil {
 		return err
 	}
 	server, client, err := packNpcConfigs(cfgs, npcPack, modelFlags)
@@ -862,7 +865,7 @@ func packAndSaveObj(srcDir, serverOut string, objPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(objPack, cfgs, ".obj"); err != nil {
+	if err := validatePackNamesAgainstCfgs(objPack, cfgs, ".obj", true); err != nil {
 		return err
 	}
 	server, client, err := packObjConfigs(cfgs, objPack, modelFlags)
@@ -898,7 +901,7 @@ func packAndSaveSeq(srcDir, serverOut string, seqPack, animPack, objPack *PackFi
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(seqPack, cfgs, ".seq"); err != nil {
+	if err := validatePackNamesAgainstCfgs(seqPack, cfgs, ".seq", true); err != nil {
 		return err
 	}
 	server, client := packSeqConfigs(cfgs, seqPack, modelFlags)
@@ -930,7 +933,7 @@ func packAndSaveFlo(srcDir, serverOut string, floPack, texturePack *PackFile, c 
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(floPack, cfgs, ".flo"); err != nil {
+	if err := validatePackNamesAgainstCfgs(floPack, cfgs, ".flo", true); err != nil {
 		return err
 	}
 	server, client := packFloConfigs(cfgs, floPack, modelFlags)
@@ -961,7 +964,7 @@ func packAndSaveSpotAnim(srcDir, serverOut string, spotanimPack, modelPack, seqP
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(spotanimPack, cfgs, ".spotanim"); err != nil {
+	if err := validatePackNamesAgainstCfgs(spotanimPack, cfgs, ".spotanim", true); err != nil {
 		return err
 	}
 	server, client := packSpotAnimConfigs(cfgs, spotanimPack, modelFlags)
@@ -989,7 +992,7 @@ func packAndSaveDbTable(srcDir, serverOut string, dbtablePack *PackFile, lk *par
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(dbtablePack, cfgs, ".dbtable"); err != nil {
+	if err := validatePackNamesAgainstCfgs(dbtablePack, cfgs, ".dbtable", false); err != nil {
 		return err
 	}
 	pd, err := packDbTableConfigs(cfgs, dbtablePack, lk, modelFlags)
@@ -1010,7 +1013,7 @@ func packAndSaveDbRow(srcDir, serverOut string, dbrowPack, dbtablePack *PackFile
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(dbrowPack, cfgs, ".dbrow"); err != nil {
+	if err := validatePackNamesAgainstCfgs(dbrowPack, cfgs, ".dbrow", false); err != nil {
 		return err
 	}
 	pd, err := packDbRowConfigs(cfgs, dbrowPack, dbtableTypes, lk, modelFlags)
@@ -1033,7 +1036,7 @@ func packAndSaveHunt(srcDir, serverOut string, huntPack, categoryPack, invPack, 
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(huntPack, cfgs, ".hunt"); err != nil {
+	if err := validatePackNamesAgainstCfgs(huntPack, cfgs, ".hunt", false); err != nil {
 		return err
 	}
 	pd, err := packHuntConfigs(cfgs, huntPack, modelFlags)
@@ -1055,7 +1058,7 @@ func packAndSaveIdk(srcDir, serverOut string, idkPack, modelPack *PackFile, c Co
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(idkPack, cfgs, ".idk"); err != nil {
+	if err := validatePackNamesAgainstCfgs(idkPack, cfgs, ".idk", true); err != nil {
 		return err
 	}
 	server, client := packIdkConfigs(cfgs, idkPack, modelFlags)
@@ -1076,18 +1079,26 @@ func packAndSaveIdk(srcDir, serverOut string, idkPack, modelPack *PackFile, c Co
 
 // validatePackNamesAgainstCfgs builds the configNames set from the keys of
 // cfgs (the map returned by ReadTypedConfigs) and delegates to
-// ValidateConfigPackNames. This is the live-path wiring for the rev-244
-// universal config-name verification contract (TS PackFile.ts:117-121
-// @ 9aadcec4).
+// ValidateConfigPackNames — but only for TRANSMITTED packs.
+//
+// rev-254 (TS PackFile.ts:117-124 @2e3bcf43, T30 audit catch): upstream
+// RE-ADDED the `if (transmitted)` gate around the orphan-name loop that
+// rev-244 had removed (PackFile.ts:117-121 @9aadcec4) — a pack.pack name
+// with no config source only errors for the transmitted families. The
+// transmitted set mirrors the PackFile registrations at 2e3bcf43:193-222:
+// flo, idk, loc, npc, obj, seq, spotanim, varp, varbit. Non-transmitted
+// config packs (dbrow, dbtable, enum, hunt, inv, mesanim, param, struct,
+// varn, vars) skip the orphan check entirely.
 //
 // BEFORE this wiring (NAI-191-D-VALIDATE-FLAGS-DEFERRED), ValidateConfigPackNames
 // and CrawlConfigNames existed as dead code introduced by commit 2cfec7ea.
 // This function closes that gap: ReadTypedConfigs already walks the same
 // scripts/ tree that CrawlConfigNames would walk, so its result map's
 // keys are exactly the configNames set — no second crawl is needed.
-//
-// TS source: tools/pack/PackFile.ts:117-121 @ 9aadcec4 (rev-244 B6).
-func validatePackNamesAgainstCfgs(pf *PackFile, cfgs map[string][]ConfigLine, ext string) error {
+func validatePackNamesAgainstCfgs(pf *PackFile, cfgs map[string][]ConfigLine, ext string, transmitted bool) error {
+	if !transmitted {
+		return nil
+	}
 	configNames := make(map[string]struct{}, len(cfgs))
 	for name := range cfgs {
 		configNames[name] = struct{}{}

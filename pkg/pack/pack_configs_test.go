@@ -730,6 +730,30 @@ func TestPackConfigs_OrphanPackNameRejected(t *testing.T) {
 	}
 }
 
+// TestPackConfigs_OrphanNonTransmittedAccepted pins the rev-254 contract
+// (TS PackFile.ts:117-124 @2e3bcf43, T30 audit catch): the orphan-name
+// check is gated on `transmitted` again — an orphan in a NON-transmitted
+// pack (.varn here) must NOT fail the pack. rev-244 (@9aadcec4) had the
+// gate removed and would have errored; 254 restores it.
+func TestPackConfigs_OrphanNonTransmittedAccepted(t *testing.T) {
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+
+	// .varn source defines "real_varn" only; the .pack also registers the
+	// orphan "ghost_varn". varn is non-transmitted → no orphan error.
+	writeFile(t, filepath.Join(srcDir, "scripts", "a.varn"),
+		"[real_varn]\ntype=int\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "varn.pack"),
+		"0=real_varn\n1=ghost_varn\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "varp.pack"), "")
+	writeFile(t, filepath.Join(srcDir, "pack", "vars.pack"), "")
+	ClearFsCache()
+
+	if err := PackConfigs(srcDir, outDir); err != nil {
+		t.Fatalf("orphan in non-transmitted varn.pack must not error at 254; got: %v", err)
+	}
+}
+
 // TestPackConfigsConfigJagCacheWrite is the RED→GREEN pin for Slice F
 // of rev-244 B6: after PackConfigs the packed client/config jagfile bytes
 // must be written to cache.Write(0, 2, data, 0) when a non-nil FileStream

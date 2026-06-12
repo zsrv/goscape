@@ -229,7 +229,10 @@ func TestPackVarpConfigs_BytePin(t *testing.T) {
 	// way is to bump pf.Max directly for the test fixture.
 	pf.Max = 2
 
-	server, client := packVarpConfigs(cfgs, pf, nil)
+	server, client, err := packVarpConfigs(cfgs, pf, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	wantServerDat := []byte{
 		0x00, 0x02,
@@ -284,7 +287,10 @@ func TestPackVarpConfigs_ProtectFalseEmitsOpcode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server, _ := packVarpConfigs(cfgs, pf, nil)
+	server, _, err := packVarpConfigs(cfgs, pf, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Server dat for id=0 with protect=false:
 	//   p2(1)               → 00 01
@@ -316,7 +322,10 @@ func TestPackVarpConfigs_ProtectTrueOmitsOpcode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server, _ := packVarpConfigs(cfgs, pf, nil)
+	server, _, err := packVarpConfigs(cfgs, pf, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Server dat for id=0 with protect=true (no opcode emitted):
 	//   p2(1)               → 00 01
@@ -347,7 +356,10 @@ func TestPackVarpConfigs_TransmitFalseOmitsOpcode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server, _ := packVarpConfigs(cfgs, pf, nil)
+	server, _, err := packVarpConfigs(cfgs, pf, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Server dat for id=0 with transmit=false (no opcode emitted):
 	//   p2(1)               → 00 01
@@ -356,5 +368,76 @@ func TestPackVarpConfigs_TransmitFalseOmitsOpcode(t *testing.T) {
 	wantServerDat := []byte{0x00, 0x01, 0xfa, 0x76, 0x0a, 0x00}
 	if !bytes.Equal(server.Dat.Data, wantServerDat) {
 		t.Fatalf("server.dat=% x\nwant % x", server.Dat.Data, wantServerDat)
+	}
+}
+
+// packVarpFixture builds a single-varp fixture with the given config body
+// and runs packVarpConfigs, returning its error.
+func packVarpFixture(t *testing.T, body string) error {
+	t.Helper()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "scripts", "test.varp"), "[v]\n"+body)
+	writeFile(t, filepath.Join(dir, "pack", "varp.pack"), "0=v\n")
+	ClearFsCache()
+
+	cfgs, err := ReadTypedConfigs(dir, ".varp", nil, parseVarpConfig, Constants{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pf, err := NewPackFile(dir, "varp", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = packVarpConfigs(cfgs, pf, nil)
+	return err
+}
+
+// TestPackVarpConfigs_PermNonPersistableErrors pins the rev-254 validation
+// (TS VarpConfig.ts:105-110 @2e3bcf43): scope=perm varps must carry a
+// persistable type (int/coord/boolean/obj/namedobj) or the pack fails with
+// the TS packStepError shape. T30 correspondence-audit catch — the pinned
+// Content never trips the check, so the parity gate was blind to the
+// omission.
+func TestPackVarpConfigs_PermNonPersistableErrors(t *testing.T) {
+	err := packVarpFixture(t, "scope=perm\ntype=string\n")
+	if err == nil {
+		t.Fatal("scope=perm type=string must error at 254 (VarpConfig.ts:105-110)")
+	}
+	want := "[v] scope=perm varps cannot be type=string"
+	if err.Error() != want {
+		t.Fatalf("err=%q, want %q", err, want)
+	}
+}
+
+// TestPackVarpConfigs_PermPersistableTypesAccepted pins the persistable
+// allow-list (TS VarpConfig.ts:6 @2e3bcf43) plus the absent-type default
+// (TS local `let type = ScriptVarType.INT` — scope=perm with no type key
+// passes as int).
+func TestPackVarpConfigs_PermPersistableTypesAccepted(t *testing.T) {
+	for _, body := range []string{
+		"scope=perm\ntype=int\n",
+		"scope=perm\ntype=coord\n",
+		"scope=perm\ntype=boolean\n",
+		"scope=perm\ntype=obj\n",
+		"scope=perm\ntype=namedobj\n",
+		"scope=perm\n", // type defaults to int
+	} {
+		if err := packVarpFixture(t, body); err != nil {
+			t.Errorf("body %q: unexpected error %v", body, err)
+		}
+	}
+}
+
+// TestPackVarpConfigs_TempNonPersistableAccepted pins that the validation
+// only fires for scope=perm — scope=temp (explicit or defaulted) accepts
+// any type (TS VarpConfig.ts:105 gates on SCOPE_PERM).
+func TestPackVarpConfigs_TempNonPersistableAccepted(t *testing.T) {
+	for _, body := range []string{
+		"scope=temp\ntype=string\n",
+		"type=string\n", // scope defaults to temp
+	} {
+		if err := packVarpFixture(t, body); err != nil {
+			t.Errorf("body %q: unexpected error %v", body, err)
+		}
 	}
 }

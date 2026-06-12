@@ -2,10 +2,17 @@ package pack
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/zsrv/goscape/pkg/objtype"
 )
+
+// persistableVarpTypes mirrors TS VarpConfig.ts:6 @2e3bcf43:
+// `const persistable = ['int', 'coord', 'boolean', 'obj', 'namedobj'];`
+// — the only types a scope=perm varp may carry (they survive the
+// player-save round trip).
+var persistableVarpTypes = []string{"int", "coord", "boolean", "obj", "namedobj"}
 
 // parseVarpConfig is the per-key=value parser for .varp config blocks.
 //
@@ -72,27 +79,36 @@ func parseVarpConfig(key, value string) (ConfigValue, bool, error) {
 // VarpPack; goscape takes *PackFile as a parameter (continuation of
 // NAI-191 §2 / NAI-192 deferral).
 //
-// TS source: tools/pack/config/VarpConfig.ts:69-110.
-// TS author note at VarpConfig.ts:97 — "// todo: maybe this was
+// TS source: tools/pack/config/VarpConfig.ts:69-126 @2e3bcf43.
+// TS author note at VarpConfig.ts — "// todo: maybe this was
 // opcode 10?" — preserved here as a TS-author uncertainty about the
 // 250 trailer opcode, not a goscape deviation.
 // modelFlags is accepted for TS ConfigPackCallback parity
 // (PackShared.ts:137-141); varp does not write any model flags.
-func packVarpConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []int) (server, client *PackedData) {
+//
+// rev-254 (VarpConfig.ts:79-110 @2e3bcf43, T30 audit catch): scope=perm
+// varps must have a persistable type — int/coord/boolean/obj/namedobj —
+// or the pack fails with packStepError. Scope defaults to SCOPE_TEMP and
+// type to INT when the keys are absent (matching the TS locals).
+func packVarpConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags []int) (server, client *PackedData, err error) {
 	server = NewPackedData(pf.Max)
 	client = NewPackedData(pf.Max)
 
 	for id := range pf.Max {
 		name := pf.GetByID(id)
 		if cfg, ok := configs[name]; ok {
+			scope := objtype.VarpScopeTemp
+			varType := objtype.ScriptVarTypeInt
 			for _, line := range cfg {
 				switch line.Key {
 				case "scope":
+					scope = line.Value.(int)
 					server.P1(1)
 					server.P1(uint8(line.Value.(int)))
 				case "type":
+					varType = line.Value.(objtype.ScriptVarType)
 					server.P1(2)
-					server.P1(uint8(line.Value.(objtype.ScriptVarType)))
+					server.P1(uint8(varType))
 				case "protect":
 					if !line.Value.(bool) {
 						server.P1(4)
@@ -106,6 +122,15 @@ func packVarpConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags [
 					}
 				}
 			}
+
+			// TS VarpConfig.ts:105-110 @2e3bcf43: name-keyed persistable
+			// set, mirrored data-driven (lesson #191).
+			if scope == objtype.VarpScopePerm {
+				typeName := objtype.ScriptVarTypeName(varType)
+				if !slices.Contains(persistableVarpTypes, typeName) {
+					return nil, nil, packStepError(name, "scope=perm varps cannot be type=%s", typeName)
+				}
+			}
 		}
 		if len(name) > 0 {
 			server.P1(250)
@@ -114,5 +139,5 @@ func packVarpConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags [
 		server.Next()
 		client.Next()
 	}
-	return server, client
+	return server, client, nil
 }

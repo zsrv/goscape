@@ -38,11 +38,13 @@ func TestConvertImage_NoMeta_2x2(t *testing.T) {
 	}
 }
 
-// TestConvertImage_PalPng pins TS PixPack.ts:185-192 (9aadcec4): when
-// meta/<name>.pal.png exists, the palette is derived from that image instead
-// of the source image. The test verifies that the index palette count (byte 4
-// of the index packet) reflects the pal.png colors, not the source image colors.
-func TestConvertImage_PalPng(t *testing.T) {
+// TestConvertImage_PalPngIgnored pins the rev-254 contract: TS PixPack.ts
+// @2e3bcf43 removed the meta/<name>.pal.png palette workaround (rev-244
+// PixPack.ts:185-192 @9aadcec4), so a stray pal.png must be IGNORED and the
+// palette derived from the source image. The test verifies that the index
+// palette count (byte 4 of the index packet) reflects the source image
+// colors even when a pal.png with a different palette is present.
+func TestConvertImage_PalPngIgnored(t *testing.T) {
 	tmp := t.TempDir()
 	metaDir := filepath.Join(tmp, "meta")
 	if err := os.MkdirAll(metaDir, 0o755); err != nil {
@@ -54,7 +56,8 @@ func TestConvertImage_PalPng(t *testing.T) {
 		{1, 2, 3, 255}, {4, 5, 6, 255},
 		{7, 8, 9, 255}, {10, 11, 12, 255},
 	})
-	// pal.png: 1x1 single non-transparent color → palette = [sentinel, color] = 2 entries.
+	// pal.png with a 1-color palette — pre-254 this would shrink the
+	// palette to [sentinel, color] = 2 entries; at 254 it must be ignored.
 	writeTestPNG(t, filepath.Join(metaDir, "src.pal.png"), 1, 1, []color.RGBA{
 		{0x11, 0x22, 0x33, 255},
 	})
@@ -68,11 +71,11 @@ func TestConvertImage_PalPng(t *testing.T) {
 	}
 	defer data.Release()
 
-	// index[4] = palette length = 2 (sentinel + 1 pal.png color).
-	// Without pal.png the source 4-color image would yield 5 here.
+	// index[4] = palette length = 5 (sentinel + the 4 source colors).
+	// The pre-254 pal.png workaround would have yielded 2 here.
 	idxBytes := index.Data
-	if idxBytes[4] != 2 {
-		t.Errorf("index[4]=%d, want 2 (palette from pal.png, not source image)", idxBytes[4])
+	if idxBytes[4] != 5 {
+		t.Errorf("index[4]=%d, want 5 (palette from source image; pal.png ignored at 254)", idxBytes[4])
 	}
 }
 

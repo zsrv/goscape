@@ -201,11 +201,14 @@ func (pf *PackFile) GetByName(name string) int {
 // absent, unless the name has the "cert_" prefix (those are synthesised
 // by the obj packer and have no source counterpart).
 //
-// This ports the rev-244 removal of the `if (transmitted)` gate in
-// TS PackFile.ts:114-121 @ 9aadcec4. Before the change the check only
-// ran for transmitted packs; now it runs for ALL config packs. In Go,
-// BUILD_VERIFY is not modelled as a runtime env-var — the check is
-// always-on, consistent with Go's structural-enforcement approach.
+// rev-254 (TS PackFile.ts:117-124 @2e3bcf43, T30 audit catch): upstream
+// RE-ADDED the `if (transmitted)` gate that rev-244 (@9aadcec4) had
+// removed, so the check only applies to transmitted packs again. The
+// gate lives in the caller (validatePackNamesAgainstCfgs in
+// pack_configs.go), keeping this function's contract unconditional. In
+// Go, BUILD_VERIFY is not modelled as a runtime env-var — for the
+// transmitted families the check is always-on, consistent with Go's
+// structural-enforcement approach.
 //
 // Error format mirrors TS PackFile.ts:119 @ 9aadcec4:
 //
@@ -219,8 +222,8 @@ func (pf *PackFile) GetByName(name string) int {
 // (the rev-244-era multi-orphan map-order residual); ordering by
 // NameToID restores determinism and the TS report for sorted pack files.
 //
-// TS source: tools/pack/PackFile.ts:117-121 @ 9aadcec4 (rev-244 B6;
-// unchanged at 3c16994c).
+// TS source: tools/pack/PackFile.ts:117-124 @ 2e3bcf43 (orphan loop;
+// rev-244 B6 origin @9aadcec4, transmitted gate restored at rev-254).
 func ValidateConfigPackNames(pf *PackFile, configNames map[string]struct{}, ext string) error {
 	names := make([]string, 0, len(pf.Names))
 	for name := range pf.Names {

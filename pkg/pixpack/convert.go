@@ -43,20 +43,13 @@ func ConvertImage(index *packet.Packet, srcDir, name string) (*packet.Packet, er
 	index.P2(uint16(tileX))
 	index.P2(uint16(tileY))
 
-	// TS PixPack.ts:185-193 (9aadcec4): if <srcDir>/meta/<name>.pal.png exists,
-	// read its palette as a CRC-preserving workaround; otherwise use the source image.
-	var colors []int32
-	palPath := filepath.Join(srcDir, "meta", name+".pal.png")
-	if _, err := os.Stat(palPath); err == nil {
-		palImg, err := decodePNG(palPath)
-		if err != nil {
-			data.Release()
-			return nil, fmt.Errorf("ConvertImage(%q): read pal.png: %w", name, err)
-		}
-		colors = generatePalette(palImg)
-	} else {
-		colors = generatePalette(img)
-	}
+	// TS PixPack.ts @2e3bcf43 removed the rev-244-era meta/<name>.pal.png
+	// CRC-preserving palette workaround — the palette always derives from
+	// the source image now (a stray pal.png file is ignored). Caught by
+	// the T30 rev-254 correspondence audit; vacuous on the pinned Content
+	// caee3f2e (zero pal.png files), so the full-tree parity gate could
+	// not see it.
+	colors := generatePalette(img)
 	if len(colors) > 255 {
 		// NAI-213-D-PIXPACK-QUANTIZE-MISSING: TS calls img.quantize({ colors: 255 });
 		// goscape stdlib has no equivalent — surface error instead of silent truncate.
