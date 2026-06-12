@@ -1,7 +1,8 @@
 # rev-254 port — 245.2→254 server delta — design
 
 **Date:** 2026-06-10
-**Status:** APPROVED (design approved in-session 2026-06-10) —
+**Status:** COMPLETE (2026-06-12 — phases 0-4 + pin-advance addendum
+shipped; definition-of-done (a)-(e) met; see PORTING.md §rev-254) —
 **AMENDED 2026-06-10: Engine-TS pin ADVANCED `43e02957` → `2e3bcf43`**
 (user decision; see "Pin advance amendment" below). Phases 1-2 were
 executed at `43e02957` and remain valid (wire tables, revision,

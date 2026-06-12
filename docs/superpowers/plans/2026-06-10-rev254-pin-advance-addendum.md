@@ -1,5 +1,7 @@
 # rev-254 Pin-Advance Addendum Plan (Engine-TS 43e02957 → 2e3bcf43)
 
+> **Status: COMPLETE (2026-06-12 — phases 0-4 + pin-advance addendum shipped; definition-of-done (a)-(e) met; see PORTING.md §rev-254).** Phase 1b (A1-A11), amended Phase 3 (A12-A17) and Phase 4 all landed; the T30 close-out audit lives in PORTING.md §rev-254.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax.
 
 **Goal:** Port the post-pin Engine-TS delta `43e02957..2e3bcf43` (200 files, +4506/−3655) on top of the completed Phases 1-2, then run the original plan's Phases 3-4 (pack/unpack) against the new pin.

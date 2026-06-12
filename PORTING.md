@@ -1389,6 +1389,230 @@ masquerade as a decoder bug.
 
 ---
 
+## rev-254 audit trail (2026-06-12)
+
+Spec `docs/superpowers/specs/2026-06-10-rev254-port-design.md` (`2a81414d`
++ corrections `0407af29` + pin-advance amendment `530ba805`), plans
+`docs/superpowers/plans/2026-06-10-rev254-port.md` (`3f7898a5`) and the
+pin-advance addendum `2026-06-10-rev254-pin-advance-addendum.md`
+(`c52e4d08`). Work list = the FULL cross-pin diff
+`git -C Engine-TS diff 3c16994c..2e3bcf43` (312 files, +6649/−5844 —
+both hops: the originally-pinned `3c16994c..43e02957` delta plus the
+post-advance `43e02957..2e3bcf43` delta) **plus** the rsbuf crate diff
+`origin/244..origin/254`. Pins in `main:REFERENCES.md` §rev-254
+(`c2100894`): Engine-TS `2e3bcf43`, Content `caee3f2e`, Client-Java
+`2e629784`, rsbuf `304955d5` (crate `254.1.0`). **TOOLCHAIN SWAP**: the
+RuneScriptKt release-26 jar is replaced by the in-process
+`@lostcityrs/runescript@0.9.6` npm compiler (RuneScriptTS, b8c3388-era
+sources); `COMPILER_VERSION`/jagFileVersion 26→27 (the §rev-225
+REFERENCES.md bump condition was met — `9b6e3f54`).
+`@2004scape/rsmod-pathfinder` unchanged (`^5.0.4`). ~94 commits
+`1e7df180..HEAD`, all `[rev-254]`-tagged.
+
+### The pin advance (mid-port, user decision)
+
+The original capture pinned Engine-TS at the then-tip `43e02957`, but
+that engine cannot pack the pinned Content: `caee3f2e` uses the `midi`
+dbtable column type that Engine-TS only gained at `2dc4a811`
+(post-pin) — upstream's own pinned pair was un-packable. The user chose
+to advance the engine pin to the 254 tip `2e3bcf43` (57 commits, 200
+files over the old pin; Content/Client-Java/rsbuf tips unmoved). Spec
+amendment `530ba805`, addendum plan `c52e4d08`, `main` pins re-recorded
+at `c2100894`. Verified across the advance: client/server/zone wire
+tables byte-identical and `ENGINE_REVISION` 254 unchanged — Phase 0-2
+work at `43e02957` stands; in-code `@43e02957` citations remain accurate
+for their content. Material consequences: the compiler swap-back (above)
+and the upstream deletion of `tools/pack/CompilerSymbols.ts` (→ A16
+exception, deviations ledger below).
+
+### Phase summaries (commit ranges)
+
+- **Phase 0 — infrastructure**: spec/plan docs `2a81414d 0407af29
+  3f7898a5`; config repoint to Server254-ref `533959aa`;
+  `Server254-ref/{engine,content,javaclient}` pinned worktrees;
+  REFERENCES.md §rev-254 on `main` (`c2100894`).
+- **Phase 1 — engine core @43e02957** (T2-T15, `b87ef3cf..78feb2e2`):
+  client/server/zone wire renumber + new packets `b87ef3cf 3bbe9b85`
+  (+zone fork in pkg/rsbuf same-task per the 245.2 e89f62fb lesson);
+  3-byte login reply `0b0d31b5`; InputTracking event rewrite + 4 event
+  packets `6feca671`; FRIENDLIST_LOADED emits + ignore-bootstrap flip
+  `9ae6d313`; VarBitType runtime + Get/SetVarBit + Bitmask export
+  `856b3720`; PUSH/POP_VARBIT `ff4867d3`; STAT_TOTAL + SET_PLAYER_OP +
+  pointer updates `2422a478`; OPPLAYER5 `e241d881`; PROJANIM raw heights
+  `64caadec`; RANDOM negative-bound error `41fb4adb`; cheat varbit
+  set/get + open/closeoverlay `732c97d9`; loc code 5/75 + npc turnspeed
+  decode `e6961af0`; wire revision 254 `78feb2e2`.
+- **Phase 2 — rsbuf re-audit** (T16): NPC ids 14-bit, terminator 16383,
+  capacity 16384, NODE_MAX_NPCS 16383 `ce9b94f8` (+`63bfd634`).
+- **Phase 1b — post-pin engine delta @2e3bcf43** (A1-A11/A14/A16,
+  `9b6e3f54..e3c920f5`): script-op table regen 418→396 + jagFileVersion
+  27 `9b6e3f54`; pid→slot + player-loop restructure `c029486c`
+  (+`ff75d5e3 7382e385`); session-UUID identity `3c33faf9`; login rate
+  limits + NODE_HOP_TIME `bc40c5c1`; InputTracking v2 `cf563041`; sparse
+  varp save + dual-format load `9bfbf46b` + **A6 CRITICAL review catch
+  `2c3bc6cb`** (login-side savMaxVersion 6→7 — the stale gate silently
+  discarded every v7 logout/autosave; cross-module pin
+  TestSavMaxVersionMatchesWorld) + `f5a33ed3`; movement/pathing accuracy
+  `27fab665` + moverestrict off PathingEntity `3ab3544b` + retreat logic
+  `3022409a` (+pins `89dc64c1 88be6e77`); NPC regen/huntAll/facing
+  `35618c26`; resumeButtons lifecycle `e99d667a`; Midi cache + id-based
+  audio + MIDI_LENGTH `a377fabb`; A11 sweep `67aaefa9 b6839bb9 bacc4c7a
+  4738f658 6269e47c 5460757d`; dbtable/dbrow midi type `72d9fd65`;
+  symbols-gate re-scope `de6f6232`; quality `e3c920f5 a4d4c322`.
+- **Phase 3 — pack + parity + smoke** (T17-T25/A12-A17): varbit pack
+  family `8ef858fe`; loc/npc packers `fcf62150`; interface ops 14-20 +
+  CRC `34e309a2`; config+sound CRCs + maps comment-skip `1f057603`; env
+  `GOSCAPE_REF245_DIR`→`GOSCAPE_REF254_DIR` `59c0a99c`; **T23
+  convergence loop — 9 root causes** (below); re-baseline `cb9d9d77
+  f08b6f9f 557604d4`.
+- **Phase 4 — unpack** (T26-T29): config families (varbit type, loc
+  5/75/ldModels, npc turnspeed/model-rename guards, obj/idk/spotanim
+  reorder) `0d7cc810`; maps `\r` preservation `adcac16e`; interface ops
+  14-20 export `ad28a54a` + colour-hex parity catch `34fdd834`; 16/16
+  manifests regenerated at the pin `6989ad87` (+`a71b411d b6c77b93`).
+- **T30 — this audit**: correspondence walk caught 3 unported hunks,
+  fixed at `5b8f5bf0` (deviations ledger below; all vacuous on the
+  pinned Content, hence invisible to the parity gates).
+
+### T23 full-tree convergence loop (9 root causes)
+
+The script.dat byte-parity target moved from RuneScriptKt-26-jar output
+to `@lostcityrs/runescript@0.9.6` output; the iterative byte-diff loop
+(Arc-26 method) surfaced nine separate root causes, five of them
+compiler-side 0.9.6 deltas — three REVERSING RuneScriptKt-26 pins,
+each justified against the 0.9.6 sources at b8c3388:
+
+| Root cause | Go fix |
+|---|---|
+| `midi` symbols key missing from the compiler bridge (TS Compiler.ts:199+368) | `16f1108c` |
+| inv `stockN` is a sparse slot index again at 254 (TS InvConfig.ts:104-184; the 244 dense list dropped holes — surfaced via adventurershop skipping stock2) | `e6970676` |
+| worldmap joins packMaps at 254 — level exception, 101 refColors, f11-f30, batched jag order (TS Pack.js:189-385 + Worldmap.ts) | `24392aa0` |
+| packMaps iterates the MapPack registry in id order (TS Pack.js:179-197) | `9b2f6a47` |
+| worldmap iterates MapPack id order — byte-match with the reference jag | `9fce7f35` |
+| null-literal string/long/hook pushes carry NO source (0.9.6 CodeGenerator.ts:711-731) | `ff538b03` |
+| db_find/db_find_refine return Unit — no POP_INT_DISCARD (0.9.6 ServerScriptCompiler.ts:187-188; REVERSES a RuneScriptKt-26 pin) | `bdbf051d` |
+| GetVariableId uses reference equality — sibling-scope locals get distinct slots (0.9.6 BaseScriptWriter.ts:276-282; REVERSES a Kt-26 pin) | `15fbd657` |
+| STRING_TEXT is maximal-munch — escapes fuse with adjacent runs (0.9.6 RuneScriptLexer.g4:81; REVERSES the Kt-26 NAI-221 contract, retiring NAI-221) | `b79680e3` |
+
+### Correspondence table (TS surface → Go, full 312-file diffstat)
+
+Every file in `git -C Engine-TS diff 3c16994c..2e3bcf43 --name-only`
+maps to exactly one row (mechanically verified, 312/312 assigned, 0
+unassigned).
+
+| TS @2e3bcf43 (files) | Go | Disposition |
+|---|---|---|
+| `ClientGameProt.ts` + repository (2) | `b87ef3cf` | PORTED — full renumber, EVENT_* split rows, OPPLAYER5, MAP_BUILD_COMPLETE, CYCLELOGIC7 |
+| Event packets + InputTracking rewrite: `Event*` codec/handler/model, `InputTracking.ts`, `InputTrackingBlob.ts` (deleted), `NoTimeout*` model reuse (16) | `6feca671 f9dc4e52` (events) + `cf563041` (v2: softLimit 1500, seq removed, raw-buffer submit) + `67aaefa9` (processInputTracking above the decode gate) | PORTED |
+| `Op*`/`InvButton*`/`IfButton*` handler/codec/model family (52) | `5460757d` (A11 re-pin: rejects no longer clearPendingAction, 'hidden' rejection, OpObj gates, U-handlers com.usable + gate order, OPHELDU comId gate, delayed-first, InvButtonD draggable‖swappable) + `e241d881` (OPPLAYER5); decoder micro-diffs (blank lines, slice→subarray) | PORTED (handlers) / NO-OP (decoder formatting; MessagePublic pos arithmetic observationally identical) |
+| Misc client wire: FriendList/IgnoreList/Message/ResumePCountDialog decoders, `ClientCheatHandler.ts`, renames IfPlayerDesign→IdkSaveDesign + TutorialClickSide→TutClickSide, ChatSetMode/IdleTimer/MoveClick handlers (27) | `732c97d9` (cheats) + `b87ef3cf` (wire ids) + `27fab665` (MoveClick repath) | PORTED (cheats/wire/moveclick) / NO-OP (TS file renames — Go keeps its own handler naming; 1-line formatting diffs) |
+| Server wire: `ServerGameProt.ts`, `ServerGameZoneProt.ts`, repository, FriendlistLoaded + SetPlayerOp model/encoder, HintArrow/LocMerge slot rename (11) | `3bbe9b85` (renumber + both new packets + rsbuf zone fork same-commit) + `9ae6d313` (emit sites) + `c029486c` (slot) | PORTED |
+| Script core: `ScriptOpcode.ts` (418→396), `ScriptOpcodePointers.ts`, `ScriptRunner.ts`, `ScriptState.ts`, `ScriptValidators.ts`, `ScriptProvider.ts`, `ScriptFile.ts`, `ScriptIterators.ts` (8) | `9b6e3f54` (regen + renames/removals + pointer reverts incl. undoing T9's NPC_FINDHERO/OBJ_ADD/OBJ_TAKEITEM rows) + `2422a478 ff4867d3` | PORTED / NO-OP (`ScriptIterators.ts` = hunt-iterator code-move; goscape's unified huntIterator already has the semantics) |
+| Script handlers: CoreOps/DbOps/DebugOps(deleted)/InvOps/NpcOps/NumberOps/PlayerOps/ServerOps/StringOps/StructOps (10) | `9b6e3f54` (renames/removals) + `ff4867d3` (PUSH/POP_VARBIT) + `2422a478` (STAT_TOTAL/SET_PLAYER_OP) + `64caadec` (PROJANIM) + `41fb4adb b6839bb9` (RANDOM nextDouble, DB_GETFIELD windowing, NPC_STATHEAL heroPoints, BOTH_DROPSLOT/INV_DROPALL untradeables) + `a377fabb` (MIDI_LENGTH) + `e99d667a` (IF_ADDRESUMEBUTTON) | PORTED / NO-OP (StringOps/StructOps gains = SPLIT_*/STRUCT_PARAM file moves) |
+| Cache config runtime: Component/LocType/NpcType/ObjType/ParamType/ScriptVarType/SeqType/VarBitType/AnimFrame (9) | `856b3720` (VarBitType) + `e6961af0` (loc 5/75, npc 103) + `bacc4c7a` (LocType postDecode, ObjType Take/Drop + F2P category=-1) + `b6839bb9` (ParamType midi) + `72d9fd65` (ScriptVarType 77) | PORTED / NO-OP (Component interactable→operable + inventoryOptions→iop renames — semantics in A11 handler gates; SeqType `?.delay ?? 0` + AnimFrame printFatalError = load-error hardening with no Go-path change) |
+| `cache/midi/Midi.ts` (new, 300) (1) | `a377fabb` — Midi length cache, id-based playSong/playJingle | PORTED |
+| io: `Packet.ts` (pVarInt, bitmask public), `FileStream.ts`, `PemUtil.ts` (deleted) (3) | `9bfbf46b` (VarInt) + `856b3720` (Bitmask) | PORTED / NO-OP (FileStream 1-line; PemUtil deletion of TS-only helper) |
+| datastruct/util: HashTable/DoublyLinkList/LinkList/Linkable moves+new, `Arrays.ts`, `JString.ts`, `Logger.ts` (9) | `c029486c` (player loop on HashTable semantics — slice buckets, key-0 deviation below) | PORTED (player loop) / NO-OP (container moves, helpers; goscape's Go-native containers already equivalent) |
+| `Environment.ts` (1) | `78feb2e2` (revision) + `ce9b94f8` (NODE_MAX_NPCS) + `bc40c5c1` (rate-limit consts) + `67aaefa9` (AFK_CHANCE) | PORTED (STANDALONE_BUNDLE/WEB_SOCKET_TOKEN/BUILD_JAVA_PATH/BUILD_STARTUP_UPDATE removals: no Go mirrors existed) |
+| Compiler swap: `util/RuneScriptCompiler.ts` (deleted), `tools/pack/Compiler.ts` (new, in-process 0.9.6), `tools/pack/CompilerSymbols.ts` (deleted) (3) | `16f1108c` (midi key) + T23 compiler fixes (`ff538b03 bdbf051d 15fbd657 b79680e3`) + jagFileVersion 27 (`9b6e3f54`) + `de6f6232` (A16 symbols exception) | PORTED (byte-parity proven) / EXCEPTION (symbols export, ledger below) |
+| Engine core: `World.ts`, `GameMap.ts`, `Zone.ts` (3) | World.ts spread: `c029486c` (loop) `3c33faf9` (session) `bc40c5c1` (limits) `67aaefa9` (AFK+tracking) `9ae6d313` (friends reload) `0b0d31b5` (login reply) `a377fabb` (midi) `35618c26` (huntAll); GameMap: `bacc4c7a` (members gate before nid) `3ab3544b` (moverestrict ctor) `27fab665` (naive path) | PORTED / NO-OP (Zone.ts container swap; GameMap findNaivePath move + `\r?\n` split) |
+| Entity: PathingEntity/Player/Npc/PlayerLoading/NetworkPlayer/EntityList(player parts deleted)/AllowRepath + small files (17) | `27fab665 3ab3544b 3022409a` (A7 movement) + `c029486c` (slot/uid) + `9bfbf46b` (sparse varp save) + `e99d667a` (resumeButtons) + `35618c26` (regen/facing) + `5460757d` (buildAppearance(appearanceInv)) + `e6961af0` (Npc stat width check — storage-only, wire unchanged) + `cf563041 3c33faf9` (tracking/session) | PORTED / NO-OP (2-4-line files: import-path moves for the datastruct relocation) |
+| server/login: LoginServer/LoginClient/LoginThread/Messages.ts(deleted)/index.d.ts (5) | `bc40c5c1` (TTL limiter, reply 16) + `4738f658` (DB attempt rows retired, messageCount 0, hiscore ban skip) + `2c3bc6cb f5a33ed3` (save verify) | PORTED |
+| server/friend: FriendServer/Repository/Thread (3) | `6269e47c` — single-profile server, profile-mismatch reject, configured-profile routing | PORTED |
+| server/logger + Metrics + worker (7) | `3c33faf9` (session-uuid fields through the logger bridge; world_heartbeat relay removed) | PORTED (sender side) / NOT-PORTED (LoggerServer/LoggerThread receiver + WorkerServer/WorkerClientSocket deletions + Metrics: TS web-stack infra; goscape's logger seams are dormant no-ops by design) |
+| db layer + prisma: `db/types.ts`, BunSqliteDriver, 52 migration files squashed to `_clean` (64) | behavioral counterparts in `4738f658` (login/attempt rows) and `6269e47c` (profile) | NOT-PORTED as files — goscape's SQLite schema/migrations are Go-side; the squash is upstream housekeeping |
+| web/app/bundle/devtools: app/appWorker/web.ts, DevThread, CrcTable refactor, WorkerFactory, view/*.ejs, public/* (19) | — | NOT-PORTED — no Go surface (TS webserver/bundler/map-editor UI; CrcTable startup refactor is STANDALONE_BUNDLE cleanup, goscape's ondemand CRC lifecycle unchanged) |
+| pack: `VarbitConfig.ts` (new) (1) | `8ef858fe` — .varbit family, client CRC −1387031023, varbit.sym | PORTED |
+| pack config: LocConfig/NpcConfig/ObjConfig/InvConfig/VarpConfig/ParamConfig/DbRowConfig/DbTableConfig/PackShared (9) | `fcf62150` (loc model2-4/raiseobject/code-5, npc turnspeed) + `1f057603` (CRCs) + `e6970676` (inv sparse stock) + `72d9fd65 e3c920f5` (dbrow/dbtable midi + validations) + **`5b8f5bf0`** (T30 catch: varp scope=perm persistable validation) | PORTED / NO-OP (ObjConfig nil-config guard — Go's map access is already nil-safe by construction) |
+| pack interface: PackShared/PackClient (2) | `34e309a2` — ops 14-20, CRC 1728499832 | PORTED |
+| pack maps: `map/Pack.js` (restructure), `Worldmap.ts` (2) | `24392aa0 9b2f6a47 9fce7f35` + `1f057603` (comment-skip) + `557604d4 8b419c9f` | PORTED |
+| pack infra: PackFile/PackAll/Build/Parse/NameMap/PixPack/sound/versionlist (8) | `8ef858fe` (VarbitPack registration) + `1f057603` (sound CRC) + **`5b8f5bf0`** (T30 catches: orphan check re-gated to transmitted; pal.png workaround removed) | PORTED / NO-OP (`\r?\n` split refactors — Go splits both already; Build.ts BUILD_STARTUP_UPDATE removal — Go never auto-updated; revalidatePack additions — dev-mode hot-reload, no Go analog) |
+| unpack config: Unpack.ts driver, VarbitConfig (new), Loc/Npc/Obj/Idk/SpotAnim (7) | `0d7cc810` (T26) + `6989ad87` (parity proof) | PORTED |
+| unpack interface + maps (2) | `ad28a54a 34fdd834` (interface incl. colour-hex catch) + `adcac16e` (maps `\r` preservation) | PORTED |
+| authoring tools: `tools/render/sound/*` (new synth preview), `tools/unpack/sprite/bmfont*` (new), `tools/map/Import*Csv` (7) | — | NOT-PORTED — authoring/preview tooling outside the pack pipeline + 16 unpack families (bmfont confirmed out-of-scope at T28 per the addendum); ImportCsv diffs are `\r?\n` splits |
+| repo meta: README/LICENSE/bun.lock/package.json (4) | — | NOT-PORTED — no Go surface (package.json carries the 0.9.6 compiler dep, covered by the compiler-swap row) |
+
+### rsbuf crate diff (`origin/244..origin/254`, 2 commits)
+
+| rsbuf @304955d5 | Go | Disposition |
+|---|---|---|
+| `304955d` "Compatibility for 254": info.rs NPC BITS_ADD 13→14, terminator pbit(14, 16383), add pbit(14, nid); lib.rs/build.rs/renderer.rs capacity 8192→16384 | `ce9b94f8` (T16) + `63bfd634` (exported NpcTerminator) | PORTED — all three PBit sites + cache arrays/bitsets; pin test encodes a known NpcInfo block |
+| `af7b150` "fix: explicit autoref" (renderer.rs:141) | — | NOT-PORTED — Rust-only borrow-checker hygiene, no behavior |
+| Cargo/package metadata (4 files) | — | NOT-PORTED — crate packaging |
+
+### Re-baselined verification gates
+
+- **Pack byte-parity (c):** 254 reference cache generated at the new pin
+  (T17: bun 1.2.20, in-process `@lostcityrs/runescript@0.9.6`,
+  script.dat version-27 header, `server/varbit.dat` present, **0 .sym
+  files**). After the T23 convergence loop: full-tree parity GREEN —
+  **2,798/2,798 files + 5,294/5,294 `ondemand.zip` entries**
+  (`cb9d9d77`), and the local `goscape-cli pack` reproduced it
+  2,798/2,798. The full-tree manifest EXCLUDES `data/symbols/` (A16).
+  Env `GOSCAPE_REF245_DIR` → `GOSCAPE_REF254_DIR` (`59c0a99c`).
+- **Unpack parity (d):** all 16 family manifests regenerated at the pin
+  via the B7 procedure (`6989ad87`); 16/16 GREEN with the env set;
+  varbit is a config-family TYPE (not a 17th family). NEW manifest
+  noise rule: `pack/category.pack` is subtracted from changed-sets
+  (module-load regeneration noise, not unpack behavior). Two real Go
+  fixes surfaced by the gates: interface colour hex (`34fdd834`) and
+  maps lone-`\r` preservation (`adcac16e`).
+- **Suite (e):** build/vet/full suite/`-race` green at every phase gate
+  and at close-out (T29: 82 packages).
+
+### Live 254 client smoke (b) — PASSED (user-confirmed 2026-06-12)
+
+Client-Java `2e629784` (clientversion 254): login, walk, shop, midi
+music, map-square crossing, NPC kill/despawn/respawn — all green — plus
+254-specific probes: OPPLAYER5, the four discrete event packets
+(mouse-click/move, applet focus, camera), varbits via `::set`/`::get`,
+`::openoverlay`/`::closeoverlay`, and jingles (id-based midi path).
+
+### Deviations ledger — NEW this port
+
+Documented deviations/exceptions ADDED by rev-254 (carried-forward
+markers from earlier revisions are unchanged and not re-listed):
+
+| Marker / site | Rationale |
+|---|---|
+| `PORTING-EXCEPTION (symbols-export-go-only)` — `pkg/pack/compiler/symbols_export.go` (`de6f6232`, A16) | Upstream deleted CompilerSymbols.ts at 2e3bcf43 (symbols live in-memory; no .sym files, no `data/symbols` in the reference cache). goscape KEEPS WriteCompilerSymbols (32 .sym files) as a Go-only debugging/tooling feature (controller-approved); the upstream-reference parity gate is retired for a self-consistency format test. Also rowed in §Open deviations. |
+| `DEVIATION (key-0 sentinel skip NOT replicated)` — `modules/world/player_list.go` (`ff75d5e3`, A2) | TS HashTable seeds buckets with key-0 sentinels and stops iterating at the first key-0 node — a player whose derived key is 0 is never processed and hides later bucket-0 logins. Upstream container bug, not intent; goscape's slice buckets iterate key-0 players normally. Pinned by TestPlayerLoopKeyZeroStillProcessed. |
+| `DEVIATION (unreachable-path hardening)` — `modules/world/player_list.go` (A2) | A client address with neither `.` nor `:` is never playerLoop.add-ed in TS (slot held, never processed). Real net.Conn addresses always have one; goscape routes the impossible remainder (and net.Pipe's "pipe") into the headless 127.0.0.1 bucket. |
+| `PORTING-EXCEPTION (varbit-unconfigured-guard)` — `modules/world/player_script.go` (`856b3720`, T7) | TS getVarBit/setVarBit index Packet.bitmask unguarded — a debugname-only varbit would shift by −1 into JS garbage; Go panics on negative shifts, so GetVarBit reads 0 / SetVarBit no-ops for unconfigured ranges. Unreachable on real caches. |
+| (0,0)-step guard — `modules/world/movement.go` + `modules/world/npc_interaction.go` (`27fab665`, A7.1) | TS feeds (0,0) deltas through canTravel whose result is irrelevant (every arm yields [0,0]); goscape's StepValidator panics on a (0,0) offset, so the observationally-identical result is short-circuited. |
+| d39e707d PAST-PIN retreat port — `modules/world/npc_player_modes.go` (`3022409a`, A7.3) | NPC retreat logic deliberately ported from upstream `d39e707d` "fix: Retreat logic (#97)", which sits PAST the 2e3bcf43 pin on the upstream main line (addendum-approved inclusion). The pin's playerEscapeMode still carries the buggy wall-flag abort; goscape ships the fixed shape (canTravel validation, X-primary axis fallback, 5-tick stuck recovery). 5 pin tests. |
+| Login save lower bound — `modules/login/save.go` (`f5a33ed3`, A6) | verifySave rejects version 0 (zeroed header) — lower bound mirrors the world decoder's `version < 1` reject; Go-side verifier hardening with no TS counterpart hunk. |
+| inv stock0/NaN edge — `pkg/pack/inv.go` (`e6970676`, T23) | TS `stock[parseInt(key[5:])-1]`: stock0 (index −1) and non-numeric suffixes become named-property writes that never reach the array — observable output "packs as if absent". Go drops such lines explicitly. |
+| maps comment-skip extension — `pkg/pack/maps/parse.go` (`1f057603`, T21) | The restructured 254 parser DROPPED the explicit `/`-skip; a comment line yields a negative packKey whose Int16Array writes are silent JS no-ops. Go has no negative-index no-op to hide behind — the explicit skip reproduces the observable behavior and extends it to LOC/NPC/OBJ sections (where a `/` line would otherwise append a garbage entry). |
+| category.pack manifest noise rule — `pkg/unpack/testdata/ref254/*.manifest.txt` (`6989ad87`, T28) | `pack/category.pack` is subtracted from every family's changed-set: the TS module load regenerates it from .loc/.npc/.obj timestamps (stale vs the scratch regeneration); module-load noise, not unpack-family behavior. |
+| NAI-182-D5 RETIRED — `modules/world/tick.go` (`9ae6d313`, T6) | 254 INVERTS the 245.2 FRIEND_SERVER conditional: the empty UPDATE_IGNORELIST login bootstrap is now real TS behavior on the no-friendserver branch — the old defensive-emit deviation marker is retired, not carried. |
+| T30 audit catches — `pkg/pack/varp.go`, `pkg/pack/pack_configs.go`/`packfile.go`, `pkg/pixpack/convert.go` (`5b8f5bf0`) | Not deviations — three unported hunks found by this audit and FIXED: varp scope=perm persistable-type validation (VarpConfig.ts:79-110); orphan-name check re-gated on `transmitted` (PackFile.ts:117-124 — upstream re-added the gate rev-244 removed); PixPack pal.png palette workaround removed. All vacuous on Content `caee3f2e` (zero trips / zero pal.png files), hence invisible to the byte-parity gates. |
+
+Carried-forward exceptions: all pre-rev-254 `PORTING-EXCEPTION` /
+`DEVIATION-NAI-*` markers are unchanged (several relocated by the A7/A11
+code motion — e.g. M3 npc-validateDistanceWalked, NAI-185-D2/D3,
+NAI-121-D3 — same contracts, new line numbers).
+
+### rev-254 umbrella close-out (2026-06-12)
+
+- [x] (a) Change-for-change correspondence — tables above cover the full
+  cross-pin diff `3c16994c..2e3bcf43` (312/312 files mechanically
+  assigned) + the rsbuf crate diff + the 0.9.6 compiler deltas; the
+  3 hunks the walk found unported are fixed at `5b8f5bf0`.
+- [x] (b) Live 254-client smoke — PASSED (user-confirmed 2026-06-12,
+  incl. the 254-specific probes).
+- [x] (c) Pack byte-parity — FULL TREE, 2,798 files + 5,294 ondemand
+  entries vs the reference cache; goscape-cli pack reproduced it.
+- [x] (d) Unpack parity — 16/16 manifests at the pin.
+- [x] (e) Suite green incl. `-race` (82 packages).
+
+**The rev-254 port is COMPLETE.** Residuals carried forward: none new —
+the rev-245.2 list was already empty; the "config.yaml hardcodes the
+reference path" note now points at Server254-ref (same shape, new
+target).
+
+---
+
 ## Recent audit history (full log in `docs/PORTING-CLOSED.md`)
 
 - Arc 21 — Phase 2 closure (NAI-162 13th-flag CLOSED).
