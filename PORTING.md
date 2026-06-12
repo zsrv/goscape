@@ -30,7 +30,7 @@ Sev: 🔥 HIGH (real-world incident risk) / ⚠ MED (correctness or future-fragi
 | Sev | Go file:line | TS source | Status | Size | Note |
 |---|---|---|---|---|---|
 | ⚠ MED | `modules/world/npc_ai.go:53` + `modules/world/tick_recovery.go:54-67` | TS `Npc.ts:144-150` + `World.ts:534-559` try/catch | 🚧 ARCH-1 | — | Go's `tick_recovery.go` swallows world-script panic (entry already removed); TS retries via top-level catch. NAI-5: synchronous despawn vs TS try/catch retry. Risk: masks logic bugs that TS would propagate. **Documented; deferred indefinitely** (Arc 15+18+20+22). |
-| ℹ LOW | `pkg/pack/compiler/symbols_export.go` (package header) | TS `tools/pack/CompilerSymbols.ts` — **DELETED at 2e3bcf43** | ✅ EXCEPTION-DOCUMENTED | — | `PORTING-EXCEPTION (symbols-export-go-only)` — rev-254 A16. Upstream 254 holds compiler symbols in-memory (`CompilerTypeInfo`, @lostcityrs/runescript 0.9.x) and writes no `.sym` files; the 254 reference cache has no `data/symbols`. goscape KEEPS `WriteCompilerSymbols` (32 `.sym` files) as a Go-only debugging/tooling feature (controller-approved). The `GOSCAPE_REF*` symbols byte-parity gate is retired — coverage is the self-consistency format test in `symbols_export_ref_parity_test.go`. T23's full-tree parity manifest regeneration must EXCLUDE `data/symbols/` (the ref245 manifest included it). |
+| ℹ LOW | `pkg/pack/compiler/symbols_export.go` (package header) | TS `tools/pack/CompilerSymbols.ts` — **DELETED at 2e3bcf43** | ✅ EXCEPTION-DOCUMENTED | — | `PORTING-EXCEPTION (symbols-export-go-only)` — rev-254 A16. Upstream 254 holds compiler symbols in-memory (`CompilerTypeInfo`, @lostcityrs/runescript 0.9.x) and writes no `.sym` files; the 254 reference cache has no `data/symbols`. goscape KEEPS `WriteCompilerSymbols` (33 `.sym` files) as a Go-only debugging/tooling feature (controller-approved). The `GOSCAPE_REF*` symbols byte-parity gate is retired — coverage is the self-consistency format test in `symbols_export_ref_parity_test.go`. T23's full-tree parity manifest regeneration must EXCLUDE `data/symbols/` (the ref245 manifest included it). |
 
 ---
 
@@ -237,8 +237,9 @@ operator's uncommitted local changes.
 
 ### Env quirks
 
-- `go test -race` UNAVAILABLE: no C compiler (`runtime/cgo: gcc not found`).
-  Use plain `go test ./...`; note the race gap in commit messages.
+- `go test -race` AVAILABLE (gcc present since 2026-06-03; the older
+  "no C compiler" note was stale). Run `-race` on all touched packages
+  in every verification pass (needs CGO_ENABLED=1, the default).
 - Cannot `git checkout main` in this ts-audit worktree (main checked out in the
   primary worktree) — branch via `git checkout -b fix/<id> main`.
 - Vanilla `git rebase` ignores `--no-gpg-sign` and global `commit.gpgsign=true`
@@ -1575,7 +1576,7 @@ markers from earlier revisions are unchanged and not re-listed):
 
 | Marker / site | Rationale |
 |---|---|
-| `PORTING-EXCEPTION (symbols-export-go-only)` — `pkg/pack/compiler/symbols_export.go` (`de6f6232`, A16) | Upstream deleted CompilerSymbols.ts at 2e3bcf43 (symbols live in-memory; no .sym files, no `data/symbols` in the reference cache). goscape KEEPS WriteCompilerSymbols (32 .sym files) as a Go-only debugging/tooling feature (controller-approved); the upstream-reference parity gate is retired for a self-consistency format test. Also rowed in §Open deviations. |
+| `PORTING-EXCEPTION (symbols-export-go-only)` — `pkg/pack/compiler/symbols_export.go` (`de6f6232`, A16) | Upstream deleted CompilerSymbols.ts at 2e3bcf43 (symbols live in-memory; no .sym files, no `data/symbols` in the reference cache). goscape KEEPS WriteCompilerSymbols (33 .sym files) as a Go-only debugging/tooling feature (controller-approved); the upstream-reference parity gate is retired for a self-consistency format test. Also rowed in §Open deviations. |
 | `DEVIATION (key-0 sentinel skip NOT replicated)` — `modules/world/player_list.go` (`ff75d5e3`, A2) | TS HashTable seeds buckets with key-0 sentinels and stops iterating at the first key-0 node — a player whose derived key is 0 is never processed and hides later bucket-0 logins. Upstream container bug, not intent; goscape's slice buckets iterate key-0 players normally. Pinned by TestPlayerLoopKeyZeroStillProcessed. |
 | `DEVIATION (unreachable-path hardening)` — `modules/world/player_list.go` (A2) | A client address with neither `.` nor `:` is never playerLoop.add-ed in TS (slot held, never processed). Real net.Conn addresses always have one; goscape routes the impossible remainder (and net.Pipe's "pipe") into the headless 127.0.0.1 bucket. |
 | `PORTING-EXCEPTION (varbit-unconfigured-guard)` — `modules/world/player_script.go` (`856b3720`, T7) | TS getVarBit/setVarBit index Packet.bitmask unguarded — a debugname-only varbit would shift by −1 into JS garbage; Go panics on negative shifts, so GetVarBit reads 0 / SetVarBit no-ops for unconfigured ranges. Unreachable on real caches. |
