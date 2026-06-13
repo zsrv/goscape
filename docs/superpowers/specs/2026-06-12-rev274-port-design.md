@@ -1,7 +1,7 @@
 # rev-274 port — 254→274 server delta — design
 
 **Date:** 2026-06-12
-**Status:** PROPOSED (pending user approval of scope + DoD)
+**Status:** CODE-COMPLETE (2026-06-13) — automated DoD (a),(c),(d),(e) met + verified; (b) live client smoke PENDING user-driven run. See PORTING.md §rev-274.
 **Branch:** all work lands on `rev-274` (cut from `rev-254` at `c3b0ed7a`)
 
 ## Goal

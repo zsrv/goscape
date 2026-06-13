@@ -1614,6 +1614,210 @@ target).
 
 ---
 
+## rev-274 audit trail (2026-06-13)
+
+Spec `docs/superpowers/specs/2026-06-12-rev274-port-design.md` (`18ee4c0e`
++ gzip-baseline resolution `45ea418f`), plan
+`docs/superpowers/plans/2026-06-12-rev274-port.md` (`7d9ae623`, 26 tasks /
+5 phases). Work list = the cross-pin diff
+`git -C Engine-TS diff 2e3bcf43..dee467c8` (**188 files, +13,792/−3,694**,
+merge-base `93b6e557` — roughly 3× the rev-254 delta) **plus** the rsbuf
+crate diff and the rsmod-pathfinder reference (both INTERNALIZED into TS
+at 274 — see below). Pins in `main:REFERENCES.md` §rev-274 (`48353c4b`):
+Engine-TS `dee467c8`, Content `7f97b0a5`, Client-Java `32f30626`, rsbuf
+crate `66911610` (reference-only — the crate was dropped upstream and
+folded into `src/network/rsbuf/`). ~41 commits `c3b0ed7a..HEAD`, all
+`[rev-274]`-tagged. The Go branch diff vs rev-254 is 204 files,
++12,158/−13,671 (the large delete count is the ref254→ref274 manifest /
+fixture turnover, not engine code).
+
+### Toolchain / dependency changes at 274
+
+- **Runtime swap bun → Node 24** (upstream). The user-visible consequence
+  for goscape is the **gzip byte-parity baseline**: bun's `Bun.gzipSync`
+  (cloudflare/zlib fork) is retired; both Node 24's `zlib.gzipSync` AND
+  the original r274 game cache use **stock zlib 1.3.1 level-6, OS byte
+  zeroed**. Resolved at `45ea418f` and ported bit-exact (below). This was
+  the single biggest item of the arc.
+- **Compiler UNCHANGED**: `@lostcityrs/runescript@0.9.6` (same as rev-254);
+  `jagFileVersion`/`CompilerVersion` stay **27** (`pkg/script/provider.go`).
+  `@2004scape/rsmod-pathfinder` and `@2004scape/rsbuf` no longer external
+  deps — they were internalized into TS source.
+- **NodeSqlite / bcrypt-ts / package-lock.json / prom-client / kysely
+  multi-world** — all upstream runtime/infra; goscape-architecture-mapped
+  (Go-side SQLite, no Go surface). No game-output change.
+
+### Two upstream INTERNALIZATIONS (load-bearing dispositions)
+
+1. **rsbuf** → `src/network/rsbuf/*` (13 new TS files: build/coord/grid/
+   index/info/messages/npc/packet/player/prot/renderer/visibility). This
+   is the external rsbuf Rust crate moved into TS. goscape already ships
+   `pkg/rsbuf` as a native Go port (PARITY since Arc 15). The audit
+   compared `src/network/rsbuf/info.ts @dee467c8` against `pkg/rsbuf`: the
+   **only** behavioral delta for 274 is the NPC **jump bit** in the info
+   add-leaf (1 bit between Δz and the extend flag) — ported at `3bf898e9`
+   (`pkg/rsbuf` NpcBitsAdd 14+11+5+5+1+1, `Npc.Jump` field reset in
+   cleanup). NPC id width (14), terminator (16383), capacity (16384) all
+   unchanged from 254. NO other bit-width / packet-shape / capacity change.
+2. **routefinder** → `src/engine/routefinder/*` (14 new TS files:
+   CollisionEngine/CollisionStrategy/Line/LinePathFinder/LineValidator/
+   NaivePathFinder/PackedCoord/PathFinder/ReachStrategy/RectangleBoundary/
+   Rotation/StepValidator/flags/index). This is `@2004scape/rsmod-pathfinder`
+   moved into TS. goscape already ships `pkg/pathfinder` as a native port.
+   The audit spot-checked the collision-flag bit table (OPEN..ROOF
+   0x80000000, NULL 0x7FFFFFFF), the block-access flags, and `rotateFlags`
+   against `pkg/pathfinder` — **all identical**. The only caller-side
+   behavioral delta is the **AllowRepath deletion** (upstream #100),
+   ported at `fa1e3f6d`.
+
+### Phase summaries (commit ranges)
+
+- **Phase 0 — infrastructure** (`18ee4c0e 7d9ae623 5aaddcff`):
+  spec + plan; pins captured with packability VERIFIED first-run at the
+  pin (11.8 s / 38 MB `data/pack` / exit 0 — no rev-254-style un-packable
+  pinned pair); config content-path → Server274-ref; REFERENCES.md
+  §rev-274 on `main` (`48353c4b`).
+- **Phase 1 — wire + script + entity** (`998552ef..925f6c5f`):
+  client→server opcode renumber + EVENT_TRACKING delete `998552ef`;
+  server→client + zone renumber + MINIMAP_TOGGLE 194/1 + ENABLE/FINISH_
+  TRACKING delete + rsbuf zone fork `1a03f81f`; login extended-revision
+  read (0xff+u2) + wire revision 254→274 `aa940930`; MINIMAP_TOGGLE
+  emitter `01a2429d`; 4 script ops MAP_LOC/MINIMAP_TOGGLE/SET_SKILL_LEVEL/
+  NPC_DESTINATION + SETSKINCOLOUR→SETIDKCOLOUR(slot,colour) + MAP_
+  LOCADDUNSAFE 9-zone rework `1ec9d85d`; player skillLevel appearance p2
+  `19c7cdea`; **Inventory dirty-slot rewrite** (transaction machinery
+  deleted) `1e020f7c`; NPC patrol countdown + stuckCounter + escape per-
+  axis `ce67a410`; **AllowRepath deletion** (#100) `fa1e3f6d`; exactMove
+  early teleport / IF_SETANIM -1 / IF_SETTEXT colour / STRONGQUEUE popInts
+  `61b71f9a`; hunt `&` no-common-bits comparator `83155d76`; FontType
+  256-glyph + *_full + colour-persistent split `db87ed9b`; CrcTable
+  40-byte rolling-hash trailer `925f6c5f`.
+- **Phase 2 — World perf gates + rsbuf** (`59c39771 3bf898e9`):
+  hunt/info skip at 0 players, zone active-loc gate, max-players 2047
+  `59c39771`; rsbuf NPC jump bit `3bf898e9`.
+- **Phase 3 — gzip + pack + parity** (`45ea418f..558a50ff`):
+  **gzip baseline RESOLVED** `45ea418f`; bit-exact stock zlib 1.3.1 L6
+  deflate port `CompressSZGz` (orig r274 cache 6201/6201) `25b14be0`;
+  CRC bumps (9 config + interface + sound) + *_full font renames +
+  worldmap refColors regen `cf3146cb`; retire ondemand.zip + server/build
+  `a2c72473`; env repoint REF254→REF274 `f58711a3`; re-baseline full-tree
+  + original-cache parity `4b470368`; idx0 orig-divergence recorded as
+  100% content `e70aff15`; NAI-128 un-skip + NAI101/NAI95 restore
+  `820cfb4e 558a50ff`.
+- **Phase 4 — unpack** (`912bb66f..45652eb3`): 274 deltas (*_full font
+  output, synth Tone filter, inclusive model loop, family-signature
+  parity) `912bb66f`; TS-reference manifests at the pin `ff4e1b86`;
+  suspendAutoReload empty-registry unpack mode `f5fd3bd9`; versionlist
+  MidiIndex empty-name comment `45652eb3`.
+
+### Correspondence audit (TS surface → Go, full 188-file diff)
+
+The audit walked `git -C Engine-TS diff 2e3bcf43..dee467c8` (188 files)
+plus the rsbuf crate diff. Behavioral hunks were checked four ways
+(engine/script game-logic; network/wire incl. hand-verified opcode
+INTEGERS; pack/gzip/unpack output bytes; the two internalizations + the
+NOT-PORTED infra buckets). **Result: zero unported behavioral hunks** —
+every game-logic / wire / save / pack / unpack-output change maps to a
+rev-274 commit above. Spot-verifications done by hand for this audit:
+
+- Wire numbers, TS@dee467c8 vs `pkg/io/protocol`: IF_OPENCHAT 166/2,
+  UPDATE_INV_FULL 106/−2, NPC_INFO 197/−2, MINIMAP_TOGGLE 194/1,
+  REBUILD_NORMAL 231/4 (server); NO_TIMEOUT 120/0, IDLE_TIMER 209/0,
+  EVENT_MOUSE_CLICK 20/4, OPOBJ1 247/6, OPNPC1 236/2 (client). All match.
+- `src/io/FileStream.ts` `equalsData` write-skip + `normalizeWriteData`
+  + `clearArchive`/`close` + `RandomAccessFile.truncate`: confirmed
+  OUTPUT-NEUTRAL (a disk-churn-avoidance optimisation that still updates
+  the in-memory `packed` map; byte-identical cache). NOT-PORTED, correctly.
+- gzip routing: `pkg/io/gziputil/gzip.go` `CompressGz` → `CompressSZGz`
+  (rev-274 stock-zlib path); `CompressCFGz` retained for rev≤254.
+
+**NOT-PORTED buckets confirmed (no game-output behavior):**
+
+| Bucket | TS files | Why no Go change |
+|---|---|---|
+| Runtime swap (architecture-mapped) | db/dialect/* (Bun→Node Sqlite), db/query.ts, app.ts, web.ts, setup.ts (new), WorldConfig.ts (new), Environment.ts, server/{login,friend,logger,tcp,ws}/*, OnDemand worker-thread refactor (OnDemand.ts + OnDemandThread.ts new), DevThread.ts, Logger.ts, tools/server/{setup.ts del, prisma-multi.ts new} | Go-side SQLite + dskit lifecycle; no wire/save/pack byte change. Environment.ts adds no NEW game constant (revision 274 + maxNpcs 16383 already in Go). |
+| Incremental-build infra (output-neutral) | tools/pack/{ArtifactCache,FsCache,SourceSnapshot,ModelFlags}.ts (new), FileStream write-skip/equalsData, versionlist `shouldRebuild*` gates | Caching/skip-rebuild layers; identical output whether or not the gate fires. |
+| No Go surface | README, package.json/package-lock.json/bun.lock version strings, public/client+maped/*, view/*.ejs, .github/workflows/*, .env.example, tsconfig.json, .gitignore, .editorconfig, tools/map/Import*Csv (path-const + `\r?\n` only), db migration squash | No corresponding Go file. |
+| Rust/crate hygiene | rsbuf `af7b150`-class explicit-autoref + Cargo metadata; routefinder index re-exports | Borrow-checker / packaging only. |
+
+### Re-baselined verification gates (independently re-run at this audit)
+
+- **Pack byte-parity (c):** `TestPackAll_Ref274FullTreeParity` GREEN at
+  the pin (PASS, 10.3 s) — full-tree vs the 274 reference cache; AND
+  `TestPackAll_OrigCacheParity` GREEN — **6,304 members body-matched**
+  (idx1-4, version trailer stripped) + exactly **2 expected map-slot
+  diffs** (arch4 f704, f994). Env `GOSCAPE_REF274_DIR` (engine dir) +
+  `GOSCAPE_ORIG_CACHE_DIR`.
+- **Unpack parity (d):** all 16 family manifests regenerated at the pin
+  (`ff4e1b86`); `go test ./pkg/unpack/...` GREEN (13 packages ok).
+- **gzip corpus:** `pkg/io/gziputil` GREEN — original r274 cache gzip
+  members byte-for-byte (6201/6201 per `25b14be0`).
+- **Suite (e):** `go build ./...` exit 0; `go vet ./...` exit 0;
+  `go test -race ./...` GREEN — no FAIL / panic / DATA RACE across 82
+  packages.
+
+### The original-cache parity finding (user's stated real goal)
+
+goscape == the Node reference pack (full-tree 56/56). Against the
+**ORIGINAL r274 game cache**: full gzip body-parity EXCEPT (1) two empty
+arch4 client-map slots (f704, f994 — Content packs real map data the
+original omits) and (2) idx0 client jags — config (the original ships 8
+extra tables: mes/mesanim/param/hunt .dat+.idx the Content rebuild omits;
+the 18 common files byte-identical) and title/media/versionlist/textures/
+wordenc (same member set but different SOURCE asset bytes, some differing
+even in uncompressed size). Both classes are **CONTENT divergences**
+(LostCity Content-repo vs original-game-data), **0 % compressor fault** —
+goscape's pure-Go bzip2 encoder (BZh1) is byte-exact, proven by every
+body-matched member. Not goscape's to fix; pinned by `TestPackAll_
+OrigCacheParity` (≤2 diffs = pass; >2 = regression).
+
+### Deviations / exceptions ledger — NEW this port
+
+| Marker / site | Rationale |
+|---|---|
+| `suspendAutoReload` empty-registry unpack mode — `pkg/unpack/...` (`f5fd3bd9`) | TS PackFile.ts:276 @dee467c8 NEW: unpack tools run with the shared name registries SUSPENDED (empty), so cross-references resolve to default `<family>_<id>` names rather than real symbols. goscape mirrors this empty-registry posture on the unpack path only. Two latent unpack bugs surfaced + fixed by this work: empty-pack name renders as `""` (not the old `undefined` sentinel — versionlist MidiIndex double-space, `45652eb3`) and the leading-empty-model-name case. |
+| `ondemand.zip` + `server/build` retired — `pkg/packall`, ondemand module (`a2c72473`) | Upstream removed both at 274 (TS PackAll.ts + web.ts @dee467c8): no `ondemand.zip` is produced and the `server/build` tree is gone. The full-tree manifest no longer carries them; goscape's ondemand serves directly from `data/pack`. |
+| FontType empty-glyph trim guards — `pkg/fonttype` (`b2b25535`) | TS FontType indexes glyph arrays unguarded; an all-empty (zero-pixel) glyph would underflow. Go guards the trim (panic-safety). Moot for real 256-glyph fonts; documented divergence only. |
+| NPC jump field comment — `pkg/rsbuf` / `modules/world` (`b3f821ba`) | The 274 rsbuf NPC add-leaf carries a jump bit, but NPCs have NO teleJump path (player-only); the Go field is always 0 for NPCs. Comment clarifies the wire bit exists for protocol parity but is never set true for NPCs. |
+| gzip baseline `CompressSZGz` (rev-274) vs `CompressCFGz` (rev≤254) — `pkg/io/gziputil` (`25b14be0`) | Not a deviation — a rev-gated baseline. `CompressGz` routes to the stock zlib 1.3.1 L6 port for 274 (matches BOTH Node 24 and the original cache); the cloudflare-fork port is retained for the earlier revisions that were packed under bun. |
+
+Carry-forward: all pre-rev-274 `PORTING-EXCEPTION` / `DEVIATION-NAI-*`
+markers are unchanged (several relocated by the Inventory rewrite / NPC
+escape-mode / AllowRepath code motion — same contracts, new line numbers).
+NAI-128 (rat-loot) was un-skipped (`820cfb4e`, resolved by the 274
+bytecode repin — the 254-bytecode-vs-274-opcode-enum mismatch is gone);
+NAI101 / NAI95 map tests restored via loose-map pack from 274 Content
+(`558a50ff` — the 274 reference stores maps in a `.cache` zip, so the
+tests now pack the loose Content maps directly). jagFileVersion stays 27
+(compiler 0.9.6 unchanged from 254).
+
+### rev-274 umbrella close-out (2026-06-13)
+
+- [x] (a) Change-for-change correspondence — the 188-file cross-pin diff
+  `2e3bcf43..dee467c8` + the rsbuf crate diff + the two internalizations
+  were audited four ways (engine/script, wire-with-hand-verified-opcodes,
+  pack/gzip/unpack, infra dispositions). **ZERO unported behavioral
+  hunks.** NOT-PORTED buckets are runtime/infra/no-Go-surface, each
+  confirmed output-neutral.
+- [ ] (b) Live 274-client smoke — **PENDING** (user-driven; Client-Java
+  `32f30626`, clientversion 274). To probe: login (0xff+u2 extended
+  revision), MINIMAP_TOGGLE, the new script ops (SET_SKILL_LEVEL /
+  NPC_DESTINATION / MAP_LOC), inventory partial updates, NPC patrol/escape,
+  fonts (*_full), and the gzip-backed cache delivery.
+- [x] (c) Pack byte-parity — FULL TREE `TestPackAll_Ref274FullTreeParity`
+  GREEN + original-cache `TestPackAll_OrigCacheParity` GREEN (6,304
+  members + 2 expected content-divergence map slots).
+- [x] (d) Unpack parity — 16/16 family manifests at the pin GREEN.
+- [x] (e) Suite green incl. `-race` (82 packages); build + vet exit 0;
+  gziputil orig corpus 6201/6201.
+
+**The rev-274 port is CODE-COMPLETE.** Automated DoD (a)(c)(d)(e) met and
+independently re-verified at close-out; (b) live client smoke is the only
+open item (user-driven). Residual carry-forward: the `config.yaml`
+reference path now points at Server274-ref (same shape, new target).
+
+---
+
 ## Recent audit history (full log in `docs/PORTING-CLOSED.md`)
 
 - Arc 21 — Phase 2 closure (NAI-162 13th-flag CLOSED).
