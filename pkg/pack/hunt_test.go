@@ -225,6 +225,57 @@ func TestParseHuntConfig_ExtracheckVarValid(t *testing.T) {
 	}
 }
 
+func TestParseHuntConfig_ExtracheckVarAndOperator(t *testing.T) {
+	// '&' (no-common-bits) is whitelisted ONLY for extracheck_var at
+	// TS HuntConfig.ts:366 @dee467c8 (['=', '>', '<', '!', '&']).
+	cat, inv, loc, npc, obj, param, varn, _ := emptyHuntPacks()
+	varp := newTestPF("varp", map[int]string{7: "flags"})
+	fn := buildHuntParseFn(cat, inv, loc, npc, obj, param, varn, varp)
+	v, ok, err := fn("extracheck_var", "%flags,&8")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("ok=false")
+	}
+	cv := v.(huntCheckVarParsed)
+	if cv.varp != 7 || cv.condition != "&" || cv.val != 8 {
+		t.Fatalf("got %+v, want varp=7 condition=& val=8", cv)
+	}
+}
+
+func TestParseHuntConfig_CheckInvAndOperatorRejected(t *testing.T) {
+	// '&' is NOT in the check_inv whitelist at TS HuntConfig.ts:320
+	// @dee467c8 (still ['=', '>', '<', '!']) — must be rejected.
+	cat, _, loc, npc, _, param, varn, varp := emptyHuntPacks()
+	inv := newTestPF("inv", map[int]string{0: "bank"})
+	obj := newTestPF("obj", map[int]string{2: "coins"})
+	fn := buildHuntParseFn(cat, inv, loc, npc, obj, param, varn, varp)
+	_, ok, err := fn("check_inv", "bank,coins,&8")
+	if err == nil {
+		t.Fatal("want error: & is not a valid check_inv operator")
+	}
+	if !ok {
+		t.Fatal("ok=false; want ok=true with err!=nil")
+	}
+}
+
+func TestParseHuntConfig_CheckInvparamAndOperatorRejected(t *testing.T) {
+	// '&' is NOT in the check_invparam whitelist at TS HuntConfig.ts:346
+	// @dee467c8 (still ['=', '>', '<', '!']) — must be rejected.
+	cat, _, loc, npc, obj, _, varn, varp := emptyHuntPacks()
+	inv := newTestPF("inv", map[int]string{0: "bank"})
+	param := newTestPF("param", map[int]string{5: "strength"})
+	fn := buildHuntParseFn(cat, inv, loc, npc, obj, param, varn, varp)
+	_, ok, err := fn("check_invparam", "bank,strength,&8")
+	if err == nil {
+		t.Fatal("want error: & is not a valid check_invparam operator")
+	}
+	if !ok {
+		t.Fatal("ok=false; want ok=true with err!=nil")
+	}
+}
+
 func TestParseHuntConfig_UnknownKey(t *testing.T) {
 	cat, inv, loc, npc, obj, param, varn, varp := emptyHuntPacks()
 	fn := buildHuntParseFn(cat, inv, loc, npc, obj, param, varn, varp)

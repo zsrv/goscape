@@ -402,7 +402,11 @@ func parseHuntConfigFor(
 				return nil, true, fmt.Errorf("empty condition in extracheck_var: %s", value)
 			}
 			condition := string(conditionWithVal[0])
-			if condition != "=" && condition != ">" && condition != "<" && condition != "!" {
+			// '&' (no-common-bits) is whitelisted only for extracheck_var per TS
+			// HuntConfig.ts:366 @dee467c8 (['=', '>', '<', '!', '&']). The
+			// check_inv / check_invparam whitelists above intentionally omit it,
+			// matching TS HuntConfig.ts:320 / :346 (still ['=', '>', '<', '!']).
+			if condition != "=" && condition != ">" && condition != "<" && condition != "!" && condition != "&" {
 				return nil, true, fmt.Errorf("invalid condition %q in extracheck_var: %s", condition, value)
 			}
 			val, err := strconv.Atoi(conditionWithVal[1:])

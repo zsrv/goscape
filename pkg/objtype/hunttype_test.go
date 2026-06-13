@@ -445,6 +445,11 @@ func TestHuntTypeCheckHuntCondition(t *testing.T) {
 		{name: "less-than-false", value: 5, condition: "<", check: 3, want: false},
 		{name: "equal-true", value: 7, condition: "=", check: 7, want: true},
 		{name: "not-equal-true", value: 7, condition: "!", check: 8, want: true},
+		// '&' = NO bits in common ((value & check) == 0). Inverse of the
+		// intuitive "has bits in common". TS HuntType.checkHuntCondition
+		// @dee467c8 (HuntType.ts:72-73).
+		{name: "and-no-common-bits-true", value: 0b0101, condition: "&", check: 0b1010, want: true},
+		{name: "and-common-bit-false", value: 0b0101, condition: "&", check: 0b0100, want: false},
 		{name: "unknown-operator-false", value: 5, condition: "??", check: 5, want: false},
 	}
 

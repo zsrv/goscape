@@ -205,8 +205,13 @@ func parseHuntTypes(server *packet.Packet) (*HuntTypeConfigs, error) {
 
 // CheckHuntCondition evaluates condition against (value, checkValue) using the
 // hunt-config operator string. Mirrors TS HuntType.checkHuntCondition at
-// Engine-TS/src/cache/config/HuntType.ts:63-75. Unknown operators return
-// false (TS default-case behavior — fail-closed for malformed hunt data).
+// Engine-TS/src/cache/config/HuntType.ts:62-76 @dee467c8. Unknown operators
+// return false (TS default-case behavior — fail-closed for malformed hunt
+// data).
+//
+// The '&' operator is true when value and checkValue have NO bits in common
+// ((value & checkValue) == 0) — the inverse of the intuitive "has bits in
+// common". Transcribed exactly from TS HuntType.ts:72-73.
 //
 // Used by huntPlayers's CheckVars filter (TS Npc.ts:950-957) and, once
 // inventory infra lands, CheckInv (TS Npc.ts:959-969).
@@ -220,6 +225,8 @@ func (t *HuntType) CheckHuntCondition(value int, condition string, checkValue in
 		return value == checkValue
 	case "!":
 		return value != checkValue
+	case "&":
+		return (value & checkValue) == 0
 	}
 	return false
 }
