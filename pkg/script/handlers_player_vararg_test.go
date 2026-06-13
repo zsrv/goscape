@@ -70,11 +70,11 @@ func TestStrongQueueVarArg_ScriptMissing(t *testing.T) {
 	}
 }
 
-// TestStrongQueueVarArg_AcceptsNullDelay pins NAI-27 Bundle 3 negative
-// pin (per memory ts_asymmetry_dual_pin): unlike the fixed-arg
-// STRONGQUEUE, STRONGQUEUEVARARG does NOT check NumberNotNull on delay.
-// Pushing the null sentinel must enqueue successfully. Escalates if
-// upstream TS adds NumberNotNull to STRONGQUEUEVARARG later.
+// TestStrongQueueVarArg_AcceptsNullDelay pins that STRONGQUEUEVARARG does
+// NOT check NumberNotNull on delay (TS popInts(2) destructure, no check).
+// Pushing the null sentinel must enqueue successfully. (Since rev-274 the
+// fixed-arg STRONGQUEUE also no longer checks — see
+// TestStrongQueueAcceptsNullDelay in handlers_test.go.)
 func TestStrongQueueVarArg_AcceptsNullDelay(t *testing.T) {
 	const nullDelay = -1 // ScriptValidators.ts NumberNotNull sentinel; matches checkNotNull at handlers_player.go:62.
 	sf := newSingleOp("strong_vararg_null_delay", OpStrongQueueVarArg)
@@ -85,7 +85,7 @@ func TestStrongQueueVarArg_AcceptsNullDelay(t *testing.T) {
 	state.PushString("")
 
 	if err := Execute(state); err != nil {
-		t.Fatalf("Execute: %v (want nil — STRONGQUEUEVARARG does not check NumberNotNull per TS PlayerOps.ts:110-120)", err)
+		t.Fatalf("Execute: %v (want nil — STRONGQUEUEVARARG does not check NumberNotNull)", err)
 	}
 	if len(mp.enqueueCalls) != 1 {
 		t.Fatalf("enqueueCalls: got %d, want 1", len(mp.enqueueCalls))
@@ -204,8 +204,8 @@ func TestQueueVarArg_ScriptMissing(t *testing.T) {
 
 // TestQueueVarArg_AcceptsNullDelay pins TS PlayerOps.ts:159-169 (no NumberNotNull).
 // Note: differs from fixed-arg QUEUE (PlayerOps.ts:148-157), which also lacks
-// NumberNotNull — the asymmetry to watch for is QUEUEVARARG vs the fixed-arg
-// STRONGQUEUE which DOES check.
+// NumberNotNull. As of rev-274 the fixed-arg STRONGQUEUE no longer checks
+// NumberNotNull either (TS @dee467c8), so none of the queue ops gate delay.
 func TestQueueVarArg_AcceptsNullDelay(t *testing.T) {
 	const nullDelay = -1
 	sf := newSingleOp("queue_vararg_null", OpQueueVarArg)

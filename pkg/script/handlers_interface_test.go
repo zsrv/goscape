@@ -145,6 +145,89 @@ func TestIfSetText(t *testing.T) {
 	}
 }
 
+// TestIfSetTextColourPersist pins the rev-274 multi-line colour-
+// persistence transform (TS PlayerOps.ts:734-771 @dee467c8). The
+// delimiter is the literal two-char `\n` (backslash + n), written in Go
+// as "\\n". Cases are derived by hand-tracing the TS loop.
+func TestIfSetTextColourPersist(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			// No \n delimiter → returned unchanged.
+			"no delimiter",
+			"@red@just one line",
+			"@red@just one line",
+		},
+		{
+			// Has \n but no @ → returned unchanged.
+			"no at-sign",
+			"line one\\nline two",
+			"line one\\nline two",
+		},
+		{
+			// Continuation line lacks its own code → savedCol prepended.
+			"colour carries to continuation",
+			"@red@line one\\nline two",
+			"@red@line one\\n@red@line two",
+		},
+		{
+			// @str@ on a continuation line: inserts @bla@ after it and
+			// clears savedCol (so a third line gets no prepend).
+			"str special case inserts bla",
+			"@red@line one\\n@str@line two",
+			"@red@line one\\n@str@@bla@line two",
+		},
+		{
+			// Continuation line that already begins with its own code is
+			// still prepended with the carried savedCol (TS only skips the
+			// prepend on the @str@ branch; a normal leading code does not
+			// suppress it). savedCol carried from line one is @red@.
+			"continuation with own code still prepended",
+			"@red@line one\\n@gre@line two",
+			"@red@line one\\n@red@@gre@line two",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ifSetTextColourPersist(tc.in); got != tc.want {
+				t.Errorf("ifSetTextColourPersist(%q):\n got %q\nwant %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestIfSetTextHandlerAppliesColourPersist pins that the handler runs the
+// transform before writing the op (end-to-end through Execute).
+func TestIfSetTextHandlerAppliesColourPersist(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "if_settext_colour",
+		Opcodes: []Opcode{
+			OpPushConstantInt,    // com
+			OpPushConstantString, // text
+			OpIfSetText,
+			OpReturn,
+		},
+		IntOperands:      []int32{555, 0, 0, 0},
+		StringOperands:   []string{"", "@red@line one\\nline two", "", ""},
+		InstructionCount: 4,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	want := struct {
+		com  int
+		text string
+	}{555, "@red@line one\\n@red@line two"}
+	if mp.lastIfSetText != want {
+		t.Errorf("IfSetText: got %+v, want %+v", mp.lastIfSetText, want)
+	}
+}
+
 func TestIfSetModel(t *testing.T) {
 	sf := &ScriptFile{
 		Name: "if_setmodel",
@@ -233,11 +316,13 @@ func TestIfSetAnim(t *testing.T) {
 	}
 }
 
-// TestIfSetAnimSuppressesOnMinusOne verifies the TS guard that skips
-// the wire op when seq == -1 (client would crash).
-func TestIfSetAnimSuppressesOnMinusOne(t *testing.T) {
+// TestIfSetAnimPassesThroughMinusOne pins the rev-274 change (TS
+// PlayerOps.ts @dee467c8 dropped the `if (seq === -1) return;` early
+// return): seq=-1 now reaches IfSetAnim instead of suppressing the op.
+// The wire encodes -1 as 0xFFFF (see world-layer TestIfSetAnimWireMinusOne).
+func TestIfSetAnimPassesThroughMinusOne(t *testing.T) {
 	sf := &ScriptFile{
-		Name: "if_setanim_skip",
+		Name: "if_setanim_minus_one",
 		Opcodes: []Opcode{
 			OpPushConstantInt, // com
 			OpPushConstantInt, // seq = -1
@@ -253,10 +338,8 @@ func TestIfSetAnimSuppressesOnMinusOne(t *testing.T) {
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	// lastIfSetAnim should remain zero-valued because the handler
-	// returned before calling IfSetAnim.
-	if mp.lastIfSetAnim != (struct{ com, seqID int }{0, 0}) {
-		t.Errorf("IfSetAnim seq=-1: expected no call, got %+v", mp.lastIfSetAnim)
+	if mp.lastIfSetAnim != (struct{ com, seqID int }{5, -1}) {
+		t.Errorf("IfSetAnim seq=-1: got %+v, want {5, -1} (must pass through)", mp.lastIfSetAnim)
 	}
 }
 

@@ -978,28 +978,27 @@ func handleWeakQueue(s *ScriptState) error {
 	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, QueueWeak)
 }
 
-// handleStrongQueue implements STRONGQUEUE (opcode 2110): pop variadic
-// typed args via popScriptArgs (which itself first pops the type-tags
-// string and then pops each typed value in tag-reverse order), then
-// pop delay (NumberNotNull-checked), then pop scriptID, and enqueue a
-// STRONG-typed queue request. Mirrors TS PlayerOps.ts:97-108
-// line-by-line.
+// handleStrongQueue implements STRONGQUEUE (opcode 2110). Mirrors TS
+// PlayerOps.ts:100-110 @dee467c8: `const [scriptId, delay, arg] =
+// state.popInts(3);` then `enqueueScript(script, STRONG, delay, [arg])`.
 //
-// NAI-26 Bundle 2: un-shared from the pre-NAI-26 enqueueTyped helper
-// to fix divergences α (NumberNotNull on delay, missing) + β
-// (popScriptArgs, missing — the helper popped only a single arg int,
-// silently using the QUEUE shape for a variadic opcode).
+// rev-274: TS made the fixed-arg STRONGQUEUE a plain 3-int pop. The
+// non-vararg `strongqueue` compiler handler (RuneScriptTS
+// QueueCommandHandler) emits exactly three ints — script, delay, int-arg —
+// with NO type-tags string, so the old popScriptArgs/NumberNotNull path
+// (which expected a variadic typed-arg block + a tags string on the
+// stack) no longer matches the wire. popInts(3) destructures the int
+// stack top-down: arg (top), delay, scriptId (deepest); the queued args
+// array is the single [arg]. The variadic form lives in STRONGQUEUEVARARG
+// (`strongqueue*`). TS dropped the NumberNotNull delay check here.
 func handleStrongQueue(s *ScriptState) error {
 	if err := requireActivePlayer(s, "STRONGQUEUE"); err != nil {
 		return err
 	}
-	intArgs, stringArgs := popScriptArgs(s)
+	arg := s.PopInt()
 	delay := s.PopInt()
-	if err := checkNotNull(delay, "STRONGQUEUE"); err != nil {
-		return err
-	}
 	scriptID := uint32(s.PopInt())
-	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueStrong)
+	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, QueueStrong)
 }
 
 // handleLongQueue implements LONGQUEUE (opcode 2065): pop scriptID,

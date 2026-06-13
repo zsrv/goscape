@@ -801,6 +801,34 @@ func TestIfSetTextEmitsWire(t *testing.T) {
 	}
 }
 
+// TestIfSetAnimWireMinusOne pins the rev-274 IF_SETANIM(-1) passthrough at
+// the wire layer: seq=-1 is encoded as 0xFFFF (P2 of uint16(-1)) rather
+// than suppressed. TS PlayerOps.ts @dee467c8 dropped the seq==-1 early
+// return so -1 now transmits (clearing the component's anim).
+func TestIfSetAnimWireMinusOne(t *testing.T) {
+	s := newTestServer(t)
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	received := drainConn(t, cc)
+	p.IfSetAnim(7, -1)
+	p.client.flushWrite()
+	got := <-received
+
+	// OpIfSetAnim has PayloadSize 4 (fixed): opcode(1) + P2(com)(2) + P2(seq)(2).
+	if len(got) != 5 {
+		t.Fatalf("wire: got %d bytes, want 5", len(got))
+	}
+	if got[1] != 0 || got[2] != 7 {
+		t.Errorf("com: got %d, want 7", (int(got[1])<<8)|int(got[2]))
+	}
+	// seq=-1 → uint16(0xFFFF) → bytes 0xFF 0xFF.
+	if got[3] != 0xFF || got[4] != 0xFF {
+		t.Errorf("seq bytes: got %#x %#x, want 0xff 0xff (encoding of -1)", got[3], got[4])
+	}
+}
+
 func TestPauseButtonResumesAfterClick(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()

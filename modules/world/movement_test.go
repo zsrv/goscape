@@ -532,3 +532,49 @@ func TestProcessValidateDistanceWalked_ExactMoveGate(t *testing.T) {
 		t.Error("EXACT_MOVE player: jump=true, want false (gate must skip it)")
 	}
 }
+
+// TestExactMove_TeleportsToEndThenSetsMask pins the rev-274 exactMove
+// ordering (TS Player.exactMove @dee467c8): the player teleports to the
+// END tile FIRST (true tile becomes the end before the mask fields are
+// set), then the exact-move fields + EXACT_MOVE mask are stamped. The old
+// goscape ExactMove never updated the player's coord at all; the new port
+// calls Teleport(eX, eZ, level) at the top.
+func TestExactMove_TeleportsToEndThenSetsMask(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3300, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	p.masks = 0
+
+	const sX, sZ = 3200, 3300
+	const eX, eZ = 3205, 3308
+	const begin, finish, dir = 11, 22, 3
+
+	p.ExactMove(sX, sZ, eX, eZ, begin, finish, dir)
+
+	// Player's true tile must be the END after the call (teleport-first).
+	if p.x != eX || p.z != eZ {
+		t.Errorf("player coord after ExactMove: got (%d,%d), want END (%d,%d)", p.x, p.z, eX, eZ)
+	}
+	if !p.tele {
+		t.Error("tele flag: got false, want true (teleport-first sets it)")
+	}
+	// Mask fields still carry start/end/cycle/direction.
+	if p.exactStartX != sX || p.exactStartZ != sZ {
+		t.Errorf("exact start: got (%d,%d), want (%d,%d)", p.exactStartX, p.exactStartZ, sX, sZ)
+	}
+	if p.exactEndX != eX || p.exactEndZ != eZ {
+		t.Errorf("exact end: got (%d,%d), want (%d,%d)", p.exactEndX, p.exactEndZ, eX, eZ)
+	}
+	if p.exactBegin != begin || p.exactFinish != finish || p.exactDir != dir {
+		t.Errorf("exact cycle/dir: got (begin=%d,finish=%d,dir=%d), want (%d,%d,%d)",
+			p.exactBegin, p.exactFinish, p.exactDir, begin, finish, dir)
+	}
+	if p.masks&MaskExactMove == 0 {
+		t.Error("masks: EXACT_MOVE bit not set")
+	}
+}

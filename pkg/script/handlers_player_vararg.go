@@ -19,10 +19,10 @@ package script
 // pop popScriptArgs (top), then delay, then scriptID, and enqueue a
 // STRONG queue request. Mirrors TS PlayerOps.ts:110-120.
 //
-// Unlike fixed-arg STRONGQUEUE (TS PlayerOps.ts:97-108 / handler at
-// pkg/script/handlers.go:714-725), STRONGQUEUEVARARG does NOT check
-// NumberNotNull on delay — TS PlayerOps.ts:112 destructures both
-// scriptId and delay from popInts(2) without a check wrapper.
+// Like the fixed-arg STRONGQUEUE (rev-274: TS @dee467c8 switched it to a
+// plain popInts(3) with no check), STRONGQUEUEVARARG does NOT check
+// NumberNotNull on delay — TS destructures scriptId and delay from
+// popInts(2) without a check wrapper.
 func handleStrongQueueVarArg(s *ScriptState) error {
 	if err := requireActivePlayer(s, "STRONGQUEUEVARARG"); err != nil {
 		return err

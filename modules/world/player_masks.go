@@ -25,7 +25,17 @@ func (p *Player) SpotAnim(id, height, delay int) {
 	p.masks |= rsbuf.MaskSpotAnim
 }
 
+// ExactMove drives an exact-move animation between two tiles. Mirrors TS
+// Player.exactMove (Engine-TS/src/engine/entity/Player.ts:2102-2111 @dee467c8).
+//
+// rev-274: TS replaced the old inline coord/lastStep/tele writes with a
+// single teleport(endX, endZ, level) call at the TOP of the function — the
+// player's true tile becomes the END tile BEFORE the exact-move mask fields
+// are set. We port that order faithfully: Teleport first, then stamp the
+// exact-move fields + mask. (goscape's pre-274 ExactMove omitted the coord
+// update entirely; the teleport-first call closes that gap and matches TS.)
 func (p *Player) ExactMove(sX, sZ, eX, eZ, begin, finish, dir int) {
+	p.Teleport(eX, eZ, p.level)
 	p.exactStartX = sX
 	p.exactStartZ = sZ
 	p.exactEndX = eX

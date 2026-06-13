@@ -1,5 +1,7 @@
 package script
 
+import "strings"
+
 // S5f interface / modal opcodes. Pop orders are reverse-engineered from
 // LostCityRS/Engine-TS src/engine/script/handlers/PlayerOps.ts — the TS
 // helper popInts(n) fills the destructured slice top-down, so in
@@ -158,11 +160,17 @@ func handleTutFlash(s *ScriptState) error {
 // -- Per-component setters ----------------------------------------------
 
 // handleIfSetText implements IF_SETTEXT.
-// TS PlayerOps.ts:735-740 — `const text = state.popString(); const com =
-// state.popInt();` — text is popped from the string stack first, then
-// com from the int stack. The two stacks are independent, so order
-// relative to each other only matters for script generation.
-// com is wrapped with check(com, NumberNotNull) (NAI-23 Bundle 4c).
+// TS PlayerOps.ts:731-775 @dee467c8 — `let text = state.popString(); const
+// com = check(state.popInt(), NumberNotNull);` — text is popped from the
+// string stack first, then com from the int stack. The two stacks are
+// independent, so order relative to each other only matters for script
+// generation.
+//
+// rev-274: TS added a multi-line colour-persistence transform — when the
+// text contains both the literal two-char delimiter `\n` AND an `@`, the
+// saved colour code from each line carries onto continuation lines that
+// lack their own leading code (with an `@str@`→`@bla@` special case). See
+// ifSetTextColourPersist for the char-for-char port of the TS loop.
 func handleIfSetText(s *ScriptState) error {
 	if err := requireActivePlayer(s, "IF_SETTEXT"); err != nil {
 		return err
@@ -172,8 +180,90 @@ func handleIfSetText(s *ScriptState) error {
 	if err := checkNotNull(com, "IF_SETTEXT"); err != nil {
 		return err
 	}
+	text = ifSetTextColourPersist(text)
 	s.activePlayer().IfSetText(com, text)
 	return nil
+}
+
+// ifSetTextColourPersist is a char-for-char port of the IF_SETTEXT
+// colour-persistence loop added in TS PlayerOps.ts:734-771 @dee467c8.
+//
+// The delimiter is the literal TWO-character sequence `\n` (backslash + n),
+// not a newline — the TS source literal `'\\n'` is a two-char string. The
+// loop walks each `\n`-separated line, tracking the most recent `@xxx@`
+// colour code (savedCol). Continuation lines (i > 0) that lack their own
+// leading code get savedCol prepended, with the special case that a line
+// containing `@str@` inserts `@bla@` after it (unless already present) and
+// clears savedCol. All indexing is byte-oriented to match JS UTF-16
+// semantics for the ASCII `@`-delimited colour codes (and the wire writes
+// the string as raw bytes via PJStrLF).
+func ifSetTextColourPersist(text string) string {
+	if !strings.Contains(text, "\\n") || !strings.Contains(text, "@") {
+		return text
+	}
+
+	lines := strings.Split(text, "\\n")
+	var savedCol string
+	haveSaved := false
+
+	for i := range lines {
+		line := lines[i]
+		if i > 0 && haveSaved && len(line) > 0 {
+			strIndex := strings.Index(line, "@str@")
+			if strIndex != -1 {
+				if jsSubstring(line, strIndex+5, strIndex+10) != "@bla@" {
+					line = line[:strIndex+5] + "@bla@" + line[strIndex+5:]
+				}
+				savedCol = ""
+				haveSaved = false
+			} else {
+				line = savedCol + line
+			}
+			lines[i] = line
+		}
+
+		for j := 0; j+4 < len(line); j++ {
+			if line[j] == '@' && line[j+4] == '@' {
+				col := line[j+1 : j+4]
+				if col == "str" {
+					savedCol = ""
+					haveSaved = false
+					if jsSubstring(line, j+5, j+10) == "@bla@" {
+						j += 9
+						continue
+					}
+				} else {
+					savedCol = line[j : j+5]
+					haveSaved = true
+				}
+				j += 4
+			}
+		}
+	}
+
+	return strings.Join(lines, "\\n")
+}
+
+// jsSubstring mirrors JavaScript String.prototype.substring(start, end):
+// indices are clamped to [0, len] and swapped if start > end. Used by the
+// IF_SETTEXT colour-persistence loop where the TS code reads fixed-length
+// windows that may run past the end of a short line.
+func jsSubstring(s string, start, end int) string {
+	n := len(s)
+	if start < 0 {
+		start = 0
+	} else if start > n {
+		start = n
+	}
+	if end < 0 {
+		end = 0
+	} else if end > n {
+		end = n
+	}
+	if start > end {
+		start, end = end, start
+	}
+	return s[start:end]
 }
 
 // handleIfSetModel implements IF_SETMODEL.
@@ -233,10 +323,12 @@ func handleIfSetPlayerHead(s *ScriptState) error {
 }
 
 // handleIfSetAnim implements IF_SETANIM.
-// TS PlayerOps.ts:698-709 — popInts(2) → [com, seq], seq on top. TS
-// short-circuits when seq == -1 ("client crashes"); we preserve that
-// guard so the wire op is suppressed. com wrapped with
-// check(com, NumberNotNull); seq uses -1 sentinel (NAI-23 Bundle 4c).
+// TS PlayerOps.ts:696-699 @dee467c8 — popInts(2) → [com, seq], seq on top.
+//
+// rev-274: TS removed the old `if (seq === -1) return;` early-return — −1
+// now transmits to the client (clearing the anim) instead of suppressing
+// the wire op. com wrapped with check(com, NumberNotNull); seq is NOT
+// null-checked (−1 is a valid value that the wire encodes as 0xFFFF).
 func handleIfSetAnim(s *ScriptState) error {
 	if err := requireActivePlayer(s, "IF_SETANIM"); err != nil {
 		return err
@@ -246,10 +338,7 @@ func handleIfSetAnim(s *ScriptState) error {
 	if err := checkNotNull(com, "IF_SETANIM"); err != nil {
 		return err
 	}
-	// seq=-1 is a valid sentinel in TS (client crashes on -1); no checkNotNull (NAI-23 Bundle 4c).
-	if seq == -1 {
-		return nil
-	}
+	// seq=-1 now passes through (rev-274): the wire encodes it as 0xFFFF.
 	s.activePlayer().IfSetAnim(com, seq)
 	return nil
 }
