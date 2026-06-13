@@ -391,7 +391,9 @@ func TestUnpack_FallbackNaming(t *testing.T) {
 	cacheDir := t.TempDir()
 	srcDir := t.TempDir()
 
-	// Pre-register id=5 as "mysynth" in synth.pack.
+	// Seed synth.pack naming id=5 "mysynth" — under 274 suspendAutoReload the
+	// SynthPack singleton is constructed empty (TS PackFile.ts:276 @dee467c8),
+	// so this MUST be ignored and id=5 falls back to sound_5.
 	packDir := filepath.Join(srcDir, "pack")
 	if err := os.MkdirAll(packDir, 0o755); err != nil {
 		t.Fatalf("mkdir pack: %v", err)
@@ -406,9 +408,13 @@ func TestUnpack_FallbackNaming(t *testing.T) {
 		t.Fatalf("Unpack: %v", err)
 	}
 
-	// id=5 has pre-registered name → mysynth.synth.
-	if _, err := os.Stat(filepath.Join(srcDir, "synth", "mysynth.synth")); err != nil {
-		t.Errorf("synth/mysynth.synth not found: %v", err)
+	// synth.pack's "mysynth" must be ignored under suspendAutoReload.
+	if _, err := os.Stat(filepath.Join(srcDir, "synth", "mysynth.synth")); err == nil {
+		t.Errorf("synth/mysynth.synth exists: 274 suspendAutoReload should ignore synth.pack and use sound_5")
+	}
+	// id=5 falls back to sound_5.synth.
+	if _, err := os.Stat(filepath.Join(srcDir, "synth", "sound_5.synth")); err != nil {
+		t.Errorf("synth/sound_5.synth not found: %v", err)
 	}
 	// id=7 falls back to sound_7.synth.
 	if _, err := os.Stat(filepath.Join(srcDir, "synth", "sound_7.synth")); err != nil {

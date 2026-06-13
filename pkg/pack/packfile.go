@@ -43,7 +43,24 @@ var packLineRE = regexp.MustCompile(`^\d+=`)
 // parentPort (worker → printError, main → printFatalError). Goscape
 // returns the error; callers handle logging policy.
 func NewPackFile(srcDir, packType string, validator Validator) (*PackFile, error) {
-	pf := &PackFile{
+	pf := newEmptyPackFile(srcDir, packType, validator)
+	if err := pf.Reload(); err != nil {
+		return nil, err
+	}
+	return pf, nil
+}
+
+// newEmptyPackFile constructs a PackFile WITHOUT reloading — the four
+// maps are initialised empty and Max stays 0.
+//
+// This is the suspendAutoReload path: TS PackFileBase.ts constructor
+// skips this.reload() when PackFile.suspendAutoReload is true (the
+// static flag tools/pack/PackFile.ts:276 sets before the shared name
+// registries are constructed, @dee467c8). The unpack tools that import
+// those shared singletons therefore see them empty and emit default
+// cross-reference names. See Registry.SuspendAutoReload.
+func newEmptyPackFile(srcDir, packType string, validator Validator) *PackFile {
+	return &PackFile{
 		Type:      packType,
 		SrcDir:    srcDir,
 		Validator: validator,
@@ -51,10 +68,6 @@ func NewPackFile(srcDir, packType string, validator Validator) (*PackFile, error
 		Names:     map[string]struct{}{},
 		NameToID:  map[string]int{},
 	}
-	if err := pf.Reload(); err != nil {
-		return nil, err
-	}
-	return pf, nil
 }
 
 // Size returns the number of registered (id, name) entries.
@@ -165,6 +178,15 @@ func (pf *PackFile) RefreshNames() {
 // Save writes the registry to <SrcDir>/pack/<Type>.pack, sorted by id
 // ascending, "id=name\n" form with trailing newline. Creates the pack
 // directory recursively if absent.
+//
+// The content mirrors TS PackFileBase.save() exactly:
+// entries.map(([id,name]) => `${id}=${name}`).join('\n') + '\n'.
+// For a NON-empty pack that is "0=a\n1=b\n" (each line newline-terminated);
+// for an EMPTY pack it is a single "\n" (the join yields "" + the trailing
+// '\n'). The empty case matters under 274 suspendAutoReload, where the
+// unpack tools save empty shared registries (e.g. an empty model.pack).
+//
+// TS source: tools/pack/PackFileBase.ts:120-127 @ dee467c8.
 func (pf *PackFile) Save() error {
 	packDir := filepath.Join(pf.SrcDir, "pack")
 	if err := os.MkdirAll(packDir, 0o755); err != nil {
@@ -175,14 +197,12 @@ func (pf *PackFile) Save() error {
 		ids = append(ids, id)
 	}
 	sort.Ints(ids)
-	var buf strings.Builder
-	for _, id := range ids {
-		buf.WriteString(strconv.Itoa(id))
-		buf.WriteByte('=')
-		buf.WriteString(pf.Pack[id])
-		buf.WriteByte('\n')
+	lines := make([]string, len(ids))
+	for i, id := range ids {
+		lines[i] = strconv.Itoa(id) + "=" + pf.Pack[id]
 	}
-	return os.WriteFile(filepath.Join(packDir, pf.Type+".pack"), []byte(buf.String()), 0o644)
+	content := strings.Join(lines, "\n") + "\n"
+	return os.WriteFile(filepath.Join(packDir, pf.Type+".pack"), []byte(content), 0o644)
 }
 
 // GetByID returns the name at id, or "" if absent.

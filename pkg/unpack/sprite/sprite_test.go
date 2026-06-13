@@ -138,7 +138,10 @@ func TestTextures_MkdirTextures(t *testing.T) {
 
 // TestTextures_UsesTexturePackName verifies that the output uses the texture.pack
 // name ("door") rather than the numeric id ("0").
-func TestTextures_UsesTexturePackName(t *testing.T) {
+// TestTextures_IgnoresTexturePackName verifies that under 274 suspendAutoReload
+// the TexturePack singleton is constructed empty (TS PackFile.ts:276 @dee467c8),
+// so a texture.pack on disk is NOT consulted and the output stem stays numeric.
+func TestTextures_IgnoresTexturePackName(t *testing.T) {
 	jag := buildSingleSprite(t, "0")
 	cacheDir := writeCacheJag(t, jag, 0, 6)
 
@@ -147,8 +150,10 @@ func TestTextures_UsesTexturePackName(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(srcDir, "pack", "texture.pack"), []byte("0=door\n"), 0o644))
 
 	require.NoError(t, Textures(Options{CacheDir: cacheDir, SrcDir: srcDir}))
-	require.FileExists(t, filepath.Join(srcDir, "textures", "door.png"),
-		"output stem must be 'door' (from texture.pack) not '0'")
+	require.NoFileExists(t, filepath.Join(srcDir, "textures", "door.png"),
+		"texture.pack must be ignored under 274 suspendAutoReload")
+	require.FileExists(t, filepath.Join(srcDir, "textures", "0.png"),
+		"output stem must be the numeric id '0' (empty TexturePack)")
 }
 
 // TestTextures_FallbackToNumericID verifies that when texture.pack has no entry

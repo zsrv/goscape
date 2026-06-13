@@ -44,9 +44,11 @@ func Unpack(cacheDir, packDir, srcDir string, out io.Writer) error {
 		return fmt.Errorf("Unpack: LoadFloTypes(%q): %w", packDir, err)
 	}
 
-	// TS line 3: import { TexturePack } from '#tools/pack/PackFile.js'
-	// TexturePack is loaded from srcDir/pack/texture.pack.
-	reg := &pack.Registry{SrcDir: srcDir}
+	// TS line 3: import { TexturePack } from '#tools/pack/PackFile.js'.
+	// That shared singleton is constructed empty under 274 suspendAutoReload
+	// (TS PackFile.ts:276 @dee467c8), so getById returns "" for every id and
+	// the floorcol comment prints an empty `texture=` field.
+	reg := &pack.Registry{SrcDir: srcDir, SuspendAutoReload: true}
 	texturePack, err := reg.EnsureTexture()
 	if err != nil {
 		return fmt.Errorf("Unpack: EnsureTexture(%q): %w", srcDir, err)

@@ -120,8 +120,11 @@ func Textures(opts Options) error {
 		return fmt.Errorf("sprite: Textures: mkdir textures: %w", err)
 	}
 
-	// Load texture.pack to resolve id → name (TS TexturePack.getById).
-	reg := &pack.Registry{SrcDir: opts.SrcDir}
+	// TexturePack is the shared #tools/pack/PackFile.js singleton, constructed
+	// empty under 274 suspendAutoReload (TS PackFile.ts:276 @dee467c8), so
+	// getById misses for every id and each texture falls back to the numeric
+	// id (TS `TexturePack.getById(id) || id.toString()`).
+	reg := &pack.Registry{SrcDir: opts.SrcDir, SuspendAutoReload: true}
 	texturePack, err := reg.EnsureTexture()
 	if err != nil {
 		return fmt.Errorf("sprite: Textures: ensure texture pack: %w", err)

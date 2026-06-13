@@ -77,8 +77,14 @@ func Unpack(opts Options) error {
 		return fmt.Errorf("decode interface: %w", err)
 	}
 
-	// Build Registry with opts.SrcDir.
-	reg := &pack.Registry{SrcDir: opts.SrcDir}
+	// Build Registry with opts.SrcDir. SuspendAutoReload mirrors TS 274:
+	// interface Unpack imports InterfacePack/ModelPack/ObjPack/SeqPack/
+	// VarpPack/VarbitPack from the shared #tools/pack/PackFile.js, whose
+	// singletons are constructed empty under PackFile.suspendAutoReload
+	// (TS PackFile.ts:276 @dee467c8). Every getById then misses → the
+	// interface/component names are synthesised (inter_<id>, <parent>:com_<n>)
+	// and the script cross-refs fall back to obj_<n>/varp_<n>/seq_<n>/etc.
+	reg := &pack.Registry{SrcDir: opts.SrcDir, SuspendAutoReload: true}
 
 	interfacePack, err := reg.EnsureInterface()
 	if err != nil {

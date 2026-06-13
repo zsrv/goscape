@@ -16,6 +16,24 @@ package pack
 type Registry struct {
 	SrcDir string
 
+	// SuspendAutoReload, when true, makes every EnsureX accessor
+	// construct an EMPTY PackFile (skipping the .pack-file reload) so
+	// GetByID returns "" for every id. The unpack tools that consume
+	// the shared name registries then emit DEFAULT cross-reference
+	// names (loc_<n>, midi_<n>, numeric texture ids, empty model=, ...).
+	//
+	// This mirrors TS PackFile.suspendAutoReload (PackFileBase.ts:31-33
+	// constructor), which tools/pack/PackFile.ts:276 sets true around the
+	// shared `export const` registries (@dee467c8, NEW at 274). Those
+	// singletons are therefore constructed empty in the unpack process.
+	// The PACK pipeline leaves this false (its registries reload).
+	//
+	// The graphics unpack tools (UnpackModels/UnpackAnims) import
+	// PackFile from PackFileBase.js and construct their OWN local packs
+	// AFTER module init (when suspendAutoReload is back to false), so
+	// those self-load — goscape's graphics unpack keeps this flag false.
+	SuspendAutoReload bool
+
 	Interface, Obj, Seq, Loc, Npc, Model, Anim, Base,
 	Synth, Texture, Varp, Varbit, Varn, Vars, Inv, SpotAnim, Idk,
 	Flo, Category, Hunt, Param, DbTable, DbRow, MesAnim, Struct,
@@ -25,6 +43,11 @@ type Registry struct {
 func (r *Registry) ensure(field **PackFile, packType string) (*PackFile, error) {
 	if *field != nil {
 		return *field, nil
+	}
+	if r.SuspendAutoReload {
+		pf := newEmptyPackFile(r.SrcDir, packType, nil)
+		*field = pf
+		return pf, nil
 	}
 	pf, err := NewPackFile(r.SrcDir, packType, nil)
 	if err != nil {

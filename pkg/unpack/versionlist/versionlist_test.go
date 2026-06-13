@@ -95,20 +95,23 @@ func TestAnimIndex_NilOut(t *testing.T) {
 
 // TestMidiIndex_WithRegistry verifies that midi names from the pack registry
 // are rendered correctly and absent entries emit "undefined".
-func TestMidiIndex_WithRegistry(t *testing.T) {
+// TestMidiIndex_IgnoresRegistry verifies that under 274 suspendAutoReload the
+// MidiPack singleton is constructed empty (TS PackFile.ts:276 @dee467c8), so a
+// midi.pack on disk is NOT consulted and every line carries the empty name field
+// — TS console.log(i, '', prefetch) renders "<i>  <prefetch>" (double space).
+func TestMidiIndex_IgnoresRegistry(t *testing.T) {
 	// midi_index: 3 entries with prefetch bytes [0, 1, 0].
 	midiIndexBytes := []byte{0, 1, 0}
 
 	cacheDir := t.TempDir()
 	buildVersionlistCache(t, cacheDir, map[string][]byte{"midi_index": midiIndexBytes})
 
-	// Build srcDir with midi.pack: id=0 → "guthix", id=2 absent.
+	// Seed midi.pack naming id=0 "guthix" — must be ignored under suspendAutoReload.
 	srcDir := t.TempDir()
 	packDir := filepath.Join(srcDir, "pack")
 	if err := os.MkdirAll(packDir, 0o755); err != nil {
 		t.Fatalf("mkdir pack: %v", err)
 	}
-	// Only id=0 registered; id=1 and id=2 absent.
 	if err := os.WriteFile(filepath.Join(packDir, "midi.pack"), []byte("0=guthix\n"), 0o644); err != nil {
 		t.Fatalf("write midi.pack: %v", err)
 	}
@@ -123,13 +126,11 @@ func TestMidiIndex_WithRegistry(t *testing.T) {
 		t.Fatalf("got %d lines, want 3", len(lines))
 	}
 
-	// i=0: registered "guthix", prefetch=0 → "0 guthix 0"
-	// i=1: absent → "undefined", prefetch=1 → "1 undefined 1"
-	// i=2: absent → "undefined", prefetch=0 → "2 undefined 0"
+	// midi.pack's "guthix" is ignored; every name field is empty (double space).
 	want := []string{
-		"0 guthix 0",
-		"1 undefined 1",
-		"2 undefined 0",
+		"0  0",
+		"1  1",
+		"2  0",
 	}
 	for i, w := range want {
 		if lines[i] != w {
@@ -138,8 +139,8 @@ func TestMidiIndex_WithRegistry(t *testing.T) {
 	}
 }
 
-// TestMidiIndex_EmptyRegistry verifies that all ids emit "undefined" when
-// midi.pack is absent.
+// TestMidiIndex_EmptyRegistry verifies that all ids emit the empty name field
+// (double space) when midi.pack is absent.
 func TestMidiIndex_EmptyRegistry(t *testing.T) {
 	midiIndexBytes := []byte{0, 1}
 	cacheDir := t.TempDir()
@@ -153,7 +154,7 @@ func TestMidiIndex_EmptyRegistry(t *testing.T) {
 	}
 
 	lines := strings.Split(strings.TrimRight(out.String(), "\n"), "\n")
-	want := []string{"0 undefined 0", "1 undefined 1"}
+	want := []string{"0  0", "1  1"}
 	for i, w := range want {
 		if i >= len(lines) || lines[i] != w {
 			t.Errorf("line %d: got %q, want %q", i, lines[i], w)
@@ -223,10 +224,12 @@ func TestModelIndex_FlagDecoding(t *testing.T) {
 	}
 }
 
-// TestModelIndex_NameFromPack verifies that ModelPack names replace numeric ids
-// in the output, and that absent ids still fall back to the numeric form.
-func TestModelIndex_NameFromPack(t *testing.T) {
-	flags := []byte{0x00, 0x01} // id=0 has no pack name; id=1 has "player_body"
+// TestModelIndex_IgnoresPack verifies that under 274 suspendAutoReload the
+// ModelPack singleton is constructed empty (TS PackFile.ts:276 @dee467c8), so a
+// model.pack on disk is NOT consulted and every id falls back to the numeric
+// form (TS `ModelPack.getById(i) || i`).
+func TestModelIndex_IgnoresPack(t *testing.T) {
+	flags := []byte{0x00, 0x01}
 
 	cacheDir := t.TempDir()
 	buildVersionlistCache(t, cacheDir, map[string][]byte{"model_index": flags})
@@ -236,6 +239,7 @@ func TestModelIndex_NameFromPack(t *testing.T) {
 	if err := os.MkdirAll(packDir, 0o755); err != nil {
 		t.Fatalf("mkdir pack: %v", err)
 	}
+	// Seed model.pack naming id=1 — must be ignored under suspendAutoReload.
 	if err := os.WriteFile(filepath.Join(packDir, "model.pack"), []byte("1=player_body\n"), 0o644); err != nil {
 		t.Fatalf("write model.pack: %v", err)
 	}
@@ -253,12 +257,12 @@ func TestModelIndex_NameFromPack(t *testing.T) {
 	if len(lines) != 2 {
 		t.Fatalf("got %d lines, want 2: %s", len(lines), got)
 	}
-	// id=0: no name → numeric "0"
+	// id=0: numeric "0"
 	if want := "0=none, 0x00 (0b00000000)"; lines[0] != want {
 		t.Errorf("line 0: got %q, want %q", lines[0], want)
 	}
-	// id=1: name "player_body"
-	if want := "player_body=tutorial, 0x01 (0b00000001)"; lines[1] != want {
+	// id=1: model.pack's "player_body" is ignored → numeric "1"
+	if want := "1=tutorial, 0x01 (0b00000001)"; lines[1] != want {
 		t.Errorf("line 1: got %q, want %q", lines[1], want)
 	}
 }

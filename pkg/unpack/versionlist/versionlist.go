@@ -135,8 +135,10 @@ func MidiIndex(cacheDir, srcDir string, out io.Writer) error {
 		return fmt.Errorf("MidiIndex: read midi_index: %w", err)
 	}
 
-	// Load MidiPack from srcDir (read-only; no clear/save needed).
-	reg := &pack.Registry{SrcDir: srcDir}
+	// MidiPack is the shared #tools/pack/PackFile.js singleton, constructed
+	// empty under 274 suspendAutoReload (TS PackFile.ts:276 @dee467c8), so
+	// getById returns "" for every id — the index prints an empty name field.
+	reg := &pack.Registry{SrcDir: srcDir, SuspendAutoReload: true}
 	midiPack, err := reg.EnsureMidi()
 	if err != nil {
 		return fmt.Errorf("MidiIndex: ensure midi pack: %w", err)
@@ -146,13 +148,14 @@ func MidiIndex(cacheDir, srcDir string, out io.Writer) error {
 	size := index.Length()
 
 	// TS lines 11-13: for i < size; g1(); console.log(i, MidiPack.getById(i), prefetch).
+	// getById returns '' (PackFileBase.ts:131 `?? ''`), never undefined, so
+	// console.log joins `i`, the (possibly empty) name and prefetch with single
+	// spaces: an empty name leaves a double space (e.g. "0  5"). Under 274
+	// suspendAutoReload the registry is empty, so every line carries the empty
+	// name field.
 	for i := range size {
 		prefetch := int(index.G1())
 		name := midiPack.GetByID(i)
-		// JS: getById returns undefined for absent ids; console.log prints "undefined".
-		if name == "" {
-			name = "undefined"
-		}
 		fmt.Fprintf(out, "%d %s %d\n", i, name, prefetch)
 	}
 
@@ -205,8 +208,11 @@ func ModelIndex(cacheDir, srcDir string, out io.Writer) error {
 		return fmt.Errorf("ModelIndex: create model_index.txt: %w", err)
 	}
 
-	// Load ModelPack for name resolution.
-	reg := &pack.Registry{SrcDir: srcDir}
+	// ModelPack is the shared #tools/pack/PackFile.js singleton, constructed
+	// empty under 274 suspendAutoReload (TS PackFile.ts:276 @dee467c8), so
+	// getById misses for every id and the index falls back to the numeric id
+	// (TS `ModelPack.getById(i) || i`).
+	reg := &pack.Registry{SrcDir: srcDir, SuspendAutoReload: true}
 	modelPack, err := reg.EnsureModel()
 	if err != nil {
 		return fmt.Errorf("ModelIndex: ensure model pack: %w", err)

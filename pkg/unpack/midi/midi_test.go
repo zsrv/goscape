@@ -159,14 +159,17 @@ func TestUnpack_MissingDataWarning(t *testing.T) {
 	}
 }
 
-// TestUnpack_NameFallback verifies the "midi_<i>" fallback name when the pack
-// registry has no entry for the id, and that a pre-registered name is used when
-// available (populated via midi.pack written before the run).
+// TestUnpack_NameFallback verifies that under 274 suspendAutoReload the midi
+// unpack ALWAYS uses the "midi_<i>" default name — even when a midi.pack on disk
+// names the id. The shared MidiPack singleton is constructed empty in the unpack
+// process (TS PackFile.ts:276 @dee467c8), so getById misses for every id and the
+// real .pack file is never consulted.
 func TestUnpack_NameFallback(t *testing.T) {
 	cacheDir := t.TempDir()
 	srcDir := t.TempDir()
 
-	// Seed midi.pack with id=0 named "my_song".
+	// Seed midi.pack with id=0 named "my_song" — this MUST be ignored
+	// because the unpack registry runs with SuspendAutoReload.
 	packDir := filepath.Join(srcDir, "pack")
 	if err := os.MkdirAll(packDir, 0o755); err != nil {
 		t.Fatalf("mkdir pack: %v", err)
@@ -175,7 +178,6 @@ func TestUnpack_NameFallback(t *testing.T) {
 		t.Fatalf("write midi.pack: %v", err)
 	}
 
-	// id=0 has a name; id=1 does not (fallback).
 	midiIndex := []byte{0, 0}
 	buildTestCache(t, cacheDir, midiIndex, [][]byte{[]byte("data0"), []byte("data1")})
 
@@ -184,11 +186,15 @@ func TestUnpack_NameFallback(t *testing.T) {
 		t.Fatalf("Unpack: %v", err)
 	}
 
-	// id=0 uses registered name "my_song".
-	if _, err := os.Stat(filepath.Join(srcDir, "songs", "my_song.mid")); err != nil {
-		t.Errorf("songs/my_song.mid not found: %v", err)
+	// midi.pack's "my_song" must be ignored under suspendAutoReload.
+	if _, err := os.Stat(filepath.Join(srcDir, "songs", "my_song.mid")); err == nil {
+		t.Errorf("songs/my_song.mid exists: 274 suspendAutoReload should ignore midi.pack and use the midi_0 default")
 	}
-	// id=1 falls back to "midi_1".
+	// id=0 uses the default name "midi_0".
+	if _, err := os.Stat(filepath.Join(srcDir, "songs", "midi_0.mid")); err != nil {
+		t.Errorf("songs/midi_0.mid not found: %v", err)
+	}
+	// id=1 also uses the default "midi_1".
 	if _, err := os.Stat(filepath.Join(srcDir, "songs", "midi_1.mid")); err != nil {
 		t.Errorf("songs/midi_1.mid not found: %v", err)
 	}

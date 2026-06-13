@@ -126,8 +126,11 @@ func Unpack(opts Options) error {
 		return fmt.Errorf("sound: missing sounds.dat: %w", err)
 	}
 
-	// Load SynthPack from srcDir.
-	reg := &pack.Registry{SrcDir: opts.SrcDir}
+	// SynthPack is the shared #tools/pack/PackFile.js singleton, constructed
+	// empty under 274 suspendAutoReload (TS PackFile.ts:276 @dee467c8), so
+	// getById misses for every id and each sound falls back to sound_<id>
+	// (TS `SynthPack.getById(id) || sound_${id}`).
+	reg := &pack.Registry{SrcDir: opts.SrcDir, SuspendAutoReload: true}
 	synthPack, err := reg.EnsureSynth()
 	if err != nil {
 		return fmt.Errorf("sound: ensure synth pack: %w", err)

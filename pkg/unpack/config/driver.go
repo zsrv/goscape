@@ -602,8 +602,15 @@ func Unpack(opts Options) error {
 	}
 	printInfo(fmt.Sprintf("Unpacking rev %s into %s/scripts", opts.Revision, displaySrcDir))
 
-	// Build pack.Registry with opts.SrcDir so all PackFiles resolve relative to it.
-	reg := &pack.Registry{SrcDir: opts.SrcDir}
+	// Build pack.Registry with opts.SrcDir so all PackFiles resolve relative
+	// to it. SuspendAutoReload mirrors TS 274: config Unpack imports every
+	// pack (LocPack, NpcPack, ObjPack, SeqPack, IdkPack, FloPack, VarpPack,
+	// VarbitPack, SpotAnimPack, ModelPack) from the shared
+	// #tools/pack/PackFile.js, whose singletons are constructed empty under
+	// PackFile.suspendAutoReload (TS PackFile.ts:276 @dee467c8). Every getById
+	// then misses → default cross-ref names (loc_<n>, etc.); and ModelPack.max
+	// is 0, so the model-store loop and the loc-model rename pass are no-ops.
+	reg := &pack.Registry{SrcDir: opts.SrcDir, SuspendAutoReload: true}
 
 	// TS lines 318-321: for id 0..ModelPack.max: Model.unpack(id, cache.read(1, id, true))
 	modelPack, err := reg.EnsureModel()

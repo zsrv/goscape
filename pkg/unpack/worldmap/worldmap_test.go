@@ -192,7 +192,9 @@ func TestUnpack_WithTexture(t *testing.T) {
 		t.Fatalf("Save worldmap.jag: %v", err)
 	}
 
-	// Texture pack: 0=granite
+	// Seed texture.pack naming id=0 "granite" — under 274 suspendAutoReload the
+	// TexturePack singleton is constructed empty (TS PackFile.ts:276 @dee467c8),
+	// so this is ignored and the texture= field is emitted empty.
 	if err := os.MkdirAll(filepath.Join(srcDir, "pack"), 0o755); err != nil {
 		t.Fatalf("mkdir pack: %v", err)
 	}
@@ -206,9 +208,9 @@ func TestUnpack_WithTexture(t *testing.T) {
 	}
 
 	got := out.String()
-	// texture=0 → texturePack.GetByID(0) = "granite"
+	// texture=0 → empty TexturePack → GetByID(0) = "" → "texture="
 	// occlude=false → "false"; overlay=false → "false"
-	wantFloLine := "[0xdeadbeef, 0x00ff0000], // debugname=stone overlay=false occlude=false rgb=0x112233 texture=granite\n"
+	wantFloLine := "[0xdeadbeef, 0x00ff0000], // debugname=stone overlay=false occlude=false rgb=0x112233 texture=\n"
 	wantSep := "----\n"
 	want := wantFloLine + wantSep
 	if got != want {

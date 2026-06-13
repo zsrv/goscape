@@ -221,13 +221,15 @@ func unpackLoc(
 		case code == 1:
 			// TS lines 177-195: model list with shape suffixes + duplicate-name skip.
 			// written tracks 1-based output model index; lastName deduplicates consecutive names.
-			// DIVERGENCE: TS `let lastName` starts undefined, so an empty-string first name would
-			// emit (TS `lastName !== name` is true when lastName=undefined, name=""). Go's
-			// `var lastName string` (zero="") skips such an entry. Unreachable with well-formed
-			// data — renameModel never returns "" for a real model (TS LocConfig.ts:181-193).
+			// TS `let lastName` starts undefined, so the FIRST entry always emits even when its
+			// name is the empty string (TS `lastName !== name` is true: undefined !== ''). Under
+			// 274 suspendAutoReload every model name is "" (empty ModelPack), so this path is
+			// reachable: the first `model=` line MUST emit. We track "no previous name yet" with
+			// a *string sentinel rather than the zero-value "" that would wrongly dedupe a
+			// leading empty name.
 			count := int(dat.G1())
 			written := 1
-			var lastName string
+			var lastName *string
 			for range count {
 				modelID := int(dat.G2())
 				shape := int(dat.G1())
@@ -237,15 +239,16 @@ func unpackLoc(
 				if modelPack != nil {
 					name = renameModelLoc(modelID, shape, modelPack)
 				}
-				// TS lines 189-194: skip if same as lastName (consecutive duplicate).
-				if lastName != name {
+				// TS lines 189-194: skip if same as lastName (consecutive duplicate);
+				// undefined lastName (first entry) never matches, so it always emits.
+				if lastName == nil || *lastName != name {
 					if written > 1 {
 						def = append(def, fmt.Sprintf("model%d=%s", written, name))
 					} else {
 						def = append(def, fmt.Sprintf("model=%s", name))
 					}
 					written++
-					lastName = name
+					lastName = &name
 				}
 			}
 

@@ -91,9 +91,11 @@ func Unpack(opts Options) error {
 		return fmt.Errorf("midi: read midi_index: %w", err)
 	}
 
-	// Load MidiPack from srcDir; the TS Unpack does NOT clear the registry
-	// before iterating — it reads existing names and registers new ones.
-	reg := &pack.Registry{SrcDir: opts.SrcDir}
+	// MidiPack is imported from the shared #tools/pack/PackFile.js, whose
+	// singletons are constructed empty under suspendAutoReload (NEW at 274,
+	// TS PackFile.ts:276 @dee467c8). So getById misses for every id and the
+	// loop falls back to midi_<i>. SuspendAutoReload mirrors that.
+	reg := &pack.Registry{SrcDir: opts.SrcDir, SuspendAutoReload: true}
 	midiPack, err := reg.EnsureMidi()
 	if err != nil {
 		return fmt.Errorf("midi: ensure midi pack: %w", err)
