@@ -205,7 +205,7 @@ func TestOp15ReplyIs8ZerosAndStateTransition(t *testing.T) {
 // TestOp15OnDemandRoutingIntegration pins that after op-15 transitions to
 // ClientStateOndemand, subsequent 4-byte frames are routed to s.onDemand
 // via the *clientODAdapter. Feed one valid urgent request and verify it
-// lands in od.urgent.
+// lands in the client's priority-2 queue (rev-274 per-client model).
 func TestOp15OnDemandRoutingIntegration(t *testing.T) {
 	c, clientConn := newTestClient(t)
 	s := newTestServer(t)
@@ -242,11 +242,15 @@ func TestOp15OnDemandRoutingIntegration(t *testing.T) {
 
 	s.onDemand.mu.Lock()
 	defer s.onDemand.mu.Unlock()
-	if len(s.onDemand.urgent) != 1 {
-		t.Fatalf("urgent queue: got %d entries, want 1", len(s.onDemand.urgent))
+	cq, ok := s.onDemand.clients[adapter.id()]
+	if !ok {
+		t.Fatal("no clientQueue created for the connection")
 	}
-	if s.onDemand.urgent[0].archive != 0 || s.onDemand.urgent[0].file != 1 {
-		t.Errorf("urgent[0]: got archive=%d file=%d, want 0 1", s.onDemand.urgent[0].archive, s.onDemand.urgent[0].file)
+	if len(cq.queues[2]) != 1 {
+		t.Fatalf("priority-2 queue: got %d entries, want 1", len(cq.queues[2]))
+	}
+	if cq.queues[2][0].archive != 0 || cq.queues[2][0].file != 1 {
+		t.Errorf("queues[2][0]: got archive=%d file=%d, want 0 1", cq.queues[2][0].archive, cq.queues[2][0].file)
 	}
 }
 

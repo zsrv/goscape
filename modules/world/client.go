@@ -113,6 +113,12 @@ type client struct {
 	// stays set across teardown so the defer in handleTCPConn can fire
 	// SessionEnded before the field is cleared.
 	sessionID string
+	// connID is the stable per-connection identity used as the OnDemand
+	// clientQueue key + round-robin entry (ondemand.go). Minted once at
+	// newClient and immutable thereafter — survives the many transient
+	// clientODAdapter values created per onClientData call. Mirrors the
+	// TS OnDemandThread clientId (TcpServer assigns a per-socket id).
+	connID string
 }
 
 func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, logger *slog.Logger) *client {
@@ -130,6 +136,8 @@ func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, log
 		state: ClientStateLogin,
 
 		opcode: -1,
+
+		connID: uuid.NewString(),
 	}
 }
 
@@ -265,6 +273,14 @@ func (a *clientODAdapter) send(data []byte) error {
 
 func (a *clientODAdapter) close() {
 	a.c.conn.Close()
+}
+
+// id returns the stable per-connection identity (client.connID). The same
+// underlying *client is wrapped by a fresh clientODAdapter on every
+// onClientData call (server.go), so the identity must come from the
+// connection, not the adapter.
+func (a *clientODAdapter) id() string {
+	return a.c.connID
 }
 
 /////////////

@@ -1,96 +1,131 @@
 package world
 
-// ondemand.go ports OnDemand.ts:11-16 (struct + queues), :18-40 (cycle),
-// :42-85 (onClientData), and :87-120 (send) from Engine-TS at commit 9aadcec4.
+// ondemand.go ports OnDemandThread.ts from Engine-TS at commit dee467c8 (rev-274).
+//
+// The 274 rewrite replaced the old (254) fixed-50ms-cycle "send every queued
+// file fully" scheduler (OnDemand.ts @9aadcec4) with an immediate, throttled,
+// priority-preemptive, round-robin pump. Wire protocol (request frame + chunk
+// frame) is byte-identical 254↔274 — only the SCHEDULING changed.
+//
+// Per-client state lives in clientQueue (TS ClientQueue): three priority queues
+// (0/1/2), a key→request dedup map, a pendingCount, the in-progress chunked
+// response (active), and a scheduled flag. The global roundRobin holds the ids
+// of clients with work; the pump shifts one at a time, serves a bounded slice,
+// and re-appends if more work remains.
 //
 // Go adaptations (documented vs TS behaviour):
 //
-//  1. Caller-owned buffering / consumed return (vs TS socket-wrapper buffering):
-//     In TS, ClientSocket.available tracks buffered bytes; onClientData reads
-//     directly from the socket wrapper. In Go, each connection goroutine owns
-//     its read buffer. onClientData therefore accepts a []byte slice and returns
-//     the number of bytes consumed. The caller keeps any trailing partial frame
-//     (<4 bytes) in its buffer for the next read — mirroring TS OnDemand.ts:47-49
-//     (client.available < 4 → return) but placed at the caller level.
+//  1. Goroutine pump vs worker thread:
+//     TS runs OnDemandThread as a worker thread driven by parentPort messages
+//     and setImmediate(pump). Go runs a single pump goroutine (onDemand.run)
+//     that blocks on a buffered signal channel (cap 1). enqueue/clientClosed
+//     are called from the per-connection goroutines under od.mu, then signal
+//     the pump. This replaces TS schedulePump()/setImmediate.
 //
-//  2. state==2 gate lives at the caller (vs TS OnDemand.ts:43-45):
-//     TS onClientData checks client.state !== 2 and returns early. In Go the
-//     connection goroutine (conn_handler.go) only routes bytes to onClientData
-//     when the connection is already in the OnDemand state, so the guard is
-//     enforced before the call. This is documented here to preserve TS parity
-//     intent (OnDemand.ts:42-45).
+//  2. No MAX_PUMP_MS bound:
+//     TS bounds the pump loop to 8ms so it yields back to the event loop
+//     (its socket writes, message handling, etc. all run on that one loop).
+//     In Go there is no shared event loop to starve: the conn goroutines
+//     enqueue concurrently under od.mu while the pump runs, and the pump
+//     picks them up on its next roundRobin pass. So the pump drains the
+//     roundRobin to empty, then blocks on the signal — the per-client slice
+//     cap (MAX_BYTES_PER_CLIENT_SLICE / MAX_CHUNKS_PER_CLIENT_SLICE) is what
+//     preserves round-robin fairness + priority preemption, NOT the time
+//     bound. visitsRemaining (= roundRobin length at the start of a drain
+//     pass) is still honoured so a client re-appended mid-pass waits for the
+//     next pass — matching TS's per-pump fairness.
 //
 //  3. Queue mutex for goroutine safety:
-//     TS runs in a single-threaded event loop. Go uses per-connection goroutines
-//     that enqueue concurrently while the cycle goroutine drains.
-//     mu guards all three queues.
+//     od.mu guards the clients map, roundRobin, every clientQueue's fields,
+//     and the pumpSignal bookkeeping. The pump takes od.mu to select the next
+//     client + the next request/chunk, then RELEASES it for the actual
+//     cache.Read + client.send (both potentially slow / blocking I/O). This
+//     keeps enqueue latency flat — conn goroutines never block on a long send.
 //
-//  4. cycle() pop-all-then-send pattern (vs TS in-place splice):
-//     TS OnDemand.ts:21-25 splices each element as it processes (i-- after
-//     splice), draining the array while iterating. Go pops all entries under mu
-//     in one shot, then sends outside the lock. This keeps enqueue latency flat
-//     (conn goroutines never block waiting for the cycle lock during a long send)
-//     and is behaviourally equivalent: any requests arriving while sends are in
-//     progress accumulate in the queue for the next cycle.
+//  4. cacheMu guards every cache access — FileStream is not concurrency-safe.
+//     Held only for the cache.Read, separately from od.mu.
 //
-//  5. 50ms run loop via time.Ticker (vs TS setTimeout re-arm):
-//     TS OnDemand.ts:39: setTimeout(this.cycle.bind(this), 50) re-arms each
-//     cycle. Go's run() uses a time.Ticker(50ms) which fires independently of
-//     send duration — a long send can overlap the next tick, but since cycle()
-//     is only called from the single run() goroutine there is no concurrent
-//     cycle execution.
+//  5. send error handling:
+//     TS postChunk is fire-and-forget. Go's odClient.send() returns an error;
+//     on error we abandon the active response for that client (drop it) but do
+//     NOT close — the connection's own read goroutine detects the dead socket
+//     and closes it (which fires clientClosed). Connection lifecycle stays
+//     conn-goroutine-owned.
 //
-//  6. send error handling:
-//     TS OnDemand.ts:109 calls client.send(…) with no error path (fire-and-
-//     forget, matches the TS event-loop model). Go's odClient.send() returns
-//     an error; on the first error we stop sending further chunks to that
-//     client but do NOT close the connection — the connection's own read
-//     goroutine will detect the dead socket and close it independently. This
-//     avoids a race between the cycle goroutine and the conn goroutine on
-//     connection teardown, and matches the least-surprise local convention
-//     (connection lifecycle is conn-goroutine-owned).
-//
-//  7. FileStream decompress=false (matches TS default):
-//     TS FileStream.ts:43: read(archive, file, decompress = false). The TS
-//     OnDemand.ts:88 call site passes only two arguments, so decompress=false.
-//     Go's Read(archive, file, false) matches this exactly.
+//  6. FileStream decompress=false (TS OnDemandThread.ts cache.read(archive+1,
+//     file) passes no decompress arg → false).
 
 import (
+	"strconv"
 	"sync"
-	"time"
 
 	"github.com/zsrv/goscape/pkg/io/filestream"
 )
 
+// OnDemandThread.ts:48-51 constants.
+const (
+	maxPendingPerClient     = 2048
+	maxBytesPerClientSlice  = 8000
+	maxChunksPerClientSlice = 16
+)
+
 // odClient is the writer/closer seam OnDemand needs from a connection.
-// The production adapter wraps *client (wired in the next task); tests use
-// fakes. The methods are deliberately unexported and narrower than
-// io.Closer: close() is fire-and-forget (mirroring TS client.close(),
-// which returns nothing — OnDemand has no error path for a failed close).
+// The production adapter wraps *client; tests use fakes.
+//
+// id() is the STABLE per-connection identity used as the clientQueue map key
+// and the roundRobin entry. The production *client mints it once at
+// newClient (a uuid), so it survives across the many transient
+// clientODAdapter values created per onClientData call (server.go:1056).
 type odClient interface {
 	send(data []byte) error
 	close()
+	id() string
 }
 
-// odRequest mirrors OnDemandRequest in OnDemand.ts:5-9.
+// odRequest mirrors PendingRequest in OnDemandThread.ts:31-38.
 type odRequest struct {
-	client  odClient
-	archive int
-	file    int
+	archive   int
+	file      int
+	priority  int
+	key       string
+	cancelled bool
 }
 
-// onDemand holds the three priority queues and the cache handle.
-// It mirrors the OnDemand class fields at OnDemand.ts:11-16.
-type onDemand struct {
-	mu     sync.Mutex  // guards urgent/extra/ingame (conn goroutines enqueue; cycle goroutine drains)
-	urgent []odRequest // priority 2 — needed ASAP (OnDemand.ts:14)
-	extra  []odRequest // priority 1 — not logged in, preloading extras (OnDemand.ts:15)
-	ingame []odRequest // priority 0/else — logged in, preloading extras (OnDemand.ts:16)
+// odActive mirrors ActiveResponse in OnDemandThread.ts:40-45: an in-progress
+// chunked response. data is the full file bytes (nil → rejection); pos is the
+// next byte to send; part is the 0-based chunk index.
+type odActive struct {
+	req  odRequest
+	data []byte
+	pos  int
+	part int
+}
 
-	// cacheMu guards every cache access — FileStream is not
-	// concurrency-safe (B1 port doc). Acquired by the cycle goroutine's
-	// send path (next task) and by any reload-time CRC rebuild; nothing
-	// in the parse/enqueue half touches the cache.
+// clientQueue mirrors ClientQueue in OnDemandThread.ts:47-55. Holds one
+// client's three priority queues, the key→request dedup map, the in-progress
+// response, and the scheduled flag. All fields are guarded by onDemand.mu.
+type clientQueue struct {
+	c            odClient
+	queues       [3][]*odRequest // queues[priority]; index 2 = urgent
+	pendingByKey map[string]*odRequest
+	pendingCount int
+	active       *odActive
+	scheduled    bool
+}
+
+// onDemand holds the per-client queues, the global round-robin schedule, and
+// the cache handle. Mirrors the module-level state in OnDemandThread.ts:71-77.
+type onDemand struct {
+	mu         sync.Mutex // guards clients, roundRobin, every clientQueue
+	clients    map[string]*clientQueue
+	roundRobin []string
+
+	// pumpSignal wakes the pump goroutine. Buffered cap 1: a signal while one
+	// is already queued is a no-op (the pump drains everything each wake).
+	// Replaces TS schedulePump()/setImmediate (OnDemandThread.ts:159-166).
+	pumpSignal chan struct{}
+
+	// cacheMu guards every cache access — FileStream is not concurrency-safe.
 	cacheMu sync.Mutex
 	cache   *filestream.FileStream // nil-able in parse-only / unit tests
 }
@@ -98,170 +133,325 @@ type onDemand struct {
 // newOnDemand constructs an onDemand with an optional cache (nil for tests that
 // only exercise parsing/enqueueing, not the send path).
 func newOnDemand(cache *filestream.FileStream) *onDemand {
-	return &onDemand{cache: cache}
-}
-
-// cycle drains all three queues — urgent, then extra, then ingame — in FIFO
-// order within each queue, mirroring OnDemand.ts:18-37. The TS comment
-// "todo: limit requests per client per cycle" is preserved as-is; the limit
-// is not implemented (matching TS state at pin 9aadcec4).
-//
-// All pending entries are popped under mu in a single batch per queue, then
-// sent outside the lock — see adaptation note (4) above.
-func (od *onDemand) cycle() {
-	// Pop urgent.
-	od.mu.Lock()
-	urgentSnap := od.urgent
-	od.urgent = nil
-	od.mu.Unlock()
-	for _, req := range urgentSnap {
-		od.send(req.client, req.archive, req.file)
-	}
-
-	// Pop extra.
-	od.mu.Lock()
-	extraSnap := od.extra
-	od.extra = nil
-	od.mu.Unlock()
-	for _, req := range extraSnap {
-		od.send(req.client, req.archive, req.file)
-	}
-
-	// Pop ingame.
-	od.mu.Lock()
-	ingameSnap := od.ingame
-	od.ingame = nil
-	od.mu.Unlock()
-	for _, req := range ingameSnap {
-		od.send(req.client, req.archive, req.file)
+	return &onDemand{
+		clients:    make(map[string]*clientQueue),
+		pumpSignal: make(chan struct{}, 1),
+		cache:      cache,
 	}
 }
 
-// run executes the 50ms OnDemand cycle loop, mirroring the re-arm chain
-// begun by OnDemand.ts:39 (setTimeout(this.cycle.bind(this), 50)).
-// It blocks until stop is closed (called by the world service shutdown).
+// signalPump wakes the pump goroutine (non-blocking; coalesces). Mirrors TS
+// schedulePump() (OnDemandThread.ts:159-166) but without the event-loop
+// debounce — the buffered cap-1 channel is the debounce.
+func (od *onDemand) signalPump() {
+	select {
+	case od.pumpSignal <- struct{}{}:
+	default:
+	}
+}
+
+// getClient returns the clientQueue for c.id(), creating it if absent.
+// Mirrors OnDemandThread.ts:128-145. Caller must hold od.mu.
+func (od *onDemand) getClient(c odClient) *clientQueue {
+	id := c.id()
+	if cq, ok := od.clients[id]; ok {
+		return cq
+	}
+	cq := &clientQueue{
+		c:            c,
+		pendingByKey: make(map[string]*odRequest),
+	}
+	od.clients[id] = cq
+	return cq
+}
+
+// scheduleClient appends the client to the round-robin if not already on it.
+// Mirrors OnDemandThread.ts:147-154. Caller must hold od.mu.
+func (od *onDemand) scheduleClient(cq *clientQueue) {
+	if cq.scheduled {
+		return
+	}
+	cq.scheduled = true
+	od.roundRobin = append(od.roundRobin, cq.c.id())
+}
+
+// enqueue validates and adds a request, performing dedup, priority-cancel, and
+// MAX_PENDING enforcement. Mirrors OnDemandThread.ts:91-126. Caller must hold
+// od.mu. Returns false if the client must be closed (caller closes outside the
+// lock so close() never runs under od.mu).
+func (od *onDemand) enqueue(c odClient, archive, file, priority int) (ok bool) {
+	if archive < 0 || archive > 3 || priority < 0 || priority > 2 {
+		return false
+	}
+
+	cq := od.getClient(c)
+	key := odKey(archive, file)
+
+	// Same key as the in-progress response → ignore (OnDemandThread.ts:102-104).
+	if cq.active != nil && cq.active.req.key == key {
+		return true
+	}
+
+	// Existing pending with same key: keep the higher priority; if the new one
+	// is strictly higher, cancel the existing (OnDemandThread.ts:106-113).
+	if existing, found := cq.pendingByKey[key]; found {
+		if existing.priority >= priority {
+			return true
+		}
+		existing.cancelled = true
+		cq.pendingCount--
+	}
+
+	if cq.pendingCount >= maxPendingPerClient {
+		return false
+	}
+
+	req := &odRequest{archive: archive, file: file, priority: priority, key: key}
+	cq.queues[priority] = append(cq.queues[priority], req)
+	cq.pendingByKey[key] = req
+	cq.pendingCount++
+	od.scheduleClient(cq)
+	return true
+}
+
+func odKey(archive, file int) string {
+	// TS uses `${archive}:${file}`; the exact string only needs to be a stable
+	// per-(archive,file) key, but we mirror the TS form for parity.
+	return strconv.Itoa(archive) + ":" + strconv.Itoa(file)
+}
+
+// pump drains the round-robin: one visit per scheduled client (as of the start
+// of the pass), serving a bounded slice each. Re-schedules clients with
+// remaining work; deletes those without. Loops until the round-robin is empty.
+// Mirrors OnDemandThread.ts:168-200 (sans MAX_PUMP_MS — see adaptation (2)).
+func (od *onDemand) pump() {
+	for {
+		od.mu.Lock()
+		visits := len(od.roundRobin)
+		if visits == 0 {
+			od.mu.Unlock()
+			return
+		}
+		od.mu.Unlock()
+
+		for ; visits > 0; visits-- {
+			od.mu.Lock()
+			if len(od.roundRobin) == 0 {
+				od.mu.Unlock()
+				break
+			}
+			id := od.roundRobin[0]
+			od.roundRobin = od.roundRobin[1:]
+			cq, ok := od.clients[id]
+			if !ok {
+				// Client was deleted (clientClosed) while on the round-robin —
+				// skip it, mirroring TS clients.get(clientId) miss → continue.
+				od.mu.Unlock()
+				continue
+			}
+			cq.scheduled = false
+			od.mu.Unlock()
+
+			od.serveClient(cq)
+
+			od.mu.Lock()
+			if od.hasWork(cq) {
+				od.scheduleClient(cq)
+			} else {
+				delete(od.clients, cq.c.id())
+			}
+			od.mu.Unlock()
+		}
+	}
+}
+
+// serveClient sends up to one bounded slice of chunks for the client: at most
+// MAX_CHUNKS_PER_CLIENT_SLICE chunks and MAX_BYTES_PER_CLIENT_SLICE bytes.
+// Mirrors OnDemandThread.ts:202-228.
 //
-// stop is chan interface{} to match the Server.quit field type used
-// throughout the world module for shutdown signalling.
+// od.mu is acquired per-step to advance the active response / pick the next
+// request, then RELEASED for cache.Read and client.send (slow I/O).
+func (od *onDemand) serveClient(cq *clientQueue) {
+	bytesSent := 0
+	chunks := 0
+
+	for bytesSent < maxBytesPerClientSlice && chunks < maxChunksPerClientSlice {
+		od.mu.Lock()
+		if cq.active == nil {
+			req := od.nextRequest(cq)
+			if req == nil {
+				od.mu.Unlock()
+				return
+			}
+			cq.active = &odActive{req: *req}
+			// Read the file under cacheMu (FileStream not concurrency-safe).
+			od.mu.Unlock()
+			od.cacheMu.Lock()
+			if od.cache != nil {
+				cq.active.data = od.cache.Read(req.archive+1, req.file, false)
+			}
+			od.cacheMu.Unlock()
+			od.mu.Lock()
+		}
+
+		frame := nextChunk(cq.active)
+		active := cq.active
+		// active becomes nil when the file is fully sent (or it was a
+		// rejection: data==nil → one frame then done).
+		if active.data == nil || active.pos >= len(active.data) {
+			cq.active = nil
+		}
+		od.mu.Unlock()
+
+		if err := cq.c.send(frame); err != nil {
+			// Drop the in-progress response on send error; do not close (see
+			// adaptation (5)). The conn read goroutine will close + clientClosed.
+			od.mu.Lock()
+			cq.active = nil
+			od.mu.Unlock()
+			return
+		}
+		bytesSent += len(frame)
+		chunks++
+	}
+}
+
+// nextRequest pops the next non-cancelled request, scanning priority 2→0.
+// Mirrors OnDemandThread.ts:230-247. Caller must hold od.mu.
+func (od *onDemand) nextRequest(cq *clientQueue) *odRequest {
+	for priority := 2; priority >= 0; priority-- {
+		q := cq.queues[priority]
+		for len(q) > 0 {
+			req := q[0]
+			q = q[1:]
+			if req.cancelled {
+				continue
+			}
+			cq.queues[priority] = q
+			delete(cq.pendingByKey, req.key)
+			cq.pendingCount--
+			return req
+		}
+		cq.queues[priority] = q
+	}
+	return nil
+}
+
+// nextChunk builds the next ≤500-byte chunk frame for an active response,
+// advancing pos/part. A nil data field yields one 6-byte rejection frame
+// (length=0, part=0). Mirrors OnDemandThread.ts:249-261 + encodeChunk
+// (:263-277). The 6-byte header layout is byte-identical to the 254 send.
+func nextChunk(a *odActive) []byte {
+	if a.data == nil {
+		return encodeChunk(a.req.archive, a.req.file, 0, 0, nil)
+	}
+	remaining := len(a.data) - a.pos
+	if remaining > 500 {
+		remaining = 500
+	}
+	frame := encodeChunk(a.req.archive, a.req.file, len(a.data), a.part, a.data[a.pos:a.pos+remaining])
+	a.pos += remaining
+	a.part++
+	return frame
+}
+
+// encodeChunk builds a chunk frame: 6-byte header + payload. Mirrors
+// OnDemandThread.ts:263-277 (and goscape's prior 254 send layout exactly).
+//
+//	byte 0:    archive
+//	bytes 1-2: file     (big-endian)
+//	bytes 3-4: length   (big-endian; full file length, 0 for a rejection)
+//	byte 5:    part     (0-based chunk index)
+func encodeChunk(archive, file, length, part int, payload []byte) []byte {
+	frame := make([]byte, 6+len(payload))
+	frame[0] = byte(archive)
+	frame[1] = byte(file >> 8)
+	frame[2] = byte(file)
+	frame[3] = byte(length >> 8)
+	frame[4] = byte(length)
+	frame[5] = byte(part)
+	copy(frame[6:], payload)
+	return frame
+}
+
+// hasWork reports whether the client has an active response or pending requests.
+// Mirrors OnDemandThread.ts:279-281. Caller must hold od.mu.
+func (od *onDemand) hasWork(cq *clientQueue) bool {
+	return cq.active != nil || cq.pendingCount > 0
+}
+
+// run drives the pump: block on the signal channel, then drain the round-robin
+// to empty. Replaces the old 254 50ms ticker. Mirrors the TS
+// schedulePump→pump wake chain (OnDemandThread.ts:159-200), but the goroutine
+// loops the round-robin to empty per wake instead of re-arming via setImmediate.
+//
+// stop is chan interface{} to match Server.quit used throughout the world
+// module for shutdown signalling.
 func (od *onDemand) run(stop <-chan interface{}) {
-	ticker := time.NewTicker(50 * time.Millisecond)
-	defer ticker.Stop()
 	for {
 		select {
 		case <-stop:
 			return
-		case <-ticker.C:
-			od.cycle()
+		case <-od.pumpSignal:
+			od.pump()
 		}
 	}
 }
 
-// send reads archive+1, file from the cache and streams it to the client in
-// ≤500-byte chunks, each prefixed by a 6-byte header. If the file is absent
-// (cache.Read returns nil) a single 6-byte rejection frame is sent instead.
+// onClientData parses whole 4-byte OnDemand request frames from data and
+// enqueues them per-client. Returns the number of bytes consumed; the caller
+// retains any trailing partial frame (<4 bytes) for the next call.
 //
-// Mirrors OnDemand.ts:87-120. Decompress=false matches the TS default
-// (FileStream.ts:43) — see adaptation note (7) above.
+// Frame layout (OnDemandThread request, byte-identical to 254):
 //
-// Header layout per chunk (OnDemand.ts:100-104, mirroring Packet p1/p2/p2/p1):
+//	byte 0:    archive  (g1)
+//	bytes 1-2: file     (g2, big-endian)
+//	byte 3:    priority (g1)
 //
-//	byte 0:    archive  (p1)
-//	bytes 1-2: file     (p2, big-endian)
-//	bytes 3-4: totalLen (p2, big-endian) — always the full file length
-//	byte 5:    part     (p1, 0-based chunk index)
+// Rejection (OnDemandThread.ts:92-95): archive∉[0,3] || priority∉[0,2] → close
+// the connection and return immediately, abandoning remaining buffer bytes.
 //
-// On send error: further chunks for this request are skipped; the connection
-// is NOT closed here (see adaptation note (6) above).
-func (od *onDemand) send(c odClient, archive, file int) {
-	od.cacheMu.Lock()
-	var data []byte
-	if od.cache != nil {
-		// TS OnDemand.ts:88: this.cache.read(archive + 1, file)
-		// decompress=false mirrors TS FileStream.ts:43 default.
-		data = od.cache.Read(archive+1, file, false)
-	}
-	od.cacheMu.Unlock()
-
-	if data != nil {
-		// TS OnDemand.ts:91-110: chunked send loop.
-		totalLen := len(data)
-		pos := 0
-		part := 0
-		for pos < totalLen {
-			remaining := totalLen - pos
-			if remaining > 500 {
-				remaining = 500
-			}
-			frame := make([]byte, 6+remaining)
-			frame[0] = byte(archive)
-			frame[1] = byte(file >> 8)
-			frame[2] = byte(file)
-			frame[3] = byte(totalLen >> 8)
-			frame[4] = byte(totalLen)
-			frame[5] = byte(part)
-			copy(frame[6:], data[pos:pos+remaining])
-			if err := c.send(frame); err != nil {
-				// Stop sending further chunks to this client on error;
-				// do not close — see adaptation note (6).
-				return
-			}
-			pos += remaining
-			part++
-		}
-	} else {
-		// TS OnDemand.ts:112-118: "rejected if size=0" — single 6-byte frame.
-		frame := []byte{
-			byte(archive),
-			byte(file >> 8), byte(file),
-			0, 0, // p2(0) — totalLen=0 signals rejection to the client
-			0, // p1(0) — part=0
-		}
-		c.send(frame) //nolint:errcheck // fire-and-forget, mirrors TS
-	}
-}
-
-// onClientData parses whole 4-byte OnDemand request frames from data and enqueues
-// them by priority. It returns the number of bytes consumed; the caller must
-// retain any trailing partial frame (<4 bytes) for the next call.
-//
-// Frame layout (OnDemand.ts:56-58, mirroring Packet g1/g2/g1):
-//
-//	byte 0:   archive  (g1)
-//	bytes 1-2: file    (g2, big-endian)
-//	byte 3:   priority (g1)
-//
-// Rejection (OnDemand.ts:60-63): archive > 3 || priority > 2 → close the
-// connection and return immediately, abandoning any remaining buffer bytes.
-//
-// Note: the state==2 guard (OnDemand.ts:43-45) is enforced at the caller;
-// see package-level adaptation note (2) above.
+// Signals the pump once after enqueuing so a request is served immediately
+// (the fix for slow NPC chat-head model delivery — no 50ms wait).
 func (od *onDemand) onClientData(c odClient, data []byte) (consumed int) {
+	enqueued := false
 	for len(data)-consumed >= 4 {
 		i := consumed
 		archive := int(data[i])
 		file := int(data[i+1])<<8 | int(data[i+2])
 		priority := int(data[i+3])
 
-		// OnDemand.ts:60-63: reject invalid archive/priority, close and return immediately.
-		if archive > 3 || priority > 2 {
+		od.mu.Lock()
+		ok := od.enqueue(c, archive, file, priority)
+		od.mu.Unlock()
+		if !ok {
+			// Invalid request OR over MAX_PENDING → close + return immediately
+			// (TS enqueue closeClient paths, OnDemandThread.ts:93/116).
 			c.close()
+			if enqueued {
+				od.signalPump()
+			}
 			return consumed
 		}
-
-		req := odRequest{client: c, archive: archive, file: file}
-
-		od.mu.Lock()
-		switch priority {
-		case 2: // urgent (OnDemand.ts:65-70)
-			od.urgent = append(od.urgent, req)
-		case 1: // extra (OnDemand.ts:71-76)
-			od.extra = append(od.extra, req)
-		default: // ingame — priority 0 and anything else ≤2 (OnDemand.ts:77-82)
-			od.ingame = append(od.ingame, req)
-		}
-		od.mu.Unlock()
-
+		enqueued = true
 		consumed += 4
 	}
+	if enqueued {
+		od.signalPump()
+	}
 	return consumed
+}
+
+// clientClosed removes a client's queue and round-robin entry. Mirrors TS
+// deleteClient (OnDemandThread.ts:289-302) driven by the 'client_closed'
+// message. Wired into the connection-close path (server.go handleTCPConn
+// teardown) so a disconnected client's queue + round-robin entry don't leak.
+//
+// The round-robin entry (if mid-pass) is left to the pump's clients.get miss
+// to skip — we only delete from the clients map here, matching TS, which does
+// NOT splice the round-robin (the pump's lookup miss handles it).
+func (od *onDemand) clientClosed(c odClient) {
+	od.mu.Lock()
+	delete(od.clients, c.id())
+	od.mu.Unlock()
 }

@@ -798,9 +798,10 @@ func (s *Server) Run() error {
 		s.runTickLoop()
 	}()
 
-	// OnDemand.ts:357 (World.ts): OnDemand.cycle() is started once when the
-	// world is ready, alongside the tick loop. Go uses a dedicated goroutine
-	// running a 50ms ticker (onDemand.run) stopped by the same s.quit signal.
+	// rev-274 Task 22a: the OnDemand pump goroutine is started once when the
+	// world is ready, alongside the tick loop. It blocks on a signal channel
+	// (woken per enqueue) and drains the per-client round-robin — the 254 50ms
+	// ticker is gone (TS OnDemandThread.ts @dee467c8). Stopped by s.quit.
 	s.odWg.Add(1)
 	go func() {
 		defer s.odWg.Done()
@@ -957,6 +958,12 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		if c.player != nil {
 			s.removePlayerOnDisconnect(c.player)
 			c.player = nil
+		}
+		// rev-274 Task 22a: drop this connection's OnDemand queue + round-robin
+		// entry (TS OnDemandThread 'client_closed' → deleteClient). Harmless for
+		// non-ondemand connections (the connID was never inserted → map miss).
+		if s.onDemand != nil {
+			s.onDemand.clientClosed(&clientODAdapter{c: c})
 		}
 		if err := c.flushWrite(); err != nil {
 			s.log.Warn("failed to flush on connection close", "error", err, "remote_addr", conn.RemoteAddr())
