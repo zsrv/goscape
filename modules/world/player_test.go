@@ -70,7 +70,7 @@ func TestReadPacketNoTimeoutConsumesAndResetsOpcode(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	// NO_TIMEOUT: opcode 107 (244), payload size 0
+	// NO_TIMEOUT: opcode 120 (274), payload size 0
 	p.client.in.Write([]byte{encryptOpcode(enc, gameclient.OpcNoTimeout)})
 
 	opcode, ok, _, err := p.readPacket()
@@ -96,7 +96,7 @@ func TestReadPacketMoveGameClickFullPacket(t *testing.T) {
 	s := newTestServer(t)
 	p.client.server = s
 
-	// MOVE_GAMECLICK: opcode 63 (244), 1-byte length prefix
+	// MOVE_GAMECLICK: opcode 207 (274), 1-byte length prefix
 	// Payload: ctrlHeld(1) + startX G2(2) + startZ G2(2) = 5 bytes
 	payload := []byte{0, 0x0C, 0xA4, 0x0C, 0x8B}
 	var buf []byte
@@ -221,7 +221,7 @@ func TestProcessInUserEventRateLimit(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	// CLOSE_MODAL: opcode 187 (244), USER_EVENT, 0-byte payload — just the opcode byte
+	// CLOSE_MODAL: opcode 51 (274), USER_EVENT, 0-byte payload — just the opcode byte
 	var buf []byte
 	for range 6 {
 		buf = append(buf, encryptOpcode(enc, gameclient.OpcCloseModal))
@@ -244,7 +244,7 @@ func TestProcessInClientEventRateLimit(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	// NO_TIMEOUT: opcode 107 (244), CLIENT_EVENT, 0-byte payload
+	// NO_TIMEOUT: opcode 120 (274), CLIENT_EVENT, 0-byte payload
 	var buf []byte
 	for range 21 {
 		buf = append(buf, encryptOpcode(enc, gameclient.OpcNoTimeout))
@@ -278,10 +278,10 @@ func TestProcessInClientEventRateLimit(t *testing.T) {
 // REAL user-event packet that arrived in the same tick was throttled or
 // dropped based on bookkeeping it should have been billing.
 //
-// ANTICHEAT_OPLOGIC1 (opcode 47, CategoryClientEvent, fixed 4-byte payload)
+// ANTICHEAT_OPLOGIC1 (opcode 219, CategoryClientEvent, fixed 4-byte payload)
 // is registered in gameclient.Ops but has no entry in gameHandlers, so it
 // exercises the handler-nil branch of readPacket.
-// Five consecutive opcode-47 packets should leave clientLimit at 0 post-fix;
+// Five consecutive opcode-219 packets should leave clientLimit at 0 post-fix;
 // the other two limit counters likewise stay at 0 as a cross-category guard.
 //
 // Toggle-revert RED proof: drop the `if !handled { continue }` guard in
