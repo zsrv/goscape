@@ -77,11 +77,13 @@ type Npc struct {
 	waypointIndex   int
 	waypoints       [25]int
 	tele            bool
-	// jump mirrors TS PathingEntity.jump (PathingEntity.ts:47 @dee467c8): set
-	// on teleJump / level-change teleport / >2-tile move (validateDistanceWalked),
-	// reset each tick in resetPathingEntity. Consumed by rsbuf.ComputeNpc → the
-	// NpcInfo add-leaf jump bit (rev-274; previously player-only — TS now reads
-	// npc.jump in World.ts computeNpc).
+	// jump mirrors TS PathingEntity.jump (PathingEntity.ts:47 @dee467c8). The
+	// base class is also set by teleJump, but NPCs have no teleJump path
+	// (player-only); for NPCs jump is set on level-change teleport and on a
+	// >2-tile move (validateDistanceWalked), and reset each tick in
+	// resetPathingEntity. Consumed by rsbuf.ComputeNpc → the NpcInfo add-leaf
+	// jump bit (rev-274; previously player-only — TS now reads npc.jump in
+	// World.ts computeNpc).
 	jump       bool
 	stepsTaken int
 	// NAI-82 (writer) + NAI-125 (reader): TS PathingEntity.lastMovement
