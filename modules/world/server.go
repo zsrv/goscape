@@ -1161,6 +1161,10 @@ func (c *client) handleLogin() error {
 		}
 		c.lowMemory = req.LowMemory
 
+		// rev-274: the revision arrives as g1 with a 0xff→g2 escape
+		// (World.ts:2136-2138 @dee467c8) — decoded in UnmarshalHeader.
+		// Mismatch → reply 6 "RuneScape has been updated!" + close
+		// (World.ts:2140-2143).
 		if req.Revision != expectedRevision {
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}

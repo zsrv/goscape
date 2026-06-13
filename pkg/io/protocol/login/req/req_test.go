@@ -1,6 +1,7 @@
 package req
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
@@ -11,10 +12,19 @@ import (
 // RSA tail. The header payload is rev(1) + info(1) + 9*4 checksums = 38 bytes,
 // so payload size is set to 38 and the packet ends after the checksums.
 func buildLoginHeader(rev, info byte) []byte {
+	return buildLoginHeaderRevBytes([]byte{rev}, info)
+}
+
+// buildLoginHeaderRevBytes is buildLoginHeader with raw control over the
+// revision wire bytes — a single byte for rev <= 254, or the 0xff escape
+// marker followed by a u2 (TS World.ts:2136-2138 @dee467c8).
+func buildLoginHeaderRevBytes(revBytes []byte, info byte) []byte {
 	p := packet.NewPacket(nil)
 	p.P1(OpReqInitGameConnection.Opcode)
-	p.P1(38) // payload size: rev + info + 9*4 checksums
-	p.P1(rev)
+	p.P1(byte(len(revBytes) + 1 + 9*4)) // payload size: rev bytes + info + 9*4 checksums
+	for _, rb := range revBytes {
+		p.P1(rb)
+	}
 	p.P1(info)
 	for range 9 {
 		p.P4(0)
@@ -71,6 +81,47 @@ func TestUnmarshalHeader_DecodesWithoutRSABlock(t *testing.T) {
 	}
 }
 
+func TestUnmarshalHeader_ExtendedRevisionEscape(t *testing.T) {
+	// rev-274: TS World.ts:2136-2138 @dee467c8 reads the revision as g1 and
+	// escapes 0xff to a g2 extended read — 274 does not fit in one byte. The
+	// 274 Java client transmits p1(255) + p2(274) (Client.java:3586-3587
+	// @32f30626). The single-byte path survives for rev <= 254 clients, and
+	// the escape can also carry small values (0xff 0x00 0xfe → 254).
+	tests := []struct {
+		name     string
+		revBytes []byte
+		want     uint16
+	}{
+		{"escaped_274", []byte{0xff, 0x01, 0x12}, 274},
+		{"single_byte_254", []byte{0xfe}, 254},
+		{"escaped_254", []byte{0xff, 0x00, 0xfe}, 254},
+		{"single_byte_225", []byte{225}, 225},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var q GameLogin
+			r := packet.NewPacket(buildLoginHeaderRevBytes(tt.revBytes, 1))
+			if err := q.UnmarshalHeader(r); err != nil {
+				t.Fatalf("UnmarshalHeader: %v", err)
+			}
+			if q.Revision != tt.want {
+				t.Errorf("Revision: got %d, want %d", q.Revision, tt.want)
+			}
+			// The escape must not desync the rest of the header: the info
+			// byte (1 → LowMemory) and the 9 zero checksums follow the
+			// revision bytes immediately.
+			if !q.LowMemory {
+				t.Error("LowMemory: got false, want true — revision read desynced the header")
+			}
+			for i, c := range q.ArchiveChecksums {
+				if c != 0 {
+					t.Errorf("ArchiveChecksums[%d]: got %d, want 0", i, c)
+				}
+			}
+		})
+	}
+}
+
 func TestUnmarshalBinary_TruncatedRSABlockPanics(t *testing.T) {
 	// Root-cause reproduction for gap-login-wire-1: the RS2 packet read
 	// methods (G1/GData) panic on under-read rather than returning errors, so
@@ -112,35 +163,41 @@ func TestUnmarshalBinary_TruncatedRSABlockPanics(t *testing.T) {
 func TestGameLogin_RoundTrip(t *testing.T) {
 	// Confirms the header/RSA split (L37) still round-trips end-to-end:
 	// MarshalBinary (client, RSA-encrypts) → UnmarshalBinary (server), which
-	// now decodes via UnmarshalHeader + UnmarshalRSA.
-	orig := GameLogin{
-		Username:         "tester",
-		Password:         "secret",
-		ArchiveChecksums: [9]uint32{1, 2, 3, 4, 5, 6, 7, 8, 9},
-		ISAACSeed:        [4]uint32{0xdead, 0xbeef, 0xcafe, 0xf00d},
-		UID:              0x12345678,
-		Revision:         225,
-		LowMemory:        true,
-	}
-	data, err := orig.MarshalBinary()
-	if err != nil {
-		t.Fatalf("MarshalBinary: %v", err)
-	}
-	var got GameLogin
-	if err := got.UnmarshalBinary(data); err != nil {
-		t.Fatalf("UnmarshalBinary: %v", err)
-	}
-	if got.Username != orig.Username || got.Password != orig.Password {
-		t.Errorf("creds: got %q/%q, want %q/%q", got.Username, got.Password, orig.Username, orig.Password)
-	}
-	if got.UID != orig.UID || got.Revision != orig.Revision || got.LowMemory != orig.LowMemory {
-		t.Errorf("scalars: got UID=%#x rev=%d low=%v, want %#x/%d/%v",
-			got.UID, got.Revision, got.LowMemory, orig.UID, orig.Revision, orig.LowMemory)
-	}
-	if got.ArchiveChecksums != orig.ArchiveChecksums {
-		t.Errorf("checksums: got %v, want %v", got.ArchiveChecksums, orig.ArchiveChecksums)
-	}
-	if got.ISAACSeed != orig.ISAACSeed {
-		t.Errorf("seed: got %v, want %v", got.ISAACSeed, orig.ISAACSeed)
+	// now decodes via UnmarshalHeader + UnmarshalRSA. rev-274: 225 exercises
+	// the single-byte revision encoding, 274 the 0xff+u2 escape (TS
+	// World.ts:2136-2138 @dee467c8; Client.java:3586-3587 @32f30626).
+	for _, rev := range []uint16{225, 274} {
+		t.Run(fmt.Sprintf("rev%d", rev), func(t *testing.T) {
+			orig := GameLogin{
+				Username:         "tester",
+				Password:         "secret",
+				ArchiveChecksums: [9]uint32{1, 2, 3, 4, 5, 6, 7, 8, 9},
+				ISAACSeed:        [4]uint32{0xdead, 0xbeef, 0xcafe, 0xf00d},
+				UID:              0x12345678,
+				Revision:         rev,
+				LowMemory:        true,
+			}
+			data, err := orig.MarshalBinary()
+			if err != nil {
+				t.Fatalf("MarshalBinary: %v", err)
+			}
+			var got GameLogin
+			if err := got.UnmarshalBinary(data); err != nil {
+				t.Fatalf("UnmarshalBinary: %v", err)
+			}
+			if got.Username != orig.Username || got.Password != orig.Password {
+				t.Errorf("creds: got %q/%q, want %q/%q", got.Username, got.Password, orig.Username, orig.Password)
+			}
+			if got.UID != orig.UID || got.Revision != orig.Revision || got.LowMemory != orig.LowMemory {
+				t.Errorf("scalars: got UID=%#x rev=%d low=%v, want %#x/%d/%v",
+					got.UID, got.Revision, got.LowMemory, orig.UID, orig.Revision, orig.LowMemory)
+			}
+			if got.ArchiveChecksums != orig.ArchiveChecksums {
+				t.Errorf("checksums: got %v, want %v", got.ArchiveChecksums, orig.ArchiveChecksums)
+			}
+			if got.ISAACSeed != orig.ISAACSeed {
+				t.Errorf("seed: got %v, want %v", got.ISAACSeed, orig.ISAACSeed)
+			}
+		})
 	}
 }
