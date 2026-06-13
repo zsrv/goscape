@@ -8,11 +8,11 @@ import (
 // TestNewServer_LoadsWordencFilter pins that NewServer populates s.wordenc from
 // the raw wordenc jagfile. Rev-244: TS dropped the existence check and
 // hardcoded "data/raw/wordenc" — NewServer now fails when the jag is absent.
-// Test skips when the Server254-ref reference cache (needed for NewServer
+// Test skips when the Server274-ref reference cache (needed for NewServer
 // loads) is unavailable.
 //
-// Uses the Server254-ref pack (LoadComponentTypes expects the 254
-// component layout — swappable/activeOverColour; ref254CacheDir is defined
+// Uses the Server274-ref pack (LoadComponentTypes expects the 274
+// component layout — swappable/activeOverColour; ref274CacheDir is defined
 // in testdata_path_test.go).
 //
 // encfilter.Load() reads data/raw/wordenc relative to the working directory;
@@ -20,7 +20,7 @@ import (
 //
 // TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:35-37 (static WordEnc.load).
 func TestNewServer_LoadsWordencFilter(t *testing.T) {
-	cachePath := ref254CacheDir(t)
+	cachePath := ref274CacheDir(t)
 	// encfilter.Load() resolves data/raw/wordenc relative to cwd. Switch to the
 	// repo root so the committed data/raw/wordenc jagfile is reachable.
 	repoRoot := filepath.Join("..", "..")

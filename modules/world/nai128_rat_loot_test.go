@@ -19,7 +19,7 @@ import (
 // skipReason != "" the test should t.Skipf to keep CI-portable.
 func nai128CacheFixture(t *testing.T) (*Server, string) {
 	t.Helper()
-	cacheDir := ref254CacheDir(t)
+	cacheDir := ref274CacheDir(t)
 	for _, p := range []string{
 		filepath.Join(cacheDir, "server", "script.dat"),
 		filepath.Join(cacheDir, "server", "npc.dat"),
@@ -126,17 +126,16 @@ func nai128CacheFixture(t *testing.T) (*Server, string) {
 // TestNAI128_RatLootCascade is the Stage-1 binding probe for NAI-128.
 // See docs/superpowers/specs/2026-05-08-nai-128-rat-loot-cascade-investigation-design.md.
 func TestNAI128_RatLootCascade(t *testing.T) {
-	// rev-274 T6: this test executes script bytecode from the 254 reference
-	// cache (ref254CacheDir → Server254-ref) through the VM. The 274
-	// ScriptOpcode enum inserts 4 ops mid-enum (MAP_LOC, MINIMAP_TOGGLE,
-	// SET_SKILL_LEVEL, NPC_DESTINATION) which shifts every implicitly-numbered
-	// opcode after each insertion point, so 254-compiled bytecode is
-	// reinterpreted by the 274 dispatch table. The fixture must be repinned to
-	// the 274-packed cache (built with the 274 opcode numbering) — un-skip when
-	// the cache fixtures move to Server274-ref. See plan T20/T21 (ref254→ref274
-	// repin); mirrors the rev-254 A17 cache-convergence precedent.
-	t.Skip("rev-274: 254-cache bytecode vs shifted 274 opcode enum; un-skip at the ref274 cache repin (plan T20/T21)")
-
+	// rev-274 T21: this test executes script bytecode from the rev-274
+	// reference cache (ref274CacheDir → Server274-ref) through the VM. The
+	// cache is packed with the rev-274 opcode numbering, so its script.dat
+	// bytecode matches the rev-274 dispatch table. (The deferral at T6 was
+	// for the now-resolved 254-cache-vs-274-enum mismatch: the rev-274
+	// ScriptOpcode enum inserts 4 ops mid-enum — MAP_LOC, MINIMAP_TOGGLE,
+	// SET_SKILL_LEVEL, NPC_DESTINATION — shifting every implicitly-numbered
+	// opcode after each insertion point, so 254-compiled bytecode was being
+	// reinterpreted by the 274 dispatch table. Repinning to the 274 cache
+	// closes the gap; mirrors the rev-254 A17 cache-convergence precedent.)
 	s, skip := nai128CacheFixture(t)
 	if skip != "" {
 		t.Skipf("cache unavailable: %s", skip)
@@ -419,9 +418,9 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 			}
 		}
 
-		// G6 — worldVarsView.AddObj gateway. 254 content: ai_queue3 has a
+		// G6 — worldVarsView.AddObj gateway. 274 content: ai_queue3 has a
 		// single obj_add (death_drop) — the 245.2-era raw_rat_meat add was
-		// removed upstream (tut_giant_rat.rs2:4-12 in Server254-ref).
+		// removed upstream (tut_giant_rat.rs2:4-7 in Server274-ref).
 		var addObjRecs []slog.Record
 		for _, r := range records {
 			if r.Message == "nai128.obj.add" {
@@ -454,13 +453,13 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 	})
 
 	t.Run("GroundObjs", func(t *testing.T) {
-		// 254 content (Server254-ref @ the pin-advance): the
-		// [ai_queue3,newbiegiantrat] script drops ONLY
-		// obj_add(npc_coord, npc_param(death_drop), ...) — the 245.2-era
-		// second obj_add(npc_coord, raw_rat_meat, ...) was removed
-		// upstream (tut_giant_rat.rs2:4-12). Expectation re-pinned from
-		// 2 ground objs to 1 when the cache fixture moved to the 254
-		// reference cache (addendum Task A1).
+		// 274 content (Server274-ref): the [ai_queue3,newbiegiantrat]
+		// script drops ONLY obj_add(npc_coord, npc_param(death_drop), ...)
+		// — the 245.2-era second obj_add(npc_coord, raw_rat_meat, ...) was
+		// removed upstream (tut_giant_rat.rs2:4-7). Expectation re-pinned
+		// from 2 ground objs to 1 when the cache fixture moved to the
+		// rev-254 reference cache (addendum Task A1); carried to the rev-274
+		// reference cache at Task T21 (unchanged — 274 content matches).
 
 		// Resolve the death_drop param ID, then read it off the rat type.
 		// Pre-flight: NpcType.Params is map[uint32]any (paramtype.go:10);
@@ -490,9 +489,8 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 			t.Fatal("zoneMap.Get returned nil for rat coord")
 		}
 
-		// Assert exactly the two obj_adds from [ai_queue3,newbiegiantrat]:
+		// Assert exactly the single obj_add from [ai_queue3,newbiegiantrat]:
 		// obj_add(npc_coord, npc_param(death_drop), 1, ^lootdrop_duration)
-		// obj_add(npc_coord, raw_rat_meat,          1, ^lootdrop_duration)
 		// Filter by rat coord (the zone may contain other test obj state).
 		var atRat []int
 		for _, o := range z.Objs {

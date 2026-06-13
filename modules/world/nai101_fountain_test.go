@@ -26,7 +26,7 @@ import (
 // Skip-if-absent guard keeps the test CI-portable; pattern mirrors
 // TestNAI95_StaticLocCollision_HansArea.
 func TestNAI101_FountainPathAround_RealCache(t *testing.T) {
-	cacheDir := ref254CacheDir(t)
+	cacheDir := ref274CacheDir(t)
 	if _, err := os.Stat(filepath.Join(cacheDir, "server", "maps", "m48_50")); err != nil {
 		t.Skipf("data/pack/server/maps/m48_50 unavailable: %v", err)
 	}
