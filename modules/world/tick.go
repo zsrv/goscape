@@ -1004,6 +1004,14 @@ func (s *Server) processClientsOut() {
 }
 
 func (s *Server) processInfo() {
+	// rev-274 perf gate (TS World.ts:979-981 @dee467c8): an empty world has
+	// no observers, so the info-processing pass (player reorient/rebuild +
+	// rsbuf player/npc compute) can produce no visible work. Short-circuit
+	// before doing any of it. TS: `if (this.getTotalPlayers() === 0) return;`.
+	if s.getTotalPlayers() == 0 {
+		return
+	}
+
 	players := s.snapshotPlayers()
 
 	// NAI-66: TS World.ts:995 — per-tick refocus before rsbuf compute.

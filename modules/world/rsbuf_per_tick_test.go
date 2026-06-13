@@ -192,7 +192,16 @@ func TestProcessInfoInvokesReorient(t *testing.T) {
 // before processInfo's rsbuf ComputeNpcs pass runs.
 func TestProcessInfoInvokesNpcReorient(t *testing.T) {
 	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	if err := s.gamemap.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
 	s.renderer = rsbuf.NewRenderer()
+
+	// rev-274 processInfo gate (World.ts:979-981): the info pass is skipped
+	// when the world is empty. This test exercises the NPC-side reorient path,
+	// so it must have at least one player online.
+	_ = setupInfoPlayer(t, s, 1, 50, 52, 0)
 
 	n := makeInteractionNpc(t, s, 1, 50, 50, 0)
 

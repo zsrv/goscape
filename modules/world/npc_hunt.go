@@ -84,6 +84,12 @@ func (s *Server) processNpcHuntPlayers() {
 	if s.rsbuf == nil || s.huntTypes == nil {
 		return
 	}
+	// rev-274 perf gate (TS World.ts:576 @dee467c8): the whole npc-hunt-
+	// players loop is wrapped in `if (this.getTotalPlayers() > 0)`. With no
+	// players online there is nothing to hunt; skip the per-NPC scan entirely.
+	if s.getTotalPlayers() == 0 {
+		return
+	}
 	for _, n := range s.npcLoop {
 		if n == nil || n.dead || n.huntMode == -1 {
 			continue

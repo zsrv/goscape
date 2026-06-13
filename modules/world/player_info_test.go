@@ -174,7 +174,16 @@ func TestDamage2ThreadsToWire_Player(t *testing.T) {
 //	DAMAGE:  p1(3) p1(0) p1(curHP) p1(baseHP)   — written after DAMAGE2
 func TestDamage2ThreadsToWire_Npc(t *testing.T) {
 	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	if err := s.gamemap.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
 	s.renderer = rsbuf.NewRenderer()
+
+	// rev-274 processInfo gate (World.ts:979-981): processInfo short-circuits
+	// on an empty world. This test drives the NPC compute pass, so it needs a
+	// player online. Place it adjacent to the NPC.
+	_ = setupInfoPlayer(t, s, 1, 3095, 3106, 0)
 
 	// makeInteractionNpc adds the NPC to s.npcLoop so processInfo's
 	// ComputeNpcs pass picks it up. nid=1 satisfies the ComputeNpcs nid≥1 guard.

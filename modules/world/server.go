@@ -727,14 +727,26 @@ func shouldSpawnNpc(typ *objtype.NpcType, worldMembers bool) bool {
 // in NAI-92 smoke).
 func (s *Server) populateStaticLocsIntoZones() {
 	for _, loc := range s.gamemap.StaticLocs() {
-		if s.locTypes != nil {
-			if lt := s.locTypeOrNil(loc.Type()); lt != nil && lt.BlockWalk {
-				s.gamemap.ChangeLocCollision(loc.Shape(), loc.Angle(), lt.BlockRange,
-					loc.Length, loc.Width, lt.Active, loc.X, loc.Z, loc.Level, true)
-			}
+		lt := s.locTypeOrNil(loc.Type())
+		// Collision is written REGARDLESS of active, gated only on blockwalk
+		// (TS GameMap.ts:280-282 @dee467c8: `if (type.blockwalk)
+		// changeLocCollision(...)`).
+		if lt != nil && lt.BlockWalk {
+			s.gamemap.ChangeLocCollision(loc.Shape(), loc.Angle(), lt.BlockRange,
+				loc.Length, loc.Width, lt.Active, loc.X, loc.Z, loc.Level, true)
 		}
-		z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
-		z.AddStaticLoc(loc)
+		// rev-274 zone-registration gate (TS GameMap.ts:284-286 @dee467c8:
+		// `if (type.active) { ...addStaticLoc(...) }`): a static loc is added
+		// to its owning zone ONLY when its LocType is active. Inactive locs
+		// still contribute collision (above) but are absent from the zone's
+		// loc list, so they cannot be op'd/animated as scenery. When the
+		// LocType registry is unloaded (lt == nil — the empty-cache test
+		// fixture path; TS would printFatalError on a missing type), preserve
+		// the prior permissive add since there is no active flag to consult.
+		if lt == nil || lt.Active != 0 {
+			z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
+			z.AddStaticLoc(loc)
+		}
 	}
 }
 

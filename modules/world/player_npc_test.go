@@ -69,6 +69,10 @@ func TestNpcSayProducesSayMaskInRenderer(t *testing.T) {
 	}
 	s.renderer = rsbuf.NewRenderer()
 
+	// rev-274 processInfo gate (World.ts:979-981): processInfo short-circuits
+	// on an empty world. Add a player so the NPC compute pass runs.
+	_ = setupInfoPlayer(t, s, 1, 3094, 3106, 0)
+
 	npc := setupNpc(t, s, 3095, 3106, 0)
 	npc.Say([]byte("hello"))
 	s.processInfo()

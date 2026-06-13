@@ -95,7 +95,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.StringVar(&c.CachePath, "world.cache-path", "./data/pack", "Cache root; gamemap loads map-pack files from <path>/maps/")
 	f.StringVar(&c.ContentPath, "world.content-path", "", "Source content root for ::rebuild's in-process PackAll. Empty disables the cheat.")
 	f.BoolVar(&c.ContentWatch, "world.content-watch", false, "Watch ContentPath subdirs and auto-trigger ::rebuild on changes (debounced 1s). Requires --world.content-path.")
-	f.IntVar(&c.NodeMaxPlayers, "world.node-max-players", 2047, "")
+	f.IntVar(&c.NodeMaxPlayers, "world.node-max-players", 2047, "DEPRECATED/unused: TS dropped the NODE_MAX_PLAYERS env var at rev-274 and hardcoded World.PLAYERS=2047 (World.ts:118 @dee467c8). goscape's real cap is hardcoded too — the player list is a 2048-entry array scanning slots 1..2046 (newPlayerList(2048), player_list.go). Nothing reads this field; the default is pinned to 2047 to match the TS constant.")
 	f.IntVar(&c.NodeMaxConnected, "world.node-max-connected", 1000, "")
 	f.IntVar(&c.NodeMaxNPCs, "world.node-max-npcs", 16383, "Max live NPCs. Mirrors TS Environment.ts NODE_MAX_NPCS (254 default 16383; was 8191 pre-254).")
 	f.StringVar(&c.NodeDebugprocChar, "world.node-debugproc-char", "~", "")

@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
@@ -109,7 +110,16 @@ func TestServer_RemoveNpcCleansRsbufSlot(t *testing.T) {
 // dead NPCs receive ComputeNpc(active=false) each tick until respawn.
 func TestDeadRespawnNpcPushesActiveFalseToRsbuf(t *testing.T) {
 	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	if err := s.gamemap.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
 	s.renderer = rsbuf.NewRenderer()
+
+	// rev-274 processInfo gate (World.ts:979-981): processInfo is skipped when
+	// the world is empty. This test drives the NPC compute pass, so it needs a
+	// player online to make the world non-empty.
+	_ = setupInfoPlayer(t, s, 1, 3094, 3106, 0)
 
 	// Spawn a RESPAWN-lifecycle NPC (default for NewNpc).
 	n := newTestNpc(0)
