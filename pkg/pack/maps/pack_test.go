@@ -1,6 +1,7 @@
 package maps
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,6 +58,72 @@ func TestPack_BytePinned(t *testing.T) {
 		if _, err := os.Stat(dest); err != nil {
 			t.Errorf("Stat client %q: %v", dest, err)
 		}
+	}
+}
+
+// TestPackServerMaps_ServerBytesMatchPack pins that PackServerMaps produces
+// byte-identical server m/l/n/o streams to the full Pack (it reuses the same
+// encoders) and copies the CSVs — without needing a packed npc.dat, config
+// artifacts, or a worldmap rebuild. This is the server-maps source the
+// runtime GameMap reads; tests use it to restore a loose server/maps/ layout
+// from a Content tree whose reference cache stores maps in a .cache zip.
+func TestPackServerMaps_ServerBytesMatchPack(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "src")
+	mapsDir := filepath.Join(src, "maps")
+	if err := os.MkdirAll(mapsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	body := strings.Join([]string{
+		"==== MAP ====",
+		"0 5 7: h10 o2 u3",
+		"==== LOC ====",
+		"0 5 7: 100",
+		"==== NPC ====",
+		"0 5 7: 42",
+		"==== OBJ ====",
+		"0 5 7: 99 10",
+	}, "\n")
+	if err := os.WriteFile(filepath.Join(mapsDir, "m5050.jm2"), []byte(body), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(mapsDir, "multiway.csv"), []byte("0_46_61_40_8\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile multiway: %v", err)
+	}
+
+	// Full Pack reference output (package TestMain stubs the worldmap seam).
+	refOut := filepath.Join(tmp, "ref")
+	if err := Pack(src, refOut, nil, nil, nil); err != nil {
+		t.Fatalf("Pack: %v", err)
+	}
+
+	out := filepath.Join(tmp, "out")
+	if err := PackServerMaps(src, out); err != nil {
+		t.Fatalf("PackServerMaps: %v", err)
+	}
+
+	for _, name := range []string{"m5050", "l5050", "n5050", "o5050", "multiway.csv"} {
+		want, err := os.ReadFile(filepath.Join(refOut, "server", "maps", name))
+		if err != nil {
+			t.Fatalf("read ref %q: %v", name, err)
+		}
+		got, err := os.ReadFile(filepath.Join(out, "server", "maps", name))
+		if err != nil {
+			t.Errorf("read PackServerMaps %q: %v", name, err)
+			continue
+		}
+		if !bytes.Equal(got, want) {
+			t.Errorf("server stream %q differs from Pack output (len got=%d want=%d)", name, len(got), len(want))
+		}
+	}
+}
+
+// TestPackServerMaps_MissingMapsDirNoOp pins the no-op when <srcDir>/maps
+// doesn't exist.
+func TestPackServerMaps_MissingMapsDirNoOp(t *testing.T) {
+	tmp := t.TempDir()
+	if err := PackServerMaps(filepath.Join(tmp, "src"), filepath.Join(tmp, "out")); err != nil {
+		t.Errorf("PackServerMaps: %v, want nil", err)
 	}
 }
 

@@ -232,6 +232,81 @@ func Pack(srcDir, outDir string, mapPack *pack.PackFile, cache *filestream.FileS
 	return nil
 }
 
+// PackServerMaps packs the server-side loose map streams that the runtime
+// GameMap reads — <outDir>/server/maps/{m,l,n,o}<XZ> plus the multiway.csv /
+// free2play.csv CSVs — from every <srcDir>/maps/*.jm2.
+//
+// It is the production Pack's per-mapsquare encode loop WITHOUT the
+// client-cache registry ordering, archive-4 cache writes, NPC-type
+// validation, or worldmap rebuild — none of which the server-side collision
+// map needs. It reuses the same writeLand/writeLocs/writeNpcs/writeObjs
+// encoders Pack uses (so the server-stream bytes are identical), but does not
+// require a packed npc.dat or any sprites/fonts/flo config in outDir.
+//
+// Client gzip files are written alongside (the shared encoders emit both) and
+// can be ignored by server-only callers. A missing <srcDir>/maps is a no-op.
+//
+// Intended for callers that need only the loose server maps a fresh GameMap
+// consumes (e.g. integration tests pointing gamemap.Init at a temp dir);
+// production cache builds use Pack.
+func PackServerMaps(srcDir, outDir string) error {
+	mapsSrc := filepath.Join(srcDir, "maps")
+	if !pack.FileExists(mapsSrc) {
+		return nil
+	}
+
+	mapsClient := filepath.Join(outDir, "client", "maps")
+	mapsServer := filepath.Join(outDir, "server", "maps")
+	if err := os.MkdirAll(mapsClient, 0o755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(mapsServer, 0o755); err != nil {
+		return err
+	}
+
+	for _, name := range []string{"multiway.csv", "free2play.csv"} {
+		if err := copyIfExists(filepath.Join(mapsSrc, name), filepath.Join(mapsServer, name)); err != nil {
+			return err
+		}
+	}
+
+	for _, file := range pack.ListFilesExt(mapsSrc, ".jm2") {
+		base := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+		if len(base) < 2 {
+			continue
+		}
+		mapXZ := base[1:] // drop leading "m"
+
+		raw, err := os.ReadFile(file)
+		if err != nil {
+			return err
+		}
+		lines := []string{}
+		for line := range strings.SplitSeq(strings.ReplaceAll(string(raw), "\r", ""), "\n") {
+			if line != "" {
+				lines = append(lines, line)
+			}
+		}
+		m := readMap(lines)
+
+		if err := writeLand(m, filepath.Join(mapsClient, "m"+mapXZ), filepath.Join(mapsServer, "m"+mapXZ)); err != nil {
+			return err
+		}
+		if err := writeLocs(m, filepath.Join(mapsClient, "l"+mapXZ), filepath.Join(mapsServer, "l"+mapXZ)); err != nil {
+			return err
+		}
+		// nil npcTypes/modelFlags: no NPC-type validation (server collision map
+		// doesn't need it; Pack validates only when a packed npc.dat exists).
+		if err := writeNpcs(m, filepath.Join(mapsServer, "n"+mapXZ), mapXZ, nil, nil); err != nil {
+			return err
+		}
+		if err := writeObjs(m, filepath.Join(mapsServer, "o"+mapXZ)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // copyIfExists copies src to dst verbatim. A missing src is not an error.
 func copyIfExists(src, dst string) error {
 	data, err := os.ReadFile(src)

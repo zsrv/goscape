@@ -26,13 +26,15 @@ import (
 // Skip-if-absent guard keeps the test CI-portable; pattern mirrors
 // TestNAI95_StaticLocCollision_HansArea.
 func TestNAI101_FountainPathAround_RealCache(t *testing.T) {
+	// loc.dat (and the rest of the config cache) resolves from the 274
+	// reference engine cache; the loose server maps are packed from the 274
+	// Content tree (the reference stores maps in .cache/maps-server.zip, not
+	// loose) via goscape's own packer — see packTestServerMapsLoose.
 	cacheDir := ref274CacheDir(t)
-	if _, err := os.Stat(filepath.Join(cacheDir, "server", "maps", "m48_50")); err != nil {
-		t.Skipf("data/pack/server/maps/m48_50 unavailable: %v", err)
-	}
 	if _, err := os.Stat(filepath.Join(cacheDir, "server", "loc.dat")); err != nil {
 		t.Skipf("data/pack/server/loc.dat unavailable: %v", err)
 	}
+	mapsCacheDir := packTestServerMapsLoose(t)
 
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
@@ -45,7 +47,7 @@ func TestNAI101_FountainPathAround_RealCache(t *testing.T) {
 	s.locTypes = locTypes
 	s.gamemap.SetLocTypes(locTypes)
 
-	if err := s.gamemap.Init(cacheDir); err != nil {
+	if err := s.gamemap.Init(mapsCacheDir); err != nil {
 		t.Fatalf("gamemap.Init: %v", err)
 	}
 

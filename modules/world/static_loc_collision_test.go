@@ -25,18 +25,20 @@ import (
 // Test exercises the real m48_50 / l48_50 cache. Skip-if-absent keeps the
 // test CI-portable; pattern mirrors pkg/objtype/loctype_realcache_test.go.
 func TestNAI95_StaticLocCollision_HansArea(t *testing.T) {
+	// loc.dat (and the rest of the config cache) resolves from the 274
+	// reference engine cache; the loose server maps are packed from the 274
+	// Content tree (the reference stores maps in .cache/maps-server.zip, not
+	// loose) via goscape's own packer — see packTestServerMapsLoose.
 	cacheDir := ref274CacheDir(t)
-	if _, err := os.Stat(filepath.Join(cacheDir, "server", "maps", "m48_50")); err != nil {
-		t.Skipf("data/pack/server/maps/m48_50 unavailable: %v", err)
-	}
 	if _, err := os.Stat(filepath.Join(cacheDir, "server", "loc.dat")); err != nil {
 		t.Skipf("data/pack/server/loc.dat unavailable: %v", err)
 	}
+	mapsCacheDir := packTestServerMapsLoose(t)
 
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	s.gamemap.SetMembers(true) // members world: real-cache collision test, not F2P gating (test cache has no F2P CSV)
-	if err := s.gamemap.Init(cacheDir); err != nil {
+	if err := s.gamemap.Init(mapsCacheDir); err != nil {
 		t.Fatalf("gamemap.Init: %v", err)
 	}
 
