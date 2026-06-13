@@ -1799,11 +1799,21 @@ tests now pack the loose Content maps directly). jagFileVersion stays 27
   pack/gzip/unpack, infra dispositions). **ZERO unported behavioral
   hunks.** NOT-PORTED buckets are runtime/infra/no-Go-surface, each
   confirmed output-neutral.
-- [ ] (b) Live 274-client smoke — **PENDING** (user-driven; Client-Java
-  `32f30626`, clientversion 274). To probe: login (0xff+u2 extended
-  revision), MINIMAP_TOGGLE, the new script ops (SET_SKILL_LEVEL /
-  NPC_DESTINATION / MAP_LOC), inventory partial updates, NPC patrol/escape,
-  fonts (*_full), and the gzip-backed cache delivery.
+- [~] (b) Live 274-client smoke — **server-side boot smoke PASSED; live
+  CLIENT connection PENDING (user-driven)**. Automated boot smoke (fresh
+  `./data/pack` packed by goscape's own 274 packer, byte-parity with the
+  reference): all modules listen (world 43594 / login 2004 / friends 2005 /
+  ondemand 8888), 483 mapsquares + 10,937 scripts + 1,151 static objs
+  loaded, game-tick loop healthy for 30s+ with **zero script-dispatch
+  errors**. **CACHE LESSON**: the runtime serves `world.cache_path`
+  (`./data/pack`) — it does NOT auto-repack on startup; a stale 254-era
+  `./data/pack` served through the 274 VM mis-dispatches the shifted NPC
+  opcode section (npc_settimer read as NPC_SETMODE) — `goscape-cli pack
+  -src-dir <274 content> -out-dir data/pack` BEFORE running. Live CLIENT
+  probe (Client-Java `32f30626`, clientversion 274) still to do: login
+  (0xff+u2 extended revision), MINIMAP_TOGGLE, the new script ops
+  (SET_SKILL_LEVEL / NPC_DESTINATION / MAP_LOC), inventory partial updates,
+  NPC patrol/escape, fonts (*_full), gzip-backed cache delivery.
 - [x] (c) Pack byte-parity — FULL TREE `TestPackAll_Ref274FullTreeParity`
   GREEN + original-cache `TestPackAll_OrigCacheParity` GREEN (6,304
   members + 2 expected content-divergence map slots).
