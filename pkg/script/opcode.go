@@ -108,9 +108,9 @@ const (
 // 2031–2032; BUFFER_FULL/IF_MULTIZONE/PLAYER_FINDALLZONE/PLAYER_FINDNEXT/
 // IF_OPENMAINOVERLAY/LAST_COORD deleted.
 // dee467c8 (274 pin-advance): MINIMAP_TOGGLE inserted at 2066;
-// SETSKINCOLOUR (was 2103) replaced by SET_SKILL_LEVEL (2104) +
-// SETIDKCOLOUR (2105); everything from NAME onward shifts accordingly
-// (transcribed from the implicitly-numbered TS enum).
+// SETSKINCOLOUR (was 2104) renamed to SETIDKCOLOUR (now 2105) with
+// SET_SKILL_LEVEL taking 2104; everything from NAME onward shifts
+// accordingly (transcribed from the implicitly-numbered TS enum).
 const (
 	OpAfkEvent            Opcode = 2000
 	OpAllowDesign         Opcode = 2001

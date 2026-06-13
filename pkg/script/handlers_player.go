@@ -291,7 +291,7 @@ func handleSetIdKit(s *ScriptState) error {
 
 // idkColorSlot maps the gender-adjusted body-part type (0-6) to the
 // colors array index. Returns -1 when no color write is needed (type=4,
-// hands/skin — set via SETSKINCOLOUR instead).
+// hands/skin — set via SETIDKCOLOUR instead).
 // Mirrors TS PlayerOps.ts:1082-1103 color-slot mapping.
 func idkColorSlot(t int) int {
 	switch t {
