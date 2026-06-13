@@ -10,11 +10,17 @@ import (
 
 // CompressGz mirrors TS compressGz (GZip.ts:3-18). Byte 9 of the gzip
 // header (OS) is zeroed for deterministic output.
-// Implemented via CompressCFGz — the bit-exact cf-zlib deflate port —
-// so output is byte-identical to the reference corpus produced by
-// bun 1.2.20 node:zlib.gzipSync (Cloudflare zlib fork, commit 886098f3).
+//
+// rev-274: implemented via CompressSZGz — the bit-exact stock zlib 1.3.1
+// level-6 deflate port — so output is byte-identical to the ORIGINAL r274
+// cache, which was produced by stock zlib 1.3.1 level 6 with the gzip OS byte
+// zeroed.  (python zlib 1.3.1 level-6 reproduces every original cache gzip
+// member byte-for-byte: 6201/6201.)
+//
+// CompressCFGz (the Cloudflare-fork port) remains in the tree for rev<=254
+// branches and its own unit tests; it is NOT used on this revision.
 func CompressGz(src []byte, off, length int) []byte {
-	return CompressCFGz(src, off, length)
+	return CompressSZGz(src, off, length)
 }
 
 // DecompressGz mirrors TS decompressGz (GZip.ts:20-31). Returns nil on error.

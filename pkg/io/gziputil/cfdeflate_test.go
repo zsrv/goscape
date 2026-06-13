@@ -10,9 +10,13 @@ import (
 	"testing"
 )
 
-// TestCompressGz_Fixtures verifies bit-exact output against the three pinned
-// testdata pairs (tiny / mid / large) extracted from the reference corpus.
-// These run without any environment variable and act as the permanent contract.
+// TestCompressGz_Fixtures verifies bit-exact CLOUDFLARE-fork output against the
+// three pinned testdata pairs (tiny / mid / large) extracted from the rev<=254
+// reference corpus (bun node:zlib.gzipSync, Cloudflare zlib fork 886098f3).
+// These run without any environment variable and act as the permanent contract
+// for CompressCFGz.  (On rev-274 CompressGz delegates to the stock-zlib path
+// CompressSZGz instead — see TestCompressSZGz_OrigCorpus — so this test calls
+// CompressCFGz directly to keep pinning the fork it was produced by.)
 func TestCompressGz_Fixtures(t *testing.T) {
 	fixtures := []struct {
 		label   string
@@ -33,9 +37,9 @@ func TestCompressGz_Fixtures(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read gz: %v", err)
 			}
-			got := CompressGz(raw, 0, len(raw))
+			got := CompressCFGz(raw, 0, len(raw))
 			if got == nil {
-				t.Fatal("CompressGz returned nil")
+				t.Fatal("CompressCFGz returned nil")
 			}
 			if !bytes.Equal(got, want) {
 				t.Errorf("got %d bytes, want %d", len(got), len(want))
@@ -51,10 +55,12 @@ func TestCompressGz_Fixtures(t *testing.T) {
 	}
 }
 
-// TestCompressGz_EmptyInput pins the exact output for a zero-length input.
-// Expected bytes were produced by the C oracle (cfztest /dev/null out 6) and
-// then compared against CompressGz to confirm the Go implementation agrees
+// TestCompressGz_EmptyInput pins the exact CompressCFGz output for a zero-length
+// input.  Expected bytes were produced by the C oracle (cfztest /dev/null out 6)
+// and then compared against the Go implementation to confirm agreement
 // (OS byte differs: C writes 0x03, Go zeroes it per TS GZip.ts — pinned as Go output).
+// (stock zlib produces byte-identical empty output, so CompressGz/CompressSZGz
+// would also pass here — this test is the Cloudflare-fork contract.)
 // m4 — B6 quality review.
 func TestCompressGz_EmptyInput(t *testing.T) {
 	want := []byte{
@@ -68,7 +74,7 @@ func TestCompressGz_EmptyInput(t *testing.T) {
 		0x00, 0x00, 0x00, 0x00, // CRC32(empty) = 0
 		0x00, 0x00, 0x00, 0x00, // ISIZE = 0
 	}
-	got := CompressGz([]byte{}, 0, 0)
+	got := CompressCFGz([]byte{}, 0, 0)
 	if len(got) != len(want) {
 		t.Fatalf("empty input: got %d bytes, want %d: % x", len(got), len(want), got)
 	}
@@ -79,11 +85,13 @@ func TestCompressGz_EmptyInput(t *testing.T) {
 	}
 }
 
-// TestCompressGz_RefCorpus is an env-gated full corpus check.
+// TestCompressGz_RefCorpus is an env-gated full corpus check for the CLOUDFLARE
+// fork (CompressCFGz), pinned against the rev<=254 reference cache.
 // Set GOSCAPE_REF254_DIR to the path of Server254-ref/engine to enable it.
 // It iterates every entry in data/pack/ondemand.zip (strip last 2 bytes for gz)
 // plus every file under data/pack/client/maps/, decompresses with stdlib,
-// recompresses with CompressGz, and byte-compares.
+// recompresses with CompressCFGz, and byte-compares.
+// (The rev-274 stock-zlib acceptance gate is TestCompressSZGz_OrigCorpus.)
 func TestCompressGz_RefCorpus(t *testing.T) {
 	refDir := os.Getenv("GOSCAPE_REF254_DIR")
 	if refDir == "" {
@@ -128,7 +136,7 @@ func TestCompressGz_RefCorpus(t *testing.T) {
 			t.Fatalf("decompress %s: %v", entry.Name, err)
 		}
 
-		got := CompressGz(rawData, 0, len(rawData))
+		got := CompressCFGz(rawData, 0, len(rawData))
 		if bytes.Equal(got, refGz) {
 			totalOK++
 		} else {
@@ -163,7 +171,7 @@ func TestCompressGz_RefCorpus(t *testing.T) {
 		if err != nil {
 			continue
 		}
-		got := CompressGz(rawData, 0, len(rawData))
+		got := CompressCFGz(rawData, 0, len(rawData))
 		if bytes.Equal(got, refGzData) {
 			totalOK++
 		} else {
