@@ -272,10 +272,20 @@ func assertLooseMapsMatchZip(t *testing.T, zipPath, looseDir, label string) {
 // build metadata that differs — original uses real revisions, goscape/Node
 // stamp version=1; the gzip BODY is the byte-parity target, proven 6201/6201
 // at T17b). idx0 (the client jags: config/interface/media/…) is NOT compared:
-// the original's client archives were built by a different toolchain than the
-// pinned 274 Content rebuild — goscape matches the Node reference (the full-
-// tree gate), which itself diverges from the original for idx0. That is an
-// out-of-scope original-cache/client-toolchain divergence, not a packer bug.
+// goscape matches the Node reference (the full-tree gate), which diverges from
+// the original for idx0 — and that divergence is 100% CONTENT, 0% compression
+// (T20 investigation, by enumerating both caches' idx0 jag file tables with
+// goscape's own jagfile reader): interface (f3) + sounds (f8) are already
+// byte-identical original↔goscape, and across every differing archive there is
+// NOT ONE file whose identical decompressed content compressed to different
+// bytes — goscape's pure-Go bzip2 encoder (pkg/io/bzip2/writer.go, BZh1) is
+// byte-exact. The diffs are pinned-Content-repo-vs-original-game-data: config
+// (f2) — the original ships 8 extra tables (mes/mesanim/param/hunt .dat+.idx)
+// the Content rebuild omits, the 18 common files byte-identical; title/media/
+// versionlist/textures/wordenc (f1/f4/f5/f6/f7) — same file set but different
+// source asset bytes (some even differ in UNCOMPRESSED size). No compressor
+// port helps; this is upstream content outside the packer — the same class as
+// the two empty arch4 map slots below.
 //
 // EXPECTED RESULT: full body parity for idx1-4 EXCEPT exactly two arch4
 // (client-maps) slots — files 704 and 994 — which the original leaves empty
