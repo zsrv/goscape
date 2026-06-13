@@ -185,17 +185,50 @@ The 274 pin is authoritative. Carry-forwards and notes:
    keep them "for safety" (dead-divergence trap).
 4. New deviations get new tracker rows in PORTING.md §rev-274.
 
+## Gzip baseline — RESOLVED (2026-06-13, T17 investigation + user decision)
+
+The Risk 1 fork resolved decisively. Findings:
+
+- **Real target = the ORIGINAL r274 cache** at
+  `/home/owner/Code/_runescape/r274/original-cache` (user-stated goal:
+  goscape's packed cache byte-identical to the original).
+- The original cache's gzip members were produced by **stock zlib 1.3.1,
+  level 6 (default), gzip header XFL=0 with the OS byte (offset 9)
+  zeroed** — verified: Node 24 `zlib.gzipSync` level-6 and python zlib
+  1.3.1 level-6 both reproduce the original **6201/6201** non-empty gzip
+  members byte-for-byte (after OS=0). goscape's current cloudflare/zlib
+  `gziputil` matches only ~6% — it is the blocker.
+- The Node-rebuilt reference (`Server274-ref/engine/data/pack`) is a valid
+  proxy for the original: **6304/6306 members byte-identical** (compressed).
+  The only divergence is **2 empty arch4 (client-maps) slots — files 704
+  and 994** — which the ORIGINAL leaves empty (idx size=0) but the Content
+  repo packs real map data into. That is a CONTENT difference (the Content
+  map inputs include 2 maps the original omits), not a compression one;
+  documented as a known original-cache deviation (goscape faithfully packs
+  Content, so goscape-pack == Node-reference for those 2; only
+  goscape-vs-ORIGINAL shows the 2 expected empty-slot diffs).
+- **Decision (user, 2026-06-13): port a bit-exact stock-zlib-1.3.1
+  level-6 deflate into `gziputil`** (CGO is off the table — the project
+  ships `CGO_ENABLED=0`, so cgo-binding real zlib is not viable; a pure-Go
+  port is required, the rev-244 B6 cloudflare playbook redone against stock
+  zlib). The gzip wrapper (OS=0) is already correct. The Huffman/trees half
+  of the existing cloudflare port is likely reusable; the new work is the
+  match-finder (multiply-shift `UPDATE_HASH`, `MIN_MATCH=3`, the level-6
+  config table good_length/max_lazy/nice_length/max_chain, `deflate_slow`).
+  Acceptance: 6201/6201 ORIGINAL gzip members byte-exact (oracle: python
+  zlib 1.3.1, already 100%). On the rev-274 branch gziputil produces
+  stock-zlib output; the cloudflare path stays available for rev≤254
+  branches (separate branches, self-contained).
+
 ## Risks (ordered)
 
-1. **Gzip parity baseline retirement** — bun's cloudflare/zlib is gone;
-   Node 24 ships stock zlib 1.3.1 whose deflate output is NOT expected to
-   match the cloudflare fork bit-for-bit (that's exactly why gziputil
-   exists). If the reference cache's gzip members don't match gziputil
-   output, pack full-tree parity (DoD (c)) needs either a stock-zlib
-   level-6 Go port (the rev-244 B6 playbook, corpus-verified) or a
-   user-approved parity-definition change. **Resolve FIRST in Phase 3** —
-   it gates everything downstream. (Mitigation head start: the reference
-   cache is already built; the corpus diff is a one-hour experiment.)
+1. **Stock-zlib-1.3.1 deflate port correctness (was: gzip baseline)** —
+   RESOLVED-as-port (see above). The remaining risk is port fidelity: a
+   match-finder/config-table deviation silently produces non-bit-exact
+   output. Mitigation: corpus convergence loop against ALL 6201 original
+   gzip members with a python-zlib-1.3.1 oracle; the cloudflare port's
+   trees half is reused; pin a handful of members as fast unit tests +
+   the full corpus as the acceptance gate.
 2. **Inventory rewrite breadth** — the signature change touches every inv
    call site including script handlers and cheats; a missed
    `assureFullInsertion` semantic (TS deleted the *validation*, not just
