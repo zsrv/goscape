@@ -49,7 +49,7 @@ import (
 // that directory in MapPack registry id order, and the upstream
 // toolchain's readdir empirically returns insertion order: the 254
 // reference worldmap.jag's per-(mx,mz) blocks are EXACTLY in MapPack
-// id order (verified block-by-block against Server254-ref). goscape
+// id order (verified block-by-block against Server274-ref). goscape
 // therefore iterates srcDir/pack/map.pack id order — deterministic
 // across machines AND byte-equal to the reference — falling back to
 // the (pre-254) sorted os.ReadDir scan only when map.pack is absent

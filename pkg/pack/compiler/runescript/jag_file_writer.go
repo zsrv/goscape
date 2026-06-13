@@ -18,9 +18,10 @@ import (
 // reference-cache re-pin): the Arc-26 REFERENCES condition is met — the
 // pinned engine depends on `@lostcityrs/runescript@0.9.6`, which carries
 // upstream commit 750291c ("chore: Bumped compiler version", a pure marker
-// bump with no layout change), and the rev-254 reference cache
-// (Server254-ref/engine/data/pack/server/script.dat @2e3bcf43) reports 27
-// in its header. The Go engine reads this header via
+// bump with no layout change), and the rev-274 reference cache
+// (Server274-ref/engine/data/pack/server/script.dat @dee467c8) still reports
+// 27 in its header (unchanged from the rev-254 @2e3bcf43 reference). The Go
+// engine reads this header via
 // pkg/script/provider.go (CompilerVersion = 27) and rejects mismatches,
 // so the packer must emit 27 for byte-parity and engine-loadable output.
 //

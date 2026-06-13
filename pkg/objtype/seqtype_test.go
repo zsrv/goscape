@@ -504,11 +504,11 @@ func TestLoadSeqTypes_MissingFile(t *testing.T) {
 
 func TestLoadSeqTypes_FromPack(t *testing.T) {
 	// Prefers the repo's data/pack (regenerate with goscape-cli pack); falls
-	// back to the Server254-ref reference cache (the rev-254 branch pin —
+	// back to the Server274-ref reference cache (the rev-274 branch pin —
 	// never resolve revision-specific caches across branch boundaries), which
 	// has the server/seq.dat and main_file_cache.dat (FileStream) required
 	// for LoadAnimFrames. Skip when neither is available.
-	const refPack = "/home/owner/Code/github.com/LostCityRS/Server254-ref/engine/data/pack"
+	const refPack = "/home/owner/Code/github.com/LostCityRS/Server274-ref/engine/data/pack"
 	cacheDir := filepath.Join("..", "..", "data", "pack")
 	if _, err := os.Stat(filepath.Join(cacheDir, "server", "seq.dat")); err != nil {
 		if _, err2 := os.Stat(filepath.Join(refPack, "server", "seq.dat")); err2 != nil {

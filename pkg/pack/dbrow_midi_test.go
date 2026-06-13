@@ -97,36 +97,36 @@ func TestPackDbRowConfigs_UnknownColumnErrors(t *testing.T) {
 	}
 }
 
-// ref254ContentDir resolves the Server254-ref content worktree:
-// GOSCAPE_REF254_DIR (pointing at .../engine, content derived as a
+// ref274ContentDir resolves the Server274-ref content worktree:
+// GOSCAPE_REF274_DIR (pointing at .../engine, content derived as a
 // sibling) first, then the known local worktree path. Returns "" when
 // neither exists.
-func ref254ContentDir() string {
-	if ref := os.Getenv("GOSCAPE_REF254_DIR"); ref != "" {
+func ref274ContentDir() string {
+	if ref := os.Getenv("GOSCAPE_REF274_DIR"); ref != "" {
 		dir := filepath.Join(ref, "..", "content")
 		if _, err := os.Stat(dir); err == nil {
 			return dir
 		}
 	}
-	const local = "/home/owner/Code/github.com/LostCityRS/Server254-ref/content"
+	const local = "/home/owner/Code/github.com/LostCityRS/Server274-ref/content"
 	if _, err := os.Stat(local); err == nil {
 		return local
 	}
 	return ""
 }
 
-// TestPackDbRow_Real254LevelupContent is the A14 empirical proof: the
-// REAL Server254-ref levelup.dbtable + levelup.dbrow (the original
+// TestPackDbRow_RealLevelupContent is the A14 empirical proof: the
+// REAL Server274-ref levelup.dbtable + levelup.dbrow (the original
 // rev-254 pack blocker — `column=levelup_jingle,midi`) pack end-to-end
 // through goscape's dbtable → LoadDbTableTypes → dbrow pipeline with
 // every [levelup_*] row resolving its midi names against the real
 // content midi.pack. Before A14 this errored at the [levelup] column
 // parse (unknown type "midi") and would have errored again at
 // [levelup_attack]'s `data=levelup_jingle,advance attack` value lookup.
-func TestPackDbRow_Real254LevelupContent(t *testing.T) {
-	contentDir := ref254ContentDir()
+func TestPackDbRow_RealLevelupContent(t *testing.T) {
+	contentDir := ref274ContentDir()
 	if contentDir == "" {
-		t.Skip("Server254-ref content not available (set GOSCAPE_REF254_DIR or provision the worktree)")
+		t.Skip("Server274-ref content not available (set GOSCAPE_REF274_DIR or provision the worktree)")
 	}
 	levelupDir := filepath.Join(contentDir, "scripts", "levelup", "configs")
 	if _, err := os.Stat(filepath.Join(levelupDir, "levelup.dbtable")); err != nil {
