@@ -243,14 +243,13 @@ func handleObjCount(s *ScriptState) error {
 // shapes (mindrune-style: non-protected inv 93, non-dummyitem obj)
 // the gates are no-ops.
 //
-// h-obj-2: TS Player.invAdd's `assureFullInsertion` arg defaults to
-// `true` (Player.ts:1496), so OBJ_TAKEITEM's bare call inherits an
-// all-or-nothing semantic — Inventory.add either fully inserts or
-// rolls back. INV_ADD (InvOps.ts:73) passes `false` explicitly.
-// goscape now threads the bit through performInvAdd: OBJ_TAKEITEM
-// passes `true` here, INV_ADD passes `false`. Prior to this fix
-// the helper hard-coded `false` for both call sites, producing a
-// partial-fill on tight destinations where TS would have rolled back.
+// h-obj-2 (rev-274): the all-or-nothing assureFullInsertion contract was
+// DELETED upstream — at 274 Player.invAdd is the bare partial-fill
+// container.add (Player.ts) and OBJ_TAKEITEM (ObjOps.ts:147) calls it with
+// no overflow handling, silently losing whatever doesn't fit as the obj is
+// unconditionally removed below. performInvAdd's dropOverflow param selects
+// the overflow policy: OBJ_TAKEITEM passes false (no floor-drop), INV_ADD
+// passes true. See the inline note at the call site.
 func handleObjTakeItem(s *ScriptState) error {
 	if err := requireActiveObj(s, "OBJ_TAKEITEM"); err != nil {
 		return err
