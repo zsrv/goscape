@@ -666,11 +666,35 @@ func TestSplitInitMesanimPrefixResolves(t *testing.T) {
 	}
 }
 
-func TestSplitInitFontWrap_BreaksOnMaxWidth(t *testing.T) {
-	if _, err := os.Stat(filepath.Join("..", "..", "data", "pack", "client", "title")); err != nil {
-		t.Skipf("data/pack/client/title unavailable: %v", err)
+// ref274FontPackDir resolves the Server274-ref cache-pack dir holding the
+// rev-274 *_full 256-glyph fonts: GOSCAPE_REF274_DIR (pointing at
+// .../engine, pack derived as data/pack) first, then the known local
+// worktree path. The local repo data/pack is still 254-era (p11.dat, NO
+// *_full) until plan T21 refreshes it, so a real-glyph font-wrap test
+// must use the 274 ref cache. Returns "" when neither has client/title.
+func ref274FontPackDir() string {
+	if ref := os.Getenv("GOSCAPE_REF274_DIR"); ref != "" {
+		dir := filepath.Join(ref, "data", "pack")
+		if _, err := os.Stat(filepath.Join(dir, "client", "title")); err == nil {
+			return dir
+		}
 	}
-	fonts, err := fonttype.Load(filepath.Join("..", "..", "data", "pack"))
+	const local = "/home/owner/Code/github.com/LostCityRS/Server274-ref/engine/data/pack"
+	if _, err := os.Stat(filepath.Join(local, "client", "title")); err == nil {
+		return local
+	}
+	return ""
+}
+
+func TestSplitInitFontWrap_BreaksOnMaxWidth(t *testing.T) {
+	// rev-274: needs the *_full 256-glyph fonts (real glyph metrics). The
+	// local data/pack is 254-era until plan T21, so load from the 274 ref
+	// cache. See pkg/fonttype tests for the same convention.
+	packDir := ref274FontPackDir()
+	if packDir == "" {
+		t.Skip("Server274-ref cache not available (set GOSCAPE_REF274_DIR or provision the worktree)")
+	}
+	fonts, err := fonttype.Load(packDir)
 	if err != nil {
 		t.Fatalf("fonttype.Load: %v", err)
 	}

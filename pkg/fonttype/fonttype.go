@@ -1,16 +1,30 @@
 // Package fonttype ports Engine-TS's client-side FontType
-// (Engine-TS/src/cache/config/FontType.ts) — width-only, no rendering.
+// (Engine-TS/src/cache/config/FontType.ts @dee467c8) — width-only, no
+// rendering.
 //
-// Loaded from the client/title Jagfile as 4 fixed instances:
-// id 0 = p11, 1 = p12, 2 = b12, 3 = q8.
+// Loaded from the client/title Jagfile as 4 fixed instances by their
+// rev-274 *_full names:
 //
-// goscape retains only per-character drawWidth (the metric needed by
-// the SPLIT_INIT word-wrap algorithm). Character bitmap data is read
-// through to advance the file cursor and to compute drawWidth, then
-// discarded — we do not render text.
+//	id 0 = p11_full, 1 = p12_full, 2 = b12_full, 3 = q8_full
+//
+// q8_full is the only "quill" font (its space-advance copies the 'I'
+// glyph; the others copy the 'i' glyph).
+//
+// goscape retains only per-character drawWidth (the metric needed by the
+// SPLIT_INIT word-wrap algorithm). Character bitmap data is read through
+// to advance the file cursor and to compute drawWidth, then discarded —
+// we do not render text. This is a deliberately SIMPLIFIED port: the TS
+// charMask/charMaskWidth/charMaskHeight/charOffsetX/charOffsetY rendering
+// arrays are not retained, only the observable charAdvance (drawWidth)
+// per char code.
+//
+// rev-274 reworked FontType to 256-glyph fonts indexed DIRECTLY by char
+// code (the old CHAR_LOOKUP 94-glyph indirection is gone), so drawWidth
+// now carries a real advance for every code 0..255.
 package fonttype
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -18,72 +32,75 @@ import (
 	"github.com/zsrv/goscape/pkg/io/jagfile"
 )
 
-// CharLookup maps an 8-bit character to its slot in the 94-glyph
-// per-font drawWidth table. Mirrors FontType.ts:7-18.
-var CharLookup [256]byte
-
-// init populates CharLookup matching TS FontType static initializer
-// (FontType.ts:7-18). The charset includes '£' (a multi-byte UTF-8
-// rune in Go source); we iterate by RUNE (not byte) so that ASCII
-// chars positioned AFTER '£' in the charset get the correct char-index
-// slot — matching JS String.indexOf semantics. Byte 0xA3 alone falls
-// through to the 74 fallback (matches TS for any code point not in
-// the charset).
-func init() {
-	charset := []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-		"abcdefghijklmnopqrstuvwxyz" +
-		"0123456789!\"£$%^&*()-_=+[{]};:'@#~,<.>/?\\| ")
-	for i := 0; i < 256; i++ {
-		slot := byte(74)
-		for j, r := range charset {
-			if int(r) == i {
-				slot = byte(j)
-				break
-			}
-		}
-		CharLookup[i] = slot
-	}
-}
-
 // FontType is a parsed title-Jagfile font: only the width metrics are
-// retained. height is the tallest glyph height (used by no goscape
-// caller today but kept exported for future text-rendering uses).
+// retained. height is the tallest glyph height among codes < 128 (the
+// rev-274 `c < 128` guard) — kept exported via Height() for future
+// text-rendering uses.
 type FontType struct {
-	drawWidth [256]byte // per-byte advance width
+	drawWidth [256]byte // per-char-code advance width (charAdvance)
 	height    int
 }
 
-// Load parses dir/client/title and returns 4 FontType instances in
-// id order (p11, p12, b12, q8). Mirrors FontType.ts:20-27. Returns
-// nil + err if the title file or any font entry is missing.
+// fontSpec pairs a *_full font name with its quill flag. Mirrors TS
+// FontType.load (FontType.ts:6-13): only q8_full is a quill font.
+type fontSpec struct {
+	name  string
+	quill bool
+}
+
+var fontSpecs = []fontSpec{
+	{"p11_full", false},
+	{"p12_full", false},
+	{"b12_full", false},
+	{"q8_full", true},
+}
+
+// Load parses dir/client/title and returns 4 FontType instances in id
+// order (p11_full, p12_full, b12_full, q8_full). Mirrors TS
+// FontType.load. Returns nil + err if the title file or any font entry
+// is missing.
 func Load(dir string) ([]*FontType, error) {
 	title, err := jagfile.LoadJagfile(filepath.Join(dir, "client", "title"))
 	if err != nil {
 		return nil, fmt.Errorf("load title jagfile: %w", err)
 	}
-	names := []string{"p11", "p12", "b12", "q8"}
-	fonts := make([]*FontType, len(names))
-	for i, name := range names {
-		f, err := decodeFont(title, name)
+	fonts := make([]*FontType, len(fontSpecs))
+	for i, spec := range fontSpecs {
+		f, err := decodeFont(title, spec.name, spec.quill)
 		if err != nil {
-			return nil, fmt.Errorf("decode font %s: %w", name, err)
+			return nil, fmt.Errorf("decode font %s: %w", spec.name, err)
 		}
 		fonts[i] = f
 	}
 	return fonts, nil
 }
 
-func decodeFont(title *jagfile.Jagfile, name string) (*FontType, error) {
+// decodeFont ports the TS FontType constructor (FontType.ts:33-106) in
+// simplified form: it walks all 256 glyphs to compute charAdvance
+// (kept as drawWidth) and the height, discarding the pixel masks after
+// the advance computation reads them.
+func decodeFont(title *jagfile.Jagfile, name string, quill bool) (*FontType, error) {
+	// FontType.ts:34-38 — a missing data or index entry is a SILENT no-op:
+	// TS returns from the constructor leaving an all-zero FontType. We
+	// mirror that (empty FontType, no error) so a cache that lacks a given
+	// font — e.g. a pre-274 title jag without the *_full entries — degrades
+	// to zero-width text rather than failing the whole load.
 	data, err := title.Read(name + ".dat")
 	if err != nil {
+		if errors.Is(err, jagfile.ErrFileNotFound) {
+			return &FontType{}, nil
+		}
 		return nil, err
 	}
 	index, err := title.Read("index.dat")
 	if err != nil {
+		if errors.Is(err, jagfile.ErrFileNotFound) {
+			return &FontType{}, nil
+		}
 		return nil, err
 	}
 
-	// FontType.ts:55-59
+	// FontType.ts:40-44
 	index.Pos = int(data.G2()) + 4
 	palCount := int(index.G1())
 	if palCount > 0 {
@@ -91,80 +108,82 @@ func decodeFont(title *jagfile.Jagfile, name string) (*FontType, error) {
 	}
 
 	f := &FontType{}
-	var charMaskWidth [94]int
-	var charMaskHeight [94]int
-	var charOffsetX [94]int
-	var charAdvance [95]byte
 
-	for c := 0; c < 94; c++ {
-		charOffsetX[c] = int(index.G1())
-		_ = index.G1() // charOffsetY — read but unused outside decode
+	// FontType.ts:46-99 — all 256 glyphs, direct char-code index.
+	for c := 0; c < 256; c++ {
+		_ = index.G1() // charOffsetX — read but unused in this width-only port
+		_ = index.G1() // charOffsetY — likewise
 		wi := int(index.G2())
 		hi := int(index.G2())
-		charMaskWidth[c] = wi
-		charMaskHeight[c] = hi
 
 		pixelOrder := index.G1()
-		charMask := make([]byte, wi*hi)
+		mask := make([]byte, wi*hi)
 		switch pixelOrder {
 		case 0:
 			for j := 0; j < wi*hi; j++ {
-				charMask[j] = data.G1()
+				mask[j] = data.G1()
 			}
 		case 1:
 			for x := 0; x < wi; x++ {
 				for y := 0; y < hi; y++ {
-					charMask[x+y*wi] = data.G1()
+					mask[x+y*wi] = data.G1()
 				}
 			}
 		}
 
-		if hi > f.height {
+		// FontType.ts:70-72 — height trusted only from glyphs < 128.
+		if hi > f.height && c < 128 {
 			f.height = hi
 		}
 
-		charOffsetX[c] = 1
-		charAdvance[c] = byte(wi + 2)
+		// FontType.ts:75 — base advance is glyph width + 2.
+		adv := wi + 2
 
-		// FontType.ts:94-102 — trim left empty column.
+		// FontType.ts:79-87 — trim left empty column.
 		space := 0
 		for y := hi / 7; y < hi; y++ {
-			if y*wi < len(charMask) {
-				space += int(charMask[y*wi])
+			if y*wi < len(mask) {
+				space += int(mask[y*wi])
 			}
 		}
 		if space <= hi/7 {
-			charAdvance[c]--
-			charOffsetX[c] = 0
+			adv--
 		}
 
-		// FontType.ts:106-113 — trim right empty column.
+		// FontType.ts:91-98 — trim right empty column.
 		space = 0
 		for y := hi / 7; y < hi; y++ {
-			if idx := wi + y*wi - 1; idx >= 0 && idx < len(charMask) {
-				space += int(charMask[idx])
+			if idx := wi + y*wi - 1; idx >= 0 && idx < len(mask) {
+				space += int(mask[idx])
 			}
 		}
 		if space <= hi/7 {
-			charAdvance[c]--
+			adv--
 		}
+
+		f.drawWidth[c] = byte(adv)
 	}
 
-	// FontType.ts:116 — space (index 94) inherits advance from charAdvance[8].
-	charAdvance[94] = charAdvance[8]
-
-	for c := 0; c < 256; c++ {
-		slot := CharLookup[c]
-		if int(slot) < len(charAdvance) {
-			f.drawWidth[c] = charAdvance[slot]
-		}
+	// FontType.ts:101-105 — space (code 32) advance: quill copies glyph 73
+	// (the 'I' glyph), else glyph 105 (the 'i' glyph).
+	if quill {
+		f.drawWidth[32] = f.drawWidth[73]
+	} else {
+		f.drawWidth[32] = f.drawWidth[105]
 	}
+
 	return f, nil
 }
 
-// StringWidth ports FontType.ts:123-138. Treats "@xxx@" 5-character
-// run as a 4-byte forward skip (the trailing '@' is then consumed by
-// the for-loop's c++).
+// DrawWidth returns the advance width for a single char code.
+func (f *FontType) DrawWidth(c byte) byte { return f.drawWidth[c] }
+
+// Height returns the font height (tallest glyph among codes < 128).
+func (f *FontType) Height() int { return f.height }
+
+// StringWidth ports FontType.ts:108-123. Treats "@xxx@" 5-character run
+// as a 4-byte forward skip (the trailing '@' is then consumed by the
+// for-loop's c++).
 func (f *FontType) StringWidth(s string) int {
 	size := 0
 	for c := 0; c < len(s); c++ {
@@ -177,24 +196,32 @@ func (f *FontType) StringWidth(s string) int {
 	return size
 }
 
-// Split ports FontType.ts:140-176. Returns a slice of lines whose
-// StringWidth is ≤ maxWidth, breaking on '|' (forced) or at the
-// last space boundary that fits. An empty input string returns
-// [""] (TS special case at :141-144). A single word wider than
-// maxWidth with no space inside it is emitted on its own line
-// (default splitIndex = len(str) per TS:156-170).
+// Split ports FontType.ts:125-196. Returns a slice of lines whose
+// StringWidth is ≤ maxWidth, breaking on '|' (forced) or at the last
+// space boundary that fits. An empty input string returns [""] (TS
+// special case at :126-129). A single word wider than maxWidth with no
+// space inside it is emitted on its own line (default splitIndex =
+// len(str) per TS:142-156).
+//
+// rev-274 added colour persistence: an "@xxx@" colour code opened on one
+// line is re-applied to the start of the next line; an "@str@" reset
+// clears the carry. This is FontType's OWN split loop (TS does not share
+// it with the IF_SETTEXT handler), ported verbatim.
 func (f *FontType) Split(s string, maxWidth int) []string {
 	if len(s) == 0 {
 		return []string{s}
 	}
 	var lines []string
+	var savedCol string // "" == null (no carried colour)
 	for len(s) > 0 {
+		// FontType.ts:135-139 — does the line even need breaking?
 		w := f.StringWidth(s)
 		if w <= maxWidth && !strings.ContainsRune(s, '|') {
 			lines = append(lines, s)
 			break
 		}
 
+		// FontType.ts:142-156 — find the next word boundary.
 		splitIndex := len(s)
 		for i := 0; i < len(s); i++ {
 			if s[i] == ' ' {
@@ -208,11 +235,49 @@ func (f *FontType) Split(s string, maxWidth int) []string {
 			}
 		}
 
-		lines = append(lines, s[:splitIndex])
+		line := s[:splitIndex]
+		lines = append(lines, line)
+
+		// FontType.ts:162-178 — scan the emitted line for the last colour
+		// code, updating savedCol. "@str@" resets; "@str@bla@" stays reset.
+		if strings.IndexByte(line, '@') != -1 {
+			for i := 0; i+4 < len(line); i++ {
+				if line[i] == '@' && i+4 < len(line) && line[i+4] == '@' {
+					col := line[i+1 : i+4]
+					if col == "str" {
+						savedCol = ""
+						if i+10 <= len(line) && line[i+5:i+10] == "@bla@" {
+							i += 9
+							continue
+						}
+					} else {
+						savedCol = line[i : i+5]
+					}
+					i += 4
+				}
+			}
+		}
+
+		// FontType.ts:180 — advance past the break char.
 		if splitIndex+1 <= len(s) {
 			s = s[splitIndex+1:]
 		} else {
 			s = ""
+		}
+
+		// FontType.ts:182-193 — re-apply the carried colour to the
+		// continuation (unless it starts with '|' or is empty). If the
+		// continuation already contains an "@str@", insert "@bla@" after
+		// it instead of prefixing, then clear the carry.
+		if savedCol != "" && len(s) > 0 && s[0] != '|' {
+			if strIndex := strings.Index(s, "@str@"); strIndex != -1 {
+				if !(strIndex+10 <= len(s) && s[strIndex+5:strIndex+10] == "@bla@") {
+					s = s[:strIndex+5] + "@bla@" + s[strIndex+5:]
+				}
+				savedCol = ""
+			} else {
+				s = savedCol + s
+			}
 		}
 	}
 	return lines
