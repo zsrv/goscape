@@ -190,6 +190,10 @@ func (n *Npc) SetNpcVarNString(id int, val string) {
 //     both entities.
 //   - D5-Player (level-change → moveSpeed=INSTANT + jump=true) —
 //     NAI-36-T7.
+//   - D5-NPC (level-change → moveSpeed=INSTANT + jump=true) — rev-274.
+//     The NpcInfo add-leaf gained a jump bit (crate 66911610), so npc.jump
+//     is now a live wire field; the player D5 branch is mirrored in
+//     Npc.Teleport.
 //   - D3-Player + D3-NPC (focus call from PathingEntity.ts:286-289) —
 //     NAI-65, both entities.
 //   - D4-Player (lastStepX = x-1; lastStepZ = z from
@@ -202,14 +206,13 @@ func (n *Npc) SetNpcVarNString(id int, val string) {
 //     scoped to Player only). Closure: requires upstream-TS NPC
 //     consumer to materialise — until then, dead-API per
 //     dead_api_polish.md.
-//   - D5-NPC: no jump field on Npc. TS PathingEntity sets npc.jump
-//     on level-change, but no TS NPC encoder reads it; Rust upstream
-//     rsbuf::Npc (2004scape/rsbuf branch 225, src/npc.rs:3-29) has
-//     no jump field either. Closure: requires upstream-TS NPC
-//     encoder consumer to materialise.
 //
-// Both residuals are documented permanent dead-API skips, not
-// blocked-on-future-work items.
+// (D5-NPC was a residual dead-API skip until rev-274: the rsbuf NPC
+// add-leaf gained a jump bit, materialising the encoder consumer.
+// D5-NPC is now CLOSED — see the CLOSED list above and Npc.Teleport.)
+//
+// The remaining residual (D4-NPC) is a documented permanent dead-API
+// skip, not a blocked-on-future-work item.
 //
 // Body order (focus, refresh, tele=true) matches TS
 // PathingEntity.ts:286-293.
@@ -239,6 +242,16 @@ func (n *Npc) Teleport(x, z, level int) {
 	// PathingEntity.ts:293 → refreshZonePresence(:163-188).
 	refreshNpcZonePresence(n.server, n, prevX, prevZ, prevLevel)
 	n.tele = true
+
+	// D5-NPC (rev-274): level-change → INSTANT + jump per
+	// PathingEntity.ts:295-298. Previously a documented dead-API skip
+	// (no NPC encoder read npc.jump); the rev-274 NpcInfo add-leaf jump
+	// bit (crate 66911610) materialised the consumer, so the player D5
+	// branch is now mirrored for NPCs.
+	if prevLevel != level {
+		n.moveSpeed = MoveSpeedInstant
+		n.jump = true
+	}
 }
 
 // PlaySpotAnim schedules a spotanim on the NPC for this tick at the given

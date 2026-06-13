@@ -449,6 +449,7 @@ func TestComputeNpc_WritesAllFields(t *testing.T) {
 	b.ComputeNpc(50, 100,
 		/*x*/ 60 /*level*/, 0 /*z*/, 70,
 		/*tele*/ true,
+		/*jump*/ true,
 		/*runDir*/ 1 /*walkDir*/, 2,
 		/*active*/ true,
 		/*masks*/ 0xff,
@@ -474,6 +475,9 @@ func TestComputeNpc_WritesAllFields(t *testing.T) {
 	}
 	if !n.Tele {
 		t.Error("Tele: got false")
+	}
+	if !n.Jump {
+		t.Error("Jump: got false")
 	}
 	if n.RunDir != 1 || n.WalkDir != 2 {
 		t.Errorf("RunDir/WalkDir: got (%d, %d)", n.RunDir, n.WalkDir)
@@ -507,7 +511,7 @@ func TestComputeNpc_WritesAllFields(t *testing.T) {
 func TestComputeNpc_NilSlotIsNoop(t *testing.T) {
 	b := New()
 	// nid 50 not added.
-	b.ComputeNpc(50, 100, 60, 0, 70, false, -1, -1, false, 0,
+	b.ComputeNpc(50, 100, 60, 0, 70, false, false, -1, -1, false, 0,
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
 	if b.npcs[50] != nil {
 		t.Error("ComputeNpc on nil slot allocated npc")
@@ -517,9 +521,9 @@ func TestComputeNpc_NilSlotIsNoop(t *testing.T) {
 func TestComputeNpc_NegativeIDsAreNoop(t *testing.T) {
 	b := New()
 	b.AddNpc(50, 100)
-	b.ComputeNpc(-1, 100, 60, 0, 70, false, -1, -1, false, 0,
+	b.ComputeNpc(-1, 100, 60, 0, 70, false, false, -1, -1, false, 0,
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
-	b.ComputeNpc(50, -1, 60, 0, 70, false, -1, -1, false, 0,
+	b.ComputeNpc(50, -1, 60, 0, 70, false, false, -1, -1, false, 0,
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
 	// Both should no-op. Pin that the negative-ntype call did NOT
 	// overwrite NType=100 on the existing slot — without this assertion
@@ -535,13 +539,13 @@ func TestComputeNpc_NegativeIDsAreNoop(t *testing.T) {
 func TestComputeNpc_CrossZoneMoveUpdatesZoneMap(t *testing.T) {
 	b := New()
 	b.AddNpc(50, 100)
-	b.ComputeNpc(50, 100, 50, 0, 50, false, -1, -1, true, 0,
+	b.ComputeNpc(50, 100, 50, 0, 50, false, false, -1, -1, true, 0,
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
 	if _, ok := b.zoneMap.Zone(50, 0, 50).npcs[50]; !ok {
 		t.Fatal("after first compute: zone (6,0,6) should contain nid 50")
 	}
 
-	b.ComputeNpc(50, 100, 64, 0, 50, false, -1, -1, true, 0,
+	b.ComputeNpc(50, 100, 64, 0, 50, false, false, -1, -1, true, 0,
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
 	if _, ok := b.zoneMap.Zone(50, 0, 50).npcs[50]; ok {
 		t.Error("after cross-zone: old zone still contains nid 50")
@@ -560,7 +564,7 @@ func TestCleanup_ClearsPlayerGridAndCallsEntityCleanup(t *testing.T) {
 		VisibilityDefault, 0, true, 0xff, []byte{1}, -1, -1, -1, -1, -1, -1, -1,
 		-1, -1, -1, -1, -1, 808, 0, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
-	b.ComputeNpc(10, 100, 60, 0, 60, true, 1, 2, true, 0xff,
+	b.ComputeNpc(10, 100, 60, 0, 60, true, false, 1, 2, true, 0xff,
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 808, nil, -1, -1, -1)
 	if len(b.playerGrid) == 0 {
 		t.Fatal("test setup: ComputePlayer did not populate playerGrid")
@@ -844,7 +848,7 @@ func TestComputePlayer_Damage2Fields(t *testing.T) {
 func TestComputeNpc_Damage2Fields(t *testing.T) {
 	b := New()
 	b.AddNpc(50, 100)
-	b.ComputeNpc(50, 100, 60, 0, 70, false, -1, -1, true, 0,
+	b.ComputeNpc(50, 100, 60, 0, 70, false, false, -1, -1, true, 0,
 		-1, -1, -1, -1, -1, -1, -1,
 		/*damageTaken2=*/ 4 /*damageType2=*/, 1,
 		-1, -1, -1, -1, nil, -1, -1, -1)
@@ -882,7 +886,7 @@ func TestComputePlayer_Damage2Cleanup(t *testing.T) {
 func TestComputeNpc_Damage2Cleanup(t *testing.T) {
 	b := New()
 	b.AddNpc(50, 100)
-	b.ComputeNpc(50, 100, 60, 0, 70, false, -1, -1, true, 0,
+	b.ComputeNpc(50, 100, 60, 0, 70, false, false, -1, -1, true, 0,
 		-1, -1, -1, -1, -1, -1, -1,
 		/*damageTaken2=*/ 4 /*damageType2=*/, 1,
 		-1, -1, -1, -1, nil, -1, -1, -1)

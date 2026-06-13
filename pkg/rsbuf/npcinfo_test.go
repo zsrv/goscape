@@ -16,6 +16,7 @@ func setupNpc(b *Buf, nid, ntype int32, modify func(n *Npc)) {
 		nid, ntype,
 		3200, 0, 3200, // x, level, z — same zone as local player
 		false,  // tele
+		false,  // jump
 		-1, -1, // runDir, walkDir
 		true,       // active
 		0,          // masks
@@ -318,7 +319,7 @@ func TestNpcInfo_TrackedNpc_RemoveBecauseLevelMismatch(t *testing.T) {
 	b.ComputeNpc(
 		7, 100,
 		3200, 1, 3200, // level=1 — mismatch with player level=0
-		false, -1, -1, true, 0,
+		false, false, -1, -1, true, 0, // tele, jump, runDir, walkDir, active, masks
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
 	)
 	b.npcs[7].Observers = 5
@@ -350,7 +351,7 @@ func TestNpcInfo_TrackedNpc_RemoveBecauseOutOfDistance(t *testing.T) {
 	b.ComputeNpc(
 		7, 100,
 		npcX, 0, 3200,
-		false, -1, -1, true, 0,
+		false, false, -1, -1, true, 0, // tele, jump, runDir, walkDir, active, masks
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
 	)
 	b.npcs[7].Observers = 5
@@ -380,7 +381,7 @@ func TestNpcInfo_TrackedNpc_RemoveBecauseInactive(t *testing.T) {
 	b.ComputeNpc(
 		7, 100,
 		3200, 0, 3200,
-		false, -1, -1,
+		false, false, -1, -1, // tele, jump, runDir, walkDir
 		false, // active=false
 		0,
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
@@ -407,21 +408,24 @@ func TestNpcInfo_TrackedNpc_RemoveBecauseInactive(t *testing.T) {
 
 // TestNpcInfo_NewNpcs_DiscoversAndAdds: 1 NPC near self, Build.Npcs empty
 // initially. After Encode: nid is in tracking set, Observers incremented to 1,
-// and the output bit stream contains the 35-bit add-leaf.
+// and the output bit stream contains the 37-bit add-leaf.
 //
-// Add-leaf bit layout (254: nid widened 13→14 bits, crate 304955d5):
+// Add-leaf bit layout (rev-274: jump bit added between dz and extend, crate
+// 66911610; 254: nid widened 13→14 bits, crate 304955d5):
 // PBit(8,0) [count] + PBit(14,nid) + PBit(11,ntype) +
-// PBit(5,dx&0x1f) + PBit(5,dz&0x1f) + PBit(1,1) [extend always 1 for new add].
-// With nid=7, ntype=100, self=(3200,0,3200), npc=(3200,0,3200) → dx=0,dz=0:
+// PBit(5,dx&0x1f) + PBit(5,dz&0x1f) + PBit(1,jump) + PBit(1,1) [extend always
+// 1 for new add]. With nid=7, ntype=100, self=(3200,0,3200),
+// npc=(3200,0,3200), jump=false → dx=0,dz=0:
 //
 //	bits 0-7:  0x00 (count=0)
 //	bits 8-21: 0b00000000000111 = 7  → nid
 //	bits 22-32: 0b00001100100 = 100 → ntype
 //	bits 33-37: 0b00000 → dx=0
 //	bits 38-42: 0b00000 → dz=0
-//	bit 43:    1 → extend
+//	bit 43:    0 → jump (rev-274 NEW)
+//	bit 44:    1 → extend
 //
-// Total: 44 bits → 6 bytes (rounded up). First byte 0x00 (count=0).
+// Total: 45 bits → 6 bytes (rounded up). First byte 0x00 (count=0).
 func TestNpcInfo_NewNpcs_DiscoversAndAdds(t *testing.T) {
 	b := New()
 	setupLocalPlayer(b, 1, nil)
@@ -549,7 +553,7 @@ func TestNpcInfo_ObserverCountFloorsAtZero(t *testing.T) {
 	b.ComputeNpc(
 		7, 100,
 		3200, 1, 3200, // level=1 — mismatch with player level=0; prevents re-add
-		false, -1, -1, true, 0,
+		false, false, -1, -1, true, 0, // tele, jump, runDir, walkDir, active, masks
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
 	)
 	b.npcs[7].Observers = 0
@@ -744,18 +748,19 @@ func readBitsRange(data []byte, start, n int) int {
 // non-nil low-def payload so writeNewNpcs both adds the NPC AND
 // populates ni.updates.Data (forces the terminator branch to fire).
 //
-// Bit layout after Encode:
+// Bit layout after Encode (rev-274 jump bit shifts the terminator 44→45):
 //
 //	bits  0-7:   PBit(8,0)        — count
 //	bits  8-21:  PBit(14,7)       — nid
 //	bits 22-32:  PBit(11,100)     — ntype
 //	bits 33-37:  PBit(5,0)        — dx
 //	bits 38-42:  PBit(5,0)        — dz
-//	bit  43:     PBit(1,1)        — extend
-//	bits 44-57:  PBit(14,16383)   — terminator (the bug fix)
+//	bit  43:     PBit(1,0)        — jump (rev-274 NEW; jump=false here)
+//	bit  44:     PBit(1,1)        — extend
+//	bits 45-58:  PBit(14,16383)   — terminator (the bug fix)
 //	bytes 8+:    mask payload bytes (after AccessBytes)
 //
-// Assertion: bits 44-57 must equal 16383.
+// Assertion: bits 45-58 must equal 16383.
 func TestNpcInfo_Encode_EmitsTerminatorBeforeMaskPayloads(t *testing.T) {
 	const nid = int32(7)
 	b := New()
@@ -772,81 +777,101 @@ func TestNpcInfo_Encode_EmitsTerminatorBeforeMaskPayloads(t *testing.T) {
 
 	out := ni.Encode(b, 1, r)
 
-	// Output must be at least 8 bytes (8 + 36 + 14 = 58 bits packed) +
+	// Output must be at least 8 bytes (8 + 37 + 14 = 59 bits packed) +
 	// 5 mask-payload bytes = 13 bytes total.
 	if len(out) < 8 {
 		t.Fatalf("EmitsTerminator: got %d bytes, want >= 8; bytes: % x", len(out), out)
 	}
 
-	// Extract bits 44-57 (14 bits) MSB-first; must equal 16383.
-	got := readBitsRange(out, 44, 14)
+	// Extract bits 45-58 (14 bits) MSB-first; must equal 16383.
+	got := readBitsRange(out, 45, 14)
 	if got != 16383 {
-		t.Errorf("EmitsTerminator: bits 44-57 = %d (0x%x), want 16383 (0x3FFF); bytes: % x",
+		t.Errorf("EmitsTerminator: bits 45-58 = %d (0x%x), want 16383 (0x3FFF); bytes: % x",
 			got, got, out)
 	}
 }
 
-// TestNpcInfo_NewNpcs_Add14BitNid_Wire254 pins the 254 wire widening
-// (rsbuf crate 304955d5 "Compatibility for 254"): NPC ids occupy 14 bits
-// in the add-leaf and the terminator is 14 bits of 16383. nid=9000 is
-// unrepresentable in the 244-era 13-bit field (max 8191) — this test is
-// impossible to pass on the 13-bit layout.
+// TestNpcInfo_NewNpcs_Add14BitNid_Wire274 pins the NPC add-leaf wire layout
+// at rev-274 (rsbuf crate 66911610 / TS rsbuf info.ts @dee467c8): the add-leaf
+// gains a 1-bit jump flag between the dz 5-bit write and the extend bit
+// (36→37 add-leaf bits). It also preserves the 254 widening (crate 304955d5):
+// NPC ids occupy 14 bits and the terminator is 14 bits of 16383. nid=9000 is
+// unrepresentable in the 244-era 13-bit field (max 8191).
 //
 // Setup: 1 player at default coord, NPC nid=9000 ntype=100 at the same
 // coord with a 1-byte low-def payload (forces the terminator branch).
 //
-// Bit layout after Encode:
+// Bit layout after Encode (jump=false here):
 //
 //	bits  0-7:   PBit(8,0)        — count = 0 (nothing tracked)
 //	bits  8-21:  PBit(14,9000)    — nid (needs all 14 bits: 9000 > 8191)
 //	bits 22-32:  PBit(11,100)     — ntype
 //	bits 33-37:  PBit(5,0)        — dx
 //	bits 38-42:  PBit(5,0)        — dz
-//	bit  43:     PBit(1,1)        — extend
-//	bits 44-57:  PBit(14,16383)   — terminator
+//	bit  43:     PBit(1,jump)     — jump (rev-274 NEW)
+//	bit  44:     PBit(1,1)        — extend
+//	bits 45-58:  PBit(14,16383)   — terminator
 //	AccessBytes pads to bit 64; byte 8 = mask payload 0xab
-func TestNpcInfo_NewNpcs_Add14BitNid_Wire254(t *testing.T) {
+//
+// The jump bit shifts the extend bit 43→44 and the terminator 44-57→45-58
+// vs the 254 layout (hard rule #2: the 254 pin is UPDATED, not kept).
+func TestNpcInfo_NewNpcs_Add14BitNid_Wire274(t *testing.T) {
 	const nid = int32(9000)
-	b := New()
-	setupLocalPlayer(b, 1, nil)
-	setupNpc(b, nid, 100, nil)
 
-	ni := NewNpcInfo()
-	r := NewRenderer()
-	r.npcLowDef[nid] = []byte{0xab}
+	for _, tc := range []struct {
+		name     string
+		jump     bool
+		wantJump int
+	}{
+		{"jump=false", false, 0},
+		{"jump=true", true, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := New()
+			setupLocalPlayer(b, 1, nil)
+			setupNpc(b, nid, 100, func(n *Npc) { n.Jump = tc.jump })
 
-	out := ni.Encode(b, 1, r)
+			ni := NewNpcInfo()
+			r := NewRenderer()
+			r.npcLowDef[nid] = []byte{0xab}
 
-	if !b.PlayerForTest(1).Build.Npcs.Contains(nid) {
-		t.Fatalf("Add14BitNid: nid %d should be in tracking set after Encode; bytes: % x", nid, out)
-	}
-	if len(out) != 9 {
-		t.Fatalf("Add14BitNid: got %d bytes, want 9; bytes: % x", len(out), out)
-	}
-	if out[0] != 0x00 {
-		t.Errorf("Add14BitNid: byte[0] = 0x%02x, want 0x00 (count=0)", out[0])
-	}
-	if got := readBitsRange(out, 8, 14); got != 9000 {
-		t.Errorf("Add14BitNid: bits 8-21 (nid) = %d, want 9000; bytes: % x", got, out)
-	}
-	if got := readBitsRange(out, 22, 11); got != 100 {
-		t.Errorf("Add14BitNid: bits 22-32 (ntype) = %d, want 100; bytes: % x", got, out)
-	}
-	if got := readBitsRange(out, 33, 5); got != 0 {
-		t.Errorf("Add14BitNid: bits 33-37 (dx) = %d, want 0", got)
-	}
-	if got := readBitsRange(out, 38, 5); got != 0 {
-		t.Errorf("Add14BitNid: bits 38-42 (dz) = %d, want 0", got)
-	}
-	if got := readBitsRange(out, 43, 1); got != 1 {
-		t.Errorf("Add14BitNid: bit 43 (extend) = %d, want 1", got)
-	}
-	if got := readBitsRange(out, 44, 14); got != 16383 {
-		t.Errorf("Add14BitNid: bits 44-57 (terminator) = %d (0x%x), want 16383 (0x3FFF); bytes: % x",
-			got, got, out)
-	}
-	if out[8] != 0xab {
-		t.Errorf("Add14BitNid: byte[8] = 0x%02x, want 0xab (mask payload after AccessBytes)", out[8])
+			out := ni.Encode(b, 1, r)
+
+			if !b.PlayerForTest(1).Build.Npcs.Contains(nid) {
+				t.Fatalf("Add14BitNid: nid %d should be in tracking set after Encode; bytes: % x", nid, out)
+			}
+			if len(out) != 9 {
+				t.Fatalf("Add14BitNid: got %d bytes, want 9; bytes: % x", len(out), out)
+			}
+			if out[0] != 0x00 {
+				t.Errorf("Add14BitNid: byte[0] = 0x%02x, want 0x00 (count=0)", out[0])
+			}
+			if got := readBitsRange(out, 8, 14); got != 9000 {
+				t.Errorf("Add14BitNid: bits 8-21 (nid) = %d, want 9000; bytes: % x", got, out)
+			}
+			if got := readBitsRange(out, 22, 11); got != 100 {
+				t.Errorf("Add14BitNid: bits 22-32 (ntype) = %d, want 100; bytes: % x", got, out)
+			}
+			if got := readBitsRange(out, 33, 5); got != 0 {
+				t.Errorf("Add14BitNid: bits 33-37 (dx) = %d, want 0", got)
+			}
+			if got := readBitsRange(out, 38, 5); got != 0 {
+				t.Errorf("Add14BitNid: bits 38-42 (dz) = %d, want 0", got)
+			}
+			if got := readBitsRange(out, 43, 1); got != tc.wantJump {
+				t.Errorf("Add14BitNid: bit 43 (jump) = %d, want %d", got, tc.wantJump)
+			}
+			if got := readBitsRange(out, 44, 1); got != 1 {
+				t.Errorf("Add14BitNid: bit 44 (extend) = %d, want 1", got)
+			}
+			if got := readBitsRange(out, 45, 14); got != 16383 {
+				t.Errorf("Add14BitNid: bits 45-58 (terminator) = %d (0x%x), want 16383 (0x3FFF); bytes: % x",
+					got, got, out)
+			}
+			if out[8] != 0xab {
+				t.Errorf("Add14BitNid: byte[8] = 0x%02x, want 0xab (mask payload after AccessBytes)", out[8])
+			}
+		})
 	}
 }
 

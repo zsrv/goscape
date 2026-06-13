@@ -94,14 +94,16 @@ func (n *Npc) turn(s *Server) {
 	// faceEntity from the (possibly just-cleared/just-set) target.
 	n.setFaceEntity()
 
-	// PORTING-EXCEPTION (M3, npc-validateDistanceWalked): TS Npc.ts:186 calls
-	// validateDistanceWalked() here, which sets this.jump. But rsbuf.computeNpc
-	// (World.ts:1047-1073) passes npc.tele and never npc.jump — the NpcInfo
-	// protocol has no jump bit — so the NPC call is a no-op on the wire (note
-	// TS's own "Dev note: Is this necessary?"). goscape's Npc therefore has no
-	// jump field and intentionally omits the call. The player side (real wire
-	// effect via computePlayer) is ported in processValidateDistanceWalked. See
-	// PORTING.md / fix-tracker M3.
+	// rev-274: TS Npc.ts:186 calls validateDistanceWalked() at the NPC
+	// processing tail, which sets this.jump. The rev-274 NpcInfo add-leaf
+	// gained a jump bit (crate 66911610), so rsbuf.ComputeNpc now passes
+	// n.jump (World.ts:1048 @dee467c8 — npc.jump after npc.tele) and the flag
+	// reaches the wire. This was a documented dead-API skip pre-274 (the M3
+	// PORTING-EXCEPTION) because the NpcInfo protocol had no jump bit. The call
+	// is unconditional (TS Npc.ts:186 has no EXACT_MOVE gate — that's the
+	// player-only World.ts:733 path). jump is reset each tick in
+	// resetPathingEntity (npc_masks.go).
+	n.validateDistanceWalked()
 }
 
 // QueueWaypoint clears any existing path and sets a single destination.

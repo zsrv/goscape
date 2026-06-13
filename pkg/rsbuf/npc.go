@@ -17,6 +17,7 @@ type Npc struct {
 	NID                                    int32
 	NType                                  int32
 	Tele                                   bool
+	Jump                                   bool // rev-274 add-leaf jump bit (npc.rs:9 @66911610)
 	RunDir                                 int8 // -1 sentinel
 	WalkDir                                int8 // -1 sentinel
 	Active                                 bool
@@ -41,6 +42,7 @@ func newNpc(nid, ntype int32) *Npc {
 		NID:              nid,
 		NType:            ntype,
 		Tele:             false,
+		Jump:             false,
 		RunDir:           -1,
 		WalkDir:          -1,
 		Active:           false,
@@ -72,6 +74,7 @@ func newNpc(nid, ntype int32) *Npc {
 func (n *Npc) cleanup() {
 	n.WalkDir = -1
 	n.RunDir = -1
+	n.Jump = false // rev-274 npc.rs:72 @66911610
 	n.Tele = false
 	n.Masks = 0
 	// FaceEntity / OrientationX/Z preserved per upstream npc.rs:68-71

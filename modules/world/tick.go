@@ -1132,6 +1132,7 @@ func (s *Server) processInfo() {
 			s.rsbuf.ComputeNpc(int32(n.nid), int32(n.typeId),
 				n.x, n.level, n.z,
 				n.tele,
+				n.jump, // rev-274 add-leaf jump bit (World.ts:1048 @dee467c8)
 				int8(n.runDir), int8(n.walkDir),
 				!n.dead, // active = !dead
 				uint32(n.Masks()),

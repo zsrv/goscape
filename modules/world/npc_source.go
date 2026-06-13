@@ -42,6 +42,7 @@ func (n *Npc) FaceSquareZ() int { _, z := n.effectiveFaceCoord(); return z }
 func (n *Npc) WalkDir() int   { return n.walkDir }
 func (n *Npc) RunDir() int    { return n.runDir }
 func (n *Npc) Tele() bool     { return n.tele }
+func (n *Npc) Jump() bool     { return n.jump }
 func (n *Npc) LastTickX() int { return n.lastTickX }
 func (n *Npc) LastTickZ() int { return n.lastTickZ }
 func (n *Npc) LastLevel() int { return n.lastLevel }

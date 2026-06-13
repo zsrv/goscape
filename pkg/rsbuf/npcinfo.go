@@ -34,15 +34,19 @@ func NewNpcInfo() *NpcInfo {
 // Bit-budget constants for fits() arithmetic. Mirror upstream
 // NpcInfo's BITS_ADD/RUN/WALK/EXTEND (info.rs:413,418-420) — each names the
 // full leaf size so fits() accounts for the bits about to be written when it
-// gates the high-def 'extend' block. The Run/Walk/Extend siblings were
-// retired at NAI-30 B4 T4.6 (mirroring the PlayerInfo retirement) and
-// reintroduced at rsbuf-npc-1, where writeNpcs gained the per-tracked-NPC
-// byte-budget gate (sibling of rsbuf-player-1's playerBitsRun/Walk/Extend).
+// gates the high-def 'extend' block. (npcBitsAdd counts the rev-274 jump bit
+// as an exact leaf size; upstream's BITS_ADD is a fits() budget heuristic that
+// upstream left at 36 — goscape keeps the exact 37 per the project's
+// constant-names-the-leaf convention, sibling to playerBitsAdd=23.)
+// The Run/Walk/Extend siblings were retired at NAI-30 B4 T4.6 (mirroring the
+// PlayerInfo retirement) and reintroduced at rsbuf-npc-1, where writeNpcs
+// gained the per-tracked-NPC byte-budget gate (sibling of rsbuf-player-1's
+// playerBitsRun/Walk/Extend).
 const (
-	npcBitsAdd      = 14 + 11 + 5 + 5 + 1 // 36 (254: nid widened 13→14 bits, crate 304955d5)
-	npcBitsRun      = 1 + 2 + 3 + 3 + 1   // 10
-	npcBitsWalk     = 1 + 2 + 3 + 1       // 7
-	npcBitsExtend   = 1 + 2               // 3
+	npcBitsAdd      = 14 + 11 + 5 + 5 + 1 + 1 // 37 (rev-274: +jump bit, crate 66911610; 254: nid widened 13→14 bits, crate 304955d5)
+	npcBitsRun      = 1 + 2 + 3 + 3 + 1       // 10
+	npcBitsWalk     = 1 + 2 + 3 + 1           // 7
+	npcBitsExtend   = 1 + 2                   // 3
 	maxNpcInfoBytes = 4997
 )
 
@@ -241,11 +245,18 @@ func (ni *NpcInfo) writeNewNpcs(b *Buf, self *Player, renderer *Renderer) {
 		otherPos := coordgrid.UnpackCoord(other.Coord)
 		dx := clampInt(otherPos.X-selfPos.X, -15, 15)
 		dz := clampInt(otherPos.Z-selfPos.Z, -15, 15)
+		jump := 0
+		if other.Jump {
+			jump = 1
+		}
 
 		ni.buf.PBit(14, int(nid))
 		ni.buf.PBit(11, int(other.NType))
 		ni.buf.PBit(5, dx&0x1f)
 		ni.buf.PBit(5, dz&0x1f)
+		// rev-274 (crate 66911610 info.rs:251, TS rsbuf/info.ts:365 @dee467c8):
+		// jump bit between dz and the extend bit; mirrors the player add-leaf.
+		ni.buf.PBit(1, jump)
 		ni.buf.PBit(1, 1) // extend always set for add
 
 		self.Build.Npcs.Insert(nid)

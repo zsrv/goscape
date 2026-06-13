@@ -210,6 +210,25 @@ func (n *Npc) patrolMode(s *Server) {
 //  5. Targeted-mode dispatch: PLAYER* modes → dedicated methods (NAI-13);
 //     everything else routes to aiMode.
 //
+// validateDistanceWalked forces a teleport-style jump when the NPC moved more
+// than 2 tiles from its start-of-tick position this tick. Mirrors TS
+// PathingEntity.validateDistanceWalked (PathingEntity.ts:303-315), called from
+// the NPC processing tail (Npc.ts:186). lastTickX/Z hold the previous tick's
+// end position (set in resetPathingEntity at end-of-tick) = this tick's start.
+// Distance uses the NPC's own footprint on both sides (size×size).
+//
+// rev-274: previously a documented dead-API skip (PORTING-EXCEPTION M3) — the
+// NpcInfo protocol had no jump bit. The rev-274 add-leaf jump bit (crate
+// 66911610) materialised the consumer, so n.jump now reaches the wire via
+// rsbuf.ComputeNpc. Unlike the player path, TS does NOT gate the NPC call on
+// EXACT_MOVE (Npc.ts:186 is unconditional; World.ts:733 is the player-only gate).
+func (n *Npc) validateDistanceWalked() {
+	if coordgrid.DistanceTo(n.x, n.z, n.Width(), n.Length(),
+		n.lastTickX, n.lastTickZ, n.Width(), n.Length()) > 2 {
+		n.jump = true
+	}
+}
+
 // Note: last-tick coord bookkeeping (lastTickX/Z/lastLevel) and tele flag
 // reset have moved to resetPathingEntity (npc_masks.go), called from
 // processCleanup at end-of-tick — NAI-167.

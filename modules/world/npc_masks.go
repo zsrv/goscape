@@ -258,17 +258,23 @@ func (n *Npc) ResetMasks() {
 //
 // Fields reset here (matching TS L579-586):
 //   - walkDir = -1, runDir = -1 (TS L579-580; migrated from ResetMasks, NAI-157)
+//   - jump = false (TS L581; rev-274 — now a real wire field, see below)
 //   - tele = false (TS L582)
 //   - lastTickX = n.x, lastTickZ = n.z, lastLevel = n.level (TS L583-585)
 //   - stepsTaken = 0 (TS L586)
 //   - apRangeCalled = false (TS L588, L8) — see note below.
+//
+// rev-274: n.jump is reset here per TS PathingEntity.ts:581. It was formerly a
+// player-only field (the NpcInfo protocol had no jump bit); the rev-274 add-leaf
+// jump bit (crate 66911610) made it a live wire field, so the per-tick reset is
+// now load-bearing (set by Teleport D5 / validateDistanceWalked, consumed by
+// rsbuf.ComputeNpc, cleared here at end-of-tick).
 //
 // TS fields with no matching reset here (all CONFIRMED-EXCEPTION net-equivalent):
 //   - moveSpeed = defaultMoveSpeed() (TS L578) — moveSpeed IS plumbed on *Npc
 //     (set by ai/script paths, consumed at npc_interaction.go:347) but the per-
 //     tick reset is omitted. Verdict NONE (pathing-10): Go's updateMovement
 //     doesn't gate the WALK-reset path on moveSpeed, so no observable delta.
-//   - jump = false (TS L581) — player-only field.
 //   - interacted (TS L587) — no equivalent field on *Npc (goscape's NPC
 //     interaction model has no `interacted` flag; never read on NPC).
 //
@@ -280,6 +286,7 @@ func (n *Npc) ResetMasks() {
 func (n *Npc) resetPathingEntity() {
 	n.walkDir = -1
 	n.runDir = -1
+	n.jump = false // rev-274: PathingEntity.ts:581 — see doc-block above
 	n.tele = false
 	n.lastTickX = n.x
 	n.lastTickZ = n.z

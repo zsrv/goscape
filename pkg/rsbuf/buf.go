@@ -306,6 +306,7 @@ func (b *Buf) ComputeNpc(
 	nid, ntype int32,
 	x, level, z int,
 	tele bool,
+	jump bool, // rev-274 lib.rs:266 @66911610 — add-leaf jump bit source
 	runDir, walkDir int8,
 	active bool,
 	masks uint32,
@@ -342,6 +343,7 @@ func (b *Buf) ComputeNpc(
 	n.NType = ntype
 	n.Coord = newCoord
 	n.Tele = tele
+	n.Jump = jump
 	n.RunDir = runDir
 	n.WalkDir = walkDir
 	n.Active = active

@@ -134,6 +134,7 @@ func TestDeadRespawnNpcPushesActiveFalseToRsbuf(t *testing.T) {
 		nid, int32(n.typeId),
 		n.x, n.level, n.z,
 		n.tele,
+		n.jump,
 		int8(n.runDir), int8(n.walkDir),
 		true, // active
 		0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
