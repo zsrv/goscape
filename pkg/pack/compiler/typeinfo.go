@@ -163,7 +163,7 @@ func Load(path string) (*TypeInfo, error) {
 // (CompilerTypeInfo.loadArray).
 //
 // Used by runServerCompiler for static enum-like sources:
-// fontmetrics (['p11','p12','b12','q8']) and locshape (23 entries).
+// fontmetrics (['p11_full','p12_full','b12_full','q8_full']) and locshape (23 entries).
 func LoadArray(input []string) *TypeInfo {
 	p := newTypeInfo()
 	for i, s := range input {

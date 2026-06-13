@@ -607,7 +607,7 @@ func TestBuildSymbolsCore_StaticArraysPopulated(t *testing.T) {
 
 	// fontmetrics — 4 entries.
 	fm := symbols["fontmetrics"]
-	wantFm := []string{"p11", "p12", "b12", "q8"}
+	wantFm := []string{"p11_full", "p12_full", "b12_full", "q8_full"}
 	if got, want := len(fm.Map), len(wantFm); got != want {
 		t.Errorf("len(fontmetrics.Map) = %d, want %d", got, want)
 	}

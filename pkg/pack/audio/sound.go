@@ -14,11 +14,12 @@ import (
 	"github.com/zsrv/goscape/pkg/pack"
 )
 
-// soundCRCMagic is the TS sound/pack.ts:47 build-verify constant at rev-254
-// (Engine-TS@2e3bcf43). History: -1570057128 (225 placeholder = 245.2 value
-// via 3c16994c) → -1415586973 (244 via 9aadcec4) → back to -1570057128
-// (245.2) → the rev-254 value below.
-const soundCRCMagic int32 = 831919863
+// soundCRCMagic is the TS sound/pack.ts build-verify constant at rev-274
+// (Engine-TS@dee467c8, sound/pack.ts:58). History: -1570057128 (225
+// placeholder = 245.2 value via 3c16994c) → -1415586973 (244 via 9aadcec4)
+// → back to -1570057128 (245.2) → 831919863 (254 @ 2e3bcf43) → the value
+// below (274 @ dee467c8).
+const soundCRCMagic int32 = 2127412105
 
 // PackSound ports TS sound/pack.ts:packClientSound at revision 244.
 //

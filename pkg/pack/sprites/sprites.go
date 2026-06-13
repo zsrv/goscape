@@ -41,7 +41,10 @@ func PackTitle(srcDir, outDir string, cache *filestream.FileStream) error {
 	type entry struct{ name, subdir string }
 	all := []entry{
 		{"logo", "title"}, {"runes", "title"}, {"titlebox", "title"}, {"titlebutton", "title"},
-		{"b12", "fonts"}, {"p11", "fonts"}, {"p12", "fonts"}, {"q8", "fonts"},
+		// rev-274 (title.ts @ dee467c8) renamed the four font assets +
+		// their .dat jagfile entries to *_full (both the convertImage
+		// source lookup and the title.write entry name use e.name).
+		{"b12_full", "fonts"}, {"p11_full", "fonts"}, {"p12_full", "fonts"}, {"q8_full", "fonts"},
 	}
 	results := make([]*packet.Packet, len(all))
 	for i, e := range all {

@@ -77,7 +77,7 @@ func TestPack_RealContent_Integration(t *testing.T) {
 	expectedNames := []string{
 		"underlay.dat", "overlay.dat", "loc.dat", "obj.dat", "npc.dat",
 		"multi.dat", "free.dat", "floorcol.dat",
-		"mapscene.dat", "mapfunction.dat", "b12.dat",
+		"mapscene.dat", "mapfunction.dat", "b12_full.dat",
 		"f11.dat", "f12.dat", "f14.dat", "f17.dat",
 		"f19.dat", "f22.dat", "f26.dat", "f30.dat",
 		"mapdots.dat", "index.dat", "labels.dat",

@@ -28,7 +28,7 @@ import (
 //   - packWater helper + its 16 call sites commented out upstream →
 //     deleted here (no dead code).
 //   - 10 new floorcol refColor entries (agility … viking_mud_overlay).
-//   - CSV + labels reads use the \r-strip idiom (.replace(/\r/g,'')
+//   - CSV + labels reads use the \r-strip idiom (.replace(/\r/g,”)
 //     before .split('\n')).
 //
 // 254 delta (TS Worldmap.ts @ 2e3bcf43):
@@ -210,7 +210,7 @@ func Pack(srcDir, outDir string) error {
 
 	// floorcol
 	if len(flo.Configs) > len(refColors) {
-		return fmt.Errorf("floorcol: flo.Configs has %d entries but refColors only covers %d; update refcolors.go to add the new rows in TS Worldmap.ts:501-603 order", len(flo.Configs), len(refColors))
+		return fmt.Errorf("floorcol: flo.Configs has %d entries but refColors only covers %d; update refcolors.go to add the new rows in TS Worldmap.ts:520-622 (@dee467c8) order", len(flo.Configs), len(refColors))
 	}
 	floorcol := packet2.Alloc(1)
 	defer floorcol.Release()
@@ -244,7 +244,8 @@ func Pack(srcDir, outDir string) error {
 		return err
 	}
 	defer mapfunction.Release()
-	b12, err := convert(fontDir, "b12")
+	// rev-274 (Worldmap.ts @ dee467c8) renamed the b12 font asset to b12_full.
+	b12, err := convert(fontDir, "b12_full")
 	if err != nil {
 		return err
 	}
@@ -289,7 +290,7 @@ func Pack(srcDir, outDir string) error {
 	// @ 2e3bcf43 (replaces the 244 interleaved order; f11-f30 re-added).
 	//
 	// Order: underlay → overlay → loc → obj → npc → multi → free →
-	//        floorcol → mapscene → mapfunction → b12 → f11 → f12 →
+	//        floorcol → mapscene → mapfunction → b12_full → f11 → f12 →
 	//        f14 → f17 → f19 → f22 → f26 → f30 → mapdots → index →
 	//        labels
 	jag := jagfile.NewEmptyJagfile(false)
@@ -303,7 +304,7 @@ func Pack(srcDir, outDir string) error {
 	jag.Write("floorcol.dat", floorcol)
 	jag.Write("mapscene.dat", mapscene)
 	jag.Write("mapfunction.dat", mapfunction)
-	jag.Write("b12.dat", b12)
+	jag.Write("b12_full.dat", b12)
 	for _, fn := range fontNames {
 		jag.Write(fn+".dat", fonts[fn])
 	}

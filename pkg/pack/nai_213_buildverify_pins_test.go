@@ -23,13 +23,16 @@ import (
 // Rev-254 (2e3bcf43): interface CRC updated from 587792799 →
 // 1728499832 (PackClient.ts:19) alongside script ops 14-20. Sound CRC
 // updated from -1570057128 → 831919863 (sound/pack.ts:47 @ 2e3bcf43).
+// Rev-274 (dee467c8): interface CRC updated from 1728499832 → 2041671134
+// (PackClient.ts:36) alongside the *_full font renames. Sound CRC
+// updated from 831919863 → 2127412105 (sound/pack.ts:58 @ dee467c8).
 func TestBuildVerifyMagicNumbers_AppearExactlyOnce(t *testing.T) {
 	tests := []struct {
 		file    string
 		literal string
 	}{
-		{"clientinterface/pack.go", "1728499832"},
-		{"audio/sound.go", "831919863"},
+		{"clientinterface/pack.go", "2041671134"},
+		{"audio/sound.go", "2127412105"},
 	}
 	for _, tc := range tests {
 		path := filepath.Join(tc.file)

@@ -16,45 +16,60 @@ import (
 // 613,637 @ 2e3bcf43. idk did NOT change at 245.2 OR 254.
 //
 // 225 values (for reference, updated at 9aadcec4):
-//   seqCRC      was 1638136604  → 244: 1405403166  (PackShared.ts:435)
-//   locCRC      was 891497087   → 244: 1195428820  (PackShared.ts:459)
-//   floCRC      new constant    → 244: 1976597026  (PackShared.ts:467)
-//   spotanimCRC was -1279835623 → 244:  117013845  (PackShared.ts:507)
-//   npcCRC      was -2140681882 → 244: -997428438  (PackShared.ts:531)
-//   objCRC      was -840233510  → 244: 1589810970  (PackShared.ts:555)
-//   idkCRC      new constant    → 244: -359342366  (PackShared.ts:573)
-//   varpCRC     was 705633567   → 244: -1961744050 (PackShared.ts:603)
+//
+//	seqCRC      was 1638136604  → 244: 1405403166  (PackShared.ts:435)
+//	locCRC      was 891497087   → 244: 1195428820  (PackShared.ts:459)
+//	floCRC      new constant    → 244: 1976597026  (PackShared.ts:467)
+//	spotanimCRC was -1279835623 → 244:  117013845  (PackShared.ts:507)
+//	npcCRC      was -2140681882 → 244: -997428438  (PackShared.ts:531)
+//	objCRC      was -840233510  → 244: 1589810970  (PackShared.ts:555)
+//	idkCRC      new constant    → 244: -359342366  (PackShared.ts:573)
+//	varpCRC     was 705633567   → 244: -1961744050 (PackShared.ts:603)
 //
 // 244 → 245.2 changes (updated at 3c16994c):
-//   seqCRC      1405403166  → -1858954999 (PackShared.ts:438)
-//   locCRC      1195428820  →  626415911  (PackShared.ts:462)
-//   floCRC      1976597026  → -532285888  (PackShared.ts:486)
-//   spotanimCRC  117013845  →   96621343  (PackShared.ts:510)
-//   npcCRC      -997428438  →  417024969  (PackShared.ts:534)
-//   objCRC      1589810970  →  344600333  (PackShared.ts:558)
-//   idkCRC      -359342366  → -359342366  (PackShared.ts:582) UNCHANGED
-//   varpCRC    -1961744050  → 1480086078  (PackShared.ts:606)
+//
+//	seqCRC      1405403166  → -1858954999 (PackShared.ts:438)
+//	locCRC      1195428820  →  626415911  (PackShared.ts:462)
+//	floCRC      1976597026  → -532285888  (PackShared.ts:486)
+//	spotanimCRC  117013845  →   96621343  (PackShared.ts:510)
+//	npcCRC      -997428438  →  417024969  (PackShared.ts:534)
+//	objCRC      1589810970  →  344600333  (PackShared.ts:558)
+//	idkCRC      -359342366  → -359342366  (PackShared.ts:582) UNCHANGED
+//	varpCRC    -1961744050  → 1480086078  (PackShared.ts:606)
 //
 // 245.2 → 254 changes (updated at 2e3bcf43):
-//   seqCRC      -1858954999 →  -716271600 (PackShared.ts:445)
-//   locCRC       626415911  →  -826309209 (PackShared.ts:469)
-//   floCRC      -532285888  → -1566957964 (PackShared.ts:493)
-//   spotanimCRC   96621343  →  -555849646 (PackShared.ts:517)
-//   npcCRC       417024969  →  1077655221 (PackShared.ts:541)
-//   objCRC       344600333  →   535204494 (PackShared.ts:565)
-//   idkCRC      -359342366  →  -359342366 (PackShared.ts:589) UNCHANGED
-//   varpCRC     1480086078  →  1039564548 (PackShared.ts:613)
-//   varbitCRC   new constant → -1387031023 (PackShared.ts:637)
+//
+//	seqCRC      -1858954999 →  -716271600 (PackShared.ts:445)
+//	locCRC       626415911  →  -826309209 (PackShared.ts:469)
+//	floCRC      -532285888  → -1566957964 (PackShared.ts:493)
+//	spotanimCRC   96621343  →  -555849646 (PackShared.ts:517)
+//	npcCRC       417024969  →  1077655221 (PackShared.ts:541)
+//	objCRC       344600333  →   535204494 (PackShared.ts:565)
+//	idkCRC      -359342366  →  -359342366 (PackShared.ts:589) UNCHANGED
+//	varpCRC     1480086078  →  1039564548 (PackShared.ts:613)
+//	varbitCRC   new constant → -1387031023 (PackShared.ts:637)
+//
+// 254 → 274 changes (updated at dee467c8 — font renames + content drift):
+//
+//	seqCRC       -716271600 →  -753410077 (PackShared.ts:610)
+//	locCRC       -826309209 →   452815002 (PackShared.ts:635)
+//	floCRC      -1566957964 →   960212554 (PackShared.ts:660)
+//	spotanimCRC  -555849646 → -1587698939 (PackShared.ts:685)
+//	npcCRC       1077655221 → -1249602232 (PackShared.ts:710)
+//	objCRC        535204494 →   128627047 (PackShared.ts:735)
+//	idkCRC       -359342366 →  -359342366 (PackShared.ts:760) UNCHANGED
+//	varpCRC      1039564548 →   703279713 (PackShared.ts:785)
+//	varbitCRC   -1387031023 →  -234977015 (PackShared.ts:810)
 const (
-	clientConfigCRCSeq      int32 = -716271600
-	clientConfigCRCLoc      int32 = -826309209
-	clientConfigCRCFlo      int32 = -1566957964
-	clientConfigCRCSpotAnim int32 = -555849646
-	clientConfigCRCNpc      int32 = 1077655221
-	clientConfigCRCObj      int32 = 535204494
+	clientConfigCRCSeq      int32 = -753410077
+	clientConfigCRCLoc      int32 = 452815002
+	clientConfigCRCFlo      int32 = 960212554
+	clientConfigCRCSpotAnim int32 = -1587698939
+	clientConfigCRCNpc      int32 = -1249602232
+	clientConfigCRCObj      int32 = 128627047
 	clientConfigCRCIdk      int32 = -359342366
-	clientConfigCRCVarp     int32 = 1039564548
-	clientConfigCRCVarbit   int32 = -1387031023
+	clientConfigCRCVarp     int32 = 703279713
+	clientConfigCRCVarbit   int32 = -234977015
 )
 
 // PackConfigsForRegistry runs the per-config packing pipeline,
@@ -176,7 +191,9 @@ func PackConfigs(srcDir, outDir string) error {
 // cache is an optional *filestream.FileStream. When non-nil, the packed
 // client/config jagfile bytes are written to cache.Write(0, 2, data, 0),
 // mirroring TS PackShared.ts:641 @ 9aadcec4:
-//   cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
+//
+//	cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
+//
 // Callers that do not yet have a FileStream pass nil (e.g.
 // PackConfigsForRegistry).
 //
@@ -585,7 +602,7 @@ func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, client
 	if err != nil {
 		return err
 	}
-	// TS PackShared.ts:613 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, 1039564548)
+	// TS PackShared.ts:785 @ dee467c8: Packet.checkcrc(client.data, 0, client.pos, 703279713)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCVarp); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveVarp: %v (BUILD_VERIFY)\n", err)
 	}
@@ -625,7 +642,7 @@ func packAndSaveVarbit(srcDir, serverOut string, pf, varpPack *PackFile, c Const
 		return err
 	}
 	server, client := packVarbitConfigs(cfgs, pf, modelFlags)
-	// TS PackShared.ts:637 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, -1387031023)
+	// TS PackShared.ts:810 @ dee467c8: Packet.checkcrc(client.data, 0, client.pos, -234977015)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCVarbit); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveVarbit: %v (BUILD_VERIFY)\n", err)
 	}
@@ -802,7 +819,7 @@ func packAndSaveLoc(srcDir, serverOut string, locPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
-	// TS PackShared.ts:469 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, -826309209)
+	// TS PackShared.ts:635 @ dee467c8: Packet.checkcrc(client.data, 0, client.pos, 452815002)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCLoc); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveLoc: %v (BUILD_VERIFY)\n", err)
 	}
@@ -837,7 +854,7 @@ func packAndSaveNpc(srcDir, serverOut string, npcPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
-	// TS PackShared.ts:541 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, 1077655221)
+	// TS PackShared.ts:710 @ dee467c8: Packet.checkcrc(client.data, 0, client.pos, -1249602232)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCNpc); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveNpc: %v (BUILD_VERIFY)\n", err)
 	}
@@ -872,7 +889,7 @@ func packAndSaveObj(srcDir, serverOut string, objPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
-	// TS PackShared.ts:565 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, 535204494)
+	// TS PackShared.ts:735 @ dee467c8: Packet.checkcrc(client.data, 0, client.pos, 128627047)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCObj); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveObj: %v (BUILD_VERIFY)\n", err)
 	}
@@ -905,7 +922,7 @@ func packAndSaveSeq(srcDir, serverOut string, seqPack, animPack, objPack *PackFi
 		return err
 	}
 	server, client := packSeqConfigs(cfgs, seqPack, modelFlags)
-	// TS PackShared.ts:445 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, -716271600)
+	// TS PackShared.ts:610 @ dee467c8: Packet.checkcrc(client.data, 0, client.pos, -753410077)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCSeq); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveSeq: %v (BUILD_VERIFY)\n", err)
 	}
@@ -937,7 +954,7 @@ func packAndSaveFlo(srcDir, serverOut string, floPack, texturePack *PackFile, c 
 		return err
 	}
 	server, client := packFloConfigs(cfgs, floPack, modelFlags)
-	// TS PackShared.ts:493 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, -1566957964)
+	// TS PackShared.ts:660 @ dee467c8: Packet.checkcrc(client.data, 0, client.pos, 960212554)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCFlo); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveFlo: %v (BUILD_VERIFY)\n", err)
 	}
@@ -968,7 +985,7 @@ func packAndSaveSpotAnim(srcDir, serverOut string, spotanimPack, modelPack, seqP
 		return err
 	}
 	server, client := packSpotAnimConfigs(cfgs, spotanimPack, modelFlags)
-	// TS PackShared.ts:517 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, -555849646)
+	// TS PackShared.ts:685 @ dee467c8: Packet.checkcrc(client.data, 0, client.pos, -1587698939)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCSpotAnim); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveSpotAnim: %v (BUILD_VERIFY)\n", err)
 	}
@@ -1062,7 +1079,7 @@ func packAndSaveIdk(srcDir, serverOut string, idkPack, modelPack *PackFile, c Co
 		return err
 	}
 	server, client := packIdkConfigs(cfgs, idkPack, modelFlags)
-	// TS PackShared.ts:589 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, -359342366)
+	// TS PackShared.ts:760 @ dee467c8: Packet.checkcrc(client.data, 0, client.pos, -359342366)
 	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCIdk); err != nil {
 		fmt.Fprintf(os.Stderr, "packAndSaveIdk: %v (BUILD_VERIFY)\n", err)
 	}

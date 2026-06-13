@@ -43,7 +43,7 @@ func TestPackTitle_AllArtifactsPresent(t *testing.T) {
 	for _, name := range []string{"logo", "runes", "titlebox", "titlebutton"} {
 		writePNG(t, filepath.Join(src, "title", name+".png"), 2, 2, color.RGBA{1, 2, 3, 255})
 	}
-	for _, name := range []string{"b12", "p11", "p12", "q8"} {
+	for _, name := range []string{"b12_full", "p11_full", "p12_full", "q8_full"} {
 		writePNG(t, filepath.Join(src, "fonts", name+".png"), 2, 2, color.RGBA{4, 5, 6, 255})
 	}
 	if err := os.WriteFile(filepath.Join(src, "binary", "title.jpg"), []byte("jpg-bytes"), 0o644); err != nil {
@@ -61,7 +61,7 @@ func TestPackTitle_AllArtifactsPresent(t *testing.T) {
 	for _, name := range []string{
 		"title.dat", "index.dat",
 		"logo.dat", "runes.dat", "titlebox.dat", "titlebutton.dat",
-		"b12.dat", "p11.dat", "p12.dat", "q8.dat",
+		"b12_full.dat", "p11_full.dat", "p12_full.dat", "q8_full.dat",
 	} {
 		if _, err := jag.Read(name); err != nil {
 			t.Errorf("Read %q: %v", name, err)
@@ -78,7 +78,7 @@ func TestPackTitle_WritesToCache(t *testing.T) {
 	for _, name := range []string{"logo", "runes", "titlebox", "titlebutton"} {
 		writePNG(t, filepath.Join(src, "title", name+".png"), 2, 2, color.RGBA{1, 2, 3, 255})
 	}
-	for _, name := range []string{"b12", "p11", "p12", "q8"} {
+	for _, name := range []string{"b12_full", "p11_full", "p12_full", "q8_full"} {
 		writePNG(t, filepath.Join(src, "fonts", name+".png"), 2, 2, color.RGBA{4, 5, 6, 255})
 	}
 	_ = os.WriteFile(filepath.Join(src, "binary", "title.jpg"), []byte("jpg-bytes"), 0o644)

@@ -150,16 +150,17 @@ func nameToStat(name string) int {
 	return -1
 }
 
-// nameToFont ports PackShared.ts:141-154.
+// nameToFont ports interface/PackShared.ts:154-167 @ dee467c8 (rev-274
+// renamed the four font asset names to *_full).
 func nameToFont(name string) int {
 	switch name {
-	case "p11":
+	case "p11_full":
 		return 0
-	case "p12":
+	case "p12_full":
 		return 1
-	case "b12":
+	case "b12_full":
 		return 2
-	case "q8":
+	case "q8_full":
 		return 3
 	}
 	return -1

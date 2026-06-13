@@ -616,7 +616,7 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 	npcModeInfo := LoadMap(objtype.NpcModeMap, true)
 
 	// 9. fontmetrics / locshape (static LoadArray).
-	fontmetricsInfo := LoadArray([]string{"p11", "p12", "b12", "q8"})
+	fontmetricsInfo := LoadArray([]string{"p11_full", "p12_full", "b12_full", "q8_full"})
 	locshapeInfo := LoadArray([]string{
 		"wall_straight", "wall_diagonalcorner", "wall_l", "wall_squarecorner",
 		"walldecor_straight_nooffset", "walldecor_straight_offset",

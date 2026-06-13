@@ -73,8 +73,8 @@ func TestNameToStat(t *testing.T) {
 
 func TestNameToFont(t *testing.T) {
 	cases := map[string]int{
-		"p11": 0, "p12": 1, "b12": 2, "q8": 3,
-		"unknown": -1,
+		"p11_full": 0, "p12_full": 1, "b12_full": 2, "q8_full": 3,
+		"p11": -1, "unknown": -1,
 	}
 	for in, want := range cases {
 		if got := nameToFont(in); got != want {

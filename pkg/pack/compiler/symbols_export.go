@@ -37,12 +37,17 @@ import (
 // (9aadcec4 shape + the rev-254 varbit.sym addition).
 //
 // srcDir:     content root — has scripts/ (*.constant files) and pack/
-//             (*.pack files). In packall: the content directory.
+//
+//	(*.pack files). In packall: the content directory.
+//
 // outDir:     the data/pack directory holding packed server/*.dat files
-//             consumed by InvType, Component, VarP, VarBit, VarN, VarS, Param, DbTable
-//             loaders. In packall: outDir (same as packall.PackAll outDir).
+//
+//	consumed by InvType, Component, VarP, VarBit, VarN, VarS, Param, DbTable
+//	loaders. In packall: outDir (same as packall.PackAll outDir).
+//
 // symbolsDir: destination directory; created if absent. In packall: sibling
-//             of outDir named "symbols" (e.g. data/pack → data/symbols).
+//
+//	of outDir named "symbols" (e.g. data/pack → data/symbols).
 //
 // All writes are atomic at the file level: each .sym is written in full then
 // saved. Missing pack files silently produce empty .sym output (mirrors TS
@@ -316,8 +321,9 @@ func WriteCompilerSymbols(srcDir, outDir, symbolsDir string) error {
 	}
 
 	// ── fontmetrics.sym ──────────────────────────────────────────────────────
-	// CompilerSymbols.ts:404-405.
-	if err := writeIndexedSym(symbolsDir, "fontmetrics", []string{"p11", "p12", "b12", "q8"}); err != nil {
+	// CompilerSymbols.ts:404-405. rev-274 (Compiler.ts @ dee467c8) renamed
+	// the four font asset names to *_full.
+	if err := writeIndexedSym(symbolsDir, "fontmetrics", []string{"p11_full", "p12_full", "b12_full", "q8_full"}); err != nil {
 		return err
 	}
 

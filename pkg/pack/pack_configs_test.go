@@ -760,7 +760,8 @@ func TestPackConfigs_OrphanNonTransmittedAccepted(t *testing.T) {
 // is supplied.
 //
 // TS source: tools/pack/config/PackShared.ts:641 @ 9aadcec4:
-//   cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
+//
+//	cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
 //
 // Test:
 //  1. Create a minimal fixture (varp only — unconditional branch).
@@ -809,34 +810,35 @@ func TestPackConfigsConfigJagCacheWrite(t *testing.T) {
 	}
 }
 
-// TestClientConfigCRCConstants_Rev254 pins the BUILD_VERIFY CRC magic
-// numbers to their rev-254 values (TS PackShared.ts @ 2e3bcf43).
+// TestClientConfigCRCConstants_Rev274 pins the BUILD_VERIFY CRC magic
+// numbers to their rev-274 values (TS PackShared.ts @ dee467c8).
 //
-// History (244 @ 9aadcec4 → 245.2 @ 3c16994c → 254 @ 2e3bcf43):
-//   seq      1405403166 → -1858954999 →  -716271600 (PackShared.ts:445)
-//   loc      1195428820 →  626415911  →  -826309209 (PackShared.ts:469)
-//   flo      1976597026 → -532285888  → -1566957964 (PackShared.ts:493)
-//   spotanim  117013845 →   96621343  →  -555849646 (PackShared.ts:517)
-//   npc      -997428438 →  417024969  →  1077655221 (PackShared.ts:541)
-//   obj      1589810970 →  344600333  →   535204494 (PackShared.ts:565)
-//   idk      -359342366 → -359342366  →  -359342366 (PackShared.ts:589) UNCHANGED
-//   varp    -1961744050 → 1480086078  →  1039564548 (PackShared.ts:613)
-//   varbit       (new at 254)         → -1387031023 (PackShared.ts:637)
-func TestClientConfigCRCConstants_Rev254(t *testing.T) {
+// History (254 @ 2e3bcf43 → 274 @ dee467c8):
+//
+//	seq       -716271600 →  -753410077 (PackShared.ts:610)
+//	loc       -826309209 →   452815002 (PackShared.ts:635)
+//	flo      -1566957964 →   960212554 (PackShared.ts:660)
+//	spotanim  -555849646 → -1587698939 (PackShared.ts:685)
+//	npc       1077655221 → -1249602232 (PackShared.ts:710)
+//	obj        535204494 →   128627047 (PackShared.ts:735)
+//	idk       -359342366 →  -359342366 (PackShared.ts:760) UNCHANGED
+//	varp      1039564548 →   703279713 (PackShared.ts:785)
+//	varbit   -1387031023 →  -234977015 (PackShared.ts:810)
+func TestClientConfigCRCConstants_Rev274(t *testing.T) {
 	tests := []struct {
 		name string
 		got  int32
 		want int32
 	}{
-		{"seq", clientConfigCRCSeq, -716271600},
-		{"loc", clientConfigCRCLoc, -826309209},
-		{"flo", clientConfigCRCFlo, -1566957964},
-		{"spotanim", clientConfigCRCSpotAnim, -555849646},
-		{"npc", clientConfigCRCNpc, 1077655221},
-		{"obj", clientConfigCRCObj, 535204494},
+		{"seq", clientConfigCRCSeq, -753410077},
+		{"loc", clientConfigCRCLoc, 452815002},
+		{"flo", clientConfigCRCFlo, 960212554},
+		{"spotanim", clientConfigCRCSpotAnim, -1587698939},
+		{"npc", clientConfigCRCNpc, -1249602232},
+		{"obj", clientConfigCRCObj, 128627047},
 		{"idk", clientConfigCRCIdk, -359342366},
-		{"varp", clientConfigCRCVarp, 1039564548},
-		{"varbit", clientConfigCRCVarbit, -1387031023},
+		{"varp", clientConfigCRCVarp, 703279713},
+		{"varbit", clientConfigCRCVarbit, -234977015},
 	}
 	for _, tc := range tests {
 		if tc.got != tc.want {

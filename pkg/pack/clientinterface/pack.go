@@ -20,8 +20,10 @@ import (
 // (-2146838800) to the rev-244 value. Rev-245.2 (3c16994c) PackClient.ts:19:
 // updated again (587792799) to reflect the new swappable +
 // activeovercolour fields. Rev-254 (2e3bcf43) PackClient.ts:19: updated
-// from 587792799 to the rev-254 value alongside the new script ops 14-20.
-const interfaceCRCMagic int32 = 1728499832
+// from 587792799 to 1728499832 alongside the new script ops 14-20.
+// Rev-274 (dee467c8) PackClient.ts:36: updated from 1728499832 to the
+// value below (font renames p11→p11_full etc. + content drift).
+const interfaceCRCMagic int32 = 2041671134
 
 // component mirrors the TS Component type (PackShared.ts:156-160).
 //
