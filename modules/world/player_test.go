@@ -55,8 +55,9 @@ func TestReadPacketUnknownOpcodeReturnsErrCloseConn(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	// Opcode 0 is not registered in Ops.
-	p.client.in.Write([]byte{encryptOpcode(enc, 0)})
+	// Opcode 3 is not registered in the 274 Ops table (opcode 0 — the
+	// 254-era pick here — became ANTICHEAT_OPLOGIC8 at 274).
+	p.client.in.Write([]byte{encryptOpcode(enc, 3)})
 
 	_, _, _, err := p.readPacket()
 	if !errors.Is(err, errCloseConn) {
@@ -144,15 +145,34 @@ func TestReadPacketPartialPayloadReturnsFalse(t *testing.T) {
 	}
 }
 
-func TestReadPacketEventTrackingTwoByteLenPrefix(t *testing.T) {
+// installTwoByteLenTestOp registers a synthetic -2 (2-byte length prefix)
+// row on a free opcode and returns it. No 274 client packet uses -2 — the
+// EVENT_TRACKING row (the only -2 packet at 254) was DELETED at 274 (TS
+// ClientGameProt.ts @dee467c8) — but TS NetworkPlayer.ts keeps the generic
+// -2 read branch incl. the 1600 cap (NetworkPlayer.ts:114-119 @dee467c8),
+// as does goscape's readPacket; these tests pin that machinery. NOT safe
+// with t.Parallel (mutates the package-global gameclient.Ops table).
+func installTwoByteLenTestOp(t *testing.T) uint8 {
+	t.Helper()
+	const opc uint8 = 1 // unused at 274
+	old := gameclient.Ops[opc]
+	if old.Name != "" {
+		t.Fatalf("opcode %d unexpectedly registered as %q; pick another free opcode", opc, old.Name)
+	}
+	gameclient.Ops[opc] = gameclient.Op{Name: "TEST_TWO_BYTE_LEN", PayloadSize: -2, Category: gameclient.CategoryRestrictedEvent}
+	t.Cleanup(func() { gameclient.Ops[opc] = old })
+	return opc
+}
+
+func TestReadPacketTwoByteLenPrefix(t *testing.T) {
 	enc, dec := isaacPair([4]uint32{99, 88, 77, 66})
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
+	opc := installTwoByteLenTestOp(t)
 
-	// EVENT_TRACKING: opcode 142 (254), -2 (2-byte length prefix)
 	payload := []byte{0x01, 0x02, 0x03, 0x04}
 	var buf []byte
-	buf = append(buf, encryptOpcode(enc, gameclient.OpcEventTracking))
+	buf = append(buf, encryptOpcode(enc, opc))
 	buf = append(buf, 0x00, byte(len(payload))) // 2-byte big-endian length
 	buf = append(buf, payload...)
 	p.client.in.Write(buf)
@@ -164,8 +184,8 @@ func TestReadPacketEventTrackingTwoByteLenPrefix(t *testing.T) {
 	if !ok {
 		t.Error("expected ok=true")
 	}
-	if opcode != int(gameclient.OpcEventTracking) {
-		t.Errorf("opcode: got %d, want %d", opcode, gameclient.OpcEventTracking)
+	if opcode != int(opc) {
+		t.Errorf("opcode: got %d, want %d", opcode, opc)
 	}
 }
 
@@ -173,10 +193,11 @@ func TestReadPacketOversizedTwoByteLenClosesConn(t *testing.T) {
 	enc, dec := isaacPair([4]uint32{1, 1, 1, 1})
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
+	opc := installTwoByteLenTestOp(t)
 
-	// EVENT_TRACKING with 2-byte length > 1600
+	// 2-byte length > 1600
 	var buf []byte
-	buf = append(buf, encryptOpcode(enc, gameclient.OpcEventTracking))
+	buf = append(buf, encryptOpcode(enc, opc))
 	buf = append(buf, 0x07, 0x00) // 0x0700 = 1792 > 1600
 	p.client.in.Write(buf)
 
@@ -240,35 +261,12 @@ func TestProcessInClientEventRateLimit(t *testing.T) {
 	}
 }
 
-// TestProcessInEventTrackingDiscarded pins the 254 EVENT_TRACKING
-// posture: the opcode stays in Ops[] (RESTRICTED_EVENT, -2 size) but
-// has NO registered handler — readPacket consumes and discards the
-// payload (same path as the ANTICHEAT_* rows), and per player-net-7
-// an unhandled packet does not burn a rate-limit slot. Mirrors TS 254
-// (43e02957), which keeps the prot row with no decoder/handler.
-func TestProcessInEventTrackingDiscarded(t *testing.T) {
-	enc, dec := isaacPair([4]uint32{55, 44, 33, 22})
-	p, _ := newTestPlayer(t)
-	p.client.decryptor = dec
-
-	// EVENT_TRACKING: opcode 142 (254), RESTRICTED_EVENT, -2 (2-byte length prefix)
-	var buf []byte
-	for range 3 {
-		buf = append(buf, encryptOpcode(enc, gameclient.OpcEventTracking))
-		buf = append(buf, 0x00, 0x02, 0xAA, 0xBB) // 2-byte length = 2, then payload
-	}
-	p.client.in.Write(buf)
-
-	p.processIn(0)
-
-	if p.restrictedLimit != 0 {
-		t.Errorf("restrictedLimit: got %d, want 0 (unhandled packets don't count)", p.restrictedLimit)
-	}
-	// All 3 packets consumed and discarded.
-	if p.client.in.Len() != 0 {
-		t.Errorf("remaining bytes: got %d, want 0 (payloads must be discarded)", p.client.in.Len())
-	}
-}
+// The 254-era TestProcessInEventTrackingDiscarded was deleted at 274:
+// the EVENT_TRACKING row is gone from the prot table (TS ClientGameProt.ts
+// @dee467c8), so its old opcode is an unknown-opcode protocol error rather
+// than a handler-less discard. The "unhandled packet doesn't burn a
+// rate-limit slot" posture it also pinned remains covered by
+// TestProcessIn_UnhandledOpcodeDoesNotConsumeClientLimit below.
 
 // TestProcessIn_UnhandledOpcodeDoesNotConsumeClientLimit pins player-net-7
 // (also gap-client-models-1 / gap-configs-snapshot-netbase-1): TS

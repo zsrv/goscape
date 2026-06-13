@@ -91,10 +91,10 @@ func init() {
 	gameHandlers[gameclient.OpcIgnorelistDel] = handleIgnoreListDel // IGNORELIST_DEL
 	gameHandlers[gameclient.OpcReportAbuse] = handleReportAbuse     // REPORT_ABUSE
 
-	// 254 client event packets (replace the EVENT_TRACKING upload; that
-	// opcode stays in Ops[] but has no handler — readPacket discards its
-	// payload, same as the ANTICHEAT_* rows, mirroring TS 254 which keeps
-	// the prot row with no decoder/handler registered).
+	// Client event packets (introduced at 254 to replace the EVENT_TRACKING
+	// upload; at 274 the EVENT_TRACKING row itself was DELETED from the prot
+	// table — TS ClientGameProt.ts @dee467c8 — so its old opcode is now a
+	// protocol error like any other unknown opcode).
 	gameHandlers[gameclient.OpcEventMouseClick] = handleEventMouseClick         // EVENT_MOUSE_CLICK
 	gameHandlers[gameclient.OpcEventMouseMove] = handleEventMouseMove           // EVENT_MOUSE_MOVE
 	gameHandlers[gameclient.OpcEventAppletFocus] = handleEventAppletFocus       // EVENT_APPLET_FOCUS

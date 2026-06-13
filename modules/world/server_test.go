@@ -261,7 +261,6 @@ func TestGameProtTableHasExpectedOpcodes(t *testing.T) {
 		{gameclient.OpcMoveGameClick, "MOVE_GAMECLICK", -1},
 		{gameclient.OpcMoveOpClick, "MOVE_OPCLICK", -1},
 		{gameclient.OpcMoveMinimapClick, "MOVE_MINIMAPCLICK", -1},
-		{gameclient.OpcEventTracking, "EVENT_TRACKING", -2},
 	}
 	for _, tc := range cases {
 		op := gameclient.Ops[tc.opcode]

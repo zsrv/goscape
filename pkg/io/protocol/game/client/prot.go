@@ -13,102 +13,106 @@ const (
 	CategoryRestrictedEvent = 2 // limit 2/tick
 )
 
-// 254 wire opcodes. TS ClientGameProt.ts (254 pin 43e02957) — the TS ctor's first arg (NXT packet index) has zero readers at the pin and is not modeled.
+// 274 wire opcodes. TS ClientGameProt.ts (274 pin dee467c8) — the TS ctor is
+// (id, length) only; categories come from the model files (ClientGameMessage
+// subclasses under network/game/client/model/). EVENT_TRACKING was DELETED at
+// 274 (no replacement; the four discrete event packets survive, renumbered) —
+// an unknown opcode from a 274 client is a protocol error, matching TS where
+// ClientGameProt.byId has no row.
 const (
-	OpcNoTimeout uint8 = 239
+	OpcNoTimeout uint8 = 120
 
-	OpcIdleTimer           uint8 = 144
-	OpcEventMouseClick     uint8 = 234
-	OpcEventMouseMove      uint8 = 232
-	OpcEventAppletFocus    uint8 = 8
-	OpcEventTracking       uint8 = 142
-	OpcEventCameraPosition uint8 = 91
+	OpcIdleTimer           uint8 = 209
+	OpcEventMouseClick     uint8 = 20
+	OpcEventMouseMove      uint8 = 222
+	OpcEventAppletFocus    uint8 = 73
+	OpcEventCameraPosition uint8 = 53
 
-	OpcAnticheatOplogic1 uint8 = 28
-	OpcAnticheatOplogic2 uint8 = 77
-	OpcAnticheatOplogic3 uint8 = 56
-	OpcAnticheatOplogic4 uint8 = 121
-	OpcAnticheatOplogic5 uint8 = 233
-	OpcAnticheatOplogic6 uint8 = 131
-	OpcAnticheatOplogic7 uint8 = 187
-	OpcAnticheatOplogic8 uint8 = 206
-	OpcAnticheatOplogic9 uint8 = 162
+	OpcAnticheatOplogic1 uint8 = 219
+	OpcAnticheatOplogic2 uint8 = 201
+	OpcAnticheatOplogic3 uint8 = 41
+	OpcAnticheatOplogic4 uint8 = 80
+	OpcAnticheatOplogic5 uint8 = 235
+	OpcAnticheatOplogic6 uint8 = 250
+	OpcAnticheatOplogic7 uint8 = 25
+	OpcAnticheatOplogic8 uint8 = 0
+	OpcAnticheatOplogic9 uint8 = 24
 
-	OpcAnticheatCyclelogic1 uint8 = 51
-	OpcAnticheatCyclelogic2 uint8 = 225
-	OpcAnticheatCyclelogic3 uint8 = 4
-	OpcAnticheatCyclelogic4 uint8 = 226
+	OpcAnticheatCyclelogic1 uint8 = 12
+	OpcAnticheatCyclelogic2 uint8 = 149
+	OpcAnticheatCyclelogic3 uint8 = 52
+	OpcAnticheatCyclelogic4 uint8 = 230
 	OpcAnticheatCyclelogic5 uint8 = 100
-	OpcAnticheatCyclelogic6 uint8 = 36
-	OpcAnticheatCyclelogic7 uint8 = 182
+	OpcAnticheatCyclelogic6 uint8 = 188
+	OpcAnticheatCyclelogic7 uint8 = 89
 
-	OpcOpObj1 uint8 = 141
-	OpcOpObj2 uint8 = 67
-	OpcOpObj3 uint8 = 178
-	OpcOpObj4 uint8 = 47
-	OpcOpObj5 uint8 = 97
-	OpcOpObjT uint8 = 202
-	OpcOpObjU uint8 = 245
+	OpcOpObj1 uint8 = 247
+	OpcOpObj2 uint8 = 169
+	OpcOpObj3 uint8 = 108
+	OpcOpObj4 uint8 = 62
+	OpcOpObj5 uint8 = 117
+	OpcOpObjT uint8 = 91
+	OpcOpObjU uint8 = 39
 
-	OpcOpNpc1 uint8 = 143
-	OpcOpNpc2 uint8 = 195
-	OpcOpNpc3 uint8 = 69
-	OpcOpNpc4 uint8 = 122
-	OpcOpNpc5 uint8 = 118
-	OpcOpNpcT uint8 = 231
-	OpcOpNpcU uint8 = 119
+	OpcOpNpc1 uint8 = 236
+	OpcOpNpc2 uint8 = 233
+	OpcOpNpc3 uint8 = 223
+	OpcOpNpc4 uint8 = 147
+	OpcOpNpc5 uint8 = 189
+	OpcOpNpcT uint8 = 181
+	OpcOpNpcU uint8 = 150
 
-	OpcOpLoc1 uint8 = 33
-	OpcOpLoc2 uint8 = 213
-	OpcOpLoc3 uint8 = 98
-	OpcOpLoc4 uint8 = 87
-	OpcOpLoc5 uint8 = 147
-	OpcOpLocT uint8 = 26
-	OpcOpLocU uint8 = 240
+	OpcOpLoc1 uint8 = 215
+	OpcOpLoc2 uint8 = 103
+	OpcOpLoc3 uint8 = 187
+	OpcOpLoc4 uint8 = 157
+	OpcOpLoc5 uint8 = 127
+	OpcOpLocT uint8 = 213
+	OpcOpLocU uint8 = 60
 
-	OpcOpPlayer1 uint8 = 192
-	OpcOpPlayer2 uint8 = 17
-	OpcOpPlayer3 uint8 = 18
-	OpcOpPlayer4 uint8 = 72
-	OpcOpPlayer5 uint8 = 230
-	OpcOpPlayerT uint8 = 68
-	OpcOpPlayerU uint8 = 113
+	OpcOpPlayer1 uint8 = 109
+	OpcOpPlayer2 uint8 = 166
+	OpcOpPlayer3 uint8 = 196
+	OpcOpPlayer4 uint8 = 98
+	OpcOpPlayer5 uint8 = 174
+	OpcOpPlayerT uint8 = 240
+	OpcOpPlayerU uint8 = 36
 
-	OpcOpHeld1 uint8 = 243
-	OpcOpHeld2 uint8 = 228
-	OpcOpHeld3 uint8 = 80
-	OpcOpHeld4 uint8 = 163
-	OpcOpHeld5 uint8 = 74
-	OpcOpHeldT uint8 = 102
-	OpcOpHeldU uint8 = 200
+	OpcOpHeld1 uint8 = 185
+	OpcOpHeld2 uint8 = 2
+	OpcOpHeld3 uint8 = 123
+	OpcOpHeld4 uint8 = 216
+	OpcOpHeld5 uint8 = 42
+	OpcOpHeldT uint8 = 135
+	OpcOpHeldU uint8 = 136
 
-	OpcInvButton1 uint8 = 181
-	OpcInvButton2 uint8 = 70
-	OpcInvButton3 uint8 = 59
-	OpcInvButton4 uint8 = 160
-	OpcInvButton5 uint8 = 62
+	OpcInvButton1 uint8 = 74
+	OpcInvButton2 uint8 = 82
+	OpcInvButton3 uint8 = 239
+	OpcInvButton4 uint8 = 179
+	OpcInvButton5 uint8 = 46
 
-	OpcIfButton           uint8 = 244
-	OpcResumePauseButton  uint8 = 146
-	OpcCloseModal         uint8 = 58
-	OpcResumePCountdialog uint8 = 161
-	OpcTutorialClickSide  uint8 = 201
+	OpcIfButton           uint8 = 9
+	OpcResumePauseButton  uint8 = 72
+	OpcCloseModal         uint8 = 51
+	OpcResumePCountdialog uint8 = 102
+	OpcTutorialClickSide  uint8 = 94
 
-	OpcMapBuildComplete uint8 = 134
-	OpcMoveOpClick      uint8 = 127
-	OpcReportAbuse      uint8 = 203
-	OpcMoveMinimapClick uint8 = 220
-	OpcInvButtonD       uint8 = 176
-	OpcIgnorelistDel    uint8 = 193
-	OpcIgnorelistAdd    uint8 = 189
-	OpcIfPlayerDesign   uint8 = 13
-	OpcChatSetmode      uint8 = 129
-	OpcMessagePrivate   uint8 = 214
-	OpcFriendlistDel    uint8 = 84
-	OpcFriendlistAdd    uint8 = 9
-	OpcClientCheat      uint8 = 86
-	OpcMessagePublic    uint8 = 83
-	OpcMoveGameClick    uint8 = 6
+	OpcMapBuildComplete uint8 = 214
+	OpcMoveOpClick      uint8 = 138
+	OpcReportAbuse      uint8 = 137
+	OpcMoveMinimapClick uint8 = 86
+	OpcInvButtonD       uint8 = 93
+	OpcIgnorelistDel    uint8 = 101
+	OpcIgnorelistAdd    uint8 = 255
+	OpcIfPlayerDesign   uint8 = 125
+	OpcChatSetmode      uint8 = 154
+	OpcMessagePrivate   uint8 = 139
+	OpcFriendlistDel    uint8 = 106
+	OpcFriendlistAdd    uint8 = 13
+	OpcClientCheat      uint8 = 224
+	OpcMessagePublic    uint8 = 253
+	OpcMoveGameClick    uint8 = 207
 )
 
 // Ops is a 256-entry lookup table indexed by decrypted game opcode.
@@ -118,7 +122,6 @@ var Ops [256]Op
 func init() {
 	u := CategoryUserEvent
 	c := CategoryClientEvent
-	r := CategoryRestrictedEvent
 
 	set := func(opcode uint8, name string, payloadSize int, category int) {
 		Ops[opcode] = Op{Name: name, PayloadSize: payloadSize, Category: category}
@@ -126,15 +129,13 @@ func init() {
 
 	set(OpcNoTimeout, "NO_TIMEOUT", 0, c)
 
-	// The 254 EVENT_* split packets are CLIENT_EVENT per the TS model files
-	// (model/EventMouseClick.ts etc. at the 254 pin). EVENT_TRACKING has no
-	// model/decoder at 254 (read-and-discard); it keeps the RESTRICTED_EVENT
-	// category from its last TS model (245.2 pin 3c16994c).
+	// The EVENT_* split packets are CLIENT_EVENT per the TS model files
+	// (model/EventMouseClick.ts etc. at the 274 pin dee467c8). The 254-era
+	// EVENT_TRACKING row (RESTRICTED_EVENT, -2) was deleted at 274.
 	set(OpcIdleTimer, "IDLE_TIMER", 0, c)
 	set(OpcEventMouseClick, "EVENT_MOUSE_CLICK", 4, c)
 	set(OpcEventMouseMove, "EVENT_MOUSE_MOVE", -1, c)
 	set(OpcEventAppletFocus, "EVENT_APPLET_FOCUS", 1, c)
-	set(OpcEventTracking, "EVENT_TRACKING", -2, r)
 	set(OpcEventCameraPosition, "EVENT_CAMERA_POSITION", 4, c)
 
 	set(OpcAnticheatOplogic1, "ANTICHEAT_OPLOGIC1", 4, c)
@@ -207,7 +208,7 @@ func init() {
 	set(OpcResumePCountdialog, "RESUME_P_COUNTDIALOG", 4, u)
 	set(OpcTutorialClickSide, "TUTORIAL_CLICKSIDE", 1, u)
 
-	// MAP_BUILD_COMPLETE has no model/decoder at the 254 pin (read-and-discard);
+	// MAP_BUILD_COMPLETE has no model/decoder at the 274 pin (read-and-discard);
 	// ClientEvent matches the NO_TIMEOUT/anticheat precedent.
 	set(OpcMapBuildComplete, "MAP_BUILD_COMPLETE", 0, c)
 	set(OpcMoveOpClick, "MOVE_OPCLICK", -1, u)

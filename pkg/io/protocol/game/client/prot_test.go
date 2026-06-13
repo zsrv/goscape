@@ -2,16 +2,16 @@ package client
 
 import "testing"
 
-// TestClientProt254 pins the full 254 client opcode table against the TS
-// ClientGameProt.ts contract at the 254 pin (43e02957). All 83 entries must
-// be present with correct opcode, name, size, and category. New rows at 254:
-// EVENT_MOUSE_CLICK, EVENT_MOUSE_MOVE, EVENT_APPLET_FOCUS,
-// EVENT_CAMERA_POSITION, ANTICHEAT_CYCLELOGIC7, OPPLAYER5,
-// MAP_BUILD_COMPLETE. EVENT_TRACKING survives (renumbered 19 -> 142).
-// Categories: the 254 EVENT_* split packets are CLIENT_EVENT per the TS
-// model files; EVENT_TRACKING keeps RESTRICTED_EVENT from its last TS model
-// (245.2); MAP_BUILD_COMPLETE has no TS model (ClientEvent by precedent).
-func TestClientProt254(t *testing.T) {
+// TestClientProt274 pins the full 274 client opcode table against the TS
+// ClientGameProt.ts contract at the 274 pin (dee467c8). All 82 entries must
+// be present with correct opcode, name, size, and category. 274 renumbers
+// every client->server opcode and DELETES EVENT_TRACKING (no replacement;
+// the four discrete event packets survive, renumbered). No new packets.
+// Categories: the TS ctor is (id, length) only — categories come from the
+// model files (CLIENT_EVENT for the EVENT_* split packets per
+// model/EventMouseClick.ts etc.); MAP_BUILD_COMPLETE has no TS model
+// (ClientEvent by precedent).
+func TestClientProt274(t *testing.T) {
 	type row struct {
 		opcode   uint8
 		name     string
@@ -20,7 +20,6 @@ func TestClientProt254(t *testing.T) {
 	}
 
 	c := CategoryClientEvent
-	r := CategoryRestrictedEvent
 	u := CategoryUserEvent
 
 	want := []row{
@@ -30,7 +29,6 @@ func TestClientProt254(t *testing.T) {
 		{OpcEventMouseClick, "EVENT_MOUSE_CLICK", 4, c},
 		{OpcEventMouseMove, "EVENT_MOUSE_MOVE", -1, c},
 		{OpcEventAppletFocus, "EVENT_APPLET_FOCUS", 1, c},
-		{OpcEventTracking, "EVENT_TRACKING", -2, r},
 		{OpcEventCameraPosition, "EVENT_CAMERA_POSITION", 4, c},
 
 		{OpcAnticheatOplogic1, "ANTICHEAT_OPLOGIC1", 4, c},
@@ -120,103 +118,102 @@ func TestClientProt254(t *testing.T) {
 		{OpcMoveGameClick, "MOVE_GAMECLICK", -1, u},
 	}
 
-	// Pin the exact 254 wire opcode for every row (constants alone would let
+	// Pin the exact 274 wire opcode for every row (constants alone would let
 	// a const+table double-swap pass).
 	wantOpcode := map[string]uint8{
-		"NO_TIMEOUT": 239,
+		"NO_TIMEOUT": 120,
 
-		"IDLE_TIMER":            144,
-		"EVENT_MOUSE_CLICK":     234,
-		"EVENT_MOUSE_MOVE":      232,
-		"EVENT_APPLET_FOCUS":    8,
-		"EVENT_TRACKING":        142,
-		"EVENT_CAMERA_POSITION": 91,
+		"IDLE_TIMER":            209,
+		"EVENT_MOUSE_CLICK":     20,
+		"EVENT_MOUSE_MOVE":      222,
+		"EVENT_APPLET_FOCUS":    73,
+		"EVENT_CAMERA_POSITION": 53,
 
-		"ANTICHEAT_OPLOGIC1": 28,
-		"ANTICHEAT_OPLOGIC2": 77,
-		"ANTICHEAT_OPLOGIC3": 56,
-		"ANTICHEAT_OPLOGIC4": 121,
-		"ANTICHEAT_OPLOGIC5": 233,
-		"ANTICHEAT_OPLOGIC6": 131,
-		"ANTICHEAT_OPLOGIC7": 187,
-		"ANTICHEAT_OPLOGIC8": 206,
-		"ANTICHEAT_OPLOGIC9": 162,
+		"ANTICHEAT_OPLOGIC1": 219,
+		"ANTICHEAT_OPLOGIC2": 201,
+		"ANTICHEAT_OPLOGIC3": 41,
+		"ANTICHEAT_OPLOGIC4": 80,
+		"ANTICHEAT_OPLOGIC5": 235,
+		"ANTICHEAT_OPLOGIC6": 250,
+		"ANTICHEAT_OPLOGIC7": 25,
+		"ANTICHEAT_OPLOGIC8": 0,
+		"ANTICHEAT_OPLOGIC9": 24,
 
-		"ANTICHEAT_CYCLELOGIC1": 51,
-		"ANTICHEAT_CYCLELOGIC2": 225,
-		"ANTICHEAT_CYCLELOGIC3": 4,
-		"ANTICHEAT_CYCLELOGIC4": 226,
+		"ANTICHEAT_CYCLELOGIC1": 12,
+		"ANTICHEAT_CYCLELOGIC2": 149,
+		"ANTICHEAT_CYCLELOGIC3": 52,
+		"ANTICHEAT_CYCLELOGIC4": 230,
 		"ANTICHEAT_CYCLELOGIC5": 100,
-		"ANTICHEAT_CYCLELOGIC6": 36,
-		"ANTICHEAT_CYCLELOGIC7": 182,
+		"ANTICHEAT_CYCLELOGIC6": 188,
+		"ANTICHEAT_CYCLELOGIC7": 89,
 
-		"OPOBJ1": 141,
-		"OPOBJ2": 67,
-		"OPOBJ3": 178,
-		"OPOBJ4": 47,
-		"OPOBJ5": 97,
-		"OPOBJT": 202,
-		"OPOBJU": 245,
+		"OPOBJ1": 247,
+		"OPOBJ2": 169,
+		"OPOBJ3": 108,
+		"OPOBJ4": 62,
+		"OPOBJ5": 117,
+		"OPOBJT": 91,
+		"OPOBJU": 39,
 
-		"OPNPC1": 143,
-		"OPNPC2": 195,
-		"OPNPC3": 69,
-		"OPNPC4": 122,
-		"OPNPC5": 118,
-		"OPNPCT": 231,
-		"OPNPCU": 119,
+		"OPNPC1": 236,
+		"OPNPC2": 233,
+		"OPNPC3": 223,
+		"OPNPC4": 147,
+		"OPNPC5": 189,
+		"OPNPCT": 181,
+		"OPNPCU": 150,
 
-		"OPLOC1": 33,
-		"OPLOC2": 213,
-		"OPLOC3": 98,
-		"OPLOC4": 87,
-		"OPLOC5": 147,
-		"OPLOCT": 26,
-		"OPLOCU": 240,
+		"OPLOC1": 215,
+		"OPLOC2": 103,
+		"OPLOC3": 187,
+		"OPLOC4": 157,
+		"OPLOC5": 127,
+		"OPLOCT": 213,
+		"OPLOCU": 60,
 
-		"OPPLAYER1": 192,
-		"OPPLAYER2": 17,
-		"OPPLAYER3": 18,
-		"OPPLAYER4": 72,
-		"OPPLAYER5": 230,
-		"OPPLAYERT": 68,
-		"OPPLAYERU": 113,
+		"OPPLAYER1": 109,
+		"OPPLAYER2": 166,
+		"OPPLAYER3": 196,
+		"OPPLAYER4": 98,
+		"OPPLAYER5": 174,
+		"OPPLAYERT": 240,
+		"OPPLAYERU": 36,
 
-		"OPHELD1": 243,
-		"OPHELD2": 228,
-		"OPHELD3": 80,
-		"OPHELD4": 163,
-		"OPHELD5": 74,
-		"OPHELDT": 102,
-		"OPHELDU": 200,
+		"OPHELD1": 185,
+		"OPHELD2": 2,
+		"OPHELD3": 123,
+		"OPHELD4": 216,
+		"OPHELD5": 42,
+		"OPHELDT": 135,
+		"OPHELDU": 136,
 
-		"INV_BUTTON1": 181,
-		"INV_BUTTON2": 70,
-		"INV_BUTTON3": 59,
-		"INV_BUTTON4": 160,
-		"INV_BUTTON5": 62,
+		"INV_BUTTON1": 74,
+		"INV_BUTTON2": 82,
+		"INV_BUTTON3": 239,
+		"INV_BUTTON4": 179,
+		"INV_BUTTON5": 46,
 
-		"IF_BUTTON":            244,
-		"RESUME_PAUSEBUTTON":   146,
-		"CLOSE_MODAL":          58,
-		"RESUME_P_COUNTDIALOG": 161,
-		"TUTORIAL_CLICKSIDE":   201,
+		"IF_BUTTON":            9,
+		"RESUME_PAUSEBUTTON":   72,
+		"CLOSE_MODAL":          51,
+		"RESUME_P_COUNTDIALOG": 102,
+		"TUTORIAL_CLICKSIDE":   94,
 
-		"MAP_BUILD_COMPLETE": 134,
-		"MOVE_OPCLICK":       127,
-		"REPORT_ABUSE":       203,
-		"MOVE_MINIMAPCLICK":  220,
-		"INV_BUTTOND":        176,
-		"IGNORELIST_DEL":     193,
-		"IGNORELIST_ADD":     189,
-		"IF_PLAYERDESIGN":    13,
-		"CHAT_SETMODE":       129,
-		"MESSAGE_PRIVATE":    214,
-		"FRIENDLIST_DEL":     84,
-		"FRIENDLIST_ADD":     9,
-		"CLIENT_CHEAT":       86,
-		"MESSAGE_PUBLIC":     83,
-		"MOVE_GAMECLICK":     6,
+		"MAP_BUILD_COMPLETE": 214,
+		"MOVE_OPCLICK":       138,
+		"REPORT_ABUSE":       137,
+		"MOVE_MINIMAPCLICK":  86,
+		"INV_BUTTOND":        93,
+		"IGNORELIST_DEL":     101,
+		"IGNORELIST_ADD":     255,
+		"IF_PLAYERDESIGN":    125,
+		"CHAT_SETMODE":       154,
+		"MESSAGE_PRIVATE":    139,
+		"FRIENDLIST_DEL":     106,
+		"FRIENDLIST_ADD":     13,
+		"CLIENT_CHEAT":       224,
+		"MESSAGE_PUBLIC":     253,
+		"MOVE_GAMECLICK":     207,
 	}
 	if len(wantOpcode) != len(want) {
 		t.Fatalf("wantOpcode has %d entries, want rows = %d", len(wantOpcode), len(want))
@@ -227,7 +224,7 @@ func TestClientProt254(t *testing.T) {
 		if wire, ok := wantOpcode[w.name]; !ok {
 			t.Errorf("%s: missing wire-opcode pin", w.name)
 		} else if wire != w.opcode {
-			t.Errorf("%s: opcode constant = %d, want wire value %d (TS 254 pin)", w.name, w.opcode, wire)
+			t.Errorf("%s: opcode constant = %d, want wire value %d (TS 274 pin)", w.name, w.opcode, wire)
 		}
 		op := Ops[w.opcode]
 		if op.Name != w.name {
@@ -241,26 +238,27 @@ func TestClientProt254(t *testing.T) {
 		}
 	}
 
-	// Count non-empty entries; must equal exactly 83.
+	// Count non-empty entries; must equal exactly 82.
 	count := 0
 	for i := range Ops {
 		if Ops[i].Name != "" {
 			count++
 		}
 	}
-	if count != 83 {
-		t.Errorf("Ops non-empty count = %d, want 83 (stale entries or missing 254 entries)", count)
+	if count != 82 {
+		t.Errorf("Ops non-empty count = %d, want 82 (stale entries or missing 274 entries)", count)
 	}
 
-	// Names removed/renamed before 254 must not appear anywhere in the table.
+	// Names removed/renamed before 274 must not appear anywhere in the table.
 	oldNames := map[string]bool{
 		"REBUILD_GETMAPS": true, // removed at 244
 		"IDK_SAVEDESIGN":  true, // renamed at 244 (IF_PLAYERDESIGN)
 		"TUT_CLICKSIDE":   true, // renamed at 244 (TUTORIAL_CLICKSIDE)
+		"EVENT_TRACKING":  true, // deleted at 274 (no replacement)
 	}
 	for i := range Ops {
 		if oldNames[Ops[i].Name] {
-			t.Errorf("Ops[%d].Name = %q: pre-254 name must not appear in 254 table", i, Ops[i].Name)
+			t.Errorf("Ops[%d].Name = %q: pre-274 name must not appear in 274 table", i, Ops[i].Name)
 		}
 	}
 }
