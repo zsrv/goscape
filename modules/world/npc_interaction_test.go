@@ -96,7 +96,7 @@ func TestProcessMovementInteractionWanderInvokesWanderMode(t *testing.T) {
 	before := n.stuckCounter
 	n.processMovementInteraction(s)
 	if n.stuckCounter != before+1 {
-		t.Errorf("wanderCounter: got %d, want %d", n.stuckCounter, before+1)
+		t.Errorf("stuckCounter: got %d, want %d", n.stuckCounter, before+1)
 	}
 }
 
@@ -384,7 +384,7 @@ func TestNpcUpdateMovement_ResetsWanderCounterOnMove(t *testing.T) {
 		t.Fatal("precondition: NPC should have stepped")
 	}
 	if n.stuckCounter != 0 {
-		t.Errorf("wanderCounter after move: got %d, want 0 (TS Npc.ts:363-365 resets on move)", n.stuckCounter)
+		t.Errorf("stuckCounter after move: got %d, want 0 (TS Npc.ts:363-365 resets on move)", n.stuckCounter)
 	}
 }
 
@@ -408,7 +408,7 @@ func TestNpcUpdateMovement_StuckDoesNotResetWanderCounter(t *testing.T) {
 		t.Fatal("precondition: NPC with no waypoint should not move")
 	}
 	if n.stuckCounter != 250 {
-		t.Errorf("wanderCounter: got %d, want 250 (unchanged when stuck)", n.stuckCounter)
+		t.Errorf("stuckCounter: got %d, want 250 (unchanged when stuck)", n.stuckCounter)
 	}
 }
 

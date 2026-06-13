@@ -509,7 +509,7 @@ func TestPlayerEscapeDiagonalBlockedFallsBackToXAxis(t *testing.T) {
 
 // TestPlayerEscapeStuckFiveTicksResets pins the d39e707d stuck-recovery: a
 // retreat tick that cannot move (every flee arm blocked) increments the
-// stuck counter (goscape: wanderCounter, TS post-#91: stuckCounter); after
+// stuck counter (renamed wanderCounter → stuckCounter at TS #91); after
 // 5 such ticks — and only while NOT at max range on both axes — the NPC
 // resetDefaults and zeroes the counter.
 func TestPlayerEscapeStuckFiveTicksResets(t *testing.T) {
@@ -536,7 +536,7 @@ func TestPlayerEscapeStuckFiveTicksResets(t *testing.T) {
 		}
 	}
 	if n.stuckCounter != 4 {
-		t.Fatalf("after 4 stuck ticks: wanderCounter=%d, want 4", n.stuckCounter)
+		t.Fatalf("after 4 stuck ticks: stuckCounter=%d, want 4", n.stuckCounter)
 	}
 
 	n.playerEscapeMode(s) // 5th stuck tick → reset
@@ -545,7 +545,7 @@ func TestPlayerEscapeStuckFiveTicksResets(t *testing.T) {
 		t.Error("target: want nil after 5 stuck ticks (d39e707d stuck-recovery resetDefaults)")
 	}
 	if n.stuckCounter != 0 {
-		t.Errorf("wanderCounter: got %d, want 0 (zeroed with the reset)", n.stuckCounter)
+		t.Errorf("stuckCounter: got %d, want 0 (zeroed with the reset)", n.stuckCounter)
 	}
 }
 
@@ -573,7 +573,7 @@ func TestPlayerEscapeStuckAtMaxRangeBothHolds(t *testing.T) {
 		t.Error("target: got nil — atMaxRangeBoth must suppress the stuck reset")
 	}
 	if n.stuckCounter < 8 {
-		t.Errorf("wanderCounter: got %d, want >= 8 (accumulates while held)", n.stuckCounter)
+		t.Errorf("stuckCounter: got %d, want >= 8 (accumulates while held)", n.stuckCounter)
 	}
 }
 
