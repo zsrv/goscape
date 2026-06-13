@@ -6,16 +6,17 @@ import (
 	"testing"
 )
 
-// TestScriptOpcodeMap_LengthParity pins 396 entries at the 254
-// pin-advance 2e3bcf43 (enum restructure 418 -> 396: 34 names removed,
-// 12 added — see opcode_map_254_pin_test.go for the full table).
+// TestScriptOpcodeMap_LengthParity pins 400 entries at the 274
+// pin-advance dee467c8 (adds MAP_LOC, MINIMAP_TOGGLE, SET_SKILL_LEVEL and
+// NPC_DESTINATION; renames SETSKINCOLOUR→SETIDKCOLOUR in place — see
+// opcode_map_274_pin_test.go for the full table).
 // History: 413 at 244 pin 9aadcec4; 414 at 245.2 (adds IF_SETSCROLLPOS);
 // 418 at 254 pin 43e02957 (PUSH_VARBIT/POP_VARBIT/STAT_TOTAL/
-// SET_PLAYER_OP).
+// SET_PLAYER_OP); 396 at 254 pin 2e3bcf43 (enum restructure 418 -> 396).
 func TestScriptOpcodeMap_LengthParity(t *testing.T) {
-	const wantLen = 396
+	const wantLen = 400
 	if got := len(ScriptOpcodeMap); got != wantLen {
-		t.Fatalf("len(ScriptOpcodeMap) = %d, want %d (re-verify against TS ScriptOpcode.ts at pin 2e3bcf43)", got, wantLen)
+		t.Fatalf("len(ScriptOpcodeMap) = %d, want %d (re-verify against TS ScriptOpcode.ts at pin dee467c8)", got, wantLen)
 	}
 }
 

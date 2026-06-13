@@ -266,6 +266,11 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 	},
 	OpMidiJingle: {Require: []string{"active_player"}},
 	OpMidiSong:   {Require: []string{"active_player"}},
+	// MINIMAP_TOGGLE new in 274 (TS ScriptOpcodePointers.ts @dee467c8).
+	OpMinimapToggle: {
+		Require:  []string{"active_player"},
+		Require2: []string{"active_player2"},
+	},
 	OpName: {
 		Require:  []string{"active_player"},
 		Require2: []string{"active_player2"},
@@ -444,8 +449,14 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		Require:  []string{"active_player", "active_player2"},
 		Require2: []string{"active_player2", "active_player"},
 	},
-	OpSetGender:     {Require: []string{"p_active_player"}},
-	OpSetSkinColour: {Require: []string{"p_active_player"}},
+	OpSetGender: {Require: []string{"p_active_player"}},
+	// dee467c8 (274 pin-advance): SETSKINCOLOUR→SETIDKCOLOUR (same row).
+	OpSetIdkColour: {Require: []string{"p_active_player"}},
+	// SET_SKILL_LEVEL new in 274 (TS ScriptOpcodePointers.ts @dee467c8).
+	OpSetSkillLevel: {
+		Require:  []string{"active_player"},
+		Require2: []string{"active_player2"},
+	},
 	OpPAnimProtect: {
 		Require:  []string{"p_active_player"},
 		Require2: []string{"p_active_player2"},
@@ -665,6 +676,11 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		},
 	},
 	OpNpcInRange: {
+		Require:  []string{"active_npc"},
+		Require2: []string{"active_npc2"},
+	},
+	// NPC_DESTINATION new in 274 (TS ScriptOpcodePointers.ts @dee467c8).
+	OpNpcDestination: {
 		Require:  []string{"active_npc"},
 		Require2: []string{"active_npc2"},
 	},

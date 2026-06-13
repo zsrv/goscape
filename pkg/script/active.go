@@ -852,9 +852,16 @@ type ActivePlayer interface {
 	// Called by SETGENDER after checkGender pre-validates v ∈ [0, 1].
 	// Does NOT flip MaskAppearance — TS pattern requires a subsequent
 	// BUILDAPPEARANCE for the change to reach the client (mirrors
-	// SETIDKIT/SETSKINCOLOUR deferred-rebuild precedent).
+	// SETIDKIT/SETIDKCOLOUR deferred-rebuild precedent).
 	// Mirrors TS PlayerOps.ts:1104-1118.
 	SetGender(gender int)
+
+	// SetSkillLevel writes the player's skillLevel appearance field.
+	// Called by SET_SKILL_LEVEL (TS PlayerOps.ts:1168-1171 @dee467c8,
+	// new in 274). Like SETIDKIT/SETIDKCOLOUR this does NOT flip
+	// MaskAppearance — T7 wires skillLevel into the appearance stream
+	// (TS Player.ts:1423 p2) where BUILDAPPEARANCE picks it up.
+	SetSkillLevel(level int)
 
 	// AddSessionLog pushes a session-log entry onto the server-level
 	// per-tick buffer. Mirrors TS Player.addSessionLog (Player.ts:629-631).
@@ -1142,6 +1149,23 @@ type ActiveNpc interface {
 	// modules/world/npc_interaction.go:591. Returns false defensively when
 	// the NPC has no target (TS-equivalent). NAI-160 T7.
 	TargetWithinMaxRange() bool
+
+	// HasWaypoints reports whether the NPC has waypoints queued
+	// (waypointIndex >= 0). Mirrors TS PathingEntity.hasWaypoints —
+	// read by NPC_DESTINATION (NpcOps.ts:575-581 @dee467c8). New in 274.
+	HasWaypoints() bool
+
+	// WaypointDestination returns the raw packed coord at waypoints[0].
+	// Both TS and goscape store the waypoint queue reversed
+	// ([dest, …, first_step]), so this is the route's FINAL destination
+	// tile. Only meaningful while HasWaypoints() is true. Read by
+	// NPC_DESTINATION (TS pushes state.activeNpc.waypoints[0]). New in
+	// 274. Level-nibble note: pathfinder-built routes pack the NPC's real
+	// level on both sides; for single-tile QueueWaypoint paths TS packs
+	// level 0 ("level doesn't matter here") while goscape packs n.level —
+	// a pre-existing internal-representation deviation now observable
+	// through this op (x/z always match).
+	WaypointDestination() int
 
 	// HeroPointsClear resets the NPC's hero-point contributor ledger.
 	// NOTE: NPC_STATHEAL no longer calls this (244: branch deleted,

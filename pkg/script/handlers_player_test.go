@@ -84,6 +84,8 @@ func (m *mockActiveNpc) AddHeroPoints(_, _ int)                                {
 func (m *mockActiveNpc) TopContributor() int                                   { return 0 }
 func (m *mockActiveNpc) TargetWithinMaxRange() bool                            { return false }
 func (m *mockActiveNpc) HeroPointsClear()                                      {}
+func (m *mockActiveNpc) HasWaypoints() bool                                    { return false }
+func (m *mockActiveNpc) WaypointDestination() int                              { return 0 }
 
 // newSingleOp builds a single-opcode script plus its trailing OpReturn,
 // so handler tests can run a handler in isolation and observe the state
@@ -3142,27 +3144,6 @@ func TestCheckNotNull(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-// TestCheckSkinColour_Range pins the [0, 7] inclusive range check.
-// Mirrors TS SkinColourValid (ScriptValidators.ts:137) —
-// ScriptInputRangeValidator(0, 7, 'SkinColour').
-func TestCheckSkinColour_Range(t *testing.T) {
-	for _, v := range []int{0, 1, 4, 7} {
-		if err := checkSkinColour(v, "TEST_OP"); err != nil {
-			t.Errorf("checkSkinColour(%d): unexpected error %v", v, err)
-		}
-	}
-	for _, v := range []int{-1, 8, 100, math.MinInt} {
-		err := checkSkinColour(v, "TEST_OP")
-		if err == nil {
-			t.Errorf("checkSkinColour(%d): want error, got nil", v)
-			continue
-		}
-		if !strings.Contains(err.Error(), "TEST_OP") {
-			t.Errorf("checkSkinColour(%d): error %q missing op name TEST_OP", v, err)
-		}
 	}
 }
 
@@ -6658,16 +6639,18 @@ func TestHandleHealEnergy_RequiresActivePlayer(t *testing.T) {
 	}
 }
 
-// TestHandleSetSkinColour_WritesColors4 pins TS PlayerOps.ts:1121-1124
-// — colors[4] = skin (inclusive [0, 7]).
-func TestHandleSetSkinColour_WritesColors4(t *testing.T) {
+// TestHandleSetIdkColour_WritesSlot pins TS PlayerOps.ts:1173-1179
+// @dee467c8 — SETIDKCOLOUR pops (slot, colour) and writes colors[slot].
+// Replaces the 254-era single-arg SETSKINCOLOUR (colors[4], [0,7] range)
+// contract; SkinColourValid was deleted upstream.
+func TestHandleSetIdkColour_WritesSlot(t *testing.T) {
 	cases := []struct {
-		name string
-		skin int
+		name         string
+		slot, colour int
 	}{
-		{"min boundary 0", 0},
-		{"mid 3", 3},
-		{"max boundary 7", 7},
+		{"slot 0", 0, 3},
+		{"slot 2", 2, 9},
+		{"slot 4 (old skin slot)", 4, 7},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -6678,35 +6661,37 @@ func TestHandleSetSkinColour_WritesColors4(t *testing.T) {
 				Self:        mp,
 				Pointers:    PtrActivePlayer,
 			}
-			s.PushInt(tc.skin)
-			if err := handleSetSkinColour(s); err != nil {
-				t.Fatalf("handleSetSkinColour: %v", err)
+			s.PushInt(tc.slot)
+			s.PushInt(tc.colour)
+			if err := handleSetIdkColour(s); err != nil {
+				t.Fatalf("handleSetIdkColour: %v", err)
 			}
-			if got := mp.colorParts[4]; got != tc.skin {
-				t.Errorf("colorParts[4]: got %d, want %d", got, tc.skin)
+			if got := mp.colorParts[tc.slot]; got != tc.colour {
+				t.Errorf("colorParts[%d]: got %d, want %d", tc.slot, got, tc.colour)
 			}
 			// Other slots must NOT be touched.
 			for i, c := range mp.colorParts {
-				if i == 4 {
+				if i == tc.slot {
 					continue
 				}
 				if c != 0 {
-					t.Errorf("colorParts[%d]: got %d, want 0 (only slot 4 written)", i, c)
+					t.Errorf("colorParts[%d]: got %d, want 0 (only slot %d written)", i, c, tc.slot)
 				}
 			}
 		})
 	}
 }
 
-// TestHandleSetSkinColour_RejectsOutOfRange pins TS check(skin, SkinColourValid)
-// — inclusive [0, 7]. Tests both off-by-one boundaries.
-func TestHandleSetSkinColour_RejectsOutOfRange(t *testing.T) {
+// TestHandleSetIdkColour_RejectsInvalidSlot pins the TS bound
+// (PlayerOps.ts:1175-1177 @dee467c8): slot > colors.length || slot < 0
+// → throw `Invalid idk slot`.
+func TestHandleSetIdkColour_RejectsInvalidSlot(t *testing.T) {
 	cases := []struct {
 		name string
-		skin int
+		slot int
 	}{
 		{"-1 below min", -1},
-		{"8 above max", 8},
+		{"6 above colors.length", 6},
 		{"large negative", -100},
 		{"large positive", 100},
 	}
@@ -6719,36 +6704,186 @@ func TestHandleSetSkinColour_RejectsOutOfRange(t *testing.T) {
 				Self:        mp,
 				Pointers:    PtrActivePlayer,
 			}
-			s.PushInt(tc.skin)
-			err := handleSetSkinColour(s)
+			s.PushInt(tc.slot)
+			s.PushInt(5) // colour
+			err := handleSetIdkColour(s)
 			if err == nil {
-				t.Fatalf("handleSetSkinColour(%d): expected error, got nil", tc.skin)
+				t.Fatalf("handleSetIdkColour(slot=%d): expected error, got nil", tc.slot)
 			}
-			if !strings.Contains(err.Error(), "SETSKINCOLOUR") {
-				t.Errorf("error: got %q, want to contain \"SETSKINCOLOUR\"", err.Error())
+			if !strings.Contains(err.Error(), "SETIDKCOLOUR") {
+				t.Errorf("error: got %q, want to contain \"SETIDKCOLOUR\"", err.Error())
 			}
-			// No write on error.
-			if mp.colorParts[4] != 0 {
-				t.Errorf("colorParts[4]: got %d, want 0 (no write on error)", mp.colorParts[4])
+			for i, c := range mp.colorParts {
+				if c != 0 {
+					t.Errorf("colorParts[%d]: got %d, want 0 (no write on error)", i, c)
+				}
 			}
 		})
 	}
 }
 
-// TestHandleSetSkinColour_RequiresActivePlayer pins the goscape-only
-// defensive guard.
-func TestHandleSetSkinColour_RequiresActivePlayer(t *testing.T) {
+// TestHandleSetIdkColour_SlotEqualLengthIsNoOp pins the TS off-by-one
+// quirk: `slot > colors.length` (NOT >=) lets slot == 5 through, where
+// TS appends colors[5] — a slot no appearance encoder reads
+// (buildAppearance writes colors[0..4] only, Player.ts:1395-1397).
+// goscape's colors is a fixed [5]int, so the observably-identical port
+// is a silent no-op write.
+func TestHandleSetIdkColour_SlotEqualLengthIsNoOp(t *testing.T) {
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushInt(5) // slot == colors.length
+	s.PushInt(9) // colour
+	if err := handleSetIdkColour(s); err != nil {
+		t.Fatalf("handleSetIdkColour(slot=5): %v (TS passes the `slot > length` bound)", err)
+	}
+	for i, c := range mp.colorParts {
+		if c != 0 {
+			t.Errorf("colorParts[%d]: got %d, want 0 (slot 5 write is observably dead)", i, c)
+		}
+	}
+}
+
+// TestHandleSetIdkColour_RequiresActivePlayer pins the goscape-only
+// defensive guard (TS handler is bare, but state.activePlayer throws).
+func TestHandleSetIdkColour_RequiresActivePlayer(t *testing.T) {
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
+	s.PushInt(0)
 	s.PushInt(3)
-	err := handleSetSkinColour(s)
+	err := handleSetIdkColour(s)
 	if err == nil {
-		t.Fatalf("handleSetSkinColour: expected error, got nil")
+		t.Fatalf("handleSetIdkColour: expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "SETSKINCOLOUR") {
-		t.Errorf("error: got %q, want to contain \"SETSKINCOLOUR\"", err.Error())
+	if !strings.Contains(err.Error(), "SETIDKCOLOUR") {
+		t.Errorf("error: got %q, want to contain \"SETIDKCOLOUR\"", err.Error())
+	}
+}
+
+// TestHandleMinimapToggle_WritesType pins TS PlayerOps.ts:859-862
+// @dee467c8 — MINIMAP_TOGGLE pops type (NumberNotNull) and writes the
+// MinimapToggle wire op.
+func TestHandleMinimapToggle_WritesType(t *testing.T) {
+	for _, typ := range []int{0, 1, 2} {
+		mp := &mockPlayer{}
+		s := &ScriptState{
+			IntStack:    make([]int, StackCapacity),
+			StringStack: make([]string, StackCapacity),
+			Self:        mp,
+			Pointers:    PtrActivePlayer,
+		}
+		s.PushInt(typ)
+		if err := handleMinimapToggle(s); err != nil {
+			t.Fatalf("handleMinimapToggle(%d): %v", typ, err)
+		}
+		if len(mp.minimapToggleCalls) != 1 || mp.minimapToggleCalls[0] != typ {
+			t.Errorf("minimapToggleCalls: got %v, want [%d]", mp.minimapToggleCalls, typ)
+		}
+	}
+}
+
+// TestHandleMinimapToggle_NullTypeErrors pins check(popInt, NumberNotNull).
+func TestHandleMinimapToggle_NullTypeErrors(t *testing.T) {
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushInt(-1)
+	err := handleMinimapToggle(s)
+	if err == nil {
+		t.Fatalf("handleMinimapToggle(-1): expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "MINIMAP_TOGGLE") {
+		t.Errorf("error: got %q, want to contain \"MINIMAP_TOGGLE\"", err.Error())
+	}
+	if len(mp.minimapToggleCalls) != 0 {
+		t.Errorf("minimapToggleCalls: got %v, want none on error", mp.minimapToggleCalls)
+	}
+}
+
+// TestHandleMinimapToggle_RequiresActivePlayer pins the checkedHandler
+// (ActivePlayer) gate.
+func TestHandleMinimapToggle_RequiresActivePlayer(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(1)
+	err := handleMinimapToggle(s)
+	if err == nil {
+		t.Fatalf("handleMinimapToggle: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "MINIMAP_TOGGLE") {
+		t.Errorf("error: got %q, want to contain \"MINIMAP_TOGGLE\"", err.Error())
+	}
+}
+
+// TestHandleSetSkillLevel_CallsSetter pins TS PlayerOps.ts:1168-1171
+// @dee467c8 — SET_SKILL_LEVEL pops level (NumberNotNull) and writes
+// activePlayer.skillLevel. The world-side appearance-stream wiring is
+// T7; pkg/script only dispatches the setter.
+func TestHandleSetSkillLevel_CallsSetter(t *testing.T) {
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushInt(1337)
+	if err := handleSetSkillLevel(s); err != nil {
+		t.Fatalf("handleSetSkillLevel: %v", err)
+	}
+	if len(mp.setSkillLevelCalls) != 1 || mp.setSkillLevelCalls[0] != 1337 {
+		t.Errorf("setSkillLevelCalls: got %v, want [1337]", mp.setSkillLevelCalls)
+	}
+}
+
+// TestHandleSetSkillLevel_NullLevelErrors pins check(popInt, NumberNotNull).
+func TestHandleSetSkillLevel_NullLevelErrors(t *testing.T) {
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushInt(-1)
+	err := handleSetSkillLevel(s)
+	if err == nil {
+		t.Fatalf("handleSetSkillLevel(-1): expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "SET_SKILL_LEVEL") {
+		t.Errorf("error: got %q, want to contain \"SET_SKILL_LEVEL\"", err.Error())
+	}
+	if len(mp.setSkillLevelCalls) != 0 {
+		t.Errorf("setSkillLevelCalls: got %v, want none on error", mp.setSkillLevelCalls)
+	}
+}
+
+// TestHandleSetSkillLevel_RequiresActivePlayer pins the checkedHandler
+// (ActivePlayer) gate.
+func TestHandleSetSkillLevel_RequiresActivePlayer(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(50)
+	err := handleSetSkillLevel(s)
+	if err == nil {
+		t.Fatalf("handleSetSkillLevel: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "SET_SKILL_LEVEL") {
+		t.Errorf("error: got %q, want to contain \"SET_SKILL_LEVEL\"", err.Error())
 	}
 }
 

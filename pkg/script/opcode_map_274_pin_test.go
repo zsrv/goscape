@@ -2,13 +2,14 @@ package script
 
 import "testing"
 
-// scriptOpcodeMap254Pin pins every compiler-visible opcode name to its 254
-// numeric value. Generated mechanically from TS ScriptOpcode.ts at the
-// pin-advance commit 2e3bcf43 (enum values + ScriptOpcodeMap keys,
-// including the four '*' vararg keys). 396 entries (enum and map counts
-// are equal at this pin; the 43e02957 table had 418).
-// Regenerate ONLY when REFERENCES.md moves the rev-254 pin.
-var scriptOpcodeMap254Pin = map[string]Opcode{
+// scriptOpcodeMap274Pin pins every compiler-visible opcode name to its 274
+// numeric value. Generated from TS ScriptOpcode.ts at pin dee467c8 (enum
+// values + ScriptOpcodeMap keys, including the four '*' vararg keys). 400
+// entries (enum and map counts are equal at this pin; the 2e3bcf43 table
+// had 396 — rev-274 adds MAP_LOC, MINIMAP_TOGGLE, SET_SKILL_LEVEL and
+// NPC_DESTINATION, and renames SETSKINCOLOUR to SETIDKCOLOUR in place).
+// Regenerate ONLY when REFERENCES.md moves the rev-274 pin.
+var scriptOpcodeMap274Pin = map[string]Opcode{
 	"PUSH_CONSTANT_INT":             0,
 	"PUSH_VARP":                     1,
 	"POP_VARP":                      2,
@@ -55,16 +56,17 @@ var scriptOpcodeMap254Pin = map[string]Opcode{
 	"MAP_INDOORS":                   1010,
 	"MAP_LIVE":                      1011,
 	"MAP_LOCADDUNSAFE":              1012,
-	"MAP_MEMBERS":                   1013,
-	"MAP_MULTIWAY":                  1014,
-	"MAP_PLAYERCOUNT":               1015,
-	"MOVECOORD":                     1016,
-	"PLAYERCOUNT":                   1017,
-	"PROJANIM_MAP":                  1018,
-	"SEQLENGTH":                     1019,
-	"SPOTANIM_MAP":                  1020,
-	"WORLD_DELAY":                   1021,
-	"MIDI_LENGTH":                   1022,
+	"MAP_LOC":                       1013,
+	"MAP_MEMBERS":                   1014,
+	"MAP_MULTIWAY":                  1015,
+	"MAP_PLAYERCOUNT":               1016,
+	"MOVECOORD":                     1017,
+	"PLAYERCOUNT":                   1018,
+	"PROJANIM_MAP":                  1019,
+	"SEQLENGTH":                     1020,
+	"SPOTANIM_MAP":                  1021,
+	"WORLD_DELAY":                   1022,
+	"MIDI_LENGTH":                   1023,
 	"AFK_EVENT":                     2000,
 	"ALLOWDESIGN":                   2001,
 	"ANIM":                          2002,
@@ -131,81 +133,83 @@ var scriptOpcodeMap254Pin = map[string]Opcode{
 	"MES":                           2063,
 	"MIDI_JINGLE":                   2064,
 	"MIDI_SONG":                     2065,
-	"NAME":                          2066,
-	"P_ANIMPROTECT":                 2067,
-	"P_APRANGE":                     2068,
-	"P_ARRIVEDELAY":                 2069,
-	"P_CLEARPENDINGACTION":          2070,
-	"P_COUNTDIALOG":                 2071,
-	"P_DELAY":                       2072,
-	"P_EXACTMOVE":                   2073,
-	"P_FINDUID":                     2074,
-	"P_LOCMERGE":                    2075,
-	"P_LOGOUT":                      2076,
-	"P_OPHELD":                      2077,
-	"P_OPLOC":                       2078,
-	"P_OPNPC":                       2079,
-	"P_OPNPCT":                      2080,
-	"P_OPOBJ":                       2081,
-	"P_OPPLAYER":                    2082,
-	"P_OPPLAYERT":                   2083,
-	"P_PAUSEBUTTON":                 2084,
-	"P_PREVENTLOGOUT":               2085,
-	"P_RUN":                         2086,
-	"P_STOPACTION":                  2087,
-	"P_TELEJUMP":                    2088,
-	"P_TELEPORT":                    2089,
-	"P_WALK":                        2090,
-	"PLAYERMEMBER":                  2091,
-	"PROJANIM_NPC":                  2546,
-	"PROJANIM_PL":                   2092,
-	"QUEUE":                         2093,
-	"QUEUE*":                        2094,
-	"READYANIM":                     2095,
-	"RUNANIM":                       2096,
-	"RUNENERGY":                     2097,
-	"SAY":                           2098,
-	"SESSION_LOG":                   2099,
-	"SET_PLAYER_OP":                 2100,
-	"SETGENDER":                     2101,
-	"SETIDKIT":                      2102,
-	"SETSKINCOLOUR":                 2103,
-	"SETTIMER":                      2104,
-	"SOFTTIMER":                     2105,
-	"SOUND_SYNTH":                   2106,
+	"MINIMAP_TOGGLE":                2066,
+	"NAME":                          2067,
+	"P_ANIMPROTECT":                 2068,
+	"P_APRANGE":                     2069,
+	"P_ARRIVEDELAY":                 2070,
+	"P_CLEARPENDINGACTION":          2071,
+	"P_COUNTDIALOG":                 2072,
+	"P_DELAY":                       2073,
+	"P_EXACTMOVE":                   2074,
+	"P_FINDUID":                     2075,
+	"P_LOCMERGE":                    2076,
+	"P_LOGOUT":                      2077,
+	"P_OPHELD":                      2078,
+	"P_OPLOC":                       2079,
+	"P_OPNPC":                       2080,
+	"P_OPNPCT":                      2081,
+	"P_OPOBJ":                       2082,
+	"P_OPPLAYER":                    2083,
+	"P_OPPLAYERT":                   2084,
+	"P_PAUSEBUTTON":                 2085,
+	"P_PREVENTLOGOUT":               2086,
+	"P_RUN":                         2087,
+	"P_STOPACTION":                  2088,
+	"P_TELEJUMP":                    2089,
+	"P_TELEPORT":                    2090,
+	"P_WALK":                        2091,
+	"PLAYERMEMBER":                  2092,
+	"PROJANIM_NPC":                  2547,
+	"PROJANIM_PL":                   2093,
+	"QUEUE":                         2094,
+	"QUEUE*":                        2095,
+	"READYANIM":                     2096,
+	"RUNANIM":                       2097,
+	"RUNENERGY":                     2098,
+	"SAY":                           2099,
+	"SESSION_LOG":                   2100,
+	"SET_PLAYER_OP":                 2101,
+	"SETGENDER":                     2102,
+	"SETIDKIT":                      2103,
+	"SET_SKILL_LEVEL":               2104,
+	"SETIDKCOLOUR":                  2105,
+	"SETTIMER":                      2106,
+	"SOFTTIMER":                     2107,
+	"SOUND_SYNTH":                   2108,
 	"SPLIT_GET":                     4513,
 	"SPLIT_GETANIM":                 4514,
 	"SPLIT_INIT":                    4515,
 	"SPLIT_LINECOUNT":               4516,
 	"SPLIT_PAGECOUNT":               4517,
-	"SPOTANIM_PL":                   2107,
-	"STAFFMODLEVEL":                 2108,
-	"STAT_ADD":                      2109,
-	"STAT_ADVANCE":                  2110,
-	"STAT_BASE":                     2111,
-	"STAT_BOOST":                    2112,
-	"STAT_DRAIN":                    2113,
-	"STAT_HEAL":                     2114,
-	"STAT_RANDOM":                   2115,
-	"STAT_SUB":                      2116,
-	"STAT_TOTAL":                    2117,
-	"STAT":                          2118,
-	"STRONGQUEUE":                   2119,
-	"STRONGQUEUE*":                  2120,
-	"TURNANIM":                      2121,
-	"TUT_CLOSE":                     2122,
-	"TUT_FLASH":                     2123,
-	"TUT_OPEN":                      2124,
-	"UID":                           2125,
-	"WALKANIM_B":                    2126,
-	"WALKANIM_L":                    2127,
-	"WALKANIM_R":                    2128,
-	"WALKANIM":                      2129,
-	"WALKTRIGGER":                   2130,
-	"WEAKQUEUE":                     2131,
-	"WEAKQUEUE*":                    2132,
-	"WEALTH_EVENT":                  2133,
-	"WEIGHT":                        2134,
+	"SPOTANIM_PL":                   2109,
+	"STAFFMODLEVEL":                 2110,
+	"STAT_ADD":                      2111,
+	"STAT_ADVANCE":                  2112,
+	"STAT_BASE":                     2113,
+	"STAT_BOOST":                    2114,
+	"STAT_DRAIN":                    2115,
+	"STAT_HEAL":                     2116,
+	"STAT_RANDOM":                   2117,
+	"STAT_SUB":                      2118,
+	"STAT_TOTAL":                    2119,
+	"STAT":                          2120,
+	"STRONGQUEUE":                   2121,
+	"STRONGQUEUE*":                  2122,
+	"TURNANIM":                      2123,
+	"TUT_CLOSE":                     2124,
+	"TUT_FLASH":                     2125,
+	"TUT_OPEN":                      2126,
+	"UID":                           2127,
+	"WALKANIM_B":                    2128,
+	"WALKANIM_L":                    2129,
+	"WALKANIM_R":                    2130,
+	"WALKANIM":                      2131,
+	"WALKTRIGGER":                   2132,
+	"WEAKQUEUE":                     2133,
+	"WEAKQUEUE*":                    2134,
+	"WEALTH_EVENT":                  2135,
+	"WEIGHT":                        2136,
 	"NPC_ADD":                       2500,
 	"NPC_ANIM":                      2501,
 	"NPC_ARRIVEDELAY":               2502,
@@ -234,25 +238,26 @@ var scriptOpcodeMap254Pin = map[string]Opcode{
 	"NPC_HUNT":                      2525,
 	"NPC_HUNTALL":                   2526,
 	"NPC_INRANGE":                   2527,
-	"NPC_NAME":                      2528,
-	"NPC_PARAM":                     2529,
-	"NPC_QUEUE":                     2530,
-	"NPC_RANGE":                     2531,
-	"NPC_SAY":                       2532,
-	"NPC_SETHUNT":                   2533,
-	"NPC_SETHUNTMODE":               2534,
-	"NPC_SETMODE":                   2535,
-	"NPC_SETTIMER":                  2536,
-	"NPC_STAT":                      2537,
-	"NPC_STATADD":                   2538,
-	"NPC_STATHEAL":                  2539,
-	"NPC_STATSUB":                   2540,
-	"NPC_TELE":                      2541,
-	"NPC_TYPE":                      2542,
-	"NPC_UID":                       2543,
-	"NPC_WALK":                      2544,
-	"NPC_WALKTRIGGER":               2545,
-	"SPOTANIM_NPC":                  2547,
+	"NPC_DESTINATION":               2528,
+	"NPC_NAME":                      2529,
+	"NPC_PARAM":                     2530,
+	"NPC_QUEUE":                     2531,
+	"NPC_RANGE":                     2532,
+	"NPC_SAY":                       2533,
+	"NPC_SETHUNT":                   2534,
+	"NPC_SETHUNTMODE":               2535,
+	"NPC_SETMODE":                   2536,
+	"NPC_SETTIMER":                  2537,
+	"NPC_STAT":                      2538,
+	"NPC_STATADD":                   2539,
+	"NPC_STATHEAL":                  2540,
+	"NPC_STATSUB":                   2541,
+	"NPC_TELE":                      2542,
+	"NPC_TYPE":                      2543,
+	"NPC_UID":                       2544,
+	"NPC_WALK":                      2545,
+	"NPC_WALKTRIGGER":               2546,
+	"SPOTANIM_NPC":                  2548,
 	"LOC_ADD":                       3000,
 	"LOC_ANGLE":                     3001,
 	"LOC_ANIM":                      3002,
@@ -407,12 +412,12 @@ var scriptOpcodeMap254Pin = map[string]Opcode{
 	"TIMESPENT":                     10003,
 }
 
-// removed254Names were deleted/renamed upstream at the 2e3bcf43
-// pin-advance and must NOT resolve. The BAS_* family, HINT_PLAYER,
-// LOWMEMORY and IF_SETRESUMEBUTTONS are the 43e02957-era spellings of the
-// renamed ops; the rest were deleted outright (IF_SETRECOL has been gone
-// since 244).
-var removed254Names = []string{
+// removed274Names were deleted/renamed upstream and must NOT resolve. The
+// BAS_* family, HINT_PLAYER, LOWMEMORY and IF_SETRESUMEBUTTONS are the
+// 43e02957-era spellings of the renamed ops; SETSKINCOLOUR is the pre-274
+// spelling renamed to SETIDKCOLOUR at dee467c8; the rest were deleted
+// outright (IF_SETRECOL has been gone since 244).
+var removed274Names = []string{
 	"IF_SETRECOL",
 	"BAS_READYANIM", "BAS_RUNNING", "BAS_TURNONSPOT",
 	"BAS_WALK_B", "BAS_WALK_F", "BAS_WALK_L", "BAS_WALK_R",
@@ -424,10 +429,11 @@ var removed254Names = []string{
 	"MAP_LASTNPC", "MAP_LASTPLAYER", "MAP_LASTLOGOUT", "MAP_LASTLOGIN",
 	"MAP_LASTZONE", "MAP_LASTCLIENTOUT", "MAP_LASTCLEANUP",
 	"MAP_LASTBANDWIDTHIN", "MAP_LASTBANDWIDTHOUT",
+	"SETSKINCOLOUR",
 }
 
-func TestScriptOpcodeMap_254Pin(t *testing.T) {
-	for name, want := range scriptOpcodeMap254Pin {
+func TestScriptOpcodeMap_274Pin(t *testing.T) {
+	for name, want := range scriptOpcodeMap274Pin {
 		got, ok := ScriptOpcodeMap[name]
 		if !ok {
 			t.Errorf("ScriptOpcodeMap missing %q", name)
@@ -437,18 +443,18 @@ func TestScriptOpcodeMap_254Pin(t *testing.T) {
 			t.Errorf("ScriptOpcodeMap[%q] = %d, want %d", name, got, want)
 		}
 	}
-	if len(ScriptOpcodeMap) != len(scriptOpcodeMap254Pin) {
-		t.Errorf("ScriptOpcodeMap has %d entries, 254 pin has %d", len(ScriptOpcodeMap), len(scriptOpcodeMap254Pin))
+	if len(ScriptOpcodeMap) != len(scriptOpcodeMap274Pin) {
+		t.Errorf("ScriptOpcodeMap has %d entries, 274 pin has %d", len(ScriptOpcodeMap), len(scriptOpcodeMap274Pin))
 	}
-	for _, name := range removed254Names {
+	for _, name := range removed274Names {
 		if _, ok := ScriptOpcodeMap[name]; ok {
 			t.Errorf("ScriptOpcodeMap still contains removed name %q", name)
 		}
 	}
 }
 
-func TestOpcodeString_254Pin(t *testing.T) {
-	for name, op := range scriptOpcodeMap254Pin {
+func TestOpcodeString_274Pin(t *testing.T) {
+	for name, op := range scriptOpcodeMap274Pin {
 		if name[len(name)-1] == '*' {
 			continue // vararg map keys; String() keeps the enum spelling
 		}

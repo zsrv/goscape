@@ -101,16 +101,6 @@ func checkNotNull(v int, op string) error {
 	return nil
 }
 
-// checkSkinColour validates a player skin-colour wire value. Mirrors TS
-// SkinColourValid (ScriptValidators.ts:137) —
-// ScriptInputRangeValidator(0, 7, 'SkinColour'), inclusive range [0, 7].
-func checkSkinColour(v int, op string) error {
-	if v < 0 || v > 7 {
-		return fmt.Errorf("%s: skin colour out of range (%d)", op, v)
-	}
-	return nil
-}
-
 // checkGender validates a player gender wire value. Mirrors TS
 // GenderValid (ScriptValidators.ts:136) —
 // ScriptInputRangeValidator(0, 1, 'Gender'), inclusive range [0, 1].
@@ -1997,25 +1987,90 @@ func handleHealEnergy(s *ScriptState) error {
 	return nil
 }
 
-// handleSetSkinColour (SETSKINCOLOUR) writes the player's skin-colour
-// slot (colors[4]) after a [0, 7] range check. Mirrors TS
-// LostCityRS/Engine-TS/.../PlayerOps.ts:1121-1124:
+// playerColorsLength is the fixed length of the player appearance colors
+// array (TS Player.colors = number[5]; goscape Player.colors [5]int).
+// Consumed by the SETIDKCOLOUR slot bound.
+const playerColorsLength = 5
+
+// handleSetIdkColour (SETIDKCOLOUR) writes the player's appearance
+// colour slot. dee467c8 (274 pin-advance): replaces SETSKINCOLOUR (which
+// popped a single [0,7]-validated skin value into colors[4]; its
+// SkinColourValid validator was deleted upstream). Mirrors TS
+// PlayerOps.ts:1173-1179 @dee467c8:
 //
-//	const skin = check(state.popInt(), SkinColourValid)
-//	state.activePlayer.colors[4] = skin
+//	const [slot, color] = state.popInts(2);
+//	if (slot > state.activePlayer.colors.length || slot < 0) {
+//	    throw new Error(`Invalid idk slot: ${slot}`);
+//	}
+//	state.activePlayer.colors[slot] = color;
 //
-// Validated via checkSkinColour (TS SkinColourValid, inclusive [0, 7]).
-// The active-player guard is goscape defensive (TS skips this check;
-// see defensive_gate_doc_comment_label).
-func handleSetSkinColour(s *ScriptState) error {
-	if err := requireActivePlayer(s, "SETSKINCOLOUR"); err != nil {
+// TS quirk preserved: the bound is `slot > length` (not >=), so slot ==
+// 5 passes — TS then appends colors[5], which nothing reads
+// (buildAppearance serializes colors[0..4] only, Player.ts:1395-1397).
+// goscape's colors is a fixed [5]int, so the observably-identical port
+// of slot == 5 is a silent no-op. No colour-value validation (TS pops
+// bare).
+//
+// The active-player guard is goscape defensive (TS handler is bare, but
+// state.activePlayer is a throwing getter; see
+// defensive_gate_doc_comment_label).
+func handleSetIdkColour(s *ScriptState) error {
+	if err := requireActivePlayer(s, "SETIDKCOLOUR"); err != nil {
 		return err
 	}
-	skin := s.PopInt()
-	if err := checkSkinColour(skin, "SETSKINCOLOUR"); err != nil {
+	colour := s.PopInt()
+	slot := s.PopInt()
+	if slot > playerColorsLength || slot < 0 {
+		return fmt.Errorf("SETIDKCOLOUR: invalid idk slot: %d", slot)
+	}
+	if slot == playerColorsLength {
+		// Observably-dead write in TS (see doc comment).
+		return nil
+	}
+	s.activePlayer().SetColorPart(slot, colour)
+	return nil
+}
+
+// handleSetSkillLevel (SET_SKILL_LEVEL) writes the popped level into the
+// player's skillLevel appearance field. New in 274 — mirrors TS
+// PlayerOps.ts:1168-1171 @dee467c8:
+//
+//	[ScriptOpcode.SET_SKILL_LEVEL]: checkedHandler(ActivePlayer, state => {
+//	    const level = check(state.popInt(), NumberNotNull);
+//	    state.activePlayer.skillLevel = level;
+//	})
+//
+// The world-side wire effect (appearance-stream p2 + rebuild) is T7;
+// this handler only dispatches the setter.
+func handleSetSkillLevel(s *ScriptState) error {
+	if err := requireActivePlayer(s, "SET_SKILL_LEVEL"); err != nil {
 		return err
 	}
-	s.activePlayer().SetColorPart(4, skin)
+	level := s.PopInt()
+	if err := checkNotNull(level, "SET_SKILL_LEVEL"); err != nil {
+		return err
+	}
+	s.activePlayer().SetSkillLevel(level)
+	return nil
+}
+
+// handleMinimapToggle (MINIMAP_TOGGLE) emits the MINIMAP_TOGGLE wire op
+// with the popped state (0 normal, 1 click-disabled, 2 blacked out).
+// New in 274 — mirrors TS PlayerOps.ts:859-862 @dee467c8:
+//
+//	[ScriptOpcode.MINIMAP_TOGGLE]: checkedHandler(ActivePlayer, state => {
+//	    const type = check(state.popInt(), NumberNotNull);
+//	    state.activePlayer.write(new MinimapToggle(type));
+//	})
+func handleMinimapToggle(s *ScriptState) error {
+	if err := requireActivePlayer(s, "MINIMAP_TOGGLE"); err != nil {
+		return err
+	}
+	minimapType := s.PopInt()
+	if err := checkNotNull(minimapType, "MINIMAP_TOGGLE"); err != nil {
+		return err
+	}
+	s.activePlayer().MinimapToggle(minimapType)
 	return nil
 }
 

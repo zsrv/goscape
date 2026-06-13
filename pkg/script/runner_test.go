@@ -586,6 +586,10 @@ type mockPlayer struct {
 	colorParts     [5]int
 	setGenderCalls []int
 
+	// rev-274: MINIMAP_TOGGLE + SET_SKILL_LEVEL captures.
+	minimapToggleCalls []int
+	setSkillLevelCalls []int
+
 	// NAI-127 Bundle 1: FINDHERO ledger-top getter.
 	topContributor int
 
@@ -918,8 +922,19 @@ func (m *mockPlayer) SetPlayerOp(index int, text string, primary int) {
 }
 
 // IfSetRecol deleted in 244 (IfSetRecolEncoder.ts removed upstream); mock method removed in B4 Task 2.
-func (m *mockPlayer) IfSetTabActive(tab int)    { m.lastIfSetTabActive = tab }
-func (m *mockPlayer) MinimapToggle(_ int)        {}
+func (m *mockPlayer) IfSetTabActive(tab int) { m.lastIfSetTabActive = tab }
+
+// MinimapToggle records MINIMAP_TOGGLE dispatches (rev-274).
+func (m *mockPlayer) MinimapToggle(minimapType int) {
+	m.minimapToggleCalls = append(m.minimapToggleCalls, minimapType)
+}
+
+// SetSkillLevel records SET_SKILL_LEVEL dispatches (rev-274). The real
+// skillLevel field lives on modules/world.Player; T7 wires it into the
+// appearance stream.
+func (m *mockPlayer) SetSkillLevel(level int) {
+	m.setSkillLevelCalls = append(m.setSkillLevelCalls, level)
+}
 
 func (m *mockPlayer) AddResumeButton(comId int) {
 	m.addedResumeButtons = append(m.addedResumeButtons, comId)

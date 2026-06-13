@@ -70,6 +70,8 @@ const (
 // block (2031–2032); SPLIT_* back to 4513–4517; STRUCT_PARAM back to 4700;
 // NPCCOUNT/ZONECOUNT/LOCCOUNT/OBJCOUNT (1030–1033) deleted; MAP_LIVE
 // restored at 1011; MIDI_LENGTH added at 1022.
+// dee467c8 (274 pin-advance): MAP_LOC inserted at 1013; MAP_MEMBERS..
+// MIDI_LENGTH shift +1 (transcribed from the implicitly-numbered TS enum).
 const (
 	OpCoordX          Opcode = 1000
 	OpCoordY          Opcode = 1001
@@ -84,16 +86,17 @@ const (
 	OpMapIndoors      Opcode = 1010
 	OpMapLive         Opcode = 1011
 	OpMapLocAddUnsafe Opcode = 1012
-	OpMapMembers      Opcode = 1013
-	OpMapMultiway     Opcode = 1014
-	OpMapPlayerCount  Opcode = 1015
-	OpMoveCoord       Opcode = 1016
-	OpPlayerCount     Opcode = 1017
-	OpProjAnimMap     Opcode = 1018
-	OpSeqLength       Opcode = 1019
-	OpSpotAnimMap     Opcode = 1020
-	OpWorldDelay      Opcode = 1021
-	OpMidiLength      Opcode = 1022
+	OpMapLoc          Opcode = 1013
+	OpMapMembers      Opcode = 1014
+	OpMapMultiway     Opcode = 1015
+	OpMapPlayerCount  Opcode = 1016
+	OpMoveCoord       Opcode = 1017
+	OpPlayerCount     Opcode = 1018
+	OpProjAnimMap     Opcode = 1019
+	OpSeqLength       Opcode = 1020
+	OpSpotAnimMap     Opcode = 1021
+	OpWorldDelay      Opcode = 1022
+	OpMidiLength      Opcode = 1023
 )
 
 // Player ops (2000–2499)
@@ -104,6 +107,10 @@ const (
 // LOWMEMORY→LOWMEM; AFK_EVENT back at 2000; HUNTALL/HUNTNEXT rejoin at
 // 2031–2032; BUFFER_FULL/IF_MULTIZONE/PLAYER_FINDALLZONE/PLAYER_FINDNEXT/
 // IF_OPENMAINOVERLAY/LAST_COORD deleted.
+// dee467c8 (274 pin-advance): MINIMAP_TOGGLE inserted at 2066;
+// SETSKINCOLOUR (was 2103) replaced by SET_SKILL_LEVEL (2104) +
+// SETIDKCOLOUR (2105); everything from NAME onward shifts accordingly
+// (transcribed from the implicitly-numbered TS enum).
 const (
 	OpAfkEvent            Opcode = 2000
 	OpAllowDesign         Opcode = 2001
@@ -171,81 +178,86 @@ const (
 	OpMes                 Opcode = 2063
 	OpMidiJingle          Opcode = 2064
 	OpMidiSong            Opcode = 2065
-	OpName                Opcode = 2066
-	OpPAnimProtect        Opcode = 2067
-	OpPApRange            Opcode = 2068
-	OpPArriveDelay        Opcode = 2069
-	OpPClearPendingAction Opcode = 2070
-	OpPCountDialog        Opcode = 2071
-	OpPDelay              Opcode = 2072
-	OpPExactMove          Opcode = 2073
-	OpPFindUID            Opcode = 2074
-	OpPLocMerge           Opcode = 2075
-	OpPLogout             Opcode = 2076
-	OpPOpHeld             Opcode = 2077
-	OpPOpLoc              Opcode = 2078
-	OpPOpNpc              Opcode = 2079
-	OpPOpNpcT             Opcode = 2080
-	OpPOpObj              Opcode = 2081
-	OpPOpPlayer           Opcode = 2082
-	OpPOpPlayerT          Opcode = 2083
-	OpPPauseButton        Opcode = 2084
-	OpPPreventLogout      Opcode = 2085
-	OpPRun                Opcode = 2086
-	OpPStopAction         Opcode = 2087
-	OpPTeleJump           Opcode = 2088
-	OpPTeleport           Opcode = 2089
-	OpPWalk               Opcode = 2090
-	OpPlayerMember        Opcode = 2091
-	OpProjAnimPl          Opcode = 2092
-	OpQueue               Opcode = 2093
-	OpQueueVarArg         Opcode = 2094
-	OpReadyAnim           Opcode = 2095
-	OpRunAnim             Opcode = 2096
-	OpRunEnergy           Opcode = 2097
-	OpSay                 Opcode = 2098
-	OpSessionLog          Opcode = 2099
-	OpSetPlayerOp         Opcode = 2100
-	OpSetGender           Opcode = 2101
-	OpSetIdKit            Opcode = 2102
-	OpSetSkinColour       Opcode = 2103
-	OpSetTimer            Opcode = 2104
-	OpSoftTimer           Opcode = 2105
-	OpSoundSynth          Opcode = 2106
-	OpSpotAnimPl          Opcode = 2107
-	OpStaffModLevel       Opcode = 2108
-	OpStatAdd             Opcode = 2109
-	OpStatAdvance         Opcode = 2110
-	OpStatBase            Opcode = 2111
-	OpStatBoost           Opcode = 2112
-	OpStatDrain           Opcode = 2113
-	OpStatHeal            Opcode = 2114
-	OpStatRandom          Opcode = 2115
-	OpStatSub             Opcode = 2116
-	OpStatTotal           Opcode = 2117
-	OpStat                Opcode = 2118
-	OpStrongQueue         Opcode = 2119
-	OpStrongQueueVarArg   Opcode = 2120
-	OpTurnAnim            Opcode = 2121
-	OpTutClose            Opcode = 2122
-	OpTutFlash            Opcode = 2123
-	OpTutOpen             Opcode = 2124
-	OpUID                 Opcode = 2125
-	OpWalkAnimB           Opcode = 2126
-	OpWalkAnimL           Opcode = 2127
-	OpWalkAnimR           Opcode = 2128
-	OpWalkAnim            Opcode = 2129
-	OpWalkTrigger         Opcode = 2130
-	OpWeakQueue           Opcode = 2131
-	OpWeakQueueVarArg     Opcode = 2132
-	OpWealthEvent         Opcode = 2133
-	OpWeight              Opcode = 2134
+	OpMinimapToggle       Opcode = 2066
+	OpName                Opcode = 2067
+	OpPAnimProtect        Opcode = 2068
+	OpPApRange            Opcode = 2069
+	OpPArriveDelay        Opcode = 2070
+	OpPClearPendingAction Opcode = 2071
+	OpPCountDialog        Opcode = 2072
+	OpPDelay              Opcode = 2073
+	OpPExactMove          Opcode = 2074
+	OpPFindUID            Opcode = 2075
+	OpPLocMerge           Opcode = 2076
+	OpPLogout             Opcode = 2077
+	OpPOpHeld             Opcode = 2078
+	OpPOpLoc              Opcode = 2079
+	OpPOpNpc              Opcode = 2080
+	OpPOpNpcT             Opcode = 2081
+	OpPOpObj              Opcode = 2082
+	OpPOpPlayer           Opcode = 2083
+	OpPOpPlayerT          Opcode = 2084
+	OpPPauseButton        Opcode = 2085
+	OpPPreventLogout      Opcode = 2086
+	OpPRun                Opcode = 2087
+	OpPStopAction         Opcode = 2088
+	OpPTeleJump           Opcode = 2089
+	OpPTeleport           Opcode = 2090
+	OpPWalk               Opcode = 2091
+	OpPlayerMember        Opcode = 2092
+	OpProjAnimPl          Opcode = 2093
+	OpQueue               Opcode = 2094
+	OpQueueVarArg         Opcode = 2095
+	OpReadyAnim           Opcode = 2096
+	OpRunAnim             Opcode = 2097
+	OpRunEnergy           Opcode = 2098
+	OpSay                 Opcode = 2099
+	OpSessionLog          Opcode = 2100
+	OpSetPlayerOp         Opcode = 2101
+	OpSetGender           Opcode = 2102
+	OpSetIdKit            Opcode = 2103
+	OpSetSkillLevel       Opcode = 2104
+	OpSetIdkColour        Opcode = 2105
+	OpSetTimer            Opcode = 2106
+	OpSoftTimer           Opcode = 2107
+	OpSoundSynth          Opcode = 2108
+	OpSpotAnimPl          Opcode = 2109
+	OpStaffModLevel       Opcode = 2110
+	OpStatAdd             Opcode = 2111
+	OpStatAdvance         Opcode = 2112
+	OpStatBase            Opcode = 2113
+	OpStatBoost           Opcode = 2114
+	OpStatDrain           Opcode = 2115
+	OpStatHeal            Opcode = 2116
+	OpStatRandom          Opcode = 2117
+	OpStatSub             Opcode = 2118
+	OpStatTotal           Opcode = 2119
+	OpStat                Opcode = 2120
+	OpStrongQueue         Opcode = 2121
+	OpStrongQueueVarArg   Opcode = 2122
+	OpTurnAnim            Opcode = 2123
+	OpTutClose            Opcode = 2124
+	OpTutFlash            Opcode = 2125
+	OpTutOpen             Opcode = 2126
+	OpUID                 Opcode = 2127
+	OpWalkAnimB           Opcode = 2128
+	OpWalkAnimL           Opcode = 2129
+	OpWalkAnimR           Opcode = 2130
+	OpWalkAnim            Opcode = 2131
+	OpWalkTrigger         Opcode = 2132
+	OpWeakQueue           Opcode = 2133
+	OpWeakQueueVarArg     Opcode = 2134
+	OpWealthEvent         Opcode = 2135
+	OpWeight              Opcode = 2136
 )
 
 // NPC ops (2500–2999)
 // 2e3bcf43 (254 pin-advance): NPC_HUNTNEXT deleted (NPC_HUNTALL now feeds
 // the shared npcIterator, consumed by NPC_FINDNEXT); PROJANIM_NPC/
 // SPOTANIM_NPC live at the block tail (2546–2547).
+// dee467c8 (274 pin-advance): NPC_DESTINATION inserted at 2528;
+// NPC_NAME..SPOTANIM_NPC shift +1 (transcribed from the
+// implicitly-numbered TS enum).
 const (
 	OpNpcAdd               Opcode = 2500
 	OpNpcAnim              Opcode = 2501
@@ -275,26 +287,27 @@ const (
 	OpNpcHunt              Opcode = 2525
 	OpNpcHuntAll           Opcode = 2526
 	OpNpcInRange           Opcode = 2527
-	OpNpcName              Opcode = 2528
-	OpNpcParam             Opcode = 2529
-	OpNpcQueue             Opcode = 2530
-	OpNpcRange             Opcode = 2531
-	OpNpcSay               Opcode = 2532
-	OpNpcSetHunt           Opcode = 2533
-	OpNpcSetHuntMode       Opcode = 2534
-	OpNpcSetMode           Opcode = 2535
-	OpNpcSetTimer          Opcode = 2536
-	OpNpcStat              Opcode = 2537
-	OpNpcStatAdd           Opcode = 2538
-	OpNpcStatHeal          Opcode = 2539
-	OpNpcStatSub           Opcode = 2540
-	OpNpcTele              Opcode = 2541
-	OpNpcType              Opcode = 2542
-	OpNpcUID               Opcode = 2543
-	OpNpcWalk              Opcode = 2544
-	OpNpcWalkTrigger       Opcode = 2545
-	OpProjAnimNpc          Opcode = 2546
-	OpSpotAnimNpc          Opcode = 2547
+	OpNpcDestination       Opcode = 2528
+	OpNpcName              Opcode = 2529
+	OpNpcParam             Opcode = 2530
+	OpNpcQueue             Opcode = 2531
+	OpNpcRange             Opcode = 2532
+	OpNpcSay               Opcode = 2533
+	OpNpcSetHunt           Opcode = 2534
+	OpNpcSetHuntMode       Opcode = 2535
+	OpNpcSetMode           Opcode = 2536
+	OpNpcSetTimer          Opcode = 2537
+	OpNpcStat              Opcode = 2538
+	OpNpcStatAdd           Opcode = 2539
+	OpNpcStatHeal          Opcode = 2540
+	OpNpcStatSub           Opcode = 2541
+	OpNpcTele              Opcode = 2542
+	OpNpcType              Opcode = 2543
+	OpNpcUID               Opcode = 2544
+	OpNpcWalk              Opcode = 2545
+	OpNpcWalkTrigger       Opcode = 2546
+	OpProjAnimNpc          Opcode = 2547
+	OpSpotAnimNpc          Opcode = 2548
 )
 
 // Loc ops (3000–3499)
@@ -612,6 +625,8 @@ func (o Opcode) String() string {
 		return "MAP_CLOCK"
 	case OpMapLocAddUnsafe:
 		return "MAP_LOCADDUNSAFE"
+	case OpMapLoc:
+		return "MAP_LOC"
 	case OpMapMembers:
 		return "MAP_MEMBERS"
 	case OpMapPlayerCount:
@@ -784,6 +799,8 @@ func (o Opcode) String() string {
 		return "MIDI_JINGLE"
 	case OpMidiSong:
 		return "MIDI_SONG"
+	case OpMinimapToggle:
+		return "MINIMAP_TOGGLE"
 	case OpName:
 		return "NAME"
 	case OpPApRange:
@@ -886,8 +903,10 @@ func (o Opcode) String() string {
 		return "BOTH_HEROPOINTS"
 	case OpSetGender:
 		return "SETGENDER"
-	case OpSetSkinColour:
-		return "SETSKINCOLOUR"
+	case OpSetSkillLevel:
+		return "SET_SKILL_LEVEL"
+	case OpSetIdkColour:
+		return "SETIDKCOLOUR"
 	case OpPAnimProtect:
 		return "P_ANIMPROTECT"
 	case OpRunEnergy:
@@ -1008,6 +1027,8 @@ func (o Opcode) String() string {
 		return "NPC_ARRIVEDELAY"
 	case OpNpcInRange:
 		return "NPC_INRANGE"
+	case OpNpcDestination:
+		return "NPC_DESTINATION"
 	case OpLocAdd:
 		return "LOC_ADD"
 	case OpLocAngle:

@@ -77,6 +77,7 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"MAP_LIVE":         OpMapLive,
 	"MAP_CLOCK":        OpMapClock,
 	"MAP_LOCADDUNSAFE": OpMapLocAddUnsafe,
+	"MAP_LOC":          OpMapLoc,
 	"MAP_MEMBERS":      OpMapMembers,
 	"MAP_PLAYERCOUNT":  OpMapPlayerCount,
 	"MAP_FINDSQUARE":   OpMapFindSquare,
@@ -167,6 +168,7 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"MES":                  OpMes,
 	"MIDI_JINGLE":          OpMidiJingle,
 	"MIDI_SONG":            OpMidiSong,
+	"MINIMAP_TOGGLE":       OpMinimapToggle,
 	"NAME":                 OpName,
 	"P_APRANGE":            OpPApRange,
 	"P_ARRIVEDELAY":        OpPArriveDelay,
@@ -221,7 +223,8 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"FINDHERO":             OpFindHero,
 	"BOTH_HEROPOINTS":      OpBothHeroPoints,
 	"SETGENDER":            OpSetGender,
-	"SETSKINCOLOUR":        OpSetSkinColour,
+	"SET_SKILL_LEVEL":      OpSetSkillLevel,
+	"SETIDKCOLOUR":         OpSetIdkColour,
 	"P_ANIMPROTECT":        OpPAnimProtect,
 	"RUNENERGY":            OpRunEnergy,
 	"WEIGHT":               OpWeight,
@@ -279,6 +282,7 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"NPC_HASOP":              OpNpcHasOp,
 	"NPC_ARRIVEDELAY":        OpNpcArriveDelay,
 	"NPC_INRANGE":            OpNpcInRange,
+	"NPC_DESTINATION":        OpNpcDestination,
 
 	// Loc ops (3000–3013)
 	"LOC_ADD":         OpLocAdd,

@@ -305,26 +305,46 @@ func absMax(a, b int) int {
 	return max(a, b)
 }
 
+// locFootprintCovers reports whether the loc's footprint covers (x, z).
+// Width/length come from the LocType, swapped when the loc's angle is
+// AngleNorth or AngleSouth. Mirrors the shared footprint loop of TS
+// MAP_LOCADDUNSAFE / MAP_LOC (ServerOps.ts:229-236 / 257-264 @dee467c8).
+func locFootprintCovers(l ActiveLoc, lt *objtype.LocType, x, z int) bool {
+	lx, lz, _ := l.Coords()
+	width, length := lt.Width, lt.Length
+	if l.Angle() == loc.AngleNorth || l.Angle() == loc.AngleSouth {
+		width, length = lt.Length, lt.Width
+	}
+	for index := range width * length {
+		deltaX := lx + (index % width)
+		deltaZ := lz + (index / width)
+		if deltaX == x && deltaZ == z {
+			return true
+		}
+	}
+	return false
+}
+
 // handleMapLocAddUnsafe (MAP_LOCADDUNSAFE, opcode 1012) reports whether
 // the input coord is occupied by an active loc that would block a new
 // loc-add at that tile. Pops one packed coord; pushes 1 if any qualifying
-// loc occupies the tile, else 0. Mirrors TS ServerOps.ts:212-252.
+// loc occupies the tile, else 0. Mirrors TS ServerOps.ts:213-243
+// @dee467c8 (274 rework):
 //
-// Per-loc filter (TS line 218 + 224):
+//   - Scans the zone owning the coord PLUS its south and west neighbors
+//     (x/z offsets -8 and 0, four zones total) so big locs anchored in a
+//     neighboring zone whose footprint bleeds across the zone boundary
+//     are found ("check south and west neighboring zones for big locs
+//     that bleed over", TS L215-216).
+//   - The 254-era per-layer fork (WALL/GROUND_DECOR exact-match vs
+//     GROUND footprint) is gone: every loc is footprint-checked.
+//
+// Per-loc filter (TS L219 + L225):
 //
 //   - LocType.Active != 1 → skip the loc entirely (no occupancy check).
 //   - !loc.Active() && layer == LayerWall → skip the loc entirely
-//     (goscape defensive note: TS skips inactive walls only; inactive
-//     ground / ground-decor locs ARE checked).
-//
-// Per-layer occupancy check (TS lines 228-249):
-//
-//   - LayerWall (TS LocLayer.WALL): exact (x, z) match.
-//   - LayerGround (TS LocLayer.GROUND): footprint covers (coord.x, coord.z),
-//     where width/length are LocType.Width/Length swapped if Angle is
-//     AngleNorth or AngleSouth.
-//   - LayerGroundDecor (TS LocLayer.GROUND_DECOR): exact (x, z) match.
-//   - LayerWallDecor: not enumerated by TS; falls through to push 0.
+//     (inactive walls only; inactive ground / ground-decor locs ARE
+//     checked).
 //
 // Configs nil-handling: a nil LocType lookup silently skips the loc
 // (mirrors TS check(loc.type, LocTypeValid) which would throw, but
@@ -342,44 +362,67 @@ func handleMapLocAddUnsafe(s *ScriptState) error {
 		return nil
 	}
 
-	for _, l := range s.LocOps.AllLocsInZone(level, x, z) {
-		var lt *objtype.LocType
-		if s.Configs != nil {
-			lt = s.Configs.LocType(l.LocType())
-		}
-		if lt == nil || lt.Active != 1 {
-			continue
-		}
-
-		layer := l.Layer()
-		if !l.Active() && layer == int(loc.LayerWall) {
-			continue
-		}
-
-		lx, lz, _ := l.Coords()
-		switch layer {
-		case int(loc.LayerWall):
-			if lx == x && lz == z {
-				s.PushInt(1)
-				return nil
-			}
-		case int(loc.LayerGround):
-			width, length := lt.Width, lt.Length
-			if l.Angle() == loc.AngleNorth || l.Angle() == loc.AngleSouth {
-				width, length = lt.Length, lt.Width
-			}
-			for index := range width * length {
-				deltaX := lx + (index % width)
-				deltaZ := lz + (index / width)
-				if deltaX == x && deltaZ == z {
+	for xo := -8; xo <= 0; xo += 8 {
+		for zo := -8; zo <= 0; zo += 8 {
+			for _, l := range s.LocOps.AllLocsInZone(level, x+xo, z+zo) {
+				var lt *objtype.LocType
+				if s.Configs != nil {
+					lt = s.Configs.LocType(l.LocType())
+				}
+				if lt == nil || lt.Active != 1 {
+					continue
+				}
+				if !l.Active() && l.Layer() == int(loc.LayerWall) {
+					continue
+				}
+				if locFootprintCovers(l, lt, x, z) {
 					s.PushInt(1)
 					return nil
 				}
 			}
-		case int(loc.LayerGroundDecor):
-			if lx == x && lz == z {
-				s.PushInt(1)
-				return nil
+		}
+	}
+	s.PushInt(0)
+	return nil
+}
+
+// handleMapLoc (MAP_LOC, opcode 1013) reports whether the input coord is
+// covered by an active loc. Pops one packed coord; pushes 1/0. New in 274
+// — mirrors TS ServerOps.ts:245-272 @dee467c8.
+//
+// Differs from MAP_LOCADDUNSAFE in iteration only: TS iterates
+// getAllLocsSafe() (currently-visible locs, default reverse=false) →
+// goscape AllLocsSafe(..., false); there is no wall-inactive skip because
+// the safe iterator already filters on Loc.IsActive. The LocType.Active
+// != 1 skip and the south/west neighbor-zone footprint scan are shared.
+//
+// Configs nil-handling: same goscape-defensive silent skip as
+// handleMapLocAddUnsafe (TS check(...) throws).
+func handleMapLoc(s *ScriptState) error {
+	coord := s.PopInt()
+	level, x, z, err := checkCoord(coord, "MAP_LOC")
+	if err != nil {
+		return err
+	}
+	if s.LocOps == nil {
+		s.PushInt(0)
+		return nil
+	}
+
+	for xo := -8; xo <= 0; xo += 8 {
+		for zo := -8; zo <= 0; zo += 8 {
+			for _, l := range s.LocOps.AllLocsSafe(level, x+xo, z+zo, false) {
+				var lt *objtype.LocType
+				if s.Configs != nil {
+					lt = s.Configs.LocType(l.LocType())
+				}
+				if lt == nil || lt.Active != 1 {
+					continue
+				}
+				if locFootprintCovers(l, lt, x, z) {
+					s.PushInt(1)
+					return nil
+				}
 			}
 		}
 	}

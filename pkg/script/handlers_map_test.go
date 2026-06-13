@@ -915,6 +915,279 @@ func TestMapLocAddUnsafe_ConfigsNilSkipsAllLocsPushes0(t *testing.T) {
 	}
 }
 
+// --- rev-274: MAP_LOCADDUNSAFE neighbor-zone scan + MAP_LOC ----------------
+
+// zoneLocOps is a LocOps fixture keyed by zone (x>>3, z>>3). Unlike
+// mapLocAddUnsafeOps (which returns the same slice for every zone), this
+// fixture lets tests pin the dee467c8 south/west neighbor-zone scan:
+// AllLocsInZone (unsafe) and AllLocsSafe draw from separate per-zone maps
+// so a test can also prove WHICH iterator a handler consumed.
+type zoneLocOps struct {
+	mapLocAddUnsafeOps
+	unsafeByZone map[[2]int][]ActiveLoc
+	safeByZone   map[[2]int][]ActiveLoc
+}
+
+func (m *zoneLocOps) AllLocsInZone(level, x, z int) []ActiveLoc {
+	return m.unsafeByZone[[2]int{x >> 3, z >> 3}]
+}
+
+func (m *zoneLocOps) AllLocsSafe(level, x, z int, reverse bool) []ActiveLoc {
+	return m.safeByZone[[2]int{x >> 3, z >> 3}]
+}
+
+// runZoneLocOp pushes packedCoord and Executes op against a zone-keyed
+// LocOps fixture.
+func runZoneLocOp(t *testing.T, op Opcode, ops LocOps, configs Configs, packedCoord int) *ScriptState {
+	t.Helper()
+	sf := &ScriptFile{
+		Name:             "test_" + op.String(),
+		Opcodes:          []Opcode{op, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := &ScriptState{
+		Script:      sf,
+		LocOps:      ops,
+		Configs:     configs,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	state.PushInt(packedCoord)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	return state
+}
+
+// TestMapLocAddUnsafe_SouthWestNeighborZoneBleedFound pins the dee467c8
+// rework (TS ServerOps.ts:213-243): a 2×2 loc anchored at (95, 95) — the
+// north-east corner of zone (11, 11) — bleeds its footprint into zone
+// (12, 12) at (96, 96). Probing (96, 96) must scan the south-west
+// neighbor zones (x/z offsets -8 and 0) and find the loc.
+func TestMapLocAddUnsafe_SouthWestNeighborZoneBleedFound(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	lt.Width = 2
+	lt.Length = 2
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	straddler := fakeActiveLoc{
+		id: 42, x: 95, z: 95, level: 0,
+		layer:  2, // LayerGround
+		angle:  0, // AngleWest (no swap)
+		active: true,
+	}
+	ops := &zoneLocOps{
+		unsafeByZone: map[[2]int][]ActiveLoc{
+			{11, 11}: {straddler},
+		},
+	}
+	state := runZoneLocOp(t, OpMapLocAddUnsafe, ops, configs,
+		coordgrid.PackCoord(0, 96, 96))
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("2x2 loc straddling zone edge from SW: got top=%d ISP=%d, want top=1 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TestMapLocAddUnsafe_NeighborZoneNonCoveringLocMisses is the inverse:
+// the neighbor-zone loc's footprint does NOT reach the probe tile → 0.
+func TestMapLocAddUnsafe_NeighborZoneNonCoveringLocMisses(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	farLoc := fakeActiveLoc{
+		id: 42, x: 90, z: 90, level: 0,
+		layer:  2,
+		angle:  0,
+		active: true,
+	}
+	ops := &zoneLocOps{
+		unsafeByZone: map[[2]int][]ActiveLoc{
+			{11, 11}: {farLoc},
+		},
+	}
+	state := runZoneLocOp(t, OpMapLocAddUnsafe, ops, configs,
+		coordgrid.PackCoord(0, 96, 96))
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("neighbor-zone 1x1 loc away from probe: got top=%d ISP=%d, want top=0 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TestMapLocAddUnsafe_WideWallFootprintNowChecked pins the uniform
+// footprint treatment from dee467c8: the per-layer fork is gone, so a
+// WALL-layer loc with a 2×1 footprint now covers its full footprint
+// (pre-274 it was exact-anchor-match only).
+func TestMapLocAddUnsafe_WideWallFootprintNowChecked(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	lt.Width = 2
+	lt.Length = 1
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	wideWall := fakeActiveLoc{
+		id: 42, x: 100, z: 100, level: 0,
+		layer:  0, // LayerWall
+		angle:  0,
+		active: true,
+	}
+	state := runMapLocAddUnsafe(t, []ActiveLoc{wideWall}, configs,
+		coordgrid.PackCoord(0, 101, 100)) // one tile east of anchor
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("2x1 wall footprint covers (101,100): got top=%d ISP=%d, want top=1 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// --- rev-274: MAP_LOC (opcode 1013) unit tests -----------------------------
+
+// TestMapLoc_CoveredPushes1 — TS ServerOps.ts:245-272 @dee467c8: coord
+// covered by an active (safe-iterated) loc → 1.
+func TestMapLoc_CoveredPushes1(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	locAt := fakeActiveLoc{
+		id: 42, x: 100, z: 100, level: 0,
+		layer:  2,
+		angle:  0,
+		active: true,
+	}
+	ops := &zoneLocOps{
+		safeByZone: map[[2]int][]ActiveLoc{
+			{12, 12}: {locAt},
+		},
+	}
+	state := runZoneLocOp(t, OpMapLoc, ops, configs, coordgrid.PackCoord(0, 100, 100))
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("covered coord: got top=%d ISP=%d, want top=1 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TestMapLoc_UncoveredPushes0 — no loc covers the probe tile → 0.
+func TestMapLoc_UncoveredPushes0(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	locElsewhere := fakeActiveLoc{
+		id: 42, x: 103, z: 100, level: 0,
+		layer:  2,
+		angle:  0,
+		active: true,
+	}
+	ops := &zoneLocOps{
+		safeByZone: map[[2]int][]ActiveLoc{
+			{12, 12}: {locElsewhere},
+		},
+	}
+	state := runZoneLocOp(t, OpMapLoc, ops, configs, coordgrid.PackCoord(0, 100, 100))
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("uncovered coord: got top=%d ISP=%d, want top=0 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TestMapLoc_UsesSafeIteratorOnly — the same covering loc is visible ONLY
+// through the unsafe iterator; MAP_LOC (getAllLocsSafe in TS) must not see
+// it → 0. Distinguishes MAP_LOC from MAP_LOCADDUNSAFE.
+func TestMapLoc_UsesSafeIteratorOnly(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	locAt := fakeActiveLoc{
+		id: 42, x: 100, z: 100, level: 0,
+		layer:  2,
+		angle:  0,
+		active: true,
+	}
+	ops := &zoneLocOps{
+		unsafeByZone: map[[2]int][]ActiveLoc{
+			{12, 12}: {locAt},
+		},
+		// safeByZone empty: the loc is not safe-iterable.
+	}
+	state := runZoneLocOp(t, OpMapLoc, ops, configs, coordgrid.PackCoord(0, 100, 100))
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("unsafe-only loc: got top=%d ISP=%d, want top=0 ISP=1 (MAP_LOC iterates safe locs)",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TestMapLoc_SouthWestNeighborZoneBleedFound — MAP_LOC shares the
+// south/west neighbor-zone scan with MAP_LOCADDUNSAFE.
+func TestMapLoc_SouthWestNeighborZoneBleedFound(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	lt.Width = 2
+	lt.Length = 2
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	straddler := fakeActiveLoc{
+		id: 42, x: 95, z: 95, level: 0,
+		layer:  2,
+		angle:  0,
+		active: true,
+	}
+	ops := &zoneLocOps{
+		safeByZone: map[[2]int][]ActiveLoc{
+			{11, 11}: {straddler},
+		},
+	}
+	state := runZoneLocOp(t, OpMapLoc, ops, configs, coordgrid.PackCoord(0, 96, 96))
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("2x2 loc straddling zone edge from SW: got top=%d ISP=%d, want top=1 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TestMapLoc_TypeActiveZeroSkipped — TS check(loc.type, LocTypeValid) +
+// type.active !== 1 → continue (ServerOps.ts:248-251 @dee467c8).
+func TestMapLoc_TypeActiveZeroSkipped(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 0
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	locAt := fakeActiveLoc{
+		id: 42, x: 100, z: 100, level: 0,
+		layer:  2,
+		angle:  0,
+		active: true,
+	}
+	ops := &zoneLocOps{
+		safeByZone: map[[2]int][]ActiveLoc{
+			{12, 12}: {locAt},
+		},
+	}
+	state := runZoneLocOp(t, OpMapLoc, ops, configs, coordgrid.PackCoord(0, 100, 100))
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("LocType.Active=0: got top=%d ISP=%d, want top=0 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TestMapLoc_NegativeCoordErrors — checkCoord rejects before iteration.
+func TestMapLoc_NegativeCoordErrors(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "test_MAP_LOC",
+		Opcodes:          []Opcode{OpMapLoc, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := &ScriptState{
+		Script:      sf,
+		LocOps:      &zoneLocOps{},
+		Configs:     &fakeConfigs{},
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	state.PushInt(-1)
+	err := Execute(state)
+	if err == nil || !strings.Contains(err.Error(), "MAP_LOC") {
+		t.Errorf("negative coord: got err=%v, want error containing MAP_LOC", err)
+	}
+}
+
 // --- NAI-115 Task 4: LINEOFWALK (opcode 1006) unit tests ------------------
 
 func TestHandleLineOfWalkSameLevelTrue(t *testing.T) {

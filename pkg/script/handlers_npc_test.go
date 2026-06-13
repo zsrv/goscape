@@ -325,6 +325,10 @@ type mockNpc struct {
 
 	// NAI-162 B1: NPC_STATHEAL HP-full branch recorder.
 	heroPointsClearCalls int
+
+	// rev-274: NPC_DESTINATION seeded waypoint state.
+	hasWaypointsValue        bool
+	waypointDestinationValue int
 }
 
 func (m *mockNpc) NpcType() int        { return m.typeID }
@@ -359,6 +363,11 @@ func (m *mockNpc) NpcLength() int {
 
 // TargetWithinMaxRange returns the seeded value. NAI-160 T7.
 func (m *mockNpc) TargetWithinMaxRange() bool { return m.targetWithinMaxRangeValue }
+
+// HasWaypoints / WaypointDestination return the seeded waypoint state.
+// rev-274: NPC_DESTINATION.
+func (m *mockNpc) HasWaypoints() bool       { return m.hasWaypointsValue }
+func (m *mockNpc) WaypointDestination() int { return m.waypointDestinationValue }
 
 // HeroPointsClear records the call count. NAI-162 B1.
 func (m *mockNpc) HeroPointsClear() { m.heroPointsClearCalls++ }
@@ -4751,6 +4760,41 @@ func TestNpcInRangeFalse(t *testing.T) {
 	if got := state.PopInt(); got != 0 {
 		t.Errorf("NPC_INRANGE(false): got %d, want 0", got)
 	}
+}
+
+// --- rev-274: NPC_DESTINATION (opcode 2528) --------------------------------
+
+// TestNpcDestination_WithWaypointsPushesDestination pins TS
+// NpcOps.ts:575-581 @dee467c8 — with waypoints queued, push waypoints[0].
+// Both TS and goscape store the path reversed ([dest, …, first_step]), so
+// waypoints[0] is the route's FINAL destination tile.
+func TestNpcDestination_WithWaypointsPushesDestination(t *testing.T) {
+	dest := (0 << 28) | (3205 << 14) | 3210
+	npc := &mockNpc{
+		x: 3200, z: 3200, level: 0,
+		hasWaypointsValue:        true,
+		waypointDestinationValue: dest,
+	}
+	state := runNpcOp(t, npc, nil, OpNpcDestination, nil)
+	if got := state.PopInt(); got != dest {
+		t.Errorf("NPC_DESTINATION(with waypoints): got %d, want %d (waypoints[0])", got, dest)
+	}
+}
+
+// TestNpcDestination_WithoutWaypointsPushesCoord pins the no-waypoints
+// arm: push the NPC's current packed coord (TS state.activeNpc.coord).
+func TestNpcDestination_WithoutWaypointsPushesCoord(t *testing.T) {
+	npc := &mockNpc{x: 3201, z: 3202, level: 1, hasWaypointsValue: false}
+	state := runNpcOp(t, npc, nil, OpNpcDestination, nil)
+	want := (1 << 28) | (3201 << 14) | 3202
+	if got := state.PopInt(); got != want {
+		t.Errorf("NPC_DESTINATION(no waypoints): got %d, want %d (packed current coord)", got, want)
+	}
+}
+
+// TestNpcDestinationRequiresActiveNpc pins the checkedHandler(ActiveNpc) gate.
+func TestNpcDestinationRequiresActiveNpc(t *testing.T) {
+	runNpcOpExpectErr(t, nil, nil, OpNpcDestination, nil, "NPC_DESTINATION")
 }
 
 // TestHandleNpcStatHeal_PartialHeal pins the heal formula and the cap at

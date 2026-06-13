@@ -1398,6 +1398,25 @@ func handleNpcInRange(s *ScriptState) error {
 	return nil
 }
 
+// handleNpcDestination implements OpNpcDestination (TS NPC_DESTINATION at
+// NpcOps.ts:575-581 @dee467c8). With waypoints queued, pushes
+// waypoints[0]; without, pushes the NPC's current packed coord. Both TS
+// and goscape store the waypoint queue reversed ([dest, …, first_step] —
+// queueWaypoints copies the route backwards), so waypoints[0] is the
+// route's FINAL destination tile, matching the op name. New in 274.
+func handleNpcDestination(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_DESTINATION"); err != nil {
+		return err
+	}
+	n := s.activeNpc()
+	if !n.HasWaypoints() {
+		s.PushInt((n.NpcLevel() << 28) | (n.NpcX() << 14) | n.NpcZ())
+		return nil
+	}
+	s.PushInt(n.WaypointDestination())
+	return nil
+}
+
 // handleNpcAttackRange implements OpNpcAttackRange (TS NPC_ATTACKRANGE at
 // NpcOps.ts:521-523). Reads the active NPC's type, validates via
 // checkNpcType, pushes NpcType.AttackRange widened from uint16 to int

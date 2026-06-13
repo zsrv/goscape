@@ -305,6 +305,11 @@ type Player struct {
 	appearanceInv  int
 	appearanceBuf  []byte
 	lastAppearance int
+	// skillLevel is the SET_SKILL_LEVEL-written appearance field (TS
+	// Player.skillLevel = 0, Player.ts:317 @dee467c8). rev-274 T6 lands
+	// the field + setter only; T7 wires this into the appearance stream
+	// (TS Player.ts:1423 stream.p2(this.skillLevel)).
+	skillLevel int
 
 	// === stats & vars ===
 	stats      [21]int32

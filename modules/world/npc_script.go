@@ -255,6 +255,24 @@ func (n *Npc) TargetOp() int {
 	return n.targetOp
 }
 
+// HasWaypoints reports whether the NPC has waypoints queued. Mirrors TS
+// PathingEntity.hasWaypoints (waypointIndex !== -1); cross-reference
+// (*Player).HasWaypoints (player_script.go). ActiveNpc-interface adapter
+// for NPC_DESTINATION (rev-274).
+func (n *Npc) HasWaypoints() bool {
+	return n.waypointIndex != -1
+}
+
+// WaypointDestination returns the raw packed coord stored at
+// waypoints[0] — the route's FINAL destination tile (the queue is stored
+// reversed: [dest, …, first_step]). ActiveNpc-interface adapter for
+// NPC_DESTINATION (TS NpcOps.ts:575-581 @dee467c8, which pushes
+// waypoints[0]). Only meaningful while HasWaypoints() is true; see the
+// interface doc for the QueueWaypoint level-nibble note.
+func (n *Npc) WaypointDestination() int {
+	return n.waypoints[0]
+}
+
 // ClearInteraction is the ActiveNpc-interface adapter for n.clearInteraction
 // (NAI-36). Production caller is the NPC_SETMODE script handler.
 func (n *Npc) ClearInteraction() {

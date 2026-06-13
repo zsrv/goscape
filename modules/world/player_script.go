@@ -1751,6 +1751,12 @@ func (p *Player) HeroPointsClear() {
 func (p *Player) SetBodyPart(slot, idkit int)  { p.body[slot] = idkit }
 func (p *Player) SetColorPart(slot, color int) { p.colors[slot] = color }
 
+// SetSkillLevel writes the skillLevel appearance field. T7 wires it into
+// the appearance stream (TS Player.ts:1423). TS PlayerOps.ts:1168-1171 @dee467c8.
+func (p *Player) SetSkillLevel(level int) {
+	p.skillLevel = level
+}
+
 // PlaySong sends a MIDI song by TRACK ID to the client. A10 @2e3bcf43:
 // the 244-era name-based signature (normalize + midiPack registry
 // lookup) is retired — names resolve to ids at script compile time

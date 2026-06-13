@@ -118,8 +118,11 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpProjAnimPl:  handleProjAnimPl,
 
 	// NAI-114 Stage 2: zone-wide active-loc occupancy probe for the
-	// firemaking-chain area-allow check.
+	// firemaking-chain area-allow check. dee467c8 (274): south/west
+	// neighbor-zone scan + uniform footprint; MAP_LOC is the
+	// safe-iterating sibling.
 	OpMapLocAddUnsafe: handleMapLocAddUnsafe,
+	OpMapLoc:          handleMapLoc,
 
 	// NAI-115 Bundle 1+2: firemaking-cascade Obj/Inv/Server/Player ports.
 	OpObjCoord:       handleObjCoord,
@@ -350,8 +353,11 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpInvStockBase:  handleInvStockBase,
 	OpInvDebugName:  handleInvDebugName,
 	// NAI-160 T5: INV_ALLSTOCK.
-	OpInvAllStock:   handleInvAllStock,
-	OpSetSkinColour: handleSetSkinColour,
+	OpInvAllStock: handleInvAllStock,
+	// dee467c8 (274): SETSKINCOLOUR→SETIDKCOLOUR (pops slot + colour).
+	OpSetIdkColour: handleSetIdkColour,
+	// SET_SKILL_LEVEL new in 274; world-side appearance wiring is T7.
+	OpSetSkillLevel: handleSetSkillLevel,
 	// SETGENDER body port + GenderValid validator slice (T4).
 	OpSetGender: handleSetGender, // opcode 2122 (244, renumbered at 254)
 	// Mutations (8).
@@ -460,6 +466,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcAttackRange: handleNpcAttackRange, // NAI-160 T6: NPC_ATTACKRANGE.
 	// NAI-160 T7: NPC_INRANGE.
 	OpNpcInRange: handleNpcInRange,
+	// rev-274: NPC_DESTINATION (TS NpcOps.ts:575-581 @dee467c8).
+	OpNpcDestination: handleNpcDestination,
 
 	// S6b: NPC mutating ops.
 	OpNpcSay: handleNpcSay,
@@ -540,6 +548,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpMidiJingle: handleMidiJingle,
 	OpMidiSong:   handleMidiSong,
 	OpSoundSynth: handleSoundSynth,
+
+	// rev-274: MINIMAP_TOGGLE (TS PlayerOps.ts:859-862 @dee467c8).
+	OpMinimapToggle: handleMinimapToggle,
 
 	// NAI-37 T6 + NAI-39: hint-arrow — full HintArrowEncoder coverage.
 	//   - HINT_NPC   (type=1)     — NAI-37

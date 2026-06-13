@@ -46,18 +46,21 @@ func TestPointers_ZeroValue(t *testing.T) {
 	}
 }
 
-// TestScriptOpcodePointers_LengthParity pins 239 entries at the 254
-// pin-advance 2e3bcf43.
+// TestScriptOpcodePointers_LengthParity pins 242 entries at the 274
+// pin-advance dee467c8.
 // History: 240 at 244 pin 9aadcec4; 245.2 adds IF_SETSCROLLPOS (+1) = 241;
 // 254 pin 43e02957 adds SET_PLAYER_OP (+1) = 242 (STAT_TOTAL has NO pointer
 // row in TS); 254 pin-advance 2e3bcf43 deletes the BUFFER_FULL,
 // NPC_HUNTNEXT and LAST_COORD rows (-3) = 239 (renames BAS_*->*ANIM,
 // HINT_PLAYER->HINT_PL, LOWMEMORY->LOWMEM, IF_SETRESUMEBUTTONS->
 // IF_ADDRESUMEBUTTON are count-neutral; FINDUID gains corrupt rows only).
+// 274 pin-advance dee467c8 adds MINIMAP_TOGGLE, SET_SKILL_LEVEL and
+// NPC_DESTINATION rows (+3) = 242 (SETSKINCOLOUR→SETIDKCOLOUR is in-place;
+// MAP_LOC has NO pointer row in TS).
 func TestScriptOpcodePointers_LengthParity(t *testing.T) {
-	const wantLen = 239
+	const wantLen = 242
 	if got := len(ScriptOpcodePointers); got != wantLen {
-		t.Fatalf("len(ScriptOpcodePointers) = %d, want %d (re-verify against TS ScriptOpcodePointers.ts at pin 2e3bcf43)", got, wantLen)
+		t.Fatalf("len(ScriptOpcodePointers) = %d, want %d (re-verify against TS ScriptOpcodePointers.ts at pin dee467c8)", got, wantLen)
 	}
 }
 
