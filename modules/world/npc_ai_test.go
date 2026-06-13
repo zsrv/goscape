@@ -37,7 +37,7 @@ func TestTeleportHomeAfterStuck(t *testing.T) {
 	n.x, n.z = 3094+10, 3106+10
 	// MoveRestrictNoMove makes this a deterministically *stuck* NPC: wanderMode
 	// skips the 1/8 random-walk roll and updateMovement can't step, so the
-	// NPC's position never changes and wanderCounter is never reset on-move.
+	// NPC's position never changes and stuckCounter is never reset on-move.
 	// Without it the random roll occasionally moves the NPC, resetting the
 	// counter and making this teleport-home assertion flaky — which is exactly
 	// the correct stuck-recovery semantics. NoMove must live on the TYPE:
@@ -46,9 +46,11 @@ func TestTeleportHomeAfterStuck(t *testing.T) {
 	n.typ.MoveRestrict = int(MoveRestrictNoMove)
 	// rev-254: updateMovement's moved-check is positional vs lastTick;
 	// seed the snapshot so the fresh-NPC -1 sentinel doesn't read as
-	// "moved" and reset wanderCounter.
+	// "moved" and reset stuckCounter.
 	n.lastTickX, n.lastTickZ = n.x, n.z
-	n.wanderCounter = 501
+	// rev-274: TS wanderMode @dee467c8 is `if (this.stuckCounter++ > 500)`,
+	// so the teleport fires the tick stuckCounter is 501 (pre-increment > 500).
+	n.stuckCounter = 501
 	s := &Server{}
 	n.turn(s)
 	if n.x != n.startX || n.z != n.startZ {
@@ -56,6 +58,45 @@ func TestTeleportHomeAfterStuck(t *testing.T) {
 	}
 	if !n.tele {
 		t.Error("tele flag should be set after teleport home")
+	}
+}
+
+// TestWanderModeStuckTeleportBoundary pins the rev-274 off-by-one against TS
+// wanderMode @dee467c8: `if (this.stuckCounter++ > 500)`. The PRE-increment
+// value is compared to 500, so the teleport-home fires when stuckCounter is
+// 501 and NOT when it is 500 (the old `++; >= 500` form fired at 500 — one
+// tick early). Both halves are pinned: 500 → no tele (counter advances to
+// 501), 501 → tele (counter reset to 0).
+func TestWanderModeStuckTeleportBoundary(t *testing.T) {
+	mk := func(t *testing.T) (*Npc, *Server) {
+		n := newWanderNpc(t)
+		n.x, n.z = 3094+10, 3106+10
+		n.typ.MoveRestrict = int(MoveRestrictNoMove)
+		n.lastTickX, n.lastTickZ = n.x, n.z
+		return n, &Server{}
+	}
+
+	// stuckCounter == 500 → comparison 500 > 500 is false → no teleport;
+	// counter increments to 501.
+	n, s := mk(t)
+	n.stuckCounter = 500
+	n.wanderMode(s)
+	if n.x == n.startX && n.z == n.startZ {
+		t.Error("counter 500: NPC teleported home, want NO teleport (500 > 500 is false)")
+	}
+	if n.stuckCounter != 501 {
+		t.Errorf("counter 500: stuckCounter after tick = %d, want 501 (incremented, no reset)", n.stuckCounter)
+	}
+
+	// stuckCounter == 501 → comparison 501 > 500 is true → teleport; reset 0.
+	n, s = mk(t)
+	n.stuckCounter = 501
+	n.wanderMode(s)
+	if n.x != n.startX || n.z != n.startZ {
+		t.Errorf("counter 501: coords (%d,%d), want home (%d,%d) (501 > 500 fires)", n.x, n.z, n.startX, n.startZ)
+	}
+	if n.stuckCounter != 0 {
+		t.Errorf("counter 501: stuckCounter after tele = %d, want 0 (reset)", n.stuckCounter)
 	}
 }
 
@@ -131,7 +172,7 @@ func TestWanderMode_ZeroRange_DisplacedNpc_QueuesSpawnReturn(t *testing.T) {
 		n.x = n.startX + 1
 		n.z = n.startZ
 		n.waypointIndex = -1
-		n.wanderCounter = 0
+		n.stuckCounter = 0
 		n.wanderMode(s)
 		// Hit signal: NPC returned to spawn this tick. wanderMode's
 		// updateMovement (with nil gamemap, test-fixture path at

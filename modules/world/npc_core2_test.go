@@ -71,7 +71,7 @@ func TestWanderMode_LiveMoveRestrict(t *testing.T) {
 		n.x = n.startX
 		n.z = n.startZ
 		n.waypointIndex = -1
-		n.wanderCounter = 0
+		n.stuckCounter = 0
 		n.wanderMode(s)
 		if n.waypointIndex >= 0 {
 			hits++

@@ -105,11 +105,19 @@ type Npc struct {
 	huntTarget entity
 
 	// === AI ===
+	// stuckCounter (TS Npc.stuckCounter @dee467c8 — the rename of the prior
+	// wanderCounter field) drives BOTH the wander 501-tick teleport-home
+	// stuck-recovery and the patrol 32-tick force-teleport. patrolMode and
+	// playerEscapeMode share the same counter (incremented per stuck tick,
+	// reset to 0 on movement by updateMovement and when aiMode runs).
 	targetOp        int
-	wanderCounter   int
-	nextPatrolTick  int
+	stuckCounter    int
 	nextPatrolPoint int
-	delayedPatrol   bool
+	// patrolDelayTicksRemaining counts down the at-waypoint dwell for the
+	// current patrol point; -1 = uninitialised (will be (re)seeded from
+	// type.PatrolDelay on arrival). TS Npc.patrolDelayTicksRemaining @dee467c8
+	// (replaced the old nextPatrolTick/delayedPatrol absolute-tick pair).
+	patrolDelayTicksRemaining int
 
 	// walktrigger queues a deferred AI-queue trigger (0..19, -1 = unset)
 	// to fire on the next updateMovement tick (BEFORE step consumption).
@@ -172,63 +180,63 @@ type Npc struct {
 // NewNpc constructs an Npc at the given coord, anchoring its spawn point.
 func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 	n := &Npc{
-		nid:             nid,
-		typeId:          typeId,
-		baseType:        typeId,
-		typ:             typ,
-		uid:             (typeId << 16) | nid,
-		lifecycle:       NpcLifecycleRespawn,
-		respawnRate:     int(typ.RespawnRate),
-		timerInterval:   int(typ.Timer),
-		huntMode:        typ.HuntMode,
-		huntRange:       int(typ.HuntRange),
-		blockWalk:       typ.BlockWalk,
-		size:            int(typ.Size),
-		startX:          x,
-		startZ:          z,
-		startLevel:      level,
-		x:               x,
-		z:               z,
-		level:           level,
-		originX:         x,
-		originZ:         z,
-		lastTickX:       -1,
-		lastTickZ:       -1,
-		lastLevel:       -1,
-		moveSpeed:       MoveSpeedInstant,
-		moveStrategy:    MoveStrategyNaive,
-		walkDir:         -1,
-		runDir:          -1,
-		waypointIndex:   -1,
-		nextPatrolPoint: 0,
-		nextPatrolTick:  -1, // npc-ai-3: TS Npc.ts:69 default; patrol-tele gate at Npc.ts:728 stays dormant until first patrol-cycle tick
-		walktrigger:     -1,
-		walktriggerArg:  0,
-		faceEntity:      -1,
-		apRange:         10,
-		apRangeCalled:   false,
-		targetSubject:   npcTargetSubject{com: -1, typ: -1},
-		targetX:         -1,
-		targetZ:         -1,
-		faceAngleX:      -1,
-		faceAngleZ:      -1,
-		animID:          -1,
-		animDelay:       -1,
-		damageAmt:       -1,
-		damageType:      -1,
-		damage2Amt:      -1,
-		damage2Type:     -1,
-		hitmarkSlot:     0,
-		spotanimID:      -1,
-		spotanimHeight:  -1,
-		spotanimDelay:   -1,
-		faceSquareX:     -1,
-		faceSquareZ:     -1,
-		OrientationX:    -1,
-		OrientationZ:    -1,
-		changeTypeID:    -1,
-		entitymask:      rsbuf.NpcMaskFaceEntity,
-		heroPoints:      NewHeroPoints(16), // NAI-120 Bundle 2D
+		nid:                       nid,
+		typeId:                    typeId,
+		baseType:                  typeId,
+		typ:                       typ,
+		uid:                       (typeId << 16) | nid,
+		lifecycle:                 NpcLifecycleRespawn,
+		respawnRate:               int(typ.RespawnRate),
+		timerInterval:             int(typ.Timer),
+		huntMode:                  typ.HuntMode,
+		huntRange:                 int(typ.HuntRange),
+		blockWalk:                 typ.BlockWalk,
+		size:                      int(typ.Size),
+		startX:                    x,
+		startZ:                    z,
+		startLevel:                level,
+		x:                         x,
+		z:                         z,
+		level:                     level,
+		originX:                   x,
+		originZ:                   z,
+		lastTickX:                 -1,
+		lastTickZ:                 -1,
+		lastLevel:                 -1,
+		moveSpeed:                 MoveSpeedInstant,
+		moveStrategy:              MoveStrategyNaive,
+		walkDir:                   -1,
+		runDir:                    -1,
+		waypointIndex:             -1,
+		nextPatrolPoint:           0,
+		patrolDelayTicksRemaining: -1, // TS Npc @dee467c8: -1 = uninitialised; seeded from PatrolDelay on patrol-point arrival
+		walktrigger:               -1,
+		walktriggerArg:            0,
+		faceEntity:                -1,
+		apRange:                   10,
+		apRangeCalled:             false,
+		targetSubject:             npcTargetSubject{com: -1, typ: -1},
+		targetX:                   -1,
+		targetZ:                   -1,
+		faceAngleX:                -1,
+		faceAngleZ:                -1,
+		animID:                    -1,
+		animDelay:                 -1,
+		damageAmt:                 -1,
+		damageType:                -1,
+		damage2Amt:                -1,
+		damage2Type:               -1,
+		hitmarkSlot:               0,
+		spotanimID:                -1,
+		spotanimHeight:            -1,
+		spotanimDelay:             -1,
+		faceSquareX:               -1,
+		faceSquareZ:               -1,
+		OrientationX:              -1,
+		OrientationZ:              -1,
+		changeTypeID:              -1,
+		entitymask:                rsbuf.NpcMaskFaceEntity,
+		heroPoints:                NewHeroPoints(16), // NAI-120 Bundle 2D
 	}
 	n.targetOp = n.defaultMode()
 	// NAI-17: seed levels[]/baseLevels[] from typ.Stats (mirrors TS Npc.ts:90-94).

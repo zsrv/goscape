@@ -1110,9 +1110,10 @@ type ActiveNpc interface {
 	// by NPC_SETMODE NULL-mode + no-target-fallthrough branches (NAI-36).
 	ResetDefaults()
 
-	// ClearPatrol resets nextPatrolTick to -1. Mirrors TS Npc.clearPatrol
-	// at Engine-TS/.../Npc.ts:377-379. Used by NPC_SETMODE PATROL branch
-	// (NAI-36).
+	// ClearPatrol resets the NPC's patrol state (point 0, stuck/dwell
+	// counters cleared). Mirrors TS Npc.clearPatrol at
+	// Engine-TS/.../Npc.ts:378-382 (@dee467c8). Used by NPC_SETMODE PATROL
+	// branch (NAI-36).
 	ClearPatrol()
 
 	// SetTargetOp sets n.targetOp directly (no interaction binding). Used

@@ -532,11 +532,11 @@ func TestPlayerEscapeStuckFiveTicksResets(t *testing.T) {
 	for tick := 1; tick <= 4; tick++ {
 		n.playerEscapeMode(s)
 		if n.target == nil {
-			t.Fatalf("tick %d: target cleared early (counter=%d); reset must wait for >= 5 stuck ticks", tick, n.wanderCounter)
+			t.Fatalf("tick %d: target cleared early (counter=%d); reset must wait for >= 5 stuck ticks", tick, n.stuckCounter)
 		}
 	}
-	if n.wanderCounter != 4 {
-		t.Fatalf("after 4 stuck ticks: wanderCounter=%d, want 4", n.wanderCounter)
+	if n.stuckCounter != 4 {
+		t.Fatalf("after 4 stuck ticks: wanderCounter=%d, want 4", n.stuckCounter)
 	}
 
 	n.playerEscapeMode(s) // 5th stuck tick → reset
@@ -544,8 +544,8 @@ func TestPlayerEscapeStuckFiveTicksResets(t *testing.T) {
 	if n.target != nil {
 		t.Error("target: want nil after 5 stuck ticks (d39e707d stuck-recovery resetDefaults)")
 	}
-	if n.wanderCounter != 0 {
-		t.Errorf("wanderCounter: got %d, want 0 (zeroed with the reset)", n.wanderCounter)
+	if n.stuckCounter != 0 {
+		t.Errorf("wanderCounter: got %d, want 0 (zeroed with the reset)", n.stuckCounter)
 	}
 }
 
@@ -572,8 +572,8 @@ func TestPlayerEscapeStuckAtMaxRangeBothHolds(t *testing.T) {
 	if n.target == nil {
 		t.Error("target: got nil — atMaxRangeBoth must suppress the stuck reset")
 	}
-	if n.wanderCounter < 8 {
-		t.Errorf("wanderCounter: got %d, want >= 8 (accumulates while held)", n.wanderCounter)
+	if n.stuckCounter < 8 {
+		t.Errorf("wanderCounter: got %d, want >= 8 (accumulates while held)", n.stuckCounter)
 	}
 }
 

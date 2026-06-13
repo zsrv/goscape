@@ -93,10 +93,10 @@ func TestProcessMovementInteractionWanderInvokesWanderMode(t *testing.T) {
 	n.server = s
 	n.targetOp = objtype.NPCModeWander
 
-	before := n.wanderCounter
+	before := n.stuckCounter
 	n.processMovementInteraction(s)
-	if n.wanderCounter != before+1 {
-		t.Errorf("wanderCounter: got %d, want %d", n.wanderCounter, before+1)
+	if n.stuckCounter != before+1 {
+		t.Errorf("wanderCounter: got %d, want %d", n.stuckCounter, before+1)
 	}
 }
 
@@ -376,15 +376,15 @@ func TestNpcUpdateMovement_ResetsWanderCounterOnMove(t *testing.T) {
 	n.lastTickX, n.lastTickZ = n.x, n.z // tick-start snapshot
 	n.waypoints[0] = coordgrid.PackCoord(0, 103, 100)
 	n.waypointIndex = 0
-	n.wanderCounter = 499 // one wanderMode tick away from teleporting home
+	n.stuckCounter = 499 // one wanderMode tick away from teleporting home
 
 	moved := n.updateMovement(s)
 
 	if !moved {
 		t.Fatal("precondition: NPC should have stepped")
 	}
-	if n.wanderCounter != 0 {
-		t.Errorf("wanderCounter after move: got %d, want 0 (TS Npc.ts:363-365 resets on move)", n.wanderCounter)
+	if n.stuckCounter != 0 {
+		t.Errorf("wanderCounter after move: got %d, want 0 (TS Npc.ts:363-365 resets on move)", n.stuckCounter)
 	}
 }
 
@@ -400,15 +400,15 @@ func TestNpcUpdateMovement_StuckDoesNotResetWanderCounter(t *testing.T) {
 	n.server = s
 	n.lastTickX, n.lastTickZ = n.x, n.z
 	n.waypointIndex = -1 // no path → no move
-	n.wanderCounter = 250
+	n.stuckCounter = 250
 
 	moved := n.updateMovement(s)
 
 	if moved {
 		t.Fatal("precondition: NPC with no waypoint should not move")
 	}
-	if n.wanderCounter != 250 {
-		t.Errorf("wanderCounter: got %d, want 250 (unchanged when stuck)", n.wanderCounter)
+	if n.stuckCounter != 250 {
+		t.Errorf("wanderCounter: got %d, want 250 (unchanged when stuck)", n.stuckCounter)
 	}
 }
 
@@ -1905,20 +1905,13 @@ func TestNpcStuckTeleportRefreshSubscription(t *testing.T) {
 	}
 }
 
-// TestPatrolMode_PreservesDestLevel pins NAI-36-T7's PatrolMode-level
-// fix at npc_interaction.go:121: the patrol-tele branch passes
-// dest.Level (was hardcoded 0) per TS Npc.ts:729. Pre-NAI-36-T7 bug:
-// multi-level patrol routes silently teleported to level 0 ignoring
-// dest.Level.
-//
-// Setup: NPC at (3200, 3300, 0) with a single-waypoint patrol at
-// (3210, 3310, 1). Force the patrol-tele branch by:
-//   - Setting nextPatrolTick = 0 and currentTick = 1 so the time gate
-//     at line 120 fires.
-//   - Setting waypointIndex = -1 and target = nil so QueueWaypoint
-//     re-arms (line 117-119) — but the (n.x != dest.X || n.z != dest.Z)
-//     guard fires because the NPC is not yet at dest.
-func TestPatrolMode_PreservesDestLevel(t *testing.T) {
+// TestPatrolMode_CrossLevelTeleportsImmediately pins the rev-274 contract
+// (TS Npc.patrolMode @dee467c8 Npc.ts:743-747): a patrol point on a
+// DIFFERENT floor cannot be walked, so `this.level !== dest.level`
+// force-teleports to the dest on the FIRST patrol tick (regardless of the
+// 32-tick stuck horizon), preserving dest.Level. Subsumes the old
+// NAI-36-T7 multi-level patrol-level test.
+func TestPatrolMode_CrossLevelTeleportsImmediately(t *testing.T) {
 	s := newTestServer(t)
 	// PatrolCoord packs (level, x, z) via coordgrid.PackCoord.
 	patrolPacked := uint32(coordgrid.PackCoord(1, 3210, 3310))
@@ -1932,52 +1925,44 @@ func TestPatrolMode_PreservesDestLevel(t *testing.T) {
 	if err := s.addNpc(n, -1, true); err != nil {
 		t.Fatalf("addNpc: %v", err)
 	}
-	// Force patrol-tele branch:
-	//   - nextPatrolTick > -1 (so the > -1 guard at line 120 holds)
-	//   - currentTick >= nextPatrolTick (so the time gate at line 120 fires)
-	//   - n.x/z != dest.X/Z (NPC at 3200,3300; dest at 3210,3310)
-	n.nextPatrolTick = 0
-	s.currentTick = 1
-	n.waypointIndex = -1 // QueueWaypoint at line 118 will re-arm; that's fine
-	n.target = nil
 
-	n.patrolMode(s)
+	n.patrolMode(s) // first tick: level mismatch (0 != 1) → immediate teleport
 
 	if n.level != 1 {
-		t.Errorf("PatrolMode level after patrol-tele: got %d, want 1 (dest.Level)", n.level)
+		t.Errorf("PatrolMode level after cross-level tele: got %d, want 1 (dest.Level)", n.level)
 	}
 	if n.x != 3210 || n.z != 3310 {
-		t.Errorf("PatrolMode coords after patrol-tele: got (%d, %d), want (3210, 3310)",
+		t.Errorf("PatrolMode coords after cross-level tele: got (%d, %d), want (3210, 3310)",
 			n.x, n.z)
 	}
-}
-
-// npc-ai-3: TS Npc.ts:69 declares `nextPatrolTick: number = -1` as the
-// field default, so the patrol-tele gate at Npc.ts:728
-// (`nextPatrolTick > -1 && currentTick >= nextPatrolTick`) is dormant
-// on the first tick of a fresh patrol NPC. goscape's NewNpc previously
-// omitted the field from the struct literal, defaulting it to Go's
-// zero value (0) — which trivially satisfies both halves of the gate
-// at currentTick=0, force-teleporting any patrol NPC to its first
-// waypoint on the first tick after spawn instead of walking there
-// organically.
-func TestNewNpc_InitsNextPatrolTickToMinusOne(t *testing.T) {
-	typ := &objtype.NpcType{}
-	n := NewNpc(1, 7, 3200, 3200, 0, typ)
-	if n.nextPatrolTick != -1 {
-		t.Errorf("nextPatrolTick: got %d, want -1 (TS Npc.ts:69 default)", n.nextPatrolTick)
+	if n.stuckCounter != 0 {
+		t.Errorf("stuckCounter after teleport: got %d, want 0 (reset on tele)", n.stuckCounter)
 	}
 }
 
-// npc-ai-3: behavioral pin for the bug above — a freshly-spawned
-// patrol NPC's first patrolMode tick must NOT force-teleport to the
-// first waypoint. With the constructor-default -1 (TS Npc.ts:69), the
-// teleport branch at npc_interaction.go:123 stays dormant until a
-// real future tick is scheduled by the at-waypoint delay arm or by
-// clearPatrol.
-func TestPatrolMode_FreshNpcDoesNotForceTeleportOnFirstTick(t *testing.T) {
+// TestNewNpc_InitsPatrolDelayTicksRemainingToMinusOne pins the rev-274
+// field default (TS Npc.patrolDelayTicksRemaining = -1 @dee467c8): -1 means
+// "uninitialised", seeded from PatrolDelay only on patrol-point arrival.
+func TestNewNpc_InitsPatrolDelayTicksRemainingToMinusOne(t *testing.T) {
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 7, 3200, 3200, 0, typ)
+	if n.patrolDelayTicksRemaining != -1 {
+		t.Errorf("patrolDelayTicksRemaining: got %d, want -1 (TS Npc @dee467c8 default)", n.patrolDelayTicksRemaining)
+	}
+}
+
+// TestPatrolMode_FreshNpcSameLevelDoesNotForceTeleport: a freshly-spawned
+// patrol NPC whose first patrol point is on the SAME level must NOT
+// force-teleport on tick 1 — the 32-tick stuck horizon is far off and
+// there's no level mismatch, so it walks the route organically (one tile
+// per tick). (Old npc-ai-3 stale-0-default bug: a 0 nextPatrolTick
+// trivially satisfied the absolute-tick gate at spawn; the new relative
+// stuck counter has no such hazard.)
+func TestPatrolMode_FreshNpcSameLevelDoesNotForceTeleport(t *testing.T) {
 	s := newTestServer(t)
-	patrolPacked := uint32(coordgrid.PackCoord(0, 3210, 3310))
+	// Dest 5 tiles NE, same level — a single walk step cannot reach it, so
+	// "force-teleported to dest" is distinguishable from "walked one tile".
+	patrolPacked := uint32(coordgrid.PackCoord(0, 3205, 3305))
 	typ := &objtype.NpcType{
 		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "patrol_test"},
 		Size:        1,
@@ -1988,12 +1973,114 @@ func TestPatrolMode_FreshNpcDoesNotForceTeleportOnFirstTick(t *testing.T) {
 	if err := s.addNpc(n, -1, true); err != nil {
 		t.Fatalf("addNpc: %v", err)
 	}
-	// Do NOT touch n.nextPatrolTick — rely on constructor default.
 
 	n.patrolMode(s)
 
-	if n.x != 3200 || n.z != 3300 {
-		t.Errorf("first-tick patrolMode coords: got (%d, %d), want (3200, 3300) — patrol-tele fired with stale 0 default (TS Npc.ts:69 wants -1)", n.x, n.z)
+	// Level unchanged (no cross-level tele).
+	if n.level != 0 {
+		t.Errorf("first-tick patrolMode level: got %d, want 0 (no cross-level tele)", n.level)
+	}
+	// Must NOT have teleported to the dest; it walked one diagonal tile.
+	if n.x == 3205 && n.z == 3305 {
+		t.Errorf("first-tick patrolMode: NPC reached dest (3205,3305) in one tick — force-teleport fired, want organic walk")
+	}
+	if n.x != 3201 || n.z != 3301 {
+		t.Errorf("first-tick patrolMode coords: got (%d,%d), want (3201,3301) (one diagonal walk step)", n.x, n.z)
+	}
+	// It moved, so updateMovement reset the stuck counter to 0 (a teleport
+	// would also reset it — the organic-walk proof is the +1/+1 coord above).
+	if n.stuckCounter != 0 {
+		t.Errorf("first-tick stuckCounter: got %d, want 0 (reset on successful walk step)", n.stuckCounter)
+	}
+}
+
+// TestPatrolMode_DelayWaitsExactTicksThenAdvances pins the rev-274
+// per-point dwell countdown (TS Npc.patrolMode @dee467c8 Npc.ts:749-762).
+// An NPC sitting AT a patrol point with PatrolDelay=3 stays on that point
+// for 3 patrolMode ticks, then advances to the next point on the 4th tick.
+//
+// Counter trace (NPC pinned at dest each tick, gamemap absent so no steps):
+//
+//	tick 1: remaining<0 → seed 3; `3 <= 0`? no  → remaining 2 (no advance)
+//	tick 2: `2 <= 0`? no  → remaining 1 (no advance)
+//	tick 3: `1 <= 0`? no  → remaining 0 (no advance)
+//	tick 4: `0 <= 0`? yes → advance, remaining -1
+func TestPatrolMode_DelayWaitsExactTicksThenAdvances(t *testing.T) {
+	// Two-point route so the wrap is observable; NPC starts AT point 0.
+	p0 := uint32(coordgrid.PackCoord(0, 3200, 3300))
+	p1 := uint32(coordgrid.PackCoord(0, 3205, 3305))
+	typ := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "patrol_test"},
+		Size:        1,
+		PatrolCoord: []uint32{p0, p1},
+		PatrolDelay: []uint8{3, 0},
+		// NoMove pins the NPC at point 0 so the dwell countdown is the only
+		// state evolving (updateMovement returns false before any step).
+		MoveRestrict: int(MoveRestrictNoMove),
+	}
+	n := NewNpc(0, 0, 3200, 3300, 0, typ)
+	s := &Server{}
+
+	// Ticks 1..3: still on point 0 (dwell not elapsed).
+	for tick := 1; tick <= 3; tick++ {
+		n.patrolMode(s)
+		if n.nextPatrolPoint != 0 {
+			t.Fatalf("tick %d: nextPatrolPoint=%d, want 0 (dwell not elapsed for delay=3)", tick, n.nextPatrolPoint)
+		}
+	}
+	if n.patrolDelayTicksRemaining != 0 {
+		t.Fatalf("after 3 dwell ticks: patrolDelayTicksRemaining=%d, want 0", n.patrolDelayTicksRemaining)
+	}
+
+	// Tick 4: dwell elapses (`0 <= 0`) → advance to point 1, re-arm dwell.
+	n.patrolMode(s)
+	if n.nextPatrolPoint != 1 {
+		t.Fatalf("tick 4: nextPatrolPoint=%d, want 1 (advance after 3-tick dwell)", n.nextPatrolPoint)
+	}
+	if n.patrolDelayTicksRemaining != -1 {
+		t.Errorf("after advance: patrolDelayTicksRemaining=%d, want -1 (re-armed)", n.patrolDelayTicksRemaining)
+	}
+}
+
+// TestPatrolMode_StuckThirtyTwoTicksTeleportsToDest pins the rev-274 stuck
+// horizon (TS Npc.patrolMode @dee467c8 Npc.ts:743-747): an NPC that cannot
+// reach its same-level patrol point for 32 ticks is force-teleported to the
+// dest, and the stuck counter resets. With no gamemap the NPC never steps,
+// so stuckCounter climbs 1 per tick and the teleport fires on tick 32
+// (`stuckCounter >= 32`).
+func TestPatrolMode_StuckThirtyTwoTicksTeleportsToDest(t *testing.T) {
+	dest := uint32(coordgrid.PackCoord(0, 3250, 3350))
+	typ := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "patrol_test"},
+		Size:        1,
+		PatrolCoord: []uint32{dest},
+		PatrolDelay: []uint8{0},
+		// NoMove makes the NPC genuinely stuck: updateMovement returns false
+		// before stepping, so it never reaches the same-level dest by walking
+		// and the 32-tick stuck horizon is the only thing that moves it.
+		MoveRestrict: int(MoveRestrictNoMove),
+	}
+	n := NewNpc(0, 0, 3200, 3300, 0, typ)
+	s := &Server{}
+
+	// Ticks 1..31: stuckCounter climbs but stays below 32 → no teleport.
+	for tick := 1; tick <= 31; tick++ {
+		n.patrolMode(s)
+		if n.x == 3250 && n.z == 3350 {
+			t.Fatalf("tick %d: teleported early (stuckCounter horizon is 32)", tick)
+		}
+		if n.stuckCounter != tick {
+			t.Fatalf("tick %d: stuckCounter=%d, want %d", tick, n.stuckCounter, tick)
+		}
+	}
+
+	// Tick 32: stuckCounter reaches 32 → force-teleport to dest, reset.
+	n.patrolMode(s)
+	if n.x != 3250 || n.z != 3350 {
+		t.Errorf("tick 32: coords=(%d,%d), want (3250,3350) (32-tick stuck teleport)", n.x, n.z)
+	}
+	if n.stuckCounter != 0 {
+		t.Errorf("tick 32: stuckCounter=%d, want 0 (reset on tele)", n.stuckCounter)
 	}
 }
 

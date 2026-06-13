@@ -110,53 +110,90 @@ func (n *Npc) wanderMode(s *Server) {
 	}
 	n.updateMovement(s)
 	onSpawn := n.x == n.startX && n.z == n.startZ && n.level == n.startLevel
-	n.wanderCounter++
-	if n.wanderCounter >= 500 {
+
+	// TS Npc.wanderMode @dee467c8 (Npc.ts:716-722): `if (this.stuckCounter++ > 500)`.
+	// Post-increment compares the PRE-increment value to 500, then always
+	// increments — so the teleport fires the tick stuckCounter reaches 501
+	// (the "501 ticks after last movement" comment), one tick later than the
+	// old `++; >= 500` form (which fired at 500). The if/else captures the
+	// post-increment-then-overwrite-with-0 behaviour exactly: branch taken →
+	// counter reset to 0; branch not taken → counter incremented.
+	if n.stuckCounter > 500 {
 		if !onSpawn {
 			n.Teleport(n.startX, n.startZ, n.startLevel)
 		}
-		n.wanderCounter = 0
+		n.stuckCounter = 0
+	} else {
+		n.stuckCounter++
 	}
 }
 
-// patrolMode is the NPCMode.PATROL branch — advance through PatrolCoord
-// with per-waypoint PatrolDelay, 30-tick stuck-teleport horizon, and a
-// delayedPatrol latch so the at-waypoint delay doesn't double-trigger.
-// Matches TS patrolMode at Engine-TS/.../Npc.ts:717-744.
+// patrolMode is the NPCMode.PATROL branch, rewritten to TS patrolMode at
+// Engine-TS/.../Npc.ts:725-765 (@dee467c8). Per tick:
+//
+//  1. Empty patrol route → just updateMovement and return.
+//  2. Re-queue the current dest waypoint if the NPC has neither waypoints
+//     nor a target (recovers a patrol that was interrupted by interaction).
+//  3. stuckCounter++ every patrol tick; force-teleport to dest when stuck
+//     for >= 32 ticks OR when the dest is on a different floor (level
+//     mismatch can't be walked), resetting the counter on teleport.
+//  4. On arrival at dest: seed patrolDelayTicksRemaining from PatrolDelay
+//     when uninitialised (< 0), then post-decrement-compare (`v-- <= 0`):
+//     advance to the next patrol point (wrapping) and re-arm the dwell
+//     (-1) once the countdown elapses.
+//  5. updateMovement is the LAST call (moved to the end by @dee467c8 —
+//     previously it ran first).
+//
+// Note vs the old (2e3bcf43) impl: the absolute-tick nextPatrolTick /
+// delayedPatrol pair and the 30-tick horizon are gone; the new design
+// counts relative stuck ticks (>= 32) and a per-point dwell countdown.
 func (n *Npc) patrolMode(s *Server) {
 	if n.typ == nil || len(n.typ.PatrolCoord) == 0 {
+		// TS early-return still calls updateMovement (Npc.ts:729-732).
+		n.updateMovement(s)
 		return
 	}
-	patrolDelay := 0
-	if n.nextPatrolPoint < len(n.typ.PatrolDelay) {
-		patrolDelay = int(n.typ.PatrolDelay[n.nextPatrolPoint])
-	}
+
 	dest := coordgrid.UnpackCoord(int(n.typ.PatrolCoord[n.nextPatrolPoint]))
 
-	n.updateMovement(s)
-
+	// Requeue waypoints in cases where an npc was interacting and the
+	// interaction has been cleared (TS Npc.ts:736-739). goscape's
+	// hasWaypoints == waypointIndex >= 0.
 	if n.waypointIndex < 0 && n.target == nil {
 		n.QueueWaypoint(dest.X, dest.Z)
 	}
-	if (n.x != dest.X || n.z != dest.Z) && n.nextPatrolTick > -1 && s.currentTick >= n.nextPatrolTick {
-		// NAI-36-T7: pass dest.Level (was hardcoded 0) per TS Npc.ts:729.
-		// PatrolCoord packs the level via PackCoord; preserving it through
-		// the patrol-tele preserves multi-level patrol routes.
+
+	n.stuckCounter++
+
+	// Teleport 32 ticks after last movement, or if it needs to change floors.
+	if n.stuckCounter >= 32 || n.level != dest.Level {
 		n.Teleport(dest.X, dest.Z, dest.Level)
-	}
-	if n.x == dest.X && n.z == dest.Z && !n.delayedPatrol {
-		n.nextPatrolTick = s.currentTick + patrolDelay
-		n.delayedPatrol = true
-	}
-	if n.nextPatrolTick > s.currentTick {
-		return
+		n.stuckCounter = 0
 	}
 
-	n.nextPatrolPoint = (n.nextPatrolPoint + 1) % len(n.typ.PatrolCoord)
-	n.nextPatrolTick = s.currentTick + 30
-	n.delayedPatrol = false
-	dest = coordgrid.UnpackCoord(int(n.typ.PatrolCoord[n.nextPatrolPoint]))
-	n.QueueWaypoint(dest.X, dest.Z)
+	if n.x == dest.X && n.z == dest.Z {
+		// Seed the dwell from PatrolDelay[nextPatrolPoint] (?? 0) on arrival.
+		if n.patrolDelayTicksRemaining < 0 {
+			patrolDelay := 0
+			if n.nextPatrolPoint < len(n.typ.PatrolDelay) {
+				patrolDelay = int(n.typ.PatrolDelay[n.nextPatrolPoint])
+			}
+			n.patrolDelayTicksRemaining = patrolDelay
+		}
+
+		// TS `this.patrolDelayTicksRemaining-- <= 0`: compare the
+		// pre-decrement value to 0, then decrement.
+		advance := n.patrolDelayTicksRemaining <= 0
+		n.patrolDelayTicksRemaining--
+		if advance {
+			n.nextPatrolPoint = (n.nextPatrolPoint + 1) % len(n.typ.PatrolCoord)
+			n.patrolDelayTicksRemaining = -1
+			dest = coordgrid.UnpackCoord(int(n.typ.PatrolCoord[n.nextPatrolPoint]))
+			n.QueueWaypoint(dest.X, dest.Z)
+		}
+	}
+
+	n.updateMovement(s)
 }
 
 // processMovementInteraction is the NPC's per-tick movement + interaction
@@ -234,7 +271,10 @@ func (n *Npc) aiMode(s *Server) {
 	if n.typ == nil {
 		return
 	}
-	n.wanderCounter = 0
+	// Reset the stuck timer if the NPC runs its aimode (TS Npc.ts:893-894
+	// @dee467c8 — NAI-82 regression class: a chasing NPC must not accumulate
+	// the wander/patrol stuck count).
+	n.stuckCounter = 0
 
 	// Pre-move attempt.
 	if n.tryInteract(s, true) {
@@ -339,23 +379,23 @@ func (n *Npc) updateMovement(s *Server) bool {
 		n.runDir = -1
 	}
 
-	// NAI-82: TS Npc.updateMovement (Npc.ts:364-369) writes lastMovement =
-	// World.currentTick + 1 AND resets wanderCounter = 0 when the NPC's
-	// position changed this tick, and RETURNS that positional moved check
-	// (rev-254 aligns the return to TS — previously goscape returned
+	// NAI-82: TS Npc.updateMovement (Npc.ts:363-368 @dee467c8) writes
+	// lastMovement = World.currentTick + 1 AND resets stuckCounter = 0 when
+	// the NPC's position changed this tick, and RETURNS that positional moved
+	// check (rev-254 aligns the return to TS — previously goscape returned
 	// "stepped this call", equivalent except when an earlier same-tick
 	// teleport moved the NPC). Read by AI_ARRIVEDELAY / AI_TARGETMOVED.
 	// No nil-server guard: the function already dereferences s above.
 	//
-	// The wanderCounter reset is what makes the wanderMode 500-tick
+	// The stuckCounter reset is what makes the wanderMode 501-tick
 	// teleport-to-spawn a *stuck-recovery*: a wandering NPC that keeps moving
-	// never accumulates 500, so it only snaps home after 500 consecutive
+	// never accumulates 501, so it only snaps home after consecutive
 	// stationary ticks. Omitting it (pre-fix) made every healthy wandering
 	// NPC teleport home every ~500 ticks (Hans / Lumbridge goblins resetting).
 	moved := n.x != n.lastTickX || n.z != n.lastTickZ
 	if moved {
 		n.lastMovement = s.currentTick + 1
-		n.wanderCounter = 0
+		n.stuckCounter = 0
 	}
 	return moved
 }
@@ -1150,12 +1190,16 @@ func (n *Npc) defaultMode() int {
 	return n.typ.DefaultMode
 }
 
-// clearPatrol resets the patrol-tick countdown so the NPC immediately
-// resumes patrol-pathing on the next tick. Mirrors TS Npc.clearPatrol at
-// Engine-TS/.../Npc.ts:377-379.
+// clearPatrol resets the patrol state so the NPC restarts its route from
+// the first patrol point with a fresh dwell + stuck counter. Mirrors TS
+// Npc.clearPatrol at Engine-TS/.../Npc.ts:378-382 (@dee467c8 — rewritten
+// from the old single `nextPatrolTick = -1` to reset all three patrol
+// fields).
 //
 // Called by the NPC_SETMODE script handler when the new mode is PATROL
 // (NAI-36).
 func (n *Npc) clearPatrol() {
-	n.nextPatrolTick = -1
+	n.nextPatrolPoint = 0
+	n.stuckCounter = 0
+	n.patrolDelayTicksRemaining = -1
 }

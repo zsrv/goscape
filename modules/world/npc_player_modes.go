@@ -105,10 +105,10 @@ func pickEscapeDirection(npcX, npcZ, targetX, targetZ int) (dx, dz int) {
 //     quadrant), so a single arm is the faithful port. Each axis arm
 //     needs BOTH canTravel and the maxrange bound; if neither is valid,
 //     nothing is queued this tick.
-//  6. updateMovement; a tick with no movement increments the stuck
-//     counter (goscape: wanderCounter — TS d39e707d calls it
-//     stuckCounter, the post-pin #91 rename of the same wanderCounter
-//     field; updateMovement resets it on movement in both engines).
+//  6. updateMovement; a tick with no movement increments stuckCounter
+//     (TS d39e707d / #91 named this field stuckCounter; goscape carries
+//     the same name since rev-274 — updateMovement resets it on movement
+//     in both engines).
 //  7. After 5+ stuck ticks, resetDefaults + counter reset — UNLESS the
 //     NPC is already at max range from spawn on BOTH axes
 //     (atMaxRangeBoth), in which case it holds position.
@@ -182,7 +182,7 @@ func (n *Npc) playerEscapeMode(s *Server) {
 	}
 
 	if !n.updateMovement(s) {
-		n.wanderCounter++
+		n.stuckCounter++
 	}
 
 	// Both axes are checked INDEPENDENTLY (distX >= maxRange AND distZ >=
@@ -200,8 +200,8 @@ func (n *Npc) playerEscapeMode(s *Server) {
 
 	// Resets if it has been stuck for 5 ticks and is not at max range in
 	// both directions.
-	if n.wanderCounter >= 5 && !atMaxRangeBoth {
+	if n.stuckCounter >= 5 && !atMaxRangeBoth {
 		n.resetDefaults()
-		n.wanderCounter = 0
+		n.stuckCounter = 0
 	}
 }
