@@ -43,7 +43,7 @@ Notes:
 
 (Commits captured 2026-06-03 from the local reference checkouts, matching the
 goscape-client `REFERENCES.md` rev-244 pins. Go branch `rev-244` is cut from
-`rev-225` at `bf073fcc`. Engine (Java) and Server — pinned at `main` for
+`rev-225` at `21b66635`. Engine (Java) and Server — pinned at `main` for
 rev-225 — have no 244-specific checkout yet; record them here if/when a
 244-specific need arises, otherwise the rev-225 pins remain the last-known
 reference.)
@@ -74,7 +74,7 @@ Notes:
 | cloudflare/zlib | gzip byte-parity reference | — | — | unchanged from §rev-244 (`886098f3`) |
 
 (Commits captured 2026-06-09, matching the goscape-client `REFERENCES.md`
-rev-245.2 pins. Go branch `rev-245.2` is cut from `rev-244` at `a4fe2d2a`.)
+rev-245.2 pins. Go branch `rev-245.2` is cut from `rev-244` at `2ecde050`.)
 
 Notes:
 
@@ -104,7 +104,7 @@ Notes:
 (Engine pin ADVANCED 2026-06-10 from the original capture `43e02957` — see
 the pin-advance note below. Content/Client-Java/rsbuf match the
 goscape-client `REFERENCES.md` rev-254 pins; their upstream tips have not
-moved. Go branch `rev-254` is cut from `rev-245.2` at `1e7df180`.)
+moved. Go branch `rev-254` is cut from `rev-245.2` at `4b4c6106`.)
 
 Notes:
 
@@ -132,6 +132,33 @@ Notes:
   upstream pins `@lostcityrs/runescript` past `750291c`") now triggers —
   the advanced 254 pin depends on `^0.9.6`. The pack-parity work must
   re-verify the version byte against the new reference cache.
+
+## rev-274 — Go branch `rev-274`
+
+| Repo | Role | URL | Branch | Pinned commit |
+|---|---|---|---|---|
+| Engine-TS | **primary** — authoritative translation source | https://github.com/LostCityRS/Engine-TS | `274` | `dee467c868e694a2d5a931e3d19e580c83666cb2` |
+| Content | game content packed and served by the server | https://github.com/LostCityRS/Content | `274` | `7f97b0a535a885bff9846631ca78438b6a731274` |
+| Client-Java | the client this server speaks to; wire-protocol cross-check | https://github.com/LostCityRS/Client-Java | `274` | `32f30626156783de9f142306eb73a2243909dacf` |
+| rsbuf | cross-check reference only; the crate dependency is DROPPED at 274 (ported into Engine-TS `src/network/rsbuf/`) | https://github.com/2004scape/rsbuf | `274` | `669116109588ab5f5d9de8c24aace1d335da5399` |
+| RuneScriptTS | RuneScript compiler | — | — | unchanged from §rev-254 (`@lostcityrs/runescript` `0.9.6`) |
+
+(Commits captured 2026-06-12 from the Server274-ref reference worktrees. Go
+branch `rev-274` is cut from `rev-254` at `d5e3234f`.)
+
+Notes:
+
+1. Go branch cut from `rev-254` at `d5e3234f`.
+2. Work list = `git -C Engine-TS diff 2e3bcf43..dee467c8` (188 files,
+   +13,792/−3,694, merge-base `93b6e557`).
+3. **Toolchain: bun → Node 24** at the 274 pin — `node:zlib` 1.3.1 replaces
+   bun/cloudflare-zlib `886098f3` as the gzip byte-parity baseline
+   (resolution recorded by the Phase-3 gzip-baseline task of the rev-274
+   plan).
+4. **rsbuf crate + rsmod-pathfinder WASM dependencies DROPPED upstream** —
+   both internalized into TS (`src/network/rsbuf/`,
+   `src/engine/routefinder/`); the TS files at the Engine-TS pin are the
+   authoritative reference from 274 on.
 
 ## Future revisions
 
