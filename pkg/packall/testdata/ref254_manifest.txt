@@ -1,6 +1,6 @@
 # 254 reference-cache manifest — Engine-TS 2e3bcf43 + Content caee3f2e (pinned upstream toolchain).
 # Packed 2026-06 via Server254-ref worktrees (bun run build, BUILD_VERIFY=true).
-# Excludes data/pack/server/build (wall-clock timestamp) and data/pack/ondemand.zip (fflate per-entry mtimes) — see ref254_ondemand_entries.txt.
+# rev-274: server/build + ondemand.zip retired upstream (TS PackAll.ts dee467c8) — no longer emitted, no longer exempted. Manifest regenerated against the 274 baseline at T20.
 # Excludes data/symbols entirely: upstream deleted the .sym pipeline at 2e3bcf43 (symbols are in-memory in @lostcityrs/runescript); goscape's .sym export is a documented Go-only feature with no upstream baseline.
 409323bc903268875ac6322e2f1f148c532e488669075e44e4f6bf780f767d59  data/pack/client/config
 39579b5bd107af2d30cd08eed846dc48406807e0f0b8178dacdb1767063ef811  data/pack/client/interface

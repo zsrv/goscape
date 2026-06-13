@@ -2,7 +2,6 @@ package ondemand
 
 import (
 	"net/http"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -98,17 +97,11 @@ func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// /ondemand.zip — new at 244 (web.ts:81-82): static file served from CWD.
-	if strings.HasPrefix(r.URL.Path, "/ondemand.zip") {
-		a.serveStaticFile(w, r, filepath.Join("data", "pack", "ondemand.zip"))
-		return
-	}
-
-	// /build — new at 244 (web.ts:83-84): static file served from CWD.
-	if strings.HasPrefix(r.URL.Path, "/build") {
-		a.serveStaticFile(w, r, filepath.Join("data", "pack", "server", "build"))
-		return
-	}
+	// rev-274: the /ondemand.zip and /build static routes (added at 244 from
+	// web.ts:81-84) were DROPPED upstream — TS web.ts (dee467c8) no longer
+	// serves either, and PackAll.ts no longer emits the backing
+	// data/pack/ondemand.zip or data/pack/server/build artifacts. Routes
+	// removed; the rev244-b6-* exceptions are retired (see PORTING.md, T26).
 
 	// /maps/ — goscape-specific HTTP cache fallback for per-zone map/loc files.
 	// No analog in 244 web.ts; kept as-is for the goscape-client CacheHTTPFallback
@@ -157,22 +150,6 @@ func (a *OnDemand) serveArchive(w http.ResponseWriter, r *http.Request, archive,
 	a.cacheMu.Unlock()
 
 	if data == nil {
-		http.NotFound(w, r)
-		return
-	}
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.WriteHeader(http.StatusOK)
-	w.Write(data)
-}
-
-// serveStaticFile serves a static file at filePath relative to the CWD.
-// Returns 404 when the file is absent (goscape-ondemand posture; TS would 500).
-// Reads + writes explicitly (mirroring serveArchive) so the module's
-// octet-stream Content-Type posture sticks — http.ServeFile would sniff and
-// overwrite a pre-set Content-Type header.
-func (a *OnDemand) serveStaticFile(w http.ResponseWriter, r *http.Request, filePath string) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
 		http.NotFound(w, r)
 		return
 	}

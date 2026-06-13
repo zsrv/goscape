@@ -5,13 +5,8 @@
 package packall
 
 import (
-	"archive/zip"
-	"bytes"
-	"encoding/binary"
 	"fmt"
-	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/zsrv/goscape/pkg/io/filestream"
 	"github.com/zsrv/goscape/pkg/pack"
@@ -43,8 +38,12 @@ import (
 // 13. audio.PackMidi       → cache.Write(3,id)
 // 14. maps.Pack            → cache.Write(4,id)
 // 15. versionlist.Pack     → cache.Write(0,5)
-// 16. server/build stamp   (4-byte uint32 unix seconds)
-// 17. ondemand.zip         (archives 1-4, stored, deterministic ModTime)
+//
+// rev-274: TS PackAll.ts (dee467c8) DROPPED the trailing server/build stamp
+// and ondemand.zip emission (both present at the 254 pin 2e3bcf43). Nothing
+// replaces them — the 274 archive HTTP routes serve OnDemand.cache.read(0,N)
+// directly. The WriteServerBuild / WriteOndemandZip emissions + their
+// rev244-b6-build-stamp / rev244-b6-ondemand-zip exceptions are retired here.
 //
 // dataPackDir is the cache directory RunServerCompiler reads (the 7
 // entity-type loaders: InvType, Component, VarP, VarN, VarS, Param,
@@ -144,84 +143,8 @@ func PackAll(srcDir, outDir, dataPackDir, rawDir string) error {
 		return fmt.Errorf("PackAll: VersionList: %w", err)
 	}
 
-	// TS PackAll.ts:73-75 @ 9aadcec4:
-	//   const build = Packet.alloc(0); build.p4(Date.now()/1000); build.save('data/pack/server/build')
-	// Go: uint32 big-endian unix seconds, written to <outDir>/server/build.
-	// PORTING-EXCEPTION (rev244-b6-build-stamp, parity-exempt artifact):
-	// TS truncates to signed 32-bit via Packet.p4 (int); goscape writes the
-	// same 4 bytes but treats the value as uint32. Observable wire difference
-	// only when unix seconds overflow int32 (~2038). Comment retained.
-	if err := WriteServerBuild(outDir); err != nil {
-		return fmt.Errorf("PackAll: build stamp: %w", err)
-	}
-
-	// TS PackAll.ts:77-90 @ 9aadcec4:
-	//   for archive 1..4, file 0..count-1: if data != null → zipPack[`${archive}.${file}`] = data
-	//   fflate.zipSync(zipPack, { level: 0 }) → fs.writeFileSync('data/pack/ondemand.zip', zip)
-	// PORTING-EXCEPTION (rev244-b6-ondemand-zip, content-level parity):
-	// TS uses fflate zipSync with level=0 (STORE). Go uses archive/zip with
-	// zip.Store method and FIXED ModTime (time.Unix(0,0).UTC()) so goscape's
-	// zip is deterministic. The zip container bytes are NOT byte-identical to
-	// TS output (zip header timestamps, tool identifiers differ); entry
-	// content is identical. See PORTING.md §B6 decision rows.
-	if err := WriteOndemandZip(outDir, cache); err != nil {
-		return fmt.Errorf("PackAll: ondemand.zip: %w", err)
-	}
+	// rev-274: server/build stamp + ondemand.zip emission removed — see the
+	// package doc above. TS PackAll.ts (dee467c8) no longer writes either.
 
 	return nil
-}
-
-// WriteServerBuild writes a 4-byte big-endian uint32 unix timestamp to
-// <outDir>/server/build. Exported so pkg cmd/goscape-cli smoke-pack can
-// run this as a named stage. Mirrors TS PackAll.ts:73-75 @ 9aadcec4.
-func WriteServerBuild(outDir string) error {
-	serverDir := filepath.Join(outDir, "server")
-	if err := os.MkdirAll(serverDir, 0o755); err != nil {
-		return err
-	}
-	ts := uint32(time.Now().Unix())
-	buf := make([]byte, 4)
-	binary.BigEndian.PutUint32(buf, ts)
-	return os.WriteFile(filepath.Join(serverDir, "build"), buf, 0o644)
-}
-
-// WriteOndemandZip writes <outDir>/ondemand.zip containing stored (level=0)
-// entries for each non-nil file in archives 1-4. Entry names follow the TS
-// convention `${archive}.${file}`. ModTime is fixed at Unix epoch for
-// determinism (TS fflate does not embed timestamps). Exported so
-// cmd/goscape-cli smoke-pack can run this as a named stage.
-// Mirrors TS PackAll.ts:77-90.
-//
-// PORTING-EXCEPTION (rev244-b6-ondemand-zip, content-level parity): zip
-// container bytes differ from TS output; entry content is identical.
-func WriteOndemandZip(outDir string, cache *filestream.FileStream) error {
-	var buf bytes.Buffer
-	w := zip.NewWriter(&buf)
-
-	fixedTime := time.Unix(0, 0).UTC()
-	for archive := 1; archive <= 4; archive++ {
-		count := cache.Count(archive)
-		for file := range count {
-			data := cache.Read(archive, file, false)
-			if data == nil {
-				continue
-			}
-			fh := &zip.FileHeader{
-				Name:     fmt.Sprintf("%d.%d", archive, file),
-				Method:   zip.Store,
-				Modified: fixedTime,
-			}
-			ew, err := w.CreateHeader(fh)
-			if err != nil {
-				return err
-			}
-			if _, err := ew.Write(data); err != nil {
-				return err
-			}
-		}
-	}
-	if err := w.Close(); err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(outDir, "ondemand.zip"), buf.Bytes(), 0o644)
 }

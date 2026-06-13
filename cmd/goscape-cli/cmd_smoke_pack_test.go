@@ -47,8 +47,10 @@ func seedSmokeFixture(t *testing.T, dir string) {
 }
 
 // TestRunSmokePack_AllStagesRunBestEffort verifies that against the
-// synthetic fixture, the driver runs all 16 stages (no early return)
+// synthetic fixture, the driver runs all 14 stages (no early return)
 // and returns 0 if all stages succeed.
+// rev-274: BuildStamp + OndemandZip stages retired (artifacts removed
+// upstream at dee467c8), dropping the stage count from 16 to 14.
 func TestRunSmokePack_AllStagesRunBestEffort(t *testing.T) {
 	dir := t.TempDir()
 	seedSmokeFixture(t, dir)
@@ -65,7 +67,7 @@ func TestRunSmokePack_AllStagesRunBestEffort(t *testing.T) {
 
 	// We don't pin "all stages pass" — that depends on stage-specific
 	// behavior against a minimal fixture, which is exactly what the
-	// smoke surfaces. We DO pin: the driver ran all 16 stages and exit
+	// smoke surfaces. We DO pin: the driver ran all 14 stages and exit
 	// is 0 or 1 (not panic, not 3).
 	if code != 0 && code != 1 {
 		t.Fatalf("runSmokePack returned %d, want 0 or 1", code)
@@ -74,7 +76,7 @@ func TestRunSmokePack_AllStagesRunBestEffort(t *testing.T) {
 	for _, name := range []string{
 		"PackConfigs", "ClientInterface", "CompilerSymbols", "RunServerCompiler",
 		"Title", "Media", "Texture", "Wordenc", "Sound", "Graphics", "Midi",
-		"Maps", "VersionList", "BuildStamp", "OndemandZip", "Worldmap",
+		"Maps", "VersionList", "Worldmap",
 	} {
 		if !strings.Contains(stderr.String(), name) {
 			t.Errorf("stderr missing stage %q; got:\n%s", name, stderr.String())
@@ -201,7 +203,8 @@ func TestRunSmokePack_SummaryTableShape(t *testing.T) {
 	}
 
 	out := stdout.String()
-	for _, want := range []string{"STAGE", "STATUS", "ELAPSED", "FILES", "BYTES", "PackConfigs", "Maps", "BuildStamp", "OndemandZip", "Result:"} {
+	// rev-274: BuildStamp + OndemandZip rows dropped (artifacts retired upstream).
+	for _, want := range []string{"STAGE", "STATUS", "ELAPSED", "FILES", "BYTES", "PackConfigs", "Maps", "VersionList", "Worldmap", "Result:"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("stdout missing %q; got:\n%s", want, out)
 		}
@@ -320,7 +323,7 @@ func TestRunSmokePack_StopOnError(t *testing.T) {
 	// Find the Result line and assert SKIP count > 0. The Result line
 	// has the form "Result: N OK, M ERR, K SKIP ..." where a working
 	// --stop-on-error must produce K >= 1 (every stage after the
-	// RunServerCompiler ERR — 12 downstream stages — should SKIP).
+	// RunServerCompiler ERR — 10 downstream stages at rev-274 — should SKIP).
 	var resultLine string
 	for _, line := range strings.Split(out, "\n") {
 		if strings.HasPrefix(line, "Result:") {
@@ -331,7 +334,9 @@ func TestRunSmokePack_StopOnError(t *testing.T) {
 	if resultLine == "" {
 		t.Fatalf("stdout missing Result line; got:\n%s", out)
 	}
-	if strings.Contains(resultLine, "0 SKIP") {
+	// Match the exact zero-count token ", 0 SKIP" so a multi-digit count
+	// (e.g. "10 SKIP") is not mistaken for zero via a bare "0 SKIP" substring.
+	if strings.Contains(resultLine, ", 0 SKIP") {
 		t.Errorf("Result line shows 0 SKIP; --stop-on-error should cascade SKIPs; got: %q\nfull stdout:\n%s", resultLine, out)
 	}
 	// Cross-check: at least one row in the table must be a non-PackConfigs

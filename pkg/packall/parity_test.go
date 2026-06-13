@@ -1,7 +1,6 @@
 package packall
 
 import (
-	"archive/zip"
 	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
@@ -32,12 +31,13 @@ import (
 // tests in pkg/pack/compiler (see symbols_export_ref_parity_test.go).
 //
 // Exemptions (not compared byte-for-byte against the manifest):
-//   - server/build          — 4-byte wall-clock timestamp; asserted to be exactly 4 bytes.
-//   - ondemand.zip          — zip container bytes differ (Go archive/zip vs fflate);
-//     entry-level content parity is verified via ref254_ondemand_entries.txt.
 //   - server/maps/free2play.csv  — goscape-extra runtime copy; not in TS pack output.
 //   - server/maps/multiway.csv   — goscape-extra runtime copy; not in TS pack output.
 //     See pkg/pack/maps/pack.go for the deviation rationale.
+//
+// rev-274: the server/build and ondemand.zip exemptions were removed — TS
+// PackAll.ts (dee467c8) no longer emits either artifact, so there is nothing
+// to exempt. The ref manifest is regenerated against the 274 baseline in T20.
 func TestPackAll_Ref254FullTreeParity(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping full-tree parity test in short mode (takes ~10-20s)")
@@ -114,13 +114,12 @@ func TestPackAll_Ref254FullTreeParity(t *testing.T) {
 	// NOT walked: it is the Go-only .sym export with no upstream baseline.
 	//
 	// Allowlisted extras (relative to outDir for data/pack paths):
-	//   server/build              — wall-clock timestamp, size-checked separately
-	//   ondemand.zip              — zip container bytes differ; content-checked separately
 	//   server/maps/free2play.csv — goscape runtime copy (pkg/pack/maps/pack.go:72)
 	//   server/maps/multiway.csv  — goscape runtime copy (pkg/pack/maps/pack.go:72)
+	//
+	// rev-274: server/build + ondemand.zip removed from the allowlist — they
+	// are no longer emitted (TS PackAll.ts dee467c8).
 	allowlisted := map[string]bool{
-		"data/pack/server/build":              true,
-		"data/pack/ondemand.zip":              true,
 		"data/pack/server/maps/free2play.csv": true,
 		"data/pack/server/maps/multiway.csv":  true,
 	}
@@ -146,16 +145,8 @@ func TestPackAll_Ref254FullTreeParity(t *testing.T) {
 			len(unexpected), strings.Join(unexpected, "\n  "))
 	}
 
-	// ── 4. Assertion C: server/build is exactly 4 bytes ─────────────────────
-	buildPath := filepath.Join(outDir, "server", "build")
-	if fi, statErr := os.Stat(buildPath); statErr != nil {
-		t.Errorf("server/build missing: %v", statErr)
-	} else if fi.Size() != 4 {
-		t.Errorf("server/build size = %d, want 4", fi.Size())
-	}
-
-	// ── 5. Assertion D: ondemand.zip entry-level content parity ─────────────
-	checkOndemandZip(t, filepath.Join(outDir, "ondemand.zip"))
+	// rev-274: assertions C (server/build size) and D (ondemand.zip entry
+	// parity) were removed — neither artifact is emitted at the 274 pin.
 }
 
 // loadRef254Manifest reads testdata/ref254_manifest.txt and returns a map from
@@ -186,97 +177,6 @@ func loadRef254Manifest(t *testing.T) (map[string]string, error) {
 	return m, scanner.Err()
 }
 
-// checkOndemandZip opens outDir/ondemand.zip and verifies that its entry set
-// and per-entry sha256 of uncompressed bytes match testdata/ref254_ondemand_entries.txt.
-func checkOndemandZip(t *testing.T, zipPath string) {
-	t.Helper()
-
-	// Load expected entries: "name size sha256" per line.
-	type wantEntry struct {
-		size int64
-		sha  string
-	}
-	want := make(map[string]wantEntry)
-	ef, err := os.Open(filepath.Join("testdata", "ref254_ondemand_entries.txt"))
-	if err != nil {
-		t.Fatalf("open ref254_ondemand_entries.txt: %v", err)
-	}
-	defer ef.Close()
-
-	scanner := bufio.NewScanner(ef)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		var name, shaHex string
-		var size int64
-		if _, scanErr := fmt.Sscanf(line, "%s %d %s", &name, &size, &shaHex); scanErr != nil {
-			t.Fatalf("ref254_ondemand_entries.txt: malformed line %q: %v", line, scanErr)
-		}
-		want[name] = wantEntry{size: size, sha: shaHex}
-	}
-	if scanErr := scanner.Err(); scanErr != nil {
-		t.Fatalf("scan ref254_ondemand_entries.txt: %v", scanErr)
-	}
-
-	// Open the actual zip.
-	zipData, err := os.ReadFile(zipPath)
-	if err != nil {
-		t.Fatalf("ondemand.zip missing: %v", err)
-	}
-	zr, err := zip.NewReader(readerAtBytes(zipData), int64(len(zipData)))
-	if err != nil {
-		t.Fatalf("ondemand.zip: zip.NewReader: %v", err)
-	}
-
-	got := make(map[string]struct{})
-	var errs []string
-	for _, f := range zr.File {
-		got[f.Name] = struct{}{}
-		w, ok := want[f.Name]
-		if !ok {
-			errs = append(errs, fmt.Sprintf("ondemand.zip: unexpected entry %q", f.Name))
-			continue
-		}
-		rc, openErr := f.Open()
-		if openErr != nil {
-			errs = append(errs, fmt.Sprintf("ondemand.zip: open entry %q: %v", f.Name, openErr))
-			continue
-		}
-		h := sha256.New()
-		n, copyErr := io.Copy(h, rc)
-		rc.Close()
-		if copyErr != nil {
-			errs = append(errs, fmt.Sprintf("ondemand.zip: read entry %q: %v", f.Name, copyErr))
-			continue
-		}
-		if n != w.size {
-			errs = append(errs, fmt.Sprintf("ondemand.zip: entry %q size %d want %d", f.Name, n, w.size))
-		}
-		gotSha := hex.EncodeToString(h.Sum(nil))
-		if gotSha != w.sha {
-			errs = append(errs, fmt.Sprintf("ondemand.zip: entry %q sha mismatch\n  want %s\n  got  %s", f.Name, w.sha, gotSha))
-		}
-	}
-
-	// Check for missing entries.
-	for name := range want {
-		if _, ok := got[name]; !ok {
-			errs = append(errs, fmt.Sprintf("ondemand.zip: missing entry %q", name))
-		}
-	}
-
-	if len(errs) > 0 {
-		limit := 10
-		if len(errs) < limit {
-			limit = len(errs)
-		}
-		t.Errorf("ondemand.zip parity failures (showing first %d of %d):\n%s",
-			limit, len(errs), strings.Join(errs[:limit], "\n"))
-	}
-}
-
 // sha256File returns the lowercase hex sha256 of the named file.
 func sha256File(path string) (string, error) {
 	f, err := os.Open(path)
@@ -289,18 +189,4 @@ func sha256File(path string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
-}
-
-// readerAtBytes wraps a byte slice as an io.ReaderAt.
-type readerAtBytes []byte
-
-func (b readerAtBytes) ReadAt(p []byte, off int64) (int, error) {
-	if off >= int64(len(b)) {
-		return 0, io.EOF
-	}
-	n := copy(p, b[off:])
-	if n < len(p) {
-		return n, io.EOF
-	}
-	return n, nil
 }

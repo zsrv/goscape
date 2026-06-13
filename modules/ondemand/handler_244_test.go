@@ -14,8 +14,8 @@ package ondemand
 //   /textures  → cache.read(0, 6)
 //   /wordenc   → cache.read(0, 7)
 //   /sounds    → cache.read(0, 8)
-//   /ondemand.zip → static file data/pack/ondemand.zip   NEW
-//   /build     → static file data/pack/server/build      NEW
+//   /ondemand.zip → REMOVED at 274 (web.ts dee467c8 dropped the route)
+//   /build        → REMOVED at 274 (web.ts dee467c8 dropped the route)
 //   .mid route → REMOVED (225 web.ts:63-69; midi now TCP OnDemand archive 3)
 //   /models    → REMOVED (replaced by /versionlist)
 //   /maps/     → KEPT (goscape-specific, no 244 TS analog)
@@ -225,86 +225,10 @@ func TestRootHandler244_MidRouteGone(t *testing.T) {
 	}
 }
 
-// --- /ondemand.zip and /build static routes ---
-
-// TestRootHandler244_OndemandZip pins the new /ondemand.zip static route
-// (web.ts:81-82): serves data/pack/ondemand.zip from the CWD.
-func TestRootHandler244_OndemandZip(t *testing.T) {
-	t.Chdir(t.TempDir())
-	packDir := filepath.Join("data", "pack")
-	if err := os.MkdirAll(packDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	want := []byte("ZIPDATA")
-	if err := os.WriteFile(filepath.Join(packDir, "ondemand.zip"), want, 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-
-	a := &OnDemand{log: discardLogger()}
-	req := httptest.NewRequest(http.MethodGet, "/ondemand.zip", nil)
-	rr := httptest.NewRecorder()
-	a.RootHandler(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", rr.Code)
-	}
-	got, _ := io.ReadAll(rr.Body)
-	if !bytes.Equal(got, want) {
-		t.Fatalf("body = %v, want %v", got, want)
-	}
-}
-
-// TestRootHandler244_OndemandZipMissing404 pins the 404 posture when the
-// static file is absent (established goscape-ondemand posture; TS would 500).
-func TestRootHandler244_OndemandZipMissing404(t *testing.T) {
-	t.Chdir(t.TempDir())
-	a := &OnDemand{log: discardLogger()}
-	req := httptest.NewRequest(http.MethodGet, "/ondemand.zip", nil)
-	rr := httptest.NewRecorder()
-	a.RootHandler(rr, req)
-	if rr.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want 404", rr.Code)
-	}
-}
-
-// TestRootHandler244_Build pins the new /build static route (web.ts:83-84):
-// serves data/pack/server/build from the CWD.
-func TestRootHandler244_Build(t *testing.T) {
-	t.Chdir(t.TempDir())
-	buildDir := filepath.Join("data", "pack", "server")
-	if err := os.MkdirAll(buildDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	want := []byte("BUILD42")
-	if err := os.WriteFile(filepath.Join(buildDir, "build"), want, 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-
-	a := &OnDemand{log: discardLogger()}
-	req := httptest.NewRequest(http.MethodGet, "/build", nil)
-	rr := httptest.NewRecorder()
-	a.RootHandler(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", rr.Code)
-	}
-	got, _ := io.ReadAll(rr.Body)
-	if !bytes.Equal(got, want) {
-		t.Fatalf("body = %v, want %v", got, want)
-	}
-}
-
-// TestRootHandler244_BuildMissing404 pins 404 posture when build file is absent.
-func TestRootHandler244_BuildMissing404(t *testing.T) {
-	t.Chdir(t.TempDir())
-	a := &OnDemand{log: discardLogger()}
-	req := httptest.NewRequest(http.MethodGet, "/build", nil)
-	rr := httptest.NewRecorder()
-	a.RootHandler(rr, req)
-	if rr.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want 404", rr.Code)
-	}
-}
+// rev-274: the /ondemand.zip and /build static-route tests were retired —
+// TS web.ts (dee467c8) dropped both routes and PackAll.ts no longer emits the
+// backing artifacts. The routes were removed from handler.go; a request now
+// falls through to the public/404 path (covered by the unmatched-path test).
 
 // --- Missing archive file → 404 ---
 

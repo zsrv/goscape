@@ -24,7 +24,6 @@ import (
 	"github.com/zsrv/goscape/pkg/pack/versionlist"
 	"github.com/zsrv/goscape/pkg/pack/wordenc"
 	"github.com/zsrv/goscape/pkg/pack/worldmap"
-	"github.com/zsrv/goscape/pkg/packall"
 	"github.com/zsrv/goscape/pkg/util/log"
 )
 
@@ -382,7 +381,7 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 		for _, name := range []string{
 			"ClientInterface", "CompilerSymbols", "RunServerCompiler", "Title", "Media", "Texture",
 			"Wordenc", "Sound", "Graphics", "Midi", "Maps",
-			"VersionList", "BuildStamp", "OndemandZip", "Worldmap",
+			"VersionList", "Worldmap",
 		} {
 			results = append(results, stageResult{Name: name, Status: stageSkip})
 		}
@@ -418,8 +417,8 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 			return maps.Pack(srcDir, outDir, reg.Map, cache, modelFlags)
 		}},
 		{"VersionList", func() error { return versionlist.Pack(reg, srcDir, outDir, modelFlags, cache) }},
-		{"BuildStamp", func() error { return packall.WriteServerBuild(outDir) }},
-		{"OndemandZip", func() error { return packall.WriteOndemandZip(outDir, cache) }},
+		// rev-274: BuildStamp (server/build) + OndemandZip (ondemand.zip) stages
+		// retired — TS PackAll.ts (dee467c8) no longer emits either artifact.
 		{"Worldmap", func() error { return worldmap.Pack(srcDir, outDir) }},
 	}
 	for i, st := range rest {
@@ -457,8 +456,8 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 // client cache grows incrementally across all stages, so comparing an
 // intermediate stage snapshot against a completed refDir always produces
 // spurious SIZE diffs. The cache files are effectively the "sum" of all
-// stage writes; final parity is already implied by the ondemand.zip and
-// the per-archive content visible after all stages complete.
+// stage writes; final parity is already implied by the per-archive content
+// visible after all stages complete.
 func computeStageDiffs(refDir, outDir string, prev stageSnapshot) ([]fileDiff, stageSnapshot) {
 	if refDir == "" {
 		return nil, nil

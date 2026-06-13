@@ -1050,8 +1050,8 @@ internal | wc -l` count post-cleanup is **22**.
 | `tools/pack/NameMap.ts` + `tools/pack/Parse.ts` | `481ea70b` (CR normalisation) + `8e0beec0` (pal.png) + `d3cf8ec0` (4-field sprite meta) + `ccf1133a` (citation fixes) |
 | `tools/pack/PixPack.ts` | `d3cf8ec0` (4-field sprite meta tolerance) + `ccf1133a` (citation fix) |
 | `tools/pack/PackAll.ts` | `c812b781` (orchestration, 15 stages) + `a69634e7` (byte-parity gate) |
-| `tools/pack/PackAll.ts:73-75` build stamp | `rev244-b6-build-stamp` EXCEPTION (see decision row) |
-| `tools/pack/PackAll.ts:77-90` ondemand.zip | `rev244-b6-ondemand-zip` EXCEPTION (see decision row) |
+| `tools/pack/PackAll.ts:73-75` build stamp | `rev244-b6-build-stamp` EXCEPTION (see decision row) — **RETIRED at rev-274 (T18b): artifact removed upstream `dee467c8`; inline marker dropped; full close-out at T26** |
+| `tools/pack/PackAll.ts:77-90` ondemand.zip | `rev244-b6-ondemand-zip` EXCEPTION (see decision row) — **RETIRED at rev-274 (T18b): artifact + `/ondemand.zip`+`/build` routes removed upstream `dee467c8`; inline markers dropped; full close-out at T26** |
 | `tools/pack/PackFile.ts` registries + name verify | `2cfec7ea` (animset/map/midi registries, universal config-name verification) + `58619dbc` (wire name-verify into live pack path) |
 | `tools/pack/chat/pack.ts` | `8e0beec0` (raw wordenc blob replaces four-txt Jagfile) |
 | `tools/pack/config/IdkConfig.ts` | `9e3f0d5b` (model/head modelFlags bits) |
