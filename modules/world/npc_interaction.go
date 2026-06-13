@@ -1064,11 +1064,9 @@ func (n *Npc) SetInteraction(kind InteractionKind, target entity, op, com int) b
 		n.targetSubject.typ = -1
 	}
 
-	// TS PathingEntity.ts:544-547 (f0ccbe8a) — script-set interactions
-	// re-allow naive repathing.
-	if kind == InteractionScript {
-		n.allowRepath = AllowRepathBeforeDest
-	}
+	// Upstream #100 (@dee467c8) deleted the f0ccbe8a SCRIPT-interaction
+	// allowRepath set-site (TS PathingEntity.ts:533-536) along with the whole
+	// AllowRepath mechanism — the "I can't reach that!" fix.
 
 	// focus — fine-grained face-angle coord. Non-pathing targets
 	// (Loc/Obj) use the engine-face path when the kind is engine;

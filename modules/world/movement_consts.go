@@ -47,24 +47,6 @@ const (
 	BlockWalkAll
 )
 
-// AllowRepath gates whether Player NAIVE-strategy chase logic may recompute
-// the naive path before reaching the current destination. Mirrors TS
-// AllowRepath.ts (added by Engine-TS f0ccbe8a):
-//
-//	export const enum AllowRepath { BEFOREDEST, NONE }
-//
-// Writers: queueWaypoint/queueWaypoints (→ BEFOREDEST, PathingEntity.ts:
-// 258/272), SetInteraction with InteractionScript (→ BEFOREDEST,
-// PathingEntity.ts:544-547), and the MoveClick click-own-tile arm
-// (→ NONE, MoveClickHandler.ts:43). Sole reader: Player.pathToPathingTarget's
-// NAIVE branch (Player.ts:1079).
-type AllowRepath int
-
-const (
-	AllowRepathBeforeDest AllowRepath = iota
-	AllowRepathNone
-)
-
 // entity is implemented by all targetable game objects.
 // Sub-spec 2 only has *Player; sub-specs 3+ add Npc, Loc, Obj.
 type entity interface {

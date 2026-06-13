@@ -78,11 +78,6 @@ type Npc struct {
 	waypoints       [25]int
 	tele            bool
 	stepsTaken      int
-	// allowRepath mirrors TS PathingEntity.allowRepath (PathingEntity.ts:57,
-	// f0ccbe8a). Written by QueueWaypoint/queueWaypoints/SetInteraction;
-	// currently no NPC-side reader (the sole consumer is the Player NAIVE
-	// chase branch) — kept for base-class parity.
-	allowRepath AllowRepath
 	// NAI-82 (writer) + NAI-125 (reader): TS PathingEntity.lastMovement
 	// (Engine-TS/.../PathingEntity.ts:56). Written to currentTick + 1 at
 	// end of updateMovement when position changed (npc_interaction.go:334);

@@ -273,9 +273,10 @@ func handleMoveOpClick(p *Player, payload []byte) error {
 //     (TS L27-28; the pre-rev-254 !opClick gate is gone).
 //  4. tempRun = ctrlHeld; override to 0 if runenergy<100 && ctrlHeld==1
 //     (TS L30-35).
-//  5. Routefinder on (TS L38-50): queueWaypoints directly from the client
-//     path. Click-own-tile (single waypoint == current pos) clears the
-//     path and sets AllowRepathNone. processWalktrigger fires
+//  5. Routefinder on (TS L36-50 @dee467c8): rebuild userPath from the client
+//     path and queueWaypoints directly — including a single-tile own-tile
+//     click (upstream #100 deleted the click-own-tile AllowRepath.NONE arm,
+//     the "I can't reach that!" fix). processWalktrigger fires
 //     unconditionally after.
 //     Routefinder off (TS L51-54): server-side findPath to the last coord.
 //     userPath is NOT touched on this branch (TS-faithful).
@@ -331,18 +332,14 @@ func moveClickInner(p *Player, payload []byte, opClick bool, trailingBytes int) 
 		p.tempRun = ctrlHeld
 	}
 
-	// Set new path (TS L37-54).
+	// Set new path (TS MoveClickHandler.ts:36-54 @dee467c8).
 	if s.cfg.NodeClientRoutefinder {
-		// this check ignores setting the path when the player is clicking
-		// on their current tile (TS L40-43).
-		if len(packed) == 1 && startX == p.x && startZ == p.z {
-			p.userPath = p.userPath[:0]
-			p.queueWaypoints(p.userPath) // clears waypoints + BEFOREDEST
-			p.setAllowRepath(AllowRepathNone)
-		} else {
-			p.userPath = append(p.userPath[:0], packed...)
-			p.queueWaypoints(p.userPath)
-		}
+		// Upstream #100 deleted the click-own-tile special case (it set
+		// AllowRepath.NONE and froze the player → "I can't reach that!").
+		// The client path is now rebuilt into userPath + queued
+		// unconditionally, including a single-tile own-tile click.
+		p.userPath = append(p.userPath[:0], packed...)
+		p.queueWaypoints(p.userPath)
 		// TS L50 — fires regardless of opClick or hasWaypoints.
 		p.processWalktrigger()
 	} else {

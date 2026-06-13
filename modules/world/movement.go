@@ -9,29 +9,27 @@ import (
 )
 
 // queueWaypoint clears any existing path and sets a single destination.
-// Mirrors TS PathingEntity.queueWaypoint (PathingEntity.ts:255-259) — the
-// setAllowRepath(BEFOREDEST) tail is from f0ccbe8a.
+// Mirrors TS PathingEntity.queueWaypoint (PathingEntity.ts:253-256 @dee467c8).
+// Upstream #100 deleted the AllowRepath mechanism (and the
+// setAllowRepath(BEFOREDEST) tail) — the "I can't reach that!" fix.
 func (p *Player) queueWaypoint(x, z int) {
 	p.waypoints[0] = coordgrid.PackCoord(p.level, x, z)
 	p.waypointIndex = 0
-	p.setAllowRepath(AllowRepathBeforeDest)
 }
 
 // queueWaypoints replaces the current path with the given packed coords.
-// Mirrors TS PathingEntity.queueWaypoints (Engine-TS PathingEntity.ts:265-273):
-// reverses the input on copy so that internal storage is [dest, …, first_step].
-// validateAndAdvanceStep reads waypoints[waypointIndex] starting at n-1
-// (= first_step) and decrements toward 0 (= dest).
+// Mirrors TS PathingEntity.queueWaypoints (Engine-TS PathingEntity.ts:262-268
+// @dee467c8): reverses the input on copy so that internal storage is
+// [dest, …, first_step]. validateAndAdvanceStep reads waypoints[waypointIndex]
+// starting at n-1 (= first_step) and decrements toward 0 (= dest).
 //
 // Truncation: when len(packed) exceeds len(p.waypoints), entries closest to
 // dest are preserved (input iterates from length-1 down; output bounded above
 // by waypoints buffer cap). TS-faithful: TS truncates the same way via
 // output < this.waypoints.length.
 //
-// Empty input clears the path (index stays -1) but STILL resets allowRepath
-// to BEFOREDEST — TS runs setAllowRepath unconditionally (f0ccbe8a), and the
-// MoveClick click-own-tile arm relies on queueWaypoints([]) + a subsequent
-// explicit setAllowRepath(NONE).
+// Empty input clears the path (index stays -1). Upstream #100 deleted the
+// AllowRepath mechanism (and the setAllowRepath(BEFOREDEST) tail).
 func (p *Player) queueWaypoints(packed []int) {
 	index := -1
 	for input, output := len(packed)-1, 0; input >= 0 && output < len(p.waypoints); input, output = input-1, output+1 {
@@ -39,13 +37,6 @@ func (p *Player) queueWaypoints(packed []int) {
 		index++
 	}
 	p.waypointIndex = index
-	p.setAllowRepath(AllowRepathBeforeDest)
-}
-
-// setAllowRepath mirrors TS PathingEntity.setAllowRepath (PathingEntity.ts:
-// 275-277, added by f0ccbe8a).
-func (p *Player) setAllowRepath(v AllowRepath) {
-	p.allowRepath = v
 }
 
 // resolveMovement advances the player along their waypoint queue for one tick.

@@ -334,6 +334,41 @@ func TestHandleMoveGameClickSkipsWalktriggerWhenNonRoutefinder(t *testing.T) {
 	}
 }
 
+// TestHandleMoveGameClickOwnTileQueuesWaypoint pins the post-#100 contract
+// (TS @dee467c8, MoveClickHandler.ts:36-44): clicking the player's OWN tile
+// in routefinder mode no longer takes a special "clear path + AllowRepath.NONE"
+// arm (that arm was DELETED upstream — it caused the "I can't reach that!"
+// freeze). The single-tile client path is now rebuilt into userPath and queued
+// like any other click. Observable via userPath holding the clicked coord and
+// waypointIndex == 0.
+func TestHandleMoveGameClickOwnTileQueuesWaypoint(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	_ = cc
+
+	s.cfg.NodeClientRoutefinder = true
+
+	// Click the player's own tile: startX/startZ == current pos, no dx/dz.
+	payload := buildMovePayload(0, p.x, p.z)
+	if err := handleMoveGameClick(p, payload); err != nil {
+		t.Fatalf("handleMoveGameClick: %v", err)
+	}
+
+	// Post-#100: the single-tile path is queued (not cleared).
+	if p.waypointIndex != 0 {
+		t.Errorf("waypointIndex: got %d, want 0 (own-tile click queues the single-tile waypoint like any other click)", p.waypointIndex)
+	}
+	if len(p.userPath) != 1 {
+		t.Fatalf("userPath len: got %d, want 1 (own-tile path rebuilt from message)", len(p.userPath))
+	}
+	got := coordgrid.UnpackCoord(p.userPath[0])
+	if got.X != p.x || got.Z != p.z {
+		t.Errorf("userPath[0]: got (%d,%d), want own tile (%d,%d)", got.X, got.Z, p.x, p.z)
+	}
+}
+
 // TestHandleMoveClickGate2ClearsWaypoints pins that gate-2 (ctrlHeld out
 // of range OR start > 104 tiles away) clears any in-flight waypoints,
 // matching TS Player.unsetMapFlag (Player.ts:2169 = clearWaypoints + write).

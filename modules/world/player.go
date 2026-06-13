@@ -154,11 +154,6 @@ type Player struct {
 	followX, followZ       int
 	targetX, targetZ       int
 	faceAngleX, faceAngleZ int
-	// allowRepath gates the NAIVE-strategy chase repath in
-	// pathToPathingTarget. Zero value BEFOREDEST mirrors the TS field
-	// initializer (PathingEntity.ts:57, f0ccbe8a). See AllowRepath in
-	// movement_consts.go.
-	allowRepath AllowRepath
 
 	// === interaction target ===
 	target entity

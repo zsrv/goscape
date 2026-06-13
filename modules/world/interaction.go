@@ -126,13 +126,11 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 	p.apRange = 10
 	p.apRangeCalled = false
 
-	// TS PathingEntity.ts:544-547 (f0ccbe8a) — script-set interactions
-	// re-allow naive repathing.
-	if kind == InteractionScript {
-		p.allowRepath = AllowRepathBeforeDest
-	}
+	// Upstream #100 (@dee467c8) deleted the f0ccbe8a SCRIPT-interaction
+	// allowRepath set-site (TS PathingEntity.ts:533-536) along with the whole
+	// AllowRepath mechanism — the "I can't reach that!" fix.
 
-	// TS PathingEntity.ts:528 — focus on the target's fine coord.
+	// TS PathingEntity.ts (@dee467c8) — focus on the target's fine coord.
 	// instant=true ⇔ NonPathingEntity (Loc/Obj) clicked via the engine
 	// (kind == InteractionEngine). Any other combination passes
 	// instant=false: faceAngle still written, but faceSquare/mask are
@@ -964,11 +962,12 @@ func effectiveApRange(p *Player) int {
 //     *Player type assertion means *Npc targets cannot reach this arm in
 //     either engine.
 //   - !canAccess: no-op (TS L1065-1067).
-//   - NAIVE strategy (TS L1069-1081, f0ccbe8a — players are NAIVE whenever
+//   - NAIVE strategy (TS L1067-1079 @dee467c8 — players are NAIVE whenever
 //     NODE_CLIENT_ROUTEFINDER is on, per the ctor): under-target →
-//     randomWalk; else isLastWaypoint + allowRepath==BEFOREDEST →
-//     naivePathToTarget. The pre-rev-254 routefinder+intersects FindNaivePath
-//     shortcut is retired by this branch.
+//     randomWalk; else isLastWaypoint → naivePathToTarget (upstream #100
+//     deleted the allowRepath==BEFOREDEST precondition, the
+//     "I can't reach that!" fix). The pre-rev-254 routefinder+intersects
+//     FindNaivePath shortcut is retired by this branch.
 //   - SMART (or other) strategy + isLastWaypoint: pathToTarget (TS L1082-1084).
 func (p *Player) pathToPathingTarget() {
 	t, ok := p.target.(pathingEntity)
@@ -999,7 +998,7 @@ func (p *Player) pathToPathingTarget() {
 			return
 		}
 
-		if p.isLastWaypoint() && p.allowRepath == AllowRepathBeforeDest {
+		if p.isLastWaypoint() {
 			p.naivePathToTarget()
 		}
 	} else if p.isLastWaypoint() {

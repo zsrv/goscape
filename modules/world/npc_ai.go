@@ -106,12 +106,12 @@ func (n *Npc) turn(s *Server) {
 
 // QueueWaypoint clears any existing path and sets a single destination.
 // Exported for use by pkg/script's ActiveNpc adapter (NAI-36).
-// Mirrors TS PathingEntity.queueWaypoint (PathingEntity.ts:255-259) — the
-// allowRepath reset is from f0ccbe8a.
+// Mirrors TS PathingEntity.queueWaypoint (PathingEntity.ts:253-256 @dee467c8).
+// Upstream #100 deleted the AllowRepath mechanism (and the
+// setAllowRepath(BEFOREDEST) tail).
 func (n *Npc) QueueWaypoint(x, z int) {
 	n.waypoints[0] = coordgrid.PackCoord(n.level, x, z)
 	n.waypointIndex = 0
-	n.allowRepath = AllowRepathBeforeDest
 }
 
 // queueWaypoints replaces the current path with the given packed coords.
@@ -126,8 +126,8 @@ func (n *Npc) QueueWaypoint(x, z int) {
 // Unexported because external script-VM callers use QueueWaypoint
 // (single-step) only.
 //
-// Empty input clears the path (index stays -1) but still resets allowRepath
-// — TS runs setAllowRepath unconditionally (PathingEntity.ts:272, f0ccbe8a).
+// Empty input clears the path (index stays -1). Upstream #100 deleted the
+// AllowRepath mechanism (and the setAllowRepath(BEFOREDEST) tail).
 func (n *Npc) queueWaypoints(packed []int) {
 	index := -1
 	for input, output := len(packed)-1, 0; input >= 0 && output < len(n.waypoints); input, output = input-1, output+1 {
@@ -135,7 +135,6 @@ func (n *Npc) queueWaypoints(packed []int) {
 		index++
 	}
 	n.waypointIndex = index
-	n.allowRepath = AllowRepathBeforeDest
 }
 
 // Kill is a test-only helper that marks the NPC dead and schedules respawn.

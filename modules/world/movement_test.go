@@ -106,38 +106,32 @@ func TestResolveMovementNoPathClearsDirections(t *testing.T) {
 	}
 }
 
-// TestQueueWaypointsSetsAllowRepath pins the f0ccbe8a contract
-// (PathingEntity.ts:255-273): queueWaypoint AND queueWaypoints reset
-// allowRepath to BEFOREDEST unconditionally — including on empty input
-// (the MoveClick click-own-tile arm relies on queueWaypoints([]) followed
-// by an explicit setAllowRepath(NONE)).
+// TestQueueWaypointsEmptyInputClearsPath pins the post-#100 contract
+// (TS @dee467c8, PathingEntity.ts:253-268): queueWaypoint AND queueWaypoints
+// only set the path — the AllowRepath mechanism that f0ccbe8a added (and the
+// setAllowRepath(BEFOREDEST) tails) was DELETED upstream (#100 — the
+// "I can't reach that!" fix). Empty input still clears the path (index -1).
 //
-// Replaces the retired pathToMoveClick pins — f0ccbe8a deleted
-// pathToMoveClick; move clicks now queueWaypoints directly in the handler.
-func TestQueueWaypointsSetsAllowRepath(t *testing.T) {
+// Replaces the retired TestQueueWaypointsSetsAllowRepath — there is no longer
+// any allowRepath field, setter, or click-own-tile NONE arm to assert.
+func TestQueueWaypointsEmptyInputClearsPath(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 3094, 3106, 0
 
-	p.allowRepath = AllowRepathNone
 	p.queueWaypoint(3100, 3110)
-	if p.allowRepath != AllowRepathBeforeDest {
-		t.Errorf("queueWaypoint allowRepath: got %v, want BEFOREDEST", p.allowRepath)
+	if p.waypointIndex != 0 {
+		t.Errorf("queueWaypoint waypointIndex: got %d, want 0", p.waypointIndex)
 	}
 
-	p.allowRepath = AllowRepathNone
 	p.queueWaypoints([]int{packTestCoord(0, 3100, 3110)})
-	if p.allowRepath != AllowRepathBeforeDest {
-		t.Errorf("queueWaypoints allowRepath: got %v, want BEFOREDEST", p.allowRepath)
+	if p.waypointIndex != 0 {
+		t.Errorf("queueWaypoints waypointIndex: got %d, want 0", p.waypointIndex)
 	}
 
-	// Empty input: clears the path but still resets allowRepath.
-	p.allowRepath = AllowRepathNone
+	// Empty input: clears the path (index stays -1).
 	p.queueWaypoints(nil)
 	if p.waypointIndex != -1 {
 		t.Errorf("queueWaypoints(nil) waypointIndex: got %d, want -1", p.waypointIndex)
-	}
-	if p.allowRepath != AllowRepathBeforeDest {
-		t.Errorf("queueWaypoints(nil) allowRepath: got %v, want BEFOREDEST", p.allowRepath)
 	}
 }
 
