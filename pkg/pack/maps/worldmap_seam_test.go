@@ -14,7 +14,7 @@ import (
 // since 254 — TS Pack.js:383-385 @ 2e3bcf43) would fail on missing
 // inputs. The wiring itself is pinned by TestPack_WorldmapRebuildSeam
 // below; full worldmap output parity is covered by the packall
-// full-tree gate (mapview/worldmap.jag in ref254_manifest.txt).
+// full-tree gate (mapview/worldmap.jag in ref274_manifest.txt).
 func TestMain(m *testing.M) {
 	packWorldmap = func(srcDir, outDir string) error {
 		worldmapCalls++

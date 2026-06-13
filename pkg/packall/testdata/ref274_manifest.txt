@@ -1,0 +1,87 @@
+# 274 reference-cache manifest — Engine-TS dee467c8 + Content 7f97b0a5 (pinned upstream toolchain).
+# Packed 2026-06 via Server274-ref worktrees (Node 24 toolchain, npm run build).
+# gzip members are stock zlib 1.3.1 level-6 (OS byte zeroed) — see pkg/io/gziputil CompressSZGz (T17b).
+#
+# Scope: these are the files goscape's PackAll emits that have a 274 reference
+# counterpart — the Jag store (main_file_cache.dat + idx0-4), the loose client
+# jags (client/*), the loose server config (server/*.dat/.idx), and the
+# worldmap (mapview/worldmap.jag). All 56 match the Node-built 274 reference
+# byte-for-byte.
+#
+# NOT in the manifest (build-infra the 274 Node toolchain emits but goscape
+# does not — documented NOT-PORTED, see docs/superpowers/specs/2026-06-12-
+# rev274-port-design.md and pkg/pack/map/Pack.js @dee467c8):
+#   - data/pack/.cache/*  — ArtifactCache incremental-build stores
+#                           (maps-client.zip / maps-server.zip / *.manifest.json
+#                           / model_flags/*.bin). The map BYTES they cache are
+#                           covered: client land/loc live in the Jag store
+#                           (arch4, byte-identical above); and the parity test
+#                           cross-checks goscape's loose maps tree against these
+#                           zip entries (assertion C).
+#   - data/pack/.stamps/* — FsCache source-snapshot stamps.
+#
+# goscape ALSO emits a loose maps tree (client/maps/*, server/maps/*) — its own
+# pack layout. The 274 reference packs maps into the Jag store + .cache zips
+# instead (no loose maps tree). The loose tree is validated against the .cache
+# artifact zips in the parity test (assertion C); it is allowlisted in the
+# extra-files walk (assertion B).
+#
+# Excludes data/symbols entirely: upstream has no .sym pipeline (symbols live
+# in-memory in @lostcityrs/runescript); goscape's .sym export is a documented
+# Go-only feature with no upstream baseline (self-consistency-tested).
+d26317cabdb6dd6eaa0bd983362fa9820f8ed063e73b7be145df30fb8fc1a914  data/pack/client/config
+3968805e8984826a60a9b9b90bd3fbbaa923c44947ba6e1b93daf4ff0af23903  data/pack/client/interface
+237206fe02bbd7b53906c5b0a7a05bfa99e4380f297223f3135c21b005e44de5  data/pack/client/media
+6cb9addcc14ffbf5d76dfd76691f390dd83fa06a766ee879a56c700594c8c573  data/pack/client/sounds
+b00c3643cfd9b872c80fa0812672a86e93e5b2402b7386fa59381a3015ab7c9e  data/pack/client/textures
+b7a47dead79c241beb9c4ffbb4cb289bb3099eaf088f51e364cde40f3aa70b55  data/pack/client/title
+2faf336eeb0462edc50d2cdbccbdac7a4a2cda1e43087cd9a6ba2dd00aea78dd  data/pack/client/versionlist
+9105179c64502b776bc2f591f1f4e87e580711bdeaf69ab28cdd4a36cdbe6996  data/pack/main_file_cache.dat
+3f5ab6cc10101c8b56872eb4234b3e219434b9005127250478e4a59896e55a9f  data/pack/main_file_cache.idx0
+797c8da21d6d770745e97114a42a41a1b59c337335a1d560808098c16d6da7bf  data/pack/main_file_cache.idx1
+e2012f64d0ec182be55e8211f1e8b858fb24fff4d7811c7a5eb1927f53a64e1e  data/pack/main_file_cache.idx2
+ee7a22299b5252fee16a20b6b90f806c5a49e759e21cdbe9004c8e095022909d  data/pack/main_file_cache.idx3
+e2ed7a2590e16083305aa25d85c68dc008cc3138fbc70249a103bd71cc7731ad  data/pack/main_file_cache.idx4
+c20901683e07bfada71abde26b001db18422d5264fa6aa4d6f1b8ee46b72a453  data/pack/mapview/worldmap.jag
+6a3ae9018b58783f987abafd34c653ac15d821b5cef1c513d557f5d990c916df  data/pack/server/category.dat
+d9eba343d61d41c544690ad514d0c5beb5497abd851276bcc4632599fcf7c679  data/pack/server/dbrow.dat
+c9d085f8a353abd58a7315f3a8e9e17e331bb38197470bd7dd17c7f67e961c23  data/pack/server/dbrow.idx
+74f6c6be5dae1111fbd39e7bd4290647fce7f5b93dd5fb3a0a386503ddb40ac3  data/pack/server/dbtable.dat
+50be28dfbd8b017cfee7fda40d07ad4c5d374b3861f0b3dcb67e76f36ff15c5a  data/pack/server/dbtable.idx
+692812e0b3c7b776c2edd3aac70d11249d0c824c79a42f0e2ad08311bb1b40c5  data/pack/server/enum.dat
+5c4bb2801422d762f965ac53dce6c9c8406c07f975f3cc7850bd555a76a0821b  data/pack/server/enum.idx
+1cb8bdec4c1bea9797cd5ddf2d6d12f7b278d5b52cf0e76cf870765c92d40574  data/pack/server/flo.dat
+e6e740142c951caafe7523ce5be71d6f58480f174389108c89b1c89906ea1563  data/pack/server/flo.idx
+2138d0e04327243875358199ee9b3a932d398bb814aeb795abddbdb15a2e1a1c  data/pack/server/hunt.dat
+07f93223a648763e1938b3f91e7ae4f63fb34fb6d187dba0d71068c790ef14a1  data/pack/server/hunt.idx
+c49a737d21e1138667f8961ec96cfaf8fdc5a8a7e27eaccf6c0833b845eaffdd  data/pack/server/idk.dat
+15de0287fd9650a02f274771a6eab909b0cce5b7ecd9db6fd8dc0e4dc7b3d354  data/pack/server/idk.idx
+07bad7b3e8327b27506a25f175ecb3cd77b958a7748dce31e7ed7745ba64089c  data/pack/server/interface.dat
+c742ce8c79c28552413640b5ad26626e520da3f19ccd638362a1f7bc58b73032  data/pack/server/inv.dat
+f8eeed182072f4d6ab383f7d28c3edd0dc51eacb98c1a107216523703d5c22c1  data/pack/server/inv.idx
+51f72cfbe6b707e752cea9d53419e6a6c271769e70e708bab11d9c59585761d9  data/pack/server/loc.dat
+aabbdc5ecbb1a0c086aac8346e086bc233b7944c48d0a3a69feff37e914582b3  data/pack/server/loc.idx
+8c5cbe3e9981d7982a4c3e53eb61d336ec7a6de7fe17f13bbe4a09ee07210d94  data/pack/server/mesanim.dat
+6e87275bbb7b59bfae93049b6ecce2a103fe80d5dd8c4e2477600f088e804609  data/pack/server/mesanim.idx
+1fb25e0b7a840709d1f910ca5cbaf84dfe86c65efd9e4d11e174aa6a7ebfbff3  data/pack/server/npc.dat
+31001e9b00cbd43777c7115853f87ebe016a40fb068dd23628368266b9784ca7  data/pack/server/npc.idx
+8fae6421cc3cbafe4f72d749a49760810cd31f8a90d0994c3e0777df349c5626  data/pack/server/obj.dat
+aa0db6d34e454842a60ea306fc493052004af3fd8996e26d2682a192c0a74983  data/pack/server/obj.idx
+5504276804b51de580dab058bdc2fa8bfc432a2a002d4b0a499223cd990a84fd  data/pack/server/param.dat
+7c673ffda5b1f1536c1ccc332a61493099d08aa089d43b35e0e8fcd802be936c  data/pack/server/param.idx
+8a5e7aa89fe9f70b55a39b0fdd4ef49681acf88b4b39588a230cf1d0c42e96f5  data/pack/server/script.dat
+e4cec7f7df6b218a796231a39bef35a4ec915d1784461161eccb941f09a9837c  data/pack/server/script.idx
+17a718d58381ac68c379031561349598662439507a10aa2a5408ea9a832aca51  data/pack/server/seq.dat
+8b6afaed99c44bfa201018c49c064047294dfc8169852da620f743106ebf3bbf  data/pack/server/seq.idx
+86cbc2cd8cd1565bca4b6e493d41e3a6e0cf63d9e7aa7d938221a26990427bcd  data/pack/server/spotanim.dat
+572859b1698e06352dd1c70c3c7ff8b5bdb6d4508ac9d82dfacb2c4a1a492c46  data/pack/server/spotanim.idx
+e528d20f9d055e6e76487f07c2cf0dbfe13b49f819627b0b8718eddf81fb0dfd  data/pack/server/struct.dat
+43a6cd1d81780e993979d07e506ff6c54e5571a6e62f79c94084bbe44f42019a  data/pack/server/struct.idx
+02114d60728295a675488a3b54ae1a92525496c73e984cc1fceaf45fc02f9e5e  data/pack/server/varbit.dat
+a3b06e8eaaeff0f13683416777f465b5c4dbb12e1a7746b61a25a3858236927d  data/pack/server/varbit.idx
+26d8382f56643880f00a6035362f37edb2cb5bea0713d4ddcd598ac484a71fa5  data/pack/server/varn.dat
+73e67eccc66e47d138ba62a2fe683499301012f71e037d5cb3667726f13f9830  data/pack/server/varn.idx
+0d1de3634fc5e1b11d2699879a4b419a810c06dc550718dd9f9d658df911e81c  data/pack/server/varp.dat
+2490e75cabd58ef337f854531c70595cac5feba1e385099f6e4864a6aecff1d6  data/pack/server/varp.idx
+d384d9a7778c66a4bc34ef533fa720fe1b9b2234f233312e5df892c44069a5da  data/pack/server/vars.dat
+cbc943fe49dfb709c4761f632a621ed4ff9981503cd50b1d6b3e5bf6c5d52e65  data/pack/server/vars.idx
