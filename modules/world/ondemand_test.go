@@ -143,6 +143,23 @@ func TestOnDemandRejectsBadRequest(t *testing.T) {
 	}
 }
 
+// TestOnDemandClosesOnClientKeepalive pins that we MATCH the pristine TS
+// reference (Engine-TS OnDemand.ts onClientData) for the client's no-timeout
+// keepalive frame [0,0,0,10]: priority 10 > 2 is rejected → connection closed,
+// with no out-of-range on the [3]-wide priority queues (the guard returns before
+// queues[priority]). The keepalive is deliberately NOT special-cased here —
+// doing so would diverge from the reference engine. The goscape-client recovers
+// from the close on its next frame (its F2 send-retry cadence), so this is the
+// intended server behavior, not a bug to "fix".
+func TestOnDemandClosesOnClientKeepalive(t *testing.T) {
+	closed := false
+	od := newOnDemand(nil)
+	od.onClientData(newTestODClient(&closed), []byte{0, 0, 0, 10})
+	if !closed {
+		t.Fatal("client keepalive [0,0,0,10] must close the connection, matching the pristine TS reference")
+	}
+}
+
 // TestOnDemandExtraPriority pins priority 1 → queues[1].
 func TestOnDemandExtraPriority(t *testing.T) {
 	od := newOnDemand(nil)
