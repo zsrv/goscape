@@ -418,6 +418,11 @@ type ActivePlayer interface {
 	// currently-active tab. Fire-and-forget; no server-side persistence.
 	IfSetTabActive(tab int)
 
+	// MinimapToggle emits a MINIMAP_TOGGLE wire op setting the client minimap
+	// state: 0 normal, 1 click-disabled, 2 blacked out. Fire-and-forget; no
+	// server-side persistence. New in 274 (TS MinimapToggleEncoder.ts @dee467c8).
+	MinimapToggle(minimapType int)
+
 	// AddResumeButton appends one resume-button interface id for later
 	// consumption by the resume-button gate. No wire op is emitted.
 	// 2e3bcf43 (254 pin-advance): replaces the 43e02957-era

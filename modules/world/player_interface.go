@@ -135,6 +135,14 @@ func (p *Player) IfSetTabActive(tab int) {
 	p.writeOut(gameserver.OpIfSetTabActive, buf.Bytes())
 }
 
+// MinimapToggle emits MINIMAP_TOGGLE (p1 type): 0 normal, 1 click-disabled,
+// 2 blacked out. 1-byte payload. TS MinimapToggleEncoder.ts @dee467c8.
+func (p *Player) MinimapToggle(minimapType int) {
+	buf := packet.NewPacket(nil)
+	buf.P1(uint8(minimapType))
+	p.writeOut(gameserver.OpMinimapToggle, buf.Bytes())
+}
+
 // IsComponentVisible reports whether the given component's rootLayer
 // is currently in any of the player's visible-modal slots. Mirrors TS
 // Player.isComponentVisible (Player.ts:2047-2049).

@@ -918,7 +918,8 @@ func (m *mockPlayer) SetPlayerOp(index int, text string, primary int) {
 }
 
 // IfSetRecol deleted in 244 (IfSetRecolEncoder.ts removed upstream); mock method removed in B4 Task 2.
-func (m *mockPlayer) IfSetTabActive(tab int) { m.lastIfSetTabActive = tab }
+func (m *mockPlayer) IfSetTabActive(tab int)    { m.lastIfSetTabActive = tab }
+func (m *mockPlayer) MinimapToggle(_ int)        {}
 
 func (m *mockPlayer) AddResumeButton(comId int) {
 	m.addedResumeButtons = append(m.addedResumeButtons, comId)
