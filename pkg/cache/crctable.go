@@ -21,11 +21,16 @@ import (
 // CRCSnapshot is the immutable per-rebuild view of the 9-slot JAG
 // archive-CRC table. Build a fresh value, atomically swap, drop the old.
 //
-// Bytes is the serialized 9-slot table — what ondemand /crc HTTP serves.
+// Bytes is the serialized 9-slot table + the 4-byte rolling-hash trailer
+// (rev-274, 40 bytes total) — what ondemand /crc HTTP serves.
 // Table is the 9 raw CRCs — what world login compares against.
 // (The package-level CrcBuffer32 of the old API was unused in prod —
 // the only reader at server.go:817 was commented out — so it is dropped.
-// If a future caller needs it, recompute from Bytes via packet.GetCRC.)
+// At rev-274 TS still computes CrcBuffer32 over CrcBuffer.data[:len-4]
+// (excluding the trailer) for its single-hash login check; goscape's
+// per-slot Table compare supersedes it, so CrcBuffer32 stays dropped —
+// the 274 diff adds no new reader. If a future caller needs it, recompute
+// from Bytes[:36] via packet.GetCRC.)
 type CRCSnapshot struct {
 	Bytes []byte
 	Table []uint32
@@ -51,21 +56,26 @@ func CRC() *CRCSnapshot {
 //
 // cachePath is the cache root (mirrors world.Config.CachePath, e.g.
 // "data/pack"). MakeCRCs opens a FileStream at cachePath and reads archive
-// 0 to derive CRCs — matching TS CrcTable.ts:11-27 at 9aadcec4:
+// 0 to derive CRCs — matching TS CrcTable.ts:11-29 at dee467c8:
 //
 //	count = OnDemand.cache.count(0)
 //	for i = 0; i < count; i++ {
 //	    jag = cache.read(0, i)   // decompress=false (2-arg form, FileStream.ts:43)
-//	    if jag { p4(getcrc) } else { p4(0) }
+//	    if jag { CrcTable[i] = getcrc; p4(CrcTable[i]) } else { CrcTable[i] = 0; p4(0) }
 //	}
+//	hash = 1234
+//	for i = 0; i < 9; i++ { hash = (hash << 1) + CrcTable[i] }
+//	p4(hash)
 //
 // Archive 0 file 0 is conventionally absent in the RS2 dat/idx cache; its
 // idx entry is all zeros (sector=0 → Read returns nil → p4(0)), reproducing
 // the leading-zero slot that the 225 shape wrote explicitly as p4(0).
 //
-// CrcBuffer wire shape: always 36 bytes (TS: new Packet(new Uint8Array(4*9))).
-// When count < 9 the unused tail stays zero (faithful to the pre-allocated
-// fixed buffer).
+// CrcBuffer wire shape: always 40 bytes at rev-274 (TS:
+// new Packet(new Uint8Array(4*9+4))) — 36 CRC slots + a 4-byte big-endian
+// rolling-hash trailer. When count < 9 the unused CRC tail stays zero
+// (faithful to the pre-allocated fixed buffer); the hash loop still iterates
+// all 9 slots, treating absent ones as 0.
 //
 // PORTING-EXCEPTION (rev244-b3-crc-compare, per-slot table vs TS
 // CrcBuffer32): TS 244 leaves CrcTable EMPTY (makeCrcs resets it at
@@ -85,7 +95,8 @@ func CRC() *CRCSnapshot {
 // sites are added.
 //
 // filestream.New creates missing cache files when cachePath does not exist
-// yet; an empty cache yields count=0 → 36 zero bytes + empty table.
+// yet; an empty cache yields count=0 → 36 zero CRC bytes + the rolling hash
+// of an all-zero table (1234<<9) + empty table.
 func MakeCRCs(cachePath string) {
 	// Open FileStream read-only; New creates empty dat/idx if missing.
 	// TS: OnDemand.cache is a FileStream opened once at server start;
@@ -97,10 +108,11 @@ func MakeCRCs(cachePath string) {
 
 	count := fs.Count(0)
 
-	// Fixed 36-byte buffer: TS CrcBuffer = new Packet(new Uint8Array(4*9)).
-	// Zero-initialised; the first count*4 bytes are filled by the loop;
-	// the remainder stays zero (faithful to the TS pre-allocated buffer).
-	var wire [4 * 9]byte
+	// Fixed 40-byte buffer at rev-274: TS CrcBuffer =
+	// new Packet(new Uint8Array(4*9+4)) — 36 CRC slots + a 4-byte rolling
+	// hash. Zero-initialised; the first count*4 bytes are filled by the CRC
+	// loop, the next (9-count)*4 stay zero, then offset 36 holds the hash.
+	var wire [4*9 + 4]byte
 
 	table := make([]uint32, 0, count)
 
@@ -117,6 +129,27 @@ func MakeCRCs(cachePath string) {
 		wire[i*4+3] = byte(crc)
 		table = append(table, crc)
 	}
+
+	// Rolling-hash trailer (TS CrcTable.ts:25-29 at dee467c8):
+	//   hash = 1234; for i in 0..9: hash = (hash << 1) + CrcTable[i]; p4(hash)
+	// JS coerces to int32 at each `<<`; faithful Go is int32 arithmetic with
+	// two's-complement wrap (each operand ≤ 2^32, intermediate sum ≤ 2^33 is
+	// exact in double then re-coerced at the next shift — provably identical
+	// to JS ToInt32 here). Missing slots (count < 9) contribute 0; the real
+	// cache always has 9.
+	hash := int32(1234)
+	for i := range 9 {
+		var c uint32
+		if i < len(table) {
+			c = table[i]
+		}
+		hash = (hash << 1) + int32(c)
+	}
+	h := uint32(hash)
+	wire[36] = byte(h >> 24)
+	wire[37] = byte(h >> 16)
+	wire[38] = byte(h >> 8)
+	wire[39] = byte(h)
 
 	crcPtr.Store(&CRCSnapshot{
 		Bytes: append([]byte(nil), wire[:]...),
