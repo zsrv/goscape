@@ -140,6 +140,12 @@ func decodeFont(title *jagfile.Jagfile, name string, quill bool) (*FontType, err
 		adv := wi + 2
 
 		// FontType.ts:79-87 — trim left empty column.
+		// NOTE: the len(mask) bounds guards below intentionally diverge from
+		// TS for a degenerate zero-area glyph (wi*hi==0): TS reads undefined →
+		// NaN → no decrement, whereas the guarded Go path leaves space==0 →
+		// decrement. Moot for the real 274 fonts (no empty glyphs; drawWidth
+		// verified against the live cache) — the guards are panic-safety, not
+		// a faithful transcription of the empty-glyph corner.
 		space := 0
 		for y := hi / 7; y < hi; y++ {
 			if y*wi < len(mask) {
