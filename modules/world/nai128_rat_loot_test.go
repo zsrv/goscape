@@ -126,6 +126,17 @@ func nai128CacheFixture(t *testing.T) (*Server, string) {
 // TestNAI128_RatLootCascade is the Stage-1 binding probe for NAI-128.
 // See docs/superpowers/specs/2026-05-08-nai-128-rat-loot-cascade-investigation-design.md.
 func TestNAI128_RatLootCascade(t *testing.T) {
+	// rev-274 T6: this test executes script bytecode from the 254 reference
+	// cache (ref254CacheDir → Server254-ref) through the VM. The 274
+	// ScriptOpcode enum inserts 4 ops mid-enum (MAP_LOC, MINIMAP_TOGGLE,
+	// SET_SKILL_LEVEL, NPC_DESTINATION) which shifts every implicitly-numbered
+	// opcode after each insertion point, so 254-compiled bytecode is
+	// reinterpreted by the 274 dispatch table. The fixture must be repinned to
+	// the 274-packed cache (built with the 274 opcode numbering) — un-skip when
+	// the cache fixtures move to Server274-ref. See plan T20/T21 (ref254→ref274
+	// repin); mirrors the rev-254 A17 cache-convergence precedent.
+	t.Skip("rev-274: 254-cache bytecode vs shifted 274 opcode enum; un-skip at the ref274 cache repin (plan T20/T21)")
+
 	s, skip := nai128CacheFixture(t)
 	if skip != "" {
 		t.Skipf("cache unavailable: %s", skip)
