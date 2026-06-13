@@ -48,8 +48,9 @@ func handleWeakQueueVarArg(s *ScriptState) error {
 
 // handleQueueVarArg implements QUEUEVARARG (opcode 2134): identical
 // structure to STRONGQUEUEVARARG with QueueNormal. Mirrors TS
-// PlayerOps.ts:159-169. Does NOT check NumberNotNull on delay (TS
-// asymmetry — only the fixed-arg STRONGQUEUE checks).
+// PlayerOps.ts:159-169. Does NOT check NumberNotNull on delay — as of
+// rev-274 (TS @dee467c8) no queue op gates delay (the fixed-arg
+// STRONGQUEUE dropped its NumberNotNull check too).
 func handleQueueVarArg(s *ScriptState) error {
 	if err := requireActivePlayer(s, "QUEUEVARARG"); err != nil {
 		return err
