@@ -8,10 +8,10 @@ import (
 )
 
 // TestModelsParity is the env-gated full models-family parity test.
-// It requires GOSCAPE_REF254_DIR to point at the engine directory of a
-// Server254-ref checkout.  Run with:
+// It requires GOSCAPE_REF274_DIR to point at the engine directory of a
+// Server274-ref checkout.  Run with:
 //
-//	GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine \
+//	GOSCAPE_REF274_DIR=/path/to/Server274-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/graphics/ -run TestModelsParity -v -count=1 -timeout 900s
 func TestModelsParity(t *testing.T) {
@@ -51,10 +51,10 @@ func TestModelsParity(t *testing.T) {
 }
 
 // TestAnimsParity is the env-gated full anims-family parity test.
-// It requires GOSCAPE_REF254_DIR to point at the engine directory of a
-// Server254-ref checkout.  Run with:
+// It requires GOSCAPE_REF274_DIR to point at the engine directory of a
+// Server274-ref checkout.  Run with:
 //
-//	GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine \
+//	GOSCAPE_REF274_DIR=/path/to/Server274-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/graphics/ -run TestAnimsParity -v -count=1 -timeout 900s
 func TestAnimsParity(t *testing.T) {

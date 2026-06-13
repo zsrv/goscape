@@ -1,0 +1,154 @@
+# rev-274 TS-reference unpack changed-set manifest - family: sprite-media
+# Engine-TS pin dee467c8 + Content pin 7f97b0a5; inputs: the rev-274
+# reference-pack client cache (Server274-ref/engine/data/pack
+# main_file_cache.dat/idx0-4) + the pin-generated mapview/worldmap.jag
+# (maps/ignore.csv exists at the 274 Content pin — vanilla worldmap path).
+# config family ran with the scratch engine's data/pack moved aside (plain
+# emission path, not the merge-compare path). Toolchain: Node 24 (local tsx),
+# NOT bun (the 274 runtime swap); the source dir is set via world.json
+# build.srcDir (process.env BUILD_SRC_DIR is no longer read at 274). Procedure:
+# rev-244 B7 plan Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md),
+# re-run at the 274 pins per the rev-274 plan Task 24.
+# Generated 2026-06-13. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
+# (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
+# prefix = cache dir; PackFile module-load registry rewrites subtracted;
+# renameSync moves preserve mtime so renames appear in ADDED/DELETED only);
+# STDOUT-NORM = sha256 of stdout with per-line 'M/D/YYYY H:MM:SS AM\t LEVEL\t '
+# TS-Logger prefixes stripped.
+# pack/category.pack is ALSO subtracted from the changed-set — TS
+# validateCategoryPack (PackFile.ts @dee467c8) regenerates it at module load
+# whenever any .loc/.npc/.obj source is mtime-newer; module-load noise, not
+# unpack-family behavior (a no-op subtraction when the committed bytes match).
+MODIFIED sprites/backbase1.png 842b36f185ab8cf4a6a22ef9731650574999c7bff730571f378ede811e7a3f9a
+MODIFIED sprites/backbase2.png d4f0be72ca8257e767bf1c7f6f02d5a2529fa7d9571b6eacbe79efea75daafda
+MODIFIED sprites/backhmid2.png d9273042be854666cb12078fa0f86c1c3bca6ad2f8b26dedb06c048bf94d60c5
+MODIFIED sprites/backleft1.png c13abdafaaa2b20730f3843fb17417779dd013baaab4259c070f3cadf585f45a
+MODIFIED sprites/backleft2.png acb90cc9e92d46495225abb0b9ec8ad8d3031294119af82e65230e8a618debe5
+MODIFIED sprites/backright1.png 9752b8e6b7fd62eeed33dbc3e032841b965e8788bedec1a0fd357b7e1cc58502
+MODIFIED sprites/backright2.png 4536e52699d31b90545bef7858777cc68aba992ba76427cdf5cfcc024dd59217
+MODIFIED sprites/backvmid2.png 4390346fd22f4ab888c432e0f2e7ef71372326503ef9fba795b2d4acd1a33d68
+MODIFIED sprites/backvmid3.png 45ba050e046995fb216be26c06214e307f3fcd14c424f4eda1c2db1c4c3df261
+MODIFIED sprites/chatback.png 70f806f0ffdb7b20fb6f2f5185b53d7f560adeeaeba76dad37c9aae27b834eb0
+MODIFIED sprites/combaticons.png 9ecd2f4315c51fe22f91dadfa87e656678d187129b7582508261958ef89062ab
+MODIFIED sprites/combaticons2.png a1e9355ffb7d0b0894e9fc46162a58cbcd99a14667a75ac71eb53e7e0f83998c
+MODIFIED sprites/combaticons3.png 6413cd34d99a4c846c1fa089dd6c1ae769779dc2541d75add3e7fe16a240707d
+MODIFIED sprites/compass.png 4cb0ffb09d00d5070d6c5ca22662ea8774782e3795da97d5409a40166f72fbd1
+MODIFIED sprites/gnomeball_buttons.png e19bc861d91e2330c49a72d038d2e7d83a659723f800ea05cde6ff589afb9b6b
+MODIFIED sprites/headicons.png f88e574bc137d1f247b0cc83a9f0c0e133b08fdb1d7c773ce166907a24089c42
+MODIFIED sprites/hitmarks.png 69997a31dc31bd0ae2f98a536f8bdb2f94f98fc7fc509879c9b8ffe62dabad1f
+MODIFIED sprites/invback.png acb1a8c3c478a4a4f29510fadd9ae043215dc733a5c87ecf9f2dcb014f886870
+MODIFIED sprites/leftarrow.png 8838c3f813b9f5ad15a9f0053a98fe6ab18f42f1801007dabf040b56b328578b
+MODIFIED sprites/magicoff.png e7d72dd48fd7000e268c66fbe9c0927fb1dac631ac497292dd464f4e353d75fa
+MODIFIED sprites/magicon.png 2dec488a6fcbe2a27719a1d8578cee6dfa02cdcd7b1dd4e08a3a4eb73664dd87
+MODIFIED sprites/magicon2.png 7c6e5657776ec7bf53596a0440d0ffe0195275c7656e7ac05f949529a30d3df2
+MODIFIED sprites/mapback.png a804d3790e9c5abc0f6961af6d10a14d5f70088dc3831a830cfe2c9ad8ad93fa
+MODIFIED sprites/mapdots.png 16b05a5c37fa00af70f573bbc36e1597370043668288b1a0fde255e0cc1aacb1
+MODIFIED sprites/mapfunction.png e0db122d0192069c0fc1ba637d698cd8159d88ee0ec922a20c6f84767142537e
+MODIFIED sprites/mapscene.png ec5dc9ab3290a5f7a158133acbc745b86bb1548a6098d875ff2424a25accde4d
+MODIFIED sprites/miscgraphics.png f712c58a52e57b82069057d452347b6b5b2ce92d694ae0da6c319f0b507168f6
+MODIFIED sprites/miscgraphics2.png bfd4bffca53b0069d2cf76243a263ef90301017018a06f056f14ff398a641856
+MODIFIED sprites/miscgraphics3.png 0e0abeefc9eacb4f129590f8c339f2a66bd5150dd80c25e53d3cf2a437aa965f
+MODIFIED sprites/mod_icons.png 16aa22460766256d42f4de99fe93c1b2705877cf8f0877eb28170998ef77ea6c
+MODIFIED sprites/prayerglow.png 2960e048c37ca7b1707811adc8a7ac787ed8b54b137c0f13e05e64bb44d1168e
+MODIFIED sprites/prayeroff.png 91bc639099f29ce6cda89299cd379ea8c728576a44909e12bdc81aacf2bb7529
+MODIFIED sprites/prayeron.png 14d91b8b00e0898db55b7bab36bb474d1633a45cc8f3f21016285b9c3f99a8ac
+MODIFIED sprites/redstone1.png be13a272db08a282061dcfb56903b1ebd2736523b70a26a4bb75fb775aa84226
+MODIFIED sprites/redstone2.png 5b0af1f442d06073a8643fa8b0a09a3ea3a5d0bc61f3d7bf12638b62534c3394
+MODIFIED sprites/redstone3.png 02d7a66a58dd8c8c7ffc29efac74df3de023d7f17832ce5566fbe16ec001d6f0
+MODIFIED sprites/rightarrow.png 08e36824b7b053ac608efa338f41631ae8e9c18d6f9cd754c58e7182377521b0
+MODIFIED sprites/scrollbar.png d9ad0d76ad259c49d02377fdf13744772fa19dfed035b19264e5987fff0092e0
+MODIFIED sprites/sideicons.png 68852ea5494474a2c0b51a24284d95f154a59d680b7937ab067f2fab116a1373
+MODIFIED sprites/staticons.png 40c827033a97d6190d2c687d35829665e7397352f556b083257588e8b1d98374
+MODIFIED sprites/staticons2.png 78d7cf588b66f4664e282b3bfd9c7bd79c3b4e5dba14bd1324b85150cdb05d0c
+MODIFIED sprites/steelborder.png 2a5f37e58b077e6c34668e22a6ad31b9a63941238694081c93a09b73fc232a32
+MODIFIED sprites/steelborder2.png 22d71409b6f56965880b44a5de68083af97df7ca342ae86c980c57f2638c4ca8
+MODIFIED sprites/sworddecor.png c8ec0c5b6de013aee2754f683188d9aa7c0f7d88d1c553beded8124bb3f45edb
+MODIFIED sprites/tradebacking.png 9d8255f10646c2c87cc6589d51b0471ae9a2e2e53185e7a44b7df46b1142f3c0
+MODIFIED sprites/wornicons.png fc59a1f043c10901d54bd6f932485f97be78bd2b506bf17049beffce58eb77e6
+WROTE sprites/backbase1.png
+WROTE sprites/backbase2.png
+WROTE sprites/backhmid1.png
+WROTE sprites/backhmid2.png
+WROTE sprites/backleft1.png
+WROTE sprites/backleft2.png
+WROTE sprites/backright1.png
+WROTE sprites/backright2.png
+WROTE sprites/backtop1.png
+WROTE sprites/backvmid1.png
+WROTE sprites/backvmid2.png
+WROTE sprites/backvmid3.png
+WROTE sprites/chatback.png
+WROTE sprites/combatboxes.png
+WROTE sprites/combaticons.png
+WROTE sprites/combaticons2.png
+WROTE sprites/combaticons3.png
+WROTE sprites/compass.png
+WROTE sprites/cross.png
+WROTE sprites/gnomeball_buttons.png
+WROTE sprites/headicons.png
+WROTE sprites/hitmarks.png
+WROTE sprites/invback.png
+WROTE sprites/leftarrow.png
+WROTE sprites/magicoff.png
+WROTE sprites/magicoff2.png
+WROTE sprites/magicon.png
+WROTE sprites/magicon2.png
+WROTE sprites/mapback.png
+WROTE sprites/mapdots.png
+WROTE sprites/mapedge.png
+WROTE sprites/mapfunction.png
+WROTE sprites/mapmarker.png
+WROTE sprites/mapscene.png
+WROTE sprites/meta/combatboxes.opt
+WROTE sprites/meta/combaticons.opt
+WROTE sprites/meta/combaticons2.opt
+WROTE sprites/meta/combaticons3.opt
+WROTE sprites/meta/cross.opt
+WROTE sprites/meta/gnomeball_buttons.opt
+WROTE sprites/meta/headicons.opt
+WROTE sprites/meta/hitmarks.opt
+WROTE sprites/meta/magicoff.opt
+WROTE sprites/meta/magicoff2.opt
+WROTE sprites/meta/magicon.opt
+WROTE sprites/meta/magicon2.opt
+WROTE sprites/meta/mapdots.opt
+WROTE sprites/meta/mapedge.opt
+WROTE sprites/meta/mapfunction.opt
+WROTE sprites/meta/mapmarker.opt
+WROTE sprites/meta/mapscene.opt
+WROTE sprites/meta/miscgraphics.opt
+WROTE sprites/meta/miscgraphics2.opt
+WROTE sprites/meta/miscgraphics3.opt
+WROTE sprites/meta/mod_icons.opt
+WROTE sprites/meta/prayeroff.opt
+WROTE sprites/meta/prayeron.opt
+WROTE sprites/meta/scrollbar.opt
+WROTE sprites/meta/sideicons.opt
+WROTE sprites/meta/staticons.opt
+WROTE sprites/meta/staticons2.opt
+WROTE sprites/meta/steelborder.opt
+WROTE sprites/meta/steelborder2.opt
+WROTE sprites/meta/sworddecor.opt
+WROTE sprites/meta/wornicons.opt
+WROTE sprites/miscgraphics.png
+WROTE sprites/miscgraphics2.png
+WROTE sprites/miscgraphics3.png
+WROTE sprites/mod_icons.png
+WROTE sprites/prayerglow.png
+WROTE sprites/prayeroff.png
+WROTE sprites/prayeron.png
+WROTE sprites/redstone1.png
+WROTE sprites/redstone2.png
+WROTE sprites/redstone3.png
+WROTE sprites/rightarrow.png
+WROTE sprites/scrollbar.png
+WROTE sprites/sideicons.png
+WROTE sprites/staticons.png
+WROTE sprites/staticons2.png
+WROTE sprites/steelborder.png
+WROTE sprites/steelborder2.png
+WROTE sprites/sworddecor.png
+WROTE sprites/tradebacking.png
+WROTE sprites/wornicons.png
+STDOUT-NORM e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

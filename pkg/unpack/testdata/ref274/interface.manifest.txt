@@ -1,0 +1,422 @@
+# rev-274 TS-reference unpack changed-set manifest - family: interface
+# Engine-TS pin dee467c8 + Content pin 7f97b0a5; inputs: the rev-274
+# reference-pack client cache (Server274-ref/engine/data/pack
+# main_file_cache.dat/idx0-4) + the pin-generated mapview/worldmap.jag
+# (maps/ignore.csv exists at the 274 Content pin — vanilla worldmap path).
+# config family ran with the scratch engine's data/pack moved aside (plain
+# emission path, not the merge-compare path). Toolchain: Node 24 (local tsx),
+# NOT bun (the 274 runtime swap); the source dir is set via world.json
+# build.srcDir (process.env BUILD_SRC_DIR is no longer read at 274). Procedure:
+# rev-244 B7 plan Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md),
+# re-run at the 274 pins per the rev-274 plan Task 24.
+# Generated 2026-06-13. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
+# (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
+# prefix = cache dir; PackFile module-load registry rewrites subtracted;
+# renameSync moves preserve mtime so renames appear in ADDED/DELETED only);
+# STDOUT-NORM = sha256 of stdout with per-line 'M/D/YYYY H:MM:SS AM\t LEVEL\t '
+# TS-Logger prefixes stripped.
+# pack/category.pack is ALSO subtracted from the changed-set — TS
+# validateCategoryPack (PackFile.ts @dee467c8) regenerates it at module load
+# whenever any .loc/.npc/.obj source is mtime-newer; module-load noise, not
+# unpack-family behavior (a no-op subtraction when the committed bytes match).
+ADDED scripts/interfaces/inter_0.if 3e6821f8958f7e6633d1fc7b3b4cdc7dd593b4adc854333498e6fe4fa8921bac
+ADDED scripts/interfaces/inter_1.if 058437ce16802fd68991ce6f154fb8a13d34e92e81e3f36050de28db0ef0b503
+ADDED scripts/interfaces/inter_10.if 468c94926ad4715a6d23ee60f9b961e914da3c36ca96910fa2850fd151bdc403
+ADDED scripts/interfaces/inter_100.if e8f9ed38008e877128453d83ea32035d626e529d20cd49e2090056787efd72a2
+ADDED scripts/interfaces/inter_101.if 934e419c50820aa99b58a8f72163c2a2713b30f6e8d8b8df180e84e3f75469ce
+ADDED scripts/interfaces/inter_103.if 66c1c4db3eae9b6304dfed7aac5f264f6bf6dce6e3437da20c641eee1421d2ce
+ADDED scripts/interfaces/inter_104.if c25102935f7666f47a49c6ab66942d18fd630594c1fce09f73333a4c2b0999cd
+ADDED scripts/interfaces/inter_105.if 184e2e5183213890ca9df137aebf2dca87a7ed1237ec4828d139f61f67943a96
+ADDED scripts/interfaces/inter_106.if 2b9f441f70bd4507dbf09e2156fc9ebcbf2a514270e1e10fd9866caa3c0f8c75
+ADDED scripts/interfaces/inter_107.if 37b1eebef1eea1cf857ef1be03c2962a4f1b82df7e1f873a1a59234015a7f253
+ADDED scripts/interfaces/inter_108.if 832846a338837f5fc69bf153c4504b926be67e9802ec654b6aa9a550b96e94c2
+ADDED scripts/interfaces/inter_109.if d94133ad2fc59d6d93d68cae89db6840746b95e45e635ff88f247dd8b1353845
+ADDED scripts/interfaces/inter_11.if 92729d6640c51f3d472339325e909e8ec8e327502411839ba821f7c62ac84e5a
+ADDED scripts/interfaces/inter_110.if 25ddafe6bde73f865ec515d47bad678ab32b0821d0f539acd2e717783271167e
+ADDED scripts/interfaces/inter_111.if 275dbd585a7a069e57a954ef83141a90907fea07743ad71c981ce1aee25008a0
+ADDED scripts/interfaces/inter_112.if f2a85bdbb7ed9a73b5fe88994391af9ca639e1d6d8bbd966959b626694caa16e
+ADDED scripts/interfaces/inter_113.if 99f84ef213e73ed4bc439fb1805704a7013de58a46501bc1a5c71bb33c2ea238
+ADDED scripts/interfaces/inter_114.if 830271892938adce3a98fc40501116c52885ca93c051a83eff5a8aa2fe13826f
+ADDED scripts/interfaces/inter_115.if d73f61fd26fc6583a7cc317e19592d889b3048ff457c70f65cab0de099cadeb5
+ADDED scripts/interfaces/inter_116.if 63169aa6a693ce19e12ed0000c81cead23cc5d029d4ab634409b89b66a48d911
+ADDED scripts/interfaces/inter_117.if c0b29ed73ef4f0a32205c50d23f79ef4d0093048f0a52b9628275463b1395c3c
+ADDED scripts/interfaces/inter_118.if 556f201ace648295f31713c0a0b7f323a24476a08b24b64cea33bb3a6124c7bf
+ADDED scripts/interfaces/inter_119.if a1a849bacc124a07ecb9790d1500bde3edc601e7a0b9c4fc3393e631f816db79
+ADDED scripts/interfaces/inter_12.if e6abab010631eaeb1a558e186dbc11a72f7505e11bd1ce712fb3c56047ae2e34
+ADDED scripts/interfaces/inter_120.if 66a3bd300b2c742050cfd04d1e482af13b4c1b404af05b8f3730425cb6078b90
+ADDED scripts/interfaces/inter_121.if 5a3d9bc6c3920edca95cfce89a72833fe5c2b525c45713e9cb8b1eda2d9daa77
+ADDED scripts/interfaces/inter_122.if d4f180fdd1b3d02b3bfc36915debb7d63d8c4120bfcf9228d17695dbac7daf47
+ADDED scripts/interfaces/inter_123.if 7a6064e3b2b5624585147b9d3b2dd6fefa85a0f900eb2e1561d3dfa09793aac6
+ADDED scripts/interfaces/inter_124.if 27b61473189b61b9931f4ecde79289456f80abdbc1611bafed5f7abc440bcace
+ADDED scripts/interfaces/inter_125.if feefe782ff62618bf89919c7020be9168df6a8d267c9aabc118fe7731874dac5
+ADDED scripts/interfaces/inter_126.if 78fbcaeb354ee087eaecb923535d484d2d329c8f5c1896f0e6b0aea9186d1c8b
+ADDED scripts/interfaces/inter_127.if 2e53dbf6a44078745b30a1b7ec5b09afe6e83e4c80663e7ac05a223331b360b1
+ADDED scripts/interfaces/inter_128.if 486e5a3c05c7180b8860b0888341abd997ab4a2eb9eea4af7b3322c2b3f6b0d0
+ADDED scripts/interfaces/inter_129.if 2ad5dbf50159c63f9045e542d4fb29955a11026b3815dba9441662b6e07d0b1b
+ADDED scripts/interfaces/inter_13.if 098d6af583ec501db3bcf613ae2238d9c44655f0df88ed27582873162a2514d6
+ADDED scripts/interfaces/inter_130.if 5bf83fcbeadf777013df3794ca0869657c0322ffdd6037065905e49d16ac5b8c
+ADDED scripts/interfaces/inter_131.if b40f1659f4c5e2e09d279ba259d98bb2dbcbb6167f10da020b0a922dd5210e9a
+ADDED scripts/interfaces/inter_132.if 81f91360aef97a9f2db47ed1e8e55eaef56b629f3c5cee541a3b6a5c0cfed4ef
+ADDED scripts/interfaces/inter_133.if fb90e1691f2ef1100f67e986695e896d0d702e6a6a931ffad72a7f16408b51aa
+ADDED scripts/interfaces/inter_134.if e48ce543e52a7b0de67988f11bc539561805fe8ecb502f72bb0ca52657407012
+ADDED scripts/interfaces/inter_135.if 3c85a7f1b8d4395193abf0c7e377ea6645265fd1eb77715e239f13f15b85bd17
+ADDED scripts/interfaces/inter_136.if 59c4dd7918e8d27b965bab5ef763c3e2b41b4608db5434b49c058fb462055e4a
+ADDED scripts/interfaces/inter_137.if 41cd362e91e67f087de72144d50ad1cab38fb93acb55aff12405acfd14f56884
+ADDED scripts/interfaces/inter_138.if 54eb0f4984e16ecf6540cf44c0c9d7d2f55061e64a01b40ad869ff0876a63bf2
+ADDED scripts/interfaces/inter_139.if e5a01c71ce3def90c096b3c5ef5924d2a51ff62eb622ca7539943bc17775079e
+ADDED scripts/interfaces/inter_14.if 05a4c22e6a94deab17823eb85c7f51c8a8a5ddd634cbeab7b41be32d48b4abcf
+ADDED scripts/interfaces/inter_140.if 9eb0c634b23a80bc879c00d75949e9b06bfc1c8e3ba7a700620ed7efbe99aa31
+ADDED scripts/interfaces/inter_141.if a0fa8ff127c0290944b9fb883fd5cbf89130146cfb6b4ca85e7b657ab35d9694
+ADDED scripts/interfaces/inter_142.if a45a607d87a825ed1fe2dd30b9b81f89effb2e0657776ac35ecd57d59bc8b9f4
+ADDED scripts/interfaces/inter_143.if 1292507938d13ed1cde98c4ca7d95b367b6d2defb5cd9bda942b7095b41e968a
+ADDED scripts/interfaces/inter_144.if c2e907129890e4f53112506bfc6e61d22839f4779ad0950d598fc59cd7146024
+ADDED scripts/interfaces/inter_145.if 944922eb7353c11a8a2752a92bd728a1e1b6f8c2bb13cc603022357ef15d4648
+ADDED scripts/interfaces/inter_146.if 0be1219643d5586ad3f65e35d0bc65381c3227cf72d66f250bbd70be6b635b85
+ADDED scripts/interfaces/inter_147.if 5ff79fc1fa4e3935d2434a40f035cd5b85d413950a3cd272f492280935048409
+ADDED scripts/interfaces/inter_148.if 99a66432da5aa339039aee1c91196ea27ae5fd0ac6809631c3564c4d4b39e381
+ADDED scripts/interfaces/inter_149.if f0816f63cabd8ff1c82ecd3ad27625861e735b8ef332d0641d251c92767fa18e
+ADDED scripts/interfaces/inter_15.if cb08301f29b7ef91385a43a9510e984ec1110181718ccd885d71e64fa3f901e0
+ADDED scripts/interfaces/inter_150.if 59da99cc18327437a5f7a39d0abd43285dba71c6807974efd5ae93cebc0b05a3
+ADDED scripts/interfaces/inter_151.if 34375d851f74d38ae8f532dbfa50111600c48b7c485413450c74c876eec1028a
+ADDED scripts/interfaces/inter_152.if 4ed444c658dde5344c9a6a0b40e68e117802713afaecb3d19b60a034499fd807
+ADDED scripts/interfaces/inter_153.if cec9fa69ca5679b2de1b4a9b8e2722eb64d019af3eb6436c21ff95b634ab735a
+ADDED scripts/interfaces/inter_154.if 5984f697618caff0b618416200bd0115372d3d8588b50539b429027d2a02f8ff
+ADDED scripts/interfaces/inter_155.if 9421bb6fcdf1c4ead8ba8ca4289c62eda9d4ec626c2425426f7bb632eeb02698
+ADDED scripts/interfaces/inter_156.if 24e8914e7da90ae42a69d4d970673a3dc4ee502bf37f57f8888e27155beccc19
+ADDED scripts/interfaces/inter_157.if 85e1ccfae179a13c221afbfc7033f2b9295799e73c8306d66d6f2eb3fb4b8c60
+ADDED scripts/interfaces/inter_158.if d8abc81a18ba8d94eb9bac9fd5c395a683312d46f9c790425c5784156235e60c
+ADDED scripts/interfaces/inter_159.if 57c282ead3a3ac5c34924bc069e3f46b9ce446ca944f5a15e16e569626cc52bd
+ADDED scripts/interfaces/inter_16.if 76068fbb216fb0d609581c3b01170647d9e6ebd689c4cef52ca096b522c2f11b
+ADDED scripts/interfaces/inter_160.if 18c2df35742dd79602adb42665db0d7900278901b9463d8e22ee790ecea31064
+ADDED scripts/interfaces/inter_161.if 72929015facc6710657c4320429794dab494ffb5ec9fc5efb8f05bb45ad83335
+ADDED scripts/interfaces/inter_162.if 1544404d47c41cfad9252d6c11f5760f78ada735e33773d0d0fcf6ee7f8d19a6
+ADDED scripts/interfaces/inter_163.if efea9ff5bbfece9b552c15904dc6a3fc986aa83a648d98f297ffc19de5ce19a3
+ADDED scripts/interfaces/inter_164.if 3de76e9abdff4e872549407aaeb0ddd65548c95cc6e577ebdccca98ee5cc4151
+ADDED scripts/interfaces/inter_165.if cb5f1a27e37a13ac6aff219f45d6a1e1ddd7aaa42a18f052a7fb0720a4732cad
+ADDED scripts/interfaces/inter_166.if e61dca00b2c4aecde0a9351a42106b012c0f832dd5a11bbac78b4fb95db9d515
+ADDED scripts/interfaces/inter_168.if df81da2d50746abb72936d440fb59c0c9443f8d81fe096b8daffc8c8e1cea2d9
+ADDED scripts/interfaces/inter_169.if bf413ce9b300406cea26e6dbfaa7663ccd269c8b84eba8a8d3f211799b773e91
+ADDED scripts/interfaces/inter_17.if 728216f5bf205a035c69c2ed522bc20791d3990e7479182b46fb2c289f26ef50
+ADDED scripts/interfaces/inter_170.if f867111dba23d1230ae87e970f97786c9079cff53176cff994f75bf0499bea6a
+ADDED scripts/interfaces/inter_171.if 1766e4930c909aed3252dc7d4d98433c637faef1a9730f3cfbcd175ca8ee6b69
+ADDED scripts/interfaces/inter_172.if 9f35379a8d881d6e0c6499225e335afb4021c597bac28f06f08cce7bc09b36ee
+ADDED scripts/interfaces/inter_173.if 701e4f702f1be27eec49084a490cc4b26b79e39ccd7eb22260a2720bf1c94fca
+ADDED scripts/interfaces/inter_174.if 9889c9adf529478a20656255d075f54bc45eaca2a88c11a71fb5815d8d9b56f4
+ADDED scripts/interfaces/inter_18.if e6e0fbce29ecfe52a929cd76e3a76b906f1deed0c1322f1855d24c5451926e33
+ADDED scripts/interfaces/inter_186.if 454cb126b3c876c46794303ff7593586fcfb3e89356cea99dae6765d74176364
+ADDED scripts/interfaces/inter_187.if a218812fe87a8db20cba6a158206b83771a94c33da66712f278f34d399e03ea4
+ADDED scripts/interfaces/inter_189.if 01823705b115bdb81e9927ea6f2972313bf95f8fc4d0acf0b845e903ce952b04
+ADDED scripts/interfaces/inter_19.if ef57e1c08e192d9cafb81eb2ef1cd1a8b61bba429dacce2e70d1c5d4a5608e2f
+ADDED scripts/interfaces/inter_190.if 4bcf61c38c6c6102687a857b864fd7abbc3d34ddef60cdff4ddf8013f46a41da
+ADDED scripts/interfaces/inter_191.if fd8364fd14826f7153ea3f99e301ba9425f686fced36bc3ec46a93d0b7656e5c
+ADDED scripts/interfaces/inter_192.if fdc81313d3ad445a366178f25a9863daf388eac272dda97ab74ad23a21778788
+ADDED scripts/interfaces/inter_193.if 28579182b95f4a5a60404ab5fef2f226bbc454c76625016d759d602fa5969b76
+ADDED scripts/interfaces/inter_194.if 4bf18860502e85f585e96969a2cd15aee1f51630270b84490d9d294727a22e88
+ADDED scripts/interfaces/inter_195.if d408767cae857e6ce493579818e4498efa3340c9c34d1bc5eba98541618000cb
+ADDED scripts/interfaces/inter_196.if 759e72799e38d515f8704d68ca1297bed834dbc3a78b1c7037e07f7bbce02244
+ADDED scripts/interfaces/inter_2.if a9558c078ac89c72975e1e574b926ad3000e8a2c3974b4c6ec04bea0ac757090
+ADDED scripts/interfaces/inter_20.if f70f9975576a7b001e12ea6e8a574b5a7e18ce2f231bf9f1257472804c6e5765
+ADDED scripts/interfaces/inter_21.if 60582d1977b496c4a4713af4eee4031c9f6b00d77406adc10c74e27c9d8274bb
+ADDED scripts/interfaces/inter_22.if 98f674de737ba5a0d11478ce8ebb33a7164adcff4e25875517a45e9e8edcaa8d
+ADDED scripts/interfaces/inter_23.if 9bd7e4919d4ff387fb2324b05924a94c0e65e6bc28928324d0fc0bff821f311b
+ADDED scripts/interfaces/inter_24.if 793519663f5c2edcf05733bbc151deed9fa74a1c56e85cfab0cd1c50278f38a8
+ADDED scripts/interfaces/inter_25.if 0fa96d808fae48329067c0d5f6e135d7531b58b30da3421710eaf289847eb2ac
+ADDED scripts/interfaces/inter_26.if a4392e7cdee5bbde73362bb622d8531e96376fffdfff5e937d1e9958f574d158
+ADDED scripts/interfaces/inter_27.if b43c48a1a6a24707b61059dfa50a1843064dfabfc5128302d752cf6636dec93b
+ADDED scripts/interfaces/inter_28.if 50edd837263d13bb056dae4e1e46066c07d0853129bfd08fb3d3ae7ec023d93d
+ADDED scripts/interfaces/inter_29.if bb77e485577057e3ea631473637a859352db1cc6ec90b812ff51db13f848fc00
+ADDED scripts/interfaces/inter_3.if 265d290717fc2534d091d316c2cc58c969c81fa4e8e5e7cc46392d6b800e8c95
+ADDED scripts/interfaces/inter_30.if 96b956ede5b5a55f7beb424b745d32cb4589fdea955d7313486153804498a5ea
+ADDED scripts/interfaces/inter_31.if a27f171a7873e3d5ee257ed42873baa51ec2ab90fc923fa696d57dae72023eb5
+ADDED scripts/interfaces/inter_32.if 958887ec81917b1695ad9ecf4a2c98c0cdaedfd7db747c7c239a2f735dbe7727
+ADDED scripts/interfaces/inter_33.if dfbcc381e5183a7da9314561e6babaa22f0a610897ecb97b9073957d49745fa1
+ADDED scripts/interfaces/inter_34.if 7b9d2602fd47e06cbe6cfd2691fe75c2ae61cf4f8461d6b7bcbb7927bf0ca513
+ADDED scripts/interfaces/inter_35.if a6df4c7c1e2e0d414963a7bcea2a21c6497eea2d136042776f3435ed5a5a8f32
+ADDED scripts/interfaces/inter_36.if bd6588596021703fe237d8cb023774adb6d4164e7b978eed3978514afb78d4fe
+ADDED scripts/interfaces/inter_37.if c76fd5284b8c43971d8c8f3219703dc1d65499ed79128501592ac71457e3a290
+ADDED scripts/interfaces/inter_38.if 49806d82bd9ea3e50f9ef1693af7381476f1f481450ed9e8d70bb37023f6b033
+ADDED scripts/interfaces/inter_39.if ca230486216b155b7f795f93c860be49f10a819857056bdf541ba8e8bdf9914b
+ADDED scripts/interfaces/inter_4.if 50849666ae4d10cea2396ca0b4c65a815f5429989fef1a330f63c6b60f4a40d5
+ADDED scripts/interfaces/inter_40.if 4ffb6e4c6db70204f39204e3767bc668be2503f800565bcfeae07bc326ba59d9
+ADDED scripts/interfaces/inter_41.if 315213d5354982647314dd7201181fcba86fbec29447c049f4eaf57abe9967eb
+ADDED scripts/interfaces/inter_42.if f43e5fac63b74f6e0ffdacc64ded4d2f2b180ed36963ecb52428fca4ce96d2c8
+ADDED scripts/interfaces/inter_43.if 5eeeb7686b8fb3952365a5f3cd67c6d4e23fc5df9b23f025b6e186047272970c
+ADDED scripts/interfaces/inter_44.if 5f5853a0d9eb1415d6ada889a647136d3c1af064f9693871149fa96d7b76d5f7
+ADDED scripts/interfaces/inter_45.if 43e2fdd65f38d5d6dcbf30a14b473621626a0e61e4e85651f8b5299ae936db62
+ADDED scripts/interfaces/inter_46.if 0c64890cb398fba458f94d028a8d6cb1396b2b471b37ba64d4c2c4d0972c3178
+ADDED scripts/interfaces/inter_47.if 6c172568236f7fe5bcb15e71912d2f1fc7ce00503196cc330c7c5ce465ee4d3b
+ADDED scripts/interfaces/inter_48.if 0e1a9e5716e47911ccb86c9f1d9ac260d4330e113f7880ca570ffc04303947b9
+ADDED scripts/interfaces/inter_49.if 78623069f76e316388ddc42ca522afbb8767f226f60b405bfa75f00c9dd6968e
+ADDED scripts/interfaces/inter_5.if 8924f7c90d70fa6a875bbab0c386d77351c1e431e2dbb991cf77cae79c37c2af
+ADDED scripts/interfaces/inter_50.if 86110c9d66b3011178faf1fb57445a1ce610692c216fcc54a51e0ead6660b71e
+ADDED scripts/interfaces/inter_51.if 772e22148f7c7398518a6e022fd87e0fea3aa44d69c7a5a25b8f06805b92766c
+ADDED scripts/interfaces/inter_52.if d34218c7ba7fb29f9b8a11d02d75b32a26f2f106dfaac179c20f1ec326adf3fc
+ADDED scripts/interfaces/inter_53.if 3355aad9dba526f34f998acb110ed293cf714bef04afacd42208aa275f868a60
+ADDED scripts/interfaces/inter_54.if 69ecf68c15f9745ccf0217961d7cf04df635c48646e3b3603029629b58e12866
+ADDED scripts/interfaces/inter_55.if 4299d576bf023f463a1485168d6f0bcdcc0148e6bbe02cabba284b93c587d887
+ADDED scripts/interfaces/inter_56.if cc05ff6e4e48dd502239f0a105ba04517b8e1d0331bb6e2a899535c73081d100
+ADDED scripts/interfaces/inter_57.if 9d59d892de242a6bf95de5496830df7d5392963b5517e5dd96fb2102756de730
+ADDED scripts/interfaces/inter_58.if 04ca92b42da8362bc33fdd0107911b70e147848326d5133ff15a7fa91cf90c4e
+ADDED scripts/interfaces/inter_59.if 1544404d47c41cfad9252d6c11f5760f78ada735e33773d0d0fcf6ee7f8d19a6
+ADDED scripts/interfaces/inter_6.if 5cd672f4cae8dca7c4384d13a8d2df096cac11d269a3097798d9470809df308b
+ADDED scripts/interfaces/inter_60.if efea9ff5bbfece9b552c15904dc6a3fc986aa83a648d98f297ffc19de5ce19a3
+ADDED scripts/interfaces/inter_61.if d33040170cf1def876251814de05642828b91fc63a140aeb816fcbe3923a27a3
+ADDED scripts/interfaces/inter_62.if c3982f82fb710a59924760a60e802223b899097619e62dc10641f6654864e9f2
+ADDED scripts/interfaces/inter_63.if d7d44a7db8634b88205eedd5268224042198c48d0cc74147e8f90bd9a6935344
+ADDED scripts/interfaces/inter_64.if b69edf802a11eb083c4e60826b1722abd32bcfa9d0f1c5d73c3085d01f8932d8
+ADDED scripts/interfaces/inter_65.if deffae5e01b1d75dabea5d1d5a9e14f5275532535e4ca8dc9f11b75dff66661e
+ADDED scripts/interfaces/inter_66.if 3c00dc664ed9420311180aeec9435dc7930f736b2e3911c0300df66c5a413ad3
+ADDED scripts/interfaces/inter_67.if 92448e427d554b8003c9cd0adc937dd8ed2d3165fa2ea891ff7f05ae13f6f0eb
+ADDED scripts/interfaces/inter_68.if e64243aab0072ef1ef27b6bcbfed57130a7465b7c93b798be4e66b06c9300432
+ADDED scripts/interfaces/inter_69.if e75bd391cf76edff8ac3aa5bfd8451a4f720c2d04fd252c99274934e84d171fd
+ADDED scripts/interfaces/inter_7.if 3b13f72f98137d6cd0a2f393b4e2cf0242e79d7d8a02d5821f959a3a9ea650a1
+ADDED scripts/interfaces/inter_70.if b08cc20de5c051a6041a9fad7cad01320cf2237053e7b3506fc83e66c49edb15
+ADDED scripts/interfaces/inter_71.if 067070c335b335833c9e9ba2e3748265710b10628103708e85666b01f4ad5698
+ADDED scripts/interfaces/inter_72.if 94dcafc0e666ee30e516f39e2070363d2a3583d3feda29a147a2794c14124ff6
+ADDED scripts/interfaces/inter_73.if 6c8cde55758dedb1e2441cf863cb56a21a097587edd804150742b2a4dbb07ffc
+ADDED scripts/interfaces/inter_74.if 8854c28c9905689c852f302e91288f7eb2774ea3ce0342db48fdb41920ec2e05
+ADDED scripts/interfaces/inter_75.if 69b05e9e514c7c78e9edeb4f8568e59339a61661eaa69b60cd5db4bd0d918d31
+ADDED scripts/interfaces/inter_76.if 0630e6a88227c62bdeb57094cf0a97d7a89e155e2367a4e2ed05c380ca717a58
+ADDED scripts/interfaces/inter_77.if 091b95882d2b0b107280d2db19356c7fc9bcba2c8b537909a6d006442d721761
+ADDED scripts/interfaces/inter_78.if 1d8eb331ca0e478d9fa1767ebbe1fd58721b63baef2501c0dd39b87fe5664d4b
+ADDED scripts/interfaces/inter_79.if 00483db2fc0f715fd2781bdf4ca5b5b0e311137fd07d129583c0c002c6a4a757
+ADDED scripts/interfaces/inter_8.if 04486dc8f01db3dae5d29f7af952aa80528239c9420d1baf51a267251aaf8c8e
+ADDED scripts/interfaces/inter_80.if 785cc6db0e474cc49c6eaf2b4b331a0be92b67b453227ee5afd0042cca1c42a0
+ADDED scripts/interfaces/inter_81.if 76793168e3ed47ad84b128e78e152d999ae5c49f81666ec9220debb319456f9d
+ADDED scripts/interfaces/inter_82.if 90558c61efd53cdca55c8e9f145007fb041f0a3d8674805e2bb86b21c07b63ca
+ADDED scripts/interfaces/inter_83.if f96f9a169eeb3dcd5cbacc6c3a6c46d03a8b018def8c07212f4f7618113088d8
+ADDED scripts/interfaces/inter_84.if 5cc3735c5244fd11ce889096327ca256f65b2430903378fde130d8601544da8d
+ADDED scripts/interfaces/inter_85.if 815b3d73630795fba20231036f1013beda90539a84a9237ecd7b8a7cbf516c40
+ADDED scripts/interfaces/inter_87.if 5c6129e57eaf8c461f73cc6d73eed58ab0381b8c8bc6914ec970d5dc8a0d1bcc
+ADDED scripts/interfaces/inter_88.if aaa43784612b505cfc65ed677cb4c9569e7b92003a01dbcf3192a58cf3d95b72
+ADDED scripts/interfaces/inter_89.if 0c0e3c21a9885998dbd48fdc46de923463017ae16168c71b8eb3ceeaffd25791
+ADDED scripts/interfaces/inter_9.if f64904a138a469fe70214246ee4b1baf9e48b7d91e34f3887bce736a18b9eea5
+ADDED scripts/interfaces/inter_90.if a12d4971b9a842103fc1293f63acb2c57b212e30780d7176d53e9b5692fa4560
+ADDED scripts/interfaces/inter_91.if 5f02cc68a75cb9cd0caae2ea0f320596abdf6fa5693b48f3622812bef3e742a8
+ADDED scripts/interfaces/inter_92.if 9ebcf8dd3c260c075e28fa6d9ef59513ef2e7eb0278b26272921e25eda8a53c5
+ADDED scripts/interfaces/inter_93.if 68b74bf2a8ff6fab7c82d69e80f6c98bd5a7f41296b87d1660dc2e5246991f5f
+ADDED scripts/interfaces/inter_94.if e4d4100bbf8e77249963b556cc95bf56985642a88c8974b0fabb93e41eae1e80
+ADDED scripts/interfaces/inter_95.if d029c029c4e60a35a506e023d8e2216213f70179011c863fdf1e817a8e9f9f02
+ADDED scripts/interfaces/inter_96.if 44539c3071a17d80d65df8cc53283cff924c4c3e0f121b8faaf5617d364908c6
+ADDED scripts/interfaces/inter_97.if b47073d8e0c1fa6a8b1044febf8492e31dcb16e5884e9a633e34de6b78a90b05
+ADDED scripts/interfaces/inter_98.if 35d06633f732ceb5a36014e3258408c79f7c7ec7fa433c4e62a1a9c5964a112c
+ADDED scripts/interfaces/inter_99.if 786289e75df2f0b2cb82b09d0c65a8fde105280bbe7ffc8eda74cd9a1d7c85f9
+MODIFIED pack/interface.pack 8935b95ee7a63b79acc64339e5eeafada0511fd347efcbad435d299e27d0d6bd
+MODIFIED pack/model.pack 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+MODIFIED scripts/interfaces/inter_167.if 254617cd6f1ef5add86b5ef63aa2561a14cee5e633751dc1786a20b9f1daf67d
+MODIFIED scripts/interfaces/inter_185.if 91d849e9be0951b9e78de1327654cca735b74be35f9736aaa2f0fa44d47e3c65
+MODIFIED scripts/interfaces/inter_188.if dc9686232370bad54279a5b3203269c8c72a9fcf0ed89f924c5e72aec38e9021
+MODIFIED scripts/minigames/game_trail/interfaces/inter_175.if 5db9b4291a1f3bb7fe531dbb3ec9169c40892be9712b090fcdfe8cb2d928f142
+MODIFIED scripts/minigames/game_trail/interfaces/inter_176.if 8b220807baf07cafd6e45e44c72c9f69d966435ce2a0041f68c5923fa1ecabb7
+MODIFIED scripts/minigames/game_trail/interfaces/inter_177.if 1415134f1a2883f3a715f62dbbd1e9d60a0073ade7abc88671b00bf2385967b8
+MODIFIED scripts/minigames/game_trail/interfaces/inter_178.if e77f38238c0b4473e0960a56fb7b6d6aeeeadd510517f45c657a91b5129d0aa8
+MODIFIED scripts/minigames/game_trail/interfaces/inter_179.if 84408cf07a605ba2819acf0c8fd09af93cbe2f11c2eb219748373e413143eef5
+MODIFIED scripts/minigames/game_trail/interfaces/inter_180.if cc08d677c948fa3616388c174033a2e8a1358d59df6fae2d713ad772fdc364b4
+MODIFIED scripts/minigames/game_trail/interfaces/inter_181.if 3ea1acaa3825a76f82fbfcae2dcadadab5c3f9ca99200e357f7484df39562598
+MODIFIED scripts/minigames/game_trail/interfaces/inter_182.if 2db3a7b620bbd68bcb63472525930699070446ce9fd8b51df5b053c5c45d52f7
+MODIFIED scripts/minigames/game_trail/interfaces/inter_183.if 58b1a9646e42ac31cfe9de90e6056667312f5b4bddf4f6de6f6dc40f5ac68b7e
+MODIFIED scripts/minigames/game_trail/interfaces/inter_184.if b2eec3879184c8ad153c32930fa21741680e9e6f932fe2d52dabeb811123a4de
+MODIFIED scripts/minigames/game_trail/interfaces/inter_86.if 47d8da4e5c88aad866f9980c5f0806797965bc31d5c50ab656cb48137a0a4785
+MODIFIED scripts/quests/interfaces/inter_102.if cf7e49cb60fb08f6bb1aaa83c1ca16cffa0260b1d70346f7f483d1364a4a5143
+WROTE pack/interface.order
+WROTE pack/interface.pack
+WROTE pack/model.pack
+WROTE scripts/interfaces/inter_0.if
+WROTE scripts/interfaces/inter_1.if
+WROTE scripts/interfaces/inter_10.if
+WROTE scripts/interfaces/inter_100.if
+WROTE scripts/interfaces/inter_101.if
+WROTE scripts/interfaces/inter_103.if
+WROTE scripts/interfaces/inter_104.if
+WROTE scripts/interfaces/inter_105.if
+WROTE scripts/interfaces/inter_106.if
+WROTE scripts/interfaces/inter_107.if
+WROTE scripts/interfaces/inter_108.if
+WROTE scripts/interfaces/inter_109.if
+WROTE scripts/interfaces/inter_11.if
+WROTE scripts/interfaces/inter_110.if
+WROTE scripts/interfaces/inter_111.if
+WROTE scripts/interfaces/inter_112.if
+WROTE scripts/interfaces/inter_113.if
+WROTE scripts/interfaces/inter_114.if
+WROTE scripts/interfaces/inter_115.if
+WROTE scripts/interfaces/inter_116.if
+WROTE scripts/interfaces/inter_117.if
+WROTE scripts/interfaces/inter_118.if
+WROTE scripts/interfaces/inter_119.if
+WROTE scripts/interfaces/inter_12.if
+WROTE scripts/interfaces/inter_120.if
+WROTE scripts/interfaces/inter_121.if
+WROTE scripts/interfaces/inter_122.if
+WROTE scripts/interfaces/inter_123.if
+WROTE scripts/interfaces/inter_124.if
+WROTE scripts/interfaces/inter_125.if
+WROTE scripts/interfaces/inter_126.if
+WROTE scripts/interfaces/inter_127.if
+WROTE scripts/interfaces/inter_128.if
+WROTE scripts/interfaces/inter_129.if
+WROTE scripts/interfaces/inter_13.if
+WROTE scripts/interfaces/inter_130.if
+WROTE scripts/interfaces/inter_131.if
+WROTE scripts/interfaces/inter_132.if
+WROTE scripts/interfaces/inter_133.if
+WROTE scripts/interfaces/inter_134.if
+WROTE scripts/interfaces/inter_135.if
+WROTE scripts/interfaces/inter_136.if
+WROTE scripts/interfaces/inter_137.if
+WROTE scripts/interfaces/inter_138.if
+WROTE scripts/interfaces/inter_139.if
+WROTE scripts/interfaces/inter_14.if
+WROTE scripts/interfaces/inter_140.if
+WROTE scripts/interfaces/inter_141.if
+WROTE scripts/interfaces/inter_142.if
+WROTE scripts/interfaces/inter_143.if
+WROTE scripts/interfaces/inter_144.if
+WROTE scripts/interfaces/inter_145.if
+WROTE scripts/interfaces/inter_146.if
+WROTE scripts/interfaces/inter_147.if
+WROTE scripts/interfaces/inter_148.if
+WROTE scripts/interfaces/inter_149.if
+WROTE scripts/interfaces/inter_15.if
+WROTE scripts/interfaces/inter_150.if
+WROTE scripts/interfaces/inter_151.if
+WROTE scripts/interfaces/inter_152.if
+WROTE scripts/interfaces/inter_153.if
+WROTE scripts/interfaces/inter_154.if
+WROTE scripts/interfaces/inter_155.if
+WROTE scripts/interfaces/inter_156.if
+WROTE scripts/interfaces/inter_157.if
+WROTE scripts/interfaces/inter_158.if
+WROTE scripts/interfaces/inter_159.if
+WROTE scripts/interfaces/inter_16.if
+WROTE scripts/interfaces/inter_160.if
+WROTE scripts/interfaces/inter_161.if
+WROTE scripts/interfaces/inter_162.if
+WROTE scripts/interfaces/inter_163.if
+WROTE scripts/interfaces/inter_164.if
+WROTE scripts/interfaces/inter_165.if
+WROTE scripts/interfaces/inter_166.if
+WROTE scripts/interfaces/inter_167.if
+WROTE scripts/interfaces/inter_168.if
+WROTE scripts/interfaces/inter_169.if
+WROTE scripts/interfaces/inter_17.if
+WROTE scripts/interfaces/inter_170.if
+WROTE scripts/interfaces/inter_171.if
+WROTE scripts/interfaces/inter_172.if
+WROTE scripts/interfaces/inter_173.if
+WROTE scripts/interfaces/inter_174.if
+WROTE scripts/interfaces/inter_18.if
+WROTE scripts/interfaces/inter_185.if
+WROTE scripts/interfaces/inter_186.if
+WROTE scripts/interfaces/inter_187.if
+WROTE scripts/interfaces/inter_188.if
+WROTE scripts/interfaces/inter_189.if
+WROTE scripts/interfaces/inter_19.if
+WROTE scripts/interfaces/inter_190.if
+WROTE scripts/interfaces/inter_191.if
+WROTE scripts/interfaces/inter_192.if
+WROTE scripts/interfaces/inter_193.if
+WROTE scripts/interfaces/inter_194.if
+WROTE scripts/interfaces/inter_195.if
+WROTE scripts/interfaces/inter_196.if
+WROTE scripts/interfaces/inter_2.if
+WROTE scripts/interfaces/inter_20.if
+WROTE scripts/interfaces/inter_21.if
+WROTE scripts/interfaces/inter_22.if
+WROTE scripts/interfaces/inter_23.if
+WROTE scripts/interfaces/inter_24.if
+WROTE scripts/interfaces/inter_25.if
+WROTE scripts/interfaces/inter_26.if
+WROTE scripts/interfaces/inter_27.if
+WROTE scripts/interfaces/inter_28.if
+WROTE scripts/interfaces/inter_29.if
+WROTE scripts/interfaces/inter_3.if
+WROTE scripts/interfaces/inter_30.if
+WROTE scripts/interfaces/inter_31.if
+WROTE scripts/interfaces/inter_32.if
+WROTE scripts/interfaces/inter_33.if
+WROTE scripts/interfaces/inter_34.if
+WROTE scripts/interfaces/inter_35.if
+WROTE scripts/interfaces/inter_36.if
+WROTE scripts/interfaces/inter_37.if
+WROTE scripts/interfaces/inter_38.if
+WROTE scripts/interfaces/inter_39.if
+WROTE scripts/interfaces/inter_4.if
+WROTE scripts/interfaces/inter_40.if
+WROTE scripts/interfaces/inter_41.if
+WROTE scripts/interfaces/inter_42.if
+WROTE scripts/interfaces/inter_43.if
+WROTE scripts/interfaces/inter_44.if
+WROTE scripts/interfaces/inter_45.if
+WROTE scripts/interfaces/inter_46.if
+WROTE scripts/interfaces/inter_47.if
+WROTE scripts/interfaces/inter_48.if
+WROTE scripts/interfaces/inter_49.if
+WROTE scripts/interfaces/inter_5.if
+WROTE scripts/interfaces/inter_50.if
+WROTE scripts/interfaces/inter_51.if
+WROTE scripts/interfaces/inter_52.if
+WROTE scripts/interfaces/inter_53.if
+WROTE scripts/interfaces/inter_54.if
+WROTE scripts/interfaces/inter_55.if
+WROTE scripts/interfaces/inter_56.if
+WROTE scripts/interfaces/inter_57.if
+WROTE scripts/interfaces/inter_58.if
+WROTE scripts/interfaces/inter_59.if
+WROTE scripts/interfaces/inter_6.if
+WROTE scripts/interfaces/inter_60.if
+WROTE scripts/interfaces/inter_61.if
+WROTE scripts/interfaces/inter_62.if
+WROTE scripts/interfaces/inter_63.if
+WROTE scripts/interfaces/inter_64.if
+WROTE scripts/interfaces/inter_65.if
+WROTE scripts/interfaces/inter_66.if
+WROTE scripts/interfaces/inter_67.if
+WROTE scripts/interfaces/inter_68.if
+WROTE scripts/interfaces/inter_69.if
+WROTE scripts/interfaces/inter_7.if
+WROTE scripts/interfaces/inter_70.if
+WROTE scripts/interfaces/inter_71.if
+WROTE scripts/interfaces/inter_72.if
+WROTE scripts/interfaces/inter_73.if
+WROTE scripts/interfaces/inter_74.if
+WROTE scripts/interfaces/inter_75.if
+WROTE scripts/interfaces/inter_76.if
+WROTE scripts/interfaces/inter_77.if
+WROTE scripts/interfaces/inter_78.if
+WROTE scripts/interfaces/inter_79.if
+WROTE scripts/interfaces/inter_8.if
+WROTE scripts/interfaces/inter_80.if
+WROTE scripts/interfaces/inter_81.if
+WROTE scripts/interfaces/inter_82.if
+WROTE scripts/interfaces/inter_83.if
+WROTE scripts/interfaces/inter_84.if
+WROTE scripts/interfaces/inter_85.if
+WROTE scripts/interfaces/inter_87.if
+WROTE scripts/interfaces/inter_88.if
+WROTE scripts/interfaces/inter_89.if
+WROTE scripts/interfaces/inter_9.if
+WROTE scripts/interfaces/inter_90.if
+WROTE scripts/interfaces/inter_91.if
+WROTE scripts/interfaces/inter_92.if
+WROTE scripts/interfaces/inter_93.if
+WROTE scripts/interfaces/inter_94.if
+WROTE scripts/interfaces/inter_95.if
+WROTE scripts/interfaces/inter_96.if
+WROTE scripts/interfaces/inter_97.if
+WROTE scripts/interfaces/inter_98.if
+WROTE scripts/interfaces/inter_99.if
+WROTE scripts/minigames/game_trail/interfaces/inter_175.if
+WROTE scripts/minigames/game_trail/interfaces/inter_176.if
+WROTE scripts/minigames/game_trail/interfaces/inter_177.if
+WROTE scripts/minigames/game_trail/interfaces/inter_178.if
+WROTE scripts/minigames/game_trail/interfaces/inter_179.if
+WROTE scripts/minigames/game_trail/interfaces/inter_180.if
+WROTE scripts/minigames/game_trail/interfaces/inter_181.if
+WROTE scripts/minigames/game_trail/interfaces/inter_182.if
+WROTE scripts/minigames/game_trail/interfaces/inter_183.if
+WROTE scripts/minigames/game_trail/interfaces/inter_184.if
+WROTE scripts/minigames/game_trail/interfaces/inter_86.if
+WROTE scripts/quests/interfaces/inter_102.if
+STDOUT-NORM e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

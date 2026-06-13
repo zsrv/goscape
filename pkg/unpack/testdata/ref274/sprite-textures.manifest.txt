@@ -1,0 +1,145 @@
+# rev-274 TS-reference unpack changed-set manifest - family: sprite-textures
+# Engine-TS pin dee467c8 + Content pin 7f97b0a5; inputs: the rev-274
+# reference-pack client cache (Server274-ref/engine/data/pack
+# main_file_cache.dat/idx0-4) + the pin-generated mapview/worldmap.jag
+# (maps/ignore.csv exists at the 274 Content pin — vanilla worldmap path).
+# config family ran with the scratch engine's data/pack moved aside (plain
+# emission path, not the merge-compare path). Toolchain: Node 24 (local tsx),
+# NOT bun (the 274 runtime swap); the source dir is set via world.json
+# build.srcDir (process.env BUILD_SRC_DIR is no longer read at 274). Procedure:
+# rev-244 B7 plan Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md),
+# re-run at the 274 pins per the rev-274 plan Task 24.
+# Generated 2026-06-13. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
+# (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
+# prefix = cache dir; PackFile module-load registry rewrites subtracted;
+# renameSync moves preserve mtime so renames appear in ADDED/DELETED only);
+# STDOUT-NORM = sha256 of stdout with per-line 'M/D/YYYY H:MM:SS AM\t LEVEL\t '
+# TS-Logger prefixes stripped.
+# pack/category.pack is ALSO subtracted from the changed-set — TS
+# validateCategoryPack (PackFile.ts @dee467c8) regenerates it at module load
+# whenever any .loc/.npc/.obj source is mtime-newer; module-load noise, not
+# unpack-family behavior (a no-op subtraction when the committed bytes match).
+ADDED textures/0.png 93acd26581263bac0df7e0c1eaf580f8b8f0e907f61ec3c4941db3643358a544
+ADDED textures/1.png ff2baeb19c6a5775453799e550d733f88907fd3ab20dba445db06bf9eae79db7
+ADDED textures/10.png d2963bab8cefa8262a560943ca72f3694742ce84101f2e82f65474d49fe3a75c
+ADDED textures/11.png cc53e825559634f584e6dda6446d7bdb88aa0529c957b44238de1793781350de
+ADDED textures/12.png ded7ef1f084d443d779ec7d870295b538c5553fda3acbb7f9c9494f21eb1ca17
+ADDED textures/13.png f04b0ba5d61ff5af0e5251a1ae88c100f8ac48c9a86f7cd98b5d8fa2e0dc141e
+ADDED textures/14.png 2a8e67ce8b05ba642f4d34a94d7469110cae365c1b3ebc8867498471de69b5bf
+ADDED textures/15.png 823f49b68f1fe6e1d3e34b1967e910231c278223f18e769d99a111f29e0906e7
+ADDED textures/16.png 949f47ddd2777b26b76ebf5b22cef17a12ff10c034eb0c0e12852f055d87b69c
+ADDED textures/17.png 2cb0544cdeb92c34c706d626a6308cb643963a40acdcbf3c4226660c54847231
+ADDED textures/18.png 757151df71446efa58539e1ee0b6affad5f0664d48ca8a8b13d7484937a9f6b0
+ADDED textures/19.png 6acd00fce4a8a26972b6c6286cda5ba6afcddb3451594d427ea26318576e4761
+ADDED textures/2.png c6c9e9501515d77a2ba0d822f7a6696826530dae828c6ced16ab13a904487f3a
+ADDED textures/20.png 25c1bda4499c4759cb4bda58674201f14bcf81965e351d0e78dc457a3b1e1ba8
+ADDED textures/21.png fefb10cc09612dd8517bd4f2394ee658b97e06711dd9ed1d3792ef01cd62ba13
+ADDED textures/22.png b288acaa43e1a9ee26deb23c25605e7e9b53d4abcc9e266e492e9c6614d2047d
+ADDED textures/23.png 0ad2f71390858d2913d60bbba361f5550fa17553276c5b742d5d1476bed2cef8
+ADDED textures/24.png ff2baeb19c6a5775453799e550d733f88907fd3ab20dba445db06bf9eae79db7
+ADDED textures/25.png aa308ec0cfc74e2845727508e5480cbccaca77f576df6a70024c51d89fd3c1c1
+ADDED textures/26.png 33e9d2816da46e80711b7cfed038521ed2957d2f4325191217631ce2ad5ba55f
+ADDED textures/27.png c105b7378b6d3989ca4b02d6d4b0626ea77c7e70d6460de834fabd717cfc469d
+ADDED textures/28.png fd78cf9e458a168eecd7d7c5369881718606b78b6cca24ab9e89ffbdbb775c6f
+ADDED textures/29.png 6b9f1aca37287191544d36673e8fd2a7740d09633a8b83ea610532e86d8dc016
+ADDED textures/3.png b49bfdcfe33833c833b477100612aa48265c5b98ebf519c1791f8a1385029a2e
+ADDED textures/30.png 7656ad172eb1aca65e5611a8b6a87d24eb16fe96444de3e7bd6a597c3e828fe0
+ADDED textures/31.png 72d3ef2bf272fb7ea77e801926c402b29ef21ca96a5960801da5f0a8d1c4562e
+ADDED textures/32.png cb4a2f4a35f5c31439b3a9814e3cc78348d63c3edf11aa139c7c18f75e6189e4
+ADDED textures/33.png 8d312888cee97e3456309fd1be03fbf5a127db579a55fdb934a4a8a27afaf2f8
+ADDED textures/34.png 0ccc42a45c69deb54f5c4b85c7cc07bcfe16ef2ffb1a30b1ab9cc1ff1fc423c4
+ADDED textures/35.png 588b6a59b10142d91ab3cebb8c48e8260d414f34f843a075709da2d2fec45c2d
+ADDED textures/36.png ca042974a9f1c385220f5bb3b06cabd3e2ccc075ac465459476729fcebb02f84
+ADDED textures/37.png 3ba687342b6a88d3360916bfe8bdd754cc4baa3683037437504bc793c6064440
+ADDED textures/38.png 940f259e0568da3401d6f8dc7812189c019246167934891927c3e10406768c2c
+ADDED textures/39.png 11db13f0c9622d1831479a092e39d4fe6a4914c20c438a9e6fc380f066564227
+ADDED textures/4.png 862f428a975a8e58e0d4c10934a8edffb291dbba82d41f4f8e2365700e307dec
+ADDED textures/40.png 238e96db8e06159acd3eb80afd1e33c6754749ab8f201be31eab3ab88f8e3a8c
+ADDED textures/41.png 06e97a4af851f13912c01e9b3af8f03e8c654a67528074042ad916605920d18f
+ADDED textures/42.png 46a17f08c0e082dbe4d2f1a96c45ad93819c5b2dc6e9d13b11b4f523f615749b
+ADDED textures/43.png 061db1661172b1bb4738fb1cd29ba39c871850df63b60411ff4ebbfe35554d80
+ADDED textures/44.png 04b5a69a896a7ec252f130102e149735d1f49bdb4ef50e0aaca2a0f56c25f1b4
+ADDED textures/45.png 56fdcdadcd40f16c9f52980e79452271a36af3f9ccdb5a3e286df185677eade2
+ADDED textures/46.png 8229d2f61c82ff49170a6fe3f17fcd6ecb13201c0a8ff0a095ec3758c9d2f9b5
+ADDED textures/47.png b90da1e9e029f9b9d754a9f7d57168ac3ad98a118ba90acb38122a88a757808a
+ADDED textures/48.png 940501528ce3fbbb483f1efdd0bbf2504f0a4af7f7fb9ca54b5a67652efae914
+ADDED textures/49.png 54543605e231087e223f24dddcefa864b8c75b7fe82e3b24892ccb58b543f13f
+ADDED textures/5.png 79b04eedc9b2ed3735a9309d51671b23c2130565d83d9cd6b81f7634663eceb1
+ADDED textures/6.png 423dbf240fcc3f01b13512ad508f5810724f086bdbd7015eab76f03e9fd9d882
+ADDED textures/7.png 4e65860e701b151f4f75376640afbea973c1500a497c1e2c262576b50537ac69
+ADDED textures/8.png a954ea97ea659851b04519a305e46e288c34794ce2bbde1f0fcbd6122dd16fad
+ADDED textures/9.png 8ebbd96f493cb5b1525bafacec1d4d1427d69538d7c1f75e015c06b56a22461b
+ADDED textures/meta/17.opt 88e54498492626caca4831d8c7487a15fdd01ac85af5868c65a61d5dd22c2a78
+ADDED textures/meta/21.opt bc185703d6e4650cb2b345d7be91be701f31c8f4b943eb8ce4839589d35a7947
+ADDED textures/meta/28.opt 80983dd445dc24efd5e2b5dfe4f52eb41c5dc82843d0a7d1f271c7df7d9d8920
+ADDED textures/meta/29.opt 0a75d9b3477db2ad44798d9cd00cb1e601fb417896277c958655e2798e17fde8
+ADDED textures/meta/33.opt f90bd73a9abcde9cc65caf25a35c13d14fa4d67a7b65f7e8cadb586a129d2f41
+ADDED textures/meta/34.opt 2d912198757e364826ac3e10f5e8052321b54f21730d65cdb2fb34221a44be5d
+ADDED textures/meta/40.opt 419c154d76c325d8c207511dccda527d6e213103ddd0507f9b147feb3defe501
+ADDED textures/meta/41.opt dfac2fdca0cc480931e2267f51b715cb24f4f1c27aa05ed89b585f00a7201949
+ADDED textures/meta/42.opt 482708cb06f304dce4a75434d1adbb03e79a1897db0fb3f30efd5d32e969eaa9
+ADDED textures/meta/43.opt 61255ae11aec9823a2867513de2851bb8ce8e067984b0bf862ca6c5f7428d249
+ADDED textures/meta/8.opt d7ca622cae4b58f99cf72084ba2e0a76051ad793388e78bd27d3974c025c4312
+WROTE textures/0.png
+WROTE textures/1.png
+WROTE textures/10.png
+WROTE textures/11.png
+WROTE textures/12.png
+WROTE textures/13.png
+WROTE textures/14.png
+WROTE textures/15.png
+WROTE textures/16.png
+WROTE textures/17.png
+WROTE textures/18.png
+WROTE textures/19.png
+WROTE textures/2.png
+WROTE textures/20.png
+WROTE textures/21.png
+WROTE textures/22.png
+WROTE textures/23.png
+WROTE textures/24.png
+WROTE textures/25.png
+WROTE textures/26.png
+WROTE textures/27.png
+WROTE textures/28.png
+WROTE textures/29.png
+WROTE textures/3.png
+WROTE textures/30.png
+WROTE textures/31.png
+WROTE textures/32.png
+WROTE textures/33.png
+WROTE textures/34.png
+WROTE textures/35.png
+WROTE textures/36.png
+WROTE textures/37.png
+WROTE textures/38.png
+WROTE textures/39.png
+WROTE textures/4.png
+WROTE textures/40.png
+WROTE textures/41.png
+WROTE textures/42.png
+WROTE textures/43.png
+WROTE textures/44.png
+WROTE textures/45.png
+WROTE textures/46.png
+WROTE textures/47.png
+WROTE textures/48.png
+WROTE textures/49.png
+WROTE textures/5.png
+WROTE textures/6.png
+WROTE textures/7.png
+WROTE textures/8.png
+WROTE textures/9.png
+WROTE textures/meta/17.opt
+WROTE textures/meta/21.opt
+WROTE textures/meta/28.opt
+WROTE textures/meta/29.opt
+WROTE textures/meta/33.opt
+WROTE textures/meta/34.opt
+WROTE textures/meta/40.opt
+WROTE textures/meta/41.opt
+WROTE textures/meta/42.opt
+WROTE textures/meta/43.opt
+WROTE textures/meta/8.opt
+STDOUT-NORM e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

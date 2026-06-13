@@ -508,12 +508,12 @@ func TestAlreadyLoaded(t *testing.T) {
 }
 
 // TestRealCacheSmoke is an env-gated smoke test that unpacks every model from
-// the real Rev-254 cache. Skipped when GOSCAPE_REF254_DIR is unset.
+// the real Rev-274 cache. Skipped when GOSCAPE_REF274_DIR is unset.
 // TS Model.ts:49-327.
 func TestRealCacheSmoke(t *testing.T) {
-	dir := os.Getenv("GOSCAPE_REF254_DIR")
+	dir := os.Getenv("GOSCAPE_REF274_DIR")
 	if dir == "" {
-		t.Skip("GOSCAPE_REF254_DIR not set")
+		t.Skip("GOSCAPE_REF274_DIR not set")
 	}
 
 	packDir := dir + "/data/pack"
@@ -534,7 +534,7 @@ func TestRealCacheSmoke(t *testing.T) {
 	}
 	// Guard against silent degradation: a filestream decompress regression
 	// returning nil for every versioned entry used to pass this test (zeroed
-	// metadata is panic-free). The 254 reference cache holds ~3.8k models.
+	// metadata is panic-free). The 274 reference cache holds ~4.6k models.
 	assert.Greater(t, decoded, 3000, "expected >3000 readable models (filestream decompress regression?)")
 
 	// FromID(0) must decode without panic — and actually decode something.

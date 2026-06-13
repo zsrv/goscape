@@ -1,7 +1,7 @@
 // Package model decodes RS2 model cache entries (archive 1).
 //
 // This is a faithful 1:1 Go port of the TypeScript class at:
-// Server254-ref/engine/src/cache/graphics/Model.ts
+// Server274-ref/engine/src/cache/graphics/Model.ts
 //
 // Section layout (derived from TS Model.ts:49-141):
 //

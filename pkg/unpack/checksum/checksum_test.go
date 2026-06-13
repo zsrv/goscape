@@ -185,10 +185,10 @@ func TestRun_SignedInt32CRC(t *testing.T) {
 // ---- parity test ----
 
 // TestChecksumParity is the env-gated full parity test for checksum.Run.
-// It requires GOSCAPE_REF254_DIR to point at the engine directory of a
-// Server254-ref checkout. Run with:
+// It requires GOSCAPE_REF274_DIR to point at the engine directory of a
+// Server274-ref checkout. Run with:
 //
-//	GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine \
+//	GOSCAPE_REF274_DIR=/path/to/Server274-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/checksum/ -run TestChecksumParity -v -count=1 -timeout 600s
 func TestChecksumParity(t *testing.T) {

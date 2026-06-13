@@ -1,0 +1,63 @@
+# rev-274 TS-reference unpack changed-set manifest - family: checksum
+# Engine-TS pin dee467c8 + Content pin 7f97b0a5; inputs: the rev-274
+# reference-pack client cache (Server274-ref/engine/data/pack
+# main_file_cache.dat/idx0-4) + the pin-generated mapview/worldmap.jag
+# (maps/ignore.csv exists at the 274 Content pin — vanilla worldmap path).
+# config family ran with the scratch engine's data/pack moved aside (plain
+# emission path, not the merge-compare path). Toolchain: Node 24 (local tsx),
+# NOT bun (the 274 runtime swap); the source dir is set via world.json
+# build.srcDir (process.env BUILD_SRC_DIR is no longer read at 274). Procedure:
+# rev-244 B7 plan Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md),
+# re-run at the 274 pins per the rev-274 plan Task 24.
+# Generated 2026-06-13. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
+# (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
+# prefix = cache dir; PackFile module-load registry rewrites subtracted;
+# renameSync moves preserve mtime so renames appear in ADDED/DELETED only);
+# STDOUT-NORM = sha256 of stdout with per-line 'M/D/YYYY H:MM:SS AM\t LEVEL\t '
+# TS-Logger prefixes stripped.
+# pack/category.pack is ALSO subtracted from the changed-set — TS
+# validateCategoryPack (PackFile.ts @dee467c8) regenerates it at module load
+# whenever any .loc/.npc/.obj source is mtime-newer; module-load noise, not
+# unpack-family behavior (a no-op subtraction when the committed bytes match).
+CACHE-ADDED config/flo.dat 99ab3bc5c45a2cc66e385ad0b1bf20d688c3574749a6d1d603ef1a5ccb97e8a9
+CACHE-ADDED config/flo.idx 79bf33b6508dd732b32b724b0803b25606df126086d1ccba3c41bda48b90f587
+CACHE-ADDED config/idk.dat a8c167a19054464a0aeb9167678bc7409fc94712fc761e506ddc0832045ee29e
+CACHE-ADDED config/idk.idx 4ee139253659ffa8d2c93d342f2abfa3dc9188ce8ee016af2af260538df75fab
+CACHE-ADDED config/loc.dat 4354a7652dd6354b63a570ae6dc945d78975f5eae0d4eeaaccfdc2dd5957ecff
+CACHE-ADDED config/loc.idx 47fafa8725b99dee1fd1d7c61c398f2562362391f8c2bb812de151da9fc24346
+CACHE-ADDED config/npc.dat 8d5211621323c2bcbe32b6fe286a6a3cb0e4be320d79484c1e7a89772b5bf3e5
+CACHE-ADDED config/npc.idx d14f8ba8744c0b30b6bf3d71d88a164d4abeac66944df4e19d5f0a5c3dc3ffa8
+CACHE-ADDED config/obj.dat b73f2e3b22079e194b6c48c1989d3ba553c752f3d3b4d362036b6284d7c7d2eb
+CACHE-ADDED config/obj.idx f6b15f276e3601b15db83742fccfec2b6434337ffd63f7c0e22e0d05223c775e
+CACHE-ADDED config/seq.dat 9d2c20d57c3d263adf01ccb28bb6b402dcc0d82d4123f8593c9307aacc5b2da0
+CACHE-ADDED config/seq.idx 89b56701af0e773b63356943e7f3bf4c1f25dbfaaf865baf4d73ded52e11d2e6
+CACHE-ADDED config/spotanim.dat a1ee1a7a08644a630e109e5830fdbfa9274d4da0448139ec3c3fc4630f31f114
+CACHE-ADDED config/spotanim.idx 9aa503cb9c0562b7e91207b3649773d38396bcebc9890f59d7c1966e0871223f
+CACHE-ADDED config/varbit.dat 36b93fb61cd9967a57e05a936d733e88aeea027beae7524bcc63c1b8961318d1
+CACHE-ADDED config/varbit.idx 515f806b8b7d64bd4810535ea73007be956a0dba060f4b042baca5fb6b7ec007
+CACHE-ADDED config/varp.dat 46e36b2fb7a3e6d39e88af8be8b2c4b64eee7454b0ddf8ae7388e269666ae14b
+CACHE-ADDED config/varp.idx 8ea35411738dda2d167bace289c349d98c18ab04481d811f8f640de255fd6a57
+CACHE-ADDED interface/data 19e934aedbf9bc515d273fe24e1641794208761e9128bf10757e3f8e8a0c2c82
+CACHE-ADDED synth/sounds.dat b5a791f73be1e7cbcd2a17e208f39a6cdeab07bf1b746827379650b89e52389a
+WROTE CACHE:config/flo.dat
+WROTE CACHE:config/flo.idx
+WROTE CACHE:config/idk.dat
+WROTE CACHE:config/idk.idx
+WROTE CACHE:config/loc.dat
+WROTE CACHE:config/loc.idx
+WROTE CACHE:config/npc.dat
+WROTE CACHE:config/npc.idx
+WROTE CACHE:config/obj.dat
+WROTE CACHE:config/obj.idx
+WROTE CACHE:config/seq.dat
+WROTE CACHE:config/seq.idx
+WROTE CACHE:config/spotanim.dat
+WROTE CACHE:config/spotanim.idx
+WROTE CACHE:config/varbit.dat
+WROTE CACHE:config/varbit.idx
+WROTE CACHE:config/varp.dat
+WROTE CACHE:config/varp.idx
+WROTE CACHE:interface/data
+WROTE CACHE:synth/sounds.dat
+STDOUT-NORM 3090b70e1fce52cf942bf8c72178198d7582219e9fd8ff81ab747c56d79a104e

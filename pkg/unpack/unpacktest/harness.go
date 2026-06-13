@@ -23,13 +23,13 @@ import (
 	"time"
 )
 
-// RefDir returns the Server254-ref ROOT (parent of the directory pointed to by
-// GOSCAPE_REF254_DIR), skipping the test when the variable is unset.
+// RefDir returns the Server274-ref ROOT (parent of the directory pointed to by
+// GOSCAPE_REF274_DIR), skipping the test when the variable is unset.
 func RefDir(t *testing.T) string {
 	t.Helper()
-	env := os.Getenv("GOSCAPE_REF254_DIR")
+	env := os.Getenv("GOSCAPE_REF274_DIR")
 	if env == "" {
-		t.Skip("GOSCAPE_REF254_DIR not set; set it to the engine directory of a Server254-ref checkout")
+		t.Skip("GOSCAPE_REF274_DIR not set; set it to the engine directory of a Server274-ref checkout")
 	}
 	return filepath.Clean(filepath.Join(env, ".."))
 }
@@ -221,13 +221,13 @@ type Result struct {
 	CachePostDir string   // the cache dir
 }
 
-// AssertManifest compares r against testdata/ref254/<family>.manifest.txt.
+// AssertManifest compares r against testdata/ref274/<family>.manifest.txt.
 // It resolves the manifest path relative to this package's source location.
 // All mismatches are reported with t.Errorf (not just the first).
 func AssertManifest(t *testing.T, refRoot, family string, r Result) {
 	t.Helper()
 	_, thisFile, _, _ := runtime.Caller(0)
-	manifestPath := filepath.Join(filepath.Dir(thisFile), "..", "testdata", "ref254", family+".manifest.txt")
+	manifestPath := filepath.Join(filepath.Dir(thisFile), "..", "testdata", "ref274", family+".manifest.txt")
 	mismatches := assertManifestFile(t, manifestPath, refRoot, family, r)
 	for _, m := range mismatches {
 		t.Errorf("manifest mismatch: %s", m)

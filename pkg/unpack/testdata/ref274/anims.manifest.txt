@@ -1,24 +1,25 @@
-# rev-254 TS-reference unpack changed-set manifest - family: anims
-# Engine-TS pin 2e3bcf43 + Content pin caee3f2e; inputs: the rev-254
-# reference-pack client cache (Server254-ref/engine/data/pack
+# rev-274 TS-reference unpack changed-set manifest - family: anims
+# Engine-TS pin dee467c8 + Content pin 7f97b0a5; inputs: the rev-274
+# reference-pack client cache (Server274-ref/engine/data/pack
 # main_file_cache.dat/idx0-4) + the pin-generated mapview/worldmap.jag
-# (maps/ignore.csv exists at the 254 Content pin — vanilla worldmap path).
+# (maps/ignore.csv exists at the 274 Content pin — vanilla worldmap path).
 # config family ran with the scratch engine's data/pack moved aside (plain
-# emission path, not the merge-compare path). Procedure: rev-244 B7 plan
-# Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md), re-run
-# at the 254 pins per the rev-254 plan Task 28.
-# Generated 2026-06-11. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
+# emission path, not the merge-compare path). Toolchain: Node 24 (local tsx),
+# NOT bun (the 274 runtime swap); the source dir is set via world.json
+# build.srcDir (process.env BUILD_SRC_DIR is no longer read at 274). Procedure:
+# rev-244 B7 plan Tasks 1-3 (docs/superpowers/plans/2026-06-06-rev244-b7-unpack.md),
+# re-run at the 274 pins per the rev-274 plan Task 24.
+# Generated 2026-06-13. Sections: ADDED/MODIFIED/DELETED (+CACHE-*) = content
 # (resp. cache-dir) changed-set with sha256 of post-run bytes; WROTE = files
 # (re)written by the run incl. identical-bytes rewrites (mtime-based; CACHE:
 # prefix = cache dir; PackFile module-load registry rewrites subtracted;
 # renameSync moves preserve mtime so renames appear in ADDED/DELETED only);
 # STDOUT-NORM = sha256 of stdout with per-line 'M/D/YYYY H:MM:SS AM\t LEVEL\t '
 # TS-Logger prefixes stripped.
-# NEW at 254: pack/category.pack is ALSO subtracted from the changed-set —
-# TS validateCategoryPack (PackFile.ts:130-145 @2e3bcf43) regenerates it at
-# module load whenever any .loc/.npc/.obj source is mtime-newer (always true
-# in a fresh scratch copy) and the committed bytes at Content caee3f2e are
-# stale vs that regeneration; module-load noise, not unpack-family behavior.
+# pack/category.pack is ALSO subtracted from the changed-set — TS
+# validateCategoryPack (PackFile.ts @dee467c8) regenerates it at module load
+# whenever any .loc/.npc/.obj source is mtime-newer; module-load noise, not
+# unpack-family behavior (a no-op subtraction when the committed bytes match).
 WROTE models/anim_0.anim
 WROTE models/anim_1.anim
 WROTE models/anim_10.anim
@@ -227,12 +228,62 @@ WROTE models/anim_282.anim
 WROTE models/anim_283.anim
 WROTE models/anim_284.anim
 WROTE models/anim_285.anim
+WROTE models/anim_286.anim
+WROTE models/anim_287.anim
+WROTE models/anim_288.anim
+WROTE models/anim_289.anim
 WROTE models/anim_29.anim
+WROTE models/anim_290.anim
+WROTE models/anim_291.anim
+WROTE models/anim_292.anim
+WROTE models/anim_293.anim
+WROTE models/anim_294.anim
+WROTE models/anim_295.anim
+WROTE models/anim_296.anim
+WROTE models/anim_297.anim
+WROTE models/anim_298.anim
+WROTE models/anim_299.anim
 WROTE models/anim_3.anim
 WROTE models/anim_30.anim
+WROTE models/anim_300.anim
+WROTE models/anim_301.anim
+WROTE models/anim_302.anim
+WROTE models/anim_303.anim
+WROTE models/anim_304.anim
+WROTE models/anim_305.anim
+WROTE models/anim_306.anim
+WROTE models/anim_307.anim
+WROTE models/anim_308.anim
+WROTE models/anim_309.anim
 WROTE models/anim_31.anim
+WROTE models/anim_310.anim
+WROTE models/anim_311.anim
+WROTE models/anim_312.anim
+WROTE models/anim_313.anim
+WROTE models/anim_314.anim
+WROTE models/anim_315.anim
+WROTE models/anim_316.anim
+WROTE models/anim_317.anim
+WROTE models/anim_318.anim
+WROTE models/anim_319.anim
 WROTE models/anim_32.anim
+WROTE models/anim_320.anim
+WROTE models/anim_321.anim
+WROTE models/anim_322.anim
+WROTE models/anim_323.anim
+WROTE models/anim_324.anim
+WROTE models/anim_325.anim
+WROTE models/anim_326.anim
+WROTE models/anim_327.anim
+WROTE models/anim_328.anim
+WROTE models/anim_329.anim
 WROTE models/anim_33.anim
+WROTE models/anim_330.anim
+WROTE models/anim_331.anim
+WROTE models/anim_332.anim
+WROTE models/anim_333.anim
+WROTE models/anim_334.anim
+WROTE models/anim_335.anim
 WROTE models/anim_34.anim
 WROTE models/anim_35.anim
 WROTE models/anim_36.anim

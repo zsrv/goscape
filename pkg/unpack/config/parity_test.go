@@ -8,15 +8,15 @@ import (
 )
 
 // TestConfigParity is the env-gated full config-family parity test.
-// It requires GOSCAPE_REF254_DIR to point at the engine directory of a
-// Server254-ref checkout. Run with:
+// It requires GOSCAPE_REF274_DIR to point at the engine directory of a
+// Server274-ref checkout. Run with:
 //
-//	GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine \
+//	GOSCAPE_REF274_DIR=/path/to/Server274-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/config/ -run TestConfigParity -v -count=1 -timeout 600s
 //
 // The test runs Unpack against a temp scratch copy of the reference content tree
-// and asserts the result against testdata/ref254/config.manifest.txt.
+// and asserts the result against testdata/ref274/config.manifest.txt.
 //
 // DisplaySrcDir is set to "../unpack-ref/scratch" so that the "Unpacking rev …
 // into …/scripts" stdout line matches the TS reference run that was captured with
@@ -35,7 +35,7 @@ func TestConfigParity(t *testing.T) {
 	err := Unpack(Options{
 		CacheDir:      cacheDir,
 		SrcDir:        scratch,
-		Revision:      "254",
+		Revision:      "274",
 		Out:           &out,
 		DisplaySrcDir: "../unpack-ref/scratch",
 	})

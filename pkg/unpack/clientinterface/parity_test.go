@@ -8,15 +8,15 @@ import (
 )
 
 // TestInterfaceParity is the env-gated full interface-family parity test.
-// It requires GOSCAPE_REF254_DIR to point at the engine directory of a
-// Server254-ref checkout. Run with:
+// It requires GOSCAPE_REF274_DIR to point at the engine directory of a
+// Server274-ref checkout. Run with:
 //
-//	GOSCAPE_REF254_DIR=/path/to/Server254-ref/engine \
+//	GOSCAPE_REF274_DIR=/path/to/Server274-ref/engine \
 //	  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 //	  go test ./pkg/unpack/clientinterface/ -run TestInterfaceParity -v -count=1 -timeout 900s
 //
 // The test runs Unpack against a temp scratch copy of the reference content
-// tree and asserts the result against testdata/ref254/interface.manifest.txt.
+// tree and asserts the result against testdata/ref274/interface.manifest.txt.
 //
 // STDOUT-NORM is sha256 of the empty string (interface family emits nothing
 // to Out; console.error goes to Errorf, not Out).
