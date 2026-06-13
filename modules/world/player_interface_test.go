@@ -165,15 +165,6 @@ func TestIsComponentVisible_NoMatchReturnsFalse(t *testing.T) {
 	}
 }
 
-// TestIfSetColour_AppliesRgb24to15_OnWire verifies that IfSetColour converts
-// the 24-bit colour argument to a 15-bit value before emitting it on the wire.
-//
-// OpIfSetColour: Opcode=2, PayloadSize=4 (fixed).
-// Wire = encrypted_opcode(1) + P2(com)(2) + P2(rgb15)(2) = 5 bytes total.
-//
-// Input colour 0xFF0000 (red) must map to rgb15=0x7C00.
-// Currently FAILS: the writer emits the raw 16-bit low-order bits of 0xFF0000
-// (= 0xFF00) instead of 0x7C00, so got[3..4] = [0xFF, 0x00] not [0x7C, 0x00].
 // TestMinimapToggle_WireEncoding pins MINIMAP_TOGGLE (opcode 194, PayloadSize=1):
 // MinimapToggle(2) must produce exactly 2 bytes — 1 encrypted opcode + 1 payload
 // byte holding the minimapType value. TS MinimapToggleEncoder.ts @dee467c8: buf.p1(type).
@@ -196,6 +187,15 @@ func TestMinimapToggle_WireEncoding(t *testing.T) {
 	}
 }
 
+// TestIfSetColour_AppliesRgb24to15_OnWire verifies that IfSetColour converts
+// the 24-bit colour argument to a 15-bit value before emitting it on the wire.
+//
+// OpIfSetColour: Opcode=183 (274), PayloadSize=4 (fixed).
+// Wire = encrypted_opcode(1) + P2(com)(2) + P2(rgb15)(2) = 5 bytes total.
+//
+// Input colour 0xFF0000 (red) must map to rgb15=0x7C00.
+// Currently FAILS: the writer emits the raw 16-bit low-order bits of 0xFF0000
+// (= 0xFF00) instead of 0x7C00, so got[3..4] = [0xFF, 0x00] not [0x7C, 0x00].
 func TestIfSetColour_AppliesRgb24to15_OnWire(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
