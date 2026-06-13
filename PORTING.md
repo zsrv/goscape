@@ -1814,6 +1814,17 @@ tests now pack the loose Content maps directly). jagFileVersion stays 27
   (0xff+u2 extended revision), MINIMAP_TOGGLE, the new script ops
   (SET_SKILL_LEVEL / NPC_DESTINATION / MAP_LOC), inventory partial updates,
   NPC patrol/escape, fonts (*_full), gzip-backed cache delivery.
+  **LIVE FINDING + FIX (T22a, `1d34478d`)**: user-reported NPC chat heads
+  taking seconds to appear → the 274 `OnDemandThread.ts` delivery rewrite
+  (immediate `setImmediate` pump + per-client slice throttle 8000B/16chunks
+  + round-robin fairness + priority 2→0 preemption + request dedup) had been
+  wrongly dispositioned as internal-threading-NOT-PORTED. goscape's 254 model
+  (fixed-50ms ticker, send-each-queued-file-fully) adds ~50ms/request latency
+  and lets bulk login preloads starve urgent head-model requests. Ported the
+  scheduler into `modules/world/ondemand.go` (event-driven pump goroutine, no
+  worker thread) — wire format (4-byte request, 6-byte chunk header)
+  unchanged; `-race` clean; per-client connID + clientClosed cleanup added.
+  Re-test with the live client to confirm the latency is gone.
 - [x] (c) Pack byte-parity — FULL TREE `TestPackAll_Ref274FullTreeParity`
   GREEN + original-cache `TestPackAll_OrigCacheParity` GREEN (6,304
   members + 2 expected content-divergence map slots).
