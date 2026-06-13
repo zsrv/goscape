@@ -306,9 +306,13 @@ type Player struct {
 	appearanceBuf  []byte
 	lastAppearance int
 	// skillLevel is the SET_SKILL_LEVEL-written appearance field (TS
-	// Player.skillLevel = 0, Player.ts:317 @dee467c8). rev-274 T6 lands
-	// the field + setter only; T7 wires this into the appearance stream
-	// (TS Player.ts:1423 stream.p2(this.skillLevel)).
+	// Player.skillLevel = 0, Player.ts:317 @dee467c8). Written into the
+	// appearance stream as a 2-byte big-endian field after combatLevel
+	// (rev-274 T7, appearance.go; TS Player.ts:1423 stream.p2(this.skillLevel)).
+	// Not persisted (defaults 0). Like SETIDKIT/SETGENDER, SET_SKILL_LEVEL
+	// is a bare field write that does NOT flip MaskAppearance — TS
+	// PlayerOps.ts:1168-1171 @dee467c8 has no masks |= APPEARANCE; rebuild
+	// happens via a subsequent BUILDAPPEARANCE.
 	skillLevel int
 
 	// === stats & vars ===

@@ -1751,8 +1751,13 @@ func (p *Player) HeroPointsClear() {
 func (p *Player) SetBodyPart(slot, idkit int)  { p.body[slot] = idkit }
 func (p *Player) SetColorPart(slot, color int) { p.colors[slot] = color }
 
-// SetSkillLevel writes the skillLevel appearance field. T7 wires it into
-// the appearance stream (TS Player.ts:1423). TS PlayerOps.ts:1168-1171 @dee467c8.
+// SetSkillLevel writes the skillLevel appearance field, serialized into the
+// appearance stream as a 2-byte big-endian field after combatLevel
+// (appearance.go; TS Player.ts:1423 stream.p2(this.skillLevel)). Like
+// SETIDKIT/SETGENDER this is a bare field write that does NOT flip
+// MaskAppearance — TS PlayerOps.ts:1168-1171 @dee467c8 (state.activePlayer.
+// skillLevel = level) has no masks |= APPEARANCE; the rebuild relies on a
+// subsequent BUILDAPPEARANCE. Do NOT add a dirty-flag flip TS lacks.
 func (p *Player) SetSkillLevel(level int) {
 	p.skillLevel = level
 }

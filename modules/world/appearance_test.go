@@ -282,6 +282,65 @@ func TestGenerateAppearanceHighBodyPartIdAdditive(t *testing.T) {
 	}
 }
 
+// TestGenerateAppearanceTailCombatThenSkillLevel pins rev-274 T7: the
+// appearance stream ends with p1(combatLevel) immediately followed by
+// p2(skillLevel) (big-endian), matching TS Player.ts:1422-1423 @dee467c8
+// (stream.p1(this.combatLevel); stream.p2(this.skillLevel)). The 8-byte
+// username37 (p8) precedes the combat-level byte, so the buffer's last
+// 3 bytes are [combatLevel, skillLevelHi, skillLevelLo].
+func TestGenerateAppearanceTailCombatThenSkillLevel(t *testing.T) {
+	objs, invs := synthesizeTypes(t)
+
+	// Case 1: default skillLevel (0). combatLevel defaults to 3 in newPlayer.
+	p, _ := newTestPlayer(t)
+	p.invs = map[int]*inventory.Inventory{
+		invs.Worn: inventory.FromType(invs.Configs[invs.Worn]),
+	}
+	if p.combatLevel != 3 {
+		t.Fatalf("setup: combatLevel default got %d, want 3", p.combatLevel)
+	}
+	if p.skillLevel != 0 {
+		t.Fatalf("setup: skillLevel default got %d, want 0", p.skillLevel)
+	}
+	p.generateAppearance(objs, invs, 0)
+
+	n := len(p.appearanceBuf)
+	if n < 3 {
+		t.Fatalf("appearanceBuf too short: %d", n)
+	}
+	gotTail := p.appearanceBuf[n-3:]
+	wantTail := []byte{3, 0x00, 0x00} // combatLevel=3, skillLevel=0 (BE)
+	if !bytes.Equal(gotTail, wantTail) {
+		t.Errorf("tail bytes: got % 02x, want % 02x (combatLevel p1 then skillLevel p2)",
+			gotTail, wantTail)
+	}
+
+	// Case 2: non-zero skillLevel 1500 must emit big-endian 0x05 0xDC.
+	p2, _ := newTestPlayer(t)
+	p2.invs = map[int]*inventory.Inventory{
+		invs.Worn: inventory.FromType(invs.Configs[invs.Worn]),
+	}
+	p2.skillLevel = 1500
+	p2.generateAppearance(objs, invs, 0)
+
+	n2 := len(p2.appearanceBuf)
+	if n2 < 3 {
+		t.Fatalf("appearanceBuf too short: %d", n2)
+	}
+	gotTail2 := p2.appearanceBuf[n2-3:]
+	wantTail2 := []byte{3, 0x05, 0xDC} // combatLevel=3, skillLevel=1500 (BE)
+	if !bytes.Equal(gotTail2, wantTail2) {
+		t.Errorf("tail bytes (skillLevel=1500): got % 02x, want % 02x",
+			gotTail2, wantTail2)
+	}
+
+	// The skillLevel write must add exactly 2 bytes over the default-0 case
+	// (both default-0 and 1500 produce equal-length buffers; only the value differs).
+	if n != n2 {
+		t.Errorf("buffer length changed with skillLevel value: %d vs %d", n, n2)
+	}
+}
+
 func TestGenerateAppearance_SetsLastAppearanceToCurrentTick(t *testing.T) {
 	objs, invs := synthesizeTypes(t)
 	p, _ := newTestPlayer(t)

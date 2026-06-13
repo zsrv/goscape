@@ -99,6 +99,11 @@ func (p *Player) generateAppearance(objs *objtype.ObjTypeConfigs, invs *objtype.
 
 	buf.P8(p.username37)
 	buf.P1(uint8(p.combatLevel))
+	// rev-274: skillLevel follows combatLevel as a 2-byte big-endian field
+	// (TS Player.ts:1422-1423 @dee467c8: stream.p1(this.combatLevel);
+	// stream.p2(this.skillLevel)). New at 274; the 254 appearance block
+	// stopped after combatLevel. skillLevel is not persisted (defaults 0).
+	buf.P2(uint16(p.skillLevel))
 
 	p.appearanceBuf = append([]byte(nil), buf.Bytes()...)
 	p.lastAppearance = currentTick
