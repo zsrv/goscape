@@ -11,10 +11,19 @@ import (
 	"github.com/zsrv/goscape/pkg/io/filestream"
 )
 
-// origCacheDir is the location of the ORIGINAL (acceptance-target) r274 cache.
-// It is the oracle for the stock-zlib gzip port: every gzip member in it was
-// produced by stock zlib 1.3.1 level 6 with the gzip OS byte zeroed.
-const origCacheDir = "/home/owner/Code/_runescape/r274/original-cache"
+// origCacheDirDefault is the local location of the ORIGINAL (acceptance-target)
+// r274 cache. It is the oracle for the stock-zlib gzip port: every gzip member
+// in it was produced by stock zlib 1.3.1 level 6 with the gzip OS byte zeroed.
+// Override with GOSCAPE_ORIG_CACHE_DIR (mirrors the GOSCAPE_REF*_DIR convention).
+const origCacheDirDefault = "/home/owner/Code/_runescape/r274/original-cache"
+
+// origCacheDir returns the original-cache path, env-overridable.
+func origCacheDir() string {
+	if d := os.Getenv("GOSCAPE_ORIG_CACHE_DIR"); d != "" {
+		return d
+	}
+	return origCacheDirDefault
+}
 
 // szArchives are the four gzip-compressed RS2 Jag store indices in the r274
 // cache and their (approximate) populated member counts.
@@ -32,11 +41,12 @@ var szArchives = []int{1, 2, 3, 4}
 // green. When present it must reach the full corpus (6201 members) with zero
 // mismatches.
 func TestCompressSZGz_OrigCorpus(t *testing.T) {
-	if _, err := os.Stat(origCacheDir); err != nil {
-		t.Skipf("original cache absent (%s); skipping corpus check", origCacheDir)
+	dir := origCacheDir()
+	if _, err := os.Stat(dir); err != nil {
+		t.Skipf("original cache absent (%s); skipping corpus check", dir)
 	}
 
-	fs := filestream.New(origCacheDir, false, true)
+	fs := filestream.New(dir, false, true)
 	defer fs.Close()
 
 	total, ok, fail := 0, 0, 0
