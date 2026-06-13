@@ -325,18 +325,81 @@ func parseTone(buf *packet.Packet) error {
 	buf.G2()      // length
 	buf.G2()      // start
 
+	// rev-274: Tone.unpack unconditionally appends a Filter (TS Unpack.ts
+	// @dee467c8: this.filter.unpack(buf, this.filterRange)).
+	parseFilter(buf)
+
 	return nil
+}
+
+// parseFilter mirrors Filter.unpack (TS Unpack.ts @dee467c8, the rev-274
+// addition to Tone.unpack).  It only advances buf.Pos — the goscape sound
+// unpacker extracts byte extents, so it never materialises the filter values.
+//
+// Byte layout:
+//   - count = g1.  pairs[0] = count>>4, pairs[1] = count&0xf.
+//   - if count == 0: done (no further reads).
+//   - else:
+//   - unities[0] = g2, unities[1] = g2.
+//   - migration = g1.
+//   - phase 1: for direction 0,1: pairs[direction] × (g2 freq, g2 range).
+//   - phase 2: for direction 0,1, pair 0..pairs[direction]-1: if
+//     (migration & ((1<<(direction*4))<<pair)) != 0 → g2 freq + g2 range.
+//   - if migration != 0 || unities[1] != unities[0] → unpackShape (g1 length
+//     + length × (g2 shapeDelta, g2 shapePeak)).
+func parseFilter(buf *packet.Packet) {
+	count := int(buf.G1())
+	if count == 0 {
+		return
+	}
+
+	pairs := [2]int{count >> 4, count & 0xf}
+
+	unity0 := buf.G2() // unities[0]
+	unity1 := buf.G2() // unities[1]
+
+	migration := int(buf.G1())
+
+	// Phase 1: base frequency/range pairs.
+	for direction := range 2 {
+		for range pairs[direction] {
+			buf.G2() // frequencies[direction][0][pair]
+			buf.G2() // ranges[direction][0][pair]
+		}
+	}
+
+	// Phase 2: migrated frequency/range pairs (only when the migration bit is set).
+	for direction := range 2 {
+		for pair := range pairs[direction] {
+			if migration&((1<<(direction*4))<<pair) != 0 {
+				buf.G2() // frequencies[direction][1][pair]
+				buf.G2() // ranges[direction][1][pair]
+			}
+		}
+	}
+
+	// Trailing shape: TS emits envelope.unpackShape when the filter migrated or
+	// the unity bounds differ.
+	if migration != 0 || unity1 != unity0 {
+		unpackShape(buf)
+	}
+}
+
+// unpackShape mirrors Envelope.unpackShape (TS Unpack.ts @dee467c8): a g1 length
+// followed by length × (g2 shapeDelta, g2 shapePeak).  It only advances buf.Pos.
+func unpackShape(buf *packet.Packet) {
+	length := buf.G1()
+	for range length {
+		buf.G2() // shapeDelta[i]
+		buf.G2() // shapePeak[i]
+	}
 }
 
 // parseEnvelope mirrors Envelope.unpack (TS ~196-212).
 // It advances buf.Pos past the entire envelope payload.
 func parseEnvelope(buf *packet.Packet) {
-	buf.G1()           // form
-	buf.G4()           // start (g4s — signed, but advances 4 bytes same as G4)
-	buf.G4()           // end   (g4s — signed, but advances 4 bytes same as G4)
-	length := buf.G1() // shape length
-	for range length {
-		buf.G2() // shapeDelta[i]
-		buf.G2() // shapePeak[i]
-	}
+	buf.G1() // form
+	buf.G4() // start (g4s — signed, but advances 4 bytes same as G4)
+	buf.G4() // end   (g4s — signed, but advances 4 bytes same as G4)
+	unpackShape(buf)
 }

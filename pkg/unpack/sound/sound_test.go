@@ -129,6 +129,78 @@ func pTone(
 	pSmartS(buf, reverbVolume)
 	buf.P2(length)
 	buf.P2(start)
+
+	// rev-274 Filter: every Tone ends with at least the filter count byte
+	// (TS Tone.unpack @dee467c8 unconditionally calls Filter.unpack). count=0
+	// means "no filter" — the parser consumes exactly the one count byte.
+	buf.P1(0)
+}
+
+// pFilter appends a Filter payload to buf, mirroring TS Filter.unpack
+// (tools/unpack/sound/Unpack.ts @dee467c8).
+//
+// pairs0/pairs1 are the per-direction pair counts (0..15 each); they are packed
+// into the count byte as (pairs0<<4)|pairs1.  migration is the per-direction/per-pair
+// migration bitmask.  withShape forces an Envelope.unpackShape payload (length=0,
+// no segments) when count != 0 — TS emits it when migration != 0 || unities differ.
+//
+// To keep the encoder deterministic and the extent math simple, every g2 value
+// written here is a fixed placeholder (the unpacker only advances buf.Pos; it
+// does not assert values).
+func pFilter(buf *packet.Packet, pairs0, pairs1 int, migration uint8, unity0, unity1 uint16, withShape bool) {
+	count := (pairs0 << 4) | pairs1
+	buf.P1(uint8(count))
+	if count == 0 {
+		return
+	}
+
+	buf.P2(unity0) // unities[0]
+	buf.P2(unity1) // unities[1]
+	buf.P1(migration)
+
+	pairs := [2]int{pairs0, pairs1}
+
+	// Phase 1: for each direction, pairs[direction] × (g2 freq, g2 range).
+	for direction := range 2 {
+		for range pairs[direction] {
+			buf.P2(1000) // frequencies[direction][0][pair]
+			buf.P2(2000) // ranges[direction][0][pair]
+		}
+	}
+
+	// Phase 2: for each direction/pair, if the migration bit is set, g2 freq + g2 range.
+	for direction := range 2 {
+		for pair := range pairs[direction] {
+			if migration&((1<<(direction*4))<<pair) != 0 {
+				buf.P2(3000) // frequencies[direction][1][pair]
+				buf.P2(4000) // ranges[direction][1][pair]
+			}
+		}
+	}
+
+	// Trailing envelope shape: TS emits envelope.unpackShape when
+	// migration != 0 || unities[1] != unities[0].
+	if withShape {
+		buf.P1(0) // shape length = 0 (no segments)
+	}
+}
+
+// toneBytesWithFilter builds a Tone whose trailing Filter is the supplied
+// custom payload (instead of the default count=0).  It reuses pTone's body up
+// to the reverb/length/start tail, then overrides the final filter byte.
+func toneBytesWithFilter(
+	withFreqMod, withAmpMod, withRelAtk bool,
+	harmonics [][3]int,
+	reverbDelay, reverbVolume, length, start uint16,
+	filter []byte,
+) []byte {
+	buf := &packet.Packet{}
+	pTone(buf, withFreqMod, withAmpMod, withRelAtk, harmonics, reverbDelay, reverbVolume, length, start)
+	// pTone appends a trailing count=0 filter byte; strip it and substitute the
+	// custom filter payload.
+	buf.Data = buf.Data[:len(buf.Data)-1]
+	buf.Write(filter)
+	return buf.Data
 }
 
 // toneBytes returns the encoded bytes for one Tone by calling pTone.
@@ -525,6 +597,7 @@ func TestUnpack_EnvelopeWithShape(t *testing.T) {
 	pSmartS(buf, 0)                       // reverbVolume
 	buf.P2(50)                            // length
 	buf.P2(0)                             // start
+	buf.P1(0)                             // rev-274 Filter count=0 (no filter)
 
 	var tones [10][]byte
 	tones[0] = buf.Data
@@ -648,5 +721,145 @@ func TestUnpack_LargeSmartValues(t *testing.T) {
 	}
 	if !bytes.Equal(got, wantBytes) {
 		t.Errorf("sound_55.synth bytes differ\n  want len=%d\n   got len=%d", len(wantBytes), len(got))
+	}
+}
+
+// TestUnpack_ToneFilter_NonTrivial verifies the rev-274 Filter parse appended to
+// Tone.unpack.  A tone is built with a non-empty filter (pairs0=2, pairs1=1,
+// migration with one bit set, distinct unities → trailing shape).  The extracted
+// .synth bytes must equal the full tone including the filter; the extent is
+// computed independently of parseTone via the encoder so this is a real RED→GREEN
+// (a parser that stops before the filter would under-read).
+func TestUnpack_ToneFilter_NonTrivial(t *testing.T) {
+	// Build the custom filter payload independently.
+	// count = (2<<4)|1 = 0x21.
+	// unities differ (10 vs 20) AND migration != 0 → trailing shape emitted.
+	fbuf := &packet.Packet{}
+	pFilter(fbuf, 2, 1, 0b0000_0001, 10, 20, true)
+	filterBytes := fbuf.Data
+
+	// Independently expected filter length:
+	//   1 (count) + 2 + 2 (unities) + 1 (migration)
+	//   + phase1: (pairs0+pairs1) * 4 = 3 * 4 = 12
+	//   + phase2: 1 set migration bit * 4 = 4
+	//   + shape: 1 (length=0)
+	wantFilterLen := 1 + 2 + 2 + 1 + 12 + 4 + 1
+	if len(filterBytes) != wantFilterLen {
+		t.Fatalf("encoder produced filter len=%d, want %d", len(filterBytes), wantFilterLen)
+	}
+
+	tone := toneBytesWithFilter(false, false, false, nil, 0, 0, 100, 0, filterBytes)
+
+	var tones [10][]byte
+	tones[0] = tone
+
+	soundsDat := buildSoundsDat([]soundSpec{
+		{id: 88, tones: tones, loopBegin: 1, loopEnd: 2},
+	})
+
+	// Compute the expected extent WITHOUT relying on parseTone: the wave payload
+	// is tone (with filter) + loopBegin(2) + loopEnd(2). The wave instance has
+	// tone[0] present (probe = tone's first byte, non-zero) followed by 9 absent
+	// tone probes (each a single 0 byte), then loopBegin/loopEnd.
+	// soundsDat layout: g2 id (2 bytes) | wave payload | g2 65535 terminator.
+	// wave payload = tone (probe byte is tone[0]) + 9*0x00 + g2 loopBegin + g2 loopEnd.
+	wantWaveLen := len(tone) + 9 /*absent tone probes*/ + 2 /*loopBegin*/ + 2 /*loopEnd*/
+	// The .synth extent excludes the leading g2 id.
+	wantBytes := soundsDat[2 : 2+wantWaveLen]
+
+	cacheDir := t.TempDir()
+	srcDir := t.TempDir()
+	buildTestCache(t, cacheDir, soundsDat)
+
+	if err := Unpack(Options{CacheDir: cacheDir, SrcDir: srcDir}); err != nil {
+		t.Fatalf("Unpack: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(srcDir, "synth", "sound_88.synth"))
+	if err != nil {
+		t.Fatalf("read sound_88.synth: %v", err)
+	}
+	if !bytes.Equal(got, wantBytes) {
+		t.Errorf("sound_88.synth bytes differ\n  want len=%d %x\n   got len=%d %x", len(wantBytes), wantBytes, len(got), got)
+	}
+}
+
+// TestUnpack_ToneFilter_CountZero verifies the count=0 filter path: a single
+// trailing count byte is consumed and nothing more.  This is the common case
+// (most tones have no filter).
+func TestUnpack_ToneFilter_CountZero(t *testing.T) {
+	// pTone already appends count=0; build two tones in one wave and assert the
+	// extent is exact (the second tone's bytes must not bleed into the first).
+	tone0 := toneBytes(false, false, false, nil, 0, 0, 100, 0)
+	tone1 := toneBytes(false, false, false, nil, 0, 0, 200, 5)
+
+	var tones [10][]byte
+	tones[0] = tone0
+	tones[1] = tone1
+
+	soundsDat := buildSoundsDat([]soundSpec{
+		{id: 4, tones: tones, loopBegin: 7, loopEnd: 8},
+	})
+
+	// Independent extent: tone0 + tone1 + 8 absent probes + loopBegin(2) + loopEnd(2).
+	wantWaveLen := len(tone0) + len(tone1) + 8 + 2 + 2
+	wantBytes := soundsDat[2 : 2+wantWaveLen]
+
+	cacheDir := t.TempDir()
+	srcDir := t.TempDir()
+	buildTestCache(t, cacheDir, soundsDat)
+
+	if err := Unpack(Options{CacheDir: cacheDir, SrcDir: srcDir}); err != nil {
+		t.Fatalf("Unpack: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(srcDir, "synth", "sound_4.synth"))
+	if err != nil {
+		t.Fatalf("read sound_4.synth: %v", err)
+	}
+	if !bytes.Equal(got, wantBytes) {
+		t.Errorf("sound_4.synth bytes differ\n  want len=%d\n   got len=%d", len(wantBytes), len(got))
+	}
+}
+
+// TestUnpack_ToneFilter_NoShape verifies the no-shape filter path: count != 0 but
+// migration == 0 AND unities equal → no trailing Envelope.unpackShape.
+func TestUnpack_ToneFilter_NoShape(t *testing.T) {
+	fbuf := &packet.Packet{}
+	// pairs0=1, pairs1=0, migration=0, unities equal (5,5) → withShape=false.
+	pFilter(fbuf, 1, 0, 0, 5, 5, false)
+	filterBytes := fbuf.Data
+
+	// 1 (count) + 4 (unities) + 1 (migration) + phase1: 1*4 + phase2: 0 + no shape.
+	wantFilterLen := 1 + 4 + 1 + 4
+	if len(filterBytes) != wantFilterLen {
+		t.Fatalf("encoder produced filter len=%d, want %d", len(filterBytes), wantFilterLen)
+	}
+
+	tone := toneBytesWithFilter(false, false, false, nil, 0, 0, 50, 0, filterBytes)
+	var tones [10][]byte
+	tones[0] = tone
+
+	soundsDat := buildSoundsDat([]soundSpec{
+		{id: 12, tones: tones},
+	})
+
+	wantWaveLen := len(tone) + 9 + 2 + 2
+	wantBytes := soundsDat[2 : 2+wantWaveLen]
+
+	cacheDir := t.TempDir()
+	srcDir := t.TempDir()
+	buildTestCache(t, cacheDir, soundsDat)
+
+	if err := Unpack(Options{CacheDir: cacheDir, SrcDir: srcDir}); err != nil {
+		t.Fatalf("Unpack: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(srcDir, "synth", "sound_12.synth"))
+	if err != nil {
+		t.Fatalf("read sound_12.synth: %v", err)
+	}
+	if !bytes.Equal(got, wantBytes) {
+		t.Errorf("sound_12.synth bytes differ\n  want len=%d\n   got len=%d", len(wantBytes), len(got))
 	}
 }

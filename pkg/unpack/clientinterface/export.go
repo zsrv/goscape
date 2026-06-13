@@ -601,13 +601,13 @@ func exportComponentInner(
 		if com.FontSet {
 			switch com.Font {
 			case 0:
-				temp = append(temp, "font=p11")
+				temp = append(temp, "font=p11_full")
 			case 1:
-				temp = append(temp, "font=p12")
+				temp = append(temp, "font=p12_full")
 			case 2:
-				temp = append(temp, "font=b12")
+				temp = append(temp, "font=b12_full")
 			case 3:
-				temp = append(temp, "font=q8")
+				temp = append(temp, "font=q8_full")
 			}
 		}
 		if com.Shadowed {
@@ -696,13 +696,13 @@ func exportComponentInner(
 		if com.FontSet {
 			switch com.Font {
 			case 0:
-				temp = append(temp, "font=p11")
+				temp = append(temp, "font=p11_full")
 			case 1:
-				temp = append(temp, "font=p12")
+				temp = append(temp, "font=p12_full")
 			case 2:
-				temp = append(temp, "font=b12")
+				temp = append(temp, "font=b12_full")
 			case 3:
-				temp = append(temp, "font=q8")
+				temp = append(temp, "font=q8_full")
 			}
 		}
 		if com.Shadowed {

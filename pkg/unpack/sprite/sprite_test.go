@@ -201,13 +201,29 @@ func TestTitle_WritesTitleJpg(t *testing.T) {
 	assert.Equal(t, bgBytes, got, "binary/title.jpg must contain exact title.dat bytes")
 }
 
-// TestTitle_WritesFont verifies that a font sprite is written into fonts/.
+// TestTitle_WritesFont verifies that a font sprite is written into fonts/ under
+// the rev-274 "_full" name.  TS tools/unpack/sprite/title.ts @dee467c8 reads the
+// fonts from members ['b12_full', 'p11_full', 'p12_full', 'q8_full'] and writes
+// fonts/<name>.png — i.e. the member lookup key IS the _full name.
 func TestTitle_WritesFont(t *testing.T) {
-	cacheDir := buildTitleCache(t, []byte{0xAB}, "b12", "")
+	cacheDir := buildTitleCache(t, []byte{0xAB}, "b12_full", "")
 	srcDir := t.TempDir()
 
 	require.NoError(t, Title(Options{CacheDir: cacheDir, SrcDir: srcDir}))
-	require.FileExists(t, filepath.Join(srcDir, "fonts", "b12.png"))
+	require.FileExists(t, filepath.Join(srcDir, "fonts", "b12_full.png"))
+}
+
+// TestTitle_AllFontsFull verifies that all four rev-274 fonts are read from the
+// "_full" members and written to fonts/<name>.png.
+func TestTitle_AllFontsFull(t *testing.T) {
+	for _, name := range []string{"b12_full", "p11_full", "p12_full", "q8_full"} {
+		cacheDir := buildTitleCache(t, []byte{0xAB}, name, "")
+		srcDir := t.TempDir()
+
+		require.NoError(t, Title(Options{CacheDir: cacheDir, SrcDir: srcDir}))
+		require.FileExists(t, filepath.Join(srcDir, "fonts", name+".png"),
+			"font %q must be unpacked to fonts/%s.png", name, name)
+	}
 }
 
 // TestTitle_WritesTitleImage verifies that a title image is written into title/.

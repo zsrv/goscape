@@ -316,6 +316,54 @@ func TestModels_RegisterCondition(t *testing.T) {
 	}
 }
 
+// TestModels_InclusiveLoopBound verifies the rev-274 inclusive loop bound
+// (`for id := 0; id <= len(models); id++`).  With 2 model_index flags and 2
+// present model files, the loop must ALSO process id == 2 (one past the last
+// flag), where the cache read is out of range and models[id] is undefined, so it
+// emits the printDebug "Missing unreferenced model model_2" line.
+//
+// Under the pre-274 bound (`id < modelCount`) the loop stopped at id=1 and this
+// extra iteration never happened — so this is a real behavioural assertion.
+func TestModels_InclusiveLoopBound(t *testing.T) {
+	cacheDir := t.TempDir()
+	srcDir := t.TempDir()
+
+	// 2 flags, 2 present models → modelCount == 2, len(models) == 2.
+	flags := []byte{1, 1}
+	data0 := []byte("ob2-model-0")
+	data1 := []byte("ob2-model-1")
+	buildModelCache(t, cacheDir, flags, [][]byte{data0, data1})
+
+	var out bytes.Buffer
+	if err := Models(Options{CacheDir: cacheDir, SrcDir: srcDir, Out: &out}); err != nil {
+		t.Fatalf("Models: %v", err)
+	}
+
+	// id=0 and id=1 written.
+	for i, want := range map[int][]byte{0: data0, 1: data1} {
+		p := filepath.Join(srcDir, "models", "_unpack", "model_"+string(rune('0'+i))+".ob2")
+		got, err := os.ReadFile(p)
+		if err != nil {
+			t.Errorf("read model_%d.ob2: %v", i, err)
+		} else if !bytes.Equal(got, want) {
+			t.Errorf("model_%d.ob2 mismatch", i)
+		}
+	}
+
+	// id=2 (== len(models)) must emit the unreferenced-debug line and NOT a warning.
+	if !strings.Contains(out.String(), "Missing unreferenced model model_2") {
+		t.Errorf("expected inclusive-bound debug 'Missing unreferenced model model_2', stdout: %q", out.String())
+	}
+	if strings.Contains(out.String(), "Missing model model_2") {
+		t.Errorf("id==len(models) must take the printDebug branch, not printWarning; stdout: %q", out.String())
+	}
+
+	// id=3 must NOT be processed (loop stops at id == len(models)).
+	if strings.Contains(out.String(), "model_3") {
+		t.Errorf("loop must stop at id == len(models); model_3 should not appear; stdout: %q", out.String())
+	}
+}
+
 // TestModels_NilOut verifies no panic when Out=nil.
 func TestModels_NilOut(t *testing.T) {
 	cacheDir := t.TempDir()

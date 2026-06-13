@@ -228,7 +228,7 @@ func TestExport_TypeText(t *testing.T) {
 		ButtonType:   ButtonOK,
 		Width:        100,
 		Height:       14,
-		Font:         1, // p12
+		Font:         1, // p12_full
 		FontSet:      true,
 		Shadowed:     true,
 		Text:         "Hello",
@@ -253,7 +253,7 @@ func TestExport_TypeText(t *testing.T) {
 		"buttontype=normal",
 		"width=100",
 		"height=14",
-		"font=p12",
+		"font=p12_full",
 		"shadowed=yes",
 		"text=Hello",
 		"activetext=World",
@@ -265,6 +265,59 @@ func TestExport_TypeText(t *testing.T) {
 	for _, c := range checks {
 		if !strings.Contains(joined, c) {
 			t.Errorf("missing %q in output:\n%s", c, joined)
+		}
+	}
+}
+
+// TestExport_FontNames_Full verifies the rev-274 font-name output: each of the
+// four font codes (0..3) emits the "_full" suffix (font=p11_full etc.) in BOTH
+// the TYPE_TEXT and TYPE_INV_TEXT export blocks.
+//
+// TS tools/unpack/interface/Unpack.ts @dee467c8 (lines 652-668 / 747-763):
+//
+//	case 0: temp.push('font=p11_full'); break;
+//	case 1: temp.push('font=p12_full'); break;
+//	case 2: temp.push('font=b12_full'); break;
+//	case 3: temp.push('font=q8_full');  break;
+func TestExport_FontNames_Full(t *testing.T) {
+	wantByFont := map[int]string{
+		0: "font=p11_full",
+		1: "font=p12_full",
+		2: "font=b12_full",
+		3: "font=q8_full",
+	}
+
+	for _, comType := range []int{TypeText, TypeInvText} {
+		for font := range 4 {
+			ifPack := makeIfPack(t)
+			ifPack.Register(0, "ui")
+			ifPack.Register(1, "ui:com_0")
+			ifPack.RefreshNames()
+
+			child := &Component{
+				ID:        1,
+				RootLayer: 0,
+				ComType:   comType,
+				Font:      font,
+				FontSet:   true,
+			}
+			root := &Component{
+				ID:        0,
+				RootLayer: 0,
+				ComType:   TypeLayer,
+				ChildID:   []int{1},
+				ChildX:    []int{0},
+				ChildY:    []int{0},
+			}
+			components := []*Component{root, child}
+
+			lines := exportComponent(root, components, ifPack, makeObjPack(t), makeSeqPack(t), makeVarpPack(t), makeVarbitPack(t), noRenameModel, nil, 0, 0, "")
+			joined := strings.Join(lines, "\n")
+
+			want := wantByFont[font]
+			if !strings.Contains(joined, want) {
+				t.Errorf("comType=%d font=%d: missing %q in output:\n%s", comType, font, want, joined)
+			}
 		}
 	}
 }

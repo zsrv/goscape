@@ -18,8 +18,11 @@
 //
 // # Loop bound
 //
-// TS iterates id from 0 while id < modelCount (cache.count(1)) AND
-// id < models.length (the versionlist flag slice).  Both bounds must hold.
+// rev-274 (TS UnpackModels.ts @dee467c8) iterates id from 0 to models.length
+// INCLUSIVE (`for (let id = 0; id <= models.length; id++)`).  The earlier
+// `id < modelCount` bound was dropped, so the loop now also processes the index
+// one past the last model_index flag; at that index the cache read is out of
+// range (returns nil) and models[id] is undefined → the printDebug branch.
 //
 // # Existing-file lookup
 //
@@ -70,7 +73,7 @@ type Options struct {
 // The function:
 //  1. Reads versionlist (archive 0 / file 5) and parses model_index.
 //  2. Reads cache.count(1) as modelCount; logs "Extracting N models".
-//  3. Iterates id 0..min(modelCount,len(models))-1; resolves/registers name;
+//  3. Iterates id 0..len(models) INCLUSIVE (rev-274); resolves/registers name;
 //     finds existing .ob2 or falls back to models/_unpack/<name>.ob2;
 //     reads+gunzips model data; writes file; warns/debugs on missing.
 //  4. Calls ModelPack.save().
@@ -143,12 +146,12 @@ func Models(opts Options) error {
 		return fmt.Errorf("graphics/models: ensure model pack: %w", err)
 	}
 
-	// TS lines 38-55: main loop.
-	for id := range modelCount {
-		if id >= len(models) {
-			break
-		}
-
+	// TS line 38 @dee467c8: main loop — `for (let id = 0; id <= models.length; id++)`.
+	// rev-274 dropped the `id < modelCount` bound and made the upper bound
+	// INCLUSIVE (`<= models.length`), so the loop also processes id == len(models)
+	// — one past the last model_index flag. At that index cache.Read returns nil
+	// (out of range) and models[id] is undefined → the printDebug branch.
+	for id := 0; id <= len(models); id++ {
 		// TS lines 39-41: register if not already present.
 		if modelPack.GetByID(id) == "" {
 			modelPack.Register(id, fmt.Sprintf("model_%d", id))
@@ -172,8 +175,10 @@ func Models(opts Options) error {
 			if err := os.WriteFile(destFile, modelData, 0o644); err != nil {
 				return fmt.Errorf("graphics/models: write %s: %w", destFile, err)
 			}
-		} else if models[id] != 0 {
+		} else if id < len(models) && models[id] != 0 {
 			// TS line 51: printWarning(`Missing model ${name}`).
+			// id == len(models) makes models[id] undefined (falsy) in TS, so the
+			// one-past-the-end iteration falls through to the printDebug branch.
 			printWarning(fmt.Sprintf("Missing model %s", name))
 		} else {
 			// TS line 53: printDebug(`Missing unreferenced model ${name}`).

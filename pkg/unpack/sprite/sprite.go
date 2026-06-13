@@ -149,7 +149,7 @@ func Textures(opts Options) error {
 //
 //	const title = new Jagfile(new Packet(cache.read(0, 1)!));
 //	// title.dat → binary/title.jpg (raw bytes)
-//	const fonts = ['b12', 'p11', 'p12', 'q8'];
+//	const fonts = ['b12_full', 'p11_full', 'p12_full', 'q8_full'];
 //	for (const name of fonts) { Pix.unpackFull(title, name, `${BUILD_SRC_DIR}/fonts`); }
 //	const titleImages = ['logo', 'runes', 'titlebox', 'titlebutton'];
 //	for (const name of titleImages) { Pix.unpackFull(title, name, `${BUILD_SRC_DIR}/title`); }
@@ -191,8 +191,11 @@ func Title(opts Options) error {
 		}
 	}
 
-	// TS title.ts:29-33 — unpack fonts b12/p11/p12/q8 into fonts/
-	fonts := []string{"b12", "p11", "p12", "q8"}
+	// TS title.ts:29-33 @dee467c8 — unpack fonts b12_full/p11_full/p12_full/q8_full
+	// into fonts/.  The rev-274 cache stores the title fonts under the "_full"
+	// member names (the pack-side rename); the member key doubles as the output
+	// filename, so the .png stems are also "_full".
+	fonts := []string{"b12_full", "p11_full", "p12_full", "q8_full"}
 	for _, name := range fonts {
 		if err := pix.UnpackFull(title, fontsDir, name, "", opts.Errorf); err != nil {
 			return fmt.Errorf("sprite: Title: unpack font %q: %w", name, err)
