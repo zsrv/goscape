@@ -1,6 +1,7 @@
 package inventory
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -16,11 +17,18 @@ func TestNewHasCapacity(t *testing.T) {
 	}
 }
 
+// --- Add: 274 contract — bare count return, partial fill, dirty tracking ---
+//
+// Add's signature is Add(id, count, beginSlot, stackable). The stackable bool
+// is the pre-resolved ObjType.stackable predicate (TS reads it inside add() via
+// ObjType.get; goscape pre-resolves it at the call site to keep the container
+// decoupled from the config registry).
+
 func TestAddIntoEmptyInventory(t *testing.T) {
 	inv := New(1, 28, StackNormal)
-	tx := inv.Add(10, 1, AddOpts{})
-	if tx.Completed != 1 {
-		t.Errorf("Completed: got %d, want 1", tx.Completed)
+	completed := inv.Add(10, 1, -1, false)
+	if completed != 1 {
+		t.Errorf("completed: got %d, want 1", completed)
 	}
 	if inv.Items[0] == nil || inv.Items[0].Id != 10 || inv.Items[0].Count != 1 {
 		t.Errorf("slot 0 after add: %+v", inv.Items[0])
@@ -28,12 +36,15 @@ func TestAddIntoEmptyInventory(t *testing.T) {
 	if !inv.Update {
 		t.Error("Update flag should be true after add")
 	}
+	if got := inv.GetDirtySlots(); !slices.Equal(got, []int{0}) {
+		t.Errorf("dirty slots: got %v, want [0]", got)
+	}
 }
 
 func TestAddStackingBehavior(t *testing.T) {
 	inv := New(1, 28, StackAlways)
-	inv.Add(10, 3, AddOpts{})
-	inv.Add(10, 5, AddOpts{})
+	inv.Add(10, 3, -1, false)
+	inv.Add(10, 5, -1, false)
 	if inv.Items[0].Count != 8 {
 		t.Errorf("stacked count: got %d, want 8", inv.Items[0].Count)
 	}
@@ -42,68 +53,188 @@ func TestAddStackingBehavior(t *testing.T) {
 	}
 }
 
+// Non-stackable obj in StackNever inv distributes one-per-slot.
 func TestAddNoStackFillsSlots(t *testing.T) {
 	inv := New(1, 28, StackNever)
-	inv.Add(10, 3, AddOpts{})
-	for i := 0; i < 3; i++ {
+	inv.Add(10, 3, -1, false)
+	for i := range 3 {
 		if inv.Items[i] == nil || inv.Items[i].Count != 1 {
 			t.Errorf("slot %d: %+v", i, inv.Items[i])
 		}
 	}
+	if got := inv.GetDirtySlots(); !slices.Equal(got, []int{0, 1, 2}) {
+		t.Errorf("dirty slots: got %v, want [0 1 2]", got)
+	}
 }
+
+// 274: a non-stack add that runs out of room partial-fills and returns the
+// completed count (no all-or-nothing rollback — assureFullInsertion is gone).
+func TestAddPartialNonStackReturnsCompleted(t *testing.T) {
+	inv := New(1, 3, StackNever)
+	completed := inv.Add(10, 5, -1, false)
+	if completed != 3 {
+		t.Errorf("completed (partial): got %d, want 3", completed)
+	}
+	for i := range 3 {
+		if inv.Items[i] == nil || inv.Items[i].Count != 1 {
+			t.Errorf("slot %d: got %+v, want {Id:10 Count:1}", i, inv.Items[i])
+		}
+	}
+}
+
+// 274: stackable obj into a normal-stack inv stacks in one slot.
+func TestAddStackableObjNormalStackInvStacksOneSlot(t *testing.T) {
+	inv := New(1, 28, StackNormal)
+	completed := inv.Add(10, 25, -1, true) // stackable=true
+	if completed != 25 {
+		t.Errorf("completed: got %d, want 25", completed)
+	}
+	if inv.Items[0] == nil || inv.Items[0].Count != 25 {
+		t.Errorf("slot 0: got %+v, want {Id:10 Count:25}", inv.Items[0])
+	}
+	if inv.Items[1] != nil {
+		t.Errorf("slot 1 should remain empty, got %+v", inv.Items[1])
+	}
+}
+
+// 274: a non-stackable obj into a normal-stack inv distributes one-per-slot.
+func TestAddNonStackableObjNormalStackInvFillsSlots(t *testing.T) {
+	inv := New(1, 28, StackNormal)
+	completed := inv.Add(10, 3, -1, false)
+	if completed != 3 {
+		t.Errorf("completed: got %d, want 3", completed)
+	}
+	for i := range 3 {
+		if inv.Items[i] == nil || inv.Items[i].Count != 1 {
+			t.Errorf("slot %d: got %+v, want {Id:10 Count:1}", i, inv.Items[i])
+		}
+	}
+}
+
+// 274: even a non-stackable obj stacks when the inv is StackAlways (bank).
+func TestAddAlwaysStackInvIgnoresStackable(t *testing.T) {
+	inv := New(1, 28, StackAlways)
+	completed := inv.Add(10, 10, -1, false) // stackable=false but StackAlways
+	if completed != 10 {
+		t.Errorf("completed: got %d, want 10", completed)
+	}
+	if inv.Items[0] == nil || inv.Items[0].Count != 10 {
+		t.Errorf("slot 0: got %+v, want {Id:10 Count:10}", inv.Items[0])
+	}
+}
+
+// 274: StackLimit clamp on stack add; completed reports the clamped amount.
+func TestAddStackLimitClamp(t *testing.T) {
+	inv := New(1, 28, StackAlways)
+	inv.Items[0] = &Item{Id: 10, Count: StackLimit - 3}
+	completed := inv.Add(10, 10, -1, true)
+	if completed != 3 {
+		t.Errorf("completed (clamped): got %d, want 3", completed)
+	}
+	if inv.Items[0].Count != StackLimit {
+		t.Errorf("clamped slot: got %d, want %d", inv.Items[0].Count, StackLimit)
+	}
+}
+
+// 274: stack add with no existing stack and no free slot returns 0.
+func TestAddStackNoFreeSlotReturnsZero(t *testing.T) {
+	inv := New(1, 2, StackAlways)
+	inv.Items[0] = &Item{Id: 99, Count: 1}
+	inv.Items[1] = &Item{Id: 88, Count: 1}
+	completed := inv.Add(10, 5, -1, true)
+	if completed != 0 {
+		t.Errorf("completed (no slot): got %d, want 0", completed)
+	}
+	if inv.Items[0].Id != 99 || inv.Items[1].Id != 88 {
+		t.Errorf("slots should be unchanged; got %+v %+v", inv.Items[0], inv.Items[1])
+	}
+}
+
+// 274: stack add finds an existing depleted (count-0) stack slot even when the
+// inv is otherwise full (stock-obj depleted placeholder). getItemIndex finds
+// the count-0 slot regardless of free space.
+func TestAddStackFindsDepletedExistingStack(t *testing.T) {
+	inv := New(1, 2, StackAlways)
+	inv.Items[0] = &Item{Id: 10, Count: 0}
+	inv.Items[1] = &Item{Id: 99, Count: 1}
+	completed := inv.Add(10, 5, -1, true)
+	if completed != 5 {
+		t.Errorf("completed: got %d, want 5", completed)
+	}
+	if inv.Items[0].Count != 5 {
+		t.Errorf("depleted stack slot: got %d, want 5", inv.Items[0].Count)
+	}
+}
+
+// 274: stack add with beginSlot != -1 scans for the first nil slot at-or-after
+// beginSlot when no existing stack of the id is present.
+func TestAddStackBeginSlot(t *testing.T) {
+	inv := New(1, 5, StackAlways)
+	inv.Items[0] = &Item{Id: 99, Count: 1}
+	completed := inv.Add(10, 4, 1, true)
+	if completed != 4 {
+		t.Errorf("completed: got %d, want 4", completed)
+	}
+	if inv.Items[1] == nil || inv.Items[1].Id != 10 || inv.Items[1].Count != 4 {
+		t.Errorf("slot 1: got %+v, want {Id:10 Count:4}", inv.Items[1])
+	}
+}
+
+// 274: non-stack add with beginSlot starts at max(0, beginSlot).
+func TestAddNonStackBeginSlot(t *testing.T) {
+	inv := New(1, 5, StackNever)
+	completed := inv.Add(10, 2, 2, false)
+	if completed != 2 {
+		t.Errorf("completed: got %d, want 2", completed)
+	}
+	if inv.Items[0] != nil || inv.Items[1] != nil {
+		t.Error("slots before beginSlot must stay empty")
+	}
+	if inv.Items[2] == nil || inv.Items[3] == nil {
+		t.Error("slots 2,3 should be filled")
+	}
+}
+
+// --- Remove: 274 contract — bare count return, partial removal, dirty ---
 
 func TestRemoveDecrementsCount(t *testing.T) {
 	inv := New(1, 28, StackAlways)
-	inv.Add(10, 5, AddOpts{})
-	tx := inv.Remove(10, 2, RemoveOpts{})
-	if tx.Completed != 2 {
-		t.Errorf("Completed: got %d, want 2", tx.Completed)
+	inv.Add(10, 5, -1, false)
+	inv.ResetTracking()
+	removed := inv.Remove(10, 2, -1)
+	if removed != 2 {
+		t.Errorf("removed: got %d, want 2", removed)
 	}
 	if inv.Items[0].Count != 3 {
 		t.Errorf("after remove count: got %d, want 3", inv.Items[0].Count)
 	}
+	if got := inv.GetDirtySlots(); !slices.Equal(got, []int{0}) {
+		t.Errorf("dirty slots: got %v, want [0]", got)
+	}
 }
 
+// 274: partial removal when fewer present; returns the removed count.
 func TestRemovePartialWhenInsufficient(t *testing.T) {
 	inv := New(1, 28, StackAlways)
-	inv.Add(10, 3, AddOpts{})
-	tx := inv.Remove(10, 5, RemoveOpts{})
-	if tx.Completed != 3 {
-		t.Errorf("Completed (partial): got %d, want 3", tx.Completed)
+	inv.Add(10, 3, -1, false)
+	removed := inv.Remove(10, 5, -1)
+	if removed != 3 {
+		t.Errorf("removed (partial): got %d, want 3", removed)
 	}
 	if inv.Items[0] != nil {
 		t.Error("slot should be empty after full drain")
 	}
 }
 
-// TestRemoveAssureFullRemoval pins M10: with AssureFullRemoval, an inv holding
-// fewer than the requested count removes nothing. Mirrors TS Inventory.ts:247-248.
-func TestRemoveAssureFullRemoval(t *testing.T) {
-	inv := New(1, 28, StackAlways)
-	inv.Add(10, 3, AddOpts{})
-	tx := inv.Remove(10, 5, RemoveOpts{AssureFullRemoval: true})
-	if tx.Completed != 0 {
-		t.Errorf("Completed: got %d, want 0 (all-or-nothing)", tx.Completed)
-	}
-	if inv.Items[0] == nil || inv.Items[0].Count != 3 {
-		t.Errorf("slot must be untouched, got %+v", inv.Items[0])
-	}
-	// Exact count succeeds.
-	tx = inv.Remove(10, 3, RemoveOpts{AssureFullRemoval: true})
-	if tx.Completed != 3 {
-		t.Errorf("Completed (exact): got %d, want 3", tx.Completed)
-	}
-}
-
-// TestRemoveStockObjRetainsSlot pins M11: a stock-obj slot reaching count 0 is
-// retained (count 0), not vacated. Mirrors TS Inventory.ts:280-286.
+// 274: a stock-obj slot reaching count 0 is retained (count 0), not vacated.
+// Mirrors TS Inventory.remove (Inventory.ts:181-183 — `!stockObj`).
 func TestRemoveStockObjRetainsSlot(t *testing.T) {
 	inv := New(1, 28, StackAlways)
-	inv.stockObjIDs = []uint16{10} // obj 10 is in this inv's stock list
-	inv.Add(10, 2, AddOpts{})
-	tx := inv.Remove(10, 2, RemoveOpts{})
-	if tx.Completed != 2 {
-		t.Errorf("Completed: got %d, want 2", tx.Completed)
+	inv.stockObjIDs = []uint16{10}
+	inv.Add(10, 2, -1, false)
+	removed := inv.Remove(10, 2, -1)
+	if removed != 2 {
+		t.Errorf("removed: got %d, want 2", removed)
 	}
 	if inv.Items[0] == nil {
 		t.Fatal("stock-obj slot must be retained at count 0, got nil")
@@ -111,28 +242,40 @@ func TestRemoveStockObjRetainsSlot(t *testing.T) {
 	if inv.Items[0].Count != 0 {
 		t.Errorf("retained slot count: got %d, want 0", inv.Items[0].Count)
 	}
-	// Without StockObj the slot vacates (regression guard).
+
 	inv2 := New(1, 28, StackAlways)
-	inv2.Add(10, 2, AddOpts{})
-	inv2.Remove(10, 2, RemoveOpts{})
+	inv2.Add(10, 2, -1, false)
+	inv2.Remove(10, 2, -1)
 	if inv2.Items[0] != nil {
 		t.Error("non-stock slot must vacate at count 0")
 	}
 }
 
-// TestFromTypeStockObjBareRemoveRetainsPlaceholder reproduces the shop-buy
-// bug: buying out a permanently-stocked item must leave a count-0
-// placeholder, not an empty slot. A shop inventory is built via FromType
-// (which seeds the stock list from the InvType), and INV_DEL — the opcode
-// the shop-buy script uses — removes through a bare RemoveOpts (no per-call
-// StockObj flag). The retention must therefore come from the inventory's own
-// InvType, exactly as TS computes it inside remove() (Inventory.ts:245,280).
-func TestFromTypeStockObjBareRemoveRetainsPlaceholder(t *testing.T) {
+// 274: Remove with beginSlot >= 1 scans [beginSlot, capacity) first, then wraps
+// to the skipped prefix [0, beginSlot). Mirrors TS Inventory.remove
+// (Inventory.ts:157-211).
+func TestRemoveBeginSlotWrapsPrefix(t *testing.T) {
+	inv := New(1, 5, StackNever)
+	inv.Items[0] = &Item{Id: 10, Count: 1}
+	inv.Items[1] = &Item{Id: 10, Count: 1}
+	removed := inv.Remove(10, 2, 1)
+	if removed != 2 {
+		t.Errorf("removed: got %d, want 2 (first pass + prefix wrap)", removed)
+	}
+	if inv.Items[0] != nil || inv.Items[1] != nil {
+		t.Errorf("both slots should clear: [0]=%+v [1]=%+v", inv.Items[0], inv.Items[1])
+	}
+}
+
+// FromType stock-buy bug: buying out a permanently-stocked item leaves a count-0
+// placeholder, not an empty slot. The retention comes from the inventory's own
+// InvType (TS computes it inside remove()).
+func TestFromTypeStockObjRemoveRetainsPlaceholder(t *testing.T) {
 	it := &objtype.InvType{Size: 40, StockObj: []uint16{100}, StockCount: []uint16{10}}
-	inv := FromType(it) // seeds slot 0 with {100, 10}
-	tx := inv.Remove(100, 10, RemoveOpts{BeginSlot: -1})
-	if tx.Completed != 10 {
-		t.Fatalf("Completed: got %d, want 10", tx.Completed)
+	inv := FromType(it)
+	removed := inv.Remove(100, 10, -1)
+	if removed != 10 {
+		t.Fatalf("removed: got %d, want 10", removed)
 	}
 	if inv.Items[0] == nil {
 		t.Fatal("permanently-stocked slot must remain as a count-0 placeholder, got nil")
@@ -140,229 +283,90 @@ func TestFromTypeStockObjBareRemoveRetainsPlaceholder(t *testing.T) {
 	if inv.Items[0].Id != 100 || inv.Items[0].Count != 0 {
 		t.Errorf("placeholder: got %+v, want {Id:100 Count:0}", inv.Items[0])
 	}
-	// A non-stock obj in the same inventory still vacates when fully removed.
 	inv.Items[1] = &Item{Id: 200, Count: 3}
-	inv.Remove(200, 3, RemoveOpts{BeginSlot: -1})
+	inv.Remove(200, 3, -1)
 	if inv.Items[1] != nil {
 		t.Error("non-stock obj must vacate at count 0 even in a stock inventory")
 	}
 }
 
-func TestSwapExchangesSlots(t *testing.T) {
-	inv := New(1, 28, StackNormal)
-	inv.Items[0] = &Item{Id: 10, Count: 1}
-	inv.Items[1] = &Item{Id: 20, Count: 1}
-	inv.Swap(0, 1)
-	if inv.Items[0].Id != 20 || inv.Items[1].Id != 10 {
-		t.Errorf("after swap: %+v %+v", inv.Items[0], inv.Items[1])
+// --- Set / Delete / RemoveAll dirty tracking ---
+
+func TestSetMarksDirty(t *testing.T) {
+	inv := New(1, 5, StackNormal)
+	inv.Set(3, &Item{Id: 7, Count: 2})
+	if inv.Items[3] == nil || inv.Items[3].Id != 7 {
+		t.Errorf("slot 3: got %+v", inv.Items[3])
+	}
+	if !inv.Update {
+		t.Error("Set must mark Update")
+	}
+	if got := inv.GetDirtySlots(); !slices.Equal(got, []int{3}) {
+		t.Errorf("dirty slots: got %v, want [3]", got)
 	}
 }
 
-func TestIsFullAndFreeSlotCount(t *testing.T) {
-	inv := New(1, 3, StackNormal)
-	if inv.IsFull() {
-		t.Error("new inv should not be full")
+func TestDeleteMarksDirty(t *testing.T) {
+	inv := New(1, 5, StackNormal)
+	inv.Items[2] = &Item{Id: 7, Count: 2}
+	inv.Delete(2)
+	if inv.Items[2] != nil {
+		t.Error("Delete must clear the slot")
 	}
-	if inv.FreeSlotCount() != 3 {
-		t.Errorf("free: got %d, want 3", inv.FreeSlotCount())
-	}
-	inv.Add(10, 3, AddOpts{})
-	if !inv.IsFull() {
-		t.Error("inv should be full after 3 adds")
+	if got := inv.GetDirtySlots(); !slices.Equal(got, []int{2}) {
+		t.Errorf("dirty slots: got %v, want [2]", got)
 	}
 }
 
-// -- NAI-130 TS-fidelity tests --
+// 274: RemoveAll marks each PREVIOUSLY-OCCUPIED slot dirty (loop, not fill).
+// Mirrors TS Inventory.removeAll (Inventory.ts:98-105).
+func TestRemoveAllMarksOccupiedSlotsDirty(t *testing.T) {
+	inv := New(1, 5, StackNormal)
+	inv.Items[1] = &Item{Id: 7, Count: 1}
+	inv.Items[3] = &Item{Id: 8, Count: 1}
+	inv.ResetTracking()
 
-// (1) Bronze-arrow analogue: stackable obj into normal-stack inv stacks
-// in a single slot. Pre-NAI-130 this distributed 25 slots × count=1.
-func TestAdd_StackableObj_NormalStackInv_StacksInOneSlot(t *testing.T) {
-	inv := New(1, 28, StackNormal)
-	tx := inv.Add(10, 25, AddOpts{BeginSlot: -1, Stackable: true})
-	if tx.Completed != 25 {
-		t.Errorf("Completed: got %d, want 25", tx.Completed)
-	}
-	if inv.Items[0] == nil || inv.Items[0].Id != 10 || inv.Items[0].Count != 25 {
-		t.Errorf("slot 0 after add: got %+v, want {Id:10 Count:25}", inv.Items[0])
-	}
-	if inv.Items[1] != nil {
-		t.Errorf("slot 1 should remain empty, got %+v", inv.Items[1])
-	}
-}
-
-// (2) Regression: non-stackable obj into normal-stack inv distributes
-// one-per-slot. Same shape as TestAddNoStackFillsSlots (which uses
-// StackNever) but exercises the stackable=false path through StackNormal.
-func TestAdd_NonStackableObj_NormalStackInv_FillsSlots(t *testing.T) {
-	inv := New(1, 28, StackNormal)
-	tx := inv.Add(10, 3, AddOpts{BeginSlot: -1, Stackable: false})
-	if tx.Completed != 3 {
-		t.Errorf("Completed: got %d, want 3", tx.Completed)
-	}
-	for i := range 3 {
-		if inv.Items[i] == nil || inv.Items[i].Count != 1 {
-			t.Errorf("slot %d: got %+v, want {Id:10 Count:1}", i, inv.Items[i])
+	inv.RemoveAll()
+	for i := range inv.Items {
+		if inv.Items[i] != nil {
+			t.Errorf("slot %d not cleared: %+v", i, inv.Items[i])
 		}
 	}
-	if inv.Items[3] != nil {
-		t.Errorf("slot 3 should remain empty, got %+v", inv.Items[3])
+	if got := inv.GetDirtySlots(); !slices.Equal(got, []int{1, 3}) {
+		t.Errorf("dirty slots: got %v, want [1 3]", got)
 	}
 }
 
-// (3) ALWAYS_STACK predicate's right-hand disjunct: even a non-stackable
-// obj stacks when the inv is StackAlways (e.g., bank).
-func TestAdd_AlwaysStackInv_IgnoresStackableFlag(t *testing.T) {
-	inv := New(1, 28, StackAlways)
-	tx := inv.Add(10, 10, AddOpts{BeginSlot: -1, Stackable: false})
-	if tx.Completed != 10 {
-		t.Errorf("Completed: got %d, want 10", tx.Completed)
-	}
-	if inv.Items[0] == nil || inv.Items[0].Count != 10 {
-		t.Errorf("slot 0: got %+v, want {Id:10 Count:10}", inv.Items[0])
-	}
-	if inv.Items[1] != nil {
-		t.Errorf("slot 1 should remain empty, got %+v", inv.Items[1])
+// --- Dirty-slot tracking + ResetTracking ---
+
+func TestGetDirtySlotsSorted(t *testing.T) {
+	inv := New(1, 10, StackNormal)
+	inv.Set(7, &Item{Id: 1, Count: 1})
+	inv.Set(2, &Item{Id: 1, Count: 1})
+	inv.Set(5, &Item{Id: 1, Count: 1})
+	if got := inv.GetDirtySlots(); !slices.Equal(got, []int{2, 5, 7}) {
+		t.Errorf("dirty slots: got %v, want [2 5 7] (sorted)", got)
 	}
 }
 
-// (4) AssureFullInsertion + stack-overflow rolls back: previousCount=10,
-// StackLimit-count would overflow → tx.Completed=0, slot unchanged.
-func TestAdd_AssureFullInsertion_StackOverflow_RollsBack(t *testing.T) {
-	inv := New(1, 28, StackAlways)
-	inv.Items[0] = &Item{Id: 10, Count: StackLimit - 5}
-	tx := inv.Add(10, 10, AddOpts{
-		BeginSlot:           -1,
-		AssureFullInsertion: true,
-		Stackable:           true,
-	})
-	if tx.Completed != 0 {
-		t.Errorf("Completed (should roll back): got %d, want 0", tx.Completed)
+func TestResetTrackingClearsFlagAndSet(t *testing.T) {
+	inv := New(1, 10, StackNormal)
+	inv.Set(4, &Item{Id: 1, Count: 1})
+	if !inv.Update || len(inv.GetDirtySlots()) == 0 {
+		t.Fatal("precondition: Set should dirty the inv")
 	}
-	if inv.Items[0].Count != StackLimit-5 {
-		t.Errorf("slot 0 should be unchanged: got Count=%d, want %d", inv.Items[0].Count, StackLimit-5)
+	inv.ResetTracking()
+	if inv.Update {
+		t.Error("ResetTracking must clear Update")
+	}
+	if got := inv.GetDirtySlots(); len(got) != 0 {
+		t.Errorf("ResetTracking must clear dirty slots; got %v", got)
 	}
 }
 
-// (5) AssureFullInsertion + non-stack overflow rolls back: free=2,
-// count=3 → tx.Completed=0, no slot mutation.
-func TestAdd_AssureFullInsertion_NonStackOverflow_RollsBack(t *testing.T) {
-	inv := New(1, 3, StackNormal)
-	// Pre-fill 1 slot so free=2.
-	inv.Items[0] = &Item{Id: 99, Count: 1}
-	tx := inv.Add(10, 3, AddOpts{
-		BeginSlot:           -1,
-		AssureFullInsertion: true,
-		Stackable:           false,
-	})
-	if tx.Completed != 0 {
-		t.Errorf("Completed (should roll back): got %d, want 0", tx.Completed)
-	}
-	if inv.Items[1] != nil || inv.Items[2] != nil {
-		t.Errorf("non-stack rollback should leave slots 1/2 empty; got %+v %+v", inv.Items[1], inv.Items[2])
-	}
-}
+// --- FromType seeding (L11) ---
 
-// (6) Free=0 + stack + previousCount=0 + !stockObj → fail. This is the
-// TS line 173 early-return for invs with no slots and no existing stack
-// for a non-stock obj.
-func TestAdd_FreeZero_NoExistingStack_NoStockObj_Fails(t *testing.T) {
-	inv := New(1, 2, StackAlways)
-	// Fill both slots with OTHER objs so free=0 and obj 10 has no stack.
-	inv.Items[0] = &Item{Id: 99, Count: 1}
-	inv.Items[1] = &Item{Id: 88, Count: 1}
-	tx := inv.Add(10, 5, AddOpts{
-		BeginSlot: -1,
-		Stackable: true,
-	})
-	if tx.Completed != 0 {
-		t.Errorf("Completed (no slot, no stock): got %d, want 0", tx.Completed)
-	}
-	if inv.Items[0].Id != 99 || inv.Items[1].Id != 88 {
-		t.Errorf("slots should be unchanged; got %+v %+v", inv.Items[0], inv.Items[1])
-	}
-}
-
-// (7) Free=0 + stack + StockObj=true + existing depleted stock slot →
-// the TS line 173 stockObj guard skips the early-return; getItemIndex
-// finds the depleted slot; stack branch increments it.
-func TestAdd_FreeZero_StockObj_ExistingDepletedStock_Succeeds(t *testing.T) {
-	inv := New(1, 2, StackAlways)
-	inv.stockObjIDs = []uint16{10} // obj 10 is in this inv's stock list
-	// Slot 0 holds the depleted stock slot for obj 10 (Count=0 but
-	// non-nil so freeSlotCount() == 0). Slot 1 holds another obj.
-	inv.Items[0] = &Item{Id: 10, Count: 0}
-	inv.Items[1] = &Item{Id: 99, Count: 1}
-	tx := inv.Add(10, 5, AddOpts{
-		BeginSlot: -1,
-		Stackable: true,
-	})
-	if tx.Completed != 5 {
-		t.Errorf("Completed (stockObj depleted): got %d, want 5", tx.Completed)
-	}
-	if inv.Items[0].Count != 5 {
-		t.Errorf("depleted stock slot: got Count=%d, want 5", inv.Items[0].Count)
-	}
-}
-
-// (8) StackLimit clamp on stack add without AssureFullInsertion: adds
-// up to the limit and reports clamped tx.Completed.
-func TestAdd_StackLimitClamp_NonAssure(t *testing.T) {
-	inv := New(1, 28, StackAlways)
-	inv.Items[0] = &Item{Id: 10, Count: StackLimit - 3}
-	tx := inv.Add(10, 10, AddOpts{
-		BeginSlot:           -1,
-		AssureFullInsertion: false,
-		Stackable:           true,
-	})
-	if tx.Completed != 3 {
-		t.Errorf("Completed (clamped): got %d, want 3", tx.Completed)
-	}
-	if inv.Items[0].Count != StackLimit {
-		t.Errorf("clamped slot: got Count=%d, want %d", inv.Items[0].Count, StackLimit)
-	}
-}
-
-// (9) Partial non-stack add without AssureFullInsertion: fills as many
-// slots as available and reports partial tx.Completed.
-func TestAdd_PartialNonStack_ReturnsCompletedCount(t *testing.T) {
-	inv := New(1, 3, StackNormal)
-	tx := inv.Add(10, 5, AddOpts{
-		BeginSlot:           -1,
-		AssureFullInsertion: false,
-		Stackable:           false,
-	})
-	if tx.Completed != 3 {
-		t.Errorf("Completed (partial): got %d, want 3", tx.Completed)
-	}
-	for i := range 3 {
-		if inv.Items[i] == nil || inv.Items[i].Count != 1 {
-			t.Errorf("slot %d: got %+v, want {Id:10 Count:1}", i, inv.Items[i])
-		}
-	}
-}
-
-// (10) Transaction.Added populated for non-stack add: lists each (slot,
-// item) actually written. Mirrors TS Inventory.add `added` array.
-func TestAdd_TransactionAddedPopulated(t *testing.T) {
-	inv := New(1, 28, StackNormal)
-	tx := inv.Add(10, 2, AddOpts{BeginSlot: -1, Stackable: false})
-	if len(tx.Added) != 2 {
-		t.Fatalf("Added len: got %d, want 2", len(tx.Added))
-	}
-	if tx.Added[0] != (SlotEntry{Slot: 0, Item: Item{Id: 10, Count: 1}}) {
-		t.Errorf("Added[0]: got %+v, want {Slot:0 Item:{Id:10 Count:1}}", tx.Added[0])
-	}
-	if tx.Added[1] != (SlotEntry{Slot: 1, Item: Item{Id: 10, Count: 1}}) {
-		t.Errorf("Added[1]: got %+v, want {Slot:1 Item:{Id:10 Count:1}}", tx.Added[1])
-	}
-}
-
-// -- [F] inventory cluster TS-fidelity pins (L10, L11, L13) --
-
-// L11: FromType seeds every stock index with the literal {stockobj[i],
-// stockcount[i]} — no id==0 skip, no count fallback to 1. Matches TS
-// Inventory.fromType (Inventory.ts:66-73).
-func TestFromType_SeedsLiteralStockObjAndCount(t *testing.T) {
+func TestFromTypeSeedsLiteralStockObjAndCount(t *testing.T) {
 	tp := &objtype.InvType{
 		ConfigType: objtype.ConfigType{ID: 1},
 		Size:       3,
@@ -370,11 +374,9 @@ func TestFromType_SeedsLiteralStockObjAndCount(t *testing.T) {
 		StockCount: []uint16{5, 0, 0},
 	}
 	inv := FromType(tp)
-	// id==0 is a valid obj and must NOT be skipped.
 	if inv.Items[0] == nil || inv.Items[0].Id != 0 || inv.Items[0].Count != 5 {
 		t.Errorf("slot 0: got %+v, want {Id:0 Count:5}", inv.Items[0])
 	}
-	// count==0 must NOT fall back to 1 (the slot seeds empty and restocks up).
 	if inv.Items[1] == nil || inv.Items[1].Id != 7 || inv.Items[1].Count != 0 {
 		t.Errorf("slot 1: got %+v, want {Id:7 Count:0}", inv.Items[1])
 	}
@@ -383,37 +385,15 @@ func TestFromType_SeedsLiteralStockObjAndCount(t *testing.T) {
 	}
 }
 
-// L13: Add clamps a stack write by the PER-SLOT count at the target slot, not
-// GetItemCount (the sum across all slots). Visible only with duplicate stacks
-// of one id. Matches TS Inventory.add (Inventory.ts:229-237).
-func TestAdd_StackOverflow_PerSlotBasis(t *testing.T) {
-	inv := New(1, 28, StackAlways)
-	inv.Items[0] = &Item{Id: 10, Count: StackLimit - 5}
-	inv.Items[2] = &Item{Id: 10, Count: 10}
-	// Sum is StackLimit+5 (over limit), but the target slot 0 can still take 5
-	// more up to StackLimit. Sum-basis would add 0; per-slot adds 5.
-	tx := inv.Add(10, 10, AddOpts{BeginSlot: -1, Stackable: true})
-	if tx.Completed != 5 {
-		t.Errorf("Completed: got %d, want 5 (per-slot basis)", tx.Completed)
-	}
-	if inv.Items[0].Count != StackLimit {
-		t.Errorf("slot 0 count: got %d, want %d", inv.Items[0].Count, StackLimit)
-	}
-}
-
-// L10: Remove with BeginSlot >= 1 scans [BeginSlot, capacity) then wraps to the
-// skipped prefix [0, BeginSlot) when not yet satisfied. Matches TS
-// Inventory.delete second pass (Inventory.ts:293-316).
-func TestRemove_BeginSlot_WrapsToSkippedPrefix(t *testing.T) {
-	inv := New(1, 5, StackNever)
-	inv.Items[0] = &Item{Id: 10, Count: 1}
-	inv.Items[1] = &Item{Id: 10, Count: 1}
-	// Start at slot 1 (removes 1), then wrap to slot 0 for the remaining 1.
-	tx := inv.Remove(10, 2, RemoveOpts{BeginSlot: 1})
-	if tx.Completed != 2 {
-		t.Errorf("Completed: got %d, want 2 (first pass + prefix wrap)", tx.Completed)
-	}
-	if inv.Items[0] != nil || inv.Items[1] != nil {
-		t.Errorf("both slots should clear: [0]=%+v [1]=%+v", inv.Items[0], inv.Items[1])
+// ValidSlot bounds.
+func TestValidSlot(t *testing.T) {
+	inv := New(1, 3, StackNormal)
+	for _, tc := range []struct {
+		slot int
+		want bool
+	}{{-1, false}, {0, true}, {2, true}, {3, false}} {
+		if got := inv.ValidSlot(tc.slot); got != tc.want {
+			t.Errorf("ValidSlot(%d): got %v, want %v", tc.slot, got, tc.want)
+		}
 	}
 }

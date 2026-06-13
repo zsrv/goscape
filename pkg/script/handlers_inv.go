@@ -433,34 +433,34 @@ func handleInvAdd(s *ScriptState) error {
 	count := s.PopInt()
 	obj := s.PopInt()
 	typeID := s.PopInt()
-	// TS InvOps.ts:73 passes assureFullInsertion=false explicitly.
-	return performInvAdd(s, typeID, obj, count, false, "INV_ADD")
+	// TS InvOps.ts:72-83 — INV_ADD drops the overflow at the player's tile.
+	return performInvAdd(s, typeID, obj, count, true, "INV_ADD")
 }
 
 // performInvAdd is the shared body of the INV_ADD opcode. Mirrors TS
 // InvOps.ts:57-83: validates invType + objType + count, enforces
 // protect/scope + dummyitem gates, resolves the inv, routes via
-// Inventory.Add, and drops overflow at the player's tile.
+// Inventory.Add (a 274 partial-fill add — no all-or-nothing), and
+// optionally drops overflow at the player's tile.
 //
-// Note: TS Player.invAdd (Player.ts:1496-1504) is bare — getInventory +
-// container.add only — with `assureFullInsertion` defaulting to `true`
-// at the entity layer. The INV_ADD opcode gates (Protect/Scope,
-// dummyitem) live in TS's InvOps.ts:57-83 and call invAdd(..., false)
-// explicitly. OBJ_TAKEITEM (ObjOps.ts:147) calls invAdd without the
-// 4th arg, picking up the `true` default — a tight-destination Add
-// either fully inserts or rolls back to nothing. goscape lacks a
-// separate bare-invAdd entity path; both opcodes route through this
-// helper and the caller picks the assureFullInsertion bit via the
-// `assureFull` parameter. The InvType.Protect / DummyInv gates are
-// no-ops for OBJ_TAKEITEM's realistic call shape (mindrune-style:
-// non-protected inv 93, non-dummyitem obj), so routing through here
-// doesn't change OBJ_TAKEITEM's hot path.
+// 274 NOTE (transaction model deleted): TS Player.invAdd (Player.ts:1543-1550)
+// is bare — getInventory + container.add(obj, count, -1) — with NO
+// assureFullInsertion parameter; the all-or-nothing transaction model was
+// removed at rev-274 (Inventory.ts @dee467c8). A near-full destination now
+// partial-fills and returns the completed count; the caller computes overflow =
+// count - completed. The two opcodes sharing this helper differ ONLY in what
+// happens to that overflow:
+//   - INV_ADD (InvOps.ts:72-83): drops overflow to the player's tile (DESPAWN,
+//     owned by the player, 200t) — dropOverflow=true.
+//   - OBJ_TAKEITEM (ObjOps.ts:147): bare invAdd with NO overflow handling — the
+//     leftover is silently lost as the obj is unconditionally removed from the
+//     world. dropOverflow=false.
 //
-// Pre-conditions: caller has invoked requireActivePlayer (s.Self must
-// be non-nil with PtrActivePlayer set; it is dereferenced for the
-// overflow drop). Inputs are raw script ints; performInvAdd does its
-// own check chain so each call site stays minimal.
-func performInvAdd(s *ScriptState, typeID, obj, count int, assureFull bool, op string) error {
+// Pre-conditions: caller has invoked requireActivePlayer (s.Self must be
+// non-nil with PtrActivePlayer set; it is dereferenced for the overflow drop).
+// Inputs are raw script ints; performInvAdd does its own check chain so each
+// call site stays minimal.
+func performInvAdd(s *ScriptState, typeID, obj, count int, dropOverflow bool, op string) error {
 	// TS InvOps.ts:60-62 — InvTypeValid, ObjTypeValid, ObjStackValid.
 	if err := checkInvType(s, typeID, op); err != nil {
 		return err
@@ -503,14 +503,10 @@ func performInvAdd(s *ScriptState, typeID, obj, count int, assureFull bool, op s
 
 	stackable := lookupStackable(s, obj)
 
-	tx := inv.Add(obj, count, inventory.AddOpts{
-		BeginSlot:           -1,
-		AssureFullInsertion: assureFull,
-		Stackable:           stackable,
-	})
+	completed := inv.Add(obj, count, -1, stackable)
 
-	overflow := count - tx.Completed
-	if overflow > 0 && s.World != nil {
+	overflow := count - completed
+	if dropOverflow && overflow > 0 && s.World != nil {
 		level := (s.activePlayer().CoordPacked() >> 28) & 0x3
 		x := s.activePlayer().X()
 		z := s.activePlayer().Z()
@@ -583,7 +579,7 @@ func handleInvDel(s *ScriptState) error {
 	if inv == nil {
 		return fmt.Errorf("INV_DEL: no inv for type %d", typeID)
 	}
-	inv.Remove(obj, count, inventory.RemoveOpts{BeginSlot: -1})
+	inv.Remove(obj, count, -1)
 	return nil
 }
 
@@ -703,7 +699,9 @@ func handleInvClear(s *ScriptState) error {
 	if inv == nil {
 		return fmt.Errorf("INV_CLEAR: no inv for type %d", typeID)
 	}
-	inv.Clear()
+	// TS Player.invClear (Player.ts:1534-1541) calls container.removeAll(),
+	// which empties each occupied slot and marks it dirty (Inventory.ts:98-105).
+	inv.RemoveAll()
 	return nil
 }
 
@@ -774,19 +772,16 @@ func handleInvMoveItem(s *ScriptState) error {
 	if toInv == nil {
 		return fmt.Errorf("INV_MOVEITEM: no inv for to-type %d", toTypeID)
 	}
-	tx := fromInv.Remove(obj, count, inventory.RemoveOpts{BeginSlot: -1})
-	if tx.Completed == 0 {
+	completed := fromInv.Remove(obj, count, -1)
+	if completed == 0 {
 		return nil
 	}
 	stackable := lookupStackable(s, obj)
-	addTx := toInv.Add(obj, tx.Completed, inventory.AddOpts{
-		BeginSlot: -1,
-		Stackable: stackable,
-	})
-	// TS InvOps.ts:521-530 — items that don't fit in the destination drop to
+	added := toInv.Add(obj, completed, -1, stackable)
+	// TS InvOps.ts:518-530 — items that don't fit in the destination drop to
 	// the floor (DESPAWN, owned by the active player, 200t) rather than
 	// vanishing. overflow is `count - added`, mirroring TS exactly.
-	if overflow := count - addTx.Completed; overflow > 0 && s.World != nil {
+	if overflow := count - added; overflow > 0 && s.World != nil {
 		dropOverflowToFloor(s, obj, overflow, stackable)
 	}
 	return nil
@@ -873,14 +868,12 @@ func handleInvMoveFromSlot(s *ScriptState) error {
 	id, cnt := it.Id, it.Count
 	fromInv.Delete(fromSlot)
 	stackable := lookupStackable(s, id)
-	addTx := toInv.Add(id, cnt, inventory.AddOpts{
-		BeginSlot: -1,
-		Stackable: stackable,
-	})
-	// TS Player.invMoveFromSlot (Player.ts:1651) + InvOps.ts:339-347 — the
+	added := toInv.Add(id, cnt, -1, stackable)
+	// TS Player.invMoveFromSlot (Player.ts:1676-1701) + InvOps.ts:339-347 — the
 	// whole slot is removed; whatever the destination can't hold drops to the
-	// floor (owned by the active player) instead of vanishing.
-	if overflow := cnt - addTx.Completed; overflow > 0 && s.World != nil {
+	// floor (owned by the active player) instead of vanishing. overflow =
+	// fromObj.count - invAdd (Player.ts:1699).
+	if overflow := cnt - added; overflow > 0 && s.World != nil {
 		dropOverflowToFloor(s, id, overflow, stackable)
 	}
 	return nil
@@ -1085,7 +1078,7 @@ func handleInvDropSlot(s *ScriptState) error {
 	// retention TS's remove() applies (Inventory.ts:280) — TS-true for stock
 	// invs; for the common non-stock inv it vacates the slot identically to a
 	// direct delete. completed = units actually removed.
-	completed := inv.Remove(objID, count, inventory.RemoveOpts{BeginSlot: slot}).Completed
+	completed := inv.Remove(objID, count, slot)
 	if completed == 0 {
 		return nil
 	}
@@ -1322,8 +1315,8 @@ func handleInvMoveItemCert(s *ScriptState) error {
 		return fmt.Errorf("INV_MOVEITEM_CERT: no inv for to-type %d", toTypeID)
 	}
 
-	tx := fromInv.Remove(obj, count, inventory.RemoveOpts{BeginSlot: -1})
-	if tx.Completed == 0 {
+	completed := fromInv.Remove(obj, count, -1)
+	if completed == 0 {
 		return nil
 	}
 
@@ -1334,12 +1327,9 @@ func handleInvMoveItemCert(s *ScriptState) error {
 		finalObj = objType.CertLink
 	}
 	stackable := lookupStackable(s, finalObj)
-	tx2 := toInv.Add(finalObj, tx.Completed, inventory.AddOpts{
-		BeginSlot: -1,
-		Stackable: stackable,
-	})
+	added := toInv.Add(finalObj, completed, -1, stackable)
 
-	overflow := count - tx2.Completed
+	overflow := count - added
 	// DEVIATION-NAI-130-D2: defensive nil-World guard (goscape defensive; TS skips this check).
 	if overflow > 0 && s.World != nil {
 		level := (s.activePlayer().CoordPacked() >> 28) & 0x3
@@ -1413,8 +1403,8 @@ func handleInvMoveItemUncert(s *ScriptState) error {
 		return fmt.Errorf("INV_MOVEITEM_UNCERT: no inv for to-type %d", toTypeID)
 	}
 
-	tx := fromInv.Remove(obj, count, inventory.RemoveOpts{BeginSlot: -1})
-	if tx.Completed == 0 {
+	completed := fromInv.Remove(obj, count, -1)
+	if completed == 0 {
 		return nil
 	}
 
@@ -1424,15 +1414,14 @@ func handleInvMoveItemUncert(s *ScriptState) error {
 		finalObj = objType.CertLink
 	}
 	stackable := lookupStackable(s, finalObj)
-	// TS InvOps.ts:592-596 calls player.invAdd(...) with no 4th arg, so
-	// assureFullInsertion defaults to true (Player.ts:1496) — all-or-nothing
-	// on the destination. Without this, a near-full toInv silently partial-
-	// fills and the overflow is lost.
-	toInv.Add(finalObj, tx.Completed, inventory.AddOpts{
-		BeginSlot:           -1,
-		Stackable:           stackable,
-		AssureFullInsertion: true,
-	})
+	// 274: TS INV_MOVEITEM_UNCERT (InvOps.ts:590-592) calls the bare partial-
+	// fill player.invAdd with NO overflow handling — whatever doesn't fit is
+	// silently lost. The pre-274 all-or-nothing assureFullInsertion contract
+	// was deleted at rev-274 (Inventory.ts @dee467c8), so the destination Add
+	// is a plain partial fill and there is NO overflow drop. (Uncertifying
+	// produces a non-stackable obj into the player's own inv, which in practice
+	// always has room — but matching TS means no leftover handling either way.)
+	toInv.Add(finalObj, completed, -1, stackable)
 	return nil
 }
 
@@ -1488,8 +1477,7 @@ func handleInvDropItem(s *ScriptState) error {
 	if inv == nil {
 		return fmt.Errorf("INV_DROPITEM: inv unresolved (id=%d)", invID)
 	}
-	tx := inv.Remove(obj, count, inventory.RemoveOpts{BeginSlot: -1})
-	completed := tx.Completed
+	completed := inv.Remove(obj, count, -1)
 	if completed == 0 {
 		return nil
 	}
@@ -1505,7 +1493,7 @@ func handleInvDropItem(s *ScriptState) error {
 	}
 
 	// NAI-Phase2: emit ItemDroppedEvent — only fires when both inventory
-	// removal completed (tx.Completed > 0 above) AND the world AddObj
+	// removal completed (completed > 0 above) AND the world AddObj
 	// returned a non-nil obj.
 	//
 	// world_id comes from WorldVars.NodeID() (mirrors emission sites in
@@ -1673,12 +1661,8 @@ func handleBothMoveInv(s *ScriptState) error {
 		fromInv.Delete(slot)
 
 		stackable := lookupStackable(s, objID)
-		tx := toInv.Add(objID, count, inventory.AddOpts{
-			BeginSlot:           -1,
-			AssureFullInsertion: false,
-			Stackable:           stackable,
-		})
-		overflow := count - tx.Completed
+		added := toInv.Add(objID, count, -1, stackable)
+		overflow := count - added
 		if overflow > 0 && s.World != nil {
 			level := (toPlayer.CoordPacked() >> 28) & 0x3
 			x := toPlayer.X()
@@ -1888,8 +1872,7 @@ func handleInvDropItemDelayed(s *ScriptState) error {
 	if inv == nil {
 		return fmt.Errorf("INV_DROPITEM_DELAYED: inv unresolved (id=%d)", invID)
 	}
-	tx := inv.Remove(obj, count, inventory.RemoveOpts{BeginSlot: -1})
-	completed := tx.Completed
+	completed := inv.Remove(obj, count, -1)
 	if completed == 0 {
 		return nil
 	}
@@ -2107,7 +2090,7 @@ func handleBothDropSlot(s *ScriptState) error {
 	// through Remove (not a direct Delete) keeps stock-obj retention TS-true;
 	// inert for the PvP/trade player invs this opcode runs on (they hold no
 	// stock objs) but faithful to TS regardless. completed = units removed.
-	completed := inv.Remove(objID, count, inventory.RemoveOpts{BeginSlot: slot}).Completed
+	completed := inv.Remove(objID, count, slot)
 	if completed == 0 {
 		return nil
 	}

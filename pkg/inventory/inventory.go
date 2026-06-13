@@ -6,14 +6,16 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
-// Stacking strategy constants.
+// Stacking strategy constants. Mirror TS Inventory.NORMAL_STACK / ALWAYS_STACK
+// / NEVER_STACK (Inventory.ts:16-18).
 const (
-	StackNormal = 0 // stack based on ObjType.Stackable
+	StackNormal = 0 // stack based on ObjType.stackable
 	StackAlways = 1 // always stack
 	StackNever  = 2 // never stack (each unit its own slot)
 )
 
-// StackLimit is the maximum count for a single stacked item.
+// StackLimit is the maximum count for a single stacked item. Mirrors TS
+// Inventory.STACK_LIMIT = 0x7fffffff (Inventory.ts:14).
 const StackLimit = 0x7fffffff
 
 type Item struct {
@@ -21,46 +23,61 @@ type Item struct {
 	Count int
 }
 
+// Inventory is the RS2 item container. Ported whole from TS Inventory.ts
+// @dee467c8 (rev-274): the all-or-nothing transaction model is gone; Add/Remove
+// return a bare completed/removed count (partial fills succeed), and every
+// touched slot is recorded in dirtySlots so the per-tick sync can emit
+// UpdateInvPartial instead of a full resend.
 type Inventory struct {
 	Type      int // InvType.ID
 	Capacity  int
 	StackType int
 	Items     []*Item // length == Capacity; nil = empty
-	Update    bool    // consumed by world.updateInvs()
+
+	// Update is set whenever the inventory changes; consumed by the per-tick
+	// inv-sync (world.updateInvs). Cleared, together with dirtySlots, by
+	// ResetTracking in the world cleanup pass. Mirrors TS `inv.update`.
+	Update bool
+
+	// dirtySlots records every slot index mutated since the last
+	// ResetTracking. GetDirtySlots returns them sorted; the partial encoder
+	// walks exactly these. Mirrors TS `dirtySlots: Set<number>`.
+	dirtySlots map[int]struct{}
 
 	// stockObjIDs is the InvType's stock-obj list (InvType.stockobj),
-	// populated by FromType. Add/Remove consult it to decide whether a
-	// slot reaching count 0 is retained as a restockable placeholder —
-	// mirroring TS, which computes `InvType.get(this.type).stockobj?.includes(id)`
-	// inside add()/remove() (Inventory.ts:160,245). Keeping the membership
-	// on the inventory (rather than per-call opts) means every caller —
-	// INV_DEL/shop-buy, INV_MOVEITEM, INV_DROPITEM, restock — gets the
-	// correct behavior without re-deriving it.
+	// populated by FromType. Remove consults it to decide whether a slot
+	// reaching count 0 is retained as a restockable placeholder — mirroring
+	// TS, which computes `InvType.get(this.type).stockobj?.includes(id)`
+	// inside remove() (Inventory.ts:153). Keeping the membership on the
+	// inventory (rather than per-call) means every caller — INV_DEL/shop-buy,
+	// restock — gets the correct behavior without re-deriving it.
 	stockObjIDs []uint16
 }
 
-// New returns an empty inventory of the given capacity.
+// New returns an empty inventory of the given capacity. Mirrors the TS
+// constructor (Inventory.ts:57-62).
 func New(typeId, capacity, stackType int) *Inventory {
 	return &Inventory{
-		Type:      typeId,
-		Capacity:  capacity,
-		StackType: stackType,
-		Items:     make([]*Item, capacity),
+		Type:       typeId,
+		Capacity:   capacity,
+		StackType:  stackType,
+		Items:      make([]*Item, capacity),
+		dirtySlots: make(map[int]struct{}),
 	}
 }
 
 // FromType builds an inventory matching an InvType's size/stack semantics and
-// populates its StockObj items.
+// populates its stock items. Mirrors TS Inventory.fromType (Inventory.ts:20-44).
 func FromType(t *objtype.InvType) *Inventory {
 	inv := New(t.ID, t.Size, stackTypeFrom(t))
 	inv.stockObjIDs = t.StockObj
-	// L11: TS Inventory.fromType (Inventory.ts:66-73) seeds every stock index
-	// with the literal {stockobj[i], stockcount[i]} — no id==0 skip and no
-	// count fallback. This is load-bearing now that shop restock is live
-	// (tick.go processCleanup): a count-0 stock slot must seed at 0 and then
-	// restock up toward stockcount rather than start at 1, and obj id 0 is a
-	// valid obj. StockObj/StockCount are allocated in lockstep
-	// (invtype.go:42-43), so the indices line up.
+	// TS Inventory.fromType (Inventory.ts:34-41) seeds every stock index with
+	// the literal {stockobj[i], stockcount[i]} — no id==0 skip and no count
+	// fallback. A count-0 stock slot seeds at 0 and then restocks up toward
+	// stockcount; obj id 0 is a valid obj. StockObj/StockCount are allocated in
+	// lockstep (invtype.go), so the indices line up. Seeding goes through the
+	// raw Items slice (not Set) because fromType pre-dates any listener and
+	// must not pre-dirty the brand-new inventory.
 	for i := range t.StockObj {
 		if i >= len(t.StockCount) {
 			break
@@ -77,6 +94,8 @@ func stackTypeFrom(t *objtype.InvType) int {
 	return StackNormal
 }
 
+// Get returns the item at slot, or nil if the slot is empty / out of range.
+// Mirrors TS get() (Inventory.ts:220-222) with an added bounds guard.
 func (inv *Inventory) Get(slot int) *Item {
 	if slot < 0 || slot >= inv.Capacity {
 		return nil
@@ -84,22 +103,15 @@ func (inv *Inventory) Get(slot int) *Item {
 	return inv.Items[slot]
 }
 
-func (inv *Inventory) Contains(id int) bool {
-	return inv.GetItemIndex(id) >= 0
-}
-
-// isStockObj reports whether id is in this inventory's InvType stock list
-// (TS `InvType.get(this.type).stockobj?.includes(id)`). Populated by
-// FromType; a bare New inventory has no stock list and always returns false.
-func (inv *Inventory) isStockObj(id int) bool {
-	return slices.Contains(inv.stockObjIDs, uint16(id))
-}
-
+// HasAt reports whether the item at slot has the given id. Mirrors TS hasAt
+// (Inventory.ts:64-67).
 func (inv *Inventory) HasAt(slot, id int) bool {
 	it := inv.Get(slot)
 	return it != nil && it.Id == id
 }
 
+// GetItemCount sums every stack of id across the inventory, clamped to
+// StackLimit. Mirrors TS getItemCount (Inventory.ts:81-92).
 func (inv *Inventory) GetItemCount(id int) int {
 	total := 0
 	for _, it := range inv.Items {
@@ -107,9 +119,11 @@ func (inv *Inventory) GetItemCount(id int) int {
 			total += it.Count
 		}
 	}
-	return total
+	return min(StackLimit, total)
 }
 
+// GetItemIndex returns the first slot holding id, or -1. Mirrors TS
+// getItemIndex (Inventory.ts:94-96).
 func (inv *Inventory) GetItemIndex(id int) int {
 	for i, it := range inv.Items {
 		if it != nil && it.Id == id {
@@ -119,6 +133,8 @@ func (inv *Inventory) GetItemIndex(id int) int {
 	return -1
 }
 
+// NextFreeSlot returns the first empty slot, or -1. Mirrors TS nextFreeSlot
+// getter (Inventory.ts:69-71).
 func (inv *Inventory) NextFreeSlot() int {
 	for i, it := range inv.Items {
 		if it == nil {
@@ -128,6 +144,8 @@ func (inv *Inventory) NextFreeSlot() int {
 	return -1
 }
 
+// FreeSlotCount returns how many slots are empty. Mirrors TS freeSlotCount
+// getter (Inventory.ts:73-75).
 func (inv *Inventory) FreeSlotCount() int {
 	n := 0
 	for _, it := range inv.Items {
@@ -138,239 +156,179 @@ func (inv *Inventory) FreeSlotCount() int {
 	return n
 }
 
-func (inv *Inventory) IsFull() bool  { return inv.FreeSlotCount() == 0 }
-func (inv *Inventory) IsEmpty() bool { return inv.FreeSlotCount() == inv.Capacity }
-
-type AddOpts struct {
-	// BeginSlot is the slot to start inserting at. L12: TS's `beginSlot`
-	// defaults to -1, the sentinel for "append from the first free slot"
-	// (NextFreeSlot on the stack path). The Go zero value is 0, which is a
-	// REAL slot index, not the sentinel — every caller that wants default
-	// append behavior MUST set BeginSlot:-1 explicitly. A caller that leaves
-	// it zero silently scans from slot 0 instead of appending.
-	BeginSlot           int
-	AssureFullInsertion bool
-	ForceNoStack        bool
-	DryRun              bool
-
-	// Stackable signals whether the obj being added is stackable
-	// (`ObjType.stackable` in TS). Caller pre-computes from
-	// objtype.Configs.ObjType(id).Stackable. Drives the new TS-fidelity
-	// stack predicate per Inventory.ts:161. Default zero-value (false)
-	// means non-stackable.
-	//
-	// (Stock-obj membership is NOT a caller opt: Add derives it from the
-	// inventory's own InvType via isStockObj, matching TS Inventory.ts:160.)
-	Stackable bool
+// ValidSlot reports whether slot is in range. Mirrors TS validSlot
+// (Inventory.ts:229-231).
+func (inv *Inventory) ValidSlot(slot int) bool {
+	return slot >= 0 && slot < inv.Capacity
 }
 
-type RemoveOpts struct {
-	// BeginSlot is the slot to start removing at. L10/L12: TS defaults to -1
-	// ("from slot 0, no wrap"). A BeginSlot >= 1 scans [BeginSlot, capacity)
-	// then wraps to the skipped prefix [0, BeginSlot). The Go zero value (0)
-	// behaves identically to -1 here (start at 0, no wrap), but callers should
-	// still pass -1 for clarity and parity with AddOpts.
-	BeginSlot         int
-	AssureFullRemoval bool
-
-	// (Stock-obj membership is NOT a caller opt: Remove derives it from the
-	// inventory's own InvType via isStockObj, matching TS Inventory.ts:245.
-	// A slot reaching count 0 is retained as a restockable placeholder when
-	// the obj is in the inv's stock list — Inventory.ts:280-286.)
+// isStockObj reports whether id is in this inventory's InvType stock list
+// (TS `InvType.get(this.type).stockobj?.includes(id)`). Populated by FromType;
+// a bare New inventory has no stock list and always returns false.
+func (inv *Inventory) isStockObj(id int) bool {
+	return slices.Contains(inv.stockObjIDs, uint16(id))
 }
 
+// Set writes item (or nil) at slot and marks the slot dirty. Mirrors TS set()
+// (Inventory.ts:224-227) with an added bounds guard.
 func (inv *Inventory) Set(slot int, item *Item) {
 	if slot < 0 || slot >= inv.Capacity {
 		return
 	}
 	inv.Items[slot] = item
-	inv.Update = true
+	inv.markDirty(slot)
 }
 
+// Delete empties slot. Mirrors TS delete() (Inventory.ts:216-218).
 func (inv *Inventory) Delete(slot int) { inv.Set(slot, nil) }
 
-// Clear removes every item slot and dirty-flags for wire sync.
-func (inv *Inventory) Clear() {
-	for j := range inv.Items {
-		inv.Items[j] = nil
+// RemoveAll empties every occupied slot, marking each one dirty. Empty slots
+// are left untouched (not dirtied). Mirrors TS removeAll (Inventory.ts:98-105).
+func (inv *Inventory) RemoveAll() {
+	for slot := range inv.Items {
+		if inv.Items[slot] != nil {
+			inv.Items[slot] = nil
+			inv.markDirty(slot)
+		}
 	}
-	inv.Update = true
 }
 
-func (inv *Inventory) Swap(from, to int) {
-	if from < 0 || from >= inv.Capacity || to < 0 || to >= inv.Capacity {
-		return
-	}
-	inv.Items[from], inv.Items[to] = inv.Items[to], inv.Items[from]
-	inv.Update = true
-}
-
-// Add inserts up to count units of obj id into the inv. Mirrors TS
-// Inventory.add (Engine-TS/src/engine/Inventory.ts:158-225) 1:1.
+// Add inserts up to count units of obj id and returns the number actually
+// inserted (the completed count). Ports TS Inventory.add (Inventory.ts:107-150)
+// whole. The 274 model has no all-or-nothing validation: a partial fill
+// succeeds and the caller computes overflow = count - completed.
 //
-// Stack predicate (TS line 161):
+// stackable is the pre-resolved ObjType.stackable predicate (TS reads it inside
+// add() via ObjType.get; goscape resolves it at the call site to keep the
+// container decoupled from the config registry).
 //
-//	stack = !ForceNoStack && stackType != StackNever
-//	     && (Stackable || stackType == StackAlways)
+// Stack predicate (TS line 109):
 //
-// Returns Transaction with Completed (units written) and Added (per-slot
-// SlotEntries actually written; empty for no-op or DryRun).
-func (inv *Inventory) Add(id, count int, opts AddOpts) Transaction {
-	tx := Transaction{Requested: count}
-	if count <= 0 {
-		return tx
-	}
+//	stack = stackType != StackNever && (stackable || stackType == StackAlways)
+func (inv *Inventory) Add(id, count, beginSlot int, stackable bool) int {
+	stack := inv.StackType != StackNever && (stackable || inv.StackType == StackAlways)
 
-	// TS line 160: stockObj is computed from the inventory's own InvType,
-	// not a caller-supplied flag.
-	stockObj := inv.isStockObj(id)
+	completed := 0
 
-	// TS line 161: stack predicate.
-	stack := !opts.ForceNoStack &&
-		inv.StackType != StackNever &&
-		(opts.Stackable || inv.StackType == StackAlways)
-
-	// TS lines 163-166: previousCount is non-zero only on the stack path.
-	var previousCount int
-	if stack {
-		previousCount = inv.GetItemCount(id)
-	}
-
-	// TS lines 168-170: stack already at limit — short-circuit.
-	if previousCount == StackLimit {
-		return tx
-	}
-
-	free := inv.FreeSlotCount()
-	// TS lines 172-175: free=0 guard with stockObj exception.
-	if free == 0 && (!stack || (stack && previousCount == 0 && !stockObj)) {
-		return tx
-	}
-
-	// TS lines 177-191: AssureFullInsertion gate.
-	if opts.AssureFullInsertion {
-		if stack && previousCount > StackLimit-count {
-			return tx
-		}
-		if !stack && count > free {
-			return tx
-		}
-	} else {
-		if stack && previousCount == StackLimit {
-			return tx
-		}
-		if !stack && free == 0 {
-			return tx
-		}
-	}
-
-	// TS lines 196-213: non-stack branch.
 	if !stack {
-		startSlot := max(opts.BeginSlot, 0)
-		completed := 0
-		for i := startSlot; i < inv.Capacity && completed < count; i++ {
+		// TS lines 113-126: non-stack — fill empty slots from max(0, beginSlot).
+		startSlot := max(0, beginSlot)
+		for i := startSlot; i < inv.Capacity; i++ {
 			if inv.Items[i] != nil {
 				continue
 			}
-			it := Item{Id: id, Count: 1}
-			if !opts.DryRun {
-				inv.Items[i] = &Item{Id: id, Count: 1}
-			}
-			tx.Added = append(tx.Added, SlotEntry{Slot: i, Item: it})
+			inv.Set(i, &Item{Id: id, Count: 1})
 			completed++
+			if completed >= count {
+				break
+			}
 		}
-		if !opts.DryRun && completed > 0 {
-			inv.Update = true
-		}
-		tx.Completed = completed
-		return tx
+		return completed
 	}
 
-	// TS lines 214-225: stack branch — find or allocate the stack slot.
-	// When no existing stack and BeginSlot != -1, scan for the first nil
-	// slot at-or-after BeginSlot (TS `items.indexOf(null, beginSlot)`).
+	// TS lines 127-147: stack — find or allocate the stack slot, then clamp.
 	stackIndex := inv.GetItemIndex(id)
 	if stackIndex == -1 {
-		if opts.BeginSlot == -1 {
+		if beginSlot == -1 {
 			stackIndex = inv.NextFreeSlot()
 		} else {
+			// TS items.indexOf(null, beginSlot): first nil slot at-or-after
+			// beginSlot.
 			stackIndex = -1
-			for i := opts.BeginSlot; i < inv.Capacity; i++ {
+			for i := beginSlot; i < inv.Capacity; i++ {
 				if inv.Items[i] == nil {
 					stackIndex = i
 					break
 				}
 			}
 		}
-		if stackIndex < 0 || stackIndex >= inv.Capacity {
-			return tx
+		if stackIndex == -1 {
+			return completed
 		}
 	}
 
-	// L13: TS lines 229-237 clamp using the PER-SLOT stack count at stackIndex
-	// (`this.get(stackIndex)?.count`), not GetItemCount which sums across all
-	// slots, and SET the slot to the new total rather than incrementing. These
-	// differ only when a stack-typed inv holds duplicate stacks of one id (an
-	// invariant violation); TS clamps per-slot, so we match it. previousCount
-	// (the sum) remains the basis for the earlier entry gates, matching TS.
 	stackCount := 0
-	if inv.Items[stackIndex] != nil {
-		stackCount = inv.Items[stackIndex].Count
+	if s := inv.Get(stackIndex); s != nil {
+		stackCount = s.Count
 	}
 	total := min(StackLimit, stackCount+count)
-	written := Item{Id: id, Count: total}
-	if !opts.DryRun {
-		inv.Items[stackIndex] = &Item{Id: id, Count: total}
-		inv.Update = true
-	}
-	tx.Completed = total - stackCount
-	tx.Added = []SlotEntry{{Slot: stackIndex, Item: written}}
-	return tx
+	inv.Set(stackIndex, &Item{Id: id, Count: total})
+	completed = total - stackCount
+
+	return completed
 }
 
-func (inv *Inventory) Remove(id, count int, opts RemoveOpts) Transaction {
-	tx := Transaction{Requested: count}
-	if count <= 0 {
-		return tx
-	}
-	// M10: assureFullRemoval is all-or-nothing — if the inv doesn't hold the
-	// full requested count, remove nothing. Mirrors TS Inventory.ts:247-248.
-	if opts.AssureFullRemoval && inv.GetItemCount(id) < count {
-		return tx
-	}
-	// TS line 245: stockObj is computed from the inventory's own InvType.
+// Remove takes up to count units of obj id and returns the number actually
+// removed (totalRemoved). Ports TS Inventory.remove (Inventory.ts:152-214)
+// whole. A stock-obj slot reaching count 0 is retained as a placeholder; every
+// other slot vacates. A beginSlot >= 0 scans [beginSlot, capacity) then wraps
+// to the skipped prefix [0, beginSlot).
+func (inv *Inventory) Remove(id, count, beginSlot int) int {
 	stockObj := inv.isStockObj(id)
-	removed := 0
-	begin := max(opts.BeginSlot, 0)
+
+	totalRemoved := 0
+
+	// TS lines 166-169: the primary scan starts at beginSlot (or 0).
+	index := 0
+	if beginSlot != -1 {
+		index = beginSlot
+	}
+
 	removeFrom := func(lo, hi int) {
-		for i := lo; i < hi && removed < count; i++ {
-			it := inv.Items[i]
-			if it == nil || it.Id != id {
+		for i := lo; i < hi; i++ {
+			cur := inv.Items[i]
+			if cur == nil || cur.Id != id {
 				continue
 			}
-			take := min(count-removed, it.Count)
-			it.Count -= take
-			removed += take
-			// M11: a stock-obj slot is retained at count 0 so a shop can restock
-			// it; everything else vacates the slot. Mirrors TS Inventory.ts:280-286.
-			if it.Count == 0 && !stockObj {
+			removeCount := min(cur.Count, count-totalRemoved)
+			totalRemoved += removeCount
+			cur.Count -= removeCount
+			if cur.Count == 0 && !stockObj {
 				inv.Items[i] = nil
+			}
+			inv.markDirty(i)
+			if totalRemoved >= count {
+				return
 			}
 		}
 	}
-	removeFrom(begin, inv.Capacity)
-	// L10: with a beginSlot (>= 1), TS scans [beginSlot, capacity) first, then
-	// wraps to the skipped prefix [0, beginSlot) if not yet satisfied
-	// (Inventory.ts:256-316). BeginSlot == -1 (or 0) starts at slot 0 with no
-	// wrap. Live restock callers pass BeginSlot=index where the id is at that
-	// slot, so the wrap isn't exercised today, but a future caller could pass a
-	// beginSlot past the id — match TS so it doesn't silently under-remove.
-	if opts.BeginSlot > 0 && removed < count {
-		removeFrom(0, begin)
+
+	removeFrom(index, inv.Capacity)
+
+	// TS lines 191-211: with a beginSlot, wrap to the skipped prefix
+	// [0, beginSlot) if the request is not yet satisfied.
+	if beginSlot != -1 && totalRemoved < count {
+		removeFrom(0, beginSlot)
 	}
-	if removed > 0 {
-		inv.Update = true
+
+	return totalRemoved
+}
+
+// GetDirtySlots returns the slots touched since the last ResetTracking, sorted
+// ascending. Mirrors TS getDirtySlots (Inventory.ts:233-235).
+func (inv *Inventory) GetDirtySlots() []int {
+	slots := make([]int, 0, len(inv.dirtySlots))
+	for s := range inv.dirtySlots {
+		slots = append(slots, s)
 	}
-	tx.Completed = removed
-	return tx
+	slices.Sort(slots)
+	return slots
+}
+
+// ResetTracking clears the update flag and the dirty-slot set. Called in the
+// world cleanup pass after every player's updateInvs has read them. Mirrors TS
+// resetTracking (Inventory.ts:237-240).
+func (inv *Inventory) ResetTracking() {
+	inv.Update = false
+	clear(inv.dirtySlots)
+}
+
+// markDirty records a slot mutation and sets the update flag. Mirrors TS
+// markDirty (Inventory.ts:242-245).
+func (inv *Inventory) markDirty(slot int) {
+	if inv.dirtySlots == nil {
+		inv.dirtySlots = make(map[int]struct{})
+	}
+	inv.dirtySlots[slot] = struct{}{}
+	inv.Update = true
 }

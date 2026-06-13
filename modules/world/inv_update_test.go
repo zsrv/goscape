@@ -352,3 +352,131 @@ func TestUpdateInvsCrossPlayerNonSlotUID(t *testing.T) {
 		t.Fatal("cross-player listener with non-slot uid should emit via LookupPlayerByUID; got 0 bytes")
 	}
 }
+
+// --- 274 partial-update wire format + full/partial fork ---
+
+// TestSendUpdateInvPartial_WireFormat pins the per-slot wire layout of
+// sendUpdateInvPartial byte-for-byte against TS UpdateInvPartialEncoder
+// (@dee467c8): p2(component), then per slot p1(slot); a populated slot writes
+// p2(id+1) and p1(count) (or p1(255)+p4(count) for count>=255); an empty slot
+// writes p2(0)+p1(0).
+func TestSendUpdateInvPartial_WireFormat(t *testing.T) {
+	s := newTestServer(t)
+	p, cc := newInvListenerTestPlayer(t, s, 2)
+
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[1] = &inventory.Item{Id: 1000, Count: 7}   // small count
+	inv.Items[5] = &inventory.Item{Id: 2000, Count: 300} // big count (>=255)
+	// slot 9 left empty
+
+	received := drainConn(t, cc)
+	sendUpdateInvPartial(p, 0x1234, inv, 1, 5, 9)
+	p.client.flushWrite()
+	got := <-received
+
+	// Strip [enc opcode][len hi][len lo] header.
+	if len(got) < 3 {
+		t.Fatalf("packet too short: %d bytes", len(got))
+	}
+	payloadLen := int(got[1])<<8 | int(got[2])
+	body := got[3:]
+	if len(body) != payloadLen {
+		t.Fatalf("payload length mismatch: header says %d, body is %d", payloadLen, len(body))
+	}
+
+	// Expected body, mirroring the TS encoder slot-by-slot.
+	want := []byte{
+		0x12, 0x34, // p2(component)
+		// slot 1: p1(1), p2(1000+1=1001), p1(7)
+		1, 0x03, 0xE9, 7,
+		// slot 5: p1(5), p2(2000+1=2001), p1(255), p4(300)
+		5, 0x07, 0xD1, 255, 0x00, 0x00, 0x01, 0x2C,
+		// slot 9: p1(9), p2(0), p1(0)
+		9, 0x00, 0x00, 0,
+	}
+	if len(body) != len(want) {
+		t.Fatalf("body length: got %d, want %d\n got=%v\nwant=%v", len(body), len(want), body, want)
+	}
+	for i := range want {
+		if body[i] != want[i] {
+			t.Fatalf("body byte %d: got 0x%02X, want 0x%02X\n got=%v\nwant=%v", i, body[i], want[i], body, want)
+		}
+	}
+}
+
+// decodeFirstOpcode replays the ISAAC stream from the given seed to recover the
+// plaintext opcode of the first packet (writeOut encrypts the opcode as
+// (op + encryptor.GetNext()) & 0xff).
+func decodeFirstOpcode(seed [4]uint32, packet []byte) byte {
+	is := io2.New(seed)
+	return byte((int(packet[0]) - int(is.GetNext())) & 0xff)
+}
+
+// TestUpdateInvs_FirstSeen_EmitsFull_SeenDirty_EmitsPartial pins the 274
+// full/partial fork (TS NetworkPlayer.ts:341-393): a first-seen listener emits
+// UPDATE_INV_FULL; once seen, a dirty-slot change emits UPDATE_INV_PARTIAL
+// containing exactly the dirty slots. A SCOPE_SHARED (world-source) listener is
+// used so each tick emits exactly one packet (the world branch never appends a
+// run-weight packet), keeping the ISAAC opcode replay unambiguous.
+func TestUpdateInvs_FirstSeen_EmitsFull_SeenDirty_EmitsPartial(t *testing.T) {
+	s := newTestServer(t)
+	s.invs = make(map[int]*inventory.Inventory)
+	// World-shared inv (type 0, capacity 28 to make the full update wide).
+	worldInv := inventory.New(0, 28, inventory.StackNormal)
+	worldInv.Items[0] = &inventory.Item{Id: 1000, Count: 1}
+	worldInv.Items[1] = &inventory.Item{Id: 1001, Count: 1}
+	s.invs[0] = worldInv
+
+	seed := [4]uint32{1, 2, 3, 4}
+	viewer, vcc := newInvListenerTestPlayer(t, s, 3)
+	viewer.client.encryptor = io2.New(seed)
+	viewer.invListeners = map[int]InventoryListener{
+		200: {Type: 0, Com: 200, Source: -1, FirstSeen: true},
+	}
+
+	// Tick 1 — first-seen → UPDATE_INV_FULL (opcode 106).
+	received1 := drainConn(t, vcc)
+	viewer.updateInvs()
+	viewer.client.flushWrite()
+	got1 := <-received1
+	if op := decodeFirstOpcode(seed, got1); op != 106 {
+		t.Fatalf("first-seen listener: opcode got %d, want 106 (UPDATE_INV_FULL)", op)
+	}
+	if viewer.invListeners[200].FirstSeen {
+		t.Fatal("FirstSeen should flip to false after the full update")
+	}
+	fullLen := len(got1)
+
+	// Mutate one slot through Set so it is dirtied. Clear the dirty set from the
+	// initial direct Items writes first, then dirty exactly slot 5.
+	worldInv.ResetTracking()
+	worldInv.Set(5, &inventory.Item{Id: 2000, Count: 3})
+
+	// Tick 2 — seen + dirty → UPDATE_INV_PARTIAL (opcode 172) of just slot 5.
+	// The world branch emitted exactly one packet in tick 1, so the ISAAC
+	// keystream has advanced exactly once.
+	op2Decoder := io2.New(seed)
+	op2Decoder.GetNext() // consume tick-1 opcode keystream
+	received2 := drainConn(t, vcc)
+	viewer.updateInvs()
+	viewer.client.flushWrite()
+	got2 := <-received2
+	op2 := byte((int(got2[0]) - int(op2Decoder.GetNext())) & 0xff)
+	if op2 != 172 {
+		t.Fatalf("seen+dirty listener: opcode got %d, want 172 (UPDATE_INV_PARTIAL)", op2)
+	}
+	if len(got2) >= fullLen {
+		t.Errorf("partial update (%d bytes) should be shorter than the full update (%d bytes)", len(got2), fullLen)
+	}
+	// Partial payload = com(2) + 1 slot × (slot1 + id2 + count1) = 6 bytes;
+	// packet = opcode(1) + len2(2) + 6 = 9 bytes.
+	if len(got2) != 9 {
+		t.Errorf("1-dirty-slot partial: got %d bytes, want 9", len(got2))
+	}
+	// Confirm the partial carries slot 5 (the only dirty slot): after p2(com)
+	// the body's 3rd byte is the per-slot id.
+	body := got2[3:]
+	if body[2] != 5 {
+		t.Errorf("partial slot id: got %d, want 5 (the only dirty slot)", body[2])
+	}
+}

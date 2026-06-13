@@ -1248,24 +1248,29 @@ func (s *Server) processCleanup() {
 		// part of the Player death sub-spec.
 		p.socialProtect = false
 		p.reportAbuseProtect = false
-		// Clear per-player inventory update flags at end-of-tick — AFTER every
-		// player's updateInvs (in processInfo) has read them. Clearing inside
-		// updateInvs would let the first-processed player consume the flag and
-		// starve a cross-player listener (a trade offer shown to the partner
-		// via invother_transmit). Mirrors TS World.ts:1140-1147.
+		// Clear per-player inventory update tracking at end-of-tick — AFTER
+		// every player's updateInvs (in processInfo) has read both the update
+		// flag and the dirty-slot set. Clearing inside updateInvs would let the
+		// first-processed player consume them and starve a cross-player listener
+		// (a trade offer shown to the partner via invother_transmit). 274:
+		// ResetTracking clears both inv.update and inv.dirtySlots. Mirrors TS
+		// World.ts:1140 (inv.resetTracking()).
 		for _, inv := range p.invs {
 			if inv != nil {
-				inv.Update = false
+				inv.ResetTracking()
 			}
 		}
 	}
-	// World-shared inventories: clear the update flag, then restock/decay shop
-	// stock. Mirrors TS World.ts:1155-1190.
+	// World-shared inventories: reset tracking, then restock/decay shop stock.
+	// 274: ResetTracking clears both inv.update and inv.dirtySlots; the restock
+	// add/remove below re-dirty exactly the slots they touch, so the next
+	// tick's partial update carries only the restocked slots. Mirrors TS
+	// World.ts:1151-1186.
 	for _, inv := range s.invs {
 		if inv == nil {
 			continue
 		}
-		inv.Update = false
+		inv.ResetTracking()
 		if s.invTypes == nil || inv.Type < 0 || inv.Type >= len(s.invTypes.Configs) {
 			continue
 		}
@@ -1288,24 +1293,26 @@ func (s *Server) processCleanup() {
 			// pass it.
 			switch {
 			case hasStockCount && rateHit && item.Count < int(invType.StockCount[index]):
-				// Below min → restock one at this slot. Stackable mirrors TS,
-				// which reads ObjType.stackable inside add() (World.ts:1173 →
-				// Inventory.ts:159). Inert for stackall shops (every shipped
-				// restock shop is stackall), but correct for a non-stackall
-				// restock shop stocking a stackable obj.
+				// Below min → restock one at this slot. 274: bare 3-param add
+				// (beginSlot=index) — TS World.ts:1170 `inv.add(item.id, 1,
+				// index)`. Stackable mirrors TS, which reads ObjType.stackable
+				// inside add() (Inventory.ts:108-109); inert for stackall shops
+				// (every shipped restock shop is stackall), but correct for a
+				// non-stackall restock shop stocking a stackable obj.
 				stackable := false
 				if ot := s.objTypeFor(item.Id); ot != nil {
 					stackable = ot.Stackable
 				}
-				inv.Add(item.Id, 1, inventory.AddOpts{BeginSlot: index, AssureFullInsertion: true, Stackable: stackable})
+				inv.Add(item.Id, 1, index, stackable)
 				inv.Update = true
 			case hasStockCount && rateHit && item.Count > int(invType.StockCount[index]):
-				// Above min → decay one.
-				inv.Remove(item.Id, 1, inventory.RemoveOpts{BeginSlot: index, AssureFullRemoval: true})
+				// Above min → decay one. 274: bare 3-param remove (TS
+				// World.ts:1176 `inv.remove(item.id, 1, index)`).
+				inv.Remove(item.Id, 1, index)
 				inv.Update = true
 			case invType.AllStock && (!hasStockCount || invType.StockCount[index] == 0) && s.currentTick%invStockRate == 0:
 				// Unlisted stock (e.g. general stores) decays one per minute.
-				inv.Remove(item.Id, 1, inventory.RemoveOpts{BeginSlot: index, AssureFullRemoval: true})
+				inv.Remove(item.Id, 1, index)
 				inv.Update = true
 			}
 		}

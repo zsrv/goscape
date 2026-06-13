@@ -636,24 +636,19 @@ func TestHandleObjTakeItem_DespawnLifecyclePassesZero(t *testing.T) {
 	}
 }
 
-// TestHandleObjTakeItem_NearFullInv_AssuresFullInsertion pins h-obj-2:
-// TS OBJ_TAKEITEM (ObjOps.ts:147) calls Player.invAdd(invType.id,
-// obj.type, obj.count) WITHOUT the 4th arg, so Player.invAdd's
-// assureFullInsertion default of true (Player.ts:1496) governs — the
-// destination Add is all-or-nothing. goscape routes through
-// performInvAdd, which historically hardcoded
-// AssureFullInsertion=false → tight-destination divergence: TS rolls
-// back the Add entirely (then removeObj still fires, item disappears);
-// goscape partially filled the available slots and let the rest fall
-// to the player's tile via the existing overflow-drop path.
+// TestHandleObjTakeItem_NearFullInv_PartialFillNoDrop pins the 274 contract
+// for OBJ_TAKEITEM (TS ObjOps.ts:147): it calls the bare partial-fill
+// Player.invAdd(invType.id, obj.type, obj.count) — which at rev-274 is
+// container.add(obj, count, -1) with NO assureFullInsertion (the all-or-nothing
+// transaction model was deleted, Inventory.ts @dee467c8) — and does NOT drop
+// overflow to the world (no overflow handling at the call site). The obj is
+// then UNCONDITIONALLY removed from the world, so the part that didn't fit is
+// silently lost. (This replaces the pre-274 h-obj-2 rollback pin.)
 //
-// Scenario: inv 93 (cap 28, StackNormal) pre-filled with 26 swords
-// (slots 0..25, free=2); active obj is 5 non-stackable swords.
-// `count(5) > free(2)` triggers the AssureFullInsertion gate.
-// Post-fix: inv slot 26 stays nil (rollback). Pre-fix: inv slot 26
-// receives sword #27 (partial fill, the audit's load-bearing
-// divergence).
-func TestHandleObjTakeItem_NearFullInv_AssuresFullInsertion(t *testing.T) {
+// Scenario: inv 93 (cap 28, StackNormal) pre-filled with 26 non-stackable
+// swords (slots 0..25, free=2); active obj is 5 non-stackable swords. The 2
+// free slots (26, 27) fill; the remaining 3 are lost; removeObj still fires.
+func TestHandleObjTakeItem_NearFullInv_PartialFillNoDrop(t *testing.T) {
 	s, w, inv := newTakeItemFixture(t)
 	// Pre-fill slots 0..25 with 26 non-stackable swords; free=2.
 	for i := range 26 {
@@ -668,14 +663,20 @@ func TestHandleObjTakeItem_NearFullInv_AssuresFullInsertion(t *testing.T) {
 		t.Fatalf("OBJ_TAKEITEM: returned error: %v", err)
 	}
 
-	if got := inv.Get(26); got != nil {
-		t.Errorf("OBJ_TAKEITEM (near-full inv): inv slot 26 got %+v, want nil (TS Player.ts:1496 assureFullInsertion=true must roll back the Add)", got)
+	// 274 partial fill: the 2 free slots receive a sword each.
+	if got := inv.Get(26); got == nil || got.Id != 558 {
+		t.Errorf("OBJ_TAKEITEM (near-full inv): inv slot 26 got %+v, want a sword (274 partial fill)", got)
 	}
-	if got := inv.Get(27); got != nil {
-		t.Errorf("OBJ_TAKEITEM (near-full inv): inv slot 27 got %+v, want nil (rollback contract)", got)
+	if got := inv.Get(27); got == nil || got.Id != 558 {
+		t.Errorf("OBJ_TAKEITEM (near-full inv): inv slot 27 got %+v, want a sword (274 partial fill)", got)
 	}
+	// removeObj still fires exactly once (obj unconditionally removed).
 	if len(w.removed) != 1 {
 		t.Errorf("OBJ_TAKEITEM (near-full inv): expected 1 RemoveObj call, got %d (%v)", len(w.removed), w.removed)
+	}
+	// No overflow drop — OBJ_TAKEITEM has no overflow-to-world path.
+	if len(w.addedCalls) != 0 {
+		t.Errorf("OBJ_TAKEITEM (near-full inv): expected 0 AddObj (overflow) calls, got %d (%v)", len(w.addedCalls), w.addedCalls)
 	}
 }
 

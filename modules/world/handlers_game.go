@@ -892,7 +892,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 					count = 0x7fffffff
 				}
 			}
-			p.InvAdd(p.client.server.invTypes.Inv, objType.ID, count, false)
+			p.InvAdd(p.client.server.invTypes.Inv, objType.ID, count)
 		case "givemany":
 			// TS L339-352 — givemany <obj>. Fixed count = 1000.
 			if args == "" {
@@ -903,7 +903,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 			if objType == nil {
 				return nil
 			}
-			p.InvAdd(p.client.server.invTypes.Inv, objType.ID, 1000, false)
+			p.InvAdd(p.client.server.invTypes.Inv, objType.ID, 1000)
 		case "minme":
 			// TS L432-440 — set every stat to 1 except HITPOINTS=10.
 			// TS iterates indices [0, PlayerStatEnabled.length); it does
@@ -1240,7 +1240,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 					count = 0x7fffffff
 				}
 			}
-			other.InvAdd(p.client.server.invTypes.Inv, objType.ID, count, false)
+			other.InvAdd(p.client.server.invTypes.Inv, objType.ID, count)
 		case "givecrap":
 			// TS L323-338. Not NP-gated. Fills inventory with 28
 			// random items filtered by NodeMembers + DummyItem + CertTemplate.
@@ -1261,7 +1261,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 					if obj.CertTemplate != -1 {
 						continue
 					}
-					p.InvAdd(p.client.server.invTypes.Inv, id, 1, false)
+					p.InvAdd(p.client.server.invTypes.Inv, id, 1)
 					break
 				}
 			}

@@ -1859,7 +1859,7 @@ func TestInvMoveItemUncert_CertObjUncertifies(t *testing.T) {
 }
 
 func TestInvMoveItemUncert_RemoveZeroCompletesNoOp(t *testing.T) {
-	// from inv empty → tx.Completed=0 → return without invAdd.
+	// from inv empty → Remove returns 0 → return without invAdd.
 	mc := newTestInvConfigs()
 	lookup := newTestInvLookup()
 	runInvOp(t, OpInvMoveItemUncert, []int{testInvMain, testInvBank, testObjCoin, 50}, lookup, mc)
@@ -1869,18 +1869,21 @@ func TestInvMoveItemUncert_RemoveZeroCompletesNoOp(t *testing.T) {
 	}
 }
 
-// TestInvMoveItemUncert_NearFullDest_AssuresFullInsertion pins TS
-// InvOps.ts:592-596 + Player.ts:1496 — invAdd is called with NO 4th
-// arg, so assureFullInsertion defaults to true (all-or-nothing). When
-// the destination has insufficient room, the Add must roll back entirely
-// (Completed=0); a partial fill is a goscape-only divergence. Closes
-// h-inv-1 (audit row 267).
+// TestInvMoveItemUncert_NearFullDest_PartialFillNoDrop pins the 274 contract
+// for INV_MOVEITEM_UNCERT (TS InvOps.ts:590-592 + Player.invAdd Player.ts:
+// 1543-1550 → container.add(obj, count, -1)): the all-or-nothing
+// assureFullInsertion transaction model was deleted at rev-274 (Inventory.ts
+// @dee467c8). A near-full destination now PARTIAL-FILLS (no rollback) and the
+// uncert opcode does NOT drop overflow to the world — the leftover is silently
+// lost. (This replaces the pre-274 h-inv-1 rollback pin, which pinned a
+// contract that no longer exists.)
 //
 // Fixture: destination testInvMain (capacity 28, StackNormal) holds 26
-// non-stackable swords (slots 0..25) → free=2. Source testInvBank holds
-// 5 swords in slot 0. Moving 5 swords with count(5) > free(2) MUST
-// trigger AssureFullInsertion's `!stack && count > free` gate.
-func TestInvMoveItemUncert_NearFullDest_AssuresFullInsertion(t *testing.T) {
+// non-stackable swords (slots 0..25) → free=2. Source testInvBank holds 5
+// swords in slot 0. Moving 5 swords with count(5) > free(2) fills the 2 free
+// slots; the source loses all 5 (invDel happens first) and the 3 that don't
+// fit are discarded.
+func TestInvMoveItemUncert_NearFullDest_PartialFillNoDrop(t *testing.T) {
 	mc := newTestInvConfigs()
 	lookup := newTestInvLookup()
 	main := lookup.Get(nil, testInvMain)
@@ -1890,12 +1893,21 @@ func TestInvMoveItemUncert_NearFullDest_AssuresFullInsertion(t *testing.T) {
 	bank := lookup.Get(nil, testInvBank)
 	bank.Set(0, &inventory.Item{Id: testObjSword, Count: 5})
 
-	runInvOp(t, OpInvMoveItemUncert, []int{testInvBank, testInvMain, testObjSword, 5}, lookup, mc)
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	runInvOpWithWorld(t, OpInvMoveItemUncert, []int{testInvBank, testInvMain, testObjSword, 5}, lookup, mc, world)
 
-	// Post-fix: AssureFullInsertion=true → destination Add rolls back →
-	// main retains 26 swords. Pre-fix would partial-fill to 28.
-	if got := main.GetItemCount(testObjSword); got != 26 {
-		t.Errorf("destination main inv: got %d swords, want 26 (TS Player.ts:1496 invAdd default assureFullInsertion=true must reject partial-fill on count>free)", got)
+	// 274: partial fill — main reaches 28 (was 26, +2 fit). The overflow of 3
+	// is NOT dropped to the world (uncert has no overflow handling in TS).
+	if got := main.GetItemCount(testObjSword); got != 28 {
+		t.Errorf("destination main inv: got %d swords, want 28 (274 partial fill — assureFullInsertion deleted)", got)
+	}
+	// Source is fully drained — invDel removes the requested count before invAdd.
+	if got := bank.GetItemCount(testObjSword); got != 0 {
+		t.Errorf("source bank inv: got %d swords, want 0 (invDel removes 5 before partial invAdd)", got)
+	}
+	// No overflow drop — TS uncert calls bare invAdd with no world drop.
+	if len(world.addedCalls) != 0 {
+		t.Errorf("INV_MOVEITEM_UNCERT must NOT drop overflow to world; got %d AddObj calls", len(world.addedCalls))
 	}
 }
 
@@ -1973,7 +1985,7 @@ func TestInvMoveItemCert_OverflowDropsToWorld(t *testing.T) {
 }
 
 func TestInvMoveItemCert_RemoveZeroCompletesNoOp(t *testing.T) {
-	// from inv empty → tx.Completed=0 → return without invAdd or world drop.
+	// from inv empty → Remove returns 0 → return without invAdd or world drop.
 	mc := newTestInvConfigs()
 	lookup := newTestInvLookup()
 	world := &fakeWorldAddObj{mockWorld: newMockWorld()}

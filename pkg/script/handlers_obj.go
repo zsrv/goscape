@@ -276,9 +276,11 @@ func handleObjTakeItem(s *ScriptState) error {
 		return nil // TS returns false; goscape no-op (matches OBJ_DEL idiom)
 	}
 
-	// TS Player.ts:1496 — assureFullInsertion defaults to true; OBJ_TAKEITEM's
-	// bare invAdd call (ObjOps.ts:147) inherits it.
-	if err := performInvAdd(s, invID, s.activeObj().ObjType(), s.activeObj().ObjCount(), true, "OBJ_TAKEITEM"); err != nil {
+	// 274: TS OBJ_TAKEITEM (ObjOps.ts:147) calls the bare partial-fill invAdd
+	// with NO overflow handling — whatever doesn't fit is silently lost as the
+	// obj is unconditionally removed from the world below. dropOverflow=false
+	// (the all-or-nothing assureFullInsertion contract was deleted at rev-274).
+	if err := performInvAdd(s, invID, s.activeObj().ObjType(), s.activeObj().ObjCount(), false, "OBJ_TAKEITEM"); err != nil {
 		return err
 	}
 

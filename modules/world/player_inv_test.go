@@ -407,13 +407,14 @@ func TestUpdateInvs_RunWeightChangedEmitsPacket(t *testing.T) {
 		t.Fatal("setup: FirstSeen must be false after tick 1")
 	}
 
-	// Add a weighted non-stackable item to the per-player inv.
+	// Add a weighted non-stackable item to the per-player inv via Set so the
+	// touched slot is dirtied (274: the SEEN listener now emits UpdateInvPartial
+	// carrying exactly the dirty slots, not a full resend).
 	inv := s.invLookup.Get(p, invTypeID)
 	if inv == nil {
 		t.Fatal("setup: inv must be allocated after tick 1")
 	}
-	inv.Items[0] = &inventory.Item{Id: objTypeID, Count: 1}
-	inv.Update = true // mark dirty so the listener fires
+	inv.Set(0, &inventory.Item{Id: objTypeID, Count: 1})
 
 	// Tick 2 — inv.Update=true, RunWeight inv → runWeightChanged=true.
 	// calculateRunWeight returns 1000; before=0 → runWeightChanged stays true.
@@ -422,9 +423,12 @@ func TestUpdateInvs_RunWeightChangedEmitsPacket(t *testing.T) {
 	p.client.flushWrite()
 	got2 := <-received2
 
+	// 274: SEEN listener → UpdateInvPartial (1 dirty slot, count<255) is
+	// 1 opcode + 2 len + (2 com + 1 slot + 2 id + 1 count) = 9 bytes — the same
+	// width as a 1-slot UpdateInvFull — plus UpdateRunWeight (3 bytes) = 12.
 	wantLen := updateInvFull1SlotBytes + updateRunWeightBytes
 	if len(got2) != wantLen {
-		t.Errorf("tick 2: got %d bytes, want %d (UpdateInvFull + UpdateRunWeight)", len(got2), wantLen)
+		t.Errorf("tick 2: got %d bytes, want %d (UpdateInvPartial + UpdateRunWeight)", len(got2), wantLen)
 	}
 }
 
@@ -561,8 +565,9 @@ func TestUpdateInvs_SkipOnNoNetWeightChange(t *testing.T) {
 	if inv == nil {
 		t.Fatal("setup: inv must be allocated after tick 1")
 	}
-	inv.Items[0] = &inventory.Item{Id: objTypeID, Count: 1}
-	inv.Update = true
+	// Mutate via Set so the slot is dirtied (274: SEEN listener emits a
+	// UpdateInvPartial carrying the dirty slots).
+	inv.Set(0, &inventory.Item{Id: objTypeID, Count: 1})
 	p.runweight = objWeight // pre-set; calculateRunWeight will return the same value
 
 	// Tick 2 — runWeightChanged starts true (RunWeight inv, inv.Update=true),
@@ -573,9 +578,11 @@ func TestUpdateInvs_SkipOnNoNetWeightChange(t *testing.T) {
 	p.client.flushWrite()
 	got2 := <-received2
 
-	wantLen := updateInvFull1SlotBytes // UpdateInvFull only; no UpdateRunWeight
+	// 274: UpdateInvPartial (1 dirty slot, count<255) only; no UpdateRunWeight.
+	// The 1-slot partial is the same 9-byte width as a 1-slot UpdateInvFull.
+	wantLen := updateInvFull1SlotBytes
 	if len(got2) != wantLen {
-		t.Errorf("skip-on-no-change: got %d bytes, want %d (UpdateInvFull only)", len(got2), wantLen)
+		t.Errorf("skip-on-no-change: got %d bytes, want %d (UpdateInvPartial only)", len(got2), wantLen)
 	}
 }
 

@@ -948,38 +948,51 @@ func (p *Player) updateInvs() {
 			continue
 		}
 
-		if inv.Update || l.FirstSeen {
+		// 274 full/partial fork (TS NetworkPlayer.ts:341-393). needsFullUpdate
+		// is gated on FirstSeen ONLY — a SEEN listener never re-sends a full
+		// update; it sends a partial carrying exactly the dirty slots. A first-
+		// seen listener always sends the full update (even if the inv is clean,
+		// so the client gets the initial contents).
+		needsFullUpdate := l.FirstSeen
+		if needsFullUpdate {
 			sendUpdateInvFullCom(p, l.Com, inv)
-			// NEW: per-player branch only — runweight + firstSeen tracking.
-			// TS NetworkPlayer.ts:372-381. SCOPE_SHARED (Source==-1) branch
-			// does NOT count toward runWeightChanged or firstSeen — TS
-			// line 354-357 falls through after the world-inv emit.
-			if l.Source != -1 {
-				if l.FirstSeen {
-					firstSeen = true
-				}
-				if l.Type >= 0 && l.Type < len(srv.invTypes.Configs) {
-					if invType := srv.invTypes.Configs[l.Type]; invType != nil && invType.RunWeight {
-						runWeightChanged = true
-					}
-				}
+			// Flip via read-modify-write — map values are not addressable.
+			l.FirstSeen = false
+			p.invListeners[com] = l
+		} else if inv.Update {
+			// Partial update: send only the slots dirtied this tick. Mirrors TS
+			// `new UpdateInvPartial(listener.com, inv, ...inv.getDirtySlots())`.
+			sendUpdateInvPartial(p, l.Com, inv, inv.GetDirtySlots()...)
+		}
+
+		// Per-player branch only — runweight + post-login firstSeen tracking.
+		// TS NetworkPlayer.ts:368-393. The SCOPE_SHARED (Source==-1) world-inv
+		// branch does NOT count toward runWeightChanged or firstSeen.
+		if l.Source != -1 {
+			// TS NetworkPlayer.ts:371 — on a full update set firstSeen=true so
+			// run weight is re-sent between logins.
+			if needsFullUpdate {
+				firstSeen = true
 			}
-			if l.FirstSeen {
-				// Flip via read-modify-write — map values are not addressable.
-				l.FirstSeen = false
-				p.invListeners[com] = l
+			// TS NetworkPlayer.ts:376 — weight is recomputed when the inv
+			// changed OR a full update was sent (inv.update || needsFullUpdate).
+			if (inv.Update || needsFullUpdate) && l.Type >= 0 && l.Type < len(srv.invTypes.Configs) {
+				if invType := srv.invTypes.Configs[l.Type]; invType != nil && invType.RunWeight {
+					runWeightChanged = true
+				}
 			}
 		}
 	}
-	// inv.Update is deliberately NOT cleared here. A single inventory can be
-	// observed by multiple PLAYERS — e.g. a trade offer shown to its owner
-	// (inv_transmit) AND to the partner (invother_transmit on the partner's
-	// window). Clearing per-player would let whichever player is processed
-	// first consume the flag and starve the other (symptom: the trade partner
-	// processed later sees no items). Mirrors TS, which clears inv.update in
-	// the world cleanup pass after every player's info is sent
-	// (World.ts:1136-1157); goscape does the same in Server.processCleanup.
-	// NEW: TS NetworkPlayer.ts:385-393 — recompute, skip-on-no-change, emit.
+	// inv tracking (inv.Update + dirty slots) is deliberately NOT reset here. A
+	// single inventory can be observed by multiple PLAYERS — e.g. a trade offer
+	// shown to its owner (inv_transmit) AND to the partner (invother_transmit on
+	// the partner's window). Resetting per-player would let whichever player is
+	// processed first consume the dirty set and starve the other (symptom: the
+	// trade partner processed later sees no items / an empty partial). Mirrors
+	// TS, which calls inv.resetTracking() in the world cleanup pass after every
+	// player's info is sent (World.ts:1140/1151); goscape does the same in
+	// Server.processCleanup.
+	// TS NetworkPlayer.ts:385-393 — recompute, skip-on-no-change, emit.
 	if runWeightChanged {
 		before := p.runweight
 		p.calculateRunWeight()

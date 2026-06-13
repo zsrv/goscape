@@ -8,14 +8,14 @@ import (
 )
 
 // TestPlayerInvAdd_NonStackable_FillsSlots pins TS Player.invAdd
-// (Player.ts:1496-1504) on a non-stackable item: each unit takes a new
-// slot, transaction.completed equals the units actually inserted.
+// (Player.ts:1543-1550) on a non-stackable item: each unit takes a new
+// slot, the returned completed count equals the units actually inserted.
 func TestPlayerInvAdd_NonStackable_FillsSlots(t *testing.T) {
 	p, _, s := teleTestPlayer(t)
 	invID := mustSetupTestInv(t, s /*invTypeID=*/, 0 /*capacity=*/, 28)
 	objID := mustSetupTestObj(t, s /*objTypeID=*/, 1277 /*stackable=*/, false)
 
-	completed := p.InvAdd(invID, objID, 5, false)
+	completed := p.InvAdd(invID, objID, 5)
 
 	if completed != 5 {
 		t.Errorf("InvAdd returned %d, want 5", completed)
@@ -37,7 +37,7 @@ func TestPlayerInvAdd_Stackable_OneSlot(t *testing.T) {
 	invID := mustSetupTestInv(t, s, 0, 28)
 	objID := mustSetupTestObj(t, s, 995 /*coins*/, true /*stackable*/)
 
-	completed := p.InvAdd(invID, objID, 100, false)
+	completed := p.InvAdd(invID, objID, 100)
 
 	if completed != 100 {
 		t.Errorf("InvAdd returned %d, want 100", completed)
@@ -49,16 +49,17 @@ func TestPlayerInvAdd_Stackable_OneSlot(t *testing.T) {
 	}
 }
 
-// TestPlayerInvAdd_OverflowNotDropped pins TS L1496-1504 bare behavior:
-// overflow is NOT dropped to the floor (unlike performInvAdd which does
-// the INV_ADD opcode body's overflow drop). transaction.completed
-// reports the insertion count; the rest is silently lost.
+// TestPlayerInvAdd_OverflowNotDropped pins TS Player.invAdd (Player.ts:
+// 1543-1550) bare behavior: overflow is NOT dropped to the floor (unlike
+// performInvAdd which does the INV_ADD opcode body's overflow drop). The
+// returned completed count reports the insertion count; the rest is silently
+// lost (274: partial fill, assureFullInsertion deleted).
 func TestPlayerInvAdd_OverflowNotDropped(t *testing.T) {
 	p, _, s := teleTestPlayer(t)
 	invID := mustSetupTestInv(t, s, 0, 28)
 	objID := mustSetupTestObj(t, s, 1277, false) // non-stackable
 
-	completed := p.InvAdd(invID, objID, 30, false) // 28-capacity, 2 overflow
+	completed := p.InvAdd(invID, objID, 30) // 28-capacity, 2 overflow
 
 	if completed != 28 {
 		t.Errorf("InvAdd returned %d, want 28 (overflow not dropped, just discarded)", completed)
@@ -74,7 +75,7 @@ func TestPlayerInvAdd_OverflowNotDropped(t *testing.T) {
 // documented as DEVIATION-NAI-184-D2-INVADD-NIL-RETURN).
 func TestPlayerInvAdd_NilInv_ReturnsZero(t *testing.T) {
 	p, _, _ := teleTestPlayer(t)
-	completed := p.InvAdd(9999, 1277, 1, false) // invalid invTypeID
+	completed := p.InvAdd(9999, 1277, 1) // invalid invTypeID
 
 	if completed != 0 {
 		t.Errorf("InvAdd with invalid invTypeID = %d, want 0", completed)
