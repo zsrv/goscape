@@ -205,12 +205,38 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 		self.ClearActiveScript()
 		delay := state.PopInt()
 		s.EnqueueWorldScript(state, delay)
+	case script.NpcSuspended:
+		// TS Player.executeScript (Player.ts:2137-2138 @e1dea19f):
+		//   } else if (state === ScriptState.NPC_SUSPENDED) {
+		//       script.activeNpc.activeScript = script;
+		// A player-anchored script can carry an ActiveNpc (every opnpc /
+		// apnpc trigger does — buildPlayerScriptState binds target → state
+		// .ActiveNpc), so NPC_DELAY / NPC_ARRIVEDELAY transition it to
+		// NpcSuspended. The continuation is stored ON THE ACTIVE NPC, not
+		// the player: Npc.turn() (mirroring Npc.ts:116-118) resumes it when
+		// the NPC's delay expires. The player's own activeScript and protect
+		// are intentionally left untouched — TS only rebinds activePlayer in
+		// the player-suspend else-arm.
+		//
+		// This was previously dropped by the default arm (whose comment
+		// wrongly assumed "player-side scripts cannot reach NpcSuspended").
+		// The drop broke every opnpc/apnpc that delays-then-acts on its NPC.
+		// Visible symptom: the Strange Plant (triffid) random event —
+		// macro_event_triffid.rs2's [opnpc1] pick handler ends with
+		// `npc_delay(22); npc_del;`; dropping the continuation left the plant
+		// delayed-but-never-deleted, so its hostile ai_timer resumed and
+		// attacked the player after they had picked the fruit. Backported
+		// from rev-274 `59d007f1`.
+		if state.ActiveNpc != nil {
+			state.ActiveNpc.StoreActiveScript(state)
+		} else {
+			s.log.Warn("player script reached NpcSuspended with nil ActiveNpc; dropping",
+				"script", state.Script.Name)
+		}
 	default:
-		// Defensive: player-side scripts cannot reach NpcSuspended
-		// (NPC_DELAY / NPC_ARRIVEDELAY require ActiveNpc, set at
-		// handlers_npc.go:446/:492) and there are no other unhandled
-		// Execution states. NpcSuspended is dispatched for world-queue
-		// scripts at resumeOrFinishWorld (script.go:202).
+		// Unhandled non-terminal Execution value (Running, or any
+		// future-added state). WorldSuspended/NpcSuspended/Suspended/
+		// PauseButton/CountDialog all have explicit arms above.
 		s.log.Warn("script in unsupported execution state",
 			"script", state.Script.Name, "execution", state.Execution)
 		self.ClearActiveScript()
