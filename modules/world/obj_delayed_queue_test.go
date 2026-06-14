@@ -126,7 +126,9 @@ func TestObjDelayedQueue_DurationDrainsToServerAddObj(t *testing.T) {
 // log-then-continue semantics: if AddObj panics inside fire,
 // recoverObjDelayed swallows the panic, the entry is already removed
 // from the queue (remove-before-fire), and the next iteration sees the
-// next entry. Mirrors recoverWorldScript pattern at world_script_queue.go:75.
+// next entry. objDelayed is TS-faithful no-retry (World.ts:566-572 unlinks
+// BEFORE addObj) — unlike the world-script queue, which retries on panic
+// (ARCH-1, fireWorldScript). See recoverObjDelayed's doc.
 //
 // Trigger panic by enqueuing a nil Obj — Server.AddObj nil-derefs at
 // obj.Level on the first line. recoverObjDelayed must handle the nil

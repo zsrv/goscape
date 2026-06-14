@@ -5,8 +5,6 @@ import (
 	"net"
 	"sync/atomic"
 	"testing"
-
-	"github.com/zsrv/goscape/pkg/script"
 )
 
 // mockConn satisfies net.Conn; only Close is observable. Read/Write etc.
@@ -193,57 +191,20 @@ func TestRecoverNpc_NilServerSafe(t *testing.T) {
 	}
 }
 
-// TestRecoverWorldScript_NoPanic: no-op when the deferred frame
-// returns normally.
-func TestRecoverWorldScript_NoPanic(t *testing.T) {
-	state := &script.ScriptState{Script: &script.ScriptFile{Name: "[world,demo]"}}
+// TestLogWorldScriptPanic_NilStateSafe: nil state must not nil-panic the
+// logger (defensive; production callers always pass non-nil). The recover
+// itself now lives in fireWorldScript; panic-detection and clean-return
+// coverage are in arch1_tick_recovery_test.go (TestFireWorldScript_*).
+func TestLogWorldScriptPanic_NilStateSafe(t *testing.T) {
 	log := discardLogger()
 
 	defer func() {
 		if r := recover(); r != nil {
-			t.Errorf("clean run should not propagate; got: %v", r)
+			t.Errorf("logWorldScriptPanic should not nil-panic; got: %v", r)
 		}
 	}()
 
-	func() {
-		defer recoverWorldScript(state, log)
-		// no panic
-	}()
-}
-
-// TestRecoverWorldScript_PanicSwallowed: a panic during world-script
-// execution must be swallowed (caller's loop continues).
-func TestRecoverWorldScript_PanicSwallowed(t *testing.T) {
-	state := &script.ScriptState{Script: &script.ScriptFile{Name: "[world,demo]"}}
-	log := discardLogger()
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("recoverWorldScript should swallow; got: %v", r)
-		}
-	}()
-
-	func() {
-		defer recoverWorldScript(state, log)
-		panic("boom")
-	}()
-}
-
-// TestRecoverWorldScript_NilStateSafe: nil state must not nil-panic
-// inside the recovery (defensive; production callers always pass non-nil).
-func TestRecoverWorldScript_NilStateSafe(t *testing.T) {
-	log := discardLogger()
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("recoverWorldScript should not nil-panic; got: %v", r)
-		}
-	}()
-
-	func() {
-		defer recoverWorldScript(nil, log)
-		panic("boom")
-	}()
+	logWorldScriptPanic(nil, "boom", log)
 }
 
 // TestRecoverPlayer_ThreePlayers_OnePanics: integration-style. Three

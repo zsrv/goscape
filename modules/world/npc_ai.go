@@ -1,6 +1,8 @@
 package world
 
 import (
+	"runtime/debug"
+
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -27,48 +29,7 @@ func (n *Npc) turn(s *Server) {
 	if !n.delayed {
 		n.lifecycleTick--
 		if n.lifecycleTick == 0 {
-			switch n.lifecycle {
-			case NpcLifecycleRespawn:
-				if n.dead {
-					// Respawn: flip dead, reset position, revert type.
-					n.dead = false
-					prevX, prevZ, prevLevel := n.x, n.z, n.level
-					n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
-					// Zone-only refresh — deliberately NOT the collision-
-					// following refreshNpcZonePresence: TS routes respawn
-					// through World.addNpc (World.ts:1295-1316) which seeds
-					// collision at the start tile (goscape: revertType →
-					// addNpc below); the death-tile flags were already
-					// cleared by removeNpc at death, so a presence-move
-					// here would phantom-remove at the death tile.
-					refreshNpcZone(s, n, prevX, prevZ, prevLevel)
-					n.revertType()
-				} else {
-					// Revert morphed NPC (post-changetype).
-					n.revertType()
-				}
-				// Lifecycle event fired this tick — skip movement so tele is
-				// visible to the renderer and not overwritten by the walk path.
-				return
-			// PORTING-EXCEPTION (ARCH-1 / NAI-5): synchronous despawn here vs
-			// TS try/catch retry at Npc.ts:144-150. tick_recovery covers the
-			// panic case. See PORTING.md.
-			case NpcLifecycleDespawn:
-				if !n.dead {
-					s.removeNpc(n, -1)
-					if s.scriptProvider != nil && n.typ != nil {
-						sf := s.scriptProvider.GetByTrigger(
-							script.TriggerAiDespawn, n.typeId, n.typ.Category)
-						if sf != nil {
-							s.npcEventQueue = append(s.npcEventQueue,
-								NpcEventRequest{
-									Type:   NpcEventDespawn,
-									Script: sf,
-									Npc:    n,
-								})
-						}
-					}
-				}
+			if s.fireNpcLifecycle(n) {
 				return
 			}
 		}
@@ -97,6 +58,73 @@ func (n *Npc) turn(s *Server) {
 	// jump field and intentionally omits the call. The player side (real wire
 	// effect via computePlayer) is ported in processValidateDistanceWalked. See
 	// PORTING.md / fix-tracker M3.
+}
+
+// fireNpcLifecycle runs the once-per-cycle lifecycle transition (respawn /
+// type-revert / despawn) under a recover that retries next tick on panic,
+// mirroring TS Npc.ts:122-150 (try { … } catch { … this.setLifeCycle(1) }).
+//
+// Returns fired=true when a transition ran (respawn or despawn) so turn()
+// skips this tick's movement — preserving goscape's behavior of not
+// overwriting a teleport with a walk path on the transition tick.
+//
+// On panic the transition is logged and lifecycleTick is re-armed to 1 (TS
+// setLifeCycle(1) — retry next tick) instead of letting the panic bubble to
+// recoverNpc, which would evict the NPC via removeNpc(n,-1). This is the
+// INNER of TS's two recovery layers: inner retry (Npc.ts:144-150) pre-empts
+// outer evict (World.ts:681-690 → goscape recoverNpc). ARCH-1.
+func (s *Server) fireNpcLifecycle(n *Npc) (fired bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Error("panic in npc lifecycle transition (retrying next tick)",
+				"nid", n.nid,
+				"typeId", n.typeId,
+				"lifecycle", n.lifecycle,
+				"err", r,
+				"stack", string(debug.Stack()))
+			n.lifecycleTick = 1 // TS setLifeCycle(1): retry next tick
+			fired = true        // skip movement this tick
+		}
+	}()
+	switch n.lifecycle {
+	case NpcLifecycleRespawn:
+		if n.dead {
+			// Respawn: flip dead, reset position, revert type.
+			n.dead = false
+			prevX, prevZ, prevLevel := n.x, n.z, n.level
+			n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
+			// Zone-only refresh — deliberately NOT the collision-following
+			// refreshNpcZonePresence: TS routes respawn through World.addNpc
+			// (World.ts:1295-1316) which seeds collision at the start tile
+			// (goscape: revertType → addNpc); the death-tile flags were
+			// already cleared by removeNpc at death, so a presence-move here
+			// would phantom-remove at the death tile.
+			refreshNpcZone(s, n, prevX, prevZ, prevLevel)
+			n.revertType()
+		} else {
+			// Revert morphed NPC (post-changetype).
+			n.revertType()
+		}
+		return true
+	case NpcLifecycleDespawn:
+		if !n.dead {
+			s.removeNpc(n, -1)
+			if s.scriptProvider != nil && n.typ != nil {
+				sf := s.scriptProvider.GetByTrigger(
+					script.TriggerAiDespawn, n.typeId, n.typ.Category)
+				if sf != nil {
+					s.npcEventQueue = append(s.npcEventQueue,
+						NpcEventRequest{
+							Type:   NpcEventDespawn,
+							Script: sf,
+							Npc:    n,
+						})
+				}
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // QueueWaypoint clears any existing path and sets a single destination.
