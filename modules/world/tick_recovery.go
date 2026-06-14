@@ -44,28 +44,23 @@ func recoverPlayer(p *Player, op string, log *slog.Logger) {
 	}
 }
 
-// recoverWorldScript recovers from panics during world-script-queue
-// execution. The world queue has no Player to disconnect; the offending
-// entry was already removed before fire (per processWorldQueue's
-// remove-before-fire ordering at world_script_queue.go:75), so recovery
-// only logs.
+// logWorldScriptPanic emits the structured error log for a world-script-queue
+// panic. The recover() itself is performed by fireWorldScript (it must run in
+// that deferred frame to set the panicked return); this helper only formats
+// the log. r is the recovered panic value.
 //
-// Mirrors TS World.ts:534-559 catch action.
+// ARCH-1: the panicking entry is intentionally LEFT in the queue by the caller
+// so it retries on the next tick, mirroring TS World.ts:542-558 (unlink runs
+// after execute; a throw skips it). The prior remove-before-fire behavior
+// (swallow, no retry) is closed.
 //
-// PORTING-EXCEPTION (ARCH-1): the world-script panic is swallowed here (the
-// offending entry was already removed before fire). TS retries via top-level
-// catch. Risk: masks logic bugs that TS would propagate. Documented; deferred
-// indefinitely. See PORTING.md.
-func recoverWorldScript(state *script.ScriptState, log *slog.Logger) {
-	r := recover()
-	if r == nil {
-		return
-	}
+// Mirrors TS World.ts:534-559 catch logging.
+func logWorldScriptPanic(state *script.ScriptState, r any, log *slog.Logger) {
 	scriptName := ""
 	if state != nil && state.Script != nil {
 		scriptName = state.Script.Name
 	}
-	log.Error("panic in world script execution",
+	log.Error("panic in world script execution (retrying next tick)",
 		"script", scriptName,
 		"err", r,
 		"stack", string(debug.Stack()))
@@ -108,10 +103,15 @@ func recoverNpc(n *Npc, s *Server, op string, log *slog.Logger) {
 }
 
 // recoverObjDelayed recovers from panics during objDelayedQueue fire
-// (NAI-134). Mirrors recoverWorldScript: structured log + swallow. The
-// offending request was already removed before fire (per
-// processObjDelayedQueue's remove-before-fire ordering), so recovery
-// only logs.
+// (NAI-134): structured log + swallow. The offending request was already
+// removed before fire (per processObjDelayedQueue's remove-before-fire
+// ordering), so recovery only logs — there is no retry.
+//
+// This remove-before-fire / no-retry is the TS-FAITHFUL behavior for
+// objDelayed: TS World.ts:566-572 runs request.unlink() BEFORE addObj, so a
+// throw drops the request (unlike the world-script queue at World.ts:542-558,
+// where unlink runs AFTER execute and a throw retries — see fireWorldScript /
+// ARCH-1). Do not "align" this with the world-queue retry; they differ in TS.
 //
 // Mirrors TS World.ts:566-572 catch action.
 func recoverObjDelayed(req objDelayedRequest, log *slog.Logger) {

@@ -114,12 +114,11 @@ func TestProcessWorldQueue_FifoOrder(t *testing.T) {
 	}
 }
 
-func TestProcessWorldQueue_RemovedBeforeFire(t *testing.T) {
-	// Verify that when an entry fires, it's removed from the queue
-	// BEFORE script.Execute is called. We can't easily inspect this
-	// from inside a real script, but we can verify post-fire the
-	// queue contains exactly 0 entries (i.e., the entry didn't
-	// stay around after firing).
+func TestProcessWorldQueue_RemovedAfterCleanFire(t *testing.T) {
+	// ARCH-1: an entry is removed AFTER a clean (non-panicking) fire
+	// (fire-then-remove-on-clean; a panic would leave it queued for retry —
+	// see arch1_tick_recovery_test.go). Post a clean script and verify
+	// post-fire the queue contains exactly 0 entries.
 	s := newTestServer(t)
 	state := newReturnImmediatelyScript(t)
 	s.EnqueueWorldScript(state, 0) // stored=1; needs 2 calls to fire per TS

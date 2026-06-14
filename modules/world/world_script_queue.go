@@ -35,27 +35,29 @@ func (s *Server) EnqueueWorldScript(state *script.ScriptState, delay int) {
 	})
 }
 
-// processWorldQueue drains ready entries from s.worldScriptQueue,
-// firing each by calling script.Execute (via resumeOrFinishWorld) and
+// processWorldQueue drains ready entries from s.worldScriptQueue, firing each
+// via fireWorldScript (script.Execute through resumeOrFinishWorld) and
 // dispatching the post-execute state.
 //
-// Iteration uses index-based slice walk with mid-pass append visibility
-// (re-reads len(s.worldScriptQueue) each loop iteration) — this
-// preserves the same TS-authentic "speedup quirk" already present
-// in processPlayerQueue (tick.go:222) where a script that re-enqueues
-// itself or another script during Execute will see the new entry
-// processed in the same tick.
+// Iteration uses an index-based slice walk with mid-pass append visibility
+// (re-reads len(s.worldScriptQueue) each iteration) — the TS-authentic
+// "speedup quirk" (also in processPlayerQueue, tick.go:222) where a script
+// that re-enqueues during Execute is processed the same tick.
 //
-// Removal happens BEFORE firing (matching processPlayerQueue:243-249)
-// so a re-entrant Execute that calls EnqueueWorldScript doesn't
-// collide with the index pointer. This ordering also matters for
-// panic recovery: a panicking script has already been removed from
-// the queue when recoverWorldScript fires, so the next iteration sees
-// the next entry (NAI-42).
+// Fire-then-remove-on-clean: an entry is removed only after a non-panicking
+// fire. On a panic the entry is LEFT queued so it retries next tick. This
+// mirrors TS World.ts:542-558, where request.unlink() runs AFTER
+// ScriptRunner.execute and a throw skips the unlink. Normal script errors are
+// caught INSIDE execute (→ ABORTED → resumeOrFinishWorld returns cleanly →
+// removed here); only a genuine Go panic takes the retry path. ARCH-1
+// (closes NAI-37-D-WORLDQUEUE-NO-PANIC-RECOVERY).
 //
-// Mirrors TS World.processWorld world-queue iteration at World.ts:534-559,
-// including the per-iteration try/catch (NAI-42; closes
-// NAI-37-D-WORLDQUEUE-NO-PANIC-RECOVERY).
+// Re-entrancy: resumeOrFinishWorld's WorldSuspended branch appends a new entry
+// via EnqueueWorldScript during a clean fire; the caller then removes the OLD
+// entry at index i, and the new entry (at the tail) is visited later in the
+// same pass. Re-entrant appends never collide with the [:i]/[i+1:] splice.
+// state is captured before the fire (the slice may reallocate); the entry
+// pointer is not used after the fire.
 func (s *Server) processWorldQueue() {
 	i := 0
 	for i < len(s.worldScriptQueue) {
@@ -71,18 +73,38 @@ func (s *Server) processWorldQueue() {
 			continue
 		}
 		state := entry.script
-		s.worldScriptQueue = append(s.worldScriptQueue[:i], s.worldScriptQueue[i+1:]...)
-		// Reset Execution=Running so script.Execute resumes the loop
-		// from the post-WORLD_DELAY PC. Mirrors the player-path resume
-		// convention at tick.go:211. TS ScriptRunner.execute resets
-		// internally (ScriptRunner.ts:130); goscape leaves the reset to
-		// callers, matching processActiveScripts.
+		// Reset Execution=Running so script.Execute resumes the loop from the
+		// post-WORLD_DELAY PC. Mirrors the player-path resume convention at
+		// tick.go:211. TS ScriptRunner.execute resets internally
+		// (ScriptRunner.ts:130); goscape leaves the reset to callers.
 		state.Execution = script.Running
-		func(state *script.ScriptState) {
-			defer recoverWorldScript(state, s.log)
-			s.resumeOrFinishWorld(state)
-		}(state)
-		// Don't advance i: we just removed the current element, so i
-		// now points to what was the next element (or past end).
+
+		if s.fireWorldScript(state) {
+			// Panicked: leave the entry queued so it retries next tick;
+			// advance past it for the remainder of this pass.
+			i++
+			continue
+		}
+		// Clean return (incl. an inline-handled script error): remove.
+		s.worldScriptQueue = append(s.worldScriptQueue[:i], s.worldScriptQueue[i+1:]...)
+		// Don't advance i: we removed the current element, so i now points
+		// to what was the next element (or past end).
 	}
+}
+
+// fireWorldScript resumes one world-queued script under a recover. Returns
+// panicked=true when execution panicked (the caller leaves the entry queued
+// for a next-tick retry, mirroring TS World.ts where a throw skips unlink).
+// A normal return — including an inline-handled script error that
+// resumeOrFinishWorld logged and routed — yields panicked=false (caller
+// removes the entry). ARCH-1.
+func (s *Server) fireWorldScript(state *script.ScriptState) (panicked bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			panicked = true
+			logWorldScriptPanic(state, r, s.log)
+		}
+	}()
+	s.resumeOrFinishWorld(state)
+	return false
 }
