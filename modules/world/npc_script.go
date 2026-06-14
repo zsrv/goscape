@@ -446,11 +446,32 @@ func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveN
 		delay := state.PopInt()
 		s.EnqueueWorldScript(state, delay)
 	default:
-		// Suspended / PauseButton / CountDialog —
-		// not reachable via npc_delay alone, but defensively clear.
-		s.log.Warn("npc script in unexpected execution state",
-			"script", state.Script.Name, "execution", state.Execution)
-		npc.ClearActiveScript()
+		// Suspended / PauseButton / CountDialog — a player-suspend state in
+		// an NPC-anchored script that carries an active player.
+		// buildNpcScriptState binds an ActivePlayer target → state.Self (an
+		// ai_opplayer / ai_applayer trigger). TS Npc.executeScript
+		// (Npc.ts:225-226 @2e3bcf43):
+		//   } else { script.activePlayer.activeScript = script; }
+		// stores the continuation ON THE ACTIVE PLAYER (state.Self), so the
+		// player's tick loop resumes it — mirrored here for TS fidelity
+		// rather than dropping it (the old default arm cleared + warned).
+		//
+		// Unreachable in the pinned content: the player-suspend opcodes
+		// (p_delay/p_pausebutton/p_countdialog) require ProtectedActivePlayer,
+		// which NPC-anchored scripts don't grant, and combat ai_opplayer
+		// suspends via npc_delay → NpcSuspended. Mirrored anyway so a future
+		// content path can't silently lose the continuation. (TS's
+		// protect-cleanup tail at Npc.ts:232-239 is a separate concern not
+		// modelled here — resumeOrFinishNpc has no player-protect handling.)
+		if state.Self != nil {
+			state.Self.StoreActiveScript(state)
+		} else {
+			// TS would null-deref (script.activePlayer is null); clear
+			// defensively. Genuinely unreachable.
+			s.log.Warn("npc script suspended with no active player to hold the continuation; dropping",
+				"script", state.Script.Name, "execution", state.Execution)
+			npc.ClearActiveScript()
+		}
 	}
 }
 
