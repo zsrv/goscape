@@ -29,7 +29,7 @@ Sev: 🔥 HIGH (real-world incident risk) / ⚠ MED (correctness or future-fragi
 
 | Sev | Go file:line | TS source | Status | Size | Note |
 |---|---|---|---|---|---|
-| ⚠ MED | `modules/world/npc_ai.go:53` + `modules/world/tick_recovery.go:54-67` | TS `Npc.ts:144-150` + `World.ts:534-559` try/catch | 🚧 ARCH-1 | — | Go's `tick_recovery.go` swallows world-script panic (entry already removed); TS retries via top-level catch. NAI-5: synchronous despawn vs TS try/catch retry. Risk: masks logic bugs that TS would propagate. **Documented; deferred indefinitely** (Arc 15+18+20+22). |
+| _(none — ARCH-1 CLOSED 2026-06-13: tick error-recovery now TS-faithful (panic-only retry), backported from rev-274; see backlog note below)_ |
 
 ---
 
@@ -45,7 +45,7 @@ Sev: 🔥 HIGH (real-world incident risk) / ⚠ MED (correctness or future-fragi
 
 | ID | Area | Size | Notes |
 |---|---|---|---|
-| ARCH-1 | Tick recovery vs TS try/catch | — | See open-deviations row above; deferred indefinitely; `PORTING-EXCEPTION` marker placed at `tick_recovery.go:54` + `npc_ai.go` despawn site |
+| _(none — ARCH-1 CLOSED 2026-06-13: tick error-recovery now TS-faithful (panic-only retry at NPC lifecycle + world-script queue), backported from rev-274. Verified vs rev-225 pin `e1dea19f`: `Npc.ts:122-150` + `World.ts` world-queue try/catch + `ScriptRunner.execute` internal catch all identical to rev-274's `dee467c8`. Origin commits `c43ab876` (A) + `dc9d16b6` (B); spec `docs/superpowers/specs/2026-06-13-rev274-arch1-tick-recovery-design.md`)_ |
 
 NAI-201 closed as TS-parity exception at `cf95634a` (Arc 23). Closure rationale in
 the new `NpcModeMap` doc block (`pkg/objtype/npcmode.go`). TS itself has QUEUE1..20
