@@ -1799,8 +1799,11 @@ tests now pack the loose Content maps directly). jagFileVersion stays 27
   pack/gzip/unpack, infra dispositions). **ZERO unported behavioral
   hunks.** NOT-PORTED buckets are runtime/infra/no-Go-surface, each
   confirmed output-neutral.
-- [~] (b) Live 274-client smoke — **server-side boot smoke PASSED; live
-  CLIENT connection PENDING (user-driven)**. Automated boot smoke (fresh
+- [x] (b) Live 274-client smoke — **PASSED (user-confirmed 2026-06-13)**.
+  Server-side boot smoke + live client connection both green; the
+  user-reported slow NPC chat-head delivery was root-caused and fixed
+  (T22a, see below) and re-confirmed working by the user. Automated boot
+  smoke (fresh
   `./data/pack` packed by goscape's own 274 packer, byte-parity with the
   reference): all modules listen (world 43594 / login 2004 / friends 2005 /
   ondemand 8888), 483 mapsquares + 10,937 scripts + 1,151 static objs
@@ -1824,7 +1827,7 @@ tests now pack the loose Content maps directly). jagFileVersion stays 27
   scheduler into `modules/world/ondemand.go` (event-driven pump goroutine, no
   worker thread) — wire format (4-byte request, 6-byte chunk header)
   unchanged; `-race` clean; per-client connID + clientClosed cleanup added.
-  Re-test with the live client to confirm the latency is gone.
+  User re-tested: chat-head delivery is now fast. Confirmed fixed.
 - [x] (c) Pack byte-parity — FULL TREE `TestPackAll_Ref274FullTreeParity`
   GREEN + original-cache `TestPackAll_OrigCacheParity` GREEN (6,304
   members + 2 expected content-divergence map slots).
@@ -1832,10 +1835,14 @@ tests now pack the loose Content maps directly). jagFileVersion stays 27
 - [x] (e) Suite green incl. `-race` (82 packages); build + vet exit 0;
   gziputil orig corpus 6201/6201.
 
-**The rev-274 port is CODE-COMPLETE.** Automated DoD (a)(c)(d)(e) met and
-independently re-verified at close-out; (b) live client smoke is the only
-open item (user-driven). Residual carry-forward: the `config.yaml`
-reference path now points at Server274-ref (same shape, new target).
+**The rev-274 port is COMPLETE (2026-06-13).** All DoD (a)-(e) met and
+verified: (a) correspondence audit zero-gaps, (b) live 274-client smoke
+PASSED (user-confirmed — incl. the T22a on-demand chat-head latency fix),
+(c) pack byte-parity full-tree + original-cache, (d) unpack 16/16,
+(e) suite + `-race` green. Residual carry-forward: the `config.yaml`
+reference path now points at Server274-ref (same shape, new target); run
+`goscape-cli pack` to refresh `./data/pack` after the revision change
+before serving (the runtime does not auto-repack).
 
 ---
 
