@@ -461,8 +461,8 @@ func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveN
 		// which NPC-anchored scripts don't grant, and combat ai_opplayer
 		// suspends via npc_delay → NpcSuspended. Mirrored anyway so a future
 		// content path can't silently lose the continuation. (TS's
-		// protect-cleanup tail at Npc.ts:232-239 is a separate concern not
-		// modelled here — resumeOrFinishNpc has no player-protect handling.)
+		// protect-cleanup tail at Npc.ts:232-239 runs after this switch — see
+		// the ProtectedActivePlayer release below.)
 		if state.Self != nil {
 			state.Self.StoreActiveScript(state)
 		} else {
@@ -471,6 +471,30 @@ func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveN
 			s.log.Warn("npc script suspended with no active player to hold the continuation; dropping",
 				"script", state.Script.Name, "execution", state.Execution)
 			npc.ClearActiveScript()
+		}
+	}
+
+	// TS Npc.executeScript tail (Npc.ts:232-239 @2e3bcf43): release protected
+	// access held on the active player(s) and remove the pointer(s), so a
+	// later script / interaction isn't blocked by a stale protect flag. Runs
+	// for every outcome (finished / aborted / suspended). Unlike the player
+	// dispatcher — which clears only the protagonist's own protect, the
+	// protagonist BEING the active player — an NPC-anchored script's active
+	// player(s) are SECONDARY (ai_opplayer / ai_applayer targets), released
+	// here. The pointer is removed only when the active player is present
+	// (TS gates each block on `&& script._activePlayer[2]`). Latent like the
+	// player-suspend arm above (buildNpcScriptState never sets the
+	// ProtectedActivePlayer pointer in npc context), mirrored for fidelity.
+	if state.Pointers&script.PtrProtectedActivePlayer != 0 {
+		if p, ok := state.Self.(*Player); ok {
+			p.protect = false
+			state.Pointers &^= script.PtrProtectedActivePlayer
+		}
+	}
+	if state.Pointers&script.PtrProtectedActivePlayer2 != 0 {
+		if p, ok := state.Self2.(*Player); ok {
+			p.protect = false
+			state.Pointers &^= script.PtrProtectedActivePlayer2
 		}
 	}
 }
