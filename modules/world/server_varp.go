@@ -92,15 +92,22 @@ func (w worldVarsView) NodeID() int {
 	return w.s.cfg.NodeID
 }
 
-// IsMapBlocked delegates to gamemap.Pathfinder.Flags. FlagBlockWalk is the
-// canonical "this tile blocks walking" flag at pkg/pathfinder/collision/flag.go:41.
-// Mirrors TS GameMap.isMapBlocked (CollisionFlag.WALK_BLOCKED). NAI-35-T6.
+// IsMapBlocked delegates to gamemap.Pathfinder.Flags. Mirrors TS
+// GameMap.isMapBlocked = isFlagged(x, z, level, CollisionFlag.WALK_BLOCKED).
+// rsmod WALK_BLOCKED = 0x240100 = LOC | FLOOR | FLOOR_DECORATION = goscape
+// FlagWalkBlocked — the combined "can't stand here" mask, NOT the lone FLOOR
+// bit goscape calls FlagBlockWalk (0x200000). The earlier FlagBlockWalk mask
+// dropped FlagLoc (0x100) and FlagGroundDecor (0x40000), so loc-blocked tiles
+// (e.g. a BlockWalk ground loc such as a courtyard bush, which writes only
+// FlagLoc) read as walkable — MAP_FINDSQUARE/teleport scatter then landed
+// players on bushes the TS engine rejects. NAI-35-T6; pinned by
+// ismapblocked_walkblocked_test.go.
 func (w worldVarsView) IsMapBlocked(level, x, z int) bool {
 	if w.s == nil || w.s.gamemap == nil {
 		return false
 	}
 	flag := w.s.gamemap.Pathfinder.Flags.Get(x, z, level)
-	return flag&collision.FlagBlockWalk != 0
+	return flag&collision.FlagWalkBlocked != 0
 }
 
 // IsMulti delegates to the world's GameMap.IsMulti, swapping arg order to
