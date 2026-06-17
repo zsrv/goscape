@@ -102,22 +102,25 @@ func (w worldVarsView) NodeID() int {
 	return w.s.cfg.NodeID
 }
 
-// IsMapBlocked delegates to gamemap.Pathfinder.Flags. Mirrors TS
-// GameMap.isMapBlocked = isFlagged(x, z, level, CollisionFlag.WALK_BLOCKED).
-// rsmod WALK_BLOCKED = 0x240100 = LOC | FLOOR | FLOOR_DECORATION = goscape
-// FlagWalkBlocked — the combined "can't stand here" mask, NOT the lone FLOOR
-// bit goscape calls FlagBlockWalk (0x200000). The earlier FlagBlockWalk mask
-// dropped FlagLoc (0x100) and FlagGroundDecor (0x40000), so loc-blocked tiles
-// (e.g. a BlockWalk ground loc such as a courtyard bush, which writes only
-// FlagLoc) read as walkable — MAP_FINDSQUARE/teleport scatter then landed
-// players on bushes the TS engine rejects. NAI-35-T6; pinned by
+// IsMapBlocked mirrors TS GameMap.isMapBlocked = isFlagged(x, z, level,
+// CollisionFlag.WALK_BLOCKED). rsmod WALK_BLOCKED = 0x240100 =
+// LOC | FLOOR | FLOOR_DECORATION = goscape FlagWalkBlocked — the combined
+// "can't stand here" mask, NOT the lone FLOOR bit goscape calls FlagBlockWalk
+// (0x200000), which drops FlagLoc (0x100) and FlagGroundDecor (0x40000). A
+// BlockWalk ground loc (e.g. a courtyard bush) writes only FlagLoc, so the
+// lone-FLOOR mask read it as walkable and MAP_FINDSQUARE/teleport scatter
+// landed players on bushes the TS engine rejects.
+//
+// Routes through FlagMap.IsFlagged (not a raw Get()&mask) so an off-map /
+// unallocated tile short-circuits to false, matching TS isFlagged (rsmod:
+// current == NULL → false; dee467c8 CollisionEngine.isFlagged: !!zone) — a raw
+// read would see FlagNull's (0x7FFFFFFF) bits as blocked. NAI-35-T6; pinned by
 // ismapblocked_walkblocked_test.go.
 func (w worldVarsView) IsMapBlocked(level, x, z int) bool {
 	if w.s == nil || w.s.gamemap == nil {
 		return false
 	}
-	flag := w.s.gamemap.Pathfinder.Flags.Get(x, z, level)
-	return flag&collision.FlagWalkBlocked != 0
+	return w.s.gamemap.Pathfinder.Flags.IsFlagged(x, z, level, collision.FlagWalkBlocked)
 }
 
 // IsMulti delegates to the world's GameMap.IsMulti, swapping arg order to
@@ -339,16 +342,18 @@ func (w worldVarsView) ZoneObjs(level, zoneX, zoneZ int) []script.ActiveObj {
 	return out
 }
 
-// IsIndoors reports whether the tile at (x, z, level) carries the
-// FlagRoof bit in the global collision FlagMap. Implements
-// script.WorldVars.IsIndoors. Mirrors TS isIndoors (GameMap.ts:417-419).
+// IsIndoors reports whether the tile at (x, z, level) carries the FlagRoof
+// bit. Implements script.WorldVars.IsIndoors. Mirrors TS isIndoors =
+// isFlagged(x, z, level, CollisionFlag.ROOF) (GameMap.ts). Routes through
+// FlagMap.IsFlagged so an off-map/unallocated tile short-circuits to false,
+// uniform with IsMapBlocked (raw Get()&FlagRoof agrees off-map only because
+// FlagNull = 0x7FFFFFFF excludes bit 31; IsFlagged makes the contract explicit).
 // NAI-162 B1.
 func (w worldVarsView) IsIndoors(x, z, level int) bool {
 	if w.s == nil || w.s.gamemap == nil {
 		return false
 	}
-	flag := w.s.gamemap.Pathfinder.Flags.Get(x, z, level)
-	return collision.IsIndoors(flag)
+	return w.s.gamemap.Pathfinder.Flags.IsFlagged(x, z, level, collision.FlagRoof)
 }
 
 // MergeLoc implements script.WorldVars.MergeLoc. Type-asserts loc to
