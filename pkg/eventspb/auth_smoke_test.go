@@ -18,8 +18,8 @@ func TestAuthEnvelopeRoundTrip(t *testing.T) {
 		WorldId:       1,
 		Payload: &eventspb.AuthEnvelope_Login{
 			Login: &eventspb.LoginEvent{
-				Ip:          "127.0.0.1",
-				CountryCode: "US",
+				Ip:  "127.0.0.1",
+				Uid: 99,
 			},
 		},
 	}
@@ -34,7 +34,10 @@ func TestAuthEnvelopeRoundTrip(t *testing.T) {
 	if decoded.AccountId != 42 {
 		t.Errorf("AccountId = %d, want 42", decoded.AccountId)
 	}
-	if got := decoded.GetLogin().GetCountryCode(); got != "US" {
-		t.Errorf("CountryCode = %q, want %q", got, "US")
+	if got := decoded.GetLogin().GetIp(); got != "127.0.0.1" {
+		t.Errorf("Ip = %q, want %q", got, "127.0.0.1")
+	}
+	if got := decoded.GetLogin().GetUid(); got != 99 {
+		t.Errorf("Uid = %d, want 99", got)
 	}
 }
