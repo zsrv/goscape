@@ -27,9 +27,9 @@ import (
 type handler struct {
 	loginpb.UnimplementedLoginServiceServer
 
-	db       *sql.DB
-	cfg      Config
-	log      *slog.Logger
+	db  *sql.DB
+	cfg Config
+	log *slog.Logger
 
 	// loginRequests tracks usernames whose login flow is currently in progress,
 	// so duplicate attempts (racing login) can be rejected cleanly.
@@ -308,6 +308,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	}
 	committed = true
 
+	emitLogin(int64(account.ID), req.NodeId, ip, req.Uid)
 
 	// TS LoginServer.ts:395 — messageCount computed after the session
 	// insert, attached to the success reply (:412/:433).
