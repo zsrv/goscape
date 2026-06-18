@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
-
 )
 
 type Config struct {
@@ -30,7 +29,7 @@ type Config struct {
 	// effective, which is what this flag mirrors.)
 	// Placed on the LOGIN module (the TS consumer is LoginServer), not
 	// the world config.
-	NodeHopTime        time.Duration `yaml:"node_hop_time"`
+	NodeHopTime time.Duration `yaml:"node_hop_time"`
 }
 
 func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
@@ -68,8 +67,6 @@ func (c *Config) Validate() error {
 	}
 	if c.NodeHopTime < 0 {
 		return fmt.Errorf("login: NodeHopTime must be >= 0, got %v", c.NodeHopTime)
-	}
-		return err
 	}
 	return nil
 }
