@@ -11,7 +11,6 @@ dist/
 
 
 data/
-dataplayers/
 
 # Runtime assets (soundfonts etc.) — not source
 public/

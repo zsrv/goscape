@@ -76,7 +76,6 @@ dist/
 
 
 data/
-dataplayers/
 
 # Runtime assets (soundfonts etc.) — not source
 public/
@@ -478,7 +477,6 @@ source before "fixing" anything that merely looks wrong — and before
 *.exe
 dist/
 data/
-dataplayers/
 public/
 .cache/
 .serena/
