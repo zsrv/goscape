@@ -15,7 +15,6 @@ import (
 
 	"github.com/zsrv/goscape/pkg/loginpb"
 	"github.com/zsrv/goscape/pkg/objtype"
-	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
 // newTestHandler creates a handler with an in-memory DB and a temp save directory.
@@ -34,7 +33,7 @@ func newTestHandler(t *testing.T) (*handler, string) {
 			BCryptCost:           4,
 			NodeHopTime:          45 * time.Second, // registered default (TS NODE_HOP_TIME 45000)
 		},
-		log:      noopLogger(),
+		log: noopLogger(),
 	}
 	return h, savePath
 }
