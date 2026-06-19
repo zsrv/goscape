@@ -155,18 +155,21 @@ pack: goscape-cli ## pack the game cache from $(CACHE_SRC_DIR) into $(CACHE_OUT_
 # Helm #
 ########
 
-.PHONY: production/helm/goscape/src/helm-test/helm-test
-helm-test: production/helm/goscape/src/helm-test/helm-test ## run helm tests
+HELM_CHART_DIR := production/helm/goscape
 
-# Package Helm tests but do not run them.
-production/helm/goscape/src/helm-test/helm-test:
-	CGO_ENABLED=0 go test $(GO_FLAGS) --tags=helm_test -c -o $@ ./$(@D)
+helm-lint: ## lint the helm chart against each example values file
+	helm lint $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml
+	helm lint $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/management-values.yaml
+	helm lint $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/world-values.yaml \
+		--set goscape.loginServerAddress=mgmt:2004 \
+		--set goscape.friendsServerAddress=mgmt:2005
 
-helm-lint: ## run helm linter
-	$(MAKE) -BC production/helm/goscape lint
-
-helm-docs: ## generate reference documentation
-	$(MAKE) -BC docs sources/setup/install/helm/reference.md
+helm-test: ## render the chart for each example values file (cluster-free smoke)
+	helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml >/dev/null
+	helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/management-values.yaml >/dev/null
+	helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/world-values.yaml \
+		--set goscape.loginServerAddress=mgmt:2004 \
+		--set goscape.friendsServerAddress=mgmt:2005 >/dev/null
 
 #########
 # Mixin #
@@ -279,7 +282,7 @@ protos: clean-protos
 # Images #
 ##########
 
-images: goscape-image goscape-cli-image #helm-test-image
+images: goscape-image goscape-cli-image
 
 # goscape image
 goscape-image: ## build the goscape docker image
@@ -296,12 +299,6 @@ goscape-local-image: ## build the goscape docker image locally (set LOCAL_ARCH=l
 # goscape-cli image
 goscape-cli-image: ## build the goscape-cli docker image
 	$(OCI_BUILD) -t $(GOSCAPE_CLI_IMAGE) -f cmd/goscape-cli/Dockerfile .
-
-# Helm test image
-helm-test-image: ## build the helm test docker image
-	$(OCI_BUILD) -t $(IMAGE_PREFIX)/goscape-helm-test:$(IMAGE_TAG) -f production/helm/goscape/src/helm-test/Dockerfile .
-helm-test-push: helm-test-image
-	$(OCI_PUSH) $(IMAGE_PREFIX)/goscape-helm-test:$(IMAGE_TAG)
 
 #################
 # Documentation #
