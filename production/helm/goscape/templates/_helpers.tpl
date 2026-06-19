@@ -115,3 +115,94 @@ world:
 {{- $extra := deepCopy (.Values.goscape.extraConfig | default dict) -}}
 {{- mergeOverwrite $base $extra | toYaml -}}
 {{- end -}}
+
+{{/* goscape.podTemplate — the pod template body (metadata + spec) shared by all workloads.
+     Call with (dict "ctx" $ "workload" $w). */}}
+{{- define "goscape.podTemplate" -}}
+{{- $ctx := .ctx -}}
+{{- $w := .workload -}}
+{{- $mode := $ctx.Values.deploymentMode -}}
+metadata:
+  annotations:
+    checksum/config: {{ include "goscape.config" $ctx | sha256sum }}
+    {{- with $w.podAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "goscape.selectorLabels" $ctx | nindent 4 }}
+    {{- with $w.podLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  serviceAccountName: {{ include "goscape.serviceAccountName" $ctx }}
+  {{- with $ctx.Values.image.pullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $w.podSecurityContext }}
+  securityContext:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  containers:
+    - name: goscape
+      image: {{ include "goscape.image" $ctx }}
+      imagePullPolicy: {{ $ctx.Values.image.pullPolicy }}
+      args:
+        - "--config.file=/etc/goscape/config.yaml"
+        {{- with $w.extraArgs }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with $w.extraEnv }}
+      env:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      ports:
+        {{- if or (eq $mode "SingleBinary") (eq $mode "World") }}
+        - name: ondemand-http
+          containerPort: {{ $ctx.Values.goscape.ports.ondemandHTTP }}
+        - name: world-tcp
+          containerPort: {{ $ctx.Values.goscape.ports.worldTCP }}
+        {{- end }}
+        {{- if or (eq $mode "SingleBinary") (eq $mode "Management") }}
+        - name: login-grpc
+          containerPort: {{ $ctx.Values.goscape.ports.loginGRPC }}
+        - name: friends-grpc
+          containerPort: {{ $ctx.Values.goscape.ports.friendsGRPC }}
+        {{- end }}
+      readinessProbe:
+        tcpSocket:
+          port: {{ if eq $mode "Management" }}login-grpc{{ else }}world-tcp{{ end }}
+        initialDelaySeconds: 10
+        periodSeconds: 10
+      {{- with $w.containerSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $w.resources }}
+      resources:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumeMounts:
+        - name: config
+          mountPath: /etc/goscape
+        {{- if or (eq $mode "SingleBinary") (eq $mode "Management") }}
+        - name: data
+          mountPath: {{ $ctx.Values.goscape.dataPath }}
+        {{- end }}
+  {{- with $w.nodeSelector }}
+  nodeSelector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $w.tolerations }}
+  tolerations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $w.affinity }}
+  affinity:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  volumes:
+    - name: config
+      configMap:
+        name: {{ include "goscape.fullname" $ctx }}
+{{- end -}}
