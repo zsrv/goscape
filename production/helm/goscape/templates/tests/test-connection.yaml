@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "goscape.fullname" . }}-test-connection
+  labels:
+    {{- include "goscape.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  {{- with .Values.image.pullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - |
+          set -e
+          host="{{ include "goscape.fullname" . }}"
+          {{- if eq .Values.deploymentMode "Management" }}
+          echo "checking login gRPC"; nc -z -w5 "$host" {{ .Values.goscape.ports.loginGRPC }}
+          echo "checking friends gRPC"; nc -z -w5 "$host" {{ .Values.goscape.ports.friendsGRPC }}
+          {{- else }}
+          echo "checking world TCP"; nc -z -w5 "$host" {{ .Values.goscape.ports.worldTCP }}
+          echo "checking ondemand HTTP"; wget -q -T 5 -O /dev/null "http://$host:{{ .Values.goscape.ports.ondemandHTTP }}/"
+          {{- end }}
+          echo OK
