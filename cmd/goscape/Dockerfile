@@ -15,6 +15,15 @@ COPY . .
 
 RUN make clean && make IMAGE_TAG=${IMAGE_TAG} goscape goscape-cli
 
+# Pack the game cache from source content (must be present at data/src in the
+# build context) into /pack, to be baked into the final image.
+ARG CACHE_SRC_DIR=data/src
+ARG CACHE_RAW_DIR=data/raw
+RUN ./cmd/goscape-cli/goscape-cli pack \
+      --src-dir "${CACHE_SRC_DIR}" \
+      --raw-dir "${CACHE_RAW_DIR}" \
+      --out-dir /pack
+
 ## https://hub.docker.com/r/rockylinux/rockylinux
 #FROM docker.io/rockylinux/rockylinux:10.1.20251123
 #
@@ -37,6 +46,10 @@ FROM gcr.io/distroless/static-debian13:debug-nonroot
 
 COPY --from=build /go/src/cmd/goscape/goscape /usr/bin/goscape
 COPY --from=build /go/src/cmd/goscape-cli/goscape-cli /usr/bin/goscape-cli
+
+# Baked-in packed cache (matches chart default goscape.cachePath)
+ARG CACHE_IMAGE_DIR=/usr/share/goscape/pack
+COPY --from=build /pack ${CACHE_IMAGE_DIR}
 
 # problem with entrypoint is we can't get a shell?
 ENTRYPOINT ["/usr/bin/goscape"]

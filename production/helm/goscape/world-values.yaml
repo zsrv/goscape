@@ -1,0 +1,21 @@
+---
+# A single world server (ondemand + world) that dials the central management release.
+# Install once per world with a distinct release name and goscape.node.id.
+deploymentMode: World
+
+goscape:
+  node:
+    id: 1
+  # Point these at your Management release's Service (see its NOTES output):
+  loginServerAddress: ""    # e.g. goscape-mgmt:2004
+  friendsServerAddress: ""  # e.g. goscape-mgmt:2005
+
+world:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+service:
+  type: ClusterIP

@@ -1,0 +1,20 @@
+{{- if eq .Values.deploymentMode "World" -}}
+{{- $w := .Values.world -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "goscape.fullname" . }}
+  labels:
+    {{- include "goscape.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ $w.replicas }}
+  selector:
+    matchLabels:
+      {{- include "goscape.selectorLabels" . | nindent 6 }}
+  template:
+    {{- include "goscape.podTemplate" (dict "ctx" . "workload" $w) | nindent 4 }}
+{{- end }}
