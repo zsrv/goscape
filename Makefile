@@ -38,6 +38,11 @@ GO_FLAGS := -trimpath -ldflags "-s -w $(GO_LDFLAGS)"
 # Also remove the -s and -w flags present in the normal build which strip the symbol table and the DWARF symbol table.
 DEBUG_GO_FLAGS := -gcflags "all=-N -l" -trimpath -ldflags "$(GO_LDFLAGS)"
 
+# Cache packing (baked into the goscape image)
+CACHE_SRC_DIR ?= data/src
+CACHE_RAW_DIR ?= data/raw
+CACHE_OUT_DIR ?= data/pack
+
 # Image names
 IMAGE_PREFIX      ?= goscape
 GOSCAPE_IMAGE     := $(IMAGE_PREFIX)/goscape:$(IMAGE_TAG)
@@ -65,7 +70,7 @@ endif
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-45s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-.PHONY: all images check-generated-files goscape goscape-debug goscape-cli lint test clean protos proto
+.PHONY: all images check-generated-files goscape goscape-debug goscape-cli pack lint test clean protos proto
 .PHONY: format check-format
 .PHONY: goscape-image goscape-cli-image build-image build-image-push
 .PHONY: benchmark-store check-mod
@@ -138,6 +143,13 @@ cmd/goscape-cli/goscape-cli:
 
 cmd/goscape-cli/goscape-cli-debug:
 	CGO_ENABLED=0 go build $(DEBUG_GO_FLAGS) -o ./cmd/goscape-cli/goscape-cli-debug ./cmd/goscape-cli
+
+.PHONY: pack
+pack: goscape-cli ## pack the game cache from $(CACHE_SRC_DIR) into $(CACHE_OUT_DIR)
+	CGO_ENABLED=0 ./cmd/goscape-cli/goscape-cli pack \
+		--src-dir $(CACHE_SRC_DIR) \
+		--raw-dir $(CACHE_RAW_DIR) \
+		--out-dir $(CACHE_OUT_DIR)
 
 ########
 # Helm #
