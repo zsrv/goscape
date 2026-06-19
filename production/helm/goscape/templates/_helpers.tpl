@@ -60,3 +60,58 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "%s:%s" .Values.image.repository $tag -}}
 {{- end -}}
 {{- end -}}
+
+{{/* goscape.baseConfig — the generated config.yaml before extraConfig merge */}}
+{{- define "goscape.baseConfig" -}}
+{{- $mode := .Values.deploymentMode -}}
+{{- $g := .Values.goscape -}}
+target: all
+log_level: {{ $g.logLevel | quote }}
+log_format: {{ $g.logFormat | quote }}
+ondemand:
+  enable: {{ or (eq $mode "SingleBinary") (eq $mode "World") }}
+  http_listen_network: tcp
+  http_listen_address: 0.0.0.0
+  http_listen_port: {{ $g.ports.ondemandHTTP }}
+  cache_path: {{ $g.cachePath | quote }}
+login:
+  enable: {{ or (eq $mode "SingleBinary") (eq $mode "Management") }}
+  grpc_listen_address: 0.0.0.0
+  grpc_listen_port: {{ $g.ports.loginGRPC }}
+  sqlite_dsn: {{ printf "%s/login.db" $g.dataPath | quote }}
+  save_path: {{ printf "%s/players" $g.dataPath | quote }}
+  node_profile: {{ $g.node.profile | quote }}
+friends:
+  enable: {{ or (eq $mode "SingleBinary") (eq $mode "Management") }}
+  grpc_listen_address: 0.0.0.0
+  grpc_listen_port: {{ $g.ports.friendsGRPC }}
+  sqlite_dsn: {{ printf "%s/friends.db" $g.dataPath | quote }}
+  profile: {{ $g.node.profile | quote }}
+world:
+  enable: {{ or (eq $mode "SingleBinary") (eq $mode "World") }}
+  tcp_listen_network: tcp
+  tcp_listen_address: 0.0.0.0
+  tcp_listen_port: {{ $g.ports.worldTCP }}
+  node_id: {{ $g.node.id }}
+  node_members: {{ $g.node.members }}
+  node_profile: {{ $g.node.profile | quote }}
+  cache_path: {{ $g.cachePath | quote }}
+{{- if eq $mode "SingleBinary" }}
+  login_server_enabled: true
+  login_server_address: {{ printf "127.0.0.1:%d" (int $g.ports.loginGRPC) | quote }}
+  friends_server_enabled: true
+  friends_server_address: {{ printf "127.0.0.1:%d" (int $g.ports.friendsGRPC) | quote }}
+{{- else if eq $mode "World" }}
+  login_server_enabled: true
+  login_server_address: {{ required "goscape.loginServerAddress is required when deploymentMode=World" $g.loginServerAddress | quote }}
+  friends_server_enabled: true
+  friends_server_address: {{ required "goscape.friendsServerAddress is required when deploymentMode=World" $g.friendsServerAddress | quote }}
+{{- end }}
+{{- end -}}
+
+{{/* goscape.config — baseConfig with extraConfig deep-merged over it */}}
+{{- define "goscape.config" -}}
+{{- $base := include "goscape.baseConfig" . | fromYaml -}}
+{{- $extra := deepCopy (.Values.goscape.extraConfig | default dict) -}}
+{{- mergeOverwrite $base $extra | toYaml -}}
+{{- end -}}
