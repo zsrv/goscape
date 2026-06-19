@@ -1,0 +1,66 @@
+{{- $mode := .Values.deploymentMode -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "goscape.fullname" . }}
+  labels:
+    {{- include "goscape.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "goscape.selectorLabels" . | nindent 4 }}
+  ports:
+    {{- if or (eq $mode "SingleBinary") (eq $mode "World") }}
+    - name: ondemand-http
+      port: {{ .Values.goscape.ports.ondemandHTTP }}
+      targetPort: ondemand-http
+      protocol: TCP
+    - name: world-tcp
+      port: {{ .Values.goscape.ports.worldTCP }}
+      targetPort: world-tcp
+      protocol: TCP
+    {{- end }}
+    {{- if eq $mode "Management" }}
+    - name: login-grpc
+      port: {{ .Values.goscape.ports.loginGRPC }}
+      targetPort: login-grpc
+      protocol: TCP
+    - name: friends-grpc
+      port: {{ .Values.goscape.ports.friendsGRPC }}
+      targetPort: friends-grpc
+      protocol: TCP
+    {{- end }}
+{{- if or (eq $mode "SingleBinary") (eq $mode "Management") }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "goscape.fullname" . }}-headless
+  labels:
+    {{- include "goscape.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "goscape.selectorLabels" . | nindent 4 }}
+  ports:
+    {{- if eq $mode "SingleBinary" }}
+    - name: world-tcp
+      port: {{ .Values.goscape.ports.worldTCP }}
+      targetPort: world-tcp
+      protocol: TCP
+    {{- end }}
+    {{- if eq $mode "Management" }}
+    - name: login-grpc
+      port: {{ .Values.goscape.ports.loginGRPC }}
+      targetPort: login-grpc
+      protocol: TCP
+    - name: friends-grpc
+      port: {{ .Values.goscape.ports.friendsGRPC }}
+      targetPort: friends-grpc
+      protocol: TCP
+    {{- end }}
+{{- end }}

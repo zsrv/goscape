@@ -13,3 +13,9 @@ tmp/
 vendor/
 .DS_Store
 .cache
+
+# Regenerated cache / runtime state (cache is repacked during image build)
+data/pack
+data/pack.*
+data/*.db
+data/players

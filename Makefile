@@ -38,6 +38,10 @@ GO_FLAGS := -trimpath -ldflags "-s -w $(GO_LDFLAGS)"
 # Also remove the -s and -w flags present in the normal build which strip the symbol table and the DWARF symbol table.
 DEBUG_GO_FLAGS := -gcflags "all=-N -l" -trimpath -ldflags "$(GO_LDFLAGS)"
 
+# Cache packing (baked into the goscape image)
+CACHE_SRC_DIR ?= data/src
+CACHE_OUT_DIR ?= data/pack
+
 # Image names
 IMAGE_PREFIX      ?= goscape
 GOSCAPE_IMAGE     := $(IMAGE_PREFIX)/goscape:$(IMAGE_TAG)
@@ -65,7 +69,7 @@ endif
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-45s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-.PHONY: all images check-generated-files goscape goscape-debug goscape-cli lint test clean protos proto
+.PHONY: all images check-generated-files goscape goscape-debug goscape-cli pack lint test clean protos proto
 .PHONY: format check-format
 .PHONY: goscape-image goscape-cli-image build-image build-image-push
 .PHONY: benchmark-store check-mod
@@ -139,22 +143,31 @@ cmd/goscape-cli/goscape-cli:
 cmd/goscape-cli/goscape-cli-debug:
 	CGO_ENABLED=0 go build $(DEBUG_GO_FLAGS) -o ./cmd/goscape-cli/goscape-cli-debug ./cmd/goscape-cli
 
+.PHONY: pack
+pack: goscape-cli ## pack the game cache from $(CACHE_SRC_DIR) into $(CACHE_OUT_DIR)
+	CGO_ENABLED=0 ./cmd/goscape-cli/goscape-cli pack \
+		--src-dir $(CACHE_SRC_DIR) \
+		--out-dir $(CACHE_OUT_DIR)
+
 ########
 # Helm #
 ########
 
-.PHONY: production/helm/goscape/src/helm-test/helm-test
-helm-test: production/helm/goscape/src/helm-test/helm-test ## run helm tests
+HELM_CHART_DIR := production/helm/goscape
 
-# Package Helm tests but do not run them.
-production/helm/goscape/src/helm-test/helm-test:
-	CGO_ENABLED=0 go test $(GO_FLAGS) --tags=helm_test -c -o $@ ./$(@D)
+helm-lint: ## lint the helm chart against each example values file
+	helm lint $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml
+	helm lint $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/management-values.yaml
+	helm lint $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/world-values.yaml \
+		--set goscape.loginServerAddress=mgmt:2004 \
+		--set goscape.friendsServerAddress=mgmt:2005
 
-helm-lint: ## run helm linter
-	$(MAKE) -BC production/helm/goscape lint
-
-helm-docs: ## generate reference documentation
-	$(MAKE) -BC docs sources/setup/install/helm/reference.md
+helm-test: ## render the chart for each example values file (cluster-free smoke)
+	helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml >/dev/null
+	helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/management-values.yaml >/dev/null
+	helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/world-values.yaml \
+		--set goscape.loginServerAddress=mgmt:2004 \
+		--set goscape.friendsServerAddress=mgmt:2005 >/dev/null
 
 #########
 # Mixin #
@@ -267,7 +280,7 @@ protos: clean-protos
 # Images #
 ##########
 
-images: goscape-image goscape-cli-image #helm-test-image
+images: goscape-image goscape-cli-image
 
 # goscape image
 goscape-image: ## build the goscape docker image
@@ -285,20 +298,9 @@ goscape-local-image: ## build the goscape docker image locally (set LOCAL_ARCH=l
 goscape-cli-image: ## build the goscape-cli docker image
 	$(OCI_BUILD) -t $(GOSCAPE_CLI_IMAGE) -f cmd/goscape-cli/Dockerfile .
 
-# Helm test image
-helm-test-image: ## build the helm test docker image
-	$(OCI_BUILD) -t $(IMAGE_PREFIX)/goscape-helm-test:$(IMAGE_TAG) -f production/helm/goscape/src/helm-test/Dockerfile .
-helm-test-push: helm-test-image
-	$(OCI_PUSH) $(IMAGE_PREFIX)/goscape-helm-test:$(IMAGE_TAG)
-
 #################
 # Documentation #
 #################
-
-documentation-helm-reference-check:
-	@echo "Checking diff"
-	$(MAKE) -BC docs sources/setup/install/helm/reference.md
-	@git diff --exit-code -- docs/sources/setup/install/helm/reference.md || (echo "Please generate Helm Chart reference by running 'make -C docs sources/setup/install/helm/reference.md'" && false)
 
 ########
 # Misc #

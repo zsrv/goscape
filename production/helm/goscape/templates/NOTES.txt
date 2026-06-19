@@ -1,0 +1,25 @@
+goscape "{{ .Release.Name }}" installed in namespace "{{ .Release.Namespace }}".
+
+Deployment mode: {{ .Values.deploymentMode }}
+
+{{- if eq .Values.deploymentMode "SingleBinary" }}
+
+All four modules run in one StatefulSet. Client-facing Services:
+  ondemand HTTP : {{ include "goscape.fullname" . }}:{{ .Values.goscape.ports.ondemandHTTP }}
+  world TCP     : {{ include "goscape.fullname" . }}:{{ .Values.goscape.ports.worldTCP }}
+{{- else if eq .Values.deploymentMode "Management" }}
+
+login + friends run as a central management StatefulSet. World releases should set:
+  goscape.loginServerAddress   = {{ include "goscape.fullname" . }}:{{ .Values.goscape.ports.loginGRPC }}
+  goscape.friendsServerAddress = {{ include "goscape.fullname" . }}:{{ .Values.goscape.ports.friendsGRPC }}
+{{- else if eq .Values.deploymentMode "World" }}
+
+ondemand + world run as a world Deployment dialing management at:
+  login   : {{ .Values.goscape.loginServerAddress }}
+  friends : {{ .Values.goscape.friendsServerAddress }}
+Client-facing Services:
+  ondemand HTTP : {{ include "goscape.fullname" . }}:{{ .Values.goscape.ports.ondemandHTTP }}
+  world TCP     : {{ include "goscape.fullname" . }}:{{ .Values.goscape.ports.worldTCP }}
+{{- end }}
+
+Run "helm test {{ .Release.Name }}" to smoke-test connectivity.

@@ -1,0 +1,17 @@
+---
+# Central management: login + friends only (no world). Worlds dial this release.
+deploymentMode: Management
+
+management:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+persistence:
+  enabled: true
+  size: 5Gi
+
+service:
+  type: ClusterIP

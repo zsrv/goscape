@@ -1,0 +1,40 @@
+{{- if or (eq .Values.deploymentMode "SingleBinary") (eq .Values.deploymentMode "Management") -}}
+{{- $w := .Values.singleBinary -}}
+{{- if eq .Values.deploymentMode "Management" }}{{- $w = .Values.management -}}{{- end -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "goscape.fullname" . }}
+  labels:
+    {{- include "goscape.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ $w.replicas }}
+  serviceName: {{ include "goscape.fullname" . }}-headless
+  selector:
+    matchLabels:
+      {{- include "goscape.selectorLabels" . | nindent 6 }}
+  template:
+    {{- include "goscape.podTemplate" (dict "ctx" . "workload" $w) | nindent 4 }}
+  {{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        {{- with .Values.persistence.annotations }}
+        annotations:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      spec:
+        accessModes:
+          {{- toYaml .Values.persistence.accessModes | nindent 10 }}
+        {{- with .Values.persistence.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+  {{- end }}
+{{- end }}
