@@ -205,4 +205,8 @@ spec:
     - name: config
       configMap:
         name: {{ include "goscape.fullname" $ctx }}
+    {{- if and (or (eq $mode "SingleBinary") (eq $mode "Management")) (not $ctx.Values.persistence.enabled) }}
+    - name: data
+      emptyDir: {}
+    {{- end }}
 {{- end -}}

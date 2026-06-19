@@ -19,6 +19,7 @@ spec:
       {{- include "goscape.selectorLabels" . | nindent 6 }}
   template:
     {{- include "goscape.podTemplate" (dict "ctx" . "workload" $w) | nindent 4 }}
+  {{- if .Values.persistence.enabled }}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -35,4 +36,5 @@ spec:
         resources:
           requests:
             storage: {{ .Values.persistence.size }}
+  {{- end }}
 {{- end }}

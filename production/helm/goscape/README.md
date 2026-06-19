@@ -53,6 +53,10 @@ is deep-merged over the generated config. Workload knobs (resources, scheduling,
 security contexts, `extraEnv`/`extraArgs`) live under the per-mode section
 (`singleBinary` / `management` / `world`).
 
+> **`extraConfig` keys must match goscape's config schema exactly.** goscape loads its config with strict unmarshalling — any unknown key under `goscape.extraConfig` will cause the pod to fail at startup.
+
+> **NetworkPolicy is same-namespace.** When `networkPolicy.enabled=true` in Management mode, only goscape pods carrying `app.kubernetes.io/name: goscape` in the **same namespace** may reach the login/friends gRPC ports. Install World releases in the same namespace as the Management release (or adjust the policy).
+
 ## Testing
 
 Run the in-cluster connectivity test against a deployed release (requires a live cluster):
