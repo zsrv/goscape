@@ -1,0 +1,20 @@
+---
+# Run all four modules (ondemand + world + login + friends) in one StatefulSet.
+deploymentMode: SingleBinary
+
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  extraEnv:
+    - name: GOMEMLIMIT
+      value: "900MiB"
+
+persistence:
+  enabled: true
+  size: 5Gi
+
+service:
+  type: ClusterIP

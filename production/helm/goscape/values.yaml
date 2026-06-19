@@ -1,0 +1,141 @@
+# -- Deployment role for this release: SingleBinary | Management | World
+deploymentMode: SingleBinary
+
+# -- Override the chart name portion of resource names
+nameOverride: ""
+# -- Override the full resource name
+fullnameOverride: ""
+# -- Labels added to every resource
+commonLabels: {}
+# -- Annotations added to every resource
+commonAnnotations: {}
+
+image:
+  # -- Image registry. Leave empty to omit the registry prefix.
+  registry: docker.io
+  # -- Image repository
+  repository: goscape/goscape
+  # -- Image tag. Defaults to the chart appVersion when empty.
+  tag: ""
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+  # -- Image pull secrets
+  pullSecrets: []
+
+serviceAccount:
+  # -- Create a ServiceAccount
+  create: true
+  # -- Name of the ServiceAccount; generated when empty
+  name: ""
+  # -- Annotations for the ServiceAccount
+  annotations: {}
+  # -- Automount the ServiceAccount token
+  automountServiceAccountToken: true
+
+# goscape application config (rendered into config.yaml)
+goscape:
+  # -- Log level: debug | info | warn | error
+  logLevel: info
+  # -- Log format: text | json
+  logFormat: json
+  # -- Path to the baked-in packed cache (must match the image)
+  cachePath: /usr/share/goscape/pack
+  # -- Data dir for stateful modes (login/friends SQLite + player saves)
+  dataPath: /var/lib/goscape
+  ports:
+    # -- ondemand HTTP container port
+    ondemandHTTP: 8080
+    # -- world TCP container port
+    worldTCP: 43594
+    # -- login gRPC container port
+    loginGRPC: 2004
+    # -- friends gRPC container port
+    friendsGRPC: 2005
+  node:
+    # -- World id (World / SingleBinary modes)
+    id: 1
+    # -- Whether members content is available
+    members: true
+    # -- Node profile name
+    profile: main
+  # -- World mode only: address of the Management login gRPC, e.g. goscape-mgmt:2004
+  loginServerAddress: ""
+  # -- World mode only: address of the Management friends gRPC, e.g. goscape-mgmt:2005
+  friendsServerAddress: ""
+  # -- Free-form map deep-merged over the generated config.yaml (escape hatch for any flag)
+  extraConfig: {}
+
+# Workload knobs for SingleBinary mode
+singleBinary:
+  replicas: 1
+  resources: {}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext: {}
+  containerSecurityContext: {}
+  extraEnv: []
+  extraArgs: []
+
+# Workload knobs for Management mode
+management:
+  replicas: 1
+  resources: {}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext: {}
+  containerSecurityContext: {}
+  extraEnv: []
+  extraArgs: []
+
+# Workload knobs for World mode
+world:
+  replicas: 1
+  resources: {}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext: {}
+  containerSecurityContext: {}
+  extraEnv: []
+  extraArgs: []
+
+# Persistent storage (Management + SingleBinary)
+persistence:
+  enabled: true
+  size: 5Gi
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  annotations: {}
+
+service:
+  # -- Service type for the primary Service of this release
+  type: ClusterIP
+  # -- Annotations for the Service
+  annotations: {}
+
+# Ingress for the ondemand HTTP endpoint (SingleBinary / World)
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+podDisruptionBudget:
+  enabled: false
+  maxUnavailable: 1
+
+networkPolicy:
+  enabled: false
+
+# Arbitrary extra manifests rendered verbatim (list of objects or template strings)
+extraManifests: []
