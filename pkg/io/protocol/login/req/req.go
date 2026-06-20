@@ -106,8 +106,8 @@ func (q *GameLogin) UnmarshalHeader(r *packet.Packet) error {
 // number, ISAAC seeds, UID, username, password) from r's current position,
 // which must be just past the cleartext header read by
 // [GameLogin.UnmarshalHeader].
-func (q *GameLogin) UnmarshalRSA(r *packet.Packet) error {
-	decrypted, err := r.RSADec(protocol.Modulus, protocol.PrivateExponent)
+func (q *GameLogin) UnmarshalRSA(r *packet.Packet, key *protocol.RSAKey) error {
+	decrypted, err := r.RSADec(key.Modulus, key.PrivateExponent)
 	if err != nil {
 		return err
 	}
@@ -129,5 +129,5 @@ func (q *GameLogin) UnmarshalBinary(data []byte) error {
 	if err := q.UnmarshalHeader(r); err != nil {
 		return err
 	}
-	return q.UnmarshalRSA(r)
+	return q.UnmarshalRSA(r, protocol.DefaultRSAKey)
 }

@@ -70,7 +70,12 @@ type Server struct {
 	// to noopBridges{} via defaultFriendsBridge.
 	friendsClient FriendsClient
 	cfg           Config
-	tcpWg         sync.WaitGroup
+	// rsaKey is the RSA key used to decrypt the login block. Resolved in
+	// NewServer from cfg.RSAPrivateKeyPath (custom) or protocol.DefaultRSAKey
+	// (built-in). May be nil in test-only Server literals; the login decode
+	// site falls back to DefaultRSAKey when nil.
+	rsaKey *protocol.RSAKey
+	tcpWg  sync.WaitGroup
 	// tickWg tracks the runTickLoop goroutine spawned in Run(). Shutdown
 	// closes s.quit and then waits on tickWg so the tick goroutine has
 	// fully exited before cleanup proceeds. Arc 18 R2 — without this,
@@ -377,6 +382,15 @@ func (s *Server) appendNewPlayer(p *Player) {
 }
 
 func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient, logger *slog.Logger, tap tapper.Tapper) (*Server, error) {
+	rsaKey := protocol.DefaultRSAKey
+	if cfg.RSAPrivateKeyPath != "" {
+		k, err := protocol.LoadRSAKeyPEM(cfg.RSAPrivateKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load RSA private key: %w", err)
+		}
+		rsaKey = k
+	}
+
 	tcpListener, err := net.Listen(cfg.TCPListenNetwork, net.JoinHostPort(cfg.TCPListenAddress, strconv.Itoa(cfg.TCPListenPort)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tcp listener: %w", err)
@@ -416,6 +430,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// ignore the pm, their array is filled with 0 as default"). R4: atomic
 	// field can't be initialized in a struct literal, so Store post-alloc.
 	s.pmCount.Store(1)
+	s.rsaKey = rsaKey
 	s.packFn = packall.PackAll
 	s.reloadFn = s.Reload
 	s.watchSessionFn = s.runWatchSession
@@ -1134,7 +1149,11 @@ func (c *client) handleLogin() error {
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
 
-		if err := req.UnmarshalRSA(r); err != nil {
+		rsaKey := protocol.DefaultRSAKey
+		if c.server != nil && c.server.rsaKey != nil {
+			rsaKey = c.server.rsaKey
+		}
+		if err := req.UnmarshalRSA(r, rsaKey); err != nil {
 			// RSA failure or malformed encrypted block — out of date.
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
