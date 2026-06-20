@@ -280,7 +280,7 @@ func newTestRSAKey(t *testing.T, bits int) *protocol.RSAKey {
 }
 
 func TestUnmarshalRSA_CustomKey(t *testing.T) {
-	rk := newTestRSAKey(t, 512)
+	rk := newTestRSAKey(t, 1024) // Go's crypto/rsa rejects <1024-bit generation
 
 	pt := packet.NewPacket(make([]byte, 0, 256))
 	pt.P1(10) // RSA magic number
@@ -423,7 +423,7 @@ func writeTestPrivatePEM(t *testing.T, bits int) string {
 
 func TestConfigValidate_RSAKeyPath(t *testing.T) {
 	// Valid key path validates clean.
-	good := Config{Enable: true, TCPListenPort: 40000, CachePath: "x", RSAPrivateKeyPath: writeTestPrivatePEM(t, 512)}
+	good := Config{Enable: true, TCPListenPort: 40000, CachePath: "x", RSAPrivateKeyPath: writeTestPrivatePEM(t, 1024)}
 	if err := good.Validate(); err != nil {
 		t.Errorf("valid key path: unexpected error: %v", err)
 	}
@@ -609,7 +609,7 @@ func TestRunRSAInfo_DefaultKey(t *testing.T) {
 func TestRunRSAGen_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	var genOut, genErr bytes.Buffer
-	if code := runRSA([]string{"gen", "--bits", "512", "--out-dir", dir}, &genOut, &genErr); code != 0 {
+	if code := runRSA([]string{"gen", "--bits", "1024", "--out-dir", dir}, &genOut, &genErr); code != 0 {
 		t.Fatalf("gen exit %d, stderr=%s", code, genErr.String())
 	}
 	privPath := filepath.Join(dir, "private.pem")
