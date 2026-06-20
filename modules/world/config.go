@@ -7,18 +7,26 @@ import (
 	"time"
 
 	"github.com/zsrv/goscape/pkg/dskit/server"
+	"github.com/zsrv/goscape/pkg/io/protocol"
 )
 
 type Config struct {
-	SignalHandler                    SignalHandler      `yaml:"-"`
-	LogLevel                         *slog.Level        `yaml:"log_level"`
-	LogFormat                        string             `yaml:"log_format"`
-	NodeDebugprocChar                string             `yaml:"node_debugproc_char"`
-	TCPListenNetwork                 string             `yaml:"tcp_listen_network"`
-	TCPListenAddress                 string             `yaml:"tcp_listen_address"`
-	NodeProfile                      string             `yaml:"node_profile"`
-	CachePath                        string             `yaml:"cache_path"`
-	ContentPath                      string             `yaml:"content_path"`
+	SignalHandler     SignalHandler `yaml:"-"`
+	LogLevel          *slog.Level   `yaml:"log_level"`
+	LogFormat         string        `yaml:"log_format"`
+	NodeDebugprocChar string        `yaml:"node_debugproc_char"`
+	TCPListenNetwork  string        `yaml:"tcp_listen_network"`
+	TCPListenAddress  string        `yaml:"tcp_listen_address"`
+	NodeProfile       string        `yaml:"node_profile"`
+	CachePath         string        `yaml:"cache_path"`
+	ContentPath       string        `yaml:"content_path"`
+	// RSAPrivateKeyPath optionally points to a PEM-encoded RSA private key
+	// (PKCS#1 or PKCS#8) used to decrypt the login block, replacing the
+	// built-in default key in pkg/io/protocol/rsakey.go. Empty (default) uses
+	// the built-in key. Mirrors Engine-TS World.ts:104 (data/config/private.pem).
+	// The Java client must be rebuilt with the matching public key
+	// (Client.java LOGIN_RSAN / LOGIN_RSAE) or every login fails.
+	RSAPrivateKeyPath                string             `yaml:"rsa_private_key_path"`
 	LoginServerAddress               string             `yaml:"login_server_address"`
 	FriendsServerAddress             string             `yaml:"friends_server_address"`
 	TCPServerIdleTimeout             time.Duration      `yaml:"tcp_server_idle_timeout"`
@@ -92,6 +100,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.StringVar(&c.NodeProfile, "world.node-profile", "main", "")
 	f.StringVar(&c.CachePath, "world.cache-path", "./data/pack", "Cache root; gamemap loads map-pack files from <path>/maps/")
 	f.StringVar(&c.ContentPath, "world.content-path", "", "Source content root for ::rebuild's in-process PackAll. Empty disables the cheat.")
+	f.StringVar(&c.RSAPrivateKeyPath, "world.rsa-private-key-path", "", "Optional PEM RSA private key (PKCS#1/PKCS#8) for login decryption, replacing the built-in default key. The client must carry the matching public key. Empty uses the built-in key.")
 	f.BoolVar(&c.ContentWatch, "world.content-watch", false, "Watch ContentPath subdirs and auto-trigger ::rebuild on changes (debounced 1s). Requires --world.content-path.")
 	f.IntVar(&c.NodeMaxPlayers, "world.node-max-players", 2047, "")
 	f.IntVar(&c.NodeMaxConnected, "world.node-max-connected", 1000, "")
@@ -118,6 +127,11 @@ func (c *Config) Validate() error {
 		}
 		if c.ContentWatch && c.ContentPath == "" {
 			return fmt.Errorf("world.content-path must be non-empty when world.content-watch=true")
+		}
+		if c.RSAPrivateKeyPath != "" {
+			if _, err := protocol.LoadRSAKeyPEM(c.RSAPrivateKeyPath); err != nil {
+				return fmt.Errorf("world.rsa-private-key-path: %w", err)
+			}
 		}
 	}
 	return nil
