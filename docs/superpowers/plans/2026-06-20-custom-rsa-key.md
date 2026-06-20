@@ -937,13 +937,13 @@ GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache CGO_ENABLED=0 go build -trimpath -o "
 "$TMPDIR/goscape-cli" rsa gen --bits 1024 --out-dir "$TMPDIR" && \
 printf 'target: world\nworld:\n  enable: true\n  cache_path: ./data/pack\n  rsa_private_key_path: %s/private.pem\n' "$TMPDIR" > "$TMPDIR/rsa-test.yaml" && \
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache CGO_ENABLED=0 go build -trimpath -o "$TMPDIR/goscape" ./cmd/goscape && \
-"$TMPDIR/goscape" --config.file "$TMPDIR/rsa-test.yaml" --config.verify
+"$TMPDIR/goscape" --config.file "$TMPDIR/rsa-test.yaml" --config.verify=true
 ```
-Expected: `rsa gen` prints the bake values and writes both PEMs; `--config.verify` exits 0. Then confirm a bogus path fails:
+Expected: `rsa gen` prints the bake values and writes both PEMs; `--config.verify=true` exits 0 (note: `--config.verify` is a bool flag and must use the `=true` form; bare exits 2). Then confirm a bogus path fails:
 
 ```bash
 printf 'target: world\nworld:\n  enable: true\n  cache_path: ./data/pack\n  rsa_private_key_path: /no/such/key.pem\n' > "$TMPDIR/rsa-bad.yaml" && \
-"$TMPDIR/goscape" --config.file "$TMPDIR/rsa-bad.yaml" --config.verify; echo "exit=$?"
+"$TMPDIR/goscape" --config.file "$TMPDIR/rsa-bad.yaml" --config.verify=true; echo "exit=$?"
 ```
 Expected: non-zero exit with a `world.rsa-private-key-path: ...` error.
 
