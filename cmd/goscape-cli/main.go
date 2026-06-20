@@ -36,6 +36,7 @@ var verbs = []verb{
 	{"smoke-pack", runSmokePack, "Run all PackAll stages best-effort against a content dir and report per-stage outcomes."},
 	{"worldmap", runWorldmap, "Build mapview/worldmap.jag from packed map output and Content assets."},
 	{"unpack", runUnpack, "Unpack a client cache into Content-tree sources (16 families)."},
+	{"rsa", runRSA, "Generate or inspect RSA login keys (gen | info)."},
 }
 
 // dispatch routes args[0] to a verb handler. stdout receives help
