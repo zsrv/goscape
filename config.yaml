@@ -31,3 +31,10 @@ world:
   # Source content root: enables the midi name->id registry (in-game music)
   # and the ::rebuild cheat. Mirrors TS BUILD_SRC_DIR (../content).
   content_path: /home/owner/Code/github.com/LostCityRS/Server274-ref/content
+  # Optional: PEM-encoded RSA private key (PKCS#1 or PKCS#8) used to decrypt
+  # the login block, replacing the built-in default key. The Java client must
+  # be rebuilt with the matching public key (Client.java LOGIN_RSAN /
+  # LOGIN_RSAE). Generate a keypair and print the bake values with:
+  #   goscape-cli rsa gen --bits 1024 --out-dir data/config
+  # Leave unset to use the built-in default key.
+  #rsa_private_key_path: data/config/private.pem
