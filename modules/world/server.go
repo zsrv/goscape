@@ -70,7 +70,7 @@ type Server struct {
 	// FriendsServerEnabled=false; in that case s.friendsBridge resolves
 	// to noopBridges{} via defaultFriendsBridge.
 	friendsClient FriendsClient
-	cfg    Config
+	cfg           Config
 	// rsaKey is the RSA key used to decrypt the login block. Resolved in
 	// NewServer from cfg.RSAPrivateKeyPath (custom) or protocol.DefaultRSAKey
 	// (built-in). May be nil in test-only Server literals; the login decode

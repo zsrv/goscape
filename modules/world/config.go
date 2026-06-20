@@ -11,15 +11,15 @@ import (
 )
 
 type Config struct {
-	SignalHandler                    SignalHandler      `yaml:"-"`
-	LogLevel                         *slog.Level        `yaml:"log_level"`
-	LogFormat                        string             `yaml:"log_format"`
-	NodeDebugprocChar                string             `yaml:"node_debugproc_char"`
-	TCPListenNetwork                 string             `yaml:"tcp_listen_network"`
-	TCPListenAddress                 string             `yaml:"tcp_listen_address"`
-	NodeProfile                      string             `yaml:"node_profile"`
-	CachePath                        string             `yaml:"cache_path"`
-	ContentPath                      string             `yaml:"content_path"`
+	SignalHandler     SignalHandler `yaml:"-"`
+	LogLevel          *slog.Level   `yaml:"log_level"`
+	LogFormat         string        `yaml:"log_format"`
+	NodeDebugprocChar string        `yaml:"node_debugproc_char"`
+	TCPListenNetwork  string        `yaml:"tcp_listen_network"`
+	TCPListenAddress  string        `yaml:"tcp_listen_address"`
+	NodeProfile       string        `yaml:"node_profile"`
+	CachePath         string        `yaml:"cache_path"`
+	ContentPath       string        `yaml:"content_path"`
 	// RSAPrivateKeyPath optionally points to a PEM-encoded RSA private key
 	// (PKCS#1 or PKCS#8) used to decrypt the login block, replacing the
 	// built-in default key in pkg/io/protocol/rsakey.go. Empty (default) uses
