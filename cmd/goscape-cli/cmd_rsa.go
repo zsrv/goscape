@@ -73,6 +73,11 @@ func runRSAGen(args []string, stdout, stderr io.Writer) int {
 	}
 	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
 
+	if err := os.MkdirAll(*outDir, 0o755); err != nil {
+		fmt.Fprintf(stderr, "rsa gen: create out-dir %s: %v\n", *outDir, err)
+		return 1
+	}
+
 	privPath := filepath.Join(*outDir, "private.pem")
 	pubPath := filepath.Join(*outDir, "public.pem")
 	if err := os.WriteFile(privPath, privPEM, 0o600); err != nil {

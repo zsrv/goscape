@@ -69,6 +69,22 @@ func TestRunRSAGen_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestRunRSAGen_CreatesMissingOutDir(t *testing.T) {
+	outDir := filepath.Join(t.TempDir(), "a", "b")
+	var genOut, genErr bytes.Buffer
+	if code := runRSA([]string{"gen", "--bits", "1024", "--out-dir", outDir}, &genOut, &genErr); code != 0 {
+		t.Fatalf("gen exit %d, stderr=%s", code, genErr.String())
+	}
+	privPath := filepath.Join(outDir, "private.pem")
+	pubPath := filepath.Join(outDir, "public.pem")
+	if _, err := os.Stat(privPath); err != nil {
+		t.Errorf("private.pem not created: %v", err)
+	}
+	if _, err := os.Stat(pubPath); err != nil {
+		t.Errorf("public.pem not created: %v", err)
+	}
+}
+
 func TestRunRSA_UnknownSubVerb(t *testing.T) {
 	var out, errb bytes.Buffer
 	if code := runRSA([]string{"bogus"}, &out, &errb); code != 2 {
