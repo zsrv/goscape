@@ -1200,7 +1200,7 @@ func (c *client) handleLogin() error {
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
 
-		if err := req.UnmarshalRSA(r); err != nil {
+		if err := req.UnmarshalRSA(r, protocol.DefaultRSAKey); err != nil {
 			// RSA failure or malformed encrypted block — out of date.
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
