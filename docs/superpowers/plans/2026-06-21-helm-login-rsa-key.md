@@ -63,7 +63,9 @@ echo "  default verify exit=$?"
 echo "== enabled SingleBinary: config line + volume + mount present =="
 out=$(helm template r "$CHART" -f "$CHART/single-binary-values.yaml" \
   --set goscape.loginRsaKey.existingSecret="$SEC")
-echo "$out" | grep -q 'rsa_private_key_path: "/etc/goscape-login-rsa/private.pem"' || { echo "FAIL: no config line"; exit 1; }
+# NOTE: goscape.config round-trips via fromYaml|toYaml, which strips the | quote
+# quotes, so the rendered value is unquoted (same as cache_path).
+echo "$out" | grep -q 'rsa_private_key_path: /etc/goscape-login-rsa/private.pem' || { echo "FAIL: no config line"; exit 1; }
 echo "$out" | grep -q 'secretName: "test-secret"' || { echo "FAIL: no secret volume"; exit 1; }
 echo "$out" | grep -q 'mountPath: /etc/goscape-login-rsa' || { echo "FAIL: no mount"; exit 1; }
 echo "$out" | grep -q 'readOnly: true' || { echo "FAIL: mount not readOnly"; exit 1; }
@@ -72,7 +74,7 @@ echo "== enabled World: config line + volume + mount present =="
 # shellcheck disable=SC2086
 out=$(helm template r "$CHART" -f "$CHART/world-values.yaml" $WADDR \
   --set goscape.loginRsaKey.existingSecret="$SEC")
-echo "$out" | grep -q 'rsa_private_key_path: "/etc/goscape-login-rsa/private.pem"' || { echo "FAIL: World no config line"; exit 1; }
+echo "$out" | grep -q 'rsa_private_key_path: /etc/goscape-login-rsa/private.pem' || { echo "FAIL: World no config line"; exit 1; }
 echo "$out" | grep -q 'mountPath: /etc/goscape-login-rsa' || { echo "FAIL: World no mount"; exit 1; }
 
 echo "== Management inert: nothing rendered even when set =="
