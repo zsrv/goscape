@@ -14,7 +14,7 @@ import (
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
-	tapper "github.com/zsrv/goscape/pkg/tapper"
+	"github.com/zsrv/goscape/pkg/tapper"
 )
 
 // errCloseConn signals that the connection should be closed cleanly after a

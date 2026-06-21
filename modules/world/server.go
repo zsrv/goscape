@@ -36,9 +36,9 @@ import (
 	"github.com/zsrv/goscape/pkg/loginpb"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/packall"
-	tapper "github.com/zsrv/goscape/pkg/tapper"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/tapper"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
 	"github.com/zsrv/goscape/pkg/util/ttlcache"
 	"github.com/zsrv/goscape/pkg/wordenc/encfilter"
@@ -405,7 +405,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		tcpListener:   tcpListener,
 		loginClient:   loginClient,
 		friendsClient: friendsClient,
-		tap: tap,
+		tap:           tap,
 		quit:          make(chan interface{}),
 
 		log:              logger,
