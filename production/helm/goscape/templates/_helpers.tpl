@@ -95,6 +95,9 @@ world:
   node_members: {{ $g.node.members }}
   node_profile: {{ $g.node.profile | quote }}
   cache_path: {{ $g.cachePath | quote }}
+{{- if and $g.loginRsaKey.existingSecret (or (eq $mode "SingleBinary") (eq $mode "World")) }}
+  rsa_private_key_path: {{ printf "/etc/goscape-login-rsa/%s" $g.loginRsaKey.key | quote }}
+{{- end }}
 {{- if eq $mode "SingleBinary" }}
   login_server_enabled: true
   login_server_address: {{ printf "127.0.0.1:%d" (int $g.ports.loginGRPC) | quote }}
@@ -184,6 +187,11 @@ spec:
       volumeMounts:
         - name: config
           mountPath: /etc/goscape
+        {{- if and $ctx.Values.goscape.loginRsaKey.existingSecret (or (eq $mode "SingleBinary") (eq $mode "World")) }}
+        - name: login-rsa
+          mountPath: /etc/goscape-login-rsa
+          readOnly: true
+        {{- end }}
         {{- if or (eq $mode "SingleBinary") (eq $mode "Management") }}
         - name: data
           mountPath: {{ $ctx.Values.goscape.dataPath }}
@@ -204,6 +212,11 @@ spec:
     - name: config
       configMap:
         name: {{ include "goscape.fullname" $ctx }}
+    {{- if and $ctx.Values.goscape.loginRsaKey.existingSecret (or (eq $mode "SingleBinary") (eq $mode "World")) }}
+    - name: login-rsa
+      secret:
+        secretName: {{ $ctx.Values.goscape.loginRsaKey.existingSecret | quote }}
+    {{- end }}
     {{- if and (or (eq $mode "SingleBinary") (eq $mode "Management")) (not $ctx.Values.persistence.enabled) }}
     - name: data
       emptyDir: {}
