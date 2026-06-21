@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/dskit/services"
 	"github.com/zsrv/goscape/pkg/dskit/signals"
-	"github.com/zsrv/goscape/pkg/cache"
-	tapper "github.com/zsrv/goscape/pkg/tapper"
+	"github.com/zsrv/goscape/pkg/tapper"
 )
 
 // TODO: tracer
