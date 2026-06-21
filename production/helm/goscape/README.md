@@ -55,6 +55,19 @@ security contexts, `extraEnv`/`extraArgs`) live under the per-mode section
 
 > **`extraConfig` keys must match goscape's config schema exactly.** goscape loads its config with strict unmarshalling — any unknown key under `goscape.extraConfig` will cause the pod to fail at startup.
 
+### Custom login RSA key
+
+By default the world server decrypts RuneScape login packets with a built-in RSA key. To use your own (World / SingleBinary modes), pre-create a Secret holding the PEM-encoded private key and reference it via `goscape.loginRsaKey.existingSecret`:
+
+```bash
+goscape-cli rsa gen --bits 1024 --out-dir ./keys
+kubectl create secret generic goscape-login-rsa --from-file=private.pem=./keys/private.pem
+helm upgrade --install <release> ./goscape \
+  --set goscape.loginRsaKey.existingSecret=goscape-login-rsa
+```
+
+The Secret is mounted read-only at `/etc/goscape-login-rsa` and wired into `world.rsa_private_key_path`. The matching public key must be baked into the Java client (`Client.java` `LOGIN_RSAN` / `LOGIN_RSAE`), or every login fails. Leave `existingSecret` empty to keep the built-in key.
+
 > **NetworkPolicy is same-namespace.** When `networkPolicy.enabled=true` in Management mode, only goscape pods carrying `app.kubernetes.io/name: goscape` in the **same namespace** may reach the login/friends gRPC ports. Install World releases in the same namespace as the Management release (or adjust the policy).
 
 ## Testing

@@ -64,6 +64,16 @@ goscape:
   friendsServerAddress: ""
   # -- Free-form map deep-merged over the generated config.yaml (escape hatch for any flag)
   extraConfig: {}
+  # -- RSA private key the world server uses to decrypt RuneScape login packets
+  #    (World / SingleBinary modes; sets world.rsa_private_key_path). Leave
+  #    existingSecret empty to use the built-in default key. The Java client must
+  #    carry the matching public key (Client.java LOGIN_RSAN / LOGIN_RSAE).
+  #    Generate a keypair with `goscape-cli rsa gen`.
+  loginRsaKey:
+    # -- Name of an existing Secret holding the PEM-encoded RSA private key (PKCS#1 or PKCS#8). Empty disables the feature.
+    existingSecret: ""
+    # -- Key within existingSecret holding the PEM.
+    key: private.pem
 
 # Workload knobs for SingleBinary mode
 singleBinary:
