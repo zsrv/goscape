@@ -2,8 +2,8 @@ package tapper
 
 import "time"
 
-// Direction discriminates packet flow direction for both the OTel
-// direction attribute and the proto's PacketEvent.dir field.
+// Direction discriminates packet flow direction for the OTel
+// direction attribute.
 type Direction uint32
 
 const (
@@ -35,8 +35,8 @@ const (
 	CloseReasonCrash      = "crash"
 )
 
-// Tapper is the seam the world module taps. The public no-op
-// discards everything; a downstream build installs the real implementation.
+// Tapper is the seam the world module taps. The public no-op discards
+// everything; a downstream build installs the real implementation.
 type Tapper interface {
 	// Enabled reports whether the tap is active; callers use it to skip
 	// per-session and per-packet work entirely when the tap is off. The public
