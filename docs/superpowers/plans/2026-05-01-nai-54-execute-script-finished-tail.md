@@ -822,7 +822,7 @@ EOF
 
 - [ ] **Step 4: Update `nai_followups.md` (memory)**
 
-Open `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` and append a new `## NAI-54 — CLOSED <date>` block following the NAI-53 template (around line 2732). Include: scope, cadence (full sub-spec, single bundle, 5 tasks), close commit SHA, follow-ups closed (NAI-53-F1, NAI-53-F2), deviations opened (none) / closed (none), net deviation tally (21 → 21 = 0), follow-up candidates (none anticipated; the underlying surface is now fully ported).
+Open `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` and append a new `## NAI-54 — CLOSED <date>` block following the NAI-53 template (around line 2732). Include: scope, cadence (full sub-spec, single bundle, 5 tasks), close commit SHA, follow-ups closed (NAI-53-F1, NAI-53-F2), deviations opened (none) / closed (none), net deviation tally (21 → 21 = 0), follow-up candidates (none anticipated; the underlying surface is now fully ported).
 
 The implementer should perform this update as part of T5 (memory write) before declaring the sub-spec closed.
 

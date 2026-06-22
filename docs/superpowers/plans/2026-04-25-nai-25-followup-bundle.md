@@ -6,7 +6,7 @@
 
 **Architecture:** Two-bundle sequential follow-up. Bundle 1 is a single-method TS-faithfulness audit in `modules/world/player.go`: three branches added (α invType=-1 early-out, β same-type+same-com dedup, γ scope-shared rewrite), plus a test helper, plus four new tests, plus two doc-comment updates. Bundle 2 is a multi-file audit-completion sweep in `pkg/script/handlers_*.go`: per-file audit table per the NAI-23 Bundle 4 cadence; per-file commits where WRAPs are added; one rollup commit for confirm-zero files. Sequential dispatch — Bundle 2 only after Bundle 1's commit lands.
 
-**Tech Stack:** Go 1.26+. Existing helpers: `newTestPlayer` (`modules/world/player_test.go:14`), `newTestServer` (`modules/world/server_test.go:308`), `discardLogger` (referenced from existing tests), `checkNotNull` (`pkg/script/handlers_player.go:61`), `objtype.InvTypeScopeShared` constant (`pkg/objtype/invtype.go:13`), `invLookupView.Get` scope-aware lookup pattern (`modules/world/server_invs.go:26-32`). TS source root at `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/`. Reference TS method body at `Engine-TS/src/engine/entity/Player.ts:1441-1462`.
+**Tech Stack:** Go 1.26+. Existing helpers: `newTestPlayer` (`modules/world/player_test.go:14`), `newTestServer` (`modules/world/server_test.go:308`), `discardLogger` (referenced from existing tests), `checkNotNull` (`pkg/script/handlers_player.go:61`), `objtype.InvTypeScopeShared` constant (`pkg/objtype/invtype.go:13`), `invLookupView.Get` scope-aware lookup pattern (`modules/world/server_invs.go:26-32`). TS source root at `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/`. Reference TS method body at `Engine-TS/src/engine/entity/Player.ts:1441-1462`.
 
 **Spec reference:** `docs/superpowers/specs/2026-04-25-nai-25-followup-bundle-design.md`.
 
@@ -32,12 +32,12 @@
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go version
-grep -n "objtype" /home/owner/Code/github.com/zsrv/goscape/modules/world/player.go | head -5
-grep -n "func (p \*Player) invListenOnCom" /home/owner/Code/github.com/zsrv/goscape/modules/world/player.go
-grep -n "func (p \*Player) updateInvs" /home/owner/Code/github.com/zsrv/goscape/modules/world/player.go
-grep -n "InvListenOnCom" /home/owner/Code/github.com/zsrv/goscape/pkg/script/active.go
-grep -n "func newTestPlayer\|func newTestServer" /home/owner/Code/github.com/zsrv/goscape/modules/world/*.go
-grep -rn "invListenOnCom\|InvListenOnCom" /home/owner/Code/github.com/zsrv/goscape/modules/world/ /home/owner/Code/github.com/zsrv/goscape/pkg/
+grep -n "objtype" $HOME/Code/github.com/zsrv/goscape/modules/world/player.go | head -5
+grep -n "func (p \*Player) invListenOnCom" $HOME/Code/github.com/zsrv/goscape/modules/world/player.go
+grep -n "func (p \*Player) updateInvs" $HOME/Code/github.com/zsrv/goscape/modules/world/player.go
+grep -n "InvListenOnCom" $HOME/Code/github.com/zsrv/goscape/pkg/script/active.go
+grep -n "func newTestPlayer\|func newTestServer" $HOME/Code/github.com/zsrv/goscape/modules/world/*.go
+grep -rn "invListenOnCom\|InvListenOnCom" $HOME/Code/github.com/zsrv/goscape/modules/world/ $HOME/Code/github.com/zsrv/goscape/pkg/
 ```
 
 Record: confirmed line numbers for the 4 files in scope; confirmed cross-package pin set has not grown since spec-write (`player_inv_test.go`, `player.go`, `active.go`, plus the 2 struct-literal-only files).
@@ -233,7 +233,7 @@ func newTestPlayerWithInvTypes(t *testing.T, configs []*objtype.InvType) (*Playe
 Add the `objtype` import to `server_test.go` if not already present. Run a quick check:
 
 ```bash
-grep -n "objtype" /home/owner/Code/github.com/zsrv/goscape/modules/world/server_test.go | head -3
+grep -n "objtype" $HOME/Code/github.com/zsrv/goscape/modules/world/server_test.go | head -3
 ```
 
 If absent, add `"github.com/zsrv/goscape/pkg/objtype"` to the existing import block in `server_test.go`.
@@ -244,7 +244,7 @@ Compile-check:
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./modules/world/...
 ```
 
-Expected: build succeeds. The helper is unused so far (consumers come in Step 7); a compile failure here means the import is missing or the field name `invTypes` is wrong — verify `(*Server).invTypes` field via `grep -n "invTypes" /home/owner/Code/github.com/zsrv/goscape/modules/world/server.go` and adjust.
+Expected: build succeeds. The helper is unused so far (consumers come in Step 7); a compile failure here means the import is missing or the field name `invTypes` is wrong — verify `(*Server).invTypes` field via `grep -n "invTypes" $HOME/Code/github.com/zsrv/goscape/modules/world/server.go` and adjust.
 
 - [ ] **Step 7: TDD cycle for (γ) — write the failing scope-rewrite tests (positive + negative)**
 
@@ -309,7 +309,7 @@ If both pass before implementation: a previous step accidentally added scope-awa
 Add the `objtype` import to `modules/world/player.go` if not already present:
 
 ```bash
-grep -n "objtype" /home/owner/Code/github.com/zsrv/goscape/modules/world/player.go | head -3
+grep -n "objtype" $HOME/Code/github.com/zsrv/goscape/modules/world/player.go | head -3
 ```
 
 If absent, add `"github.com/zsrv/goscape/pkg/objtype"` to the existing import block in `player.go`.
@@ -602,8 +602,8 @@ EOF
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go version
 git log --oneline -3
-ls /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_*.go
-grep -n "checkNotNull" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go | head -5
+ls $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_*.go
+grep -n "checkNotNull" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go | head -5
 ```
 
 Verify Bundle 1 commit landed. Verify the 13 Bundle-2 production files all exist. Verify `checkNotNull` helper still at `handlers_player.go:61`.
@@ -611,7 +611,7 @@ Verify Bundle 1 commit landed. Verify the 13 Bundle-2 production files all exist
 Enumerate all 56 PlayerOps.ts NumberNotNull sites with their opcode names:
 
 ```bash
-grep -n "NumberNotNull" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts > /tmp/playerops_numnull_sites.txt
+grep -n "NumberNotNull" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts > /tmp/playerops_numnull_sites.txt
 wc -l /tmp/playerops_numnull_sites.txt
 cat /tmp/playerops_numnull_sites.txt
 ```
@@ -630,8 +630,8 @@ For each delta opcode, find its goscape handler-file home:
 
 ```bash
 # For each delta opcode <OPCODE_NAME>:
-grep -l "Op<OpcodeName>" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_*.go
-grep -n "Op<OpcodeName>" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers.go
+grep -l "Op<OpcodeName>" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_*.go
+grep -n "Op<OpcodeName>" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers.go
 ```
 
 Record: per-delta-opcode home file. Most are expected to land in `handlers_dialog.go` (LAST_*, CAM_*, P_PAUSE*, etc.) or `handlers_timer.go` (SETTIMER, SOFTTIMER, CLEAR*, GETTIMER). If any delta opcode has no matching `func handle<OpName>` in any goscape handler file, that means goscape hasn't ported the opcode yet — record as "not yet ported in goscape; out of scope."
@@ -643,15 +643,15 @@ Output: a delta-opcode table with columns `(TS opcode, TS file:line, goscape han
 Enumerate popInt sites:
 
 ```bash
-grep -nE "s\.PopInt\(\)|s\.PopInts\(" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_config.go
+grep -nE "s\.PopInt\(\)|s\.PopInts\(" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_config.go
 ```
 
 Read `NpcConfigOps.ts` NumberNotNull sites:
 
 ```bash
-grep -n "NumberNotNull" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/NpcConfigOps.ts
-grep -n "NumberNotNull" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/LocConfigOps.ts
-grep -n "NumberNotNull" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/ObjConfigOps.ts
+grep -n "NumberNotNull" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/NpcConfigOps.ts
+grep -n "NumberNotNull" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/LocConfigOps.ts
+grep -n "NumberNotNull" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/ObjConfigOps.ts
 ```
 
 For each `handlers_config.go` popInt site, apply the rubric. Build the audit table:
@@ -664,8 +664,8 @@ For each `handlers_config.go` popInt site, apply the rubric. Build the audit tab
 For each WRAP row, write the failing null-pin test in `handlers_config_test.go`. Follow the existing test-file scaffolding (read 5 existing tests in the file as templates):
 
 ```bash
-head -40 /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_config_test.go
-grep -n "func Test" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_config_test.go | head -10
+head -40 $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_config_test.go
+grep -n "func Test" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_config_test.go | head -10
 ```
 
 If the file uses the `mp := &mockPlayer{}` + inline `ScriptFile` pattern (matching the NAI-24 Bundle 1 precedent in `handlers_player_test.go`), adapt the test template:
@@ -761,7 +761,7 @@ Read the Step 1 delta-opcode table. Filter to opcodes whose goscape home is `han
 Enumerate popInt sites in `handlers_dialog.go`:
 
 ```bash
-grep -nE "s\.PopInt\(\)|s\.PopInts\(" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_dialog.go
+grep -nE "s\.PopInt\(\)|s\.PopInts\(" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_dialog.go
 ```
 
 For each popInt site whose enclosing handler matches a delta opcode (per Step 1 table), apply the rubric anchored to the corresponding PlayerOps.ts NumberNotNull site. For popInt sites whose enclosing handler is NOT in the delta table (i.e., the opcode's TS counterpart has no NumberNotNull), the audit row is SKIP (TS not wrapped) by definition.
@@ -816,7 +816,7 @@ Same procedure as Step 3, but filtered to opcodes whose goscape home is `handler
 Enumerate popInt sites:
 
 ```bash
-grep -nE "s\.PopInt\(\)|s\.PopInts\(" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_timer.go
+grep -nE "s\.PopInt\(\)|s\.PopInts\(" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_timer.go
 ```
 
 Apply the rubric. Build the audit table.
@@ -847,9 +847,9 @@ For each file:
 
 ```bash
 # 1. Re-confirm TS NumberNotNull count
-grep -c "NumberNotNull" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/<TS_File>.ts
+grep -c "NumberNotNull" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/<TS_File>.ts
 # 2. Count goscape popInt sites
-grep -cE "s\.PopInt\(\)|s\.PopInts\(" /home/owner/Code/github.com/zsrv/goscape/pkg/script/<file>.go
+grep -cE "s\.PopInt\(\)|s\.PopInts\(" $HOME/Code/github.com/zsrv/goscape/pkg/script/<file>.go
 ```
 
 Build the rollup table:

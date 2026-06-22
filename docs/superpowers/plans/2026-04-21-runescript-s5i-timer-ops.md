@@ -123,7 +123,7 @@ EOF
 
 - [ ] **Step 1: Verify opcode constants exist** in `pkg/script/opcode.go`. Grep for: OpSetTimer, OpSoftTimer, OpClearTimer, OpClearSoftTimer, OpGetTimer. Survey expects all 5 present; report any missing.
 
-- [ ] **Step 2: Read TS `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts`** lines 817-864 for exact pop order per handler. Expected:
+- [ ] **Step 2: Read TS `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts`** lines 817-864 for exact pop order per handler. Expected:
 - SETTIMER / SOFTTIMER: pop `(scriptID, interval, arg)` via popInts(3) — stack top is arg.
 - CLEARTIMER / CLEARSOFTTIMER: pop `scriptID`.
 - GETTIMER: pop `scriptID`, push remaining or -1.

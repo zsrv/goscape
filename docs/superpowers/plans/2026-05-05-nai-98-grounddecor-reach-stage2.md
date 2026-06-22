@@ -27,10 +27,10 @@
 - `pkg/pathfinder/routefinder/nai97_repro_test.go` — empty-grid degenerate per `empty_flagmap_degenerate_routefinder`; superseded by the real-cache probe.
 
 **Modified (close):**
-- `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` — close & supersede `nai_96_grounddecor_path_around_residual.md` entry; update `pathfinder_api_loc_aware.md` rename note.
-- `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/pathfinder_api_loc_aware.md` — `FindPathDefault` → `FindPathPlain`.
-- `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append "From NAI-98" section.
-- `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_96_grounddecor_path_around_residual.md` — close status, OR rename to a closed-marker file.
+- `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` — close & supersede `nai_96_grounddecor_path_around_residual.md` entry; update `pathfinder_api_loc_aware.md` rename note.
+- `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/pathfinder_api_loc_aware.md` — `FindPathDefault` → `FindPathPlain`.
+- `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append "From NAI-98" section.
+- `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_96_grounddecor_path_around_residual.md` — close status, OR rename to a closed-marker file.
 
 **Read-only references (Phase 1):**
 - `pkg/gamemap/gamemap.go` (`CanTravel` at :97-100; `ChangeLocCollision` at :61-78; `StaticLocs()` at :167-169)
@@ -837,10 +837,10 @@ Controller posts to user (paste-ready):
 **Purpose:** Carry-forward stale memory updates from NAI-97; record NAI-98 cascade-attribution; emit the close commit with `Closes memory:` trailer.
 
 **Files (memory):**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/pathfinder_api_loc_aware.md`
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (if status of `nai_96_grounddecor_path_around_residual` changes)
-- Modify or supersede: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_96_grounddecor_path_around_residual.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/pathfinder_api_loc_aware.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (if status of `nai_96_grounddecor_path_around_residual` changes)
+- Modify or supersede: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_96_grounddecor_path_around_residual.md`
 
 **Files (repo):** close commit only.
 

@@ -4,7 +4,7 @@
 **Tech stack:** Go 1.26+ per `[[go_version]]`
 **Cadence:** Standard per `[[runescript_cadence]]` — not compressed (~300 LOC across 3 packages, cross-package smoke).
 **Execution mode:** `subagent-driven-development` per `[[execution_mode_default]]`.
-**TS canonical source:** `/home/owner/Code/github.com/LostCityRS/Engine-TS` per `[[ts_source_canonical_path]]`.
+**TS canonical source:** `$HOME/Code/github.com/LostCityRS/Engine-TS` per `[[ts_source_canonical_path]]`.
 
 ---
 

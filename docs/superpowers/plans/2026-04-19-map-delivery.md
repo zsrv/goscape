@@ -62,18 +62,18 @@
 - [ ] **Step 1: Copy the files**
 
 ```bash
-mkdir -p /home/owner/Code/github.com/zsrv/goscape/pkg/io/jagfile
-cp /home/owner/Code/github.com/zsrv/rs-server-225/io/jagfile.go \
-   /home/owner/Code/github.com/zsrv/rs-server-225/io/jagfile_test.go \
-   /home/owner/Code/github.com/zsrv/rs-server-225/io/bzip2.go \
-   /home/owner/Code/github.com/zsrv/rs-server-225/io/bzip2_test.go \
-   /home/owner/Code/github.com/zsrv/goscape/pkg/io/jagfile/
+mkdir -p $HOME/Code/github.com/zsrv/goscape/pkg/io/jagfile
+cp $HOME/Code/github.com/zsrv/rs-server-225/io/jagfile.go \
+   $HOME/Code/github.com/zsrv/rs-server-225/io/jagfile_test.go \
+   $HOME/Code/github.com/zsrv/rs-server-225/io/bzip2.go \
+   $HOME/Code/github.com/zsrv/rs-server-225/io/bzip2_test.go \
+   $HOME/Code/github.com/zsrv/goscape/pkg/io/jagfile/
 ```
 
 - [ ] **Step 2: Rewrite package declarations and imports**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape/pkg/io/jagfile
+cd $HOME/Code/github.com/zsrv/goscape/pkg/io/jagfile
 sed -i '1s/^package io$/package jagfile/' jagfile.go bzip2.go jagfile_test.go bzip2_test.go
 sed -i 's|github.com/zsrv/rs-server-225/io/packet|github.com/zsrv/goscape/pkg/io/packet|g' *.go
 sed -i 's|github.com/zsrv/rs-server-225/io|github.com/zsrv/goscape/pkg/io/jagfile|g' *.go
@@ -121,7 +121,7 @@ EOF
 - [ ] **Step 1: Check existing API**
 
 ```bash
-grep -rn "^func Load\|^func.*Load(" /home/owner/Code/github.com/zsrv/goscape/pkg/io/packet/ 2>&1
+grep -rn "^func Load\|^func.*Load(" $HOME/Code/github.com/zsrv/goscape/pkg/io/packet/ 2>&1
 ```
 
 If `Load` is already defined, **skip to step 4**. If not, continue.
@@ -187,18 +187,18 @@ EOF
 - [ ] **Step 1: Copy the four files**
 
 ```bash
-mkdir -p /home/owner/Code/github.com/zsrv/goscape/pkg/objtype
-cp /home/owner/Code/github.com/zsrv/rs-server-225/cache/config/configtype.go \
-   /home/owner/Code/github.com/zsrv/rs-server-225/cache/config/paramtype.go \
-   /home/owner/Code/github.com/zsrv/rs-server-225/cache/config/objtype.go \
-   /home/owner/Code/github.com/zsrv/rs-server-225/cache/config/invtype.go \
-   /home/owner/Code/github.com/zsrv/goscape/pkg/objtype/
+mkdir -p $HOME/Code/github.com/zsrv/goscape/pkg/objtype
+cp $HOME/Code/github.com/zsrv/rs-server-225/cache/config/configtype.go \
+   $HOME/Code/github.com/zsrv/rs-server-225/cache/config/paramtype.go \
+   $HOME/Code/github.com/zsrv/rs-server-225/cache/config/objtype.go \
+   $HOME/Code/github.com/zsrv/rs-server-225/cache/config/invtype.go \
+   $HOME/Code/github.com/zsrv/goscape/pkg/objtype/
 ```
 
 - [ ] **Step 2: Rewrite package declarations and imports**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape/pkg/objtype
+cd $HOME/Code/github.com/zsrv/goscape/pkg/objtype
 sed -i '1s/^package config$/package objtype/' *.go
 sed -i 's|github.com/zsrv/rs-server-225/io/packet|github.com/zsrv/goscape/pkg/io/packet|g' *.go
 sed -i 's|"github.com/zsrv/rs-server-225/io"|io "github.com/zsrv/goscape/pkg/io/jagfile"|g' *.go

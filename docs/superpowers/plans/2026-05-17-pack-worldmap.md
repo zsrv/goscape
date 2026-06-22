@@ -154,7 +154,7 @@ func TestLoadFloTypes_RealContent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in -short mode")
 	}
-	dir := "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/pack"
+	dir := "$HOME/Code/github.com/LostCityRS/Engine-TS/data/pack"
 	if _, err := filepath.Abs(dir); err != nil {
 		t.Skipf("real flo.dat not available: %v", err)
 	}
@@ -2113,7 +2113,7 @@ func TestPack_RealContent_Integration(t *testing.T) {
 
 	srcDir := os.Getenv("GOSCAPE_CONTENT_DIR")
 	if srcDir == "" {
-		srcDir = "/home/owner/Code/github.com/LostCityRS/content"
+		srcDir = "$HOME/Code/github.com/LostCityRS/content"
 	}
 	packDir := os.Getenv("GOSCAPE_PACK_DIR")
 	if packDir == "" {
@@ -2196,7 +2196,7 @@ First, ensure `pkg/pack/server/maps` exists by running PackAll if needed (build 
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build -trimpath -o $TMPDIR/goscape-cli ./cmd/goscape-cli
 rm -rf $TMPDIR/goscape-out
 $TMPDIR/goscape-cli pack \
-  --src-dir /home/owner/Code/github.com/LostCityRS/content \
+  --src-dir $HOME/Code/github.com/LostCityRS/content \
   --out-dir $TMPDIR/goscape-out \
   --log.level error
 
@@ -2217,7 +2217,7 @@ If FAIL: read the error output, inspect intermediate state in `$TMPDIR/goscape-o
 Run:
 ```
 $TMPDIR/goscape-cli worldmap \
-  --src-dir /home/owner/Code/github.com/LostCityRS/content \
+  --src-dir $HOME/Code/github.com/LostCityRS/content \
   --out-dir $TMPDIR/goscape-out \
   --log.level info
 ls -la $TMPDIR/goscape-out/mapview/

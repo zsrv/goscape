@@ -248,9 +248,9 @@ At Bundle 1 green, run `go test ./pkg/rsbuf/... -count=1` (cache-busted) and ver
 ### Site 2 — `pkg/zone/grid.go:3-4`
 
 ```diff
-- // Ported from /home/owner/Code/github.com/zsrv/rs-server-225/engine/zone/grid.go,
+- // Ported from $HOME/Code/github.com/zsrv/rs-server-225/engine/zone/grid.go,
 - // renamed Grid → ZoneGrid for clarity in the package-qualified zone.ZoneGrid form.
-+ // Ported from /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/zone/ZoneGrid.ts.
++ // Ported from $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/zone/ZoneGrid.ts.
 ```
 
 ### Site 3 — `pkg/objtype/npctype.go:25` and `:36`

@@ -19,7 +19,7 @@
 **Modified:**
 - `modules/world/npc_hunt.go` — replace `huntPlayers` stub body (~1 line → ~45 lines)
 - `modules/world/npc_event_queue_test.go` — add 1 test-helper + 4 unit tests (~130 lines)
-- `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — 3 edits
+- `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — 3 edits
 
 Single task closes NAI-8.
 
@@ -30,7 +30,7 @@ Single task closes NAI-8.
 **Files:**
 - Modify: `modules/world/npc_hunt.go` (replace `huntPlayers` stub body)
 - Modify: `modules/world/npc_event_queue_test.go` (test-helper + 4 tests)
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (3 edits)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (3 edits)
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -242,7 +242,7 @@ Expected: all 4 new tests PASS; full world suite PASS (no prior test should regr
 
 - [ ] **Step 5: Update `nai_followups.md` memory with 3 edits**
 
-Open `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`.
+Open `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`.
 
 **Edit 1 — Close the misread NAI-2 follow-up.** Find the section titled `### NAI-8 prerequisite: protected-pointer cleanup in resumeOrFinishNpc`. Replace the entire body (everything between that header and the next `###` section) with:
 
@@ -371,7 +371,7 @@ Report match count. No stray references expected.
 - [ ] **Step 7: Commit, closing NAI-8**
 
 ```bash
-git add modules/world/npc_hunt.go modules/world/npc_event_queue_test.go /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+git add modules/world/npc_hunt.go modules/world/npc_event_queue_test.go $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 feat(world): NAI-8 huntPlayers filter pipeline — closes NAI-8
 

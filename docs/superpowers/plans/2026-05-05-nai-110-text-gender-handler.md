@@ -330,7 +330,7 @@ Expected:
 
 - [ ] **Step 3.2: Update auto-memory `nai_followups.md` — append NAI-110 close section**
 
-Append a new section to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` immediately AFTER the existing `## NAI-109 — CLOSED 2026-05-05` section (and before any older section). Content (replace `<T1-SHA>`, `<T2-SHA>` with the actual short-SHAs from `git log --oneline -3`):
+Append a new section to `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` immediately AFTER the existing `## NAI-109 — CLOSED 2026-05-05` section (and before any older section). Content (replace `<T1-SHA>`, `<T2-SHA>` with the actual short-SHAs from `git log --oneline -3`):
 
 ```markdown
 ---
@@ -378,7 +378,7 @@ If smoke surfaces a different blocker, route per `cascade_theory_smoke_binding`.
 
 Grep the file:
 ```bash
-rg -n "NAI-111|P_TELEJUMP" /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md | head -5
+rg -n "NAI-111|P_TELEJUMP" $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md | head -5
 ```
 
 Expected: NAI-109 close section (added in NAI-109 close commit `d3269ae`) names NAI-111 as the P_TELEJUMP investigation. If grep returns 0 matches, append a `## Queued` section noting the routing per the user's brainstorm message; otherwise no action.
@@ -388,7 +388,7 @@ Expected: NAI-109 close section (added in NAI-109 close commit `d3269ae`) names 
 Per `close_commit_memory_trailer` memory: NAI-N close commits MUST include `Closes memory:` trailer naming any memory entries written/updated this sub-spec. NAI-110 only updates `nai_followups.md` (the close section) — no new top-level memory entries.
 
 ```bash
-git add /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+git add $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 chore(close): NAI-110 — TEXT_GENDER (opcode 4504) script-opcode handler
 

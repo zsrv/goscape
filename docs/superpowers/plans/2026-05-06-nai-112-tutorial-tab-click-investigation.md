@@ -18,7 +18,7 @@
 - `docs/superpowers/investigations/2026-05-06-nai-112-stage1-audit.md` — audit subagent's report; per-hypothesis verdict + file:line evidence + Stage-2 fix-shape sizing.
 
 **Modified (Bundle 1 close):**
-- `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append "## NAI-112 — Stage 1 BOUND" section with cascade routing to Stage 2 (in-NAI-112 separate plan).
+- `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append "## NAI-112 — Stage 1 BOUND" section with cascade routing to Stage 2 (in-NAI-112 separate plan).
 
 **Created conditionally (Bundle 1b — instrument-and-smoke fallback only):**
 - *None new.* Two surgical edits made temporarily, then reverted in the same bundle:
@@ -124,7 +124,7 @@ Expected: `OK` (directory already exists from NAI-99 / NAI-97). If `CREATED`, fi
 
 - [ ] **Step 2.2: Dispatch the audit subagent**
 
-Use the `Agent` tool with `subagent_type=Explore` (read-only across multiple repos), `model=sonnet` (per `superpowers_code_reviewer_model`-equivalent cost discipline; audit work is read-heavy), and the prompt below. The subagent has Read access to `/home/owner/Code/github.com/zsrv/goscape`, `/home/owner/Code/github.com/LostCityRS/Engine-TS`, `/home/owner/Code/github.com/LostCityRS/Client-Java`, and `/home/owner/Code/github.com/LostCityRS/Server`.
+Use the `Agent` tool with `subagent_type=Explore` (read-only across multiple repos), `model=sonnet` (per `superpowers_code_reviewer_model`-equivalent cost discipline; audit work is read-heavy), and the prompt below. The subagent has Read access to `$HOME/Code/github.com/zsrv/goscape`, `$HOME/Code/github.com/LostCityRS/Engine-TS`, `$HOME/Code/github.com/LostCityRS/Client-Java`, and `$HOME/Code/github.com/LostCityRS/Server`.
 
 ```
 Audit task — NAI-112 Stage 1 (read-only).
@@ -140,16 +140,16 @@ CONTEXT:
 
 YOUR TASK — derive the TS reference chain end-to-end, then bind a hypothesis. Read in this order:
 
-1. /home/owner/Code/github.com/LostCityRS/Engine-TS/src/network/game/client/handler/TutClickSideHandler.ts — full body. Note:
+1. $HOME/Code/github.com/LostCityRS/Engine-TS/src/network/game/client/handler/TutClickSideHandler.ts — full body. Note:
    a. The lookup call shape: does TS use `getByTriggerSpecific` (single-tier global), `getByTrigger` (3-tier with fallback), or some other dispatch?
    b. The `runScript` arg shape: does TS construct ScriptState with the tab byte as an argument? If yes, what arg index?
    c. Any pre-dispatch gates beyond the 0-13 range check.
 
-2. /home/owner/Code/github.com/LostCityRS/Engine-TS — locate ScriptProvider (likely at src/lostcity/engine/script/ScriptProvider.ts or similar). Find the `LookupKey` derivation for a script header. Determine: how does the TS RuneScript compiler encode `[tutorial,_]` (wildcard subject)? What `LookupKey` does it produce?
+2. $HOME/Code/github.com/LostCityRS/Engine-TS — locate ScriptProvider (likely at src/lostcity/engine/script/ScriptProvider.ts or similar). Find the `LookupKey` derivation for a script header. Determine: how does the TS RuneScript compiler encode `[tutorial,_]` (wildcard subject)? What `LookupKey` does it produce?
 
-3. /home/owner/Code/github.com/LostCityRS/Server/content/scripts/tutorial/scripts/tutorial.rs2 — locate `[tutorial,_]` (spec cites lines 143-176; verify and expand if necessary). Enumerate every opcode the body invokes. Note any `getarg` reads (would bind H4).
+3. $HOME/Code/github.com/LostCityRS/Server/content/scripts/tutorial/scripts/tutorial.rs2 — locate `[tutorial,_]` (spec cites lines 143-176; verify and expand if necessary). Enumerate every opcode the body invokes. Note any `getarg` reads (would bind H4).
 
-4. /home/owner/Code/github.com/LostCityRS/Client-Java rev-225 — locate the sidebar-tab click dispatcher. Confirm or refute opcode 175 (TUT_CLICKSIDE) transmission on Tutorial-Island inventory-tab click. Note any `overrideChat` / mode gates per `java_client_coord_chat_suppression.md` discipline.
+4. $HOME/Code/github.com/LostCityRS/Client-Java rev-225 — locate the sidebar-tab click dispatcher. Confirm or refute opcode 175 (TUT_CLICKSIDE) transmission on Tutorial-Island inventory-tab click. Note any `overrideChat` / mode gates per `java_client_coord_chat_suppression.md` discipline.
 
 5. GOSCAPE SIDE — cross-check:
    a. Locate the pack-server / RuneScript-compile path that produces `LookupKey` for a script header. If goscape has its own compiler at `cmd/` or `tools/`, walk a `[tutorial,_]` head through it. If goscape consumes pre-built script.dat (built externally by the LostCityRS RuneScript compiler), document that — and note that H1 may require reading the compiler's encoding directly.
@@ -238,7 +238,7 @@ Verify the cited line matches the audit's quoted content. If a citation mismatch
 For each external repo citation:
 
 ```bash
-sed -n '<start>,<end>p' /home/owner/Code/github.com/LostCityRS/<repo>/<path>
+sed -n '<start>,<end>p' $HOME/Code/github.com/LostCityRS/<repo>/<path>
 ```
 
 Verify the cited content matches the audit's claim. If a citation cannot be located (file missing, wrong path), mark ❌.
@@ -273,7 +273,7 @@ If ANY citation failed verification, controller appends a "Controller-revised ve
 **Purpose:** Persist the audit report + binding decision to git; update `nai_followups.md` so the Stage-2 plan can be authored against a stable reference.
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
 - Stage: `docs/superpowers/investigations/2026-05-06-nai-112-stage1-audit.md` (created in Task 2; possibly amended with controller-revised verdict in Task 3.5)
 
 - [ ] **Step 4.1: Append NAI-112 Stage 1 section to `nai_followups.md`**

@@ -101,7 +101,7 @@ Binding: `TestParamPacker_LoaderRoundTrip` runs `PackConfigs(srcDir, outDir)` ag
 
 ### §3.3 `*PackFile` registries needed for lookup
 
-Real `.param` content (208 entries across `/home/owner/Code/github.com/LostCityRS/Content/scripts/**/*.param`) uses 13 ScriptVarType variants. TS `lookupParamValue` covers 16. Goscape `PackConfigs` must construct one `*PackFile` per typed-id reachable from TS code path:
+Real `.param` content (208 entries across `$HOME/Code/github.com/LostCityRS/Content/scripts/**/*.param`) uses 13 ScriptVarType variants. TS `lookupParamValue` covers 16. Goscape `PackConfigs` must construct one `*PackFile` per typed-id reachable from TS code path:
 
 | ScriptVarType | TS Pack | Hand-maintained `.pack` file location |
 |---|---|---|
@@ -158,7 +158,7 @@ Grep coverage:
 
 ### §3.6 No existing `param.pack` source file in repo
 
-`find` returns zero `.param` files in `/home/owner/Code/github.com/zsrv/goscape`. Tests construct hand-crafted `pack/param.pack` + typed-id `pack/*.pack` files in `t.TempDir()`.
+`find` returns zero `.param` files in `$HOME/Code/github.com/zsrv/goscape`. Tests construct hand-crafted `pack/param.pack` + typed-id `pack/*.pack` files in `t.TempDir()`.
 
 ### §3.7 ScriptVarType `STAT` / `NPC_STAT` index resolution
 

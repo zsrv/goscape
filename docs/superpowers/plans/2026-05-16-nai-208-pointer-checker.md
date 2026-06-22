@@ -134,7 +134,7 @@ Expected: `Instructions []Instruction`. This confirms the `NAI-208-D-INSTRUCTION
 Run:
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/RuneScriptTS && git rev-parse HEAD
+cd $HOME/Code/github.com/LostCityRS/RuneScriptTS && git rev-parse HEAD
 ```
 
 Expected: `b8c338801fbb72d294ff9576a58925a8d3f6de47`. If different, **escalate to user** — TS pin in spec is canonical for this plan.
@@ -3112,7 +3112,7 @@ EOF
 Run:
 
 ```bash
-grep -nE "static readonly (IF_BUTTON|INV_BUTTON1|INV_BUTTON2|INV_BUTTON3|INV_BUTTON4|INV_BUTTON5|INV_BUTTOND)\s*=" /home/owner/Code/github.com/LostCityRS/RuneScriptTS/src/runescript/trigger/ServerTriggerType.ts
+grep -nE "static readonly (IF_BUTTON|INV_BUTTON1|INV_BUTTON2|INV_BUTTON3|INV_BUTTON4|INV_BUTTON5|INV_BUTTOND)\s*=" $HOME/Code/github.com/LostCityRS/RuneScriptTS/src/runescript/trigger/ServerTriggerType.ts
 ```
 
 Expected: 7 matches, each with `new ServerTriggerType(<id>, ...)`. Record the 7 ID values and use them as the `IDIfButton`/`IDInvButton1`/.../`IDInvButtonD` constants in step 3 below (replacing the `0` placeholders). If any trigger is absent from the file, **escalate to user**.

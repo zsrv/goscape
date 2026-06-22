@@ -23,7 +23,7 @@ These carry forward from prior slices (per slice-6 close):
 3. **Pre-flight env (every shell session):**
    ```bash
    unset GOROOT
-   export PATH="/home/owner/go/current/bin:$PATH"
+   export PATH="$HOME/go/current/bin:$PATH"
    ```
 4. **Go-test prefix (required by global CLAUDE.md):**
    ```bash
@@ -101,7 +101,7 @@ Only one line added (`string session_uuid = 8;`); all existing lines unchanged.
 - [ ] **Step 1.2: Regenerate the proto.**
 
 ```bash
-unset GOROOT && export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT && export PATH="$HOME/go/current/bin:$PATH"
 make protos
 ```
 
@@ -795,7 +795,7 @@ with:
 - [ ] **Step 3.7: Build and run the world package.**
 
 ```bash
-unset GOROOT && export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT && export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./modules/world/...
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./modules/world/ -count=1 -timeout 300s
 ```
@@ -1075,7 +1075,7 @@ git show --stat HEAD
 - [ ] **Step 5.1: Full -race suite across all 30 packages.**
 
 ```bash
-unset GOROOT && export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT && export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... -count=1 -timeout 600s
 ```
 
@@ -1084,7 +1084,7 @@ Expected: all 30 packages PASS. Record wall time for the slice-close memory.
 - [ ] **Step 5.2: smoke-pack 12-stage byte-diff against real content.**
 
 ```bash
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 
 Expected: `12 OK / 0 ERR / 0 SKIP`. Record wall time.
@@ -1161,7 +1161,7 @@ These numbers go into the slice-7 close memory. No commit at this step — the c
 
 ## Slice close
 
-After T5 passes, write the slice-close memory at `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice7_close.md` mirroring the slice-6 close format (commit range, retired tags, opened tags, plan-execution deviations, test counts, gate results, links to predecessor slice memory).
+After T5 passes, write the slice-close memory at `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice7_close.md` mirroring the slice-6 close format (commit range, retired tags, opened tags, plan-execution deviations, test counts, gate results, links to predecessor slice memory).
 
 Slice 7 specifics for the close memory:
 - **Retires:** UUID-half carry-forward of `NAI-72-D-LOGIN-SERVER-BRIDGE-MOD`. The friends-server bridge arc is now fully closed.

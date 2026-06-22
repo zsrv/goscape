@@ -152,7 +152,7 @@ EOF
 
 - [ ] **Step 2.1a: Check for existing distance helper**
 
-Run: `grep -rn "DistanceToSW\|distanceToSW" /home/owner/Code/github.com/zsrv/goscape/pkg/coordgrid/`
+Run: `grep -rn "DistanceToSW\|distanceToSW" $HOME/Code/github.com/zsrv/goscape/pkg/coordgrid/`
 - If found: use it directly in subsequent steps.
 - If not found: in `handlers_game.go`, inline the Chebyshev distance check via `max(abs(dx), abs(dz))` (TS `CoordGrid.distanceToSW(player, point)` is `Math.max(Math.abs(dx), Math.abs(dz))` per LostCityRS source). Document choice with an inline comment cross-citing TS line.
 

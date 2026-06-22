@@ -589,11 +589,11 @@ Plumbs `FindDbRowsInt` / `FindDbRowsStr` through the `Configs` interface, the `s
 
 - [ ] **Step 2.1: Verify fake-stub sites match expectations (paranoia check)**
 
-Run: `grep -rln "Configs\b" /home/owner/Code/github.com/zsrv/goscape/pkg/script/ --include="*_test.go"`
+Run: `grep -rln "Configs\b" $HOME/Code/github.com/zsrv/goscape/pkg/script/ --include="*_test.go"`
 
 Expected output: `handlers_db_test.go`, `handlers_inv_test.go`, `handlers_loc_test.go`, `handlers_player_test.go`, `handlers_config_test.go`, `handlers_npc_test.go`.
 
-Then run: `grep -rln "^type\s\+\(mockConfigs\|fakeConfigs\|fakeDbConfigs\)\b" /home/owner/Code/github.com/zsrv/goscape/pkg/script/ --include="*.go"`
+Then run: `grep -rln "^type\s\+\(mockConfigs\|fakeConfigs\|fakeDbConfigs\)\b" $HOME/Code/github.com/zsrv/goscape/pkg/script/ --include="*.go"`
 
 Expected: three canonical definitions — `handlers_config_test.go` (mockConfigs), `handlers_loc_test.go` (fakeConfigs), `handlers_db_test.go` (fakeDbConfigs). If any other `type .*Configs` stub is added later, this grep must include it. **If the second grep shows more than 3 types, STOP — the plan's stub sweep is incomplete and must be updated.**
 
@@ -1642,17 +1642,17 @@ Expected: all tests PASS across all packages. Per `verify_implementer_claims.md`
 
 - [ ] **Step 6.2: Confirm the opcode audit grep lines up**
 
-Run: `grep -nE "OpDbFind|OpDbListAll|OpDbGetField|OpDbGetRowTable" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers.go`
+Run: `grep -nE "OpDbFind|OpDbListAll|OpDbGetField|OpDbGetRowTable" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers.go`
 
 Expected: all 11 DB opcodes (7500-7510) appear exactly once in the dispatch table. If any are missing or duplicated, the dispatch wiring is wrong.
 
-Also run: `grep -nE "deferred" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers.go`
+Also run: `grep -nE "deferred" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers.go`
 
 Expected: **no matches** referencing DB opcodes. If the old `7500/7507-7509 deferred` comment is still in place, remove it. The new comment should read `DB ops (7500-7510).` + the asymmetry pointer-line.
 
 - [ ] **Step 6.3: Verify fake-Configs stub sweep is complete**
 
-Run: `grep -rLn "FindDbRowsInt\|FindDbRowsStr" /home/owner/Code/github.com/zsrv/goscape/pkg/script/ --include="*_test.go" | xargs -r grep -l "^type\s\+.*Configs\s\+struct\b" 2>/dev/null`
+Run: `grep -rLn "FindDbRowsInt\|FindDbRowsStr" $HOME/Code/github.com/zsrv/goscape/pkg/script/ --include="*_test.go" | xargs -r grep -l "^type\s\+.*Configs\s\+struct\b" 2>/dev/null`
 
 Expected: empty output. If any file prints, it declares a `*Configs` stub but is missing the two new methods. Fix it before closure.
 

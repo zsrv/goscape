@@ -4,13 +4,13 @@
 
 **Goal:** Port the B4 slice of the Engine-TS 225→244 delta — the full `ScriptOpcode.ts` renumber, handler-surface deltas, hunt-iterator unification, the IF_SETRECOL/IF_OPENOVERLAY deferral closures, and the world-side cycle-stats instrumentation backing the 13 new debug ops.
 
-**Architecture:** Faithful TS→Go translation per `PORTING-LESSONS.md` (read first: `git show main:PORTING-LESSONS.md` — §3 gotchas, §4 citations, §5 gates). Renumber-first (user decision): one mechanical foundation task re-derives every opcode value from the 244 enum, then behavioral TDD slices, then world-surface tasks, then the audit. The TS cross-pin diff (`git -C /home/owner/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4 -- src/engine/script`) is the contract. All work lands on branch `rev-244`.
+**Architecture:** Faithful TS→Go translation per `PORTING-LESSONS.md` (read first: `git show main:PORTING-LESSONS.md` — §3 gotchas, §4 citations, §5 gates). Renumber-first (user decision): one mechanical foundation task re-derives every opcode value from the 244 enum, then behavioral TDD slices, then world-surface tasks, then the audit. The TS cross-pin diff (`git -C $HOME/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4 -- src/engine/script`) is the contract. All work lands on branch `rev-244`.
 
 **Tech Stack:** Go 1.26 (modern idioms: `for range n`, `min`/`max`). Every go command: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` prefix. Build: `CGO_ENABLED=0 go build -trimpath ./...`. Race: `-race` on touched packages (CGO_ENABLED=1). Every commit: `--no-gpg-sign` + Claude trailer.
 
 **Spec:** `docs/superpowers/specs/2026-06-04-rev244-b4-script-runtime-design.md`
 
-**References:** Engine-TS at the 244 pin: `/home/owner/Code/github.com/LostCityRS/Engine-TS` (checkout IS at `9aadcec4`).
+**References:** Engine-TS at the 244 pin: `$HOME/Code/github.com/LostCityRS/Engine-TS` (checkout IS at `9aadcec4`).
 
 **Scope decisions already made (do not relitigate):**
 - **Cycle stats ported FULLY** (user decision) — real tick-section stopwatches + bandwidth counters, uint16-wrap faithful. Not stubs.
@@ -21,7 +21,7 @@
 - Sandbox gotcha: `git status` shows phantom `??` dotfiles — device-node masks, NOT real files. Never stage them; never `git add -A`. Warn every subagent.
 
 **Bake into every implementer prompt (recurring B2+B3 defects):**
-1. Verify every `// TS <File>.ts:<lines>` citation against a numbered listing (`git -C /home/owner/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:<file> | cat -n | sed -n '<range>p'`) BEFORE writing.
+1. Verify every `// TS <File>.ts:<lines>` citation against a numbered listing (`git -C $HOME/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:<file> | cat -n | sed -n '<range>p'`) BEFORE writing.
 2. Reject-path tests must seed earlier-gate prerequisites so the gate under test is the discriminating condition.
 3. Final-review "missing X" findings can be false positives — verify directly before fixing.
 4. Adding methods to `script.WorldVars`/`script.ActivePlayer` triggers test-fake compile cascades — follow PORTING.md §NEW-INTERFACE-METHOD-COMPILE-CASCADE.
@@ -41,7 +41,7 @@
 - Create: `pkg/script/opcode_map_244_pin_test.go` (generated table pin)
 - Modify: every `pkg/script`/`pkg/pack/compiler` test pinning a numeric opcode value
 
-The contract is the 244 enum + map: `git -C /home/owner/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/engine/script/ScriptOpcode.ts | cat -n` (enum lines 1-457, map lines 459-907).
+The contract is the 244 enum + map: `git -C $HOME/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/engine/script/ScriptOpcode.ts | cat -n` (enum lines 1-457, map lines 459-907).
 
 Value anchors (sanity-check your derivation against these BEFORE editing — they were independently verified): `DISTANCE=1003, HUNTALL=1004, HUNTNEXT=1005, MAP_FINDSQUARE=1015, PROJANIM_NPC=1019, PROJANIM_PL=1020, SPLIT_INIT=1024, STRUCT_PARAM=1028, WORLD_DELAY=1029, NPCCOUNT=1030, ZONECOUNT=1031, LOCCOUNT=1032, OBJCOUNT=1033, MAP_MULTIWAY=1034, ALLOWDESIGN=2000, BAS_READYANIM=2002, BUFFER_FULL=2009, GETTIMER=2019, STAT_ADVANCE=2027, HINT_PLAYER=2033, IF_MULTIZONE=2037, IF_OPENOVERLAY=2041, PLAYER_FINDALLZONE=2091, PLAYER_FINDNEXT=2092, STAT=2101, IF_OPENMAINOVERLAY=2112, AFK_EVENT=2113, LOWMEMORY=2114, LAST_COORD=2126, STRONGQUEUEVARARG=2134, NPC_HUNTNEXT=2529, SPOTANIM_NPC=2542, NPC_INRANGE=2547, OBJ_FINDNEXT=3511, LC_LENGTH=4107, OC_WEIGHT=4216, INV_ALLSTOCK=4300, BOTH_MOVEINV=4318, BOTH_DROPSLOT=4328, INV_DEBUGNAME=4332, ERROR=10000, MAP_PRODUCTION=10001, MAP_LASTCLOCK=10002, MAP_LASTBANDWIDTHOUT=10013, TIMESPENT=10014, GETTIMESPENT=10015, CONSOLE=10016`. 413 enum entries total (225 had 393). Core-language ops 0-46 are UNCHANGED (RETURN=21..SWITCH=24 explicit, 31+ explicit) except PUSH_VARBIT(25)/POP_VARBIT(27) deleted → `isLargeOperand` (opcode.go:17-29) is untouched.
 
@@ -50,7 +50,7 @@ Value anchors (sanity-check your derivation against these BEFORE editing — the
 Run this exactly (it parses the **map section** — the compiler-visible names, including the four `*`-suffixed vararg keys — and joins with enum values):
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Engine-TS
+cd $HOME/Code/github.com/LostCityRS/Engine-TS
 git show 9aadcec4:src/engine/script/ScriptOpcode.ts | python3 - <<'EOF' > $TMPDIR/pin_entries.txt
 import sys, re
 src = sys.stdin.read()
@@ -156,7 +156,7 @@ Delete constants: `OpPushVarbit`, `OpPopVarbit`, `OpMapLive`, `OpStatTotal`, `Op
 
 - [ ] **Step 5: Update `opcode_map.go`** to the full 244 table (renamed keys `HINT_PLAYER`/`LOWMEMORY`/`BAS_*`; removed keys per `removed244Names`; new keys for every added constant — including the enum-only five, which TS keeps compiler-visible).
 
-- [ ] **Step 6: Update `opcode_pointers.go`.** Contract: `git -C /home/owner/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4 -- src/engine/script/ScriptOpcodePointers.ts`. Rename keys (BAS_*×7, `OpHintPlayer`, `OpLowMemory`); delete the `OpIfSetRecol` row; add:
+- [ ] **Step 6: Update `opcode_pointers.go`.** Contract: `git -C $HOME/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4 -- src/engine/script/ScriptOpcodePointers.ts`. Rename keys (BAS_*×7, `OpHintPlayer`, `OpLowMemory`); delete the `OpIfSetRecol` row; add:
 
 ```go
 	OpBufferFull: {Require: []string{"active_player"}},
@@ -275,8 +275,8 @@ func TestIfSetRecolRemoved244(t *testing.T) {
 - Test: `pkg/script/handlers_player_test.go`, `pkg/script/handlers_npc_test.go`
 
 TS contracts (verify each with `cat -n` first):
-- `git -C /home/owner/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/engine/script/ScriptState.ts | cat -n | sed -n '118,130p'` — single `huntIterator: IterableIterator<Entity>` replaces `playerIterator`; `npcIterator`/`locIterator`/`objIterator` survive.
-- `git -C /home/owner/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/engine/script/handlers/ServerOps.ts | cat -n | sed -n '53,135p'` — HUNTALL/HUNTNEXT/NPC_HUNT/NPC_HUNTALL/NPC_HUNTNEXT.
+- `git -C $HOME/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/engine/script/ScriptState.ts | cat -n | sed -n '118,130p'` — single `huntIterator: IterableIterator<Entity>` replaces `playerIterator`; `npcIterator`/`locIterator`/`objIterator` survive.
+- `git -C $HOME/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/engine/script/handlers/ServerOps.ts | cat -n | sed -n '53,135p'` — HUNTALL/HUNTNEXT/NPC_HUNT/NPC_HUNTALL/NPC_HUNTNEXT.
 - Equivalence note (verified during spec): TS `HuntIterator` PLAYER branch (ScriptIterators.ts:77-97) is line-identical to the 225 `PlayerHuntAllCommandIterator` goscape's `PlayerIterator` mirrors — same descending zone scan, same `getAllPlayersSafe(true)`, same player-as-src LOS order. `PlayerIterator` stays as the HUNTALL engine; record this equivalence in its doc comment and re-cite to ScriptIterators.ts HuntIterator + HuntModeType.PLAYER.
 
 - [ ] **Step 1: Write failing tests.** Three pins in `handlers_npc_test.go` / `handlers_player_test.go` (reuse the existing hunt-test scaffolding — `handlers_npc_test.go` already builds NpcLookup/PlayerLookup fakes for NPC_HUNTALL/HUNTALL; copy a neighbouring test's setup):

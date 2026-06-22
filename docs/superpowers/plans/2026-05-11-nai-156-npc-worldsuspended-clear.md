@@ -2,7 +2,7 @@
 
 **Cadence:** compressed (≤~15 LOC behavioral change + 2 test inversions). One Sonnet implementer. No formal code review.
 
-**Tech stack:** Go 1.26+, project root `/home/owner/Code/github.com/zsrv/goscape`.
+**Tech stack:** Go 1.26+, project root `$HOME/Code/github.com/zsrv/goscape`.
 
 ## 1. Motivation
 

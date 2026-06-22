@@ -2,6 +2,7 @@ package world
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -25,14 +26,26 @@ import (
 // wrong-format cache. Pinning each branch to its own reference cache
 // removes the cross-revision hazard; the pinned worktree is the same
 // byte-parity baseline the pack gates use.
-const ref254Cache = "/home/owner/Code/github.com/LostCityRS/Server254-ref/engine/data/pack"
+//
+// Resolved from GOSCAPE_REF254_DIR (pointing at .../engine, pack derived as
+// data/pack); returns "" when the env var is unset.
+func ref254Cache() string {
+	if ref := os.Getenv("GOSCAPE_REF254_DIR"); ref != "" {
+		return filepath.Join(ref, "data", "pack")
+	}
+	return ""
+}
 
-// ref254CacheDir returns ref254Cache, skipping the test when the reference
-// checkout is not present on this machine.
+// ref254CacheDir returns the reference cache-pack dir, skipping the test when
+// GOSCAPE_REF254_DIR is unset or the reference checkout is not present.
 func ref254CacheDir(t *testing.T) string {
 	t.Helper()
-	if _, err := os.Stat(ref254Cache); err != nil {
+	cache := ref254Cache()
+	if cache == "" {
+		t.Skip("Server254-ref cache unavailable: GOSCAPE_REF254_DIR not set")
+	}
+	if _, err := os.Stat(cache); err != nil {
 		t.Skipf("Server254-ref cache unavailable: %v", err)
 	}
-	return ref254Cache
+	return cache
 }

@@ -26,7 +26,7 @@
 - `pkg/script/handlers.go:307` neighborhood — register `OpBothMoveInv` dispatch (T3.1)
 - `modules/world/player_script.go:277, 300, 303, 716` — migrate three sites + doc comments (T1.5)
 - `pkg/script/handlers_player_test.go`, `handlers_inv_test.go`, `runner_test.go`, `handlers_vars_test.go` — migrate ~16 test fixture sites (T1.6); add T2/T3 RED→GREEN test bodies
-- Memory files under `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` — update `nai_followups.md` at T4 close
+- Memory files under `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` — update `nai_followups.md` at T4 close
 
 ---
 
@@ -1517,7 +1517,7 @@ Ports TS InvOps.ts:373-495. intOperand=1 swaps Self/Self2 roles. Per-pointer-slo
 ## Task 4 — Close
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (mark BOTH_MOVEINV closed)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (mark BOTH_MOVEINV closed)
 - Modify: spec doc cross-reference (no actual edit needed; close commit body provides the linkage)
 
 **Goal:** Memory updates + close commit per project convention.
@@ -1527,7 +1527,7 @@ Ports TS InvOps.ts:373-495. intOperand=1 swaps Self/Self2 roles. Per-pointer-slo
 Read the file:
 
 ```bash
-cat /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+cat $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 ```
 
 Append (or update existing line) under a "Closed" section or similar:
@@ -1549,7 +1549,7 @@ Expected: GREEN. (Use `-race` per project convention for the close-commit gate.)
 - [ ] **Step 4.3 — Close commit with `Closes memory:` trailer**
 
 ```bash
-git add /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+git add $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 chore(nai-133): close — BOTH_MOVEINV (4301) + per-pointer-slot Protect (Pointer flag refactor) + FINDUID/P_FINDUID slot routing
 

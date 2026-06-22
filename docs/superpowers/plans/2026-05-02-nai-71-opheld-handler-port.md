@@ -1376,8 +1376,8 @@ EOF
 ## Task 4 — Close commit + memory entry
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (append NAI-71 close section)
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (no change unless new lessons surface)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (append NAI-71 close section)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (no change unless new lessons surface)
 - Create memory file: only if a new lesson surfaces during T1-T3. Default expectation: no new memory file.
 
 ### Step 4.1: Append NAI-71 close section to nai_followups.md
@@ -1492,8 +1492,8 @@ Expected: PASS.
 - [ ] Stage memory file changes (note: outside the goscape repo):
 
 ```bash
-git -C /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory add nai_followups.md
-git -C /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory commit --no-gpg-sign -m "memory: NAI-71 close — OPHELD handler family port"
+git -C $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory add nai_followups.md
+git -C $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory commit --no-gpg-sign -m "memory: NAI-71 close — OPHELD handler family port"
 ```
 
 - [ ] Stage close-commit in goscape repo:

@@ -6,7 +6,7 @@
 
 **Architecture:** 5-task TDD bundle, bottom-up by risk. T1+T2 are zero-behavior (labels + cosmetic rename) and ship without TDD red/green pairs. T3+T4+T5 follow standard TDD red→green→commit per task. All changes within `modules/world/`. No new packages, no new exported APIs.
 
-**Tech Stack:** Go 1.26+ per `go_version.md`. TS source canonical path: `/home/owner/Code/github.com/LostCityRS/Engine-TS` per `ts_source_canonical_path.md`.
+**Tech Stack:** Go 1.26+ per `go_version.md`. TS source canonical path: `$HOME/Code/github.com/LostCityRS/Engine-TS` per `ts_source_canonical_path.md`.
 
 **Spec:** `docs/superpowers/specs/2026-05-10-nai-147-rebuildnormal-rename-and-nai78-fidelity-design.md` (commit `4150ed7`).
 

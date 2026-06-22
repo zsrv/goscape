@@ -12,7 +12,7 @@ Retire 4 stale NAI-44 sibling deviation tags. PRIMARY: tracker `nai_followups.md
 
 ## 2. TS source of truth
 
-`/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts`:
+`$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts`:
 
 | Line | Code | Bears on |
 |---|---|---|

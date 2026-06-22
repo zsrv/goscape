@@ -146,7 +146,7 @@ Single in-session commit by main thread. No plan, no subagent dispatch.
 ## Gates
 
 - `gofmt -l modules/world/npc_registry.go modules/world/player.go modules/world/script.go modules/world/npc.go` — clean (no output expected; files are already gofmt-clean, edits are inside `//` comment lines so cannot break gofmt).
-- `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test -race ./...` — 57+ pkgs / 0 FAIL (no behavior change so all tests should remain green from cached state).
+- `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test -race ./...` — 57+ pkgs / 0 FAIL (no behavior change so all tests should remain green from cached state).
 - `TestPackAll_TwelveStageSmoke` — PASS.
 - Audit-greps post-commit (each must return 0 hits in production `.go` files):
   - `future revertType refactor`

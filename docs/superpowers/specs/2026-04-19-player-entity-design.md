@@ -48,7 +48,7 @@ Vendored code is adapted to goscape's module path and conventions; it does not b
 
 1. Only copy files actually required for sub-spec 2 behaviour. Skip sub-packages not reached by the call graph from `FindPathDefault`, `StepValidator.CanTravel`, and `NaiveRouteFinder.FindNaivePath`. If uncertainty, copy; audit is cheaper than re-vendoring later.
 2. Rewrite every `github.com/zsrv/rs-server-225/...` import to `github.com/zsrv/goscape/...`.
-3. Any file with `// TODO` markers gets reviewed. If the TODO blocks sub-spec 2, port the missing logic from the TS reference at `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/` rather than shipping a stub.
+3. Any file with `// TODO` markers gets reviewed. If the TODO blocks sub-spec 2, port the missing logic from the TS reference at `$HOME/Code/github.com/LostCityRS/Engine-TS/src/` rather than shipping a stub.
 4. Vendored tests come along unless they depend on subsystems not yet in goscape (e.g., script engine). When in doubt, keep the test and skip with `t.Skip(...)` rather than delete it.
 5. Adapt logging from any previous style to `log/slog`. Adapt binary I/O to `pkg/io/packet.Packet` (goscape's existing RS2 buffer).
 6. Do not preserve the older project's package layout inside vendored trees — flatten where it makes sense for goscape's conventions. e.g., if `routefinder/routefinder/routefinder.go` exists, move it to `pkg/pathfinder/routefinder.go`.
@@ -424,7 +424,7 @@ func (gm *GameMap) IsFreeToPlay(x, z int) bool { ... }
 
 ### Init loading
 
-Matches the TS `GameMap.load()` flow (`/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/GameMap.ts`):
+Matches the TS `GameMap.load()` flow (`$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/GameMap.ts`):
 
 1. `filepath.Glob(cacheDir + "/maps/m*")` to enumerate mapsquare data files. Each filename encodes `mapSquareX_mapSquareZ` (e.g., `m50_50`).
 2. For each `(mapSquareX, mapSquareZ)`:

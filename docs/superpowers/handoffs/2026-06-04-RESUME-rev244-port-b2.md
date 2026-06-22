@@ -11,7 +11,7 @@ active 225→244 porting branch** (cut from rev-225). Work on `rev-244` only;
 docs-hub updates (e.g. REFERENCES pins) commit on `main`.
 
 The 225→244 work list is the upstream cross-pin diff
-`git -C /home/owner/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4`
+`git -C $HOME/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4`
 (the local Engine-TS checkout sits AT the 244 pin `9aadcec4`; clean shared
 lineage, so the diff is a real change-for-change work list). Pins:
 `git show main:REFERENCES.md` §rev-244.

@@ -51,9 +51,9 @@ If any expected site has shifted, update the line numbers in the plan doc before
 - [ ] **Step 0.3: Confirm canonical sources are accessible**
 
 ```bash
-ls /home/owner/Code/github.com/LostCityRS/Engine-TS/ 2>&1 | head -3
-ls /home/owner/Code/github.com/LostCityRS/Client-Java/ 2>&1 | head -3
-ls /home/owner/Code/github.com/2004scape/rsbuf/ 2>&1 | head -3
+ls $HOME/Code/github.com/LostCityRS/Engine-TS/ 2>&1 | head -3
+ls $HOME/Code/github.com/LostCityRS/Client-Java/ 2>&1 | head -3
+ls $HOME/Code/github.com/2004scape/rsbuf/ 2>&1 | head -3
 ```
 
 Expected: all three return directory listings (not "No such file"). If any are missing, ask the user to confirm canonical-source paths.
@@ -61,8 +61,8 @@ Expected: all three return directory listings (not "No such file"). If any are m
 - [ ] **Step 0.4: Identify TS NPC-spawn-file parser path**
 
 ```bash
-rg -l "loadNpc|loadNPCs|loadNpcs\|n\\.dat\|n_x_z" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/ 2>&1 | head -5
-rg -n "GameMap" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/lostcity/engine/GameMap.ts 2>&1 | head -10
+rg -l "loadNpc|loadNPCs|loadNpcs\|n\\.dat\|n_x_z" $HOME/Code/github.com/LostCityRS/Engine-TS/src/ 2>&1 | head -5
+rg -n "GameMap" $HOME/Code/github.com/LostCityRS/Engine-TS/src/lostcity/engine/GameMap.ts 2>&1 | head -10
 ```
 
 Expected: at least one `.ts` file references the `n{X}_{Z}` mapsquare-NPC parsing logic. Record the path + relevant line range in plan doc Frozen Premises.
@@ -70,7 +70,7 @@ Expected: at least one `.ts` file references the `n{X}_{Z}` mapsquare-NPC parsin
 - [ ] **Step 0.5: Identify Client-Java NpcInfo packet handler path**
 
 ```bash
-rg -l "NpcInfo\|OpNpcInfo\|opcode.*NPC_INFO" /home/owner/Code/github.com/LostCityRS/Client-Java/src/ 2>&1 | head -5
+rg -l "NpcInfo\|OpNpcInfo\|opcode.*NPC_INFO" $HOME/Code/github.com/LostCityRS/Client-Java/src/ 2>&1 | head -5
 ```
 
 Expected: at least one `.java` file. Record path + line range in plan doc.
@@ -80,7 +80,7 @@ Expected: at least one `.java` file. Record path + line range in plan doc.
 ```bash
 ls $(grep -E '^\s*cache_path|cachePath|CachePath' config.yaml 2>/dev/null | head -1 | awk -F'[:"]' '{print $3}' | tr -d ' ')/client/maps/n*_* 2>&1 | head -5
 # If config.yaml CachePath isn't readable, fall back to common locations:
-find /home/owner -name 'n*_*' -path '*/client/maps/*' 2>/dev/null | head -3
+find $HOME -name 'n*_*' -path '*/client/maps/*' 2>/dev/null | head -3
 ```
 
 Expected: at least one `n{X}_{Z}` file path. Record one specific path (e.g., `n50_50`) and its size in plan doc — Bundle 1 reads its leading bytes for triangulation.
@@ -916,13 +916,13 @@ EOF
 
 **Out-of-scope unauthorized `rs-server-225` citations (3 additional sites; NAI-31 does NOT touch — record as a separate follow-up):**
 - `pkg/script/file.go:40` — "lookupKey is u32 (rs-server-225 had a u16 bug)".
-- `pkg/zone/grid.go:3` — "Ported from /home/owner/Code/github.com/zsrv/rs-server-225/engine/zone/grid.go".
+- `pkg/zone/grid.go:3` — "Ported from $HOME/Code/github.com/zsrv/rs-server-225/engine/zone/grid.go".
 - `pkg/objtype/npctype.go:25,36` — "mirror of rs-server-225/entity.MoveRestrict|BlockWalk".
 
 **Canonical sources confirmed accessible:**
-- `LostCityRS/Engine-TS` (TS canonical for `pkg/gamemap`): `/home/owner/Code/github.com/LostCityRS/Engine-TS/`. NPC parser at `src/engine/GameMap.ts:114-137` (`loadNpcs`); call site at `:70`; cache root at `src/engine/GameMap.ts:63` = `'data/pack/server/maps/'`; `unpackCoord` helper at `:288-293`.
-- `LostCityRS/Client-Java` (binding wire spec): `/home/owner/Code/github.com/LostCityRS/Client-Java/src/main/java/jagex2/`. NpcInfo packet handler not yet pinpointed (task for Bundle 1 if Stage 1.2 is reached).
-- `2004scape/rsbuf` branch 225: `/home/owner/Code/github.com/2004scape/rsbuf/` (not directly read in Bundle 0; reserved for `pkg/rsbuf` work).
+- `LostCityRS/Engine-TS` (TS canonical for `pkg/gamemap`): `$HOME/Code/github.com/LostCityRS/Engine-TS/`. NPC parser at `src/engine/GameMap.ts:114-137` (`loadNpcs`); call site at `:70`; cache root at `src/engine/GameMap.ts:63` = `'data/pack/server/maps/'`; `unpackCoord` helper at `:288-293`.
+- `LostCityRS/Client-Java` (binding wire spec): `$HOME/Code/github.com/LostCityRS/Client-Java/src/main/java/jagex2/`. NpcInfo packet handler not yet pinpointed (task for Bundle 1 if Stage 1.2 is reached).
+- `2004scape/rsbuf` branch 225: `$HOME/Code/github.com/2004scape/rsbuf/` (not directly read in Bundle 0; reserved for `pkg/rsbuf` work).
 
 **Cache directory state (CRITICAL FINDING — see Smoking Gun below):**
 - `./data/pack/client/maps/`: contains `l*_*` files (locations) and `m*_*` files (mapsquares). **Zero** `n*_*` files (NPC spawn data). This is goscape's currently-loaded directory.
@@ -1041,7 +1041,7 @@ When the same 39 bytes are read with **Java client's gBit semantics (MSB-first p
 
 **Decoded mask payload per NPC:** `0x80` = NpcMaskFaceCoord (bit 7 set); `0xFF 0xFF 0xFF 0xFF` = FACE_COORD payload (4 bytes of signed P2 values: x=-1, z=-1 as 0xFFFFFFFF, per npc_mask_payload.go:41-44).
 
-**Client-side NpcInfo handler:** `/home/owner/Code/github.com/LostCityRS/Client-Java/src/main/java/deob/client.java:5787-5821` method `getNpcPosNewVis`. Calls sequence:
+**Client-side NpcInfo handler:** `$HOME/Code/github.com/LostCityRS/Client-Java/src/main/java/deob/client.java:5787-5821` method `getNpcPosNewVis`. Calls sequence:
 ```java
 int var4 = arg1.gBit(13);  // NID — line 5789
 if (var4 == 8191) break;   // terminator — line 5790

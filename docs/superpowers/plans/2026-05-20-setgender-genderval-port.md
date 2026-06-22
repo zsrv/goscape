@@ -6,7 +6,7 @@
 
 **Architecture:** Thin handler + fat setter. Validator is a bare-number free function alongside `checkSkinColour` / `checkQueue`. Lookup maps are package-level `map[int]int` vars in a new `modules/world/player_gender.go` file alongside the `Player` struct (mirrors TS class-level statics at `Player.ts:110-188`). `(*Player).SetGender(gender int)` contains the for-loop + map lookups + slot-1 hardcode + final `p.gender = gender` write. SETGENDER does NOT flip `MaskAppearance` — TS-faithful deferred-rebuild pattern (callers follow with BUILDAPPEARANCE per `makeover_mage.rs2:58-64`).
 
-**Tech Stack:** Go 1.26. Project conventions per `CLAUDE.md`: prefix Go commands with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`; PATH set via `unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"` if needed; commits use `git commit --no-gpg-sign`; stage explicitly (the working tree has standing noise — `config.yaml`, untracked dotfiles, `RUNESCRIPT.md` — **never stage these**). Spec: `docs/superpowers/specs/2026-05-20-setgender-genderval-port-design.md` (commit `4708e574`).
+**Tech Stack:** Go 1.26. Project conventions per `CLAUDE.md`: prefix Go commands with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`; PATH set via `unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"` if needed; commits use `git commit --no-gpg-sign`; stage explicitly (the working tree has standing noise — `config.yaml`, untracked dotfiles, `RUNESCRIPT.md` — **never stage these**). Spec: `docs/superpowers/specs/2026-05-20-setgender-genderval-port-design.md` (commit `4708e574`).
 
 ---
 
@@ -33,7 +33,7 @@ No `pkg/objtype/` changes (gender is a 0/1 wire value with no named-enum types i
 
 Run:
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 git log --oneline -3
 git status
 ```
@@ -44,16 +44,16 @@ Expected: HEAD shows `4708e574 docs(spec): SETGENDER body port + GenderValid val
 
 Run:
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race -count=1 ./pkg/script/... ./modules/world/... 2>&1 | tail -5
 ```
 
 Expected: all packages OK. If anything fails BEFORE you start, stop and report — that's not your fault to fix.
 
-Heads-up on env quirk (carry-forward from predecessor close memory): `/home/owner/go/current` symlink may point to a nonexistent Go version (`go1.26.2` while actual install is `go1.26.3`). Tests still run via fallback `GOROOT` resolution, but if you see "no such file or directory" from `go` invocations, refresh the symlink:
+Heads-up on env quirk (carry-forward from predecessor close memory): `$HOME/go/current` symlink may point to a nonexistent Go version (`go1.26.2` while actual install is `go1.26.3`). Tests still run via fallback `GOROOT` resolution, but if you see "no such file or directory" from `go` invocations, refresh the symlink:
 ```bash
-ls /home/owner/go/
-ln -sfn /home/owner/go/go1.26.X /home/owner/go/current
+ls $HOME/go/
+ln -sfn $HOME/go/go1.26.X $HOME/go/current
 ```
 
 - [ ] **Step 2: Pre-commit safety reminder**
@@ -506,7 +506,7 @@ Confirmed by predecessor close memory: `mockPlayer` is the only `ActivePlayer` i
 
 Run:
 ```bash
-grep -rn "ActivePlayer interface\|var _ ActivePlayer\|var _ script.ActivePlayer\|implements ActivePlayer" --include="*.go" /home/owner/Code/github.com/zsrv/goscape/ 2>&1 | head
+grep -rn "ActivePlayer interface\|var _ ActivePlayer\|var _ script.ActivePlayer\|implements ActivePlayer" --include="*.go" $HOME/Code/github.com/zsrv/goscape/ 2>&1 | head
 ```
 
 Expected: only `pkg/script/active.go` (the interface declaration) and `modules/world/...` (production impl on `*Player`). If a third site appears (other than test files), STOP and reassess — `mockPlayer` is the documented sole test fake.
@@ -944,7 +944,7 @@ Expected: empty commit, no files changed.
 
 - [ ] **Step 5.5: Write the close memory**
 
-Write a new memory file at `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/setgender_genderval_port_close.md` capturing the slice digest, audit findings, and pivot menu for the next session. Use the predecessor `queue_skincolour_validator_slice_close.md` as a structural template — include:
+Write a new memory file at `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/setgender_genderval_port_close.md` capturing the slice digest, audit findings, and pivot menu for the next session. Use the predecessor `queue_skincolour_validator_slice_close.md` as a structural template — include:
 - Slice commit range
 - TS source citations (PlayerOps.ts:1104-1118 + Player.ts:110-188)
 - New pin opened + pin retired

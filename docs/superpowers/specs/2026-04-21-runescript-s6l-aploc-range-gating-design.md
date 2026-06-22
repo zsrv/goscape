@@ -2,7 +2,7 @@
 
 > **Sub-spec context:** Twelfth sub-spec in the runescript-s* series. Closes S6j-D2 (APLOC fallback path) and partially closes S6j-D6 (apRange field made meaningful) for Loc targets. Adds the apRange state machine + `p_aprange` script opcode so APLOC triggers can run before the player reaches contact range, and scripts can extend the approach window.
 
-> **TS-faithfulness gate:** User requires "true to TS." All behavioral claims cite TS line numbers in `/home/owner/Code/github.com/LostCityRS/Engine-TS`. Five new documented deviations (S6l-D1 through S6l-D5), each with rationale + follow-up pointer.
+> **TS-faithfulness gate:** User requires "true to TS." All behavioral claims cite TS line numbers in `$HOME/Code/github.com/LostCityRS/Engine-TS`. Five new documented deviations (S6l-D1 through S6l-D5), each with rationale + follow-up pointer.
 
 > **Scope:** Approach 1 (Loc-only bundle). APNPC path explicitly deferred to a follow-up. LOS distance checks explicitly deferred. `ProtectedActivePlayer` access gate explicitly deferred.
 

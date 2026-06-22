@@ -6,7 +6,7 @@
 
 **Architecture:** Two independent prongs. **Prong A** restructures `NpcIterator.passesFilter` to lift the huntvis switch out of the HuntAll-only guard, adds a `LineValidator` arg to `NewDistanceNpcIterator`, and wires `s.LineValidator` into the two FINDALL/FINDALLANY handler call sites. **Prong B** adds a private `huntvisGate` helper to `serverNpcLookup` that reads `l.s.scriptLineValidator()` per call, and inserts a gate call into both FindClosest methods. A test-only `lineValidatorOverride` field on `Server` provides a stub-LineValidator seam for Prong B tests.
 
-**Tech Stack:** Go 1.26.3 (via `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go` per env-quirk). Strict TDD with pre-stub strategy for Go's "package must compile" reality. Subagent-driven-development with sonnet implementers + two-stage review per task.
+**Tech Stack:** Go 1.26.3 (via `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go` per env-quirk). Strict TDD with pre-stub strategy for Go's "package must compile" reality. Subagent-driven-development with sonnet implementers + two-stage review per task.
 
 **Spec:** `docs/superpowers/specs/2026-05-21-hunt-huntvis-filter-design.md` (committed at `a02c3162`).
 
@@ -102,13 +102,13 @@ Same at line 873 (`handleNpcFindAll`):
 
 - [ ] **Step 1.1.4: Verify all packages compile**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go build ./...`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go build ./...`
 
 Expected: clean exit, no errors.
 
 - [ ] **Step 1.1.5: Verify no behavioral regression**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./pkg/script/... -run 'TestNpcIterator' -count=1`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./pkg/script/... -run 'TestNpcIterator' -count=1`
 
 Expected: all existing iterator tests PASS (sig change is behavior-preserving — `lv` not yet consumed).
 
@@ -277,7 +277,7 @@ func TestNpcIteratorZone_HuntVisStillUnfiltered(t *testing.T) {
 
 - [ ] **Step 1.2.7: Run new tests — verify all 6 FAIL**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./pkg/script/... -run 'TestNpcIteratorDistance_HuntVis|TestNpcIteratorDistance_NilLineValidator|TestNpcIteratorDistance_LineOfSightArgShape|TestNpcIteratorZone_HuntVisStill' -count=1 -v`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./pkg/script/... -run 'TestNpcIteratorDistance_HuntVis|TestNpcIteratorDistance_NilLineValidator|TestNpcIteratorDistance_LineOfSightArgShape|TestNpcIteratorZone_HuntVisStill' -count=1 -v`
 
 Expected: All 6 tests FAIL — `TestNpcIteratorDistance_HuntVisLineOfSight/LoS blocks → skip` fails because the current `passesFilter` only runs the huntvis switch in HuntAll mode (line 111), so Distance mode emits the blocked NPC. Pass tests (`losReturn: true`, `NilLineValidator`) coincidentally PASS but for the wrong reason — they pass because the switch is skipped entirely. `LineOfSightArgShape` FAILS because the validator never gets called.
 
@@ -336,13 +336,13 @@ Key change: the `switch it.huntvis` block is no longer guarded by `if it.mode ==
 
 - [ ] **Step 1.3.2: Run new tests — verify all 6 PASS**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./pkg/script/... -run 'TestNpcIteratorDistance_HuntVis|TestNpcIteratorDistance_NilLineValidator|TestNpcIteratorDistance_LineOfSightArgShape|TestNpcIteratorZone_HuntVisStill' -count=1 -v`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./pkg/script/... -run 'TestNpcIteratorDistance_HuntVis|TestNpcIteratorDistance_NilLineValidator|TestNpcIteratorDistance_LineOfSightArgShape|TestNpcIteratorZone_HuntVisStill' -count=1 -v`
 
 Expected: All 6 PASS.
 
 - [ ] **Step 1.3.3: Run full pkg/script tests — verify no regression**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./pkg/script/... -count=1`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./pkg/script/... -count=1`
 
 Expected: PASS across all pkg/script tests.
 
@@ -500,7 +500,7 @@ Replace with:
 
 - [ ] **Step 1.4.6: Run full pkg/script tests after doc refreshes**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./pkg/script/... -count=1`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./pkg/script/... -count=1`
 
 Expected: PASS.
 
@@ -558,7 +558,7 @@ Expected: commit shows ~3 files changed; working tree clean apart from standing 
 
 - [ ] **Step 2.1.1: Read existing handler test patterns**
 
-Run: `grep -n "TestHandleNpcFindAll\|TestNpcFindAll\|handleNpcFindAll\|handleNpcFindAllAny" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_npc_test.go | head -20`
+Run: `grep -n "TestHandleNpcFindAll\|TestNpcFindAll\|handleNpcFindAll\|handleNpcFindAllAny" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_npc_test.go | head -20`
 
 Read the matching test(s) to understand the fixture pattern (ScriptState setup, mock npcs, FINDNEXT loop drive).
 
@@ -662,7 +662,7 @@ func TestHandleNpcFindAllAny_PlumbsLineValidatorToIterator(t *testing.T) {
 
 T1 already wired `s.LineValidator` into the iterator, so these smoke tests should pass immediately on first run. This is intentional — they're regression guards verifying T1's wiring persists, not RED tests in the traditional sense.
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./pkg/script/... -run 'TestHandleNpcFindAll_PlumbsLineValidator|TestHandleNpcFindAllAny_PlumbsLineValidator' -count=1 -v`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./pkg/script/... -run 'TestHandleNpcFindAll_PlumbsLineValidator|TestHandleNpcFindAllAny_PlumbsLineValidator' -count=1 -v`
 
 Expected: Both PASS.
 
@@ -728,7 +728,7 @@ Replace with:
 
 - [ ] **Step 2.3.3: Run tests one more time after doc refreshes**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./pkg/script/... -count=1`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./pkg/script/... -count=1`
 
 Expected: PASS.
 
@@ -786,7 +786,7 @@ Expected: 2 files changed; clean working tree.
 
 - [ ] **Step 3.1.1: Locate Server struct field block**
 
-Run: `sed -n '94,98p' /home/owner/Code/github.com/zsrv/goscape/modules/world/server.go`
+Run: `sed -n '94,98p' $HOME/Code/github.com/zsrv/goscape/modules/world/server.go`
 
 Expected: shows `gamemap *gamemap.GameMap` at line 94. We'll add `lineValidatorOverride` immediately below it.
 
@@ -808,7 +808,7 @@ In `modules/world/server.go`, after the `gamemap *gamemap.GameMap` line (line 94
 
 Note: This requires importing `github.com/zsrv/goscape/pkg/script` in `server.go`. Check imports first.
 
-Run: `grep -n '"github.com/zsrv/goscape/pkg/script"' /home/owner/Code/github.com/zsrv/goscape/modules/world/server.go`
+Run: `grep -n '"github.com/zsrv/goscape/pkg/script"' $HOME/Code/github.com/zsrv/goscape/modules/world/server.go`
 
 If no hit, add `script "github.com/zsrv/goscape/pkg/script"` to the imports block (matching the existing import-alias convention if any; otherwise plain import).
 
@@ -867,7 +867,7 @@ Replace with:
 
 - [ ] **Step 3.1.5: Verify modules/world compiles**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go build ./modules/world/...`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go build ./modules/world/...`
 
 Expected: clean exit.
 
@@ -927,7 +927,7 @@ func (l serverNpcLookup) huntvisGate(level, srcX, srcZ, dstX, dstZ, huntvis int)
 
 - [ ] **Step 3.2.4: Verify compile + existing tests pass**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./modules/world/... -run 'TestServerNpcLookup' -count=1`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./modules/world/... -run 'TestServerNpcLookup' -count=1`
 
 Expected: existing 3 lookup tests PASS (`TestServerNpcLookup_FindClosestByType`, `TestServerNpcLookup_FindClosestByCategory`, `TestServerNpcLookup_FindAtExactCoord`).
 
@@ -1196,7 +1196,7 @@ func TestFindClosestNpcByCategory_NilLineValidator_PessimisticAllow(t *testing.T
 
 - [ ] **Step 3.3.12: Run new tests — verify 6 of them FAIL (blocked-validator tests)**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./modules/world/... -run 'TestFindClosestNpc' -count=1 -v`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./modules/world/... -run 'TestFindClosestNpc' -count=1 -v`
 
 Expected:
 - PASS (no-filter behavior is current default): `HuntVisOff_Baseline`, `NilLineValidator_PessimisticAllow`, `HuntVisAfterDistance_ClosestStillWins`, and the always-pass sub-cases inside LoS/LoW filter tests
@@ -1235,7 +1235,7 @@ func (l serverNpcLookup) huntvisGate(level, srcX, srcZ, dstX, dstZ, huntvis int)
 
 Note: This requires `"github.com/zsrv/goscape/pkg/objtype"` import in `npc_script_lookup.go`. Check imports first — if not present, add to import block.
 
-Run: `grep -n '"github.com/zsrv/goscape/pkg/objtype"' /home/owner/Code/github.com/zsrv/goscape/modules/world/npc_script_lookup.go`
+Run: `grep -n '"github.com/zsrv/goscape/pkg/objtype"' $HOME/Code/github.com/zsrv/goscape/modules/world/npc_script_lookup.go`
 
 If no hit, add the import.
 
@@ -1261,13 +1261,13 @@ Same insertion at the corresponding location in `FindClosestNpcByCategory` — a
 
 - [ ] **Step 3.4.4: Run new FindClosest tests — verify all PASS**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./modules/world/... -run 'TestFindClosestNpc' -count=1 -v`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./modules/world/... -run 'TestFindClosestNpc' -count=1 -v`
 
 Expected: All 10 new tests PASS.
 
 - [ ] **Step 3.4.5: Run full modules/world tests — verify no regression**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./modules/world/... -count=1 -timeout 5m`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./modules/world/... -count=1 -timeout 5m`
 
 Expected: PASS across modules/world (existing tests have nil-LineValidator + huntvis=0 fixtures, so they pessimistic-allow and behavior is preserved).
 
@@ -1352,7 +1352,7 @@ Replace with:
 
 - [ ] **Step 3.5.4: Run modules/world tests after doc refreshes**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./modules/world/... -count=1 -timeout 5m`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./modules/world/... -count=1 -timeout 5m`
 
 Expected: PASS.
 
@@ -1475,19 +1475,19 @@ Each command must return zero hits:
 
 ```bash
 echo "=== NAI-33-D1 ==="
-grep -rn "NAI-33-D1" /home/owner/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
+grep -rn "NAI-33-D1" $HOME/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
 echo "=== S7f-D1 ==="
-grep -rn "S7f-D1" /home/owner/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
+grep -rn "S7f-D1" $HOME/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
 echo "=== deferred-not-consumed posture ==="
-grep -rn "deferred-not-consumed posture" /home/owner/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
+grep -rn "deferred-not-consumed posture" $HOME/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
 echo "=== HuntAll is the only mode / only mode that activates ==="
-grep -rn "HuntAll is the only mode\|only mode that activates" /home/owner/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
+grep -rn "HuntAll is the only mode\|only mode that activates" $HOME/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
 echo "=== Distance mode + FindClosest* still residual ==="
-grep -rn "Distance mode + FindClosestNpc\* still residual\|Distance mode + FindClosest\* still residual" /home/owner/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
+grep -rn "Distance mode + FindClosestNpc\* still residual\|Distance mode + FindClosest\* still residual" $HOME/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
 echo "=== validated upstream but NOT filtered ==="
-grep -rn "validated upstream but NOT filtered" /home/owner/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
+grep -rn "validated upstream but NOT filtered" $HOME/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
 echo "=== validated upstream by handlers via checkHuntVis) but NOT consumed ==="
-grep -rn "validated upstream by handlers via checkHuntVis) but NOT consumed" /home/owner/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
+grep -rn "validated upstream by handlers via checkHuntVis) but NOT consumed" $HOME/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go
 ```
 
 Expected: each section emits no lines (just the header echo). If ANY hit found, locate and refresh the comment before proceeding.
@@ -1496,11 +1496,11 @@ Expected: each section emits no lines (just the header echo). If ANY hit found, 
 
 ```bash
 echo "=== NAI-35-T3 (citation retained) ==="
-grep -rn "NAI-35-T3" /home/owner/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go | wc -l
+grep -rn "NAI-35-T3" $HOME/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go | wc -l
 echo "=== NAI-180 (citation retained) ==="
-grep -rn "NAI-180" /home/owner/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go | wc -l
+grep -rn "NAI-180" $HOME/Code/github.com/zsrv/goscape --include="*.go" | grep -v _test.go | wc -l
 echo "=== ScriptIterators.ts:348-352 ==="
-grep -rn "ScriptIterators.ts:348-352\|ScriptIterators.ts:348" /home/owner/Code/github.com/zsrv/goscape --include="*.go" | wc -l
+grep -rn "ScriptIterators.ts:348-352\|ScriptIterators.ts:348" $HOME/Code/github.com/zsrv/goscape --include="*.go" | wc -l
 ```
 
 Expected: NAI-35-T3 ≥ 5 (preserved across iterator/lookup/state files), NAI-180 ≥ 2 (op[1] gate), ScriptIterators.ts:348 citations ≥ 3 (new citations added across iterator + lookup + state).
@@ -1509,13 +1509,13 @@ Expected: NAI-35-T3 ≥ 5 (preserved across iterator/lookup/state files), NAI-18
 
 - [ ] **Step 4.4.1: Run race detector across all packages**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test -race ./... -count=1 -timeout 10m`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test -race ./... -count=1 -timeout 10m`
 
 Expected: 0 FAIL across all packages.
 
 - [ ] **Step 4.4.2: Run pack smoke test**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./pkg/pack/... -run TestPackAll_TwelveStageSmoke -count=1 -v`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./pkg/pack/... -run TestPackAll_TwelveStageSmoke -count=1 -v`
 
 Expected: PASS.
 
@@ -1564,16 +1564,16 @@ Expected: 2 files changed.
 **Depends on:** T1, T2, T3, T4.
 
 **Files:**
-- Create: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/hunt_huntvis_filter_close.md`
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (prepend index line)
+- Create: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/hunt_huntvis_filter_close.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (prepend index line)
 
 ### Step 5.1: Final gate verification
 
 - [ ] **Step 5.1.1: Re-run race detector + smoke (sanity check)**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test -race ./... -count=1 -timeout 10m
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test ./pkg/pack/... -run TestPackAll_TwelveStageSmoke -count=1
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test -race ./... -count=1 -timeout 10m
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test ./pkg/pack/... -run TestPackAll_TwelveStageSmoke -count=1
 ```
 
 Expected: 0 FAIL; smoke PASS.
@@ -1594,7 +1594,7 @@ Expected: T1 commit → T2 commit → T3 commit → T4 commit on top of `a02c316
 
 - [ ] **Step 5.2.1: Create memory file**
 
-Write to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/hunt_huntvis_filter_close.md` using the file frontmatter format documented in CLAUDE.md (or in the global memory instructions). The content should include:
+Write to `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/hunt_huntvis_filter_close.md` using the file frontmatter format documented in CLAUDE.md (or in the global memory instructions). The content should include:
 
 - Slice date (2026-05-21) + commit range (T1..T4 hashes + spec hash `a02c3162`)
 - Predecessor: `[[addxp-session-log-half-port-close]]` (HEAD `7d50be11`)
@@ -1609,7 +1609,7 @@ Write to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/
 
 - [ ] **Step 5.2.2: Prepend MEMORY.md index entry**
 
-Add at the top of `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`:
+Add at the top of `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`:
 
 ```markdown
 - [Hunt huntvis filter activation close](hunt_huntvis_filter_close.md) — <one-line hook with key facts, ~150 char max>
@@ -1619,7 +1619,7 @@ The hook should mention: 5-commit slice, T1..T4 + spec, NAI-33-D1/S7f-D1 retired
 
 - [ ] **Step 5.2.3: Resume prompt update (if convention persists)**
 
-Write `/home/owner/Code/github.com/zsrv/goscape/.claude/resume/2026-05-21-hunt-huntvis-filter-close-resume.md` following the predecessor's resume format. Include: state at rest, what shipped, carry-forward menu (predecessor minus this item), recommended opening move, what NOT to do at session start.
+Write `$HOME/Code/github.com/zsrv/goscape/.claude/resume/2026-05-21-hunt-huntvis-filter-close-resume.md` following the predecessor's resume format. Include: state at rest, what shipped, carry-forward menu (predecessor minus this item), recommended opening move, what NOT to do at session start.
 
 Note: `.claude/` is in the untracked-noise list (not committed). The resume file is intentionally non-committed working notes.
 

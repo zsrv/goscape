@@ -8,7 +8,7 @@
 
 **Stage 2 is NOT in this plan.** Per `superpowers_clear_between_spec_and_impl`: after Task 5 emits the Stage 2 resume prompt, the user `/clear`s and a fresh session authors `2026-05-XX-nai-111-stage-2-<scenario>.md` per the §scope statement.
 
-**Tech Stack:** Go 1.26+ (no production code in Stage 1). Reference repos: `/home/owner/Code/github.com/LostCityRS/Engine-TS` (TS engine source). Spec doc: `docs/superpowers/specs/2026-05-09-nai-111-protect-lifecycle-investigation-design.md` at commit `b13394b`.
+**Tech Stack:** Go 1.26+ (no production code in Stage 1). Reference repos: `$HOME/Code/github.com/LostCityRS/Engine-TS` (TS engine source). Spec doc: `docs/superpowers/specs/2026-05-09-nai-111-protect-lifecycle-investigation-design.md` at commit `b13394b`.
 
 ---
 
@@ -37,19 +37,19 @@ The Task 4 verification gate exists to catch these. Do not skip it.
 **Reference paths (verified present at plan-write):**
 
 ```
-/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts
-/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts
-/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/ScriptState.ts (or similar — subagent locates)
-/home/owner/Code/github.com/zsrv/goscape/modules/world/player_script.go
-/home/owner/Code/github.com/zsrv/goscape/modules/world/script.go
-/home/owner/Code/github.com/zsrv/goscape/modules/world/resume_dialog.go
-/home/owner/Code/github.com/zsrv/goscape/modules/world/interaction.go
-/home/owner/Code/github.com/zsrv/goscape/modules/world/interaction_trigger.go
-/home/owner/Code/github.com/zsrv/goscape/modules/world/modal_close_test.go
-/home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go
-/home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_inv.go
-/home/owner/Code/github.com/zsrv/goscape/pkg/script/runner.go
-/home/owner/Code/github.com/zsrv/goscape/pkg/script/state.go
+$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts
+$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts
+$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/ScriptState.ts (or similar — subagent locates)
+$HOME/Code/github.com/zsrv/goscape/modules/world/player_script.go
+$HOME/Code/github.com/zsrv/goscape/modules/world/script.go
+$HOME/Code/github.com/zsrv/goscape/modules/world/resume_dialog.go
+$HOME/Code/github.com/zsrv/goscape/modules/world/interaction.go
+$HOME/Code/github.com/zsrv/goscape/modules/world/interaction_trigger.go
+$HOME/Code/github.com/zsrv/goscape/modules/world/modal_close_test.go
+$HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go
+$HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_inv.go
+$HOME/Code/github.com/zsrv/goscape/pkg/script/runner.go
+$HOME/Code/github.com/zsrv/goscape/pkg/script/state.go
 ```
 
 ---
@@ -75,15 +75,15 @@ If HEAD has drifted, abort and re-spec.
 Run in parallel:
 
 ```bash
-sed -n '725,735p' /home/owner/Code/github.com/zsrv/goscape/modules/world/player_script.go
+sed -n '725,735p' $HOME/Code/github.com/zsrv/goscape/modules/world/player_script.go
 ```
 
 ```bash
-sed -n '603,615p' /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go
+sed -n '603,615p' $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go
 ```
 
 ```bash
-sed -n '15,30p' /home/owner/Code/github.com/zsrv/goscape/modules/world/resume_dialog.go
+sed -n '15,30p' $HOME/Code/github.com/zsrv/goscape/modules/world/resume_dialog.go
 ```
 
 Expected:
@@ -96,7 +96,7 @@ If any line ref drifted, fix the spec inline before dispatching the audit. The p
 - [ ] **Step 1.3: Verify TS reference files exist**
 
 ```bash
-ls -la /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts
+ls -la $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts
 ```
 
 Expected: both files present.
@@ -106,13 +106,13 @@ If absent, abort and ask the user to refresh the TS submodule before continuing.
 - [ ] **Step 1.4: Confirm `docs/superpowers/findings/` directory exists**
 
 ```bash
-ls -d /home/owner/Code/github.com/zsrv/goscape/docs/superpowers/findings/
+ls -d $HOME/Code/github.com/zsrv/goscape/docs/superpowers/findings/
 ```
 
 If missing:
 
 ```bash
-mkdir -p /home/owner/Code/github.com/zsrv/goscape/docs/superpowers/findings/
+mkdir -p $HOME/Code/github.com/zsrv/goscape/docs/superpowers/findings/
 ```
 
 ---
@@ -139,8 +139,8 @@ your job is to confirm or refute it via three exhaustive enumerations (G1, G2, G
 followed by a decision table.
 
 This is goscape — a Go port of LostCityRS/Engine-TS. The goscape repo is
-`/home/owner/Code/github.com/zsrv/goscape/`. The canonical TS reference is
-`/home/owner/Code/github.com/LostCityRS/Engine-TS/`. The Java client and Content
+`$HOME/Code/github.com/zsrv/goscape/`. The canonical TS reference is
+`$HOME/Code/github.com/LostCityRS/Engine-TS/`. The Java client and Content
 repos are NOT relevant for this audit.
 
 ═══════════════════════════════════════════════════════════════════════════
@@ -149,7 +149,7 @@ GOAL G1 — TS `Player.protect` lifecycle enumeration
 
 Read `LostCityRS/Engine-TS/src/engine/entity/Player.ts` exhaustively. Use:
 
-  rg -n "this\.protect\b|\.protect = |\.protect;" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/
+  rg -n "this\.protect\b|\.protect = |\.protect;" $HOME/Code/github.com/LostCityRS/Engine-TS/src/
 
 (Then read each hit's surrounding context — typically ±5 lines.)
 
@@ -182,8 +182,8 @@ GOAL G2 — TS `script.pointers & ProtectedActivePlayer` lifecycle
 Find every site that adds, removes, or reads `ScriptPointer.ProtectedActivePlayer`
 (and its slot-2 sibling `ProtectedActivePlayer2`) across `Engine-TS/src/`. Use:
 
-  rg -n "ProtectedActivePlayer\b" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/
-  rg -n "pointerAdd|pointerRemove|pointerGet" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/
+  rg -n "ProtectedActivePlayer\b" $HOME/Code/github.com/LostCityRS/Engine-TS/src/
+  rg -n "pointerAdd|pointerRemove|pointerGet" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/
 
 For each site, capture:
   - Verbatim file:line and exact line content.
@@ -232,8 +232,8 @@ GOAL G3 — Goscape consumer audit + decision table
 
 Find every goscape consumer of the protect flag. Use:
 
-  rg -n "PtrProtectedActivePlayer\b" /home/owner/Code/github.com/zsrv/goscape/pkg/ /home/owner/Code/github.com/zsrv/goscape/modules/
-  rg -n "protectedScriptActive\b|requireProtectedActivePlayer\b" /home/owner/Code/github.com/zsrv/goscape/
+  rg -n "PtrProtectedActivePlayer\b" $HOME/Code/github.com/zsrv/goscape/pkg/ $HOME/Code/github.com/zsrv/goscape/modules/
+  rg -n "protectedScriptActive\b|requireProtectedActivePlayer\b" $HOME/Code/github.com/zsrv/goscape/
 
 Exclude `_test.go` files from the consumer audit (tests pin behavior; they're a
 Stage 2 concern, not a correctness consumer). DO note any test files that
@@ -426,7 +426,7 @@ If the drift table contradicts the hypothesis without offering a verbatim cite, 
 The audit's G3 should enumerate every `requireProtectedActivePlayer(s, ...)` call site in the goscape codebase. Independently:
 
 ```bash
-rg -n "requireProtectedActivePlayer\b" /home/owner/Code/github.com/zsrv/goscape/pkg/ /home/owner/Code/github.com/zsrv/goscape/modules/ | grep -v "_test.go" | grep -v "^.*//.*requireProtectedActivePlayer"
+rg -n "requireProtectedActivePlayer\b" $HOME/Code/github.com/zsrv/goscape/pkg/ $HOME/Code/github.com/zsrv/goscape/modules/ | grep -v "_test.go" | grep -v "^.*//.*requireProtectedActivePlayer"
 ```
 
 Count the production hits. The audit's G3 IN_FLIGHT_HANDLER_GATE row count should match this. If it doesn't, the audit missed a consumer; re-dispatch.

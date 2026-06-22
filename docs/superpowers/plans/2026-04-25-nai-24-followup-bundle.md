@@ -6,7 +6,7 @@
 
 **Architecture:** Two disjoint single-file bundles in `pkg/script`. Bundle 1 applies the NAI-23 Bundle 4 audit cadence (rubric → audit table → wraps → null-pin tests) on `handlers_player.go`. Bundle 2 is a 1-line production fix at `handlers_inv.go:429` plus a doc-comment narration update plus an existing-test assertion flip from `Source: -1` to `Source: <self.uid>`. No inter-bundle dependencies; both committed independently.
 
-**Tech Stack:** Go 1.26+. Existing `checkNotNull` helper at `pkg/script/handlers_player.go:61`. Existing `mockPlayer` test fixture at `pkg/script/runner_test.go:95` (with pre-existing `uidValue int` field at line 189 and `UID() int` method at line 428). TS source root at `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/`.
+**Tech Stack:** Go 1.26+. Existing `checkNotNull` helper at `pkg/script/handlers_player.go:61`. Existing `mockPlayer` test fixture at `pkg/script/runner_test.go:95` (with pre-existing `uidValue int` field at line 189 and `UID() int` method at line 428). TS source root at `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/`.
 
 **Spec reference:** `docs/superpowers/specs/2026-04-25-nai-24-followup-bundle-design.md`.
 
@@ -37,8 +37,8 @@
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go version
-grep -n "s\.PopInt()" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go
-grep -nB1 -A4 "checkNotNull" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go
+grep -n "s\.PopInt()" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go
+grep -nB1 -A4 "checkNotNull" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go
 ```
 
 Record: every `s.PopInt()` line number with its enclosing handler name, and confirm the 5 pre-existing wraps' op-name conventions.
@@ -47,7 +47,7 @@ Record: every `s.PopInt()` line number with its enclosing handler name, and conf
 
 For every popInt site identified in Step 1:
 - Identify the enclosing handler (e.g., `handleSomeOp`).
-- Read the matching TS counterpart in `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts`. Search by opcode mnemonic (the `case ScriptOpcode.OP_NAME:` lines).
+- Read the matching TS counterpart in `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts`. Search by opcode mnemonic (the `case ScriptOpcode.OP_NAME:` lines).
 - Apply rubric → record decision (WRAP / SKIP / ESCALATE) + rationale (TS file:line) in the audit table.
 
 Build the per-handler audit table per the spec format:
@@ -196,8 +196,8 @@ EOF
 - [ ] **Step 1: Re-verify line numbers and cross-package pin status against HEAD**
 
 ```bash
-grep -n "InvListenOnCom(invType, com, " /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_inv.go
-grep -rn "Source.*-1\|lastInvListenOnCom" /home/owner/Code/github.com/zsrv/goscape/pkg /home/owner/Code/github.com/zsrv/goscape/modules
+grep -n "InvListenOnCom(invType, com, " $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_inv.go
+grep -rn "Source.*-1\|lastInvListenOnCom" $HOME/Code/github.com/zsrv/goscape/pkg $HOME/Code/github.com/zsrv/goscape/modules
 ```
 
 Expected: the production call at line 429 still reads `s.Self.InvListenOnCom(invType, com, -1)`; the only test pinning INV_TRANSMIT-specific `Source: -1` is `pkg/script/handlers_inv_test.go:409-411`.

@@ -6,7 +6,7 @@
 
 **Architecture:** New file `pkg/objtype/hittype.go` with three exported constants + `HitTypeCount`. New free-function `checkHitType(v int, op string) error` in `pkg/script/handlers_npc.go` alongside the existing `checkNpcStatID` / `checkNpcMode` / `checkNpcType` validators. Four call-site wraps; one doc-comment refresh.
 
-**Tech Stack:** Go 1.26. Project conventions per `CLAUDE.md`: invoke commands with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go ...`; PATH set via `unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"`; commits use `git commit --no-gpg-sign`; stage explicitly (config.yaml has standing drift). Spec: `docs/superpowers/specs/2026-05-20-hit-type-validator-port-design.md`.
+**Tech Stack:** Go 1.26. Project conventions per `CLAUDE.md`: invoke commands with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go ...`; PATH set via `unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"`; commits use `git commit --no-gpg-sign`; stage explicitly (config.yaml has standing drift). Spec: `docs/superpowers/specs/2026-05-20-hit-type-validator-port-design.md`.
 
 ---
 
@@ -29,7 +29,7 @@
 
 Run:
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 git log --oneline -1
 git status
 ```

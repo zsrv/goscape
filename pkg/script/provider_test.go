@@ -61,7 +61,11 @@ func TestProviderLoadRealCache(t *testing.T) {
 	// version 27) — the repo's own data/pack is revision-specific generated
 	// output that refreshes later in the migration (Task T24); per-branch
 	// reference pinning avoids the cross-revision-cache hazard.
-	cacheDir := "/home/owner/Code/github.com/LostCityRS/Server254-ref/engine/data/pack/server"
+	ref := os.Getenv("GOSCAPE_REF254_DIR")
+	if ref == "" {
+		t.Skip("GOSCAPE_REF254_DIR not set; skipping real-cache load")
+	}
+	cacheDir := filepath.Join(ref, "data", "pack", "server")
 	if _, err := os.Stat(filepath.Join(cacheDir, "script.dat")); os.IsNotExist(err) {
 		t.Skip("Server254-ref cache not present; skipping")
 	}

@@ -364,7 +364,7 @@ positive-side-effect flows mandate the user-launched smoke).
 ## §6. Tech stack
 
 - Go 1.26+ (per `go_version` memory).
-- Engine-TS reference at `/home/owner/Code/github.com/LostCityRS/Engine-TS`
+- Engine-TS reference at `$HOME/Code/github.com/LostCityRS/Engine-TS`
   only (per `ts_source_canonical_path`).
 
 ## §7. Cadence

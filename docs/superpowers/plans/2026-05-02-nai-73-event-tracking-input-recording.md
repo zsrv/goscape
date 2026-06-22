@@ -642,7 +642,7 @@ Expected: PASS.
 
 - [ ] **Step 3.2.1: Read TS InputTracking.ts:1-163 line-by-line as the source of truth**
 
-Reference: `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/tracking/InputTracking.ts`
+Reference: `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/tracking/InputTracking.ts`
 
 Key sections:
 - Lines 10-14: timing constants

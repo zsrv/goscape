@@ -16,15 +16,15 @@ This plan implements every section of `docs/superpowers/specs/2026-05-19-nai-wor
 
 ## Global preconditions (every task)
 
-- Working directory: `/home/owner/Code/github.com/zsrv/goscape`.
-- `unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"` before any `go` invocation (the system's default GOROOT path is stale; the wrapper script needs this).
+- Working directory: `$HOME/Code/github.com/zsrv/goscape`.
+- `unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"` before any `go` invocation (the system's default GOROOT path is stale; the wrapper script needs this).
 - All `go` invocations prefix `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` (project convention from global CLAUDE.md).
 - All commits use `--no-gpg-sign` (project convention from global CLAUDE.md).
 - Before committing, `git status --short` immediately, then `git show --stat HEAD` after the commit. Concurrent shell activity can sneak files into the index (see memory `feedback_git_pre_commit_status_check.md`).
 - Per-commit gates: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./modules/world/... ./pkg/wordenc/... -count=1 -timeout 300s` and `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go vet ./pkg/wordenc/...` must both pass. The full-tree race + smoke-pack runs at T8, T9, T10, T11 (those are the tasks that touch `modules/world`).
 - Smoke-pack invocation when the task touches the cache-loading path:
   ```
-  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+  GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
   ```
   Expected: `12 OK / 0 ERR / 0 SKIP`.
 
@@ -32,13 +32,13 @@ This plan implements every section of `docs/superpowers/specs/2026-05-19-nai-wor
 
 Implementers should read these files directly when porting algorithms — the Go code is a literal port and the TS source is authoritative.
 
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEnc.ts` (267 LOC) — `WordEnc` class, `filter`, helpers, decoders.
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncBadWords.ts` (385 LOC) — `filter`, `filterBadCombinations`, `processBadCharacters`, `getEmulatedBadCharLen`, `comboMatches`, `getIndex`.
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncFragments.ts` (116 LOC) — `filter`, `isBadFragment`, `getInteger`, `indexOfNumber`, `indexOfNonNumber`.
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncDomains.ts` (89 LOC) — `filter`, `filterDomain`, `findMatchingDomain`, `getEmulatedDomainCharLen`.
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncTlds.ts` (142 LOC) — `filter`, `filterTld`, `processTlds`.
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/network/game/client/handler/MessagePublicHandler.ts` — TS call site for `WordEnc.filter` in public-chat broadcast.
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/network/game/server/codec/MessagePrivateEncoder.ts` — TS call site for `WordEnc.filter` in inbound PM.
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEnc.ts` (267 LOC) — `WordEnc` class, `filter`, helpers, decoders.
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncBadWords.ts` (385 LOC) — `filter`, `filterBadCombinations`, `processBadCharacters`, `getEmulatedBadCharLen`, `comboMatches`, `getIndex`.
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncFragments.ts` (116 LOC) — `filter`, `isBadFragment`, `getInteger`, `indexOfNumber`, `indexOfNonNumber`.
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncDomains.ts` (89 LOC) — `filter`, `filterDomain`, `findMatchingDomain`, `getEmulatedDomainCharLen`.
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncTlds.ts` (142 LOC) — `filter`, `filterTld`, `processTlds`.
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/network/game/client/handler/MessagePublicHandler.ts` — TS call site for `WordEnc.filter` in public-chat broadcast.
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/network/game/server/codec/MessagePrivateEncoder.ts` — TS call site for `WordEnc.filter` in inbound PM.
 
 ---
 
@@ -1065,7 +1065,7 @@ git show --stat HEAD
 **Pre-flight checks:**
 ```bash
 ls pkg/wordenc/encfilter/badwords.go 2>/dev/null  # expect: not exist
-wc -l /home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncBadWords.ts  # confirm 385 LOC
+wc -l $HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncBadWords.ts  # confirm 385 LOC
 ```
 
 This is the largest single task. Read `WordEncBadWords.ts` end-to-end before starting.
@@ -1634,7 +1634,7 @@ git show --stat HEAD
 **Pre-flight checks:**
 ```bash
 ls pkg/wordenc/encfilter/domains.go 2>/dev/null  # expect: not exist
-wc -l /home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncDomains.ts  # expect 89
+wc -l $HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncDomains.ts  # expect 89
 ```
 
 - [ ] **Step 1: Write the failing tests**
@@ -1837,7 +1837,7 @@ git show --stat HEAD
 **Pre-flight checks:**
 ```bash
 ls pkg/wordenc/encfilter/tlds.go 2>/dev/null  # expect: not exist
-wc -l /home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncTlds.ts  # expect 142
+wc -l $HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/wordenc/WordEncTlds.ts  # expect 142
 ```
 
 - [ ] **Step 1: Write the failing tests**
@@ -2260,9 +2260,9 @@ Create `tools/wordenc/gen-fixtures.ts`:
 // One-shot generator for goscape's pkg/wordenc/encfilter/testdata/wordenc-fixtures.json.
 // Run from the Engine-TS checkout:
 //
-//   cd /home/owner/Code/github.com/LostCityRS/Engine-TS
-//   bun run /home/owner/Code/github.com/zsrv/goscape/tools/wordenc/gen-fixtures.ts \
-//     > /home/owner/Code/github.com/zsrv/goscape/pkg/wordenc/encfilter/testdata/wordenc-fixtures.json
+//   cd $HOME/Code/github.com/LostCityRS/Engine-TS
+//   bun run $HOME/Code/github.com/zsrv/goscape/tools/wordenc/gen-fixtures.ts \
+//     > $HOME/Code/github.com/zsrv/goscape/pkg/wordenc/encfilter/testdata/wordenc-fixtures.json
 //
 // Reads the wordenc cache at data/pack/client/wordenc, runs WordEnc.filter on
 // each curated input, dumps {input, filtered} pairs as JSON.
@@ -2310,12 +2310,12 @@ console.log(JSON.stringify(pairs, null, 2));
 This step requires the implementer to have access to a built Engine-TS checkout. If `data/pack/client/wordenc` doesn't exist there, run the Engine-TS pack step first.
 
 ```
-cd /home/owner/Code/github.com/LostCityRS/Engine-TS
+cd $HOME/Code/github.com/LostCityRS/Engine-TS
 bun run tools/pack/Build.ts  # if data/pack/client/wordenc is missing
-mkdir -p /home/owner/Code/github.com/zsrv/goscape/pkg/wordenc/encfilter/testdata
-bun run /home/owner/Code/github.com/zsrv/goscape/tools/wordenc/gen-fixtures.ts \
-  > /home/owner/Code/github.com/zsrv/goscape/pkg/wordenc/encfilter/testdata/wordenc-fixtures.json
-cd /home/owner/Code/github.com/zsrv/goscape
+mkdir -p $HOME/Code/github.com/zsrv/goscape/pkg/wordenc/encfilter/testdata
+bun run $HOME/Code/github.com/zsrv/goscape/tools/wordenc/gen-fixtures.ts \
+  > $HOME/Code/github.com/zsrv/goscape/pkg/wordenc/encfilter/testdata/wordenc-fixtures.json
+cd $HOME/Code/github.com/zsrv/goscape
 ```
 
 If running the generator is not feasible in the controller's environment, commit an empty array `[]` to the JSON file and mark a deviation `DEVIATION-NAI-WORDENC-FILTER-D-NO-TS-FIXTURES` retiring when the generator runs.
@@ -2347,7 +2347,7 @@ type fixturePair struct {
 // Skips if either the jagfile or the fixtures JSON is absent (matches the
 // real-cache test convention; see modules/world/loctype_realcache_test.go).
 func TestFilter_AgainstTSFixtures(t *testing.T) {
-	const tsCache = "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/pack"
+	const tsCache = "$HOME/Code/github.com/LostCityRS/Engine-TS/data/pack"
 	jagPath := filepath.Join(tsCache, "client", "wordenc")
 	if _, err := os.Stat(jagPath); err != nil {
 		t.Skipf("wordenc jagfile not present at %s; skipping (rebuild Engine-TS with 'bun run tools/pack/Build.ts')", jagPath)
@@ -2430,7 +2430,7 @@ import (
 //
 // This test is in the world package because s.wordenc is unexported.
 func TestNewServer_LoadsWordencFilter(t *testing.T) {
-	const tsCache = "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/pack"
+	const tsCache = "$HOME/Code/github.com/LostCityRS/Engine-TS/data/pack"
 	// Use the existing test scaffolding that builds a minimal Server for tests.
 	// The wordenc filter MUST be wired even when the cache loader skips other
 	// configs in tests; we test the happy path here.
@@ -2496,7 +2496,7 @@ Expected: all green, modules/world race-clean.
 - [ ] **Step 5: Smoke-pack**
 
 ```
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 Expected: `12 OK / 0 ERR / 0 SKIP`.
 
@@ -2625,7 +2625,7 @@ GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./modules/world/... ./p
 - [ ] **Step 6: Smoke-pack**
 
 ```
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 
 - [ ] **Step 7: Commit**
@@ -2777,7 +2777,7 @@ Expected: all PASS including the new test.
 
 ```
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... -count=1 -timeout 600s 2>&1 | grep -E "^(ok|FAIL|---)" | tail -20
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 Expected: no FAIL, smoke-pack 12/0/0.
 
@@ -2796,8 +2796,8 @@ git show --stat HEAD
 
 **Files:**
 - Modify: `docs/superpowers/specs/2026-05-19-nai-182-d5-social-cluster-design.md` (line 360 — mark deviation retired)
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (top entry — update the "opens" list)
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_182_d5_social_cluster_close.md` (mark NO-WORDENC-FILTER retired alongside the existing CHAT-FILTER-NO-RESTORE entry)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (top entry — update the "opens" list)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_182_d5_social_cluster_close.md` (mark NO-WORDENC-FILTER retired alongside the existing CHAT-FILTER-NO-RESTORE entry)
 
 **Pre-flight checks:**
 ```bash
@@ -2825,7 +2825,7 @@ Edit the existing NAI-182-D5 entry's "opens" portion:
 
 - [ ] **Step 3: Update the D5 close memo**
 
-In `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_182_d5_social_cluster_close.md`, update the `DEVIATION-NAI-182-D5-NO-WORDENC-FILTER` line under `## Opened tags`:
+In `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_182_d5_social_cluster_close.md`, update the `DEVIATION-NAI-182-D5-NO-WORDENC-FILTER` line under `## Opened tags`:
 
 ```diff
 - - `DEVIATION-NAI-182-D5-NO-WORDENC-FILTER` — sendMessagePrivate calls wordpack.Pack(chat) without TS-equivalent WordEnc.filter. goscape has no WordEnc port (only WordPack). Retires when WordEnc lands.
@@ -2834,7 +2834,7 @@ In `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory
 
 - [ ] **Step 4: Write a new memory close memo for this slice**
 
-Create `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_wordenc_filter_close.md`:
+Create `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_wordenc_filter_close.md`:
 
 ```markdown
 ---
@@ -2898,7 +2898,7 @@ Add a one-liner pointer to MEMORY.md (prepend to top after the existing D5 entry
 
 ```
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... -count=1 -timeout 600s 2>&1 | grep -E "^(ok|FAIL)" | wc -l
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 
 - [ ] **Step 6: Commit**

@@ -17,7 +17,7 @@
 - Modify: `pkg/script/active.go` (add LastCom, SendCountDialog)
 - Modify: `pkg/script/runner_test.go` (extend mockPlayer)
 
-- [ ] **Step 1: Find OpPCountDialog's TS opcode number.** Read `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/network/game/server/ServerGameProt.ts` for `P_COUNTDIALOG` or `PCountDialog`. Find the `static readonly P_COUNTDIALOG = new ServerGameProt(N, M)` line. The payload size is 0 (server just tells client "show count dialog"; no data).
+- [ ] **Step 1: Find OpPCountDialog's TS opcode number.** Read `$HOME/Code/github.com/LostCityRS/Engine-TS/src/network/game/server/ServerGameProt.ts` for `P_COUNTDIALOG` or `PCountDialog`. Find the `static readonly P_COUNTDIALOG = new ServerGameProt(N, M)` line. The payload size is 0 (server just tells client "show count dialog"; no data).
 
 Add to `pkg/io/protocol/game/server/prot.go` near the other IF_/P_ ops:
 ```go
@@ -93,7 +93,7 @@ EOF
 
 Grep to confirm exact names. If missing, **stop and report** — they should be in S1 scaffolding.
 
-- [ ] **Step 2: Read TS `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts`** lines 249-251, 368-371, 424-426 for exact handler behavior:
+- [ ] **Step 2: Read TS `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts`** lines 249-251, 368-371, 424-426 for exact handler behavior:
 
 - `P_PAUSEBUTTON`: sets `state.execution = ScriptState.PAUSEBUTTON`; no stack changes.
 - `P_COUNTDIALOG`: writes a PCountDialog packet to the active player's client, then sets `state.execution = ScriptState.COUNTDIALOG`.

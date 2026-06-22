@@ -107,7 +107,7 @@ tests exercise only the filters NAI-8 implements.
 
 - `modules/world/npc_hunt.go` — replace `huntPlayers` stub body
 - `modules/world/npc_event_queue_test.go` — 4 tests
-- `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — 3 updates
+- `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — 3 updates
 
 ### `huntPlayers` body
 

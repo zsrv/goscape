@@ -438,7 +438,7 @@ The `OBJ_PARAM` substring assertion at `:1325-1327` is preserved unchanged.
 - [ ] **Step 6.1: `gofmt -l` clean**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/gofmt -l pkg/script/handlers_npc.go pkg/script/handlers_obj.go pkg/script/handlers_interface.go pkg/script/handlers_obj_test.go
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/gofmt -l pkg/script/handlers_npc.go pkg/script/handlers_obj.go pkg/script/handlers_interface.go pkg/script/handlers_obj_test.go
 ```
 
 Expected: no output (all 4 files gofmt-clean).
@@ -446,7 +446,7 @@ Expected: no output (all 4 files gofmt-clean).
 - [ ] **Step 6.2: `go test -race ./...` 0 FAIL**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test -race ./...
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test -race ./...
 ```
 
 Expected: all packages PASS. Wall clock ~150-160s (modules/world is the long pole). If any FAIL, halt and diagnose.
@@ -454,7 +454,7 @@ Expected: all packages PASS. Wall clock ~150-160s (modules/world is the long pol
 - [ ] **Step 6.3: `TestPackAll_TwelveStageSmoke` PASS**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/packall -run TestPackAll_TwelveStageSmoke -count=1
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/packall -run TestPackAll_TwelveStageSmoke -count=1
 ```
 
 Expected: PASS.
@@ -479,7 +479,7 @@ If any post-impl count differs from expected, STOP — wiring incomplete or unin
 - [ ] **Step 6.5: Targeted test PASS**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run "TestObjName|TestObjParam|TestNpcType|TestNpcChange|TestIfSetNpcHead|TestIfSetObject" -count=1 -v 2>&1 | tail -40
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run "TestObjName|TestObjParam|TestNpcType|TestNpcChange|TestIfSetNpcHead|TestIfSetObject" -count=1 -v 2>&1 | tail -40
 ```
 
 Expected: all matched tests PASS, including the 2 flipped assertions.

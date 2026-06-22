@@ -41,15 +41,15 @@ with the same edge-case handling**.
 
 ## Reference paths & baselines
 
-- **Go (subject):** `/home/owner/Code/github.com/zsrv/goscape` — HEAD `6589f9d1` (TS-parity
+- **Go (subject):** `$HOME/Code/github.com/zsrv/goscape` — HEAD `6589f9d1` (TS-parity
   target; orientation arc closed at `1c7752da`).
-- **TS (reference of record):** `/home/owner/Code/github.com/LostCityRS/Engine-TS` —
+- **TS (reference of record):** `$HOME/Code/github.com/LostCityRS/Engine-TS` —
   baseline commit `e1dea19f` (2026-02-23 "Synced with latest engine work"). Pin this SHA;
   if it has advanced, note the diff range so audit findings aren't confused with upstream drift.
-- **Java client (wire-decode oracle only):** `/home/owner/Code/github.com/LostCityRS/Client-Java`
+- **Java client (wire-decode oracle only):** `$HOME/Code/github.com/LostCityRS/Client-Java`
   — use to adjudicate *wire-format* questions the TS side can't answer (opcode sizes, bit
   layouts, orientation/dstYaw math). Not the parity reference for logic.
-- **Content (scripts/configs):** `/home/owner/Code/github.com/LostCityRS/Content`.
+- **Content (scripts/configs):** `$HOME/Code/github.com/LostCityRS/Content`.
 - **Existing trackers:** `PORTING.md` (slim active), `docs/PORTING-CLOSED.md` (historical
   closed axes + shipped fixes). The audit should reconcile against these but **independently
   re-derive** — a row marked CLOSED is a claim to verify, not a skip.

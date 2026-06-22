@@ -926,7 +926,7 @@ Refs NAI-36-D2 (close commit at T6)."
 ## Task 6 — Close commit
 
 **Files:**
-- Modify: `nai_followups.md` (memory at `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`)
+- Modify: `nai_followups.md` (memory at `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`)
 
 - [ ] **Step 1: Stale-deviation grep**
 
@@ -947,7 +947,7 @@ Expected: all green; no vet warnings.
 
 - [ ] **Step 3: Append NAI-58 close section to `nai_followups.md`**
 
-Use the Write/Edit tool (per memory-write sandbox quirk — never `bash` redirects) to append a new `## NAI-58 — CLOSED 2026-05-XX` section to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`, modeled on the NAI-57 section at line ~2824. Required fields:
+Use the Write/Edit tool (per memory-write sandbox quirk — never `bash` redirects) to append a new `## NAI-58 — CLOSED 2026-05-XX` section to `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`, modeled on the NAI-57 section at line ~2824. Required fields:
 
 - **Scope:** one sentence
 - **Cadence:** Full sub-spec, single bundle, 6 tasks

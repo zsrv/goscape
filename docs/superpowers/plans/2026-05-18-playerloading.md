@@ -283,7 +283,7 @@ var fixturePlayerValues = struct {
 - [ ] **Step 3: Commit the fixture infrastructure (README + values file)**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 git add modules/world/testdata/playerloading/README.md \
         modules/world/playerloading_fixture_values_test.go
 git commit --no-gpg-sign -m "test(world/playerloading): fixture infrastructure (README + values mirror)
@@ -933,7 +933,7 @@ func newTestPlayer(t *testing.T) (*Player, *objtype.InvTypeConfigs) {
 ```
 
 **Important**: confirm `objtype.InvTypeConfigs` type name + exact path
-via `grep -nR "type InvTypeConfigs" /home/owner/Code/github.com/zsrv/goscape/pkg/objtype/`. Adjust as needed.
+via `grep -nR "type InvTypeConfigs" $HOME/Code/github.com/zsrv/goscape/pkg/objtype/`. Adjust as needed.
 
 Modify the V1 decode test:
 
@@ -2230,13 +2230,13 @@ Expected: no findings.
 
 - [ ] **Step 5: Optional smoke-pack sanity (codec doesn't affect pack but run anyway)**
 
-Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content`
+Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content`
 Expected: same 12 OK / 0 ERR / 0 SKIP baseline as start-of-session. No regression on pack stages.
 
 - [ ] **Step 6: Update memory + commit close**
 
 Add a memory entry summarizing the slice. Update
-`/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
+`$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
 with a new line:
 
 ```markdown
@@ -2252,9 +2252,9 @@ standard frontmatter + body.
 - [ ] **Step 7: Write the close commit (no code; memory + tag only)**
 
 ```bash
-git add /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/
+git add $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/
 # Memory auto-commit hook will commit these in the memory repo; otherwise:
-# git -C /home/owner/.claude/projects/... commit ...
+# git -C $HOME/.claude/projects/... commit ...
 
 # In goscape repo:
 git commit --no-gpg-sign --allow-empty -m "chore(close): NAI-PLAYERLOADING — SAV codec + RPC wire-up shipped

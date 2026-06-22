@@ -75,7 +75,7 @@ If a 3rd production caller surfaces, flag as scope-expansion: Task 1's signature
 
 - [ ] **Step 0.4: Verify low-def-stays-single-cache assumption per `spec_test_runtime_behavior_verify.md`**
 
-Read the FULL `info.rs::lowdefinition()` body in `/home/owner/Code/github.com/2004scape/rsbuf/src/info.rs` starting at line 296. Search for any `CHAT` reference inside the function body.
+Read the FULL `info.rs::lowdefinition()` body in `$HOME/Code/github.com/2004scape/rsbuf/src/info.rs` starting at line 296. Search for any `CHAT` reference inside the function body.
 
 Expected: zero CHAT references in `lowdefinition()`. The function only manipulates APPEARANCE / FACE_ENTITY / FACE_COORD / orientation-fallback masks.
 
@@ -94,10 +94,10 @@ If `HighDefOf` IS read in `modules/world/`, NAI-32 needs a 4th cache variant. St
 - [ ] **Step 0.6: Pre-pull canonical TS file paths for Bundle 2 citation replacements**
 
 ```bash
-ls /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/ScriptFile.ts \
-   /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/zone/ZoneGrid.ts \
-   /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/MoveRestrict.ts \
-   /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/BlockWalk.ts
+ls $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/ScriptFile.ts \
+   $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/zone/ZoneGrid.ts \
+   $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/MoveRestrict.ts \
+   $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/BlockWalk.ts
 ```
 
 Expected: all 4 files exist. If any path is wrong, update Bundle 2 Task 5 below.
@@ -837,11 +837,11 @@ Compressed cadence per `compressed_cadence.md`. Single review pass. No TDD (doc-
 
 ```go
 // Replace (2 lines):
-// Ported from /home/owner/Code/github.com/zsrv/rs-server-225/engine/zone/grid.go,
+// Ported from $HOME/Code/github.com/zsrv/rs-server-225/engine/zone/grid.go,
 // renamed Grid → ZoneGrid for clarity in the package-qualified zone.ZoneGrid form.
 
 // With (1 line):
-// Ported from /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/zone/ZoneGrid.ts.
+// Ported from $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/zone/ZoneGrid.ts.
 ```
 
 - [ ] **Step 5.3: Edit `pkg/objtype/npctype.go:25` and `:36`**

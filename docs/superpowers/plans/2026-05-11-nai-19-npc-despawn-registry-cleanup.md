@@ -11,7 +11,7 @@
 
 Mid-tick iteration safety solved by end-of-tick mark/compact (deferred from TS's immediate per-zone splice). RESPAWN-lifecycle NPCs are preserved in `s.npcLoop` (their `dead=true` flips on next `lifecycleTick==0`). Tracked deviation: `NAI-19-D-DEFERRED-COMPACT-VS-IMMEDIATE-SPLICE`.
 
-**Tech stack:** Go 1.26+; project root `/home/owner/Code/github.com/zsrv/goscape`. All `go` commands prefixed with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`. All commits use `git commit --no-gpg-sign`.
+**Tech stack:** Go 1.26+; project root `$HOME/Code/github.com/zsrv/goscape`. All `go` commands prefixed with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`. All commits use `git commit --no-gpg-sign`.
 
 **Pre-flight verified at plan-write (commit `738a97b`):**
 - `*Npc` fields: `nid int` (npc.go:28), `uid int` (npc.go:33), `lifecycle int` (npc.go:46), `dead bool` (npc.go:49), `activeScript *script.ScriptState` (npc.go:82), `queue []script.NpcQueueRequest` (npc.go:85), `huntTarget entity` (npc.go:93).

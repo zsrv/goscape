@@ -1270,7 +1270,7 @@ Expected: HEAD is the B2 commit, parent is the B1 commit.
 ## Task 3.0: Close commit + tracker update
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append `## NAI-62 — CLOSED YYYY-MM-DD` block at the end (after the existing NAI-61 close).
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append `## NAI-62 — CLOSED YYYY-MM-DD` block at the end (after the existing NAI-61 close).
 
 - [ ] **Step 1: Append the NAI-62 close block to nai_followups.md**
 
@@ -1311,7 +1311,7 @@ Replace `YYYY-MM-DD` with the actual close date (read via `date +%Y-%m-%d`).
 - [ ] **Step 2: Verify there are no stale references to retire**
 
 ```bash
-rg -n "NAI-62" /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/
+rg -n "NAI-62" $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/
 rg -n "NAI-62" docs/superpowers/
 ```
 
@@ -1323,7 +1323,7 @@ Expected: matches in spec, plan, and the new close block. No other references sh
 git --no-pager log --oneline -2
 
 # Stage only the memory file (the spec + plan are already committed).
-git add /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+git add $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 chore(close): NAI-62 — targetSubject.com → typeId dispatch override

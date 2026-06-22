@@ -4,7 +4,7 @@
 
 NAI-202 (closed at e2a424a) shipped `pkg/pack/compiler.BuildSymbols(srcDir, dataPackDir)` — the 32-key symbol table TS `Compiler.ts:330-365` hands to `CompileServerScript`. After NAI-202, the **only** thing blocking end-to-end `.rs2` → `script.dat/idx` compilation is the external `@lostcityrs/runescript` compiler itself.
 
-That compiler is non-trivial — RuneScriptTS clone at `/home/owner/Code/github.com/LostCityRS/RuneScriptTS` is **130 TypeScript files** plus two ANTLR4 grammars (`src/antlr/RuneScriptLexer.g4` 105 lines, `RuneScriptParser.g4` 228 lines) compiled via `antlr-ng` to TypeScript. The arc decomposition from NAI-202 §12, lightly refined here:
+That compiler is non-trivial — RuneScriptTS clone at `$HOME/Code/github.com/LostCityRS/RuneScriptTS` is **130 TypeScript files** plus two ANTLR4 grammars (`src/antlr/RuneScriptLexer.g4` 105 lines, `RuneScriptParser.g4` 228 lines) compiled via `antlr-ng` to TypeScript. The arc decomposition from NAI-202 §12, lightly refined here:
 
 - **NAI-203 (this slice)**: lexer + token stream — hand-port of `src/antlr/RuneScriptLexer.g4`.
 - **NAI-204**: parser + AST — hand-port of `RuneScriptParser.g4` plus `src/parser/ast/` and `src/parser/parser/AstBuilder.ts`.
@@ -54,7 +54,7 @@ Port `@lostcityrs/runescript` lexer to goscape as a self-contained hand-written 
 
 - Go 1.26+ (per [[go_version]] memory; uses `slices.Clone`, `slices.Concat`, `strings.SplitSeq` if helpful).
 - No new external deps. No ANTLR4 runtime, no codegen toolchain.
-- TS source-of-truth: `/home/owner/Code/github.com/LostCityRS/RuneScriptTS/src/antlr/RuneScriptLexer.g4` (105 lines).
+- TS source-of-truth: `$HOME/Code/github.com/LostCityRS/RuneScriptTS/src/antlr/RuneScriptLexer.g4` (105 lines).
 - Cross-reference: `RuneScriptTS/src/parser/parser/ScriptParser.ts`, `RuneScriptTS/src/parser/ast/NodeSourceLocation.ts`, `RuneScriptTS/src/compiler/ParserErrorListener.ts`.
 
 ## 4. Non-goals
@@ -483,7 +483,7 @@ All tests pass under `-race`. Lexer is not goroutine-safe per §6, but tests don
 
 ## 8. Open questions
 
-- **CHAR_LITERAL with multi-char body**: `'ab'` — does antlr4ng emit one error token, or CHAR_LITERAL `'a'` + IDENT `b` + error? Plan-author must trace via `cd /home/owner/Code/github.com/LostCityRS/RuneScriptTS && bun test` (or hand-trace `antlr4ng-runtime/src/Lexer.ts:nextToken`). If unclear, pick the simpler path and document under `NAI-203-D-CHAR-LIT-MULTICHAR`.
+- **CHAR_LITERAL with multi-char body**: `'ab'` — does antlr4ng emit one error token, or CHAR_LITERAL `'a'` + IDENT `b` + error? Plan-author must trace via `cd $HOME/Code/github.com/LostCityRS/RuneScriptTS && bun test` (or hand-trace `antlr4ng-runtime/src/Lexer.ts:nextToken`). If unclear, pick the simpler path and document under `NAI-203-D-CHAR-LIT-MULTICHAR`.
 - **`5-3` (no whitespace)**: per §5.5.1 reasoning, ANTLR's context-free lexer should emit INTEGER `5` + INTEGER `-3`. Plan-author traces antlr4ng on this exact input to confirm. If divergent, raise `NAI-203-D-MINUS-INTEGER-BONDING`.
 - **Tag charset in `STRING_TAG`**: the `.g4` allows `=` followed by any non-`<>` chars. Does `<col=red blue>` lex as one STRING_TAG (with space inside)? Per the `~('<' | '>')+` rule — yes. Confirm in golden fixture.
 

@@ -551,12 +551,12 @@ Block on user response. If `smoke OK`, proceed to Task 9. If smoke fails, surfac
 **Why:** Per `post_task_handoff` memory: at every task close, save non-derivable info to memory. The fixture-parity gap surfaced in Stage 2 controller pre-flight is generalizable: any future test exercising script dispatch via `processNpcQueue`/`runScript`/`runNpcScript` against `newTestServer` risks the same trap.
 
 **Files:**
-- Create: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/test_fixture_view_parity.md`
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
+- Create: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/test_fixture_view_parity.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
 
 - [ ] **Step 1: Write the new memory file**
 
-Create `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/test_fixture_view_parity.md`:
+Create `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/test_fixture_view_parity.md`:
 
 ```markdown
 ---
@@ -609,7 +609,7 @@ Add (sorted into the existing alphabetical/topical structure, e.g. near other te
 
 - [ ] **Step 3: Verify MEMORY.md is still under the 24KB warning threshold**
 
-Run: `wc -c /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
+Run: `wc -c $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
 
 If now over 24KB, retire the longest stale entry (check for entries marked CLOSED or with smoke-confirmed dates older than 2026-04-15).
 

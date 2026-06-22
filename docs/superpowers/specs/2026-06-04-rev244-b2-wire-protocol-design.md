@@ -15,7 +15,7 @@ Port the B2 slice of the Engine-TS cross-pin diff
 +620/−946) plus the `@2004scape/rsbuf` crate delta `225.1.7 → 244.1.0`, with
 the damage2 entity feed pulled forward from B3 (user-approved scope decision).
 
-**rsbuf reference:** local clone `/home/owner/Code/github.com/2004scape/rsbuf`.
+**rsbuf reference:** local clone `$HOME/Code/github.com/2004scape/rsbuf`.
 The 225 baseline is branch `225` (Cargo.toml `225.1.7`, the prior audit pin);
 the 244 target is `origin/244` tip `1defefb` ("feat: add support for damage2"),
 **verified identical** to the published npm `244.1.0` dist consumed by

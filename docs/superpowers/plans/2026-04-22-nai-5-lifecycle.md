@@ -759,7 +759,7 @@ EOF
 
 **Files:**
 - Modify: `modules/world/tick.go` (add `s.processNpcEventQueue()` call)
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (track npc_changetype duration wiring)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (track npc_changetype duration wiring)
 
 - [ ] **Step 1: Wire `processNpcEventQueue` in the tick driver**
 
@@ -801,7 +801,7 @@ Expected: clean build; all tests PASS; race suite clean.
 
 - [ ] **Step 3: Update `nai_followups.md` memory with the `npc_changetype` duration follow-up**
 
-Open `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. After the existing "## From NAI-3 (2026-04-22)" block, append:
+Open `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. After the existing "## From NAI-3 (2026-04-22)" block, append:
 
 ```markdown
 
@@ -835,7 +835,7 @@ pass or fold into NAI-7 (which already needs interface changes).
 - [ ] **Step 4: Commit, closing NAI-5**
 
 ```bash
-git add modules/world/tick.go /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+git add modules/world/tick.go $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 feat(world): NAI-5 wire processNpcEventQueue in tick loop — closes NAI-5
 
