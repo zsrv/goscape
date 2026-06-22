@@ -12,7 +12,7 @@ Port TS `Player.pathToPathingTarget`'s `!canAccess()` gate (Player.ts:1044-1046)
 
 ## 2. TS source of truth
 
-`/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts`:
+`$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts`:
 
 | Line | Code | Bears on |
 |---|---|---|

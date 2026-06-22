@@ -32,7 +32,7 @@ helpers `newTestPlayer`/`newInvListenerTestPlayer`/`seedComponentTypes`/`drainCo
 | `modules/world/modal_close_test.go` | Modify (1 test) + add 2 tests | Rewrite `TestModalCloseEmitsStopTransmit` (no longer matches behaviour); add `TestCloseModalClearsOnlyListenersForClosingSlots` and `TestCloseModalNoListenersStillWritesIfClose`. |
 | `modules/world/player_inv_test.go` | Modify (3 tests) + add 3 tests | Add packet assertions to existing `invStopListenOnCom` tests; add `TestInvStopListenOnComWritesUpdatePacket`, `TestInvStopListenOnComMissingKeyWritesNoPacket`, `TestInvStopListenOnComNilMapWritesNoPacket`. |
 | `modules/world/player_clearcomlisteners_test.go` | Create | New test file for the four `clearComListeners` unit tests (file-locality with helper). |
-| `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` | Modify | Append `## NAI-64 — CLOSED` section in T3. |
+| `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` | Modify | Append `## NAI-64 — CLOSED` section in T3. |
 
 ---
 
@@ -855,13 +855,13 @@ EOF
 **Goal:** Update `nai_followups.md` with the NAI-64 close section. Final regression run. Close commit with `Closes memory:` trailer.
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
 
 ### Step 3.1: Append NAI-64 close section to `nai_followups.md`
 
 - [ ] **Append after the existing NAI-63 section**
 
-Open `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` and append at end:
+Open `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` and append at end:
 
 ```markdown
 
@@ -947,7 +947,7 @@ Expected: zero hits for all three.
 - [ ] **Commit**
 
 ```bash
-git add /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+git add $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 chore(close): NAI-64 — clearComListeners per-slot + invStopListenOnCom packet collapse
 

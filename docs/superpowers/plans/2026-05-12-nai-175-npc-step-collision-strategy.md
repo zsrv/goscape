@@ -36,16 +36,16 @@
 ```
 You are auditing a TS→Go port. Read these files end-to-end before answering:
 
-- /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/PathingEntity.ts lines 175-232 (validateAndAdvanceStep), 617-683 (takeStep), 558-575 (getCollisionStrategy)
-- /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Npc.ts lines 381-398 (blockWalkFlag)
-- /home/owner/Code/github.com/zsrv/goscape/modules/world/npc_interaction.go lines 339-370 (Npc.stepOnce), 276-337 (Npc.updateMovement), 81-102 (wanderMode), 158-270 (processMovementInteraction)
-- /home/owner/Code/github.com/zsrv/goscape/modules/world/movement.go lines 1-160 (Player.stepOnce + updateMovement)
-- /home/owner/Code/github.com/zsrv/goscape/modules/world/npc.go lines 240-290 (blockWalkFlag, getCollisionStrategy)
-- /home/owner/Code/github.com/zsrv/goscape/modules/world/player.go lines 598-640 (Width, blockWalkFlag, getCollisionStrategy)
-- /home/owner/Code/github.com/zsrv/goscape/pkg/gamemap/gamemap.go lines 130-145 (CanTravel wrapper)
-- /home/owner/Code/github.com/zsrv/goscape/pkg/pathfinder/routefinder/stepvalidator.go lines 17-42 (CanTravel impl)
-- /home/owner/Code/github.com/zsrv/goscape/pkg/pathfinder/collision/strategies.go (CanMove + Type semantics)
-- /home/owner/Code/github.com/zsrv/goscape/pkg/pathfinder/collision/flag.go (Flag* constants)
+- $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/PathingEntity.ts lines 175-232 (validateAndAdvanceStep), 617-683 (takeStep), 558-575 (getCollisionStrategy)
+- $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Npc.ts lines 381-398 (blockWalkFlag)
+- $HOME/Code/github.com/zsrv/goscape/modules/world/npc_interaction.go lines 339-370 (Npc.stepOnce), 276-337 (Npc.updateMovement), 81-102 (wanderMode), 158-270 (processMovementInteraction)
+- $HOME/Code/github.com/zsrv/goscape/modules/world/movement.go lines 1-160 (Player.stepOnce + updateMovement)
+- $HOME/Code/github.com/zsrv/goscape/modules/world/npc.go lines 240-290 (blockWalkFlag, getCollisionStrategy)
+- $HOME/Code/github.com/zsrv/goscape/modules/world/player.go lines 598-640 (Width, blockWalkFlag, getCollisionStrategy)
+- $HOME/Code/github.com/zsrv/goscape/pkg/gamemap/gamemap.go lines 130-145 (CanTravel wrapper)
+- $HOME/Code/github.com/zsrv/goscape/pkg/pathfinder/routefinder/stepvalidator.go lines 17-42 (CanTravel impl)
+- $HOME/Code/github.com/zsrv/goscape/pkg/pathfinder/collision/strategies.go (CanMove + Type semantics)
+- $HOME/Code/github.com/zsrv/goscape/pkg/pathfinder/collision/flag.go (Flag* constants)
 
 Then `grep -rn "\.CanTravel(" modules/ pkg/ --include='*.go'` and list every caller.
 
@@ -919,9 +919,9 @@ Stage 3 conditional probe: insert `slog.Info("nai175.stepOnce", "typeId", n.type
 ## Task 10: Close — memory + retire Sub-H7
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
-- Create: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai175_step_collision_strategy.md`
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (retire Sub-H7)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
+- Create: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai175_step_collision_strategy.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (retire Sub-H7)
 
 - [ ] **Step 1: Write the memory entry**
 
@@ -961,7 +961,7 @@ Locate the Sub-H7 entry in `memory/nai_followups.md` (around line 5249). Replace
 ```bash
 git add docs/superpowers/specs/2026-05-12-nai-175-npc-step-collision-strategy-design.md \
         docs/superpowers/plans/2026-05-12-nai-175-npc-step-collision-strategy.md
-git -C /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory add MEMORY.md nai175_step_collision_strategy.md nai_followups.md 2>/dev/null || true
+git -C $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory add MEMORY.md nai175_step_collision_strategy.md nai_followups.md 2>/dev/null || true
 git commit --no-gpg-sign -m "chore(close): NAI-175 — NPC stepOnce per-NPC collision strategy port, retire Sub-H7
 
 Lumbridge ducks (MoveRestrictBlocked) wander again. (*Npc).stepOnce

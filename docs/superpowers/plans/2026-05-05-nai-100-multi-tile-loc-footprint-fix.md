@@ -577,7 +577,7 @@ Expected: clean build, binary written.
 
 Per `nai_98_fountain_footprint_residual` memory entry, NAI-99 closed with the residual routed to NAI-100. Update the memory file to mark NAI-100 as the closer:
 
-Read `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_98_fountain_footprint_residual.md` and update the description and body to indicate NAI-100 closed the residual. Also update `MEMORY.md` index line accordingly.
+Read `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_98_fountain_footprint_residual.md` and update the description and body to indicate NAI-100 closed the residual. Also update `MEMORY.md` index line accordingly.
 
 - [ ] **Step 5.2: Add NAI-100 follow-ups memory entry (if any surfaced)**
 
@@ -658,7 +658,7 @@ Per `smoke_test_server_handoff` memory: this implementer does NOT run the smoke.
 
 1. Build the binary: `CGO_ENABLED=0 go build -trimpath -o /tmp/goscape ./cmd/goscape` (with the `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` prefix).
 2. Run the server with the project's `config.yaml`.
-3. Connect the Java client (`/home/owner/Code/github.com/LostCityRS/Client-Java`) and log in to a fresh character. Spawn coords default to Lumbridge.
+3. Connect the Java client (`$HOME/Code/github.com/LostCityRS/Client-Java`) and log in to a fresh character. Spawn coords default to Lumbridge.
 4. From spawn `(3221, 3218)`, click NW toward the fountain `(3221..3222, 3226..3227)`.
 5. **Expected:** player cannot walk onto any of the 4 footprint tiles; pathfinder routes around.
 6. Bind result. Per `cascade_theory_smoke_binding`: if multi-tile loc collision works for the fountain, root cause is closed. If other multi-tile features still misbehave (path-around shape-blindness, etc.), residuals route to NAI-101+.

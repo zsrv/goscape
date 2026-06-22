@@ -386,7 +386,7 @@ func (s *Server) processPlayerEngineQueues() {
 **Cross-check before saving:** the `canAccess` method must exist on `*Player`. Grep `func (p \*Player) canAccess` to verify. If it's named differently (`Busy`, `IsAccessible`, etc.), use the actual method name. (Per memory `mock_recorder_field_naming_check`: don't infer method names.)
 
 ```bash
-grep -n "func (p \*Player) canAccess\|func (p \*Player) CanAccess" /home/owner/Code/github.com/zsrv/goscape/modules/world/*.go
+grep -n "func (p \*Player) canAccess\|func (p \*Player) CanAccess" $HOME/Code/github.com/zsrv/goscape/modules/world/*.go
 ```
 
 If `canAccess` is missing, the implementer should look for the goscape equivalent — likely `!p.Busy()` (since `Busy()` returns `delayed || modalMain|Chat`). TS `canAccess()` typically maps to `!busy() && !logged_out`. If unsure, the implementer should pause and re-derive from TS `Player.canAccess` definition before continuing. Update tests accordingly if the gate uses `!p.Busy()` instead of `p.canAccess()`.
@@ -461,7 +461,7 @@ If `canAccess()` is implemented as `!p.Busy()` AND `Busy() = delayed || modal`, 
 Re-derive from TS `canAccess()` semantics. In TS, `canAccess()` typically gates on logged-out + connection state, NOT on delayed/modal. Verify by grepping TS:
 
 ```bash
-grep -n "canAccess()" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts | head -5
+grep -n "canAccess()" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts | head -5
 ```
 
 If TS `canAccess()` does NOT include the modal/delayed check, then T5 is meaningful: delayed=true with canAccess=true should fire engineQueue entries. Goscape's port of `canAccess()` should match TS — verify it doesn't accidentally tie to Busy().
@@ -874,7 +874,7 @@ gate-releases-when-empty.
 Run:
 
 ```bash
-grep -n "p\.queue\|QueueNormal\|QueueEngine" /home/owner/Code/github.com/zsrv/goscape/modules/world/player_script_test.go | head -30
+grep -n "p\.queue\|QueueNormal\|QueueEngine" $HOME/Code/github.com/zsrv/goscape/modules/world/player_script_test.go | head -30
 ```
 
 Expected affected tests at HEAD:

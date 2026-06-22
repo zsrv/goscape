@@ -60,8 +60,8 @@ NPC AI is two modes for sub-spec 3c: WANDER (12.5% chance per tick to pick a ran
 `pkg/objtype/npctype.go`:
 
 ```bash
-cp /home/owner/Code/github.com/zsrv/rs-server-225/cache/config/npctype.go \
-   /home/owner/Code/github.com/zsrv/goscape/pkg/objtype/
+cp $HOME/Code/github.com/zsrv/rs-server-225/cache/config/npctype.go \
+   $HOME/Code/github.com/zsrv/goscape/pkg/objtype/
 sed -i '1s/^package config$/package objtype/' npctype.go
 sed -i 's|github.com/zsrv/rs-server-225/io/packet|github.com/zsrv/goscape/pkg/io/packet|g' npctype.go
 sed -i 's|"github.com/zsrv/rs-server-225/io"|io "github.com/zsrv/goscape/pkg/io/jagfile"|g' npctype.go

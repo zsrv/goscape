@@ -190,7 +190,7 @@ EOF
 
 Also read `pkg/inventory/`'s Item struct to know the `ID` / `Count` field names.
 
-- [ ] **Step 2: Read TS InvOps.ts** for exact pop order + formula per opcode. The spec lists guesses; verify the real shapes at `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/InvOps.ts`. Especially:
+- [ ] **Step 2: Read TS InvOps.ts** for exact pop order + formula per opcode. The spec lists guesses; verify the real shapes at `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/InvOps.ts`. Especially:
 - INV_ITEMSPACE / INV_ITEMSPACE2 formula (size parameter semantics).
 - INV_SETSLOT: does TS pop `(typeID, slot, objID, count)` or a different order?
 - INV_TOTALPARAM: does it check ObjType.Params then fall back to ParamType.DefaultInt?

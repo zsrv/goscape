@@ -2,7 +2,7 @@
 
 > **Sub-spec context:** Thirteenth sub-spec in the runescript-s* series. Closes S6j-D5 (last major unclosed S6j deviation) by wiring the OpLocT (spell-on-loc) and OpLocU (item-on-loc) sibling opcodes to fire single-trigger APLOCT/OPLOCT and APLOCU/OPLOCU scripts.
 
-> **TS-faithfulness gate:** User requires "true to TS." All behavioral claims cite TS line numbers in `/home/owner/Code/github.com/LostCityRS/Engine-TS`. Four new documented deviations (S6m-D1 through S6m-D4), all for validation gates that require pre-existing infrastructure goscape hasn't built yet (component registry, members-config, keyed InvListener map).
+> **TS-faithfulness gate:** User requires "true to TS." All behavioral claims cite TS line numbers in `$HOME/Code/github.com/LostCityRS/Engine-TS`. Four new documented deviations (S6m-D1 through S6m-D4), all for validation gates that require pre-existing infrastructure goscape hasn't built yet (component registry, members-config, keyed InvListener map).
 
 > **Scope:** Approach 1 (scoped validation). Core TS gates (delayed, viewport, loc-exists, locType-exists) wired; complex validation (component visibility, members-only items, inventory-listener lookup) deferred with explicit deviation documentation.
 

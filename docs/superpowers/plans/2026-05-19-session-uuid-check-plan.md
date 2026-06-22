@@ -11,8 +11,8 @@
 **Spec:** `docs/superpowers/specs/2026-05-19-session-uuid-check-design.md`
 
 **Verification gates** (run after T6):
-- `unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"; GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... -count=1 -timeout 600s` — zero FAIL across all packages.
-- `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content` — 12 OK / 0 ERR / 0 SKIP.
+- `unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"; GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... -count=1 -timeout 600s` — zero FAIL across all packages.
+- `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content` — 12 OK / 0 ERR / 0 SKIP.
 
 **Discipline:** Per global CLAUDE.md, every `go` invocation prefixes `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`; every commit uses `--no-gpg-sign`; pre-commit `git status`, post-commit `git show --stat HEAD`. Test helper files use `_test.go` suffix (these are existing files — no new test helpers added in this plan).
 
@@ -39,7 +39,7 @@
 
 - [ ] **Step 1.1: Read the end of the file to find the right insertion point**
 
-Run: `unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"; wc -l modules/login/db_test.go`
+Run: `unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"; wc -l modules/login/db_test.go`
 
 Note the last line number; the new test goes at the end of the file (after the existing last test).
 
@@ -112,7 +112,7 @@ import (
 Run:
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/login/ -run TestSessionUUIDCheckRejectsNonUUID -count=1 -v
 ```
 
@@ -203,7 +203,7 @@ ALTER TABLE session_new RENAME TO session;
 Run:
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/login/ -run TestSessionUUIDCheckRejectsNonUUID -count=1 -v
 ```
 
@@ -255,7 +255,7 @@ git show --stat HEAD | head -10
 Run:
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/login/ -run TestInsertSession -count=1 -v
 ```
 
@@ -300,7 +300,7 @@ Replace with:
 Run:
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/login/ -run TestInsertSession -count=1 -v
 ```
 
@@ -370,7 +370,7 @@ func TestSessionUUIDCheckAcceptsEmpty(t *testing.T) {
 Run:
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/login/ -run TestSessionUUIDCheckAcceptsEmpty -count=1 -v
 ```
 
@@ -571,7 +571,7 @@ import (
 Run:
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/login/ -run TestMigration002CoercesLegacyRows -count=1 -v
 ```
 
@@ -616,15 +616,15 @@ git show --stat HEAD | head -10
 **Goal:** Confirm the full suite stays green under `-race`, smoke-pack holds, and write the memory close memo retiring B3.
 
 **Files:**
-- Create: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/post_friends_arc_cleanup_b3_close.md`
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
+- Create: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/post_friends_arc_cleanup_b3_close.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
 
 - [ ] **Step 6.1: Run full `-race` suite**
 
 Run:
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... -count=1 -timeout 600s 2>&1 | tail -30
 ```
 
@@ -635,15 +635,15 @@ Expected: every line either `ok` / `PASS` or `[no test files]`. Zero `FAIL`. If 
 Run:
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content 2>&1 | tail -20
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content 2>&1 | tail -20
 ```
 
 Expected: `Result: 12 OK, 0 ERR, 0 SKIP` in the final summary line. This gate confirms the login module still builds into the full binary.
 
 - [ ] **Step 6.3: Write memory close memo**
 
-Create `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/post_friends_arc_cleanup_b3_close.md` with this content (replace the commit-hash placeholders with actuals from `git log --oneline af55430b..HEAD`):
+Create `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/post_friends_arc_cleanup_b3_close.md` with this content (replace the commit-hash placeholders with actuals from `git log --oneline af55430b..HEAD`):
 
 ```markdown
 ---
@@ -677,7 +677,7 @@ B3 (deferred during the post-friends-arc cleanup batch) shipped 2026-05-19 acros
 
 - [ ] **Step 6.4: Update MEMORY.md**
 
-In `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`, insert a new entry ABOVE the existing `post-friends-arc-cleanup-b-close` line (which is currently the second line, just below `git-pre-commit-status-check`). The new entry must be one line, under ~200 chars per the file's `>` warning style. Suggested text:
+In `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`, insert a new entry ABOVE the existing `post-friends-arc-cleanup-b-close` line (which is currently the second line, just below `git-pre-commit-status-check`). The new entry must be one line, under ~200 chars per the file's `>` warning style. Suggested text:
 
 ```
 - [post-friends-arc cleanup B3 close](post_friends_arc_cleanup_b3_close.md) — session_uuid CHECK shipped 2026-05-19 across N commits <first>..<last> on top of [[post-friends-arc-cleanup-b-close]]; new migration 000002 rebuilds session table with shape-level CHECK ('' OR `GLOB '????????-????-????-????-????????????'`) + inline coerces pre-slice-7 IP:port rows to ""; 3 new tests (rejection / empty-accept / legacy-coerce-with-AUTOINCREMENT-continuity) + 1 existing test fixup (TestInsertSession uses UUID literal); zero app-code change (insertSession already writes UUIDs); friends DB unaffected; -race clean; smoke-pack 12 OK; retires B3 deferred-item line
@@ -690,7 +690,7 @@ Replace `N`, `<first>`, `<last>` with actuals from `git log --oneline af55430b..
 Run:
 
 ```bash
-awk 'NR==2 {print length($0)}' /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md
+awk 'NR==2 {print length($0)}' $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md
 ```
 
 If under ~1500 chars (the existing memory lines are 1000+ chars; the warning is about total file line count, not per-entry length), it's fine. If you want it tighter for index readability, trim — but matching neighbor entries' detail level is acceptable.

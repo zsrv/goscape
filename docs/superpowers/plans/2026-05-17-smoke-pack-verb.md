@@ -1107,7 +1107,7 @@ GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache CGO_ENABLED=0 go build -trimpath -o .
 
 ```bash
 ./goscape-cli smoke-pack \
-  --content-dir /home/owner/Code/github.com/LostCityRS/Content \
+  --content-dir $HOME/Code/github.com/LostCityRS/Content \
   --keep \
   --log.level info \
   2> smoke-stderr.log
@@ -1127,7 +1127,7 @@ Also note the out-dir path so artifacts are inspectable.
 
 - [ ] **Step 4: Write the close-memory entry**
 
-Save to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/smoke_pack_phase1_close.md` with frontmatter:
+Save to `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/smoke_pack_phase1_close.md` with frontmatter:
 
 ```markdown
 ---

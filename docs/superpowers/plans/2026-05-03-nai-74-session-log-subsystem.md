@@ -1439,8 +1439,8 @@ EOF
 ### Task 7: Close commit (memory + tracker entries)
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (append NAI-74 entry + tracker rows for deferred call sites)
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (no new entries expected unless a novel learning surfaced)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (append NAI-74 entry + tracker rows for deferred call sites)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (no new entries expected unless a novel learning surfaced)
 - No code changes; this is a docs/memory close commit.
 
 - [ ] **Step 1: Final post-implementation grep verification**
@@ -1464,7 +1464,7 @@ Expected: clean.
 
 - [ ] **Step 3: Append the NAI-74 entry to `nai_followups.md`**
 
-Append the standard NAI close entry to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Use the NAI-73 entry (lines ~3770-3870 in the file at HEAD `138ce1f`) as the template. The entry must include:
+Append the standard NAI close entry to `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Use the NAI-73 entry (lines ~3770-3870 in the file at HEAD `138ce1f`) as the template. The entry must include:
 
 - HEAD SHA + timestamp
 - Closes: NAI-71-D-OPHELD-NO-SESSION-LOG, NAI-73-D-INPUT-NO-SESSION-LOG-KICK
@@ -1495,7 +1495,7 @@ Append the standard NAI close entry to `/home/owner/.claude/projects/-home-owner
 
 - [ ] **Step 4: (Conditional) Add a new memory entry only if a novel learning surfaced**
 
-If during T1-T6 a behaviour, gotcha, or pattern was learned that's non-derivable from code/commits and would benefit a future NAI — write it to a new file under `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/<short_name>.md` and add a one-line index entry to `MEMORY.md`. Otherwise skip this step (no forced-addition).
+If during T1-T6 a behaviour, gotcha, or pattern was learned that's non-derivable from code/commits and would benefit a future NAI — write it to a new file under `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/<short_name>.md` and add a one-line index entry to `MEMORY.md`. Otherwise skip this step (no forced-addition).
 
 - [ ] **Step 5: Commit the memory updates + close commit on the project**
 

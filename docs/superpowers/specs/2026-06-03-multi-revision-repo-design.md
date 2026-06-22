@@ -128,7 +128,7 @@ Resulting invariants:
 Post-addendum follow-ups (same day): the backup refs above were deleted and
 the old history purged (`reflog expire` + `gc --prune=now`); in-repo doc
 SHA citations were remapped to current history (resolved via the pre-split
-monorepo / prescrub bundles in `/home/owner`, matched by author-date +
+monorepo / prescrub bundles in `$HOME`, matched by author-date +
 subject); and the second commit — the rewritten original "Initial commit"
 (5-file skeleton) — was reworded to **"Bootstrap server skeleton"** so only
 the empty shared root bears the name "Initial commit" (one more re-parent

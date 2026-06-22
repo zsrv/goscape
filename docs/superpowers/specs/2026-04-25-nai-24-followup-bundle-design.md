@@ -39,7 +39,7 @@ The two items cluster naturally by package boundary (both in `pkg/script`) and b
 
 #### TS source canonical path
 
-`/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts` (per `ts_source_canonical_path` memory). Note: TS has no separate file boundary between IF_* and player-ops — both live in PlayerOps.ts. NAI-23 Bundle 4c absorbed the IF_* sites; NAI-24 Bundle 1 covers the remaining player-ops surface that maps to goscape's `pkg/script/handlers_player.go`.
+`$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts` (per `ts_source_canonical_path` memory). Note: TS has no separate file boundary between IF_* and player-ops — both live in PlayerOps.ts. NAI-23 Bundle 4c absorbed the IF_* sites; NAI-24 Bundle 1 covers the remaining player-ops surface that maps to goscape's `pkg/script/handlers_player.go`.
 
 #### Per-pop-site decision rubric
 

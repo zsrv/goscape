@@ -6,7 +6,7 @@
 
 **Architecture:** Strict TDD, one site per task, five tasks total. Task 1 widens the `ActivePlayer` script interface with `HeroPointsClear()` and lands the real-type + mock implementations (pre-stub: must compile, no observable behavior yet). Tasks 2-4 add HP-full clear tails to `handleStatAdd` / `handleStatBoost` / `handleStatHeal`. Task 5 wires the NPC respawn clear and lands the Player.cleanup doc-comment deferral.
 
-**Tech Stack:** Go 1.26.3; goscape `pkg/script/` (RuneScript interpreter), `modules/world/` (game world / entities). All `go` invocations must be prefixed with `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` (per CLAUDE.md + slice-close memos — the `/home/owner/go/current` symlink points to nonexistent `go1.26.2`).
+**Tech Stack:** Go 1.26.3; goscape `pkg/script/` (RuneScript interpreter), `modules/world/` (game world / entities). All `go` invocations must be prefixed with `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` (per CLAUDE.md + slice-close memos — the `$HOME/go/current` symlink points to nonexistent `go1.26.2`).
 
 **Spec:** `docs/superpowers/specs/2026-05-21-hero-points-lifecycle-clear-design.md` (committed at `376ffa68`).
 
@@ -143,13 +143,13 @@ func (m *mockPlayer) HeroPointsClear() { m.heroPointsClearCalls++ }
 
 - [ ] **Step 5: Verify the repo compiles (pre-stub gate)**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache build ./...`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache build ./...`
 
 Expected: zero output (success). If there are compile errors mentioning some other type doesn't implement `ActivePlayer`, that means another mock exists somewhere — find it via `grep -rn "TopContributor\|AddHeroPoints" pkg/script/ modules/world/ --include="*.go"` and add `HeroPointsClear() {}` (empty body) on that type too.
 
 - [ ] **Step 6: Verify all tests still pass (pre-stub gate)**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race ./...`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race ./...`
 
 Expected: PASS across all 57+ packages. No new test added yet; this verifies the interface widening is non-breaking.
 
@@ -185,7 +185,7 @@ import "testing"
 
 - [ ] **Step 8: Run the new test and verify it passes**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run TestPlayerHeroPointsClear ./modules/world/`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run TestPlayerHeroPointsClear ./modules/world/`
 
 Expected: `--- PASS: TestPlayerHeroPointsClear` and `ok  ...`. Since the implementation was added in Step 2, this is a GREEN-on-first-run sanity test (the impl already exists). This is fine — Task 1 is a pre-stub widening, not a behavior-change RED→GREEN cycle.
 
@@ -336,7 +336,7 @@ func TestStatAddOnNonHitpointsStatSkipsClear(t *testing.T) {
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run 'TestStatAddOnHitpointsAtFullClearsHeroPoints|TestStatAddOnHitpointsNotFullSkipsClear|TestStatAddOnNonHitpointsStatSkipsClear' ./pkg/script/
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run 'TestStatAddOnHitpointsAtFullClearsHeroPoints|TestStatAddOnHitpointsNotFullSkipsClear|TestStatAddOnNonHitpointsStatSkipsClear' ./pkg/script/
 ```
 
 Expected:
@@ -384,7 +384,7 @@ Verify the `objtype` import is already present. Check the top of the file: `grep
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run 'TestStatAddOnHitpointsAtFullClearsHeroPoints|TestStatAddOnHitpointsNotFullSkipsClear|TestStatAddOnNonHitpointsStatSkipsClear' ./pkg/script/
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run 'TestStatAddOnHitpointsAtFullClearsHeroPoints|TestStatAddOnHitpointsNotFullSkipsClear|TestStatAddOnNonHitpointsStatSkipsClear' ./pkg/script/
 ```
 
 Expected: all three PASS.
@@ -394,7 +394,7 @@ Expected: all three PASS.
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race ./pkg/script/
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race ./pkg/script/
 ```
 
 Expected: PASS across the package, including `TestStatAddFormula` and `TestStatAddCapsAt255` (those don't touch HITPOINTS as `stat`, so the new tail is gated off for them).
@@ -561,7 +561,7 @@ func TestStatBoostOnNonHitpointsStatSkipsClear(t *testing.T) {
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run 'TestStatBoostOnHitpointsAtFullClearsHeroPoints|TestStatBoostOnHitpointsNotFullSkipsClear|TestStatBoostOnNonHitpointsStatSkipsClear' ./pkg/script/
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run 'TestStatBoostOnHitpointsAtFullClearsHeroPoints|TestStatBoostOnHitpointsNotFullSkipsClear|TestStatBoostOnNonHitpointsStatSkipsClear' ./pkg/script/
 ```
 
 Expected: positive test FAIL (`want 1`), two negatives PASS (clear isn't wired anywhere new yet).
@@ -607,7 +607,7 @@ Replace the tail starting from `s.Self.SetCurLevel(id, boosted)` to the closing 
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run 'TestStatBoostOnHitpointsAtFullClearsHeroPoints|TestStatBoostOnHitpointsNotFullSkipsClear|TestStatBoostOnNonHitpointsStatSkipsClear' ./pkg/script/
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run 'TestStatBoostOnHitpointsAtFullClearsHeroPoints|TestStatBoostOnHitpointsNotFullSkipsClear|TestStatBoostOnNonHitpointsStatSkipsClear' ./pkg/script/
 ```
 
 Expected: all three PASS.
@@ -617,7 +617,7 @@ Expected: all three PASS.
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race ./pkg/script/
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race ./pkg/script/
 ```
 
 Expected: PASS across the package.
@@ -791,7 +791,7 @@ func TestStatHealOnNonHitpointsStatSkipsClear(t *testing.T) {
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run 'TestStatHealOnHitpointsAtFullClearsHeroPoints|TestStatHealOnHitpointsNotFullSkipsClear|TestStatHealOnNonHitpointsStatSkipsClear' ./pkg/script/
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run 'TestStatHealOnHitpointsAtFullClearsHeroPoints|TestStatHealOnHitpointsNotFullSkipsClear|TestStatHealOnNonHitpointsStatSkipsClear' ./pkg/script/
 ```
 
 Expected: positive FAIL, two negatives PASS.
@@ -833,7 +833,7 @@ Replace the tail starting from `s.Self.SetCurLevel(id, healed)` to the closing b
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run 'TestStatHealOnHitpointsAtFullClearsHeroPoints|TestStatHealOnHitpointsNotFullSkipsClear|TestStatHealOnNonHitpointsStatSkipsClear' ./pkg/script/
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run 'TestStatHealOnHitpointsAtFullClearsHeroPoints|TestStatHealOnHitpointsNotFullSkipsClear|TestStatHealOnNonHitpointsStatSkipsClear' ./pkg/script/
 ```
 
 Expected: all three PASS.
@@ -843,7 +843,7 @@ Expected: all three PASS.
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race ./pkg/script/
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race ./pkg/script/
 ```
 
 Expected: PASS across the package.
@@ -938,7 +938,7 @@ func TestResetEntityForRespawnClearsHeroPoints(t *testing.T) {
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run TestResetEntityForRespawnClearsHeroPoints ./modules/world/
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run TestResetEntityForRespawnClearsHeroPoints ./modules/world/
 ```
 
 Expected: FAIL — `TopContributor() = 42, want 0`. `resetEntityForRespawn` does not yet clear heroPoints.
@@ -975,7 +975,7 @@ Replace with (adds heroPoints clear adjacent to queue clear, mirroring TS Npc.ts
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run TestResetEntityForRespawnClearsHeroPoints ./modules/world/
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run TestResetEntityForRespawnClearsHeroPoints ./modules/world/
 ```
 
 Expected: PASS.
@@ -985,7 +985,7 @@ Expected: PASS.
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race ./modules/world/
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race ./modules/world/
 ```
 
 Expected: PASS. This package is the long pole (~150s); be patient.
@@ -1057,7 +1057,7 @@ func (s *Server) removePlayerInternal(p *Player) {
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race ./...
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race ./...
 ```
 
 Expected: PASS across all 57+ packages. ~155s total runtime is normal.
@@ -1067,7 +1067,7 @@ Expected: PASS across all 57+ packages. ~155s total runtime is normal.
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run TestPackAll_TwelveStageSmoke ./...
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache test -race -run TestPackAll_TwelveStageSmoke ./...
 ```
 
 Expected: PASS.

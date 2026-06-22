@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-05-16-nai-212-server-pack-all-design.md`.
 
-**TS source:** `tools/pack/Compiler.ts:329-365` + `tools/pack/PackAll.ts:17-52` in `/home/owner/Code/github.com/LostCityRS/Engine-TS`.
+**TS source:** `tools/pack/Compiler.ts:329-365` + `tools/pack/PackAll.ts:17-52` in `$HOME/Code/github.com/LostCityRS/Engine-TS`.
 
 ---
 
@@ -866,7 +866,7 @@ EOF
 
 ### Step 5.4: Save close memory entry
 
-- [ ] Write the close memory per `[[close_commit_memory_trailer]]` convention. Create `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai212_close.md` with the standard layout:
+- [ ] Write the close memory per `[[close_commit_memory_trailer]]` convention. Create `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai212_close.md` with the standard layout:
   - YAML frontmatter (name, description, type=project).
   - Scope delivered (3 layers + files).
   - Live deviation tags (3).

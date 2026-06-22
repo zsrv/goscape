@@ -1837,7 +1837,7 @@ This task is **documentation-only** — no production code change. NAI-191 follo
 - [ ] **Step 8.1: Re-verify `pkg/pack/parse.go` LoadFile body is unchanged from NAI-191**
 
 ```bash
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache grep -nE "LoadFile|nil-vs-empty" /home/owner/Code/github.com/zsrv/goscape/pkg/pack/parse.go
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache grep -nE "LoadFile|nil-vs-empty" $HOME/Code/github.com/zsrv/goscape/pkg/pack/parse.go
 ```
 Expected: `LoadFile` exists at parse.go:15-23 (or similar); body returns `nil` on missing; no follow-up TODO/deviation comment is in the body. Confirm: no production change for retirement.
 

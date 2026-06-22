@@ -199,7 +199,7 @@ allowed).
 ### CLOSE — close commit + memory updates
 
 - Append `## NAI-65 — CLOSED <date>` block to
-  `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`.
+  `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`.
 - Re-frame the carry-forward list at the bottom of the file: rename
   "pathing-entity-focus-and-step-tracking" → "pathing-entity-reorient-and-stride-tracking";
   list its bundled deviations as D4-NPC + D5-NPC + NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ

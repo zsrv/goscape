@@ -8,7 +8,7 @@
 
 **Stage 2 is NOT in this plan.** Bundle 2 fix tasks are data-dependent on Stage 1 verdict (TS source citations from 1.A, client trigger sites from 1.B, content trigger pattern from 1.C). After T9 emits the handoff, `/clear` and author a separate `2026-05-XX-nai-138-stage-2-<layer>.md` plan per `superpowers_clear_between_spec_and_impl`.
 
-**Tech Stack:** Go 1.26+ (no production code in Stage 1). Reference repos: `/home/owner/Code/github.com/LostCityRS/Engine-TS`, `/home/owner/Code/github.com/LostCityRS/Client-Java`, `/home/owner/Code/github.com/LostCityRS/Content`, `/home/owner/Code/github.com/LostCityRS/RuneScriptKt`. Spec doc: `docs/superpowers/specs/2026-05-09-nai-138-cs1-reeval-investigation-design.md` at commit `cf5d6ed`.
+**Tech Stack:** Go 1.26+ (no production code in Stage 1). Reference repos: `$HOME/Code/github.com/LostCityRS/Engine-TS`, `$HOME/Code/github.com/LostCityRS/Client-Java`, `$HOME/Code/github.com/LostCityRS/Content`, `$HOME/Code/github.com/LostCityRS/RuneScriptKt`. Spec doc: `docs/superpowers/specs/2026-05-09-nai-138-cs1-reeval-investigation-design.md` at commit `cf5d6ed`.
 
 ---
 
@@ -30,13 +30,13 @@ No production files are modified in Stage 1. No tests are added.
 **Reference paths (verified present at plan-write):**
 
 ```
-/home/owner/Code/github.com/LostCityRS/Engine-TS/src/                  — TS engine source
-/home/owner/Code/github.com/LostCityRS/Client-Java/src/                — Java client #225 source
-/home/owner/Code/github.com/LostCityRS/Client-Java/ref/                — deobfuscation reference
-/home/owner/Code/github.com/LostCityRS/Content/scripts/                — RuneScript content scripts
-/home/owner/Code/github.com/LostCityRS/Content/scripts/interface_controls/scripts/player_controls.rs2  — click-path scripts
-/home/owner/Code/github.com/LostCityRS/Content/scripts/interface_controls/configs/player_controls.varp — option_run config
-/home/owner/Code/github.com/LostCityRS/RuneScriptKt/                   — RuneScript compiler
+$HOME/Code/github.com/LostCityRS/Engine-TS/src/                  — TS engine source
+$HOME/Code/github.com/LostCityRS/Client-Java/src/                — Java client #225 source
+$HOME/Code/github.com/LostCityRS/Client-Java/ref/                — deobfuscation reference
+$HOME/Code/github.com/LostCityRS/Content/scripts/                — RuneScript content scripts
+$HOME/Code/github.com/LostCityRS/Content/scripts/interface_controls/scripts/player_controls.rs2  — click-path scripts
+$HOME/Code/github.com/LostCityRS/Content/scripts/interface_controls/configs/player_controls.varp — option_run config
+$HOME/Code/github.com/LostCityRS/RuneScriptKt/                   — RuneScript compiler
 ```
 
 **Spec §6 placeholder shape (filled at T3, T8):**
@@ -69,38 +69,38 @@ No production files are modified in Stage 1. No tests are added.
 ### Task 1: Bundle 0 — Engine-TS comprehensive re-grep
 
 **Files:**
-- Read-only: `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/**`
+- Read-only: `$HOME/Code/github.com/LostCityRS/Engine-TS/src/**`
 
 - [ ] **Step 1: Comprehensive Engine-TS grep for run-varp / energy refresh emitters**
 
 Run all of these in parallel (single message, multiple Bash calls):
 
 ```bash
-rg -n "VarPlayerType\.RUN" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/
+rg -n "VarPlayerType\.RUN" $HOME/Code/github.com/LostCityRS/Engine-TS/src/
 ```
 
 ```bash
-rg -n "setVar\b" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/ | rg -i "run"
+rg -n "setVar\b" $HOME/Code/github.com/LostCityRS/Engine-TS/src/ | rg -i "run"
 ```
 
 ```bash
-rg -n "option_run" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/
+rg -n "option_run" $HOME/Code/github.com/LostCityRS/Engine-TS/src/
 ```
 
 ```bash
-rg -n "(processEnergy|updateEnergy|drainRunEnergy)" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/
+rg -n "(processEnergy|updateEnergy|drainRunEnergy)" $HOME/Code/github.com/LostCityRS/Engine-TS/src/
 ```
 
 ```bash
-rg -n "(IF_RESYNC|IF_OPENMAIN|IF_OPENMODAL|IF_OPENBOTTOM|IF_RUNSCRIPT|IF_SETSCRIPT|IF_RESETANIMS|VARP_SMALL|VARP_LARGE|VARP_RESET)" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/
+rg -n "(IF_RESYNC|IF_OPENMAIN|IF_OPENMODAL|IF_OPENBOTTOM|IF_RUNSCRIPT|IF_SETSCRIPT|IF_RESETANIMS|VARP_SMALL|VARP_LARGE|VARP_RESET)" $HOME/Code/github.com/LostCityRS/Engine-TS/src/
 ```
 
 ```bash
-rg -n "(pushVarp|writeVarp|flushVarp|setVarp)" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/
+rg -n "(pushVarp|writeVarp|flushVarp|setVarp)" $HOME/Code/github.com/LostCityRS/Engine-TS/src/
 ```
 
 ```bash
-rg -n "this\.run\s*=" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/
+rg -n "this\.run\s*=" $HOME/Code/github.com/LostCityRS/Engine-TS/src/
 ```
 
 - [ ] **Step 2: Read each hit's surrounding context**
@@ -138,18 +138,18 @@ Hold the verdict in working memory; do not write to file yet (T3 commits the spe
 ### Task 2: Bundle 0 — Click-path `%v = %v` semantic re-read
 
 **Files:**
-- Read-only: `/home/owner/Code/github.com/LostCityRS/RuneScriptKt/**`
-- Read-only: `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/**`
-- Read-only: `/home/owner/Code/github.com/LostCityRS/Content/scripts/**`
+- Read-only: `$HOME/Code/github.com/LostCityRS/RuneScriptKt/**`
+- Read-only: `$HOME/Code/github.com/LostCityRS/Engine-TS/src/**`
+- Read-only: `$HOME/Code/github.com/LostCityRS/Content/scripts/**`
 
 - [ ] **Step 1: Locate the `%v = %v` compilation target**
 
 ```bash
-rg -n "(POP_VARP|PUSH_VARP|SET_VARP|VARP_BAS|varp.*assign)" /home/owner/Code/github.com/LostCityRS/RuneScriptKt/
+rg -n "(POP_VARP|PUSH_VARP|SET_VARP|VARP_BAS|varp.*assign)" $HOME/Code/github.com/LostCityRS/RuneScriptKt/
 ```
 
 ```bash
-rg -n "(POP_VARP|PUSH_VARP|case 60|case 61|case 62)" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/
+rg -n "(POP_VARP|PUSH_VARP|case 60|case 61|case 62)" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/
 ```
 
 The RuneScript opcode for `%v = X` is typically `POP_VARP_BAS`/`POP_VARP_OBJ` (or numeric equivalent). Identify:
@@ -166,7 +166,7 @@ Find the function the handler calls. Determine whether it:
 - [ ] **Step 3: Grep Content for other `%v = %v` self-write usages**
 
 ```bash
-rg -n "%(\w+)\s*=\s*%\1" /home/owner/Code/github.com/LostCityRS/Content/scripts/
+rg -n "%(\w+)\s*=\s*%\1" $HOME/Code/github.com/LostCityRS/Content/scripts/
 ```
 
 Catalog hits. If `%option_run = %option_run` is unique, the idiom may be ad-hoc; if there are several sibling uses, it's an established pattern worth porting carefully.
@@ -275,7 +275,7 @@ Audit the LostCityRS/Engine-TS server source to determine whether goscape's
 (*Player).updateEnergy energy=0 emit path is missing any TS-side packet
 emitter that the click-toggle path implicitly receives.
 
-Inputs: /home/owner/Code/github.com/LostCityRS/Engine-TS/src/
+Inputs: $HOME/Code/github.com/LostCityRS/Engine-TS/src/
 
 The carryover hypothesis (from goscape NAI-137 close commit 1bc1800) asserts
 that the ONLY engine-side VarPlayerType.RUN consumers in TS are
@@ -331,8 +331,8 @@ Component.script1 re-evaluation, specifically for buttontype=select
 components.
 
 Inputs:
-- /home/owner/Code/github.com/LostCityRS/Client-Java/src/
-- /home/owner/Code/github.com/LostCityRS/Client-Java/ref/  (deobfuscation
+- $HOME/Code/github.com/LostCityRS/Client-Java/src/
+- $HOME/Code/github.com/LostCityRS/Client-Java/ref/  (deobfuscation
   reference; may help name unobfuscated symbols)
 
 Background: in OSRS-style interface grammar, components have cs1 binding
@@ -386,11 +386,11 @@ Audit the LostCityRS/Content scripts to characterize the
 [varp,*] trigger pattern and the %v = %v self-write idiom's semantics.
 
 Inputs:
-- /home/owner/Code/github.com/LostCityRS/Content/scripts/  (RuneScript
+- $HOME/Code/github.com/LostCityRS/Content/scripts/  (RuneScript
   source)
-- /home/owner/Code/github.com/LostCityRS/RuneScriptKt/  (compiler;
+- $HOME/Code/github.com/LostCityRS/RuneScriptKt/  (compiler;
   determines what %v = %v lowers to)
-- /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/
+- $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/
   handlers/  (runtime; determines whether the lowered opcode emits on the
   wire)
 
@@ -465,7 +465,7 @@ If any citation fails, mark 1.B as `INCONCLUSIVE`.
 Same pattern for 1.C. For any `SELF_WRITE_EMITS_OP_VARP` or `SELF_WRITE_NOOP` finding, confirm both compiler and runtime citations.
 
 ```bash
-rg -n "%(\w+)\s*=\s*%\1" /home/owner/Code/github.com/LostCityRS/Content/scripts/
+rg -n "%(\w+)\s*=\s*%\1" $HOME/Code/github.com/LostCityRS/Content/scripts/
 ```
 
 Confirm 1.C's claimed count of `%X = %X` self-writes against this fresh grep.
@@ -504,7 +504,7 @@ Substage <1.A | 1.B | 1.C> returned INCONCLUSIVE; need empirical TS data
 to bind the verdict.
 
 Please:
-1. Launch Engine-TS server: `cd /home/owner/Code/github.com/LostCityRS/Engine-TS && bun start` (or `bun dev`)
+1. Launch Engine-TS server: `cd $HOME/Code/github.com/LostCityRS/Engine-TS && bun start` (or `bun dev`)
 2. Connect Java client #225 (same client used for goscape smoke)
 3. Log in as a test character with full run energy.
 4. Walk a long path (50+ tiles) until run energy depletes to 0.

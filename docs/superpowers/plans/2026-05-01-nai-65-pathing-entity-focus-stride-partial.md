@@ -763,7 +763,7 @@ EOF
 ## Task 4 — CLOSE: close commit + memory updates
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append `## NAI-65 — CLOSED <date>` block; update the carry-forward list.
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append `## NAI-65 — CLOSED <date>` block; update the carry-forward list.
 
 - [ ] **Step 4.1: Append NAI-65 close block to `nai_followups.md`**
 

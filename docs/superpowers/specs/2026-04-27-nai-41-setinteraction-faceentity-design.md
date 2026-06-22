@@ -18,7 +18,7 @@ Behavioral effect after closure: when a player op-clicks any other player or NPC
 
 ## 2. TS Reference
 
-`/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/PathingEntity.ts:510-548`
+`$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/PathingEntity.ts:510-548`
 
 ```ts
 setInteraction(interaction: Interaction, target: Entity, op: TargetOp, com?: number): boolean {

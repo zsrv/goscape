@@ -2665,7 +2665,7 @@ Expected: PASS across all packages.
 - [ ] **Step 2: Smoke-pack baseline check**
 
 ```bash
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 
 Expected: 12 OK / 0 ERR / 0 SKIP. Slice 5a is server/world-only — packing is unaffected.
@@ -2710,7 +2710,7 @@ If everything was already in place from earlier tasks, skip this step.
 
 - [ ] **Step 6: Slice close — write `MEMORY.md` entry**
 
-After the slice is fully verified, the controller should add a memory entry per the existing `friends-server slice 4c close` pattern at `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/`. This is controller-level work, not a code task. Skip if delegated.
+After the slice is fully verified, the controller should add a memory entry per the existing `friends-server slice 4c close` pattern at `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/`. This is controller-level work, not a code task. Skip if delegated.
 
 ---
 

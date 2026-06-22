@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+. Existing packages used: `pkg/rsbuf` (extends `BuildArea` + rewrites `playerinfo.go`/`npcinfo.go`; `Player`/`Npc`/`Buf` already landed in NAI-29; `Renderer` consumed unchanged), `pkg/coordgrid` (`PackCoord`, `UnpackCoord`), `pkg/io/packet` (`Packet` with `AccessBits`/`AccessBytes`/`PBit`/`P1` etc.), `modules/world` (Player+Npc field extensions, encoder caller swaps, buildarea flatten). `PlayerSource`/`NpcSource` interfaces in `pkg/rsbuf/source.go` + `npc_source.go` remain alive (consumed by renderer + mask_payload layer); only the `AppearanceHash()` member is trimmed. No new third-party dependencies.
 
-**Predecessors:** NAI-29 closed at `484cd98`. NAI-30 spec: `docs/superpowers/specs/2026-04-26-nai-30-encoder-readflip-design.md` committed at `4fd3075` and amended at `7b4da50`. Source root: `/home/owner/Code/github.com/2004scape/rsbuf` branch `225` (HEAD `1cbb2ce`) — the canonical Rust source per `rust_source_canonical_path` memory.
+**Predecessors:** NAI-29 closed at `484cd98`. NAI-30 spec: `docs/superpowers/specs/2026-04-26-nai-30-encoder-readflip-design.md` committed at `4fd3075` and amended at `7b4da50`. Source root: `$HOME/Code/github.com/2004scape/rsbuf` branch `225` (HEAD `1cbb2ce`) — the canonical Rust source per `rust_source_canonical_path` memory.
 
 **Build/test commands** (per `CLAUDE.md`):
 - Build: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build -trimpath ./...`

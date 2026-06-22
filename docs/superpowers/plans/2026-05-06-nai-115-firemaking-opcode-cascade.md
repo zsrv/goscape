@@ -1517,7 +1517,7 @@ Cross-reference any new memory entries (if any). If no new entry, leave the inde
 - [ ] **Step 3: Close commit**
 
 ```bash
-git add /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md
+git add $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 chore(close): NAI-115 — firemaking opcode-cascade ports complete
 

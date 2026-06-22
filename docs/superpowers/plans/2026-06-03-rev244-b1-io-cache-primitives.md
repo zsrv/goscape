@@ -4,7 +4,7 @@
 
 **Goal:** Port the Bundle-1 slice of the Engine-TS 225→244 delta (`e1dea19f..9aadcec4`): the new `FileStream`/`GZip` io primitives, the PEM per-deployment token, and the cache-config decode deltas (SeqType/AnimFrame restructure, Component, NpcType, ObjType).
 
-**Architecture:** Faithful TS→Go translation per `PORTING-LESSONS.md` (read it first — §3 gotchas, §4 comment conventions, §5 gates; it lives on the `main` branch: `git show main:PORTING-LESSONS.md`). Each task slices the upstream cross-pin diff to one file group; the TS diff is the contract. All work lands on branch `rev-244`. Reference checkout: `/home/owner/Code/github.com/LostCityRS/Engine-TS` (the local checkout is AT the 244 pin `9aadcec4` on branch `244-GOSCAPE`).
+**Architecture:** Faithful TS→Go translation per `PORTING-LESSONS.md` (read it first — §3 gotchas, §4 comment conventions, §5 gates; it lives on the `main` branch: `git show main:PORTING-LESSONS.md`). Each task slices the upstream cross-pin diff to one file group; the TS diff is the contract. All work lands on branch `rev-244`. Reference checkout: `$HOME/Code/github.com/LostCityRS/Engine-TS` (the local checkout is AT the 244 pin `9aadcec4` on branch `244-GOSCAPE`).
 
 **Tech Stack:** Go (existing toolchain conventions: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` prefix on every go command; `CGO_ENABLED=0 go build -trimpath ./...`; tests with `go test`, `-race` on touched packages).
 
@@ -24,7 +24,7 @@
 - Create: `pkg/io/filestream/filestream.go`
 - Test: `pkg/io/filestream/filestream_test.go`
 
-The TS source (`git -C /home/owner/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/io/FileStream.ts`, 225 lines) is the contract. It implements the classic dat/idx client cache store: `main_file_cache.dat` + `main_file_cache.idx0..idx4`, 6-byte idx entries (`size:3, sector:3`), 520-byte dat sectors (8-byte header `file:2, part:2, nextSector:3, archiveIdx+1:1` + 512 data bytes), 2,000,000-byte size cap, in-memory `packed` cache of raw reads, gunzip on `decompress=true` for archives ≠ 0.
+The TS source (`git -C $HOME/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/io/FileStream.ts`, 225 lines) is the contract. It implements the classic dat/idx client cache store: `main_file_cache.dat` + `main_file_cache.idx0..idx4`, 6-byte idx entries (`size:3, sector:3`), 520-byte dat sectors (8-byte header `file:2, part:2, nextSector:3, archiveIdx+1:1` + 512 data bytes), 2,000,000-byte size cap, in-memory `packed` cache of raw reads, gunzip on `decompress=true` for archives ≠ 0.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -477,7 +477,7 @@ func Token(pubPEM []byte, hostname string) (string, error) {
 - Modify: `pkg/objtype/seqtype.go` (+ its test)
 - Modify/replace: `pkg/objtype/seqframe.go` (+ its test)
 
-Work list = `git -C /home/owner/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4 -- src/cache/config/SeqType.ts src/cache/config/SeqFrame.ts src/cache/graphics/AnimFrame.ts src/cache/graphics/AnimBase.ts` (read it in full before editing). Verified key changes:
+Work list = `git -C $HOME/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4 -- src/cache/config/SeqType.ts src/cache/config/SeqFrame.ts src/cache/graphics/AnimFrame.ts src/cache/graphics/AnimBase.ts` (read it in full before editing). Verified key changes:
 - `SeqFrame.ts` **deleted**; delay lookups go through slimmed `AnimFrame.instances` (AnimFrame drops 212 lines of transform parsing, gains a `load()` that reads delays).
 - `SeqType` gains `frameCount` field (code 1 reads count into it), new decode codes for `preanim_move`, `postanim_move`, `duplicatebehavior` (exact code numbers and read widths are in the diff past the `replaceheldright` hunk — translate them verbatim), and a `postDecode()` that precomputes `duration`.
 - Map goscape names: `pkg/objtype/seqframe.go` is the 225 SeqFrame port — restructure it to mirror the new AnimFrame shape (keep the file if the type keeps living there; match the upstream *semantics*, follow the 244 naming per the adopt-new-names policy in `main:REFERENCES.md`).

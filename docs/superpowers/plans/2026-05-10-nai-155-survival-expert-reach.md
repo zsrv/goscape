@@ -42,7 +42,7 @@ Per `controller_preflight` memory. Verify the audit premises against HEAD.
 
 - [ ] **Step 0.1:** Confirm `interaction.go:245-274` line ranges match the spec.
 
-Run: `sed -n '240,280p' /home/owner/Code/github.com/zsrv/goscape/modules/world/interaction.go`
+Run: `sed -n '240,280p' $HOME/Code/github.com/zsrv/goscape/modules/world/interaction.go`
 
 Expected: pre-step arm at ~L244-249, post-step at L267-273, exact shape:
 ```go
@@ -69,13 +69,13 @@ If lines have drifted (post-NAI-154 commits), update Task 3 line targets accordi
 
 - [ ] **Step 0.2:** Confirm `tryInteract` inner guard at `interaction.go:387` shape.
 
-Run: `sed -n '378,395p' /home/owner/Code/github.com/zsrv/goscape/modules/world/interaction.go`
+Run: `sed -n '378,395p' $HOME/Code/github.com/zsrv/goscape/modules/world/interaction.go`
 
 Expected: `if p.target == nil || !p.HasInteraction() || !p.CanAccess() { recordTryInteractBranch(p, 0); return false }`. If different, Task 3 patch shape needs adjusting.
 
 - [ ] **Step 0.3:** Confirm `CanAccess` shape at HEAD.
 
-Run: `sed -n '320,340p' /home/owner/Code/github.com/zsrv/goscape/modules/world/player_script.go`
+Run: `sed -n '320,340p' $HOME/Code/github.com/zsrv/goscape/modules/world/player_script.go`
 
 Expected: 3-clause `if p.delayed || modalState&(Main|Chat)!=0 || protectedScriptActive()` returns false; else true.
 
@@ -106,8 +106,8 @@ Description: NAI-155 Bundle 1 TS-fidelity gate parity audit
 > You are auditing a TS→Go port for a specific TS-fidelity divergence. Read-only — do NOT edit code. Emit a findings document only.
 >
 > **Context:** goscape (Go) ports LostCityRS Engine-TS (TypeScript). Files:
-> - TS source: `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts`, `processInteraction` at L1200-1268, `canAccess` at L805-812.
-> - Goscape source: `/home/owner/Code/github.com/zsrv/goscape/modules/world/interaction.go`, `processInteraction` at L189-309, `tryInteract` at L378-454; `CanAccess` at `modules/world/player_script.go:324-335`; `HasInteraction` at `player_script.go:1080-1088`.
+> - TS source: `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts`, `processInteraction` at L1200-1268, `canAccess` at L805-812.
+> - Goscape source: `$HOME/Code/github.com/zsrv/goscape/modules/world/interaction.go`, `processInteraction` at L189-309, `tryInteract` at L378-454; `CanAccess` at `modules/world/player_script.go:324-335`; `HasInteraction` at `player_script.go:1080-1088`.
 >
 > **The bug:** Frame B for the failing tick shows `branch_pre=0 && branch_post=0` with `target_still_set=true`, `target_kind=Npc`, `op_trigger=true`, `cheb_dist=1`. The `tryInteract` guard at `interaction.go:387` (`!p.HasInteraction() || !p.CanAccess()`) trips on `!CanAccess()`.
 >
@@ -122,7 +122,7 @@ Description: NAI-155 Bundle 1 TS-fidelity gate parity audit
 > 6. Check Risk R4: goscape `processInteraction` entry guard at L196-202 (`if p.delayed && s.currentTick < p.delayedUntil { return }`) is a stricter early-return than CanAccess (which is just `p.delayed` without tick math). Does adding call-site canAccess gates make this entry guard redundant, or is it still load-bearing? (Hint: entry guard returns BEFORE Frame B emit.)
 > 7. Emit the patch shape for `processInteraction` matching TS L1209/1232/1244 gates. Also emit the relaxation for `tryInteract` inner guard at L387.
 >
-> **Output format:** Write to `/home/owner/Code/github.com/zsrv/goscape/docs/superpowers/audits/2026-05-10-nai-155-bundle1-gate-parity.md`. Sections:
+> **Output format:** Write to `$HOME/Code/github.com/zsrv/goscape/docs/superpowers/audits/2026-05-10-nai-155-bundle1-gate-parity.md`. Sections:
 > 1. Verdict: GREEN (no divergence) / RED (divergence found) / YELLOW (partial).
 > 2. Gate-divergence table (one row per canAccess-related gate site).
 > 3. Risk audits R1-R4 with verdict + evidence per memory `audit_full_method_against_ts`.
@@ -134,7 +134,7 @@ Description: NAI-155 Bundle 1 TS-fidelity gate parity audit
 
 - [ ] **Step 1.2:** Read the emitted findings doc.
 
-Run: `cat /home/owner/Code/github.com/zsrv/goscape/docs/superpowers/audits/2026-05-10-nai-155-bundle1-gate-parity.md`
+Run: `cat $HOME/Code/github.com/zsrv/goscape/docs/superpowers/audits/2026-05-10-nai-155-bundle1-gate-parity.md`
 
 Expected: RED verdict (hypothesis confirmed). If GREEN, the bug is NOT gate parity — re-evaluate Bundle 2 priority and consult user before Task 3.
 
@@ -165,7 +165,7 @@ Description: NAI-155 Bundle 2 CanAccess residue root-cause audit
 
 > You are root-causing a state-residue bug in a TS→Go port. Read-only — do NOT edit code. Emit a findings document only.
 >
-> **Context:** goscape's `(*Player).CanAccess()` at `/home/owner/Code/github.com/zsrv/goscape/modules/world/player_script.go:324-335` returns false when ANY of:
+> **Context:** goscape's `(*Player).CanAccess()` at `$HOME/Code/github.com/zsrv/goscape/modules/world/player_script.go:324-335` returns false when ANY of:
 > 1. `p.delayed`
 > 2. `p.modalState & (modalStateMain | modalStateChat) != 0`
 > 3. `p.protectedScriptActive()` (i.e. `p.activeScript != nil && p.activeScript.Pointers & script.PtrProtectedActivePlayer != 0`)
@@ -194,7 +194,7 @@ Description: NAI-155 Bundle 2 CanAccess residue root-cause audit
 >
 > 5. **Identify the missing clear-site (if any).** If a TS clear-site exists for the residual field that goscape lacks, name the file:line in TS and the file:line in goscape where the clear should be added.
 >
-> **Output format:** Write to `/home/owner/Code/github.com/zsrv/goscape/docs/superpowers/audits/2026-05-10-nai-155-bundle2-canaccess-residue.md`. Sections:
+> **Output format:** Write to `$HOME/Code/github.com/zsrv/goscape/docs/superpowers/audits/2026-05-10-nai-155-bundle2-canaccess-residue.md`. Sections:
 > 1. Verdict: identify which field is residually true (or "INCONCLUSIVE — instrumentation needed").
 > 2. Evidence per field (1, 2, 3 above).
 > 3. Root cause: missing clear-site OR packet-ordering bug OR something else.
@@ -205,7 +205,7 @@ Description: NAI-155 Bundle 2 CanAccess residue root-cause audit
 
 - [ ] **Step 2.2:** Read the emitted findings doc.
 
-Run: `cat /home/owner/Code/github.com/zsrv/goscape/docs/superpowers/audits/2026-05-10-nai-155-bundle2-canaccess-residue.md`
+Run: `cat $HOME/Code/github.com/zsrv/goscape/docs/superpowers/audits/2026-05-10-nai-155-bundle2-canaccess-residue.md`
 
 - [ ] **Step 2.3:** Commit the findings doc.
 
@@ -650,7 +650,7 @@ in-scope Stage 3 per spec §8.
 
 - [ ] **Step 5.2:** Update memory.
 
-Append to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` IF Bundle 1 audit revealed a non-obvious TS-fidelity pattern (e.g., "interaction-preservation gates must mirror TS canAccess call-site gates, not inner-tryInteract guards"). One-line index entry per memory format.
+Append to `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` IF Bundle 1 audit revealed a non-obvious TS-fidelity pattern (e.g., "interaction-preservation gates must mirror TS canAccess call-site gates, not inner-tryInteract guards"). One-line index entry per memory format.
 
 ---
 

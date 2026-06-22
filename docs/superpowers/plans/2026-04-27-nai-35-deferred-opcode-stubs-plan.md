@@ -2178,7 +2178,7 @@ Expected: no matches OR only intentional retirement-record references (e.g., a s
 
 - [ ] **Step 7: Update memory deviation registry**
 
-Edit `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. In the "From NAI-33" section (or wherever NAI-33-D1 is recorded), update the D1 entry status from "deferred" to "closed by NAI-35-T3" with commit reference.
+Edit `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. In the "From NAI-33" section (or wherever NAI-33-D1 is recorded), update the D1 entry status from "deferred" to "closed by NAI-35-T3" with commit reference.
 
 - [ ] **Step 8: Commit**
 

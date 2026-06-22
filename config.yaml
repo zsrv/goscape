@@ -28,9 +28,10 @@ world:
   tcp_keepalive_period: 30s
   node_debug: false
   friends_server_enabled: true
-  # Source content root: enables the midi name->id registry (in-game music)
-  # and the ::rebuild cheat. Mirrors TS BUILD_SRC_DIR (../content).
-  content_path: /home/owner/Code/github.com/LostCityRS/Server244-ref/content
+  # Optional source content root: enables the midi name->id registry (in-game
+  # music) and the ::rebuild cheat. Mirrors TS BUILD_SRC_DIR (../content).
+  # Set to your Content checkout; leave unset to disable these features.
+  #content_path: /path/to/content
   # Optional: PEM-encoded RSA private key (PKCS#1 or PKCS#8) used to decrypt
   # the login block, replacing the built-in default key. The Java client must
   # be rebuilt with the matching public key (Client.java LOGIN_RSAN /

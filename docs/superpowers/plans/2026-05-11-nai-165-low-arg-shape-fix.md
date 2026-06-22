@@ -511,7 +511,7 @@ Expected: clean working tree (other than pre-existing `M Dockerfile`, `M Makefil
 ## Task 5: Append NAI-165 entry to `nai_followups.md` and queue NAI-166
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (append at end)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (append at end)
 
 Per `close_commit_memory_trailer.md` and the standing close-protocol pattern visible in NAI-150/154/19 close sections.
 
@@ -558,7 +558,7 @@ Substitute the actual close-commit SHA for `<COMMIT-SHA>` after Task 4 lands. Us
 
 - [ ] **Step 5.2: Verify the append**
 
-Run: `tail -50 /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+Run: `tail -50 $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
 
 Expected: shows the new NAI-165 section at end-of-file.
 
@@ -575,7 +575,7 @@ After Task 5 completes, sanity-check:
 - [ ] `grep -n 'HasLineOfWalk.*1, 1, 1, 0' pkg/script/handlers_map.go` returns **two matches** at line ~175 and ~423.
 - [ ] `grep -rn 'NAI-165-D-LOW-ARG-SHAPE-FIX' pkg/` returns **at least 3 matches** — the wrapper doc-comment, the handler doc-comment, and the test fixture/test doc-comment.
 - [ ] `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...` is fully green.
-- [ ] `tail -1 /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` shows the new NAI-166 routing block.
+- [ ] `tail -1 $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` shows the new NAI-166 routing block.
 
 ---
 

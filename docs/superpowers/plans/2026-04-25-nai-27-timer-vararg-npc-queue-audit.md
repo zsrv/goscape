@@ -11,7 +11,7 @@
 - `popScriptArgs(s *ScriptState) (intArgs []int, stringArgs []string)` at `pkg/script/handlers.go:630`
 - `checkNotNull(v int, op string) error` at `pkg/script/handlers_player.go:61` (not used by this plan; spec confirms VARARG variants do not check NumberNotNull)
 - `s.Provider.GetByID(targetID uint32) *ScriptFile` (template at `pkg/script/handlers.go:546-549`)
-- TS source root: `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/`. Reference TS sources: `Engine-TS/src/engine/script/handlers/PlayerOps.ts:110-192` (4 VARARG queue ops), `:820-864` (5 timer ops); `Engine-TS/src/engine/entity/Player.ts:907-941` (setTimer + processTimers).
+- TS source root: `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/`. Reference TS sources: `Engine-TS/src/engine/script/handlers/PlayerOps.ts:110-192` (4 VARARG queue ops), `:820-864` (5 timer ops); `Engine-TS/src/engine/entity/Player.ts:907-941` (setTimer + processTimers).
 
 **Spec reference:** `docs/superpowers/specs/2026-04-25-nai-27-timer-vararg-npc-queue-audit-design.md`.
 
@@ -60,13 +60,13 @@ The following premise corrections were caught at plan-write per memory `controll
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go version
 git log --oneline -3
-grep -n "type playerTimer\b" /home/owner/Code/github.com/zsrv/goscape/modules/world/player.go
-grep -n "func (p \*Player) SetTimer\|func (p \*Player) GetTimer\|func (p \*Player) ClearTimer" /home/owner/Code/github.com/zsrv/goscape/modules/world/player_timer.go
-grep -n "SetTimer\b" /home/owner/Code/github.com/zsrv/goscape/pkg/script/active.go
-grep -n "func enqueueTimer\|handleSetTimer\|handleSoftTimer\|handleClearTimer\|handleClearSoftTimer\|handleGetTimer" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_timer.go
-grep -n "t\.IntArg\b\|s\.runScript" /home/owner/Code/github.com/zsrv/goscape/modules/world/tick.go
-grep -n "lastSetTimer\|setTimerCalls\|func (m \*mockPlayer) SetTimer\|func (m \*mockPlayer) GetTimer\|getTimerValue" /home/owner/Code/github.com/zsrv/goscape/pkg/script/runner_test.go
-grep -rn "playerTimer\.IntArg\b\|t\.IntArg\b" /home/owner/Code/github.com/zsrv/goscape/ --include="*.go"
+grep -n "type playerTimer\b" $HOME/Code/github.com/zsrv/goscape/modules/world/player.go
+grep -n "func (p \*Player) SetTimer\|func (p \*Player) GetTimer\|func (p \*Player) ClearTimer" $HOME/Code/github.com/zsrv/goscape/modules/world/player_timer.go
+grep -n "SetTimer\b" $HOME/Code/github.com/zsrv/goscape/pkg/script/active.go
+grep -n "func enqueueTimer\|handleSetTimer\|handleSoftTimer\|handleClearTimer\|handleClearSoftTimer\|handleGetTimer" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_timer.go
+grep -n "t\.IntArg\b\|s\.runScript" $HOME/Code/github.com/zsrv/goscape/modules/world/tick.go
+grep -n "lastSetTimer\|setTimerCalls\|func (m \*mockPlayer) SetTimer\|func (m \*mockPlayer) GetTimer\|getTimerValue" $HOME/Code/github.com/zsrv/goscape/pkg/script/runner_test.go
+grep -rn "playerTimer\.IntArg\b\|t\.IntArg\b" $HOME/Code/github.com/zsrv/goscape/ --include="*.go"
 ```
 
 Record: confirmed line numbers; confirmed only the 1 production reader of `playerTimer.IntArg` at `tick.go:292`; confirmed mockPlayer field layout. If a new consumer of `playerTimer.IntArg` appears between spec-write and dispatch: ESCALATE — the plan's enumeration is bounded.
@@ -522,11 +522,11 @@ EOF
 ```bash
 git log --oneline -2
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...
-grep -n "func popScriptArgs\b" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers.go
-grep -n "func requireActivePlayer\b" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go
-grep -n "Provider \*Provider" /home/owner/Code/github.com/zsrv/goscape/pkg/script/state.go
-grep -n "func (p \*Provider) GetByID\b" /home/owner/Code/github.com/zsrv/goscape/pkg/script/provider.go
-grep -n "func (p \*Player) EnqueueScriptArgs" /home/owner/Code/github.com/zsrv/goscape/modules/world/player_script.go
+grep -n "func popScriptArgs\b" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers.go
+grep -n "func requireActivePlayer\b" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go
+grep -n "Provider \*Provider" $HOME/Code/github.com/zsrv/goscape/pkg/script/state.go
+grep -n "func (p \*Provider) GetByID\b" $HOME/Code/github.com/zsrv/goscape/pkg/script/provider.go
+grep -n "func (p \*Player) EnqueueScriptArgs" $HOME/Code/github.com/zsrv/goscape/modules/world/player_script.go
 ```
 
 Confirm: Bundle 1 commit on top; full test suite green; popScriptArgs / requireActivePlayer / Provider.GetByID all present at expected lines. If any helper has shifted shape, ESCALATE — the plan's templates depend on these signatures.
@@ -1244,10 +1244,10 @@ EOF
 ```bash
 git log --oneline -3
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...
-grep -n -E "OpStrongQueueVarArg|OpWeakQueueVarArg|OpQueueVarArg|OpLongQueueVarArg" /home/owner/Code/github.com/zsrv/goscape/pkg/script/opcode.go
-grep -n -E "OpStrongQueueVarArg|OpWeakQueueVarArg|OpQueueVarArg|OpLongQueueVarArg" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers.go || echo "NOT WIRED — Bundle 3 work confirmed"
-grep -n "handleStrongQueue\b\|handleWeakQueue\b\|handleQueue\b\|handleLongQueue\b" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers.go
-ls /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_player_vararg.go 2>&1 || echo "file does not exist (expected; Bundle 3 creates it)"
+grep -n -E "OpStrongQueueVarArg|OpWeakQueueVarArg|OpQueueVarArg|OpLongQueueVarArg" $HOME/Code/github.com/zsrv/goscape/pkg/script/opcode.go
+grep -n -E "OpStrongQueueVarArg|OpWeakQueueVarArg|OpQueueVarArg|OpLongQueueVarArg" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers.go || echo "NOT WIRED — Bundle 3 work confirmed"
+grep -n "handleStrongQueue\b\|handleWeakQueue\b\|handleQueue\b\|handleLongQueue\b" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers.go
+ls $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_player_vararg.go 2>&1 || echo "file does not exist (expected; Bundle 3 creates it)"
 ```
 
 Confirm: Bundle 2 commit on top; full test suite green; all 4 VARARG constants exist in opcode.go; dispatch table grep returns "NOT WIRED" message; `handlers_player_vararg.go` does not exist.
@@ -1804,8 +1804,8 @@ Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/script -run "Test
 Read `pkg/script/handlers_npc.go:309-332` and `Engine-TS/src/engine/script/handlers/NpcOps.ts:144-150` side-by-side. Note any divergence found in this commit's body.
 
 ```bash
-sed -n '309,332p' /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_npc.go
-sed -n '144,150p' /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/NpcOps.ts
+sed -n '309,332p' $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_npc.go
+sed -n '144,150p' $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/NpcOps.ts
 ```
 
 Expected outcome: NO divergence. The handler currently:

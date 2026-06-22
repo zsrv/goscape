@@ -504,7 +504,7 @@ EOF
 ## Task 5: NAI close — annotate `nai_followups.md` and write close commit
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (the NAI-12 "Deferred: size-aware inApproachDistance LoS" entry starting at line 542)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (the NAI-12 "Deferred: size-aware inApproachDistance LoS" entry starting at line 542)
 
 This is the NAI close commit. Follows the established chore(nai) pattern (see `943976e` NAI-17 close, `d56dd76` NAI-16 close) and carries the `Closes memory:` trailer per the `close_commit_memory_trailer.md` memory entry.
 

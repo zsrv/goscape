@@ -20,7 +20,7 @@
 - `docs/superpowers/investigations/2026-05-05-nai-97-diagnosis.md` — per-hypothesis verdict + file:line evidence + Stage 2 (NAI-98) handoff.
 
 **Modified:**
-- `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append "From NAI-97" section.
+- `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append "From NAI-97" section.
 
 **Read-only references (audit input):**
 - `pkg/gamemap/gamemap.go` (NAI-96-current ChangeLocCollision dispatch)
@@ -28,8 +28,8 @@
 - `pkg/pathfinder/routefinder/api.go` (FindPathPlain/FindPathToEntity/FindPathToLoc)
 - `modules/world/interaction.go` (lines 571-680 dispatch arms)
 - `modules/world/server.go:315-335` (populateStaticLocsIntoZones — boot-time collision-write site)
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/config/LocType.ts` (TS PostDecode + BlockWalk decode)
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/GameMap.ts` (TS changeLocCollision; lines 326-341)
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/config/LocType.ts` (TS PostDecode + BlockWalk decode)
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/GameMap.ts` (TS changeLocCollision; lines 326-341)
 
 ---
 
@@ -302,7 +302,7 @@ EOF
 - [ ] **Step 3.1: Locate TS LocType BlockWalk decode**
 
 ```bash
-rg -nE "blockwalk|blockWalk|BlockWalk|BLOCKWALK" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/config/LocType.ts
+rg -nE "blockwalk|blockWalk|BlockWalk|BLOCKWALK" $HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/config/LocType.ts
 ```
 
 Record file:line of every match. Specifically: the default value, the opcode that sets it, and the postDecode coercion (if any).
@@ -310,7 +310,7 @@ Record file:line of every match. Specifically: the default value, the opcode tha
 - [ ] **Step 3.2: Read the TS LocType.postDecode**
 
 ```bash
-sed -n '195,225p' /home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/config/LocType.ts
+sed -n '195,225p' $HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/config/LocType.ts
 ```
 
 Identify whether TS coerces `blockwalk` based on shapes/op, and how that compares to goscape's `loctype.go:166-176` (`Active` coercion ONLY; `BlockWalk` is decoder-set, not PostDecode-coerced in goscape per spec §1).
@@ -363,7 +363,7 @@ Record verbatim.
 - [ ] **Step 4.2: Read TS LocType.postDecode for the Active analog**
 
 ```bash
-sed -n '195,225p' /home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/config/LocType.ts
+sed -n '195,225p' $HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/config/LocType.ts
 ```
 
 The TS field is named `active` (likely lowercase). Identify the coercion rule.
@@ -410,7 +410,7 @@ Record: `LayerGroundDecor` writes via `ChangeFloor(x, z, level, add)` (single-ti
 - [ ] **Step 5.2: Read TS changeLocCollision GroundDecor branch**
 
 ```bash
-sed -n '320,345p' /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/GameMap.ts
+sed -n '320,345p' $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/GameMap.ts
 ```
 
 (Lines may shift; search for `changeLocCollision` and read its body.) Record:
@@ -460,7 +460,7 @@ Identify, for **player-clicks-NPC** (the Repro A/B target class):
 - [ ] **Step 6.2: Read TS Interaction.ts equivalent**
 
 ```bash
-rg -n "getInteractionPath|findPathToEntity|findPathToLoc" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/Interaction.ts /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/
+rg -n "getInteractionPath|findPathToEntity|findPathToLoc" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/Interaction.ts $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/
 ```
 
 For player-targets-NPC, identify the TS dispatch arm and its arguments.
@@ -872,14 +872,14 @@ EOF
 ## Task 10: Followups update + close commit
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
 
 - [ ] **Step 10.1: Append "From NAI-97" section to followups**
 
 Read the current tail:
 
 ```bash
-tail -50 /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+tail -50 $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 ```
 
 Append a new section using Edit at the end-of-file marker:
@@ -905,7 +905,7 @@ Replace each `[paste]` with the actual content from the diagnosis report.
 - [ ] **Step 10.2: Verify the followups entry has no `[paste]` placeholders left**
 
 ```bash
-rg -n "\[paste\]" /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+rg -n "\[paste\]" $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 ```
 
 Expected: zero matches.

@@ -23,7 +23,7 @@ These carry forward from prior slices (per slice-5b close):
 3. **Pre-flight env (every shell session):**
    ```bash
    unset GOROOT
-   export PATH="/home/owner/go/current/bin:$PATH"
+   export PATH="$HOME/go/current/bin:$PATH"
    ```
 4. **Go-test prefix (required by global CLAUDE.md):**
    ```bash
@@ -85,7 +85,7 @@ Edit `modules/friends/db_test.go` line 26 — extend the slice:
 - [ ] **Step 1.2: Run the test to verify it fails.**
 
 ```bash
-unset GOROOT && export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT && export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./modules/friends/ -run TestOpenDB_AppliesMigrations -count=1 -v
 ```
 
@@ -781,7 +781,7 @@ git show --stat HEAD
 - [ ] **Step 5.1: Full -race suite across all 30 packages.**
 
 ```bash
-unset GOROOT && export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT && export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... -count=1 -timeout 600s
 ```
 
@@ -790,7 +790,7 @@ Expected: all 30 packages PASS. Record wall time for the slice-close memory.
 - [ ] **Step 5.2: smoke-pack 12-stage byte-diff against real content.**
 
 ```bash
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 
 Expected: `12 OK / 0 ERR / 0 SKIP`. Record wall time.
@@ -845,6 +845,6 @@ All covered.
 
 ## Slice close
 
-After T5 passes, write the slice-close memory at `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice6_close.md` mirroring the slice-5b close format (commit range, retired tags, opened tags, plan-execution deviations, test counts, gate results, links to predecessor slice memory). Add a one-line entry at the top of `MEMORY.md`.
+After T5 passes, write the slice-close memory at `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice6_close.md` mirroring the slice-5b close format (commit range, retired tags, opened tags, plan-execution deviations, test counts, gate results, links to predecessor slice memory). Add a one-line entry at the top of `MEMORY.md`.
 
 After slice 6: slice 7 (`Player.session` per-login UUID) is the final slice. Post-slice-7, the `NAI-S6-D-PUBLIC-CHAT-DEFERRED` follow-up adds `public_chat` table + RPC + world-side hook.

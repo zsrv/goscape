@@ -218,5 +218,5 @@ None at spec time. The diff harness has no TS counterpart; this is purely a gosc
 ## §8. Acceptance
 
 - `go test ./cmd/goscape-cli/...` passes.
-- `goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/Content --reference-dir /home/owner/Code/github.com/LostCityRS/Engine-TS/data/pack` produces a per-stage DIFF count and a Diff details section. Specific divergence numbers are not pinned — Phase 2's job is to make divergences visible, not to fix them.
+- `goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/Content --reference-dir $HOME/Code/github.com/LostCityRS/Engine-TS/data/pack` produces a per-stage DIFF count and a Diff details section. Specific divergence numbers are not pinned — Phase 2's job is to make divergences visible, not to fix them.
 - Without `--reference-dir`, output is bit-identical to current Phase 1 (no new column, no trailing block).

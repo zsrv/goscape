@@ -507,11 +507,17 @@ func TestLoadSeqTypes_FromPack(t *testing.T) {
 	// 244-format server/seq.dat and main_file_cache.dat (FileStream) required
 	// for LoadAnimFrames. Falls back to the repo's data/pack for future local
 	// regeneration. Skip when neither is available (CI / bare checkouts).
-	const ref244Pack = "/home/owner/Code/github.com/LostCityRS/Server244-ref/engine/data/pack"
+	var ref244Pack string
+	if ref := os.Getenv("GOSCAPE_REF244_DIR"); ref != "" {
+		ref244Pack = filepath.Join(ref, "data", "pack")
+	}
 	cacheDir := filepath.Join("..", "..", "data", "pack")
 	if _, err := os.Stat(filepath.Join(cacheDir, "server", "seq.dat")); err != nil {
+		if ref244Pack == "" {
+			t.Skipf("no pack data: %v; GOSCAPE_REF244_DIR not set for reference cache", err)
+		}
 		if _, err2 := os.Stat(filepath.Join(ref244Pack, "server", "seq.dat")); err2 != nil {
-			t.Skipf("no pack data: %v; ref244 also unavailable: %v", err, err2)
+			t.Skipf("no pack data: %v; reference cache also unavailable: %v", err, err2)
 		}
 		cacheDir = ref244Pack
 	}

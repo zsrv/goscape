@@ -12,7 +12,7 @@ new in the cross-pin diff — read whole, not as diffs) as a `goscape-cli unpack
 command family. Work list:
 
 ```
-git -C /home/owner/Code/github.com/LostCityRS/Server244-ref/engine \
+git -C $HOME/Code/github.com/LostCityRS/Server244-ref/engine \
   diff --stat e1dea19f..9aadcec4 -- tools/unpack
 ```
 

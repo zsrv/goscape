@@ -22,10 +22,13 @@ type fixturePair struct {
 // real-cache test convention; see modules/world/loctype_realcache_test.go).
 func TestFilter_AgainstTSFixtures(t *testing.T) {
 	// Rev-244: load from data/raw/wordenc, mirroring TS WordEnc.ts:35-37.
-	const tsRaw = "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/raw"
-	jagPath := filepath.Join(tsRaw, "wordenc")
+	ref := os.Getenv("GOSCAPE_REF244_DIR")
+	if ref == "" {
+		t.Skip("GOSCAPE_REF244_DIR not set; skipping (needs the reference engine's data/raw/wordenc)")
+	}
+	jagPath := filepath.Join(ref, "data", "raw", "wordenc")
 	if _, err := os.Stat(jagPath); err != nil {
-		t.Skipf("wordenc jagfile not present at %s; skipping (ensure Engine-TS data/raw/wordenc exists)", jagPath)
+		t.Skipf("wordenc jagfile not present at %s; skipping (ensure data/raw/wordenc exists)", jagPath)
 	}
 
 	fixturesPath := filepath.Join("testdata", "wordenc-fixtures.json")

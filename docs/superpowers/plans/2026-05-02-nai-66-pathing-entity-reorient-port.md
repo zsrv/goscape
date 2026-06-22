@@ -6,7 +6,7 @@
 
 **Architecture:** Single TDD task with four cycles (Player.reorient + Player.SetInteraction default arm + Npc.reorient + processInfo wiring), followed by a CLOSE task for doc-only deviation reframes and the close commit. Each cycle is its own commit; the CLOSE task is the final close commit.
 
-**Tech Stack:** Go 1.26+. TS source canonical path: `/home/owner/Code/github.com/LostCityRS/Engine-TS/`.
+**Tech Stack:** Go 1.26+. TS source canonical path: `$HOME/Code/github.com/LostCityRS/Engine-TS/`.
 
 ---
 
@@ -686,7 +686,7 @@ This task does NO production code changes — only doc-comment text updates at d
 **Files:**
 - Modify: `modules/world/npc_script.go` (DEVIATION block at lines ~95-122 — reframe)
 - Modify: `pkg/script/active.go` (DEVIATION block at lines ~600-625 — reframe)
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (add NAI-66 close entry; update D4-NPC + D5-NPC carry-forward framing)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (add NAI-66 close entry; update D4-NPC + D5-NPC carry-forward framing)
 
 **Verification commands:**
 - Grep all tag-site mentions stayed in sync: `grep -rn "NAI-34-D4-NPC\|NAI-34-D5-NPC\|pathing-entity-reorient-and-stride-tracking\|pathing-entity-focus-and-step-tracking" --include="*.go" --include="*.md"` — every hit should reflect the new "permanent dead-API skip" framing.

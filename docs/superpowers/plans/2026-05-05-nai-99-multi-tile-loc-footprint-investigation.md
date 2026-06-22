@@ -21,7 +21,7 @@
 - `docs/superpowers/investigations/2026-05-05-nai-99-diagnosis.md` — per-hypothesis verdict + file:line evidence + Stage 2 (NAI-100) handoff.
 
 **Modified:**
-- `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append "From NAI-99" section.
+- `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append "From NAI-99" section.
 
 **Read-only references (audit input):**
 - `pkg/gamemap/gamemap.go` (NAI-96-current `ChangeLocCollision` dispatch; lines 61-78)
@@ -31,8 +31,8 @@
 - `pkg/gamemap/load.go` (`loadLocs` line 137 — l-pack decoder)
 - `modules/world/server.go:315-335` (`populateStaticLocsIntoZones` — boot-time collision-write site)
 - `pkg/pathfinder/collision/flagmap.go` (`Get`/`Set`/`Add`/`Remove`/`IsZoneAllocated`)
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/GameMap.ts` (TS `changeLocCollision`; lines 326-341)
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/config/LocType.ts` (TS PostDecode)
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/GameMap.ts` (TS `changeLocCollision`; lines 326-341)
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/config/LocType.ts` (TS PostDecode)
 
 ---
 
@@ -384,11 +384,11 @@ If H1 confirms (e.g., fountain has BlockWalk=false → gate skips → stuck tile
 
 - [ ] **Step 4.1: Locate the rsmod-pathfinder Rust source**
 
-Probable path: `/home/owner/Code/github.com/2004scape/rsmod-pathfinder/` or sibling. Search:
+Probable path: `$HOME/Code/github.com/2004scape/rsmod-pathfinder/` or sibling. Search:
 
 ```bash
-find /home/owner/Code/github.com/2004scape -maxdepth 3 -type d -name "*rsmod*" 2>/dev/null
-find /home/owner/Code/github.com/2004scape -maxdepth 4 -type f -name "*.rs" 2>/dev/null | head -10
+find $HOME/Code/github.com/2004scape -maxdepth 3 -type d -name "*rsmod*" 2>/dev/null
+find $HOME/Code/github.com/2004scape -maxdepth 4 -type f -name "*.rs" 2>/dev/null | head -10
 ```
 
 If not present locally, **halt** and record in the diagnosis report: "H2 Rust cross-check: rsmod-pathfinder source unavailable locally; verdict UNDETERMINED-BY-LOCAL-ABSENCE; NAI-100 must clone or use 2004scape/rsmod-pathfinder HEAD via web." Per `audit_subagent_fabrication`, never fabricate Rust citations.
@@ -396,7 +396,7 @@ If not present locally, **halt** and record in the diagnosis report: "H2 Rust cr
 - [ ] **Step 4.2: Read `change_floor` in rsmod-pathfinder**
 
 ```bash
-grep -rn "change_floor\|fn change_floor" /home/owner/Code/github.com/2004scape/rsmod-pathfinder/ 2>/dev/null | head -10
+grep -rn "change_floor\|fn change_floor" $HOME/Code/github.com/2004scape/rsmod-pathfinder/ 2>/dev/null | head -10
 ```
 
 Read the function body. Record:
@@ -406,7 +406,7 @@ Read the function body. Record:
 - [ ] **Step 4.3: Read `change_loc_collision` (or analogue) in rsmod-pathfinder**
 
 ```bash
-grep -rn "change_loc_collision\|fn changeLocCollision\|GROUND_DECOR\|GroundDecor" /home/owner/Code/github.com/2004scape/rsmod-pathfinder/ 2>/dev/null | head -20
+grep -rn "change_loc_collision\|fn changeLocCollision\|GROUND_DECOR\|GroundDecor" $HOME/Code/github.com/2004scape/rsmod-pathfinder/ 2>/dev/null | head -20
 ```
 
 Read the GroundDecor branch. Record whether it loops W×L itself before calling `change_floor`, or calls `change_floor(x, z, level, add)` once.
@@ -414,7 +414,7 @@ Read the GroundDecor branch. Record whether it loops W×L itself before calling 
 - [ ] **Step 4.4: Cross-reference TS to confirm equivalence**
 
 ```bash
-grep -n "GROUND_DECOR\|changeFloor" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/GameMap.ts
+grep -n "GROUND_DECOR\|changeFloor" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/GameMap.ts
 ```
 
 Expected (already confirmed in spec §3): TS `changeLocCollision` GroundDecor branch calls `rsmod.changeFloor(x, z, level, add)` once — single-tile invocation. So if Rust `change_floor` is multi-tile-aware internally, TS gets multi-tile coverage *for free* via the rsmod call; goscape's port-equivalent `ChangeFloor` (also single-tile invocation, no internal W×L loop) is the divergence.
@@ -453,7 +453,7 @@ Record the bit layout used for `CurrentInfo` / `BaseInfo` writes: which bits the
 - [ ] **Step 5.2: Read TS l-pack decoder**
 
 ```bash
-find /home/owner/Code/github.com/LostCityRS/Engine-TS -name "*.ts" | xargs grep -ln "loadLocs\|decodeLocs\|LocGrid\|class World" 2>/dev/null | head -5
+find $HOME/Code/github.com/LostCityRS/Engine-TS -name "*.ts" | xargs grep -ln "loadLocs\|decodeLocs\|LocGrid\|class World" 2>/dev/null | head -5
 ```
 
 Locate TS's loc-pack decoder. Most likely `src/engine/GameMap.ts` `decodeLocs` or `src/cache/Map.ts`. Read the per-instance shape extraction. Record the bit layout TS uses.
@@ -472,7 +472,7 @@ A divergence at this layer would silently misclassify centrepiece (10/11) as gro
 If TS code references the fountain LocType by name, find the `shape` field on its LocType definition in the cache:
 
 ```bash
-grep -rn "fountain" /home/owner/Code/github.com/LostCityRS/Engine-TS/data/src/scripts/ 2>/dev/null | head -10
+grep -rn "fountain" $HOME/Code/github.com/LostCityRS/Engine-TS/data/src/scripts/ 2>/dev/null | head -10
 ```
 
 Identify the `.loc` content config. Note: LocType `shape` and per-instance `shape` are different — the per-instance shape comes from the l-pack stream, the LocType `shape`/`shapes` is a model-list selector. The user-facing W×L coverage depends on per-instance shape (which selects layer).
@@ -816,13 +816,13 @@ EOF
 **Purpose:** Memory + close commit per `close_commit_memory_trailer`.
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
-- Possibly modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (if any new memory entries warranted)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+- Possibly modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (if any new memory entries warranted)
 
 - [ ] **Step 8.1: Read current nai_followups.md**
 
 ```bash
-cat /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md | tail -30
+cat $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md | tail -30
 ```
 
 Locate the existing structure (likely `## From NAI-N` sections in chronological order).
@@ -849,14 +849,14 @@ Replace placeholders with the diagnosis report's content verbatim.
 - [ ] **Step 8.3: Verify nai_98_fountain_footprint_residual.md is the memory entry being closed**
 
 ```bash
-cat /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_98_fountain_footprint_residual.md
+cat $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_98_fountain_footprint_residual.md
 ```
 
 Confirm this is the residual memory NAI-99 closes (per spec §9 close trailer).
 
 - [ ] **Step 8.4: Add new memory entries if surfaced**
 
-If Stages 1.2/1.3/1.4 surfaced new lessons (e.g., "Rust rsmod handles W×L internally; ChangeFloor port must too"), create a new memory file under `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` and add a one-line index entry to `MEMORY.md`. Per global memory conventions: only save non-derivable lessons; the diagnosis report and code itself are the canonical source for derivable info.
+If Stages 1.2/1.3/1.4 surfaced new lessons (e.g., "Rust rsmod handles W×L internally; ChangeFloor port must too"), create a new memory file under `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` and add a one-line index entry to `MEMORY.md`. Per global memory conventions: only save non-derivable lessons; the diagnosis report and code itself are the canonical source for derivable info.
 
 - [ ] **Step 8.5: Close commit**
 

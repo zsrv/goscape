@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-06-04-rev244-b3-engine-core-design.md`
 
-**References:** Engine-TS at the 244 pin: `/home/owner/Code/github.com/LostCityRS/Engine-TS` (checkout IS at `9aadcec4`).
+**References:** Engine-TS at the 244 pin: `$HOME/Code/github.com/LostCityRS/Engine-TS` (checkout IS at `9aadcec4`).
 
 **Scope decisions already made (do not relitigate):**
 - 244 runtime cache **deferred to B6** (user decision): all FileStream-backed serving is built against synthetic fixtures; the live client smoke + window closures ride B6.
@@ -21,7 +21,7 @@
 - Sandbox gotcha: `git status` shows phantom `??` dotfiles — device-node masks, NOT real files. Never stage them; never `git add -A`. Warn every subagent.
 
 **Bake into every implementer prompt (recurring B2 defects):**
-1. Verify every `// TS <File>.ts:<lines>` citation against a numbered listing (`git -C /home/owner/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:<file> | cat -n | sed -n '<range>p'`) BEFORE writing.
+1. Verify every `// TS <File>.ts:<lines>` citation against a numbered listing (`git -C $HOME/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:<file> | cat -n | sed -n '<range>p'`) BEFORE writing.
 2. Reject-path tests must seed earlier-gate prerequisites so the gate under test is the discriminating condition.
 3. Final-review "missing X" findings can be false positives — verify directly before fixing.
 
@@ -35,7 +35,7 @@
 - Create: `modules/world/player_list.go`
 - Create: `modules/world/player_list_test.go`
 
-TS contract: `git -C /home/owner/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/engine/entity/EntityList.ts | cat -n` — read all 113 lines. Key semantics: `set(id)` records `lastUsedIndex = id` (line 67); base `next()` scans `[lastUsedIndex+1, len)` then wraps `[indexPadding, start)` (lines 22-35); PlayerList has `indexPadding = 1` (line 92: `super(size, 1)`); the priority override (lines 100-112) scans a 100-wide window `[start+init, start+100)` where `init = start == 0 ? 1 : 0`, then falls back to the **default-start** base scan; iteration walks ids **in id order** (lines 37-48).
+TS contract: `git -C $HOME/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/engine/entity/EntityList.ts | cat -n` — read all 113 lines. Key semantics: `set(id)` records `lastUsedIndex = id` (line 67); base `next()` scans `[lastUsedIndex+1, len)` then wraps `[indexPadding, start)` (lines 22-35); PlayerList has `indexPadding = 1` (line 92: `super(size, 1)`); the priority override (lines 100-112) scans a 100-wide window `[start+init, start+100)` where `init = start == 0 ? 1 : 0`, then falls back to the **default-start** base scan; iteration walks ids **in id order** (lines 37-48).
 
 Representation note (record as in-code comment): TS keeps storage Array + `ids` Int32Array + free Set; the indirection has zero observable effect (get/set/remove keyed by id, iteration in id order, `count = size − free.size`), so Go stores `entities []*Player` indexed by pid directly.
 
@@ -289,7 +289,7 @@ func getNextPid(l *playerList, remoteAddr string) int {
 - Modify: `modules/world/tick.go`, `modules/world/rebuild_worker.go` (:169-184), every other `playerLoop`/`s.players[` site
 - Test: `modules/world/server_test.go` (or nearest existing fixture file) — iteration-order pin
 
-TS contract: every `playerLoop`→`players` hunk in `git -C /home/owner/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4 -- src/engine/World.ts` (the `for (const player of this.players)` rewrites, `getNextPid` at World.ts:1758-1773, the login insert at World.ts:940-961, `removePlayer` at World.ts:1643-1648, `getTotalPlayers` = `players.count` at World.ts:1737-1739).
+TS contract: every `playerLoop`→`players` hunk in `git -C $HOME/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4 -- src/engine/World.ts` (the `for (const player of this.players)` rewrites, `getNextPid` at World.ts:1758-1773, the login insert at World.ts:940-961, `removePlayer` at World.ts:1643-1648, `getTotalPlayers` = `players.count` at World.ts:1737-1739).
 
 - [ ] **Step 1: Write the failing pin test** — processing order is now pid order:
 

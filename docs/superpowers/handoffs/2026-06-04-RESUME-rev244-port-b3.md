@@ -7,7 +7,7 @@ Self-contained resume prompt. Written 2026-06-04 after Bundle 2 shipped.
 Multi-revision Go port of the LostCityRS Engine-TS server: `main` = codeless
 docs hub; **`rev-244` = the active 225→244 porting branch**. Work on
 `rev-244` only. The work list is the cross-pin diff
-`git -C /home/owner/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4`
+`git -C $HOME/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4`
 (local checkout sits AT the 244 pin `9aadcec4`). Pins:
 `git show main:REFERENCES.md` §rev-244.
 
