@@ -1,7 +1,5 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Context
 
 This is a Go rewrite of the TypeScript RuneScape server at `/home/owner/Code/github.com/LostCityRS/Engine-TS`. It is designed to communicate with the Java RuneScape client at `/home/owner/Code/github.com/LostCityRS/Client-Java`.
@@ -24,9 +22,19 @@ go test ./pkg/io/packet/... -run TestName
 # Run with race detector
 go test -race ./...
 
-# Build container image
-make build-image
+# Build both binaries: goscape (server) + goscape-cli (cache/RuneScript tooling)
+make all
+
+# Pack the game cache from CACHE_SRC_DIR into CACHE_OUT_DIR (uses goscape-cli)
+make pack
+
+# Build container images (goscape + goscape-cli)
+make images
 ```
+
+`cmd/goscape-cli/` is the offline tooling binary. Subcommands: `pack`/`unpack`
+(game cache), `compile` (RuneScript), `rsa` (login key gen/info), `worldmap`,
+`jag`. Run `goscape-cli <cmd> --help` for flags.
 
 ## Configuration
 
@@ -54,23 +62,18 @@ Everything in `pkg/dskit/` is a port of [Grafana's dskit](https://github.com/gra
 
 ### Module System
 
-`pkg/dskit/modules.Manager` resolves a dependency graph of named modules and initialises them in topological order. Modules are registered in `cmd/goscape/app/modules.go`:
+`pkg/dskit/modules.Manager` resolves a dependency graph of named modules and initialises them in topological order. Modules and their dependencies (from `cmd/goscape/app/modules.go`, where `X → Y` means X depends on Y so Y starts first):
 
 ```
-common (invisible)
-  ├── ondemand →  HTTP OnDemand server (dskit server + ondemand.OnDemand)
-  ├── friends  →  friends server (SQLite)
-  ├── login    →  gRPC login service (SQLite)
-  └── world    →  TCP game server (world.Server)
-
-all (composite target)
-  ├── ondemand
-  ├── friends
-  ├── login
-  └── world
+common    invisible; no deps — exists only to anchor the graph
+friends   friends server (SQLite)                         → common
+login     gRPC login service (SQLite)                     → common
+world     TCP game server (world.Server)                  → common, login, friends
+ondemand  HTTP OnDemand server (dskit server + OnDemand)  → common, world
+all       composite "run everything" target               → ondemand, friends, login, world
 ```
 
-Adding a new module: register it in `modules.go`, add dependencies, and add its config to `cmd/goscape/app/config.go`.
+Adding a new module: register it in `modules.go`, wire its dependencies, and add its config to `cmd/goscape/app/config.go`.
 
 ### Module Packages
 
