@@ -478,7 +478,7 @@ EOF
 
 - [ ] **Step 3.5: Update memory**
 
-Per `post_task_handoff` memory: at every task close, save non-derivable info to memory. For NAI-109 specifically, this likely surfaces no new memory entries (compressed-cadence-equivalent additive port; pattern-continuation of NAI-76/NAI-102 TutOpen/TutClose). If a non-obvious lesson surfaces during T1 or T2 (e.g. unexpected ActivePlayer impl, wire-test divergence, registry-ordering surprise), write a topic file under `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` and add a one-line index entry to `MEMORY.md`.
+Per `post_task_handoff` memory: at every task close, save non-derivable info to memory. For NAI-109 specifically, this likely surfaces no new memory entries (compressed-cadence-equivalent additive port; pattern-continuation of NAI-76/NAI-102 TutOpen/TutClose). If a non-obvious lesson surfaces during T1 or T2 (e.g. unexpected ActivePlayer impl, wire-test divergence, registry-ordering surprise), write a topic file under `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` and add a one-line index entry to `MEMORY.md`.
 
 Update `nai_followups.md`:
 - Add `## NAI-109 — CLOSED <date>` section under the existing pattern (mirror NAI-108 close at line 5487+).

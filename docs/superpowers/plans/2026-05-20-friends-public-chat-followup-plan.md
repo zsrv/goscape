@@ -23,7 +23,7 @@ These carry forward from `[[friends-server-slice7-close]]` and the resume file. 
 3. **Pre-flight env (every shell session):**
    ```bash
    unset GOROOT
-   export PATH="/home/owner/go/current/bin:$PATH"
+   export PATH="$HOME/go/current/bin:$PATH"
    ```
 4. **Go-test prefix (required by global CLAUDE.md):**
    ```bash
@@ -95,7 +95,7 @@ Edit `modules/friends/db_test.go`, change the `wantTables` slice from `[]string{
 - [ ] **Step 2: Run the test — expect FAIL**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/friends/ -run TestOpenDB_AppliesMigrations -count=1
 ```
 
@@ -383,7 +383,7 @@ message PublicMessageRequest {
 - [ ] **Step 3: Regenerate friends `.pb.go` files**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 make protos
 ```
 
@@ -662,7 +662,7 @@ func (f *fakeFriendsClient) PublicMessage(ctx context.Context, req *friendspb.Pu
 - [ ] **Step 4: Verify build**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./modules/world/...
 ```
 
@@ -1175,7 +1175,7 @@ git show --stat HEAD
 - [ ] **Step 1: Run the full `-race` suite**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... -count=1 -timeout 600s
 ```
 
@@ -1184,7 +1184,7 @@ Expected: ok across all 56 packages (matches slice 7 baseline; new tests in `mod
 - [ ] **Step 2: Run smoke-pack against real Content**
 
 ```bash
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 
 Expected: 12 OK / 0 ERR / 0 SKIP in ~8-10s. Matches slice 7 baseline. If any stage flips to ERR, STOP and report BLOCKED — public_chat persistence should not affect pack output at all, so an ERR here likely indicates an unrelated regression that crept in via concurrent shell edits.
@@ -1221,6 +1221,6 @@ Expected: working tree clean (untracked files like `.claude/` and `RUNESCRIPT.md
 
 After all 8 commits ship and the gate holds (T9 step 1+2 both PASS):
 
-1. Write `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_public_chat_followup_close.md`, mirroring `[[friends-server-slice7-close]]` format. Include: HEAD before/after; commit list `T1..T8` with one-line summaries; tags retired (`NAI-S6-D-PUBLIC-CHAT-DEFERRED`); zero tags opened; race-clean + smoke-pack timings; any plan deviations encountered; any reviewer fix-ups.
+1. Write `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_public_chat_followup_close.md`, mirroring `[[friends-server-slice7-close]]` format. Include: HEAD before/after; commit list `T1..T8` with one-line summaries; tags retired (`NAI-S6-D-PUBLIC-CHAT-DEFERRED`); zero tags opened; race-clean + smoke-pack timings; any plan deviations encountered; any reviewer fix-ups.
 2. Add a one-line entry to `MEMORY.md`.
 3. **Resulting state:** all friends-server bridge work is at a stable rest state. All deviation tags are either retired or permanent; no further conditional retirements remain.

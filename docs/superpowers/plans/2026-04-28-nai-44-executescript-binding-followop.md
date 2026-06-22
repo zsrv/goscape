@@ -1382,7 +1382,7 @@ If the failure list is empty, the body section reads `<no existing test failures
 - Modify: `modules/world/interaction_test.go`, `modules/world/npc_test.go`, others — re-frame any tests broken by T5's auto-clear semantic change.
 - Modify: `modules/world/handler_op_player.go:21-30` — retire `NAI-40-D-OPPLAYER3-FOLLOWOP-NOT-PORTED` doc-comment block.
 - Modify: `modules/world/world_script_queue_test.go:257-266` — retire `NAI-37-D-WORLDQUEUE-CROSS-CONTEXT-DROP` test-comment references.
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append NAI-44 close section.
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append NAI-44 close section.
 
 Closes the sub-spec. **Two phases:** (a) cascade-audit fix-up of any failing tests from T5; (b) deviation-tag retirement + memory bump + close commit.
 
@@ -1499,7 +1499,7 @@ If any production-code (`pkg/`, `modules/`) site STILL references the retired ta
 
 - [ ] **Step 7: Update memory `nai_followups.md`**
 
-Append to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (use Write or Edit; per `memory_write_sandbox_quirk.md`, do NOT use Bash echo/printf):
+Append to `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (use Write or Edit; per `memory_write_sandbox_quirk.md`, do NOT use Bash echo/printf):
 
 ```markdown
 
@@ -1568,7 +1568,7 @@ Replace `<sha>` placeholders with the actual commit hashes from T1-T6 once T6 co
 
 - [ ] **Step 8: Update `MEMORY.md` index if any new entries were seeded**
 
-NAI-44 seeded no new entries (per Step 7's note). Skip this step. If the implementer DID seed something during T1-T5, add the corresponding line to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`.
+NAI-44 seeded no new entries (per Step 7's note). Skip this step. If the implementer DID seed something during T1-T5, add the corresponding line to `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`.
 
 - [ ] **Step 9: Final verification**
 

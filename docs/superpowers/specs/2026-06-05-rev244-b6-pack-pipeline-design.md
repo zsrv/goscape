@@ -46,7 +46,7 @@ opcode numbering — plus the umbrella's end-to-end 244-client login smoke
    out via git worktrees. No re-pin; upstream movement is a separate later
    decision.
 2. **Reference layout: durable sibling dir** —
-   `/home/owner/Code/github.com/LostCityRS/Server244-ref/` (mirrors the
+   `$HOME/Code/github.com/LostCityRS/Server244-ref/` (mirrors the
    Server225_2 precedent the Arc-26 byte-diff loop used).
 3. **Parity scope: full tree.** Not just `server/*`; the login smoke needs
    the client cache + ondemand correct anyway.

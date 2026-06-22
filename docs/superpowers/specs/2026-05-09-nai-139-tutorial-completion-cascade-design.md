@@ -181,7 +181,7 @@ CGO_ENABLED=0 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run \
   -trimpath ./cmd/goscape --config.file config.yaml
 ```
 
-Client: Java client at `/home/owner/Code/github.com/LostCityRS/Client-Java`, configured for cache version 225 against the local goscape server.
+Client: Java client at `$HOME/Code/github.com/LostCityRS/Client-Java`, configured for cache version 225 against the local goscape server.
 
 ### Fresh-account requirement
 

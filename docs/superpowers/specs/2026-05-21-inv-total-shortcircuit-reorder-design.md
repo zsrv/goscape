@@ -13,7 +13,7 @@ This slice retires the drift with a 4-line motion + 1 test.
 
 ## 2. TS truth (source of record)
 
-`/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/InvOps.ts:619-631`:
+`$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/InvOps.ts:619-631`:
 
 ```ts
 [ScriptOpcode.INV_TOTAL]: checkedHandler(ActivePlayer, state => {
@@ -37,7 +37,7 @@ TS comment `// todo: error instead?` at `:624` confirms the TS author noted the 
 
 ## 3. Current goscape state (drift)
 
-`/home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_inv.go:26-45` at HEAD `6644bc0e`:
+`$HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_inv.go:26-45` at HEAD `6644bc0e`:
 
 ```go
 func handleInvTotal(s *ScriptState) error {
@@ -131,9 +131,9 @@ Helper pattern mirrors `TestInvMoveToSlot_FromInvTypeInvalid` at `pkg/script/han
 
 ## 7. Gates
 
-- `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test -race ./...` — all packages PASS.
-- `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test -run TestPackAll_TwelveStageSmoke ./pkg/packall/...` — PASS.
-- `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/gofmt -l pkg/script/handlers_inv.go pkg/script/handlers_inv_test.go` — empty.
+- `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test -race ./...` — all packages PASS.
+- `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test -run TestPackAll_TwelveStageSmoke ./pkg/packall/...` — PASS.
+- `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/gofmt -l pkg/script/handlers_inv.go pkg/script/handlers_inv_test.go` — empty.
 - Audit-grep:
   - `grep -n 'checkInvType(s, ' pkg/script/handlers_inv.go | wc -l` → 12 (unchanged from HEAD; no new wires, just reorder of one existing call).
   - `grep -n 'INV_TOTAL' pkg/script/handlers_inv.go` → matches structurally consistent with target body.

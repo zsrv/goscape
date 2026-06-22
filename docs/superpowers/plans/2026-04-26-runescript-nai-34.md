@@ -609,7 +609,7 @@ EOF
 **Goal:** Final review pass, smoke acceptance, memory updates, close commit. No new code.
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (add "From NAI-34" section; remove `NPC_TELE 2541` from "From NAI-33")
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (add "From NAI-34" section; remove `NPC_TELE 2541` from "From NAI-33")
 
 - [ ] **Step 1: Combined code review (subagent dispatch)**
 
@@ -651,7 +651,7 @@ FAIL escalation (if any):
 
 Use the Write or Edit tool (NOT bash printf/touch — per `memory_write_sandbox_quirk.md`, only Write/Edit can write to the memory directory).
 
-Open `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Two changes:
+Open `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Two changes:
 
 (a) **Remove** the `NPC_TELE 2541` entry from the "From NAI-33" section (it's been closed by NAI-34).
 

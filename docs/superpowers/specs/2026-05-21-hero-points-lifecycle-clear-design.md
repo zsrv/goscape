@@ -178,7 +178,7 @@ Existing tests: zero modifications expected. The interface widening on `ActivePl
 
 ## 8. Gates
 
-- `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go test -race ./...` — 57+ pkgs, 0 FAIL.
+- `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go test -race ./...` — 57+ pkgs, 0 FAIL.
 - `TestPackAll_TwelveStageSmoke` PASS.
 - Audit-grep `heroPoints.clear()` post-slice — should find production-side citations at all 4 real-port sites (TS line refs) + 1 deferral site in `removePlayerInternal` doc-comment.
 - Audit-grep `NAI-120 Bundle 2D` — preserves existing 13 hits unchanged (no retirements; this is a Bundle 2D follow-up, the bundle stays open as the umbrella).

@@ -2435,7 +2435,7 @@ Expected: PASS (zero failures). Note any flaky tests; re-run once to confirm.
 
 - [ ] **Step 2: Run smoke-pack**
 
-Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content`
+Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content`
 Expected: `12 OK / 0 ERR / 0 SKIP`. If any stage degrades, that is a blocker — investigate before claiming slice 4a complete.
 
 - [ ] **Step 3: Tag the slice close**

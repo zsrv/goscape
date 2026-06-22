@@ -7,7 +7,7 @@ package compiler
 // Activation: set GOSCAPE_REF245_DIR to the engine root of the reference
 // checkout (the directory that contains data/pack and data/symbols):
 //
-//	GOSCAPE_REF245_DIR=/home/owner/Code/github.com/LostCityRS/Server245.2-ref/engine \
+//	GOSCAPE_REF245_DIR=/path/to/Server245.2-ref/engine \
 //	  go test ./pkg/pack/compiler/ -run TestWriteCompilerSymbols_RefParity -v
 //
 // Without the env var the test is skipped (clean CI).

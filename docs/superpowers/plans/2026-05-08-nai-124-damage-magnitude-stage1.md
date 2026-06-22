@@ -109,7 +109,7 @@ TBD-by-Task-8
 - [ ] **Step 2.1: Read TS ParamHelper.ts default branch**
 
 ```bash
-find /home/owner/Code/github.com/LostCityRS/Engine-TS -name "ParamHelper.ts"
+find $HOME/Code/github.com/LostCityRS/Engine-TS -name "ParamHelper.ts"
 ```
 
 Read the file, locate `getIntParam` and `getStringParam`. Capture the exact lines that handle the "param not in map" path: does TS return `paramType.defaultInt` directly? What's its type in TS?
@@ -117,7 +117,7 @@ Read the file, locate `getIntParam` and `getStringParam`. Capture the exact line
 - [ ] **Step 2.2: Read TS ParamType.ts defaultInt declaration**
 
 ```bash
-find /home/owner/Code/github.com/LostCityRS/Engine-TS -name "ParamType.ts"
+find $HOME/Code/github.com/LostCityRS/Engine-TS -name "ParamType.ts"
 ```
 
 Read the file. Locate the `defaultInt` field declaration. What's the JS default value when no wire `code 2` is encountered? (Spec hypothesizes `-1`.)
@@ -131,9 +131,9 @@ Re-Read `pkg/script/handlers_config.go:46-54`. Confirm: line 51 is `s.PushInt(in
 Locate the param config source for `max_dealt`. Most likely path:
 
 ```bash
-find /home/owner/Code/github.com/LostCityRS/Content -name "*.param" -path "*max_dealt*" 2>/dev/null
-grep -rln "^\[max_dealt\]" /home/owner/Code/github.com/LostCityRS/Content/data/src/scripts/configs 2>/dev/null
-grep -rln "\[max_dealt\]" /home/owner/Code/github.com/LostCityRS/Content 2>/dev/null | head -5
+find $HOME/Code/github.com/LostCityRS/Content -name "*.param" -path "*max_dealt*" 2>/dev/null
+grep -rln "^\[max_dealt\]" $HOME/Code/github.com/LostCityRS/Content/data/src/scripts/configs 2>/dev/null
+grep -rln "\[max_dealt\]" $HOME/Code/github.com/LostCityRS/Content 2>/dev/null | head -5
 ```
 
 Locate the `[max_dealt]` definition. Capture: does it set `default = ...`? If yes, what value? If no, the unset default applies.
@@ -141,8 +141,8 @@ Locate the `[max_dealt]` definition. Capture: does it set `default = ...`? If ye
 - [ ] **Step 2.5: Verify giant-rat NPC config does NOT set max_dealt explicitly**
 
 ```bash
-grep -rln "^\[giant_rat\]" /home/owner/Code/github.com/LostCityRS/Content/data/src/scripts/configs 2>/dev/null
-grep -rln "\[giant_rat" /home/owner/Code/github.com/LostCityRS/Content 2>/dev/null | head -5
+grep -rln "^\[giant_rat\]" $HOME/Code/github.com/LostCityRS/Content/data/src/scripts/configs 2>/dev/null
+grep -rln "\[giant_rat" $HOME/Code/github.com/LostCityRS/Content 2>/dev/null | head -5
 ```
 
 Read the giant_rat NPC config. Does it set a `param=max_dealt,...` line? If yes, the param is set on the npc and S1's default branch isn't the bug for the rat case. If no, the default branch IS hit when the script reads `npc_param(max_dealt)` on a rat.
@@ -257,7 +257,7 @@ If `Varp(id)` returns `int` directly, depends on internal storage.
 - [ ] **Step 4.3: Cross-check handlePushVarp against TS PUSH_VARP**
 
 ```bash
-find /home/owner/Code/github.com/LostCityRS/Engine-TS -name "CoreOps.ts" -o -name "CoreOpsHandler.ts" 2>/dev/null
+find $HOME/Code/github.com/LostCityRS/Engine-TS -name "CoreOps.ts" -o -name "CoreOpsHandler.ts" 2>/dev/null
 ```
 
 Read TS PUSH_VARP / POP_VARP. Confirm the int representation TS uses (typically signed Number).
@@ -380,7 +380,7 @@ Edit findings doc. Under `### S5`:
 - [ ] **Step 7.1: Locate tutorial-starting worn-item set**
 
 ```bash
-grep -rln "starting\|tutorial.*inv\|new_player" /home/owner/Code/github.com/LostCityRS/Content/scripts/_tutorial 2>/dev/null | head -5
+grep -rln "starting\|tutorial.*inv\|new_player" $HOME/Code/github.com/LostCityRS/Content/scripts/_tutorial 2>/dev/null | head -5
 ```
 
 Find the script that gives a fresh tutorial char their starting inventory + worn items. List each worn-slot obj id.
@@ -390,7 +390,7 @@ Find the script that gives a fresh tutorial char their starting inventory + worn
 For each worn obj from Step 7.1, find its config and capture the `param=strengthbonus,X` entry (or absence).
 
 ```bash
-grep -rln "^\[<obj_name>\]" /home/owner/Code/github.com/LostCityRS/Content/data/src/scripts/configs 2>/dev/null
+grep -rln "^\[<obj_name>\]" $HOME/Code/github.com/LostCityRS/Content/data/src/scripts/configs 2>/dev/null
 ```
 
 - [ ] **Step 7.3: Manually compute running sum**

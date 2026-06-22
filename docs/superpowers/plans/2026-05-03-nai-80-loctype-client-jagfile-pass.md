@@ -37,7 +37,7 @@ This is a non-functional struct expansion. After this task, all new fields exist
 
 - [ ] **Step 1: Verify no existing struct literals assert zero values on new field names**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && grep -rn "LocType{" --include="*.go" | grep -v "loctype.go"`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && grep -rn "LocType{" --include="*.go" | grep -v "loctype.go"`
 Expected: 9 hits in test files, all using partial struct literals (e.g., `&objtype.LocType{Op: []string{...}}`). Confirm none reference `Models`, `Shapes`, `Name`, `BlockWalk`, `BlockRange`, `Active`, `HillSkew`, `ShareLight`, `Occlude`, `Anim`, `HasAlpha`, `WallWidth`, `Ambient`, `Contrast`, `RecolS`, `RecolD`, `MapFunction`, `MapScene`, `Mirror`, `Shadow`, `ResizeX`, `ResizeY`, `ResizeZ`, `ForceApproach`, `OffsetX`, `OffsetY`, `OffsetZ`, `ForceDecor`. If any do, note for later (no action needed unless they assert specific zero values).
 
 - [ ] **Step 2: Replace the `LocType` struct definition**
@@ -125,12 +125,12 @@ func NewLocType(id int) *LocType {
 
 - [ ] **Step 4: Verify package still compiles**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./pkg/objtype/...`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./pkg/objtype/...`
 Expected: clean build.
 
 - [ ] **Step 5: Verify existing tests still pass**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/...`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/...`
 Expected: all pass (existing tests don't assert on new fields).
 
 - [ ] **Step 6: Commit**
@@ -529,7 +529,7 @@ func TestLocTypeDecodeOpHiddenCoercedToEmpty(t *testing.T) {
 
 - [ ] **Step 5: Run tests to verify refactor preserves behavior**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -v -run "TestParseLocTypes|TestLocUnknownCode|TestLocTypeDecodeOp|TestLoadRealLocCache"`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -v -run "TestParseLocTypes|TestLocUnknownCode|TestLocTypeDecodeOp|TestLoadRealLocCache"`
 Expected: all 6 tests pass. `TestLoadRealLocCache` will hit the new client-jagfile path and load real `data/pack/client/config`. If this test starts failing at `LoadLocTypes` with an unknown code error, that's a real signal that the cache contains a code we haven't added an arm for yet — but T3 is where we add the arms, so this test may genuinely fail until T3 lands. **Expected interim state**: `TestLoadRealLocCache` returns an error from `parseLocTypes` like `loc id N (client): unrecognized loc config code M` for some M ∈ {1, 2, 17, ...}. That's fine — `t.Skipf` on err means this test soft-skips. Re-verify after T3.
 
 If the existing 5 unit tests fail, the refactor is wrong; fix before commit.
@@ -889,7 +889,7 @@ func TestLocTypeDecodeNewArms(t *testing.T) {
 
 - [ ] **Step 2: Run tests — they should all fail with "unrecognized loc config code N"**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -run TestLocTypeDecodeNewArms -v`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -run TestLocTypeDecodeNewArms -v`
 Expected: every sub-case fails at `parseLocTypes` with `loc id 0 (client): unrecognized loc config code N` for the corresponding code.
 
 - [ ] **Step 3: Add the new Decode arms**
@@ -1001,12 +1001,12 @@ func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 
 - [ ] **Step 4: Run new-arm tests; expect all pass**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -run TestLocTypeDecodeNewArms -v`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -run TestLocTypeDecodeNewArms -v`
 Expected: all sub-cases pass.
 
 - [ ] **Step 5: Run full package test to verify no regressions**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/...`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/...`
 Expected: all pass. `TestLoadRealLocCache` should now succeed against real cache (or `t.Skipf` if cache missing).
 
 - [ ] **Step 6: Commit**
@@ -1100,7 +1100,7 @@ func TestPostDecode_ActiveInference(t *testing.T) {
 
 - [ ] **Step 2: Run test — expect compile error (PostDecode undefined)**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -run TestPostDecode -v`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -run TestPostDecode -v`
 Expected: compile error `lt.PostDecode undefined`.
 
 - [ ] **Step 3: Add `PostDecode` method**
@@ -1149,12 +1149,12 @@ Replace with:
 
 - [ ] **Step 5: Run PostDecode tests; expect pass**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -run TestPostDecode -v`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -run TestPostDecode -v`
 Expected: all 6 sub-cases pass.
 
 - [ ] **Step 6: Run full package; verify no regressions**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/...`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/...`
 Expected: all pass.
 
 - [ ] **Step 7: Commit**
@@ -1248,7 +1248,7 @@ func TestLoadLocTypes_RealCache_CascadeBlockerLocs(t *testing.T) {
 
 - [ ] **Step 2: Run the regression test; expect pass against real cache**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -run TestLoadLocTypes_RealCache_CascadeBlockerLocs -v`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -run TestLoadLocTypes_RealCache_CascadeBlockerLocs -v`
 Expected: PASS. If cache is absent, test soft-skips. If any of the 3 locs still has empty `Op[0]`, real cause is something other than the missing client-jag pass — investigate before commit.
 
 - [ ] **Step 3: Add ID-shift sanity probe (interactive — implementer determines probe value)**
@@ -1286,7 +1286,7 @@ Replace `<DEBUGNAME>` and `<EXPECTED_OP0>` with the values discovered in the pro
 
 - [ ] **Step 4: Run final test; expect pass**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -run TestLoadLocTypes_RealCache_CascadeBlockerLocs -v`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/objtype/... -run TestLoadLocTypes_RealCache_CascadeBlockerLocs -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -1317,12 +1317,12 @@ The struct expansion in T1 already replaced the doc comment as part of the struc
 
 - [ ] **Step 1: Grep for stale "server-only" wording**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && grep -n "server-only\|skips" pkg/objtype/loctype.go`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && grep -n "server-only\|skips" pkg/objtype/loctype.go`
 Expected: no hits. If T1 left any stale comment, fix here.
 
 - [ ] **Step 2: Verify the comment matches spec §3.6**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && head -30 pkg/objtype/loctype.go`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && head -30 pkg/objtype/loctype.go`
 Expected: top comment block reads as in T1 Step 2 (mirrors Engine-TS reference + dual-pass description + D1 follow-up note). If wording diverges from the spec, edit to match.
 
 - [ ] **Step 3: If any edit was needed, commit; else skip**
@@ -1344,19 +1344,19 @@ If nothing to fix, this task is a no-op — skip the commit and proceed to T7.
 
 - [ ] **Step 1: Full unit test suite**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...`
 Expected: all packages pass. Pay particular attention to `pkg/script/...`, `modules/world/...` (downstream LocType consumers) — no regressions.
 
 If any test fails, attribute carefully: `verify_implementer_claims.md` says re-run at HEAD~N to distinguish pre-existing failures from NAI-80-introduced ones. Run `git stash && go test ./failing-pkg/... && git stash pop` if needed.
 
 - [ ] **Step 2: Full build**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && CGO_ENABLED=0 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build -trimpath ./...`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && CGO_ENABLED=0 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build -trimpath ./...`
 Expected: clean build, no errors.
 
 - [ ] **Step 3: Race detector**
 
-Run: `cd /home/owner/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./pkg/objtype/...`
+Run: `cd $HOME/Code/github.com/zsrv/goscape && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./pkg/objtype/...`
 Expected: pass with race detector clean.
 
 - [ ] **Step 4: Close commit (docs-only — plan close + smoke handoff)**

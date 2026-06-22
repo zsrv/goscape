@@ -15,13 +15,13 @@ report-only audit completed 2026-05-23.
 
 ## Reference paths & baselines (pinned — same as the audit)
 
-- **Go (subject):** `/home/owner/Code/github.com/zsrv/goscape` — was at `6589f9d1` when audited
+- **Go (subject):** `$HOME/Code/github.com/zsrv/goscape` — was at `6589f9d1` when audited
   (audit-doc commits `57731847`→`8d0db475` sit on top; engine code unchanged).
-- **TS (reference of record):** `/home/owner/Code/github.com/LostCityRS/Engine-TS` @ `e1dea19f`.
-- **Java client (wire oracle):** `/home/owner/Code/github.com/LostCityRS/Client-Java`.
+- **TS (reference of record):** `$HOME/Code/github.com/LostCityRS/Engine-TS` @ `e1dea19f`.
+- **Java client (wire oracle):** `$HOME/Code/github.com/LostCityRS/Client-Java`.
 - **Pathfinding reference:** the `@2004scape/rsmod-pathfinder` v5.0.4 crate source (TS delegates to it),
-  at `/home/owner/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/` if present, else the WASM `.d.ts` enum dump.
-- **Content (scripts/configs):** `/home/owner/Code/github.com/LostCityRS/Content`.
+  at `$HOME/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/` if present, else the WASM `.d.ts` enum dump.
+- **Content (scripts/configs):** `$HOME/Code/github.com/LostCityRS/Content`.
 
 ## Hard rules (carry over from the audit — do NOT skip)
 

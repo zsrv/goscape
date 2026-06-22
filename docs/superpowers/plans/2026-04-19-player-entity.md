@@ -325,7 +325,7 @@ This is a bulk-copy task. The routefinder tree in `rs-server-225/ext/routefinder
 - [ ] **Step 1: Copy the tree**
 
 ```bash
-cp -r /home/owner/Code/github.com/zsrv/rs-server-225/ext/routefinder/* /home/owner/Code/github.com/zsrv/goscape/pkg/pathfinder/
+cp -r $HOME/Code/github.com/zsrv/rs-server-225/ext/routefinder/* $HOME/Code/github.com/zsrv/goscape/pkg/pathfinder/
 ```
 
 - [ ] **Step 2: Rewrite import paths**
@@ -333,7 +333,7 @@ cp -r /home/owner/Code/github.com/zsrv/rs-server-225/ext/routefinder/* /home/own
 Use `find` + `sed` to replace the module path across all vendored files:
 
 ```bash
-find /home/owner/Code/github.com/zsrv/goscape/pkg/pathfinder -name '*.go' -exec sed -i 's|github.com/zsrv/rs-server-225/ext/routefinder|github.com/zsrv/goscape/pkg/pathfinder|g' {} +
+find $HOME/Code/github.com/zsrv/goscape/pkg/pathfinder -name '*.go' -exec sed -i 's|github.com/zsrv/rs-server-225/ext/routefinder|github.com/zsrv/goscape/pkg/pathfinder|g' {} +
 ```
 
 - [ ] **Step 3: Verify tests pass**
@@ -342,7 +342,7 @@ find /home/owner/Code/github.com/zsrv/goscape/pkg/pathfinder -name '*.go' -exec 
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pathfinder/... 2>&1 | tail -20
 ```
 
-Expected: all subpackages `ok`. If any vendored file has a compile error (e.g., missing import), inspect it and fix by trimming unused imports or porting missing dependencies from the TS reference at `/home/owner/Code/github.com/LostCityRS/Engine-TS/`.
+Expected: all subpackages `ok`. If any vendored file has a compile error (e.g., missing import), inspect it and fix by trimming unused imports or porting missing dependencies from the TS reference at `$HOME/Code/github.com/LostCityRS/Engine-TS/`.
 
 - [ ] **Step 4: Verify public API is reachable**
 

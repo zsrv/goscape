@@ -467,9 +467,9 @@ This is TDD. The MoveRestrict→flag/strategy mapping is read from TS `PathingEn
 **Plan-author preflight: read TS to derive the exact mapping. Read these three sites BEFORE writing the test code:**
 
 ```bash
-sed -n '700,720p' /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts
-sed -n '375,400p' /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Npc.ts
-rg -n "blockWalkFlag\(\)\|getCollisionStrategy\(\)" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/PathingEntity.ts
+sed -n '700,720p' $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts
+sed -n '375,400p' $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Npc.ts
+rg -n "blockWalkFlag\(\)\|getCollisionStrategy\(\)" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/PathingEntity.ts
 ```
 
 Use the actual TS return tables to fill in the test cases below. **Do not infer; read.**

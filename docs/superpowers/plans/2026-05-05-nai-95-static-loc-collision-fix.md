@@ -423,7 +423,7 @@ Do not commit a "close" commit until smoke passes. Smoke is binding (per `cascad
 
 - [ ] **Step 1: Capture any new memory entries from smoke**
 
-If smoke surfaced anything memory-worthy (per the post-task-handoff protocol), write/update memory files in `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` and update `MEMORY.md`.
+If smoke surfaced anything memory-worthy (per the post-task-handoff protocol), write/update memory files in `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` and update `MEMORY.md`.
 
 If no new memory: skip to Step 2.
 

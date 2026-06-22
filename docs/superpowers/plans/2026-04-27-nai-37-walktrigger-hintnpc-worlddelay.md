@@ -26,7 +26,7 @@
 
 - [ ] **Step 1: Read the Npc struct body to find the right field-insertion site**
 
-Run: `grep -n "^type Npc struct\|^}" /home/owner/Code/github.com/zsrv/goscape/modules/world/npc.go | head -10`
+Run: `grep -n "^type Npc struct\|^}" $HOME/Code/github.com/zsrv/goscape/modules/world/npc.go | head -10`
 
 Expected: locate the type Npc struct boundaries. Insert new fields near other `int` fields (e.g., near `nextPatrolPoint`).
 
@@ -244,7 +244,7 @@ func TestNpcWalkTrigger_BoundaryQueueIDs(t *testing.T) {
 
 The test uses an `equalIntSlice` helper. Verify it already exists in `pkg/script/handlers_npc_test.go` or a sibling test file:
 
-Run: `grep -n "func equalIntSlice" /home/owner/Code/github.com/zsrv/goscape/pkg/script/`
+Run: `grep -n "func equalIntSlice" $HOME/Code/github.com/zsrv/goscape/pkg/script/`
 
 Expected: locate the existing helper. If it doesn't exist, add it to the test file:
 
@@ -448,7 +448,7 @@ Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./... && GOPATH=$TMPDI
 
 Expected: clean. If any other ActiveNpc mock exists in the codebase (sibling test file), it'll surface as a compile error here. Search for additional mocks:
 
-Run: `grep -rln "func .*) NpcUID() int" /home/owner/Code/github.com/zsrv/goscape/`
+Run: `grep -rln "func .*) NpcUID() int" $HOME/Code/github.com/zsrv/goscape/`
 
 Expected: list every mock that implements ActiveNpc — each needs `Nid() int` added. If any are missing, add them following the same `func (m *mockX) Nid() int { return m.nid }` shape.
 
@@ -535,11 +535,11 @@ func TestHintNpc_PayloadBytes(t *testing.T) {
 
 The test references `newTestPlayer` and `drainPlayerOutputForOp`. Verify these exist:
 
-Run: `grep -n "func newTestPlayer\|func drainPlayerOutputForOp" /home/owner/Code/github.com/zsrv/goscape/modules/world/`
+Run: `grep -n "func newTestPlayer\|func drainPlayerOutputForOp" $HOME/Code/github.com/zsrv/goscape/modules/world/`
 
 Expected: locate existing test helpers used by sibling byte-pin tests. If only one or the other exists, follow the established pattern. If neither exists, the test must be reframed to use the actual existing test infrastructure for capturing player wire output. Search for existing examples:
 
-Run: `grep -rn "OpCamReset.*payload\|TestCamReset" /home/owner/Code/github.com/zsrv/goscape/modules/world/`
+Run: `grep -rn "OpCamReset.*payload\|TestCamReset" $HOME/Code/github.com/zsrv/goscape/modules/world/`
 
 Expected: locate sibling tests (e.g., for CamReset) and mirror their setup pattern. The test must end with a 6-byte assertion against the type=1 HintArrow encoder shape `[0x01, p2(nid), p2(0), p1(0)]`.
 
@@ -746,7 +746,7 @@ Bundle 2 (HINT_NPC) complete."
 
 - [ ] **Step 1: Verify whether handlers_server.go exists**
 
-Run: `ls /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_server*.go`
+Run: `ls $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_server*.go`
 
 Expected: list any existing server-grouped handler files. If `handlers_server.go` exists, append to it. If not, the closest sibling (e.g., `handlers_map.go` for ServerOps-derived handlers) is the right home.
 
@@ -787,7 +787,7 @@ func TestWorldDelay_SetsExecutionWorldSuspendedAndDoesNotPop(t *testing.T) {
 
 The test references `s.IntStack`. Verify the field name on ScriptState:
 
-Run: `grep -n "IntStack\|intStack" /home/owner/Code/github.com/zsrv/goscape/pkg/script/state.go | head -5`
+Run: `grep -n "IntStack\|intStack" $HOME/Code/github.com/zsrv/goscape/pkg/script/state.go | head -5`
 
 Expected: locate the actual field name (likely `IntStack` or `IntStackTop` or similar). Update the test to use the actual field. If the stack is internal-only (no public field), use a `PopInt` round-trip instead:
 
@@ -887,7 +887,7 @@ helper, completing the round-trip."
 
 - [ ] **Step 1: Locate Server struct**
 
-Run: `grep -n "^type Server struct" /home/owner/Code/github.com/zsrv/goscape/modules/world/server.go`
+Run: `grep -n "^type Server struct" $HOME/Code/github.com/zsrv/goscape/modules/world/server.go`
 
 Expected: locate the Server struct. Note the placement of existing tick-wide queue/state fields (e.g., `npcs`, `playerLoop`, `newPlayers`).
 
@@ -1151,7 +1151,7 @@ The above test file references several test-helper functions that may or may not
 **Plan-author or implementer must verify these helpers exist OR build them.** Run:
 
 ```bash
-grep -rn "func newTestServer\|func newReturnImmediatelyScriptState\|func equalStringSlice" /home/owner/Code/github.com/zsrv/goscape/modules/world/ /home/owner/Code/github.com/zsrv/goscape/pkg/script/
+grep -rn "func newTestServer\|func newReturnImmediatelyScriptState\|func equalStringSlice" $HOME/Code/github.com/zsrv/goscape/modules/world/ $HOME/Code/github.com/zsrv/goscape/pkg/script/
 ```
 
 Per `plan_runnable_test_fixtures.md`: if helpers are missing, the implementer either (a) creates them in `world_script_queue_test.go` as test-local helpers using the actual goscape ScriptState/ScriptFile construction patterns, OR (b) reframes each test to inline the helper logic. The integration test (Task 13) covers the full round-trip; these scheduler tests are unit tests for the queue mechanics — keeping the script state simple is preferable.
@@ -1273,7 +1273,7 @@ visibility (speedup quirk), WorldSuspended self-loop."
 
 - [ ] **Step 1: Write the failing test**
 
-Determine the test file: `ls /home/owner/Code/github.com/zsrv/goscape/modules/world/script_test.go`. If absent, create. If present, append.
+Determine the test file: `ls $HOME/Code/github.com/zsrv/goscape/modules/world/script_test.go`. If absent, create. If present, append.
 
 Append:
 
@@ -1308,7 +1308,7 @@ func TestResumeOrFinish_WorldSuspended_EnqueuesAndClearsActiveScript(t *testing.
 
 Verify `makeTestPlayer` and `p.activeScript` accessibility:
 
-Run: `grep -n "func makeTestPlayer\|activeScript " /home/owner/Code/github.com/zsrv/goscape/modules/world/`
+Run: `grep -n "func makeTestPlayer\|activeScript " $HOME/Code/github.com/zsrv/goscape/modules/world/`
 
 Adjust the assertion accordingly — if `activeScript` is unexported, use the goscape ClearActiveScript-test-pattern (e.g., a getter or a sentinel-recorder).
 
@@ -1766,9 +1766,9 @@ The plan-author or implementer must verify each opcode + helper used:
 
 Run:
 ```bash
-grep -n "OpPushIntConstant\|OpReturn\|OpWorldDelay\b" /home/owner/Code/github.com/zsrv/goscape/pkg/script/opcode.go
-grep -n "func buildTestScriptFile\|func.*ScriptFile\b" /home/owner/Code/github.com/zsrv/goscape/pkg/script/runner_test.go /home/owner/Code/github.com/zsrv/goscape/modules/world/
-grep -n "func .* runScript\b" /home/owner/Code/github.com/zsrv/goscape/modules/world/
+grep -n "OpPushIntConstant\|OpReturn\|OpWorldDelay\b" $HOME/Code/github.com/zsrv/goscape/pkg/script/opcode.go
+grep -n "func buildTestScriptFile\|func.*ScriptFile\b" $HOME/Code/github.com/zsrv/goscape/pkg/script/runner_test.go $HOME/Code/github.com/zsrv/goscape/modules/world/
+grep -n "func .* runScript\b" $HOME/Code/github.com/zsrv/goscape/modules/world/
 ```
 
 Expected: confirm all references resolve. If any opcode name differs (e.g., `OpPushConstantInt` vs `OpPushIntConstant`), use the actual name. If `buildTestScriptFile` doesn't exist, mirror the construction pattern from existing ScriptFile-using tests.

@@ -2,7 +2,7 @@
 
 ## Project Context
 
-This is a Go rewrite of the TypeScript RuneScape server at `/home/owner/Code/github.com/LostCityRS/Engine-TS`. It is designed to communicate with the Java RuneScape client at `/home/owner/Code/github.com/LostCityRS/Client-Java`.
+This is a Go rewrite of the TypeScript RuneScape server `LostCityRS/Engine-TS`. It is designed to communicate with the Java RuneScape client `LostCityRS/Client-Java`.
 
 ## Commands
 
@@ -47,7 +47,7 @@ The `--target` flag (or `target:` in config.yaml) selects which modules to run:
 - `friends` — friends server only
 - `all` (default) — all of the above
 
-Verify a config file without starting: `--config.verify`. Expand env vars in config: `--config.expand-env`.
+Verify a config file without starting: `--config.verify=true`. Expand env vars in config: `--config.expand-env=true`. (Both are value flags and require the `=true`; the bare form errors with `flag needs an argument`.)
 
 ## Architecture
 

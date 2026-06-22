@@ -1,7 +1,7 @@
 # Go Optimization Pass — Design Spec
 
 **Date:** 2026-04-17  
-**Source guide:** `/home/owner/Code/github.com/astavonin/go-optimization-guide/docs`  
+**Source guide:** `$HOME/Code/github.com/astavonin/go-optimization-guide/docs`  
 **Approach:** Option A — Packet I/O first, then networking; benchmarks alongside each change.
 
 ---

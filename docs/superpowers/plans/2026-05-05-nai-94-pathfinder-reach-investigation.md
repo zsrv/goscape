@@ -6,7 +6,7 @@
 
 **Architecture:** Hybrid probe-then-diff. Write a minimum-distance reproducer (H1) first; branch the audit on its outcome. Diagnosis report compiled per-hypothesis. No production code changes — only tests under `pkg/pathfinder/routefinder/` and docs under `docs/superpowers/investigations/`.
 
-**Tech Stack:** Go 1.26+. Reference upstream: `2004scape/rsmod-pathfinder` AssemblyScript HEAD at `/home/owner/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/`. Pinned production version is v5.0.4 (Rust + wasm-pack); reachable via `git checkout 8dd111e` in the rsmod-pathfinder repo if AS↔Rust algo divergence is suspected.
+**Tech Stack:** Go 1.26+. Reference upstream: `2004scape/rsmod-pathfinder` AssemblyScript HEAD at `$HOME/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/`. Pinned production version is v5.0.4 (Rust + wasm-pack); reachable via `git checkout 8dd111e` in the rsmod-pathfinder repo if AS↔Rust algo divergence is suspected.
 
 **Spec:** `docs/superpowers/specs/2026-05-05-nai-94-pathfinder-reach-investigation-design.md`
 
@@ -19,15 +19,15 @@
 - `docs/superpowers/investigations/2026-05-05-nai-94-diagnosis.md` — per-hypothesis verdict + file:line evidence + Stage 2 (NAI-95) handoff.
 
 **Modified:**
-- `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append "From NAI-94" section.
+- `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — append "From NAI-94" section.
 
 **Read-only references:**
 - `pkg/pathfinder/routefinder/routefinder.go` (656 lines; goscape's BFS port)
 - `pkg/pathfinder/routefinder/stepvalidator.go` (235 lines; collision-flag step validation)
 - `pkg/pathfinder/routefinder/api.go` (354 lines; `FindPathPlain`/`FindPathToEntity`/`FindPathToLoc` wrappers)
 - `pkg/pathfinder/collision/` (FlagMap + flag bit layout)
-- `/home/owner/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/PathFinder.ts` (695 lines; AS reference algo)
-- `/home/owner/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/StepValidator.ts` (244 lines; AS reference step-validation)
+- `$HOME/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/PathFinder.ts` (695 lines; AS reference algo)
+- `$HOME/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/StepValidator.ts` (244 lines; AS reference step-validation)
 
 ---
 
@@ -151,7 +151,7 @@ EOF
 **Files:**
 - Modify: `pkg/pathfinder/routefinder/nai94_repro_test.go` (add subtests)
 - (Read-only) `pkg/pathfinder/routefinder/routefinder.go`, `pkg/pathfinder/routefinder/stepvalidator.go`
-- (Read-only) `/home/owner/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/PathFinder.ts`, `StepValidator.ts`
+- (Read-only) `$HOME/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/PathFinder.ts`, `StepValidator.ts`
 
 - [ ] **Step 2.1: Grep goscape for `useRouteBlockerFlags` consumers**
 
@@ -164,7 +164,7 @@ Record every match with file:line. Note specifically whether `useRouteBlockerFla
 - [ ] **Step 2.2: Grep AS reference for the equivalent flag/branch**
 
 ```bash
-rg -n "RouteBlocker|routeblocker|breakRouteFinding" /home/owner/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/
+rg -n "RouteBlocker|routeblocker|breakRouteFinding" $HOME/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/
 ```
 
 Record which functions in `PathFinder.ts` and `StepValidator.ts` consult route-blocker flags, and on which BFS expansion branches.
@@ -413,13 +413,13 @@ EOF
 
 **Files:**
 - (Read-only) `pkg/pathfinder/routefinder/routefinder.go`
-- (Read-only) `/home/owner/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/PathFinder.ts`
+- (Read-only) `$HOME/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/PathFinder.ts`
 - Output recorded inline as audit notes; final form lands in Task 6's diagnosis report.
 
 - [ ] **Step 4.1: Read AS findPath1 in full**
 
 ```bash
-sed -n '135,266p' /home/owner/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/PathFinder.ts
+sed -n '135,266p' $HOME/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/PathFinder.ts
 ```
 
 Read the entire `findPath1` body (8-direction step expansion, BFS exit conditions, ring buffer wrap). Note line ranges of: queue pop, 8-direction conditional blocks (W/E/S/N/SW/SE/NW/NE), each branch's `collision.canMove(...)` guard, the early-exit condition.
@@ -450,7 +450,7 @@ Pay particular attention to:
 If the H4 diff register shows AS and goscape match on every direction-step block AND H1/H2/H3 didn't smoke-gun, run:
 
 ```bash
-cd /home/owner/Code/github.com/2004scape/rsmod-pathfinder && git stash --include-untracked && git checkout 8dd111e
+cd $HOME/Code/github.com/2004scape/rsmod-pathfinder && git stash --include-untracked && git checkout 8dd111e
 ```
 
 (`8dd111e` = `chore: release for 5.0.4`.) Read the Rust pathfinder source under `src/` (post-Rust-rewrite layout). Spot-check whether the Rust version of `find_path1` introduces any branch missing from AS — that's the AS-line-of-history blind spot.
@@ -458,10 +458,10 @@ cd /home/owner/Code/github.com/2004scape/rsmod-pathfinder && git stash --include
 After spot-check:
 
 ```bash
-cd /home/owner/Code/github.com/2004scape/rsmod-pathfinder && git checkout - && git stash pop
+cd $HOME/Code/github.com/2004scape/rsmod-pathfinder && git checkout - && git stash pop
 ```
 
-Record cwd return — the original shell pwd should be `/home/owner/Code/github.com/zsrv/goscape`.
+Record cwd return — the original shell pwd should be `$HOME/Code/github.com/zsrv/goscape`.
 
 - [ ] **Step 4.5: Commit nothing (read-only audit)**
 
@@ -477,7 +477,7 @@ This task produces no file changes. Hold the diff register notes for inclusion i
 
 **Files:**
 - (Read-only) `pkg/pathfinder/routefinder/routefinder.go` (search for "moveNear", "closest", "alternative")
-- (Read-only) `/home/owner/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/PathFinder.ts` lines ~535-695 (`findClosestApproachPoint` analog)
+- (Read-only) `$HOME/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/PathFinder.ts` lines ~535-695 (`findClosestApproachPoint` analog)
 
 - [ ] **Step 5.1: Locate goscape's closest-approach analog**
 
@@ -490,7 +490,7 @@ Read each match. Identify which function is equivalent to AS's `findClosestAppro
 - [ ] **Step 5.2: Read AS reference**
 
 ```bash
-sed -n '535,695p' /home/owner/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/PathFinder.ts
+sed -n '535,695p' $HOME/Code/github.com/2004scape/rsmod-pathfinder/src/rsmod/PathFinder.ts
 ```
 
 - [ ] **Step 5.3: Diff: cost function + selection criteria**
@@ -651,14 +651,14 @@ EOF
 ## Task 7: Followups update + close commit
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
 
 - [ ] **Step 7.1: Append "From NAI-94" section to followups**
 
 Read the current tail of `nai_followups.md`:
 
 ```bash
-tail -40 /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+tail -40 $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 ```
 
 Append (using Edit on the file's end-of-file marker) a new section:
@@ -683,7 +683,7 @@ Replace each `[paste]` with the actual content from `docs/superpowers/investigat
 - [ ] **Step 7.2: Verify the followups entry has no `[paste]` placeholders left**
 
 ```bash
-rg -n "\[paste\]" /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+rg -n "\[paste\]" $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 ```
 
 Expected: zero matches.

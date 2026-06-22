@@ -589,7 +589,7 @@ EOF
 Run:
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/RuneScriptTS
+cd $HOME/Code/github.com/LostCityRS/RuneScriptTS
 grep -oE 'DiagnosticMessage\.[A-Z_]+' src/compiler/semantics/TypeChecking.ts | sort -u
 ```
 
@@ -4755,7 +4755,7 @@ Determine which memory entries this slice authored or touched. At minimum from t
 - Touched: `nai206_metatype_hook_gap` (resolved).
 - Touched: `metascript_handoff_pattern` (referenced — confirmed handoff works).
 
-If new memory entries are warranted, author them in `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` with proper frontmatter (see global instructions for memory format) before the close commit.
+If new memory entries are warranted, author them in `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` with proper frontmatter (see global instructions for memory format) before the close commit.
 
 - [ ] **Step 6: Close commit**
 

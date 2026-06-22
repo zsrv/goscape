@@ -222,17 +222,17 @@ Read `/tmp/claude/nai114-probe.out`. Capture mentally (or to scratch):
 
 - [ ] **Step 3.1: Read TS decoder**
 
-Read: `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/network/game/client/codec/OpHeldUDecoder.ts`.
+Read: `$HOME/Code/github.com/LostCityRS/Engine-TS/src/network/game/client/codec/OpHeldUDecoder.ts`.
 
 Capture: the field-decode order. The `OpHeldU` model (`src/network/game/client/model/OpHeldU.ts`) names the fields `obj/slot/com/useObj/useSlot/useCom`. The decoder reads them from the wire in some order. **Note which wire byte position corresponds to which field, and which is described as the "target" vs the "use-item".**
 
 - [ ] **Step 3.2: Read TS handler comment**
 
-Read: `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/network/game/client/handler/OpHeldUHandler.ts:14-15` (destructuring line) plus comment if any.
+Read: `$HOME/Code/github.com/LostCityRS/Engine-TS/src/network/game/client/handler/OpHeldUHandler.ts:14-15` (destructuring line) plus comment if any.
 
 - [ ] **Step 3.3: Read Java client encoder**
 
-Run: `rg -n "OPHELDU|opheldu" /home/owner/Code/github.com/LostCityRS/Client-Java/src/main/java/ | head -20`
+Run: `rg -n "OPHELDU|opheldu" $HOME/Code/github.com/LostCityRS/Client-Java/src/main/java/ | head -20`
 
 Open the file that emits opcode 130 (OPHELDU) on the wire. Capture: which Java-side variable goes into the first wire field, and what's its meaning (target item that was clicked, or use-item that was selected first)?
 
@@ -263,7 +263,7 @@ Read the file:line that owns `OpSwitch` dispatch. Capture: how it pops the stack
 
 - [ ] **Step 4.3: Read TS reference**
 
-Run: `rg -n "OPCODES\.SWITCH|switch.*case" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/lostcity/engine/script/handlers/CoreOps.ts | head -20`
+Run: `rg -n "OPCODES\.SWITCH|switch.*case" $HOME/Code/github.com/LostCityRS/Engine-TS/src/lostcity/engine/script/handlers/CoreOps.ts | head -20`
 
 Open the matching TS handler. Capture: how TS pops the stack, looks up the case, and computes the new PC.
 
@@ -448,8 +448,8 @@ OPHELDU "tinderbox on logs" no-effect bug at Tutorial Island.
 
 Read these documents in order BEFORE doing anything else:
 
-1. /home/owner/Code/github.com/zsrv/goscape/docs/superpowers/specs/2026-05-06-nai-114-opheldu-tinderbox-firemaking-investigation-design.md (the spec — sections 2 + 3 are most relevant)
-2. /home/owner/Code/github.com/zsrv/goscape/docs/superpowers/investigations/2026-05-06-nai-114-stage1-bundle0-findings.md (Stage 1.1 findings — opcode inventory in §6, full disasm in §2-3)
+1. $HOME/Code/github.com/zsrv/goscape/docs/superpowers/specs/2026-05-06-nai-114-opheldu-tinderbox-firemaking-investigation-design.md (the spec — sections 2 + 3 are most relevant)
+2. $HOME/Code/github.com/zsrv/goscape/docs/superpowers/investigations/2026-05-06-nai-114-stage1-bundle0-findings.md (Stage 1.1 findings — opcode inventory in §6, full disasm in §2-3)
 
 Your job: produce an opcode-coverage matrix walking the firemaking dispatch chain
 ([opheldu,tinderbox] → SWITCH → [label,light_logs_inv] id 7356 → GOSUB chain ids 7359
@@ -457,10 +457,10 @@ Your job: produce an opcode-coverage matrix walking the firemaking dispatch chai
 ONE specific divergent opcode (or class).
 
 Repos available read-only:
-- /home/owner/Code/github.com/zsrv/goscape (this project; goscape Go engine)
-- /home/owner/Code/github.com/LostCityRS/Engine-TS (TS engine — canonical reference)
-- /home/owner/Code/github.com/LostCityRS/Server (content scripts; firemaking.rs2)
-- /home/owner/Code/github.com/LostCityRS/Client-Java (Java client rev-225)
+- $HOME/Code/github.com/zsrv/goscape (this project; goscape Go engine)
+- $HOME/Code/github.com/LostCityRS/Engine-TS (TS engine — canonical reference)
+- $HOME/Code/github.com/LostCityRS/Server (content scripts; firemaking.rs2)
+- $HOME/Code/github.com/LostCityRS/Client-Java (Java client rev-225)
 
 Method:
 1. From Stage 1.1 findings §6, extract the chain-wide opcode inventory.
@@ -505,7 +505,7 @@ Constraints:
 - Do NOT modify any files. Read-only audit.
 
 Deliverable: write your final report to:
-/home/owner/Code/github.com/zsrv/goscape/docs/superpowers/investigations/2026-05-06-nai-114-stage1-audit.md
+$HOME/Code/github.com/zsrv/goscape/docs/superpowers/investigations/2026-05-06-nai-114-stage1-audit.md
 
 Structure:
 # NAI-114 — Stage 1.2 opcode-coverage audit
@@ -522,7 +522,7 @@ executive summary of the H3 binding.
 
 - [ ] **Step 7.2: Wait for subagent to complete and read the report**
 
-Read `/home/owner/Code/github.com/zsrv/goscape/docs/superpowers/investigations/2026-05-06-nai-114-stage1-audit.md`.
+Read `$HOME/Code/github.com/zsrv/goscape/docs/superpowers/investigations/2026-05-06-nai-114-stage1-audit.md`.
 
 If the subagent reports inconclusive: continue to Task 8 to verify what it DID claim, then proceed to §10 handoff with note that Stage 1.3 instrumentation may be needed (NAI-112 precedent).
 
@@ -546,14 +546,14 @@ Compare returned line number(s) against audit's claim. If mismatch → flag in s
 
 - [ ] **Step 8.2: Re-grep every cited TS file:line**
 
-Same protocol against `/home/owner/Code/github.com/LostCityRS/Engine-TS/`.
+Same protocol against `$HOME/Code/github.com/LostCityRS/Engine-TS/`.
 
 - [ ] **Step 8.3: For audit's named "missing handler" claims, exhaustive grep**
 
 For each "missing" opcode:
 
 ```bash
-rg -n "<OpcodeName>|<opcode_name_snake>|handle<OpcodeName>" /home/owner/Code/github.com/zsrv/goscape/pkg/script/
+rg -n "<OpcodeName>|<opcode_name_snake>|handle<OpcodeName>" $HOME/Code/github.com/zsrv/goscape/pkg/script/
 ```
 
 If grep returns a hit anywhere → audit was wrong; flag and route to subagent re-prompt or re-derive controller-side.
@@ -656,7 +656,7 @@ already locked) → writing-plans. Save to:
 
 Pre-flight greps:
   rg -n "<bound-opcode-name>" pkg/script/
-  rg -n "<bound-opcode-name>" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/lostcity/engine/script/handlers/
+  rg -n "<bound-opcode-name>" $HOME/Code/github.com/LostCityRS/Engine-TS/src/lostcity/engine/script/handlers/
 
 Use TDD; pin the test fixture per scriptstate_test_fixture_idioms; defensive-gate
 doc-comments per defensive_gate_doc_comment_label.

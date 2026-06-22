@@ -918,7 +918,7 @@ EOF
 ## Task 6: Memory updates + NAI-12 close
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
 
 **Context:** Per memory "NAI series deferred follow-ups" the file is the cross-session tracker. Mark the two resolved deferrals and add the new size-aware `inApproachDistance` follow-up tracked in the spec.
 
@@ -928,7 +928,7 @@ EOF
 
 Read the file so you know exactly what to edit:
 
-Path: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+Path: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
 
 Locate:
 - **"## From NAI-8"** section → **"### Deferred: CheckVis (LoS/LoW) gate on all four hunt variants"** subsection (around L180).
@@ -1013,7 +1013,7 @@ off the 1,1,1 approximation where TS implicitly defaults to 1s.
 
 - [ ] **Step 5: Verify the memory file is well-formed**
 
-Run: `wc -l /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+Run: `wc -l $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
 Expected: line count increased by ~25-40 lines (two Resolved markers + one new follow-up).
 
 Also verify no mid-section corruption by searching for the original "Deferred: CheckVis" header and confirming it now starts with the "**Resolved 2026-04-23 (NAI-12)**" line.

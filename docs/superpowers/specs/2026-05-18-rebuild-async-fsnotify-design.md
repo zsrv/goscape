@@ -431,7 +431,7 @@ Real fsnotify on `t.TempDir()`. Pre-create canonical subdirs as needed. Replace 
 
 ### §6.4 Smoke-pack invariant
 
-Re-run `goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content`; expect 12 OK / 0 ERR baseline unchanged. The new code touches no pack stage.
+Re-run `goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content`; expect 12 OK / 0 ERR baseline unchanged. The new code touches no pack stage.
 
 ### §6.5 Test-only seams summary
 

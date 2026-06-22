@@ -87,7 +87,7 @@ Also verify imports include `os` and `strings`. If `tick_order_test.go` already 
 
 - [ ] **Step 3: Run the new test pre-fix — must fail**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./modules/world/ -run TestTickPhaseOrder_NpcsBeforePlayerBlock -count=1 -v`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./modules/world/ -run TestTickPhaseOrder_NpcsBeforePlayerBlock -count=1 -v`
 
 Expected output (FAIL):
 ```
@@ -169,13 +169,13 @@ Expected: `s.processNpcs()` appears between `s.processNpcEventQueue()` (with its
 
 - [ ] **Step 4: Run the new ordering pin — must pass now**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./modules/world/ -run TestTickPhaseOrder_NpcsBeforePlayerBlock -count=1 -v`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./modules/world/ -run TestTickPhaseOrder_NpcsBeforePlayerBlock -count=1 -v`
 
 Expected: `--- PASS: TestTickPhaseOrder_NpcsBeforePlayerBlock`
 
 - [ ] **Step 5: Verify the existing NAI-122 pin still passes**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./modules/world/ -run TestTickPhaseOrder_NpcEventQueueBeforeInteractions -count=1 -v`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./modules/world/ -run TestTickPhaseOrder_NpcEventQueueBeforeInteractions -count=1 -v`
 
 Expected: PASS. `processNpcEventQueue` is still BEFORE `processInteractions` (its position didn't change; we only moved `processNpcs`).
 
@@ -213,7 +213,7 @@ If the grep returns no hits beyond `movement_test.go:223` (which stays unchanged
 
 - [ ] **Step 1: Run the full modules/world race-test suite**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test -race ./modules/world/ -count=1 2>&1 | tail -10`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test -race ./modules/world/ -count=1 2>&1 | tail -10`
 
 Expected: `ok  github.com/zsrv/goscape/modules/world  ~155s` (one OK line).
 
@@ -226,13 +226,13 @@ For each failure, READ the test fully, REASON about what the test pins (the old 
 
 - [ ] **Step 2: Run the full repo race-test suite**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test -race ./... -count=1 2>&1 | grep -E "^(FAIL|ok\s)" | head -25`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test -race ./... -count=1 2>&1 | grep -E "^(FAIL|ok\s)" | head -25`
 
 Expected: every line starts with `ok  ` (no FAIL). Timeouts in 5-minute range are acceptable for modules/world.
 
 - [ ] **Step 3: Run gofmt**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/gofmt -l modules pkg cmd internal`
+Run: `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/gofmt -l modules pkg cmd internal`
 
 Expected: empty output (no files need re-formatting).
 

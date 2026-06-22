@@ -143,7 +143,11 @@ func TestLoadFloTypes_RealContent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in -short mode")
 	}
-	dir := "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/pack"
+	ref := os.Getenv("GOSCAPE_REF245_DIR")
+	if ref == "" {
+		t.Skip("GOSCAPE_REF245_DIR not set; skipping real flo.dat check")
+	}
+	dir := filepath.Join(ref, "data", "pack")
 	if _, err := os.Stat(filepath.Join(dir, "server", "flo.dat")); err != nil {
 		t.Skipf("real flo.dat not available: %v", err)
 	}

@@ -4,7 +4,7 @@
 
 **Goal:** Port the 225→244 `tools/pack` delta (cache-architecture rework: FileStream client cache, GZip, versionlist, modelFlags, compiler-symbols swap) and re-baseline goscape's pack output to full-tree byte parity against a reference cache packed by the upstream 244 toolchain from the EXACT recorded pins.
 
-**Architecture:** Spec `docs/superpowers/specs/2026-06-05-rev244-b6-pack-pipeline-design.md` (commit `30461f78`). Phase 0 (reference cache) first — nothing else is verifiable without it. Then foundation plumbing (registries, modelFlags, FileStream cache handle), then per-stage ports in PackAll order, then the compiler-symbols swap, then the Phase-2 verification ladder (determinism → byte-diff loop → window closures → login smoke). All TS citations refer to the 244 pin `9aadcec4` in `/home/owner/Code/github.com/LostCityRS/Engine-TS`.
+**Architecture:** Spec `docs/superpowers/specs/2026-06-05-rev244-b6-pack-pipeline-design.md` (commit `30461f78`). Phase 0 (reference cache) first — nothing else is verifiable without it. Then foundation plumbing (registries, modelFlags, FileStream cache handle), then per-stage ports in PackAll order, then the compiler-symbols swap, then the Phase-2 verification ladder (determinism → byte-diff loop → window closures → login smoke). All TS citations refer to the 244 pin `9aadcec4` in `$HOME/Code/github.com/LostCityRS/Engine-TS`.
 
 **Tech Stack:** Go (pkg/pack, pkg/packall, pkg/io/filestream, pkg/io/gziputil, archive/zip), upstream toolchain for Phase 0 only (bun + RuneScriptKt-26 jar + java 25).
 
@@ -47,8 +47,8 @@ No commit (the file was untracked).
 ### Task 1: Phase 0 — pinned reference checkouts + upstream pack run
 
 **Files (all OUTSIDE goscape; sandbox-bypass with user permission):**
-- Create: `/home/owner/Code/github.com/LostCityRS/Server244-ref/engine` (worktree @ `9aadcec4`)
-- Create: `/home/owner/Code/github.com/LostCityRS/Server244-ref/content` (worktree @ `e5d0282e`)
+- Create: `$HOME/Code/github.com/LostCityRS/Server244-ref/engine` (worktree @ `9aadcec4`)
+- Create: `$HOME/Code/github.com/LostCityRS/Server244-ref/content` (worktree @ `e5d0282e`)
 - Create: `Server244-ref/engine/RuneScriptCompiler.jar` (copied), `Server244-ref/engine/.env`
 
 This task is **controller-direct** (interactive permission prompts; not subagent work).
@@ -56,7 +56,7 @@ This task is **controller-direct** (interactive permission prompts; not subagent
 - [ ] **Step 1: Create the worktrees**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS
+cd $HOME/Code/github.com/LostCityRS
 mkdir -p Server244-ref
 git -C Engine-TS worktree add ../Server244-ref/engine 9aadcec4
 git -C Content   worktree add ../Server244-ref/content e5d0282e
@@ -112,8 +112,8 @@ If script.dat is missing/stale: read the jar's stderr in the log, fix (likely cw
 - [ ] **Step 6: Record the reference manifest into goscape**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Server244-ref/engine
-{ find data/pack data/symbols -type f ! -name build ! -name ondemand.zip -print0 | sort -z | xargs -0 sha256sum; } > /home/owner/Code/github.com/zsrv/goscape/pkg/packall/testdata/ref244_manifest.txt
+cd $HOME/Code/github.com/LostCityRS/Server244-ref/engine
+{ find data/pack data/symbols -type f ! -name build ! -name ondemand.zip -print0 | sort -z | xargs -0 sha256sum; } > $HOME/Code/github.com/zsrv/goscape/pkg/packall/testdata/ref244_manifest.txt
 # entry list for the content-level ondemand.zip check:
 python3 - <<'EOF'  # (or `unzip -l`) — list ondemand.zip entries + sizes
 import zipfile
@@ -128,7 +128,7 @@ Save the zip entry listing as `pkg/packall/testdata/ref244_ondemand_entries.txt`
 - [ ] **Step 7: Commit (goscape side only)**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 git add pkg/packall/testdata/ref244_manifest.txt pkg/packall/testdata/ref244_ondemand_entries.txt
 git commit --no-gpg-sign -m "test(packall): 244 reference-cache sha256 manifest (Engine-TS 9aadcec4 + Content e5d0282e + RuneScriptKt-26) [rev-244 B6]" -m "Packed via Server244-ref worktrees; server/build and ondemand.zip raw bytes excluded (timestamp / fflate mtimes — see plan Task 17 exemptions). data/symbols included as the compiler-parity diff anchor." -m "Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```
@@ -152,7 +152,7 @@ Read-only investigation; output = facts appended to this plan file (edit in plac
 - [ ] **Step 1: Capture the jar's input/output contract**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Server244-ref/engine
+cd $HOME/Code/github.com/LostCityRS/Server244-ref/engine
 ls data/symbols/                              # full .sym inventory
 head -5 data/symbols/commands.sym data/symbols/varp.sym data/symbols/interface.sym
 xxd data/pack/server/script.dat | head -5     # header shape
@@ -164,8 +164,8 @@ cat data/pack/server/script.dat | wc -c; cat data/pack/server/script.idx | wc -c
 - [ ] **Step 2: Compare script.dat container format vs the 225 baseline**
 
 ```bash
-xxd /home/owner/Code/github.com/LostCityRS/Server225_2/engine/data/pack/server/script.dat | head -5
-xxd /home/owner/Code/github.com/LostCityRS/Server225_2/engine/data/pack/server/script.dat | tail -5
+xxd $HOME/Code/github.com/LostCityRS/Server225_2/engine/data/pack/server/script.dat | head -5
+xxd $HOME/Code/github.com/LostCityRS/Server225_2/engine/data/pack/server/script.dat | tail -5
 ```
 
 Record: same/different trailer layout, version field value, count fields. This decides whether Task 14's compiler re-baseline is bug-stack-shaped (iterate) or structural (STOP — user checkpoint per spec Risk 1).
@@ -173,7 +173,7 @@ Record: same/different trailer layout, version field value, count fields. This d
 - [x] **Step 3: Inventory the content pin's pack-registry inputs**
 
 ```bash
-ls /home/owner/Code/github.com/LostCityRS/Server244-ref/content/pack/
+ls $HOME/Code/github.com/LostCityRS/Server244-ref/content/pack/
 # record whether map.pack / midi.pack / animset.pack exist as committed inputs
 # or were regenerated by the run (check `git -C ../content status --short`).
 ```
@@ -196,7 +196,7 @@ ls /home/owner/Code/github.com/LostCityRS/Server244-ref/content/pack/
    `p4(len) [name] \0 <abs source path>`, same trailer shape, same idx
    format (`p2(count)` + per-script `p4(len)`).
    - **Embedded absolute source paths**: script.dat embeds the resolved
-     content path (`/home/owner/Code/github.com/LostCityRS/Server244-ref/
+     content path (`$HOME/Code/github.com/LostCityRS/Server244-ref/
      content/...`) — byte parity REQUIRES packing from the same src dir
      (same as the Arc-26/225 posture).
    - **Uniform +2 bytes per script** in the first idx entries (e6/e4,
@@ -446,7 +446,7 @@ CF's match-finder genuinely differs.
 **User decision:** bit-exact port (full-tree byte parity preserved; no
 content-level gzip exemption).
 
-**References on disk:** `/home/owner/Code/github.com/cloudflare/cf-zlib` @
+**References on disk:** `$HOME/Code/github.com/cloudflare/cf-zlib` @
 `886098f3` (pin to record in REFERENCES.md at T20); probe harness
 `/tmp/claude-1000/cfztest.c` + corpus checker `corpus_check.sh`.
 
@@ -482,7 +482,7 @@ Controller-led diagnostic loop (Arc-26 method, ~5-10 min/cycle); subagents for f
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache CGO_ENABLED=0 go run -trimpath ./cmd/goscape-cli pack \
-  --src-dir=/home/owner/Code/github.com/LostCityRS/Server244-ref/content --out-dir=$TMPDIR/b6-det1
+  --src-dir=$HOME/Code/github.com/LostCityRS/Server244-ref/content --out-dir=$TMPDIR/b6-det1
 # again into $TMPDIR/b6-det2, then:
 diff -r $TMPDIR/b6-det1 $TMPDIR/b6-det2   # expect ONLY server/build (timestamp) and (if mtime not fixed) nothing else
 ```
@@ -492,7 +492,7 @@ Any other diff = nondeterminism: fix FIRST (map iteration → `slices.Sorted(map
 - [ ] **Step 2: Symbols diff (compiler input parity).**
 
 ```bash
-diff -r $TMPDIR/b6-det1/../symbols-or-wherever data/symbols  # vs /home/owner/Code/github.com/LostCityRS/Server244-ref/engine/data/symbols/
+diff -r $TMPDIR/b6-det1/../symbols-or-wherever data/symbols  # vs $HOME/Code/github.com/LostCityRS/Server244-ref/engine/data/symbols/
 ```
 
 Iterate Task 16's exporter until `diff -r` is clean. Symbols clean ⇒ the Go compiler and the jar agreed on every input id/name/type/pointer — script.dat deltas after this point are EMISSION deltas.

@@ -17,7 +17,7 @@
 **Files:**
 - Modify: `pkg/io/protocol/game/server/prot.go`
 
-- [ ] **Step 1: Open the spec's wire-format table.** For each IfSet* op, read `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/network/game/server/ServerGameProt.ts` to get the **exact opcode number + payload size**. Do not guess — these are canonical IDs baked into the Java client. The existing 5 OpIfOpen/OpIfClose ops in prot.go use the TS numbers.
+- [ ] **Step 1: Open the spec's wire-format table.** For each IfSet* op, read `$HOME/Code/github.com/LostCityRS/Engine-TS/src/network/game/server/ServerGameProt.ts` to get the **exact opcode number + payload size**. Do not guess — these are canonical IDs baked into the Java client. The existing 5 OpIfOpen/OpIfClose ops in prot.go use the TS numbers.
 
 - [ ] **Step 2: Add 10 `Op` entries** to `prot.go`:
 - `OpIfSetText` — verify size; likely `-2` (variable jstr payload)
@@ -123,7 +123,7 @@ EOF
 
 OpIfClose, OpIfOpenChat, OpIfOpenMainSide, OpIfOpenMain, OpIfOpenSide, OpIfSetAnim, OpIfSetColour, OpIfSetHide, OpIfSetModel, OpIfSetNpcHead, OpIfSetObject, OpIfSetPlayerHead, OpIfSetPosition, OpIfSetRecol, OpIfSetResumeButtons, OpIfSetTab, OpIfSetTabActive, OpIfSetText.
 
-- [ ] **Step 2: Read TS `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts`** lines 245, 641-757 for exact pop order per handler. Pop orders to verify:
+- [ ] **Step 2: Read TS `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts`** lines 245, 641-757 for exact pop order per handler. Pop orders to verify:
 
 - IF_OPENMAIN: pops `com`
 - IF_OPENCHAT: pops `com`
@@ -320,7 +320,7 @@ func (p *Player) IfSetNpcHead(com, npcID int) {
 // IfSetColour, IfSetPosition, IfSetRecol, IfSetTabActive.
 ```
 
-Verify each wire format against TS `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/network/game/server/codec/*Encoder.ts` files.
+Verify each wire format against TS `$HOME/Code/github.com/LostCityRS/Engine-TS/src/network/game/server/codec/*Encoder.ts` files.
 
 - [ ] **Step 4: Full build**
 

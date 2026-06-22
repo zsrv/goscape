@@ -12,7 +12,7 @@
 
 1. **NEVER `git checkout` / `git restore` tracked files.**
 2. **Pre-commit `git status` + post-commit `git show --stat HEAD`.** Concurrent shell edits can sneak into the index between session-start and `git commit`. Recover via `git reset --mixed HEAD~1` — never amend. ([[git-pre-commit-status-check]])
-3. **Shell prefix:** `unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"` once per shell session.
+3. **Shell prefix:** `unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"` once per shell session.
 4. **Go prefix:** `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` on EVERY `go` invocation.
 5. **Commit flag:** `git commit --no-gpg-sign` on every commit.
 6. **Test files use `_test.go` suffix** (build-tag isolation).
@@ -24,8 +24,8 @@
 ## Pre-flight gate (controller, before T1 dispatch)
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+cd $HOME/Code/github.com/zsrv/goscape
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./modules/world/... ./modules/friends/... -count=1 -timeout 300s
 git log --oneline 162fda5f..HEAD                      # expect zero (HEAD == 162fda5f)
 ```
@@ -994,13 +994,13 @@ Spec: `docs/superpowers/specs/2026-05-19-nai-182-d5-social-cluster-design.md`.
 **Goal:** Run the full `-race` suite + smoke-pack baseline. Author the memory close-memo + index entry. Decide whether to land the optional e2e extension (spec §4.5).
 
 **Files:**
-- `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (modify — prepend entry above the existing B3 close line)
-- `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_182_d5_social_cluster_close.md` (new — full close memo)
+- `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (modify — prepend entry above the existing B3 close line)
+- `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_182_d5_social_cluster_close.md` (new — full close memo)
 
 **Gates:**
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... -count=1 -timeout 600s
-go run ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+go run ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 
 The race suite MUST show zero FAIL across all 56 testable packages. The smoke-pack baseline MUST hold at 12 OK / 0 ERR / 0 SKIP.

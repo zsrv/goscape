@@ -100,7 +100,7 @@ Net: -1 live pin on the board.
 ## Gates
 
 - `gofmt`
-- `GOROOT=/home/owner/go/go1.26.3 ... go build ./...`
+- `GOROOT=$HOME/go/go1.26.3 ... go build ./...`
 - `... go test -race ./...` (57+ pkgs, expect 0 FAIL)
 - `TestPackAll_TwelveStageSmoke` (12 OK / 0 ERR / 0 SKIP)
 - Audit-grep: `grep -rEn 'NAI-QUEUE-D-TS-FENCEPOST-INHERITED' --include='*.go'` should return **zero hits** post-edit (both production and test). All current references describe the live bug — once the bug is closed, the references become misleading. Provenance lives in this spec + the close memory entry; test-side retirement provenance would require fresh wording and is not worth the cognitive overhead vs. clean removal.

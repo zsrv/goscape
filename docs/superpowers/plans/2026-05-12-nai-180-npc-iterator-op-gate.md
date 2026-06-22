@@ -550,11 +550,11 @@ EOF
 ### Task B2.T1 — Update tracker entries
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — 3 stale entries.
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — 3 stale entries.
 
 - [ ] **Step 1: Verify current tracker line numbers**
 
-Run: `grep -n "NAI-35-T3-D1" /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+Run: `grep -n "NAI-35-T3-D1" $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
 
 Expected: 3 hits. Line numbers may have shifted from the spec's quoted 2484/2542/2606 by ±5 lines. Use the actual `grep` output as ground truth.
 
@@ -584,7 +584,7 @@ N. ~~**NAI-35-T3-D1 audit**~~ — RETIRED 2026-05-12 by NAI-180.
 
 - [ ] **Step 4: Verify zero remaining stale references**
 
-Run: `grep -n "NAI-35-T3-D1" /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md | grep -v RETIRED`
+Run: `grep -n "NAI-35-T3-D1" $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md | grep -v RETIRED`
 
 Expected: 0 hits.
 

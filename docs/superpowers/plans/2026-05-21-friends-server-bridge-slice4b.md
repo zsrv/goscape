@@ -670,7 +670,7 @@ If anything fails, stop and investigate. Common failure modes:
 
 - [ ] **Step 2: Run smoke-pack**
 
-Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content`
+Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content`
 
 Expected: `12 OK / 0 ERR / 0 SKIP` in approximately 8 seconds. The 12 stages are unrelated to friends-server but the baseline must hold (per slice 4a close).
 
@@ -695,8 +695,8 @@ This task has no commit of its own — it's a gate.
 **Why:** Slice-close ritual per `[[friends-server-slice4a-close]]` precedent. Without it, slice 4c won't know what 4b changed.
 
 **Files:**
-- Create: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice4b_close.md`
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (prepend entry)
+- Create: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice4b_close.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (prepend entry)
 
 - [ ] **Step 1: Write the close memory file**
 
@@ -727,7 +727,7 @@ After 4b: still open `NAI-S1-D-LAZY-WORLDINIT` (permanent), `NAI-S1-D-PLAYERCAP-
 
 - [ ] **Step 2: Add MEMORY.md index entry**
 
-In `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`, prepend a new line at the very top of the bullet list (above the existing `friends-server slice 4a close` line):
+In `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`, prepend a new line at the very top of the bullet list (above the existing `friends-server slice 4a close` line):
 
 ```markdown
 - [friends-server slice 4b close](friends_server_slice4b_close.md) — PrivateMessage delivery via stream shipped 2026-05-21 on top of [[friends-server-slice4a-close]]; server-only change to `modules/friends/handler.go` (subs.send route); retires `NAI-S1-D-PM-NO-DELIVERY`; opens `NAI-S4B-D-NO-INGAME-PM-EMIT` (mirror of `NAI-S4A-D-NO-INGAME-PACKET-EMIT`, blocked on NAI-182-D5); 3 server tests + 1 world e2e; -race clean; smoke-pack 12 OK / 0 ERR holds
@@ -739,7 +739,7 @@ Keep the line under 200 chars (per MEMORY.md warning note).
 
 Memory files live outside the project repo (under `~/.claude/projects/.../memory/`) so there is no commit here. Verify with:
 
-Run: `ls -la /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice4b_close.md`
+Run: `ls -la $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice4b_close.md`
 
 Expected: file present.
 

@@ -1473,7 +1473,7 @@ For each remaining doc-comment site outside `docs/`, edit the comment to either 
 
 - [ ] **Step 6.7: Append a `## NAI-57 — CLOSED YYYY-MM-DD` section to `nai_followups.md`**
 
-The memory file is at `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Append the section at the end. Per memory `memory_write_sandbox_quirk.md` precedent: use the Write/Edit tool, not Bash redirection.
+The memory file is at `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Append the section at the end. Per memory `memory_write_sandbox_quirk.md` precedent: use the Write/Edit tool, not Bash redirection.
 
 Template (substitute the close date and final commit SHA):
 

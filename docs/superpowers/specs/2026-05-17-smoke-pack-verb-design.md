@@ -10,7 +10,7 @@
 
 ## §1. Scope
 
-Add a new verb `smoke-pack` to `cmd/goscape-cli` that drives `packall.PackAll` against an arbitrary content directory (in practice: `/home/owner/Code/github.com/LostCityRS/Content`, ~200MB) and produces a per-stage outcome report. The verb runs all 10 PackAll stages best-effort — i.e., logs and continues past stage errors rather than failing fast — so that one developer-driven run surfaces every stage that breaks against the real datapack, not just the first.
+Add a new verb `smoke-pack` to `cmd/goscape-cli` that drives `packall.PackAll` against an arbitrary content directory (in practice: `$HOME/Code/github.com/LostCityRS/Content`, ~200MB) and produces a per-stage outcome report. The verb runs all 10 PackAll stages best-effort — i.e., logs and continues past stage errors rather than failing fast — so that one developer-driven run surfaces every stage that breaks against the real datapack, not just the first.
 
 **Why this matters now.** Until NAI-213, PackAll had only been exercised against unit-test fixtures. Expected divergences from MEMORY against real Content include the pixpack tiled-sheet semantic (`opt`-file x/y coordinate space) and the BUILDVERIFY-INTERFACE CRC residual (`NAI-213-D-BUILDVERIFY-INTERFACE-MAY-DIVERGE`). Additional gaps are likely. This smoke is the first end-to-end exercise of the full PackAll pipeline against unseen input.
 
@@ -187,7 +187,7 @@ Real-Content runs are **not** tested in CI — they require the 200MB Content ch
 
 - `goscape-cli smoke-pack -h` prints usage and exits 0.
 - `goscape-cli smoke-pack` (no flags) exits 3 (missing `--content-dir`) with a clear error.
-- `goscape-cli smoke-pack --content-dir <Content>` against `/home/owner/Code/github.com/LostCityRS/Content`:
+- `goscape-cli smoke-pack --content-dir <Content>` against `$HOME/Code/github.com/LostCityRS/Content`:
   - Completes without panicking the binary regardless of per-stage outcomes.
   - Prints a summary table with one row per stage.
   - Exits 0 if all 10 stages succeed, 1 otherwise.

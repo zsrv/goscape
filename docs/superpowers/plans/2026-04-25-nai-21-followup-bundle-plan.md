@@ -36,11 +36,11 @@
 
 **Bundle 2:**
 - Modify: `modules/world/npc.go` (line 164 — modernize loop)
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (mark NAI-17-D1 entry as Resolved)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (mark NAI-17-D1 entry as Resolved)
 
 **Bundle 3:**
 - Modify: `modules/world/npc_script_test.go` (replace lines 280-297 weak-form test with strong form)
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (mark NAI-3 weak-form deferral as Resolved)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (mark NAI-3 weak-form deferral as Resolved)
 
 **No new files. No production code beyond `npc_interaction.go`, `appearance.go`, and `npc.go`.**
 
@@ -56,13 +56,13 @@
 **Pre-flight (implementer must verify before edit):**
 
 ```
-grep -n "approachEntitySize\|inApproachDistance" /home/owner/Code/github.com/zsrv/goscape/modules/world/npc_interaction.go | head -10
+grep -n "approachEntitySize\|inApproachDistance" $HOME/Code/github.com/zsrv/goscape/modules/world/npc_interaction.go | head -10
 ```
 
 Expected: confirms current call sites at line 532 (`size := int(t.typ.Size)` in `approachEntitySize`) and line 581 (`selfSize := int(n.typ.Size)` in `inApproachDistance`). If line numbers have shifted, adjust the Task 2 edit accordingly.
 
 ```
-grep -n "TestSizeMorphRevertRestoresBaseFootprint" /home/owner/Code/github.com/zsrv/goscape/modules/world/npc_registry_test.go
+grep -n "TestSizeMorphRevertRestoresBaseFootprint" $HOME/Code/github.com/zsrv/goscape/modules/world/npc_registry_test.go
 ```
 
 Expected: test exists at `npc_registry_test.go:181` — reference template for the size-morph setup pattern.
@@ -209,7 +209,7 @@ If tests pass at this stage, the test setup is wrong (likely the LoS scenario do
 **Pre-flight (implementer must verify before edit):**
 
 ```
-grep -n "n\.size\|n\.blockWalk" /home/owner/Code/github.com/zsrv/goscape/modules/world/npc.go | head -10
+grep -n "n\.size\|n\.blockWalk" $HOME/Code/github.com/zsrv/goscape/modules/world/npc.go | head -10
 ```
 
 Expected: confirms `n.size` and `n.blockWalk` are present as `*Npc` fields and seeded at `NewNpc` (NAI-20 Task 2, commit `ec0c5e7`). If absent, NAI-20 has been reverted and this task is blocked.
@@ -272,13 +272,13 @@ Expected: ALL tests in those families PASS. If any pre-existing test fails, veri
 **Pre-flight (implementer must verify before edit):**
 
 ```
-grep -n "p\.invs\[invs\.Worn\]\|appearanceInv" /home/owner/Code/github.com/zsrv/goscape/modules/world/appearance.go
+grep -n "p\.invs\[invs\.Worn\]\|appearanceInv" $HOME/Code/github.com/zsrv/goscape/modules/world/appearance.go
 ```
 
 Expected: confirms the current reader reads `p.invs[invs.Worn]` at line 27.
 
 ```
-grep -n "func synthesizeTypes\|func newTestPlayer" /home/owner/Code/github.com/zsrv/goscape/modules/world/*_test.go
+grep -n "func synthesizeTypes\|func newTestPlayer" $HOME/Code/github.com/zsrv/goscape/modules/world/*_test.go
 ```
 
 Expected: confirms `synthesizeTypes` is at `appearance_test.go:10` and `newTestPlayer` is at `player_test.go:14`. Used by all 3 new tests.
@@ -449,7 +449,7 @@ This is the asymmetric "HEAD pass" pattern: Tests 1+2 are forward-compatibility 
 **Pre-flight (implementer must verify before edit):**
 
 ```
-grep -n "p\.invs\[invs\.Worn\]" /home/owner/Code/github.com/zsrv/goscape/modules/world/appearance.go
+grep -n "p\.invs\[invs\.Worn\]" $HOME/Code/github.com/zsrv/goscape/modules/world/appearance.go
 ```
 
 Expected: confirms only one site reads `p.invs[invs.Worn]` (at line 27). If multiple sites exist, the spec needs an update.
@@ -579,13 +579,13 @@ Expected: shows the new commit with the four files modified, expected line count
 **Pre-flight (implementer must verify before edit):**
 
 ```
-grep -n "for i := 0; i < objtype.NpcStatCount" /home/owner/Code/github.com/zsrv/goscape/modules/world/npc.go
+grep -n "for i := 0; i < objtype.NpcStatCount" $HOME/Code/github.com/zsrv/goscape/modules/world/npc.go
 ```
 
 Expected: confirms the C-style loop at line 164.
 
 ```
-grep -n "for i := range min" /home/owner/Code/github.com/zsrv/goscape/modules/world/npc.go /home/owner/Code/github.com/zsrv/goscape/modules/world/npc_masks.go /home/owner/Code/github.com/zsrv/goscape/modules/world/npc_script.go
+grep -n "for i := range min" $HOME/Code/github.com/zsrv/goscape/modules/world/npc.go $HOME/Code/github.com/zsrv/goscape/modules/world/npc_masks.go $HOME/Code/github.com/zsrv/goscape/modules/world/npc_script.go
 ```
 
 Expected: confirms three sibling `for i := range min(...)` loops at the sites named in the spec (revertType heavy-path reseed at npc.go:288, resetStatsForType at npc_masks.go:98, processNpcRegen at npc_script.go:244). If absent, the spec premise about "modernization siblings" is wrong and the cosmetic justification doesn't apply.
@@ -619,15 +619,15 @@ Expected: ALL tests pass. Behaviorally identical to the C-style loop (both itera
 ## Task 7: Retire stale NAI-17-D1 follow-up tracker
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (mark NAI-17-D1 entry as Resolved, preserve historical body)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (mark NAI-17-D1 entry as Resolved, preserve historical body)
 
 **Pre-flight (implementer must run grep enumeration FIRST per `retire_deviation_grep_all_comments` memory):**
 
 ```
-grep -rn "NAI-17-D1" /home/owner/Code/github.com/zsrv/goscape/pkg \
-                     /home/owner/Code/github.com/zsrv/goscape/modules \
-                     /home/owner/Code/github.com/zsrv/goscape/cmd \
-                     /home/owner/Code/github.com/zsrv/goscape/docs
+grep -rn "NAI-17-D1" $HOME/Code/github.com/zsrv/goscape/pkg \
+                     $HOME/Code/github.com/zsrv/goscape/modules \
+                     $HOME/Code/github.com/zsrv/goscape/cmd \
+                     $HOME/Code/github.com/zsrv/goscape/docs
 ```
 
 Expected (per spec pre-flight at HEAD `3514264`): zero production-code references; only `nai_followups.md` has the entry (the entry being retired) and possibly the spec doc itself. If additional sites surface, they MUST be enumerated and updated as part of this task — do not proceed past Step 1 until accounted for.
@@ -638,7 +638,7 @@ Run the grep above. Document the result (expected: 0 hits in pkg/modules/cmd; so
 
 - [ ] **Step 2: Edit the NAI-17-D1 follow-up entry to mark Resolved**
 
-In `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`, find the section header at line 676:
+In `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`, find the section header at line 676:
 
 ```
 ### NAI-17-D1 closure track: revertType despawn+respawn alignment
@@ -664,7 +664,7 @@ The existing body text from line 678 to end of section (line 694) is preserved v
 - [ ] **Step 3: Verify the edit landed cleanly**
 
 ```
-sed -n '676,710p' /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+sed -n '676,710p' $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 ```
 
 Expected: shows the new "Resolved" marker line followed by the preserved historical body.
@@ -686,7 +686,7 @@ git add modules/world/npc.go
 git status
 ```
 
-Expected: shows `npc.go` staged. **`nai_followups.md` is OUTSIDE the goscape repo** (it lives in `/home/owner/.claude/projects/.../memory/`), so it does NOT get staged into goscape's git. The memory file lives in Claude's persistent memory store; the edit at Task 7 is recorded by the Edit tool itself.
+Expected: shows `npc.go` staged. **`nai_followups.md` is OUTSIDE the goscape repo** (it lives in `$HOME/.claude/projects/.../memory/`), so it does NOT get staged into goscape's git. The memory file lives in Claude's persistent memory store; the edit at Task 7 is recorded by the Edit tool itself.
 
 - [ ] **Step 3: Commit Bundle 2**
 
@@ -729,19 +729,19 @@ Expected: shows the new commit with `modules/world/npc.go` modified, ~2 lines ch
 **Pre-flight (implementer must verify before edit):**
 
 ```
-grep -n "TestNpcTurnReentryQueueAppendDuringIteration\|buildNpcForIntegration\|newServerForScriptTest" /home/owner/Code/github.com/zsrv/goscape/modules/world/npc_script_test.go
+grep -n "TestNpcTurnReentryQueueAppendDuringIteration\|buildNpcForIntegration\|newServerForScriptTest" $HOME/Code/github.com/zsrv/goscape/modules/world/npc_script_test.go
 ```
 
 Expected: confirms the weak-form test at line 284, `buildNpcForIntegration` at line 228, and `newServerForScriptTest` at line 54.
 
 ```
-grep -n "func handleNpcQueue\|func handleNpcSetTimer" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_npc.go
+grep -n "func handleNpcQueue\|func handleNpcSetTimer" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_npc.go
 ```
 
 Expected: confirms `handleNpcQueue` and `handleNpcSetTimer` handlers exist with the operand encoding documented in the spec (`OpNpcQueue` pops delay/arg/queueID; `OpNpcSetTimer` pops interval).
 
 ```
-grep -n "scriptProvider:" /home/owner/Code/github.com/zsrv/goscape/modules/world/npc_script.go
+grep -n "scriptProvider:" $HOME/Code/github.com/zsrv/goscape/modules/world/npc_script.go
 ```
 
 Expected: confirms `processNpcQueue` calls `s.scriptProvider.GetByTrigger(...)` at line 286 with the `if s.scriptProvider == nil { continue }` short-circuit at line 283.
@@ -890,22 +890,22 @@ Expected: ALL `TestNpc*` tests pass.
 ## Task 10: Retire NAI-3 weak-form deferral
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (mark NAI-3 weak-form deferral as Resolved)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (mark NAI-3 weak-form deferral as Resolved)
 
 **Pre-flight (implementer must run grep enumeration per `retire_deviation_grep_all_comments` memory):**
 
 ```
-grep -rn "weak-form\|TestNpcTurnReentryQueueAppendDuringIteration" /home/owner/Code/github.com/zsrv/goscape/pkg \
-                                                                   /home/owner/Code/github.com/zsrv/goscape/modules \
-                                                                   /home/owner/Code/github.com/zsrv/goscape/cmd \
-                                                                   /home/owner/Code/github.com/zsrv/goscape/docs
+grep -rn "weak-form\|TestNpcTurnReentryQueueAppendDuringIteration" $HOME/Code/github.com/zsrv/goscape/pkg \
+                                                                   $HOME/Code/github.com/zsrv/goscape/modules \
+                                                                   $HOME/Code/github.com/zsrv/goscape/cmd \
+                                                                   $HOME/Code/github.com/zsrv/goscape/docs
 ```
 
 Expected: only the test name itself (now in its strong form post-Task 9), the spec doc, and possibly Plan doc references. No production-code references to "weak-form."
 
 - [ ] **Step 1: Edit the NAI-3 weak-form deferral entry**
 
-In `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`, find the section header at line 90:
+In `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`, find the section header at line 90:
 
 ```
 ### Fidelity audit (unassigned): strengthen NPC queue "speedup quirk" test
@@ -947,7 +947,7 @@ The existing body text from line 92 to end of section (line 115) is preserved ve
 - [ ] **Step 2: Verify the edit landed cleanly**
 
 ```
-sed -n '88,130p' /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+sed -n '88,130p' $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 ```
 
 Expected: shows the new Resolved marker followed by the preserved historical body.
