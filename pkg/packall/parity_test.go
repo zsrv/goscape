@@ -264,8 +264,8 @@ func assertLooseMapsMatchZip(t *testing.T, zipPath, looseDir, label string) {
 // identical to the ORIGINAL shipped r274 cache — the real acceptance target.
 //
 // The original cache is a Jag store only (main_file_cache.dat + idx0-4). It is
-// gated on GOSCAPE_ORIG_CACHE_DIR (default /home/owner/Code/_runescape/r274/
-// original-cache, per T17b); skipped cleanly when absent.
+// gated on GOSCAPE_ORIG_CACHE_DIR (per T17b); skipped cleanly when unset or
+// absent.
 //
 // Compression archives (idx1=models, idx2=anims, idx3=midi, idx4=client maps)
 // are compared with the 2-byte version trailer stripped (the version NUMBER is
@@ -299,7 +299,8 @@ func TestPackAll_OrigCacheParity(t *testing.T) {
 
 	orig := os.Getenv("GOSCAPE_ORIG_CACHE_DIR")
 	if orig == "" {
-		orig = "/home/owner/Code/_runescape/r274/original-cache"
+		t.Skip("GOSCAPE_ORIG_CACHE_DIR not set; to run set " +
+			"both GOSCAPE_ORIG_CACHE_DIR and GOSCAPE_REF274_DIR")
 	}
 	if _, err := os.Stat(filepath.Join(orig, "main_file_cache.dat")); err != nil {
 		t.Skipf("original cache absent (%s): %v", orig, err)

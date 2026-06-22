@@ -20,7 +20,7 @@
 - **Test style** matches existing `pkg/objtype/playerstat_test.go` and `pkg/script/*_test.go`: bare `if got != want { t.Fatalf(...) }`, `reflect.DeepEqual` for whole-map comparison, table-driven where the same shape repeats.
 - **Modern Go** (per `[[use-modern-go]]`): `for k, v := range m`, no deprecated `ioutil.*`. No generics introduced unless required by a stdlib API.
 - **Goscape Op* naming** is **NOT mechanical** from TS UPPER_SNAKE. Verified at plan-write for every spot-check name used below (`OpFindUID` not `OpFindUid`; `OpGetTimeSpent` not `OpGetTimespent`; etc.) — when porting the 393 `ScriptOpcodeMap` entries, the implementer must look up each goscape `Op*` name in `pkg/script/opcode.go`, **not** mechanically translate from TS.
-- **TS source canon** is `/home/owner/Code/github.com/LostCityRS/Engine-TS` per `[[ts_source_canonical_path]]`. All TS line numbers below reference that tree.
+- **TS source canon** is `$HOME/Code/github.com/LostCityRS/Engine-TS` per `[[ts_source_canonical_path]]`. All TS line numbers below reference that tree.
 
 ---
 

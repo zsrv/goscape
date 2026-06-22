@@ -7,10 +7,9 @@ import (
 )
 
 // ref274PackDir resolves the Server274-ref cache-pack directory (the dir
-// that contains client/title) for the rev-274 *_full 256-glyph fonts:
-// GOSCAPE_REF274_DIR (pointing at .../engine, pack derived as
-// data/pack) first, then the known local worktree path. Returns "" when
-// neither has a client/title.
+// that contains client/title) for the rev-274 *_full 256-glyph fonts from
+// GOSCAPE_REF274_DIR (pointing at .../engine, pack derived as data/pack).
+// Returns "" when the env var is unset or its pack lacks client/title.
 //
 // The local repo data/pack is still 254-era (p11.dat etc., NO *_full)
 // until plan T21 refreshes it, so the real-cache Load tests must point at
@@ -21,10 +20,6 @@ func ref274PackDir() string {
 		if _, err := os.Stat(filepath.Join(dir, "client", "title")); err == nil {
 			return dir
 		}
-	}
-	const local = "/home/owner/Code/github.com/LostCityRS/Server274-ref/engine/data/pack"
-	if _, err := os.Stat(filepath.Join(local, "client", "title")); err == nil {
-		return local
 	}
 	return ""
 }

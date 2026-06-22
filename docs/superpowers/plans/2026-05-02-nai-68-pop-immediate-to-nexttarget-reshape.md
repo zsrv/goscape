@@ -1033,7 +1033,7 @@ Block T4 close on critical/important findings; address inline.
 **Closes:** sub-spec close.
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (append NAI-68 close section)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (append NAI-68 close section)
 - (No code changes.)
 
 ### Step 4.1: Audit close-state
@@ -1059,7 +1059,7 @@ Expected: at least 2 hits — at AP-Loc and AP-Obj inline doc-comments per Step 
 
 ### Step 4.2: Append NAI-68 close section to `nai_followups.md`
 
-- [ ] Append to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`:
+- [ ] Append to `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`:
 
 ```markdown
 ---
@@ -1168,7 +1168,7 @@ Per `superpowers_clear_between_spec_and_impl.md` defaults, no new memory entries
 ### Step 4.4: Commit close
 
 ```bash
-git add /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+git add $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 chore(close): NAI-68 — p_op* immediate→nextTarget reshape
 

@@ -12,7 +12,7 @@
 
 Add a new sibling binary `cmd/goscape-cli/` that exposes operational tooling for goscape. The first verb is `pack`, which invokes `pkg/pack.PackAll(srcDir, outDir, dataPackDir)` and exits.
 
-Modeled on `/home/owner/Code/github.com/grafana/tempo/cmd/tempo-cli/` (separate binary, subcommand-dispatched, distinct from the daemon binary). Goscape's daemon stays `cmd/goscape`; ops/inspection tooling lives under `cmd/goscape-cli`.
+Modeled on `$HOME/Code/github.com/grafana/tempo/cmd/tempo-cli/` (separate binary, subcommand-dispatched, distinct from the daemon binary). Goscape's daemon stays `cmd/goscape`; ops/inspection tooling lives under `cmd/goscape-cli`.
 
 **In scope:**
 - New binary `cmd/goscape-cli/` with subcommand dispatcher and one verb `pack`.

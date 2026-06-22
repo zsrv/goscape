@@ -208,7 +208,7 @@ ENUM(105, 115, 11, key=arg0): chatbox displaymessage table — index 0 = "Nothin
 
 ## 4. Java client wire ordering
 
-From `/home/owner/Code/github.com/LostCityRS/Client-Java/src/main/java/deob/client.java:5072-5078` (the `var5 == 881` branch — "use X with Y" menu option):
+From `$HOME/Code/github.com/LostCityRS/Client-Java/src/main/java/deob/client.java:5072-5078` (the `var5 == 881` branch — "use X with Y" menu option):
 
 ```java
 this.out.p1isaac(130);                    // OPHELDU opcode

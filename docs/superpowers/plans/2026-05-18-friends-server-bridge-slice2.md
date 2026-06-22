@@ -18,7 +18,7 @@
 
 All Go commands prefix `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go ...`. All git commits use `--no-gpg-sign`. Each task ends with one commit.
 
-Run from repo root: `/home/owner/Code/github.com/zsrv/goscape`.
+Run from repo root: `$HOME/Code/github.com/zsrv/goscape`.
 
 ---
 
@@ -1990,8 +1990,8 @@ EOF
 ### Task 12: Close — full gates, smoke-pack, memory entry
 
 **Files:**
-- Create: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice2_close.md`
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
+- Create: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice2_close.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
 
 - [ ] **Step 1: Full test suite**
 
@@ -2014,7 +2014,7 @@ GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build -o /tmp/claude/goscape-cli .
 Then run:
 
 ```bash
-/tmp/claude/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+/tmp/claude/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 
 Expected: `12 OK / 0 ERR / 0 SKIP` (matching the slice-1-close baseline).
@@ -2039,7 +2039,7 @@ Expected: PASS.
 
 - [ ] **Step 7: Write the memory entry**
 
-Create `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice2_close.md` with frontmatter and content summarising:
+Create `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice2_close.md` with frontmatter and content summarising:
 
 - Predecessor `[[friends-server-slice1-close]]`
 - Final commit list (SHAs from `git log --oneline ef3f11a9..HEAD`)
@@ -2102,7 +2102,7 @@ Critical-path: 1 → 2 → 3 → 4.
 
 - [ ] **Step 8: Add one-line entry to MEMORY.md**
 
-Edit `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`. Insert at the top of the list (one-line, under ~200 chars):
+Edit `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`. Insert at the top of the list (one-line, under ~200 chars):
 
 ```markdown
 - [friends-server slice 2 close](friends_server_slice2_close.md) — slice 2 of 7 friends-server bridge arc shipped 2026-05-18; world-side FriendsClient + grpcFriendsBridge wired; retires NAI-72-D-FRIENDS-SERVER-BRIDGE; opens 3 NAI-S2-D-* tags

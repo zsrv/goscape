@@ -307,7 +307,7 @@ Remove behaviorally."
 - [ ] **Step 3.1 — Verify TS source unchanged at spec-write time**
 
 ```bash
-sed -n '86,113p' /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/InvOps.ts
+sed -n '86,113p' $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/InvOps.ts
 ```
 
 Confirm: validators are InvTypeValid + protect/scope + ObjTypeValid×2 (no ObjStackValid on replaceCount).
@@ -750,7 +750,7 @@ fixture coverage."
 - [ ] **Step 5.1 — Verify TS source**
 
 ```bash
-sed -n '535,566p' /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/InvOps.ts
+sed -n '535,566p' $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/InvOps.ts
 ```
 
 Note line 558: `if (objType.certtemplate === -1 && objType.certlink >= 0)` — the inverted condition vs UNCERT.
@@ -1289,7 +1289,7 @@ DEVIATION-NAI-130-D2 inherited (defensive nil-World)."
 
 - [ ] **Step 7.1 — Update `nai_followups.md` carry-forward routing**
 
-Edit `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Replace the existing `**NAI-132+ candidate (style-cleanup, still queued):**` line with:
+Edit `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Replace the existing `**NAI-132+ candidate (style-cleanup, still queued):**` line with:
 
 ```markdown
 - **NAI-133+ candidate (NAI-132 deferred):** `BOTH_MOVEINV` opcode 4301. TS InvOps.ts:373-495 indexes `ProtectedActivePlayer[secondary?1:0]` / `[secondary?0:1]` for per-pointer-slot protect tracking. Goscape's `s.Protect` is a single bool (state.go:315). Prerequisites: (1) new `Self2Protect bool` field on ScriptState OR `PtrProtectedActivePlayer2` Pointer flag, (2) P_PROTECT routing on `state.intOperand` to set the appropriate slot, (3) BOTH_MOVEINV handler with `!fromPlayerProtect` / `!toPlayerProtect` per gate. Plus DEVIATION-NAI-115-D1 wealth-event-tail skip (TS InvOps.ts:445-494; goscape skips per established pattern). ~140-180 LOC.

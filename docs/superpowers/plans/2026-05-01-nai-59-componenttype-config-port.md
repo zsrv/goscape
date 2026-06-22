@@ -24,7 +24,7 @@
 | `modules/world/player_interface_test.go` | Create | `IfSetTab` state-write tests + `IsComponentVisible` per-branch tests + `newPlayer` defaults test |
 | `modules/world/handler_interface.go` | Modify | Add `lookupComponent` helper; reshape `handleIfButton` with 3 gates + `protect = !root.Overlay`; retire NAI-45-D1/D2 doc-comments |
 | `modules/world/handler_interface_test.go` | Modify | New IF_BUTTON gate tests + fixture-update existing IF_BUTTON tests for the registry seed |
-| `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` | Modify | Append NAI-59 close section; mark NAI-45-D1 + NAI-45-D2 Resolved |
+| `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` | Modify | Append NAI-59 close section; mark NAI-45-D1 + NAI-45-D2 Resolved |
 
 ---
 
@@ -1444,7 +1444,7 @@ git commit --no-gpg-sign -m "feat(world): NAI-59 T6 — handleIfButton gates clo
 ## Task 7: Close commit + nai_followups update
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
 
 - [ ] **Step 1: Stale-deviation grep**
 
@@ -1529,7 +1529,7 @@ failure modes surface during implementation.)
 Locate the "From NAI-45" section in nai_followups.md and append a
 "Resolved" note to the NAI-45-D1 and NAI-45-D2 entries pointing to NAI-59.
 
-(Pre-flight grep `grep -n "NAI-45-D1\|NAI-45-D2" /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` to find exact lines.)
+(Pre-flight grep `grep -n "NAI-45-D1\|NAI-45-D2" $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` to find exact lines.)
 
 - [ ] **Step 4: Run full test suite once more for the close-commit dignity**
 
@@ -1549,7 +1549,7 @@ EOF
 
 (If memory file is part of the same git tree, `git add` it before
 committing; otherwise the memory edits stay outside the goscape repo
-and the commit is empty-but-trailered. Pre-flight `git -C /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory status` to determine.)
+and the commit is empty-but-trailered. Pre-flight `git -C $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory status` to determine.)
 
 ---
 

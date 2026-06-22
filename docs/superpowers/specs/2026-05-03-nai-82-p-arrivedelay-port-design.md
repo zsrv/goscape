@@ -392,7 +392,7 @@ Same setup but `n.waypointIndex = -1`. Call `n.updateMovement(s)`. Assert:
   (production tick path); test path at `npc_reorient_test.go:85` uses bare
   `npc.updateMovement` — `s != nil` guard makes the write a no-op there.
 - No existing `lastMovement` field/identifier in goscape — verified by
-  `grep -rn "lastMovement\|LastMovement" /home/owner/Code/github.com/zsrv/goscape/`
+  `grep -rn "lastMovement\|LastMovement" $HOME/Code/github.com/zsrv/goscape/`
   returning zero matches.
 
 ## 6. TS-fidelity ledger

@@ -367,7 +367,7 @@ T1 first (interface change must land before T2 reads from it).
 ## 13. Smoke surface (post-merge)
 
 Content invocations of LOC_FIND that flip from "not found" → "found" at
-activation. Pre-flight `rg "loc_find\b" /home/owner/Code/github.com/LostCityRS/Content/scripts/` at plan-write
+activation. Pre-flight `rg "loc_find\b" $HOME/Code/github.com/LostCityRS/Content/scripts/` at plan-write
 to enumerate. Stub comment names one (`check_chest_macro_gas`); user
 launches server per `smoke_test_server_handoff.md` and drives the
 relevant flow to confirm.

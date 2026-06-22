@@ -1655,7 +1655,7 @@ If any test outside `modules/world/` fails (unlikely — this slice touches only
 
 Run:
 ```bash
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content 2>&1 | tail -20
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content 2>&1 | tail -20
 ```
 Expected: 12 OK / 0 ERR / 0 SKIP. (Per `[[smoke_pack_worldmap_stage_wiring]]`, this is the established baseline.)
 
@@ -1681,9 +1681,9 @@ If any check fails, identify the responsible task, revert or amend, and re-run.
 
 **Files:**
 - Modify: `docs/superpowers/specs/2026-05-17-rebuild-cheat-design.md` (the predecessor spec) — optional, only if a "follow-ups" section exists there.
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/rebuild_cheat_close.md` (the predecessor memory).
-- Create: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/rebuild_async_fsnotify_close.md`.
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`.
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/rebuild_cheat_close.md` (the predecessor memory).
+- Create: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/rebuild_async_fsnotify_close.md`.
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`.
 
 - [ ] **Step 1: Update `rebuild_cheat_close.md` to retire the two follow-ups**
 
@@ -1697,7 +1697,7 @@ Leave the third bullet (RunServerCompiler pointer-check error on real Content) �
 
 - [ ] **Step 2: Write the new close memory**
 
-Create `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/rebuild_async_fsnotify_close.md`:
+Create `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/rebuild_async_fsnotify_close.md`:
 
 ```markdown
 ---

@@ -67,7 +67,7 @@ Hand-port `@lostcityrs/runescript`'s parser layer to goscape as a self-contained
 - Go 1.26+ (per [[go_version]] memory).
 - No new external deps.
 - Lexer dep: `pkg/pack/compiler/lexer` (consumed only by `parser/`, never by `ast/`).
-- TS source-of-truth: `/home/owner/Code/github.com/LostCityRS/RuneScriptTS` at HEAD `b8c338801fbb72d294ff9576a58925a8d3f6de47` (same pin as NAI-203). Specifically:
+- TS source-of-truth: `$HOME/Code/github.com/LostCityRS/RuneScriptTS` at HEAD `b8c338801fbb72d294ff9576a58925a8d3f6de47` (same pin as NAI-203). Specifically:
   - `src/antlr/RuneScriptParser.g4` (238 lines) — grammar.
   - `src/parser/ast/` (30 files) — AST node shapes.
   - `src/parser/parser/AstBuilder.ts` (481 lines) — visitor dispatch logic encoding AST construction from antlr parse-tree.

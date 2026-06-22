@@ -527,6 +527,6 @@ The `NewServer` wiring uses `context.WithCancel(context.Background())`. The Serv
 Before slice 5a is considered closed:
 
 1. `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... -count=1 -timeout 600s` — clean across all 30 packages.
-2. `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content` — 12 OK / 0 ERR / 0 SKIP (baseline must hold; slice 5a is server/world-only and does not touch packing).
+2. `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content` — 12 OK / 0 ERR / 0 SKIP (baseline must hold; slice 5a is server/world-only and does not touch packing).
 3. Tag accounting: 4 NAI-S5A-D-* tags opened, 0 retired (slice 5b retires the dispatcher-no-action tag piecewise). All other slice-1/2/3/4 tags unchanged.
 4. Whole-slice review per `[[friends-server-slice4a-close]]` lesson: even with verbatim-plan execution, a final cross-task consistency pass catches drift. Slice 5a is the largest sub-slice in slice 5 — review is warranted.

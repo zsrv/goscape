@@ -1159,7 +1159,7 @@ Per spec §4.2.1, the goscape-side decision is **mirror TS verbatim using `strco
 Verify PackCoord's signature and bit layout:
 
 ```bash
-grep -n "func PackCoord" /home/owner/Code/github.com/zsrv/goscape/pkg/coordgrid/coordgrid.go
+grep -n "func PackCoord" $HOME/Code/github.com/zsrv/goscape/pkg/coordgrid/coordgrid.go
 ```
 
 If `PackCoord(level, x, z int) int` packs as `(level << 28) | (x << 14) | z` (TS convention), then `PackCoord(-1, 3232, 3232)` is **dependent on Go integer behavior** — `-1 << 28` in Go on a signed int is implementation-defined for shifts of negative numbers in pre-Go-1.13, but Go 1.13+ allows it as `-(1 << 28)` per spec. For an `int64`, `-1 << 28 == -268435456`. Bit-OR-ing with positive values produces a negative result.

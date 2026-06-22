@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-05-10-nai-150-projanim-cluster-design.md` (commit `983b799`).
 
-**TS source canonical path:** `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/ServerOps.ts:171-210`.
+**TS source canonical path:** `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/ServerOps.ts:171-210`.
 
 **Cascade-tail:** 39 → 36 unhandled at HEAD `f224216`.
 
@@ -1079,7 +1079,7 @@ Use the `Agent` tool with:
 - `prompt`: Self-contained brief that includes:
   - Spec path: `docs/superpowers/specs/2026-05-10-nai-150-projanim-cluster-design.md`
   - Plan path: `docs/superpowers/plans/2026-05-10-nai-150-projanim-cluster.md`
-  - TS source: `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/ServerOps.ts:171-210`
+  - TS source: `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/ServerOps.ts:171-210`
   - Range to review: T1 commit through T5 commit (the 5 NAI-150 commits since `f224216`).
   - Specific audit targets:
     - PROJANIM_MAP validation order (spotanim → src → dst, NOT src first)
@@ -1117,7 +1117,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 - [ ] **Step 8.1: Update nai_followups.md memory**
 
-Edit `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`:
+Edit `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`:
 
 1. Find the existing `### NAI-150 candidate — PROJANIM_NPC + PROJANIM_MAP + PROJANIM_PL cluster` section under "From NAI-149". Mark it `RETIRED 2026-05-10 by NAI-150` (preserve the rationale block for provenance).
 
@@ -1159,7 +1159,7 @@ The plan-controller may also want to save a short memory entry for any cascade i
 - [ ] **Step 8.3: Final close commit**
 
 ```bash
-git add /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
+git add $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 chore(close): NAI-150 — PROJANIM cluster port (3 ops)
 

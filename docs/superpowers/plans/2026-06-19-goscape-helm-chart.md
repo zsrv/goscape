@@ -1305,7 +1305,7 @@ data/players
 If `data/src` is absent, point it at your local content first (read-only), e.g.:
 
 ```bash
-[ -e data/src ] || ln -s /home/owner/Code/github.com/LostCityRS/Server274-ref/content data/src
+[ -e data/src ] || ln -s $HOME/Code/github.com/LostCityRS/Server274-ref/content data/src
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache make pack CACHE_OUT_DIR=$TMPDIR/packtest
 ls $TMPDIR/packtest/main_file_cache.dat $TMPDIR/packtest/main_file_cache.idx0
 ```

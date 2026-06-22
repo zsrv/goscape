@@ -119,7 +119,7 @@ func TestRelayActionQueue_DropsOnFull(t *testing.T) {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race -run TestRelayActionQueue ./modules/world/...
 ```
 
@@ -224,7 +224,7 @@ Immediately after that block (before the `// NAI-182 — shutdown consumer` comm
 - [ ] **Step 7: Run tests to verify they pass**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race -run TestRelayActionQueue ./modules/world/... -count=1
 ```
 
@@ -293,7 +293,7 @@ func TestWorldStateOps_InterfaceBindsToServer(t *testing.T) {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race -run TestWorldStateOps_InterfaceBindsToServer ./modules/world/...
 ```
 
@@ -474,7 +474,7 @@ import (
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race -run TestWorldStateOps_ ./modules/world/...
 ```
 
@@ -688,7 +688,7 @@ import (
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race -run TestWorldStateOps_ ./modules/world/...
 ```
 
@@ -969,7 +969,7 @@ func TestActionWorldEventsDispatcher_QueueScriptIsSlogWarnOnly(t *testing.T) {
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race -run TestActionWorldEventsDispatcher ./modules/world/...
 ```
 
@@ -1144,7 +1144,7 @@ func TestNewServer_WiresActionWorldEventsDispatcher(t *testing.T) {
 - [ ] **Step 2: Run test to verify it passes already (T5 impl)**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race -run TestNewServer_WiresActionWorldEventsDispatcher ./modules/world/... -count=1
 ```
 
@@ -1218,7 +1218,7 @@ This e2e brings up a real friends-server, a `*Server` (test-harness, not full TC
 - [ ] **Step 1: Read the existing e2e to confirm test scaffolding pattern**
 
 ```bash
-sed -n '422,560p' /home/owner/Code/github.com/zsrv/goscape/modules/world/friends_smoke_test.go
+sed -n '422,560p' $HOME/Code/github.com/zsrv/goscape/modules/world/friends_smoke_test.go
 ```
 
 Expected: `TestFriendsClient_E2E_RelayWorldEventsRoundTrip` boots a real friends-server, two `worldEventsSubscriber`s (one per worldId), issues `RelayMute` / `RelayShutdown` / `RelayReload`, asserts dispatch via recording dispatcher channels.
@@ -1349,7 +1349,7 @@ func TestFriendsClient_E2E_RelayShutdownAppliesAction(t *testing.T) {
 - [ ] **Step 3: Run the e2e to verify it passes**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race -run TestFriendsClient_E2E_RelayShutdownAppliesAction ./modules/world/... -count=1 -timeout 30s
 ```
 
@@ -1456,7 +1456,7 @@ Expected: at least one match.
 - [ ] **Step 4: Run the package to ensure doc-comment edits compile**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./modules/world/...
 ```
 
@@ -1494,7 +1494,7 @@ EOF
 - [ ] **Step 1: Run the full project gate one more time**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... -count=1 -timeout 600s
 ```
 
@@ -1503,7 +1503,7 @@ Expected: PASS across all 30 packages.
 - [ ] **Step 2: Run smoke-pack to confirm no PackAll regression**
 
 ```bash
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 
 Expected: `12 OK / 0 ERR / 0 SKIP` (slice 5b touches no PackAll paths; this verifies no accidental import-cycle or build break that smoke-pack would surface).
@@ -1532,7 +1532,7 @@ If no issues, skip to Step 5.
 
 - [ ] **Step 5: Close-out summary**
 
-Write a memory close-out memo: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice5b_close.md` summarizing what landed (commits, retired tags, opened tags, plan-execution deviations if any), and add an index entry to `MEMORY.md`.
+Write a memory close-out memo: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_slice5b_close.md` summarizing what landed (commits, retired tags, opened tags, plan-execution deviations if any), and add an index entry to `MEMORY.md`.
 
 ---
 

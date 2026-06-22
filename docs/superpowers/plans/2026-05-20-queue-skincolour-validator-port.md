@@ -6,7 +6,7 @@
 
 **Architecture:** Bare-number free-function checkers in the existing `pkg/script/handlers_npc.go` / `pkg/script/handlers_player.go` sibling style (analog: `checkHuntVis`, `checkNotNull`, `checkHitType`). No new `pkg/objtype/` files — TS has no named enum constants for either validator (only string labels `'AIQueue'` / `'SkinColour'`). Three handler call-site wraps; five doc-comment refreshes (production + test); three existing-test rewrites; six new tests.
 
-**Tech Stack:** Go 1.26. Project conventions per `CLAUDE.md`: prefix Go commands with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`; PATH set via `unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"` if needed; commits use `git commit --no-gpg-sign`; stage explicitly (the working tree has standing noise — `config.yaml`, untracked dotfiles, `RUNESCRIPT.md` — **never stage these**). Spec: `docs/superpowers/specs/2026-05-20-queue-skincolour-validator-design.md` (commit `3750ac6e`).
+**Tech Stack:** Go 1.26. Project conventions per `CLAUDE.md`: prefix Go commands with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`; PATH set via `unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"` if needed; commits use `git commit --no-gpg-sign`; stage explicitly (the working tree has standing noise — `config.yaml`, untracked dotfiles, `RUNESCRIPT.md` — **never stage these**). Spec: `docs/superpowers/specs/2026-05-20-queue-skincolour-validator-design.md` (commit `3750ac6e`).
 
 ---
 
@@ -29,7 +29,7 @@ No files created or deleted. No `pkg/objtype/` changes.
 
 Run:
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 git log --oneline -2
 git status
 ```
@@ -1019,7 +1019,7 @@ Expected: empty commit lands successfully.
 
 - [ ] **Step 4: Write the close memory**
 
-Update `MEMORY.md` index + create `hit_type_validator_slice_close.md`-style topic file under `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` capturing: commit range, retired/opened pins, gate posture, key non-obvious findings, carry-forward grep keywords (the `1..20` / `range 0..7` set plus the predecessor's `stays raw`). Reference predecessor `[[hit-type-validator-slice-close]]` via wikilink.
+Update `MEMORY.md` index + create `hit_type_validator_slice_close.md`-style topic file under `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` capturing: commit range, retired/opened pins, gate posture, key non-obvious findings, carry-forward grep keywords (the `1..20` / `range 0..7` set plus the predecessor's `stays raw`). Reference predecessor `[[hit-type-validator-slice-close]]` via wikilink.
 
 ---
 

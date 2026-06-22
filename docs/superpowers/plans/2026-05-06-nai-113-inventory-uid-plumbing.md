@@ -1038,7 +1038,7 @@ Add a one-line entry to `MEMORY.md`:
 git add ... # (memory files live outside the goscape repo; the close commit references them but does not stage them)
 ```
 
-The memory files live at `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` — outside the goscape git repo. They persist via the harness's auto-memory system; no commit required.
+The memory files live at `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` — outside the goscape git repo. They persist via the harness's auto-memory system; no commit required.
 
 ---
 

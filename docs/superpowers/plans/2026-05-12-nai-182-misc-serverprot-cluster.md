@@ -1585,10 +1585,10 @@ EOF
 
 - [ ] **Step 1: Confirm TS Player.terminate() body for ::serverdrop semantics**
 
-Read `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts` and grep for `terminate(`:
+Read `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts` and grep for `terminate(`:
 
 ```bash
-grep -n "terminate(" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/NetworkPlayer.ts | head
+grep -n "terminate(" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/NetworkPlayer.ts | head
 ```
 
 Read the function body. The spec claim is "close TCP conn, leave p.reconnecting=true for next login". If TS also writes a session log or queues a save, document in commit message but skip those for now (out-of-scope subsystems).
@@ -1837,7 +1837,7 @@ EOF
 ## Task 8: NAI-182 close + memory entries + tracker hygiene
 
 **Files:**
-- Create: appropriate memory files under `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/`
+- Create: appropriate memory files under `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/`
 - Update: `MEMORY.md`
 
 ### Save non-derivable learnings
@@ -1847,7 +1847,7 @@ EOF
 Per spec §8 close-time memory entries, create a `feedback`-type memory:
 
 ```bash
-ls /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/
+ls $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/
 ```
 
 Then write a file like `login_byte_pin_varp_enumeration.md` with frontmatter (type=feedback) capturing: "tests that drive processLogins and assert byte equality must enumerate transmit-true varps in the expected output". Add a one-line entry to MEMORY.md.
@@ -1883,7 +1883,7 @@ Expected: full PASS.
 If memory files were added:
 
 ```bash
-git add /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/
+git add $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 chore(close): NAI-182 — misc ServerProt cluster + onReconnect + shutdown consumer + reboot cheats
 

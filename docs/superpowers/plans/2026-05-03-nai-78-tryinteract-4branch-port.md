@@ -927,14 +927,14 @@ No commit at this step. Branch on user's report:
 ## Task 5: Close commit (conditional on smoke 1+2+3 PASS)
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — add NAI-78 close section
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — add NAI-78 close section
 - Modify: any other memory entries surfaced by lessons learned this round
 
 Empty-tree commit per `close_commit_memory_trailer.md`. Carries `Closes:` for the door symptom, `Closes memory:` for the followups-md updates.
 
 - [ ] **Step 1: Update nai_followups.md**
 
-Add to the top of `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (above the existing "## From NAI-77" section):
+Add to the top of `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (above the existing "## From NAI-77" section):
 
 ```markdown
 ## From NAI-78 (2026-05-03)

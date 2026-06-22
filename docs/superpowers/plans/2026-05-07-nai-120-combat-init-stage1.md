@@ -59,7 +59,7 @@ Expected: silent success.
 For each of the 8 files, run:
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Content/scripts/skill_combat/scripts/player
+cd $HOME/Code/github.com/LostCityRS/Content/scripts/skill_combat/scripts/player
 
 for f in player_combat.rs2 player_melee.rs2 player_ranged.rs2 player_magic.rs2 auto_cast.rs2 auto_retaliate.rs2 player_attackstyles.rs2 player_combat_stat.rs2; do
   # Strip line comments, extract bare-word tokens followed by '('.
@@ -75,7 +75,7 @@ Expected: 8 `.calls` files in `$TMPDIR/nai-120-tokens/`, each a sorted-unique li
 **Step 1.3: Extract var reads (`%name`)**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Content/scripts/skill_combat/scripts/player
+cd $HOME/Code/github.com/LostCityRS/Content/scripts/skill_combat/scripts/player
 
 for f in player_combat.rs2 player_melee.rs2 player_ranged.rs2 player_magic.rs2 auto_cast.rs2 auto_retaliate.rs2 player_attackstyles.rs2 player_combat_stat.rs2; do
   sed 's,//.*$,,' "$f" \
@@ -89,7 +89,7 @@ Expected: 8 `.vars` files.
 **Step 1.4: Extract proc/label references (`~proc` / `@label`)**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Content/scripts/skill_combat/scripts/player
+cd $HOME/Code/github.com/LostCityRS/Content/scripts/skill_combat/scripts/player
 
 for f in player_combat.rs2 player_melee.rs2 player_ranged.rs2 player_magic.rs2 auto_cast.rs2 auto_retaliate.rs2 player_attackstyles.rs2 player_combat_stat.rs2; do
   sed 's,//.*$,,' "$f" \
@@ -103,7 +103,7 @@ Expected: 8 `.refs` files.
 **Step 1.5: Extract constants (`^name`)**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Content/scripts/skill_combat/scripts/player
+cd $HOME/Code/github.com/LostCityRS/Content/scripts/skill_combat/scripts/player
 
 for f in player_combat.rs2 player_melee.rs2 player_ranged.rs2 player_magic.rs2 auto_cast.rs2 auto_retaliate.rs2 player_attackstyles.rs2 player_combat_stat.rs2; do
   sed 's,//.*$,,' "$f" \
@@ -157,7 +157,7 @@ For each entry in `$TMPDIR/nai-120-tokens/all.calls`, determine the correspondin
 Convention: rs2 token `foo` → TS `ScriptOpcode.FOO` → goscape `OpFoo`. Exceptions are rare; verify by grep.
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 
 # For each token, produce a one-line classification.
 while IFS= read -r tok; do
@@ -184,7 +184,7 @@ For each row whose status ≠ W, re-verify by reading `opcode.go` and `handlers*
 For each (D) or (U) row, also grep `Engine-TS/src/engine/script/ScriptOpcode.ts` to confirm the TS opcode name + numeric ID:
 
 ```bash
-rg "<UPPER_NAME>" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/ScriptOpcode.ts
+rg "<UPPER_NAME>" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/ScriptOpcode.ts
 ```
 
 If the rg auto-derivation missed a wired opcode (status appears (D) or (U) but is actually wired under a different name), correct the row to (W) and note the actual goscape-side name.
@@ -199,7 +199,7 @@ If the rg auto-derivation missed a wired opcode (status appears (D) or (U) but i
 For each (P) candidate, grep `LostCityRS/Content/scripts/` for the body:
 
 ```bash
-rg -l "\[proc,<name>\]|\[label,<name>\]" /home/owner/Code/github.com/LostCityRS/Content/scripts/
+rg -l "\[proc,<name>\]|\[label,<name>\]" $HOME/Code/github.com/LostCityRS/Content/scripts/
 ```
 
 If body lives in inner ring → mark (P, in-ring) — covered transitively by Stage 2 reachability.
@@ -236,7 +236,7 @@ Save to `$TMPDIR/nai-120-tokens/matrix.md`. This file becomes a section of the T
 **Step 3.1: Discover goscape's var-registry path**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 rg -l "VarPType|VarSType|VarNType|varp|varn|VarPlayer|VarServer|VarNpc" pkg/ modules/ cmd/ | head -20
 ```
 
@@ -263,7 +263,7 @@ For each entry in `$TMPDIR/nai-120-tokens/all.vars` (e.g., `%lastcombat`, `%npc_
 1. Determine var type by name prefix convention + TS ground truth:
    - rs2 vars don't carry an explicit type prefix; ground truth lives in `Engine-TS/src/lostcity/`. Grep TS:
      ```bash
-     rg -n "VarPType.*<name>|VarSType.*<name>|VarNType.*<name>" /home/owner/Code/github.com/LostCityRS/Engine-TS/data/ /home/owner/Code/github.com/LostCityRS/Engine-TS/src/
+     rg -n "VarPType.*<name>|VarSType.*<name>|VarNType.*<name>" $HOME/Code/github.com/LostCityRS/Engine-TS/data/ $HOME/Code/github.com/LostCityRS/Engine-TS/src/
      ```
      Or search `Engine-TS` data files for the var declaration.
 2. Grep the goscape registry (path discovered in Step 3.1) for the var name:
@@ -300,7 +300,7 @@ For each (P) row from Task 2.3, grep:
 
 ```bash
 NAME=<proc-or-label-name>
-rg -l "\[proc,${NAME}\]|\[label,${NAME}\]" /home/owner/Code/github.com/LostCityRS/Content/scripts/
+rg -l "\[proc,${NAME}\]|\[label,${NAME}\]" $HOME/Code/github.com/LostCityRS/Content/scripts/
 ```
 
 If hit ∈ `LostCityRS/Content/scripts/skill_combat/scripts/player/*.rs2` → (P, in-ring), covered transitively.
@@ -309,7 +309,7 @@ Else → upgrade to **(F) Frontier**, record file path. Frontier list goes into 
 **Step 4.2: §9 R6 — verify `p_aprange`**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 rg -n "OpPAprange|OpPAprange|p_aprange|PAprange|PARange" pkg/script/opcode.go pkg/script/handlers.go pkg/script/handlers_*.go
 ```
 
@@ -337,7 +337,7 @@ For at least one constant from each family found in `all.consts` (e.g., `^stab_s
 
 ```bash
 NAME=<const-name>
-rg -n "${NAME}" /home/owner/Code/github.com/zsrv/goscape/pkg/configs/ /home/owner/Code/github.com/zsrv/goscape/pkg/objtype/ /home/owner/Code/github.com/zsrv/goscape/data/pack/
+rg -n "${NAME}" $HOME/Code/github.com/zsrv/goscape/pkg/configs/ $HOME/Code/github.com/zsrv/goscape/pkg/objtype/ $HOME/Code/github.com/zsrv/goscape/data/pack/
 ```
 
 Goal: confirm the constant resolves at content-pack-load time. If a constant is referenced in rs2 but its enum/inv pack isn't loaded by goscape's bootstrap, that's a separate (and serious) gap — record as **(C-MISSING)** and route to NAI-121+.
@@ -475,7 +475,7 @@ Verify:
 **Step 6.1: Stage and commit**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 git add docs/superpowers/investigations/2026-05-07-nai-120-bundle0-findings.md
 
 git commit --no-gpg-sign -m "$(cat <<'EOF'
@@ -537,14 +537,14 @@ The prompt must be self-contained (subagent has no conversation history). Templa
 You are auditing the missing-handler list for NAI-120 (combat-init
 path port). Read this file as your input:
 
-  /home/owner/Code/github.com/zsrv/goscape/docs/superpowers/investigations/2026-05-07-nai-120-bundle0-findings.md
+  $HOME/Code/github.com/zsrv/goscape/docs/superpowers/investigations/2026-05-07-nai-120-bundle0-findings.md
 
 For EACH (D), (U), (V-D), (V-U) entry in the matrix, produce a
 per-entry markdown stanza with these fields:
 
 1. **Token** + classification.
 2. **TS impl location:** exact file:line range in
-   /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/
+   $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/
    (or the var-data path for V-* entries).
 3. **TS impl verbatim:** copy the full handler body or var
    declaration, no summarization.
@@ -563,7 +563,7 @@ per-entry markdown stanza with these fields:
 
 Output to:
 
-  /home/owner/Code/github.com/zsrv/goscape/docs/superpowers/investigations/2026-05-07-nai-120-bundle1-audit.md
+  $HOME/Code/github.com/zsrv/goscape/docs/superpowers/investigations/2026-05-07-nai-120-bundle1-audit.md
 
 Constraints:
 - Read-only against TS source. Do not write any code outside the
@@ -600,7 +600,7 @@ prompt: <Step 7.1 template>
 The subagent writes the audit note directly. When it returns, verify the file exists:
 
 ```bash
-ls -la /home/owner/Code/github.com/zsrv/goscape/docs/superpowers/investigations/2026-05-07-nai-120-bundle1-audit.md
+ls -la $HOME/Code/github.com/zsrv/goscape/docs/superpowers/investigations/2026-05-07-nai-120-bundle1-audit.md
 ```
 
 Expected: file exists, non-empty.
@@ -650,7 +650,7 @@ Independently grep one of the (F) entries against `LostCityRS/Content/scripts/` 
 **Step 9.1: Stage and commit**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 git add docs/superpowers/investigations/2026-05-07-nai-120-bundle1-audit.md
 
 git commit --no-gpg-sign -m "$(cat <<'EOF'

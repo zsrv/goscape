@@ -11,8 +11,8 @@
 **Spec:** `docs/superpowers/specs/2026-06-04-rev244-b2-wire-protocol-design.md`
 
 **References:**
-- Engine-TS at the 244 pin: `/home/owner/Code/github.com/LostCityRS/Engine-TS` (checkout IS at `9aadcec4`)
-- rsbuf Rust source: `/home/owner/Code/github.com/2004scape/rsbuf` — 225 baseline = branch `225`; 244 target = `origin/244` (tip `1defefb`, verified identical to the published npm `244.1.0` dist)
+- Engine-TS at the 244 pin: `$HOME/Code/github.com/LostCityRS/Engine-TS` (checkout IS at `9aadcec4`)
+- rsbuf Rust source: `$HOME/Code/github.com/2004scape/rsbuf` — 225 baseline = branch `225`; 244 target = `origin/244` (tip `1defefb`, verified identical to the published npm `244.1.0` dist)
 
 **Scope decisions already made (do not relitigate):**
 - damage2 entity hunks (PathingEntity.ts:92-96,606-610 / Player.ts:1870-1890 / Npc.ts:475-494) are pulled FORWARD from B3 (user-approved). B3 must NOT double-apply — Task 12 records the decision rows.
@@ -33,7 +33,7 @@
 - Modify: `pkg/io/protocol/game/client/prot_test.go`
 - Modify: `modules/world/handlers_game.go` (registration block, `init()` at :35-115)
 
-TS contract: `git -C /home/owner/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/network/game/client/ClientGameProt.ts` — read it in full. The 244 ctor is `(index, opcode, size)`; the `index` (NXT packet index) is only written into `ClientGameProt.all`, never read → goscape does NOT model it (decision row in Task 12).
+TS contract: `git -C $HOME/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/network/game/client/ClientGameProt.ts` — read it in full. The 244 ctor is `(index, opcode, size)`; the `index` (NXT packet index) is only written into `ClientGameProt.all`, never read → goscape does NOT model it (decision row in Task 12).
 
 Removed at 244: `REBUILD_GETMAPS` (was 150/-1), `EVENT_CAMERA_POSITION` (was 189/6). Renamed: `IDK_SAVEDESIGN`→`IF_PLAYERDESIGN`, `TUT_CLICKSIDE`→`TUTORIAL_CLICKSIDE`. Size change: `INV_BUTTOND` 6→7 (new trailing `mode` byte — handler reads it in Task 6).
 
@@ -161,7 +161,7 @@ In `handlers_game.go`, rewrite every registration to the constants (e.g. `gameHa
 - Test: add cross-package consistency pin (see Step 1)
 
 TS contracts:
-`git -C /home/owner/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/network/game/server/ServerGameProt.ts` and `…:src/network/game/server/ServerGameZoneProt.ts`.
+`git -C $HOME/Code/github.com/LostCityRS/Engine-TS show 9aadcec4:src/network/game/server/ServerGameProt.ts` and `…:src/network/game/server/ServerGameZoneProt.ts`.
 
 The complete 244 server table (name → opcode/size). **Defer the five size-changed rows to Task 3** (UPDATE_PID, LAST_LOGIN_INFO, REBUILD_NORMAL, MIDI_SONG, MIDI_JINGLE — their emitters must change in the same commit); everything else lands here:
 
@@ -373,7 +373,7 @@ Verified deltas: IfButton 4/7 behavioral trim; MessagePublic/Private decoders ch
 - Modify: `pkg/rsbuf/visibility.go` (player mask consts :16-25), `pkg/rsbuf/npc_source.go` (npc consts :4-12 + NpcSource), `pkg/rsbuf/source.go` (PlayerSource), `pkg/rsbuf/player.go`, `pkg/rsbuf/npc.go`, `pkg/rsbuf/buf.go` (ComputePlayer :158, ComputeNpc :302), `pkg/rsbuf/mask_payload.go`, `pkg/rsbuf/npc_mask_payload.go`, `pkg/rsbuf/renderer.go`
 - Tests: the packages' existing `*_test.go` files
 
-Rust contract (THE work list): `git -C /home/owner/Code/github.com/2004scape/rsbuf diff 225 origin/244 -- src` (+64/−8, 6 files). Key facts, all verified:
+Rust contract (THE work list): `git -C $HOME/Code/github.com/2004scape/rsbuf diff 225 origin/244 -- src` (+64/−8, 6 files). Key facts, all verified:
 
 - `prot.rs`: player `DAMAGE2 = 0x400` APPENDED (no existing bit changes); npc `DAMAGE2 = 0x1` fills the previously-unused 0x1 slot (**no existing npc bit changes** — 225 already started at ANIM=0x2). Internal cache indices: player DAMAGE2→5 (FACE_COORD 5→6, CHAT 6→7, SPOT_ANIM 7→8); npc DAMAGE2→4 (CHANGE_TYPE 4→5, SPOT_ANIM 5→6, FACE_COORD 6→7).
 - `renderer.rs`: cache arrays 8→9 (player) / 7→8 (npc); DAMAGE2 cached via the SAME Damage payload shape `(damage_taken2, damage_type2, current_hitpoints, base_hitpoints)`.

@@ -8,7 +8,7 @@
 
 ## §G1 — TS Player.protect lifecycle
 
-All sites found by `rg -n "this\.protect\b|\.protect = |\.protect;" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/`, with context read for each hit.
+All sites found by `rg -n "this\.protect\b|\.protect = |\.protect;" $HOME/Code/github.com/LostCityRS/Engine-TS/src/`, with context read for each hit.
 
 ### Player.ts sites
 

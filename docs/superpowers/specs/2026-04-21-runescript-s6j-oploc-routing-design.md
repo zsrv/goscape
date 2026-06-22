@@ -2,7 +2,7 @@
 
 > **Sub-spec context:** Tenth sub-spec in the runescript-s* series. Switches threads from the player-stats trio (S6g/h/i) to gameplay interactivity. OPLOC click routing — the sibling to OPNPC (S6b) — for object/loc clicks (trees, doors, banks, etc.). Cumulative-deferred since S6c (six sub-specs).
 
-> **TS-faithfulness gate:** User explicitly required "true to TS." All behavioral claims cite TS line numbers in `/home/owner/Code/github.com/LostCityRS/Engine-TS`. Documented deviations are listed in §6 with rationale + follow-up sub-spec pointer.
+> **TS-faithfulness gate:** User explicitly required "true to TS." All behavioral claims cite TS line numbers in `$HOME/Code/github.com/LostCityRS/Engine-TS`. Documented deviations are listed in §6 with rationale + follow-up sub-spec pointer.
 
 > **Scope:** Approach 1 (minimal mirror of S6b OPNPC routing). Routing layer only — no LocType.Op, no script-side `loc_op` opcode, no apRange/opRange semantics, no OpLocT/OpLocU sibling opcodes, no default-op message.
 

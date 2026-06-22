@@ -756,7 +756,7 @@ Expected: PASS across all packages, no DATA RACE warnings. Slice does not touch 
 - [ ] **Step 5.2: Run smoke-pack 12 OK / 0 ERR baseline**
 
 ```bash
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 
 Expected: `12 OK / 0 ERR / 0 SKIP` (matches the standing baseline established in `[[smoke_pack_phase1_close]]`). This slice does not touch any packing surface; the gate is defensive.
@@ -779,7 +779,7 @@ If a code-side match remains, find and edit it out (it's a missed reference; sho
 
 - [ ] **Step 5.4: Write the close memory**
 
-Create `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai214_login_moderation_bridge_close.md`:
+Create `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai214_login_moderation_bridge_close.md`:
 
 ```markdown
 ---
@@ -812,7 +812,7 @@ Fill in `<sha-range>` from `git log --oneline` showing the four task commits.
 
 - [ ] **Step 5.5: Add a one-line entry to `MEMORY.md`**
 
-Append to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`:
+Append to `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`:
 
 ```markdown
 - [NAI-214 login moderation bridge close](nai214_login_moderation_bridge_close.md) — LoginBridgeMod.NotifyPlayer{Ban,Mute} → modules/login PlayerBan/Mute gRPC shipped 2026-05-18; new loginGRPCBridgeMod adapter + defaultLoginBridgeMod helper; retires NAI-72-D-LOGIN-SERVER-BRIDGE-MOD; 5 call sites un-noop'd; 9 new tests; -race clean; smoke-pack 12 OK / 0 ERR holds
@@ -822,7 +822,7 @@ Append to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape
 
 - [ ] **Step 5.6: Commit memory updates**
 
-Note that the memory file is outside the repo (`/home/owner/.claude/projects/...`), so this commit does NOT include the close memory — it's persisted by the harness via the Write tool calls in 5.4 and 5.5. No repo-side commit is needed for Task 5; the closing acts are tests + memory writes.
+Note that the memory file is outside the repo (`$HOME/.claude/projects/...`), so this commit does NOT include the close memory — it's persisted by the harness via the Write tool calls in 5.4 and 5.5. No repo-side commit is needed for Task 5; the closing acts are tests + memory writes.
 
 If the verification steps surfaced any issue that required a repo-side change (e.g., a missed reference to the retired tag), commit that fix separately with `git commit --no-gpg-sign -m "world: <one-line fix description>"` before declaring the slice closed.
 

@@ -190,7 +190,7 @@ The 274 pin is authoritative. Carry-forwards and notes:
 The Risk 1 fork resolved decisively. Findings:
 
 - **Real target = the ORIGINAL r274 cache** at
-  `/home/owner/Code/_runescape/r274/original-cache` (user-stated goal:
+  `$HOME/Code/_runescape/r274/original-cache` (user-stated goal:
   goscape's packed cache byte-identical to the original).
 - The original cache's gzip members were produced by **stock zlib 1.3.1,
   level 6 (default), gzip header XFL=0 with the OS byte (offset 9)

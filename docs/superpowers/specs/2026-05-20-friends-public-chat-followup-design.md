@@ -311,7 +311,7 @@ From `[[friends-server-slice7-close]]` and the resume file §"Discipline lessons
 1. **NEVER `git checkout` / `git restore` tracked files.**
 2. **Before every `git commit`:** `git status` first, `git show --stat HEAD` after. Recover via `git reset --mixed HEAD~1` (never amend). Per `[[git-pre-commit-status-check]]` feedback.
 3. **Test helper files use `_test.go` suffix.**
-4. **`unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"`** prefix required for every shell session.
+4. **`unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"`** prefix required for every shell session.
 5. **`GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`** prefix required for every `go` command (global CLAUDE.md).
 6. **`git commit --no-gpg-sign`** required by global CLAUDE.md.
 7. **Stale-IDE-LSP / `go list` "No packages found" diagnostics are environmental** — ignore.
@@ -333,6 +333,6 @@ From `[[friends-server-slice7-close]]` and the resume file §"Discipline lessons
 ## 11. Closing the follow-up
 
 When all tasks ship clean:
-1. Write `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_public_chat_followup_close.md` mirroring `[[friends-server-slice7-close]]` format.
+1. Write `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/friends_server_public_chat_followup_close.md` mirroring `[[friends-server-slice7-close]]` format.
 2. Add a one-line entry to `MEMORY.md`.
 3. **Resulting state:** all friends-server work is at stable rest. All deviation tags are either retired or permanent; no further conditional retirements remain.

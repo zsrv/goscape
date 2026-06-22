@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-05-17-packall-client-stages-design.md`
 
-**TS source:** `/home/owner/Code/github.com/LostCityRS/Engine-TS/tools/pack/`
+**TS source:** `$HOME/Code/github.com/LostCityRS/Engine-TS/tools/pack/`
 
 ---
 

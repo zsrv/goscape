@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+. Existing packages: `pkg/script/`, `modules/world/`. No new dependencies.
 
-**Source of truth for the port:** `/home/owner/Code/github.com/LostCityRS/Engine-TS` — NEVER any sibling LostCityRS repo. TS references cited with file:line. If you cannot confirm a cited line, open the file at the commit reachable from that repo's `main` and verify before coding.
+**Source of truth for the port:** `$HOME/Code/github.com/LostCityRS/Engine-TS` — NEVER any sibling LostCityRS repo. TS references cited with file:line. If you cannot confirm a cited line, open the file at the commit reachable from that repo's `main` and verify before coding.
 
 **Verification discipline:** Every task ends with a `go test ./...` run from project root with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` prefix. Do not trust prior-task green status — rerun. Do not report completion without running step-by-step checkboxes in order.
 

@@ -12,7 +12,7 @@
 
 **Roadmap:** `docs/superpowers/specs/2026-04-22-npc-ai-tick-decomposition-design.md`
 
-**TS reference:** `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Npc.ts:975-985` (variant bodies), `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/ScriptIterators.ts:98-167` (HuntIterator), `/home/owner/Code/github.com/LostCityRS/Engine-TS/node_modules/@2004scape/rsbuf/dist/rsbuf.d.ts:6,13` (rsbuf public API).
+**TS reference:** `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Npc.ts:975-985` (variant bodies), `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/ScriptIterators.ts:98-167` (HuntIterator), `$HOME/Code/github.com/LostCityRS/Engine-TS/node_modules/@2004scape/rsbuf/dist/rsbuf.d.ts:6,13` (rsbuf public API).
 
 ---
 
@@ -35,7 +35,7 @@
 - `modules/world/tick.go` — `processLogouts` hook
 - `modules/world/npc_hunt.go` — delete 3 stubs, replace `observers := 1`
 - `modules/world/npc_event_queue_test.go` — flip PAUSEHUNT test + companion + logout test
-- `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — 3 edits
+- `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` — 3 edits
 
 ---
 
@@ -1866,13 +1866,13 @@ EOF
 ## Task 10: Memory housekeeping — update `nai_followups.md`
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
 
 Three edits to the memory file: (a) add CheckVis gap entry under "From NAI-8", (b) amend checkNotCombat/Self entries with the outer-guard note, (c) mark the NAI-7 observer-counting blocker resolved.
 
 - [ ] **Step 1: Edit 1 — add CheckVis entry under "From NAI-8"**
 
-Open `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Locate the "From NAI-8 (2026-04-22)" section header. Before the existing `### Deferred filters in huntPlayers (future audit)` entry, insert a new entry:
+Open `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Locate the "From NAI-8 (2026-04-22)" section header. Before the existing `### Deferred filters in huntPlayers (future audit)` entry, insert a new entry:
 
 ```markdown
 ### Deferred: CheckVis (LoS/LoW) gate on all four hunt variants
@@ -1975,11 +1975,11 @@ Tests flipped: `TestProcessNpcHuntPauseHuntRunsWithObserverStub` →
 - [ ] **Step 4: Commit the memory edits**
 
 ```bash
-cd /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory
+cd $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory
 # Memory dir is not a git repo — no commit. Just verify the file
 # is saved and syntactically OK.
 head -60 nai_followups.md
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 ```
 
 Memory files are not tracked in git. The edit is complete once the file is saved.

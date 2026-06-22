@@ -1012,7 +1012,7 @@ Expected: all PASS.
 
 - [ ] **Step 6.2: Update nai_followups.md**
 
-Append to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`:
+Append to `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`:
 
 ```markdown
 

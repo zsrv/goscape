@@ -2035,8 +2035,8 @@ If review surfaces Critical issues, fix before T8.
 ## Task 8: Close polish — memory + tracker + smoke handoff
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (only if new memory entries materialize)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (only if new memory entries materialize)
 - No code changes.
 
 ### Step 8.1: Final DEVIATION grep sweep
@@ -2050,7 +2050,7 @@ Expected: every occurrence describes the closure-framing (no naked "open deviati
 
 - [ ] **Step 8.2: Append NAI-36 close section**
 
-Edit `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`:
+Edit `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`:
 
 Add a new section under "## From NAI-35 (2026-04-27)" matching the existing pattern:
 

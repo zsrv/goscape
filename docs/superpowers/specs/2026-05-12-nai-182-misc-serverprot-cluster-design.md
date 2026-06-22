@@ -46,7 +46,7 @@ Verified at HEAD via grep + Read:
 | `modules/world/handlers_game_test.go:354-470` | `dispatchTeleCheat` helper at line 384-394 is the cheat-dispatch test template. |
 | `modules/world/stat_update.go` | Template for new top-level send-functions: `func sendXxx(p *Player, ...) { buf := packet.NewPacket(nil); ...; p.writeOut(gameserver.OpXxx, buf.Bytes()) }`. |
 
-TS source verified at `/home/owner/Code/github.com/LostCityRS/Engine-TS`:
+TS source verified at `$HOME/Code/github.com/LostCityRS/Engine-TS`:
 
 - `src/network/game/server/ServerGameProt.ts` — opcodes 139 (UPDATE_PID, 2), 136 (RESET_ANIMS, 0), 193 (RESET_CLIENT_VARCACHE, 0), 43 (UPDATE_REBOOT_TIMER, 2).
 - `src/network/game/server/codec/UpdatePidEncoder.ts:9` — `buf.p2(message.uid)` (TS-side field is the literal `slot`, passed at `Player.ts:495` via `new UpdatePid(this.slot)`).

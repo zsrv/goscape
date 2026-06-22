@@ -667,21 +667,17 @@ func TestSplitInitMesanimPrefixResolves(t *testing.T) {
 }
 
 // ref274FontPackDir resolves the Server274-ref cache-pack dir holding the
-// rev-274 *_full 256-glyph fonts: GOSCAPE_REF274_DIR (pointing at
-// .../engine, pack derived as data/pack) first, then the known local
-// worktree path. The local repo data/pack is still 254-era (p11.dat, NO
-// *_full) until plan T21 refreshes it, so a real-glyph font-wrap test
-// must use the 274 ref cache. Returns "" when neither has client/title.
+// rev-274 *_full 256-glyph fonts from GOSCAPE_REF274_DIR (pointing at
+// .../engine, pack derived as data/pack). The local repo data/pack is still
+// 254-era (p11.dat, NO *_full) until plan T21 refreshes it, so a real-glyph
+// font-wrap test must use the 274 ref cache. Returns "" when the env var is
+// unset or its pack lacks client/title.
 func ref274FontPackDir() string {
 	if ref := os.Getenv("GOSCAPE_REF274_DIR"); ref != "" {
 		dir := filepath.Join(ref, "data", "pack")
 		if _, err := os.Stat(filepath.Join(dir, "client", "title")); err == nil {
 			return dir
 		}
-	}
-	const local = "/home/owner/Code/github.com/LostCityRS/Server274-ref/engine/data/pack"
-	if _, err := os.Stat(filepath.Join(local, "client", "title")); err == nil {
-		return local
 	}
 	return ""
 }

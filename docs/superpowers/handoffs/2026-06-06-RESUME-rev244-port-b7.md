@@ -7,7 +7,7 @@ Self-contained resume prompt. Written 2026-06-06 after Bundle 6 shipped.
 Multi-revision Go port of the LostCityRS Engine-TS server: `main` = codeless
 docs hub; **`rev-244` = the active 225→244 porting branch**. Work on
 `rev-244` only. The work list is the cross-pin diff
-`git -C /home/owner/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4`.
+`git -C $HOME/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4`.
 Pins: `git show main:REFERENCES.md` §rev-244 (now also pins the
 RuneScriptKt-26 jar sha and cloudflare/zlib `886098f3` — the gzip
 byte-parity reference).
@@ -34,7 +34,7 @@ integration review: READY.
 Key B6 infrastructure you can lean on:
 
 - **Pinned reference worktrees** at
-  `/home/owner/Code/github.com/LostCityRS/Server244-ref/{engine,content,javaclient}`
+  `$HOME/Code/github.com/LostCityRS/Server244-ref/{engine,content,javaclient}`
   (Engine-TS @ pin, Content @ pin, Client-Java @ pin) — the OTHER local
   reference checkouts have ALL moved to later-revision branches
   (`254-GOSCAPE` etc.); NEVER use their working trees, always these
@@ -59,7 +59,7 @@ Scope (umbrella §B7): the NEW `tools/unpack` (+3,793 lines at the pin)
 ports as a `goscape-cli unpack` command family.
 
 ```
-git -C /home/owner/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4 --stat -- tools/unpack
+git -C $HOME/Code/github.com/LostCityRS/Engine-TS diff e1dea19f..9aadcec4 --stat -- tools/unpack
 ```
 
 (All-new files at 244 — read them whole, not as diffs.) Natural

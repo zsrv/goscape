@@ -32,7 +32,7 @@ Before starting Task 1, an executor unfamiliar with the codebase should know:
 - **`noopLogger()` helper:** `modules/login/db_test.go:42-44` returns a `*slog.Logger` that discards all output. Worth copying into `modules/friends/repository_test.go` (or `handler_test.go`) so the module is self-contained.
 - **Module gating pattern:** `cmd/goscape/app/modules.go:73-93` (`initLogin`) checks `g.cfg.Login.Enable` and returns `services.NewIdleService(nil, nil)` when disabled. Mirror this in `initFriends`. The default `Enable=false` keeps the module a no-op for existing deploys.
 - **No `Login` import cycle risk:** `modules/world/` does NOT import `modules/login/`, and `modules/friends/` similarly will NOT import `modules/world/`. The friends-server is a peer module that the world (in slice 2) will dial via a gRPC client. Slice 1's friends-server has no compile-time dependency on `modules/world/`.
-- **TS reference (read-only, do not modify):** `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/server/friend/FriendServer.ts` (the WebSocket+JSON port we're translating to gRPC) and `FriendServerRepository.ts` (the persistence layer — slice 1 ports its in-memory semantics; slice 3 swaps to SQLite). When TS semantics are unclear, read these files directly.
+- **TS reference (read-only, do not modify):** `$HOME/Code/github.com/LostCityRS/Engine-TS/src/server/friend/FriendServer.ts` (the WebSocket+JSON port we're translating to gRPC) and `FriendServerRepository.ts` (the persistence layer — slice 1 ports its in-memory semantics; slice 3 swaps to SQLite). When TS semantics are unclear, read these files directly.
 - **`ChatModePrivate` enum mapping** (TS `src/engine/entity/ChatModes.ts` and `FriendServer.ts:120-123`): `ON=0`, `FRIENDS=1`, `OFF=2`. Invalid values coerce to `ON` (i.e. `0`).
 - **Deviation tags introduced by this slice** (per spec §8): six new tags, all prefixed `NAI-S1-D-*`. Each gets a doc-comment at its mentioned site with a `Retired by: slice <N>` annotation. None are retired in slice 1.
 
@@ -2035,7 +2035,7 @@ This is the slice 1 done-criterion test from spec §7.
 Run:
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack \
-  --content-dir /home/owner/Code/github.com/LostCityRS/content
+  --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 Expected: `12 OK / 0 ERR / 0 SKIP` (the baseline from `[[smoke_pack_worldmap_stage_wiring]]` / NAI-214's close). Slice 1 doesn't touch packing — this should be unchanged.
 

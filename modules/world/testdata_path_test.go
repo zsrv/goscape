@@ -30,7 +30,15 @@ import (
 // wrong-format cache. Pinning each branch to its own reference cache
 // removes the cross-revision hazard; the pinned worktree is the same
 // byte-parity baseline the pack gates use.
-const ref274Cache = "/home/owner/Code/github.com/LostCityRS/Server274-ref/engine/data/pack"
+//
+// Resolved from GOSCAPE_REF274_DIR (pointing at .../engine, pack derived as
+// data/pack); returns "" when the env var is unset.
+func ref274Cache() string {
+	if ref := os.Getenv("GOSCAPE_REF274_DIR"); ref != "" {
+		return filepath.Join(ref, "data", "pack")
+	}
+	return ""
+}
 
 // ref274Content is the rev-274 Content worktree (the source maps/ tree the
 // reference toolchain packs). The 274 reference engine cache stores its
@@ -40,16 +48,28 @@ const ref274Cache = "/home/owner/Code/github.com/LostCityRS/Server274-ref/engine
 // therefore source LOOSE maps from this Content tree via goscape's own
 // pkg/pack/maps packer (see packTestServerMapsLoose). The non-map cache data
 // (loc.dat, script.dat, …) still resolves from ref274Cache, which has it.
-const ref274Content = "/home/owner/Code/github.com/LostCityRS/Server274-ref/content"
+//
+// Resolved from GOSCAPE_REF274_DIR (content derived as a sibling of
+// .../engine); returns "" when the env var is unset.
+func ref274Content() string {
+	if ref := os.Getenv("GOSCAPE_REF274_DIR"); ref != "" {
+		return filepath.Join(ref, "..", "content")
+	}
+	return ""
+}
 
-// ref274CacheDir returns ref274Cache, skipping the test when the reference
-// checkout is not present on this machine.
+// ref274CacheDir returns the reference cache-pack dir, skipping the test when
+// GOSCAPE_REF274_DIR is unset or the reference checkout is not present.
 func ref274CacheDir(t *testing.T) string {
 	t.Helper()
-	if _, err := os.Stat(ref274Cache); err != nil {
+	cache := ref274Cache()
+	if cache == "" {
+		t.Skip("Server274-ref cache unavailable: GOSCAPE_REF274_DIR not set")
+	}
+	if _, err := os.Stat(cache); err != nil {
 		t.Skipf("Server274-ref cache unavailable: %v", err)
 	}
-	return ref274Cache
+	return cache
 }
 
 var (
@@ -73,7 +93,11 @@ var (
 // Skips the test when the Content worktree is absent.
 func packTestServerMapsLoose(t *testing.T) string {
 	t.Helper()
-	if _, err := os.Stat(filepath.Join(ref274Content, "maps")); err != nil {
+	content := ref274Content()
+	if content == "" {
+		t.Skip("Server274-ref content unavailable: GOSCAPE_REF274_DIR not set")
+	}
+	if _, err := os.Stat(filepath.Join(content, "maps")); err != nil {
 		t.Skipf("Server274-ref content maps unavailable: %v", err)
 	}
 	looseMapsOnce.Do(func() {
@@ -86,7 +110,7 @@ func packTestServerMapsLoose(t *testing.T) string {
 		// that gamemap.Init reads — the same byte-parity-verified encoders the
 		// production Pack uses, without the worldmap rebuild or NPC validation
 		// (which would need config artifacts these collision tests don't load).
-		if err := packmaps.PackServerMaps(ref274Content, out); err != nil {
+		if err := packmaps.PackServerMaps(content, out); err != nil {
 			looseMapsErr = err
 			return
 		}

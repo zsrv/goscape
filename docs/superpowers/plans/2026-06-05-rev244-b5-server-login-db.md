@@ -4,7 +4,7 @@
 
 **Goal:** Port the 225→244 server/login/db delta: login-server rate limiting (3-in-5s + 45s hop timer), real messageCount, friends multi-profile + public_chat re-key, logger report re-key, consumer-backed schema deltas, and the B5 decision rows.
 
-**Architecture:** Spec `docs/superpowers/specs/2026-06-05-rev244-b5-server-login-db-design.md` (commit `6ab81c33`). Schema lands first (everything reads it); then login flow; then protos+wire; then friends; then logger; then docs+gates. All TS citations refer to the 244 pin `9aadcec4` in `/home/owner/Code/github.com/LostCityRS/Engine-TS`.
+**Architecture:** Spec `docs/superpowers/specs/2026-06-05-rev244-b5-server-login-db-design.md` (commit `6ab81c33`). Schema lands first (everything reads it); then login flow; then protos+wire; then friends; then logger; then docs+gates. All TS citations refer to the 244 pin `9aadcec4` in `$HOME/Code/github.com/LostCityRS/Engine-TS`.
 
 **Tech Stack:** Go, SQLite (modernc.org/sqlite, golang-migrate iofs), gRPC/protobuf (`make protos` = buf generate), dskit modules.
 

@@ -2,11 +2,11 @@
 // Run from the Engine-TS checkout (the --tsconfig-override flag resolves the
 // #/ path alias from Engine-TS's tsconfig.json):
 //
-//   cd /home/owner/Code/github.com/LostCityRS/Engine-TS
+//   cd "$ENGINE_TS"   # path to your Engine-TS checkout
 //   BUN_TMPDIR=$TMPDIR bun run --tsconfig-override tsconfig.json \
-//     /home/owner/Code/github.com/zsrv/goscape/tools/wordenc/gen-fixtures.ts \
+//     "$GOSCAPE"/tools/wordenc/gen-fixtures.ts \
 //     2>/dev/null \
-//     > /home/owner/Code/github.com/zsrv/goscape/pkg/wordenc/encfilter/testdata/wordenc-fixtures.json
+//     > "$GOSCAPE"/pkg/wordenc/encfilter/testdata/wordenc-fixtures.json
 //
 // Reads the wordenc cache at data/pack/client/wordenc, runs WordEnc.filter on
 // each curated input, dumps {input, filtered} pairs as JSON.

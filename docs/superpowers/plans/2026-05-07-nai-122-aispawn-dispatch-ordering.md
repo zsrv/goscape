@@ -136,7 +136,7 @@ Verify: `git status` shows no `aispawn_probe_test.go` entry.
 
 Run from goscape repo root:
 ```
-rg -n "addNpc\s*\(" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/World.ts | head
+rg -n "addNpc\s*\(" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/World.ts | head
 ```
 Read the surrounding ~50 lines around the match (`Read` tool, not Bash cat).
 
@@ -144,7 +144,7 @@ Read the surrounding ~50 lines around the match (`Read` tool, not Bash cat).
 
 Run from goscape repo root:
 ```
-rg -n "AI_SPAWN\|ai_spawn\|ServerTriggerTypes\.AI_SPAWN" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/World.ts | head
+rg -n "AI_SPAWN\|ai_spawn\|ServerTriggerTypes\.AI_SPAWN" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/World.ts | head
 ```
 Read each match in context.
 
@@ -247,19 +247,19 @@ Materialized only if Bundle 0 locks shape (a). Subagent-driven TDD per task; one
 
 - [ ] **Step 1: Grep `addNpc` call sites**
 
-Run: `rg -n "s\.addNpc\(|\.addNpc\(" /home/owner/Code/github.com/zsrv/goscape/modules/world/`
+Run: `rg -n "s\.addNpc\(|\.addNpc\(" $HOME/Code/github.com/zsrv/goscape/modules/world/`
 
 Read each match in context. For every site: confirm it is NOT reachable from inside `runNpcScript` (i.e. no opcode handler invoked by AI_SPAWN scripts calls `s.addNpc`).
 
 - [ ] **Step 2: Grep `npc_add` opcode handler**
 
-Run: `rg -n "TriggerNpcAdd|npc_add\b|OpNpcAdd|NpcAddHandler" /home/owner/Code/github.com/zsrv/goscape/pkg/script/ /home/owner/Code/github.com/zsrv/goscape/modules/world/`
+Run: `rg -n "TriggerNpcAdd|npc_add\b|OpNpcAdd|NpcAddHandler" $HOME/Code/github.com/zsrv/goscape/pkg/script/ $HOME/Code/github.com/zsrv/goscape/modules/world/`
 
 If a handler exists and calls `s.addNpc`, escalate: pivot to Bundle 1 path (c) OR add a "during-this-call deferred queue" guard to path (a). Otherwise: clean.
 
 - [ ] **Step 3: Grep AI_SPAWN content scripts for pre-tick hazards**
 
-Run: `rg -n "\[ai_spawn," /home/owner/Code/github.com/LostCityRS/Content/scripts/`
+Run: `rg -n "\[ai_spawn," $HOME/Code/github.com/LostCityRS/Content/scripts/`
 
 For each match, read the script body. Disqualifying patterns:
 - Reads `%world_currenttick` (script behavior depends on tick number).
@@ -477,7 +477,7 @@ const (
 
 `NpcEventSpawn` no longer has a producer (Task B1.3 removed the only one). Per `dead_api_polish`, retire constants with zero consumers. Grep:
 
-Run: `rg -n "NpcEventSpawn\b" /home/owner/Code/github.com/zsrv/goscape/`
+Run: `rg -n "NpcEventSpawn\b" $HOME/Code/github.com/zsrv/goscape/`
 
 If no production reference remains:
 - Delete `NpcEventSpawn = 0` constant.

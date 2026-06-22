@@ -343,7 +343,7 @@ proceeding.
 - [ ] **Step 2: Verify `S7b-D1` references in `nai_followups.md` memory
        are historical-only**
 
-Run: `rg "S7b-D1" /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/`
+Run: `rg "S7b-D1" $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/`
 
 Expected: matches in `nai_followups.md` (the historical entry from
 NAI-52 spec context); these are historical and acceptable. The memory

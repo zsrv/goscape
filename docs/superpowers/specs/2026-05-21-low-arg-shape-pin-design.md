@@ -114,7 +114,7 @@ Final file order: ByType-LoS-ArgShape (existing) → ByType-LoW-ArgShape (new Te
 
 ## Tests / gates
 
-- `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./...` — 57+ pkgs / 0 FAIL (expected ~155s, modules/world ~153s long pole).
+- `GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/go GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./...` — 57+ pkgs / 0 FAIL (expected ~155s, modules/world ~153s long pole).
 - `TestPackAll_TwelveStageSmoke` — PASS.
 - `gofmt -l modules/world/npc_script_lookup_test.go` — clean (no output).
 - Audit-greps post-commit:

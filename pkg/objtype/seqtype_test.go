@@ -508,9 +508,15 @@ func TestLoadSeqTypes_FromPack(t *testing.T) {
 	// never resolve revision-specific caches across branch boundaries), which
 	// has the server/seq.dat and main_file_cache.dat (FileStream) required
 	// for LoadAnimFrames. Skip when neither is available.
-	const refPack = "/home/owner/Code/github.com/LostCityRS/Server274-ref/engine/data/pack"
+	var refPack string
+	if ref := os.Getenv("GOSCAPE_REF274_DIR"); ref != "" {
+		refPack = filepath.Join(ref, "data", "pack")
+	}
 	cacheDir := filepath.Join("..", "..", "data", "pack")
 	if _, err := os.Stat(filepath.Join(cacheDir, "server", "seq.dat")); err != nil {
+		if refPack == "" {
+			t.Skipf("no pack data: %v; GOSCAPE_REF274_DIR not set for reference cache", err)
+		}
 		if _, err2 := os.Stat(filepath.Join(refPack, "server", "seq.dat")); err2 != nil {
 			t.Skipf("no pack data: %v; reference cache also unavailable: %v", err, err2)
 		}

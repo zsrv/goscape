@@ -18,7 +18,7 @@
 - [ ] **Step 1: Add the four new direct dependencies**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 go get google.golang.org/grpc@latest
 go get google.golang.org/protobuf@latest
 go get modernc.org/sqlite@latest

@@ -35,9 +35,9 @@ Expected: **all 65 packages `ok`, zero FAIL** (verified 2026-06-03). Notes:
 
 ## Where the porting effort stands
 
-Reference: Lost City Engine-TS at `/home/owner/Code/github.com/LostCityRS/Engine-TS`
+Reference: Lost City Engine-TS at `$HOME/Code/github.com/LostCityRS/Engine-TS`
 (audits pinned at Engine-TS `e1dea19f`); Java client at
-`/home/owner/Code/github.com/LostCityRS/Client-Java`. Wire revision 225
+`$HOME/Code/github.com/LostCityRS/Client-Java`. Wire revision 225
 (`pkg/io/protocol/revision.Expected`).
 
 The parity effort is, as tracked, **complete**:

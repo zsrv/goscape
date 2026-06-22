@@ -85,7 +85,7 @@ EOF
 
 - [ ] **Step 1: Implement the 24 handlers per spec**
 
-Key rules the implementer MUST verify against `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts`:
+Key rules the implementer MUST verify against `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts`:
 
 - **Pop order** for STAT_ADD / STAT_SUB / STAT_BOOST / STAT_DRAIN / STAT_HEAL: TS uses `popInts(3) = [stat, constant, percent]`. Stack top is `percent` (pop first), then `constant`, then `stat` at bottom.
 - **Exact formula** for each stat-modifier handler: read TS lines 501–616 and mirror exactly. Spec's `STAT_ADD` formula is a guess — verify.

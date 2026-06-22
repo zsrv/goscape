@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-06-03-multi-revision-repo-design.md`
 
-**Conventions for every commit in this plan:** run from the repo root `/home/owner/Code/github.com/zsrv/goscape`; always `git commit --no-gpg-sign`; end every commit message with the `Co-Authored-By: Claude …` trailer shown in each step.
+**Conventions for every commit in this plan:** run from the repo root `$HOME/Code/github.com/zsrv/goscape`; always `git commit --no-gpg-sign`; end every commit message with the `Co-Authored-By: Claude …` trailer shown in each step.
 
 **Read this whole plan before starting.** Mid-execution (Task 4) the worktree sits on the docs-hub `main`, where this plan file does not exist on disk (it is tracked on the `rev-225` lineage). Every file content needed is inline below; if you need the plan itself while on `main`, read it via `git show rev-225:docs/superpowers/plans/2026-06-03-multi-revision-repo-conversion.md`.
 

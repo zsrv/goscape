@@ -6,15 +6,15 @@
 
 **Architecture:** Refactor-shaped XS slice. Mirrors the canonical four-guard pattern at `NPC_TYPE` / `NPC_CHANGETYPE` / `NPC_CHANGETYPE_KEEPALL` (`handlers_npc.go:186`, `:373`, `:393`): `requireActiveNpc` → `requireConfigs` → `checkNpcType` → field access. NPC_NAME preserves TS-faithful `Name → DebugName → "null"` field cascade (matches TS `?? 'null'`). NPC_CATEGORY direct field access, no fallback. Two test flips, one new error-asserting test helper, single atomic impl commit.
 
-**Tech Stack:** Go 1.26 (per `GOROOT=/home/owner/go/go1.26.3`), `pkg/script/` script-engine package, `testing` standard library.
+**Tech Stack:** Go 1.26 (per `GOROOT=$HOME/go/go1.26.3`), `pkg/script/` script-engine package, `testing` standard library.
 
 **Spec:** `docs/superpowers/specs/2026-05-21-npc-name-category-readside-validator-wiring-design.md` (HEAD `977d6a48`).
 
 **Go command prefix (per CLAUDE.md global):**
 
 ```
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go ...
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/gofmt -l ...
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go ...
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/gofmt -l ...
 ```
 
 ---
@@ -39,7 +39,7 @@ No new files. No package-level structural changes.
 
 - [ ] **Step 1: Verify `strings` import is already present in the test file**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go run -trimpath -tags ignore /dev/stdin <<<'package main' 2>/dev/null; grep -n '^import\|"strings"' pkg/script/handlers_npc_test.go | head -5`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go run -trimpath -tags ignore /dev/stdin <<<'package main' 2>/dev/null; grep -n '^import\|"strings"' pkg/script/handlers_npc_test.go | head -5`
 
 Simpler: `grep -n '"strings"' pkg/script/handlers_npc_test.go | head -3`
 
@@ -82,13 +82,13 @@ func runNpcOpExpectErr(t *testing.T, npc ActiveNpc, mc *mockConfigs, op Opcode, 
 
 - [ ] **Step 3: Verify file compiles**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go vet ./pkg/script/`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go vet ./pkg/script/`
 
 Expected: empty output (no errors). The new helper is currently unused — `go vet` will not flag that for a `_test.go` file at package level since other tests will pick it up shortly.
 
 - [ ] **Step 4: Verify existing tests still pass**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcName$|TestNpcNameFallsBackToDebugName|TestNpcNameUnknownTypeReturnsNull|TestNpcCategory$|TestNpcCategoryUnknownTypeReturnsMinusOne' -count=1`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcName$|TestNpcNameFallsBackToDebugName|TestNpcNameUnknownTypeReturnsNull|TestNpcCategory$|TestNpcCategoryUnknownTypeReturnsMinusOne' -count=1`
 
 Expected: PASS. All five existing tests should still pass at this point — the helper is added but no other test calls it yet, and the handlers are unchanged.
 
@@ -156,13 +156,13 @@ func TestNpcName_UnknownType_ReturnsError(t *testing.T) {
 
 - [ ] **Step 3: Run the two flipped tests and verify they FAIL with the expected diagnostic**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcCategory_UnknownType_ReturnsError|TestNpcName_UnknownType_ReturnsError' -count=1 -v`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcCategory_UnknownType_ReturnsError|TestNpcName_UnknownType_ReturnsError' -count=1 -v`
 
 Expected: BOTH tests FAIL with messages like `NPC_CATEGORY: expected error containing "NPC_CATEGORY: no NpcType with value (9999) found", got nil` and `NPC_NAME: expected error containing "NPC_NAME: no NpcType with value (9999) found", got nil`. This is the TDD red phase — the tests correctly exercise behavior that the current handlers don't have.
 
 - [ ] **Step 4: Verify other NPC_NAME / NPC_CATEGORY tests still pass**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcName$|TestNpcNameFallsBackToDebugName|TestNpcCategory$' -count=1`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcName$|TestNpcNameFallsBackToDebugName|TestNpcCategory$' -count=1`
 
 Expected: PASS. The happy-path and DebugName-fallback tests are unaffected by the flips.
 
@@ -224,13 +224,13 @@ func handleNpcCategory(s *ScriptState) error {
 
 - [ ] **Step 2: Run the flipped NPC_CATEGORY test and verify it PASSES**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcCategory_UnknownType_ReturnsError' -count=1 -v`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcCategory_UnknownType_ReturnsError' -count=1 -v`
 
 Expected: PASS. The handler now errors with `"NPC_CATEGORY: no NpcType with value (9999) found"`.
 
 - [ ] **Step 3: Run the happy-path NPC_CATEGORY test and verify still PASSES**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcCategory$' -count=1`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcCategory$' -count=1`
 
 Expected: PASS. Registered type still pushes `Category=99` correctly.
 
@@ -320,13 +320,13 @@ Only execute this step if Step 2 returned no remaining `errors.` references. Ope
 
 - [ ] **Step 4: Run the flipped NPC_NAME test and verify it PASSES**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcName_UnknownType_ReturnsError' -count=1 -v`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcName_UnknownType_ReturnsError' -count=1 -v`
 
 Expected: PASS. The handler now errors with `"NPC_NAME: no NpcType with value (9999) found"`.
 
 - [ ] **Step 5: Run the happy-path + DebugName-fallback NPC_NAME tests and verify still PASS**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcName$|TestNpcNameFallsBackToDebugName' -count=1`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestNpcName$|TestNpcNameFallsBackToDebugName' -count=1`
 
 Expected: PASS. Registered type with `Name="Hans"` still returns `"Hans"`. Registered type with empty `Name` and `DebugName="unnamed_npc"` still returns `"unnamed_npc"`.
 
@@ -338,19 +338,19 @@ Expected: PASS. Registered type with `Name="Hans"` still returns `"Hans"`. Regis
 
 - [ ] **Step 1: Run the full package test with race detector**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test -race ./... -count=1`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test -race ./... -count=1`
 
 Expected: all packages PASS, no race warnings. Should complete in ~150 seconds based on predecessor-slice telemetry.
 
 - [ ] **Step 2: Run the cache pipeline smoke test**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/packall/ -run TestPackAll_TwelveStageSmoke -count=1`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/packall/ -run TestPackAll_TwelveStageSmoke -count=1`
 
 Expected: PASS.
 
 - [ ] **Step 3: Run `gofmt -l` on the two edited files**
 
-Run: `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/gofmt -l pkg/script/handlers_npc.go pkg/script/handlers_npc_test.go`
+Run: `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/gofmt -l pkg/script/handlers_npc.go pkg/script/handlers_npc_test.go`
 
 Expected: empty output (no files need reformatting).
 

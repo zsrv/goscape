@@ -97,20 +97,16 @@ func TestPackDbRowConfigs_UnknownColumnErrors(t *testing.T) {
 	}
 }
 
-// ref274ContentDir resolves the Server274-ref content worktree:
+// ref274ContentDir resolves the Server274-ref content worktree from
 // GOSCAPE_REF274_DIR (pointing at .../engine, content derived as a
-// sibling) first, then the known local worktree path. Returns "" when
-// neither exists.
+// sibling). Returns "" when the env var is unset or the derived content
+// dir does not exist.
 func ref274ContentDir() string {
 	if ref := os.Getenv("GOSCAPE_REF274_DIR"); ref != "" {
 		dir := filepath.Join(ref, "..", "content")
 		if _, err := os.Stat(dir); err == nil {
 			return dir
 		}
-	}
-	const local = "/home/owner/Code/github.com/LostCityRS/Server274-ref/content"
-	if _, err := os.Stat(local); err == nil {
-		return local
 	}
 	return ""
 }
