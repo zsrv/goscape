@@ -63,7 +63,7 @@ No commits, no subagent. Two read+grep passes; verdict appended to this spec doc
 
 ### 3.1 Engine-TS comprehensive re-grep
 
-Goal: refute or refine NAI-137's assertion that TS engine is bare `setVar` everywhere. Search scope: `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/`.
+Goal: refute or refine NAI-137's assertion that TS engine is bare `setVar` everywhere. Search scope: `$HOME/Code/github.com/LostCityRS/Engine-TS/src/`.
 
 Grep targets:
 - `VarPlayerType.RUN` — all consumers
@@ -99,7 +99,7 @@ Three Explore subagents dispatched in a single turn (`dispatching-parallel-agent
 
 **Goal:** binding verdict on whether goscape's `(*Player).updateEnergy` energy=0 emit path is missing any TS-side emitter that the click path implicitly receives.
 
-**Inputs:** `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/`.
+**Inputs:** `$HOME/Code/github.com/LostCityRS/Engine-TS/src/`.
 
 **Method:** Bundle 0 §3.1 pre-narrows the search; subagent fans out from there. Trace each call-chain's emitted packet sequence for:
 - `[if_button,controls:com_4]` → `if_close` → `p_run` → `%option_run = %option_run`
@@ -114,7 +114,7 @@ Three Explore subagents dispatched in a single turn (`dispatching-parallel-agent
 
 **Goal:** binding verdict on what triggers `Component.script1` re-evaluation in OSRS client #225, specifically for `buttontype=select` components.
 
-**Inputs:** `/home/owner/Code/github.com/LostCityRS/Client-Java/src/`.
+**Inputs:** `$HOME/Code/github.com/LostCityRS/Client-Java/src/`.
 
 **Method:**
 - Locate the deobfuscated `Component` class (or its `ref/` equivalent). Find `script1` / `scriptComparator1` / `scriptOperand1` field reads.
@@ -131,7 +131,7 @@ Three Explore subagents dispatched in a single turn (`dispatching-parallel-agent
 
 **Goal:** characterize the LostCity content language's `[varp,*]` trigger pattern and `%v = %v` self-write semantics.
 
-**Inputs:** `/home/owner/Code/github.com/LostCityRS/Content/scripts/`, with secondary sources in `LostCityRS/RuneScriptKt` (compiler) and `LostCityRS/Engine-TS` (runtime opcode handlers).
+**Inputs:** `$HOME/Code/github.com/LostCityRS/Content/scripts/`, with secondary sources in `LostCityRS/RuneScriptKt` (compiler) and `LostCityRS/Engine-TS` (runtime opcode handlers).
 
 **Method:**
 - Grep `[varp,` triggers across all Content scripts. Enumerate all uses of the trigger pattern.
@@ -218,7 +218,7 @@ POP_VARP option_run     (pops, calls setVar(173, value))
 
 **Additional finding — `[varp,X]` trigger non-existence (refutes spec §7.2):**
 
-`grep -E "^\[varp," /home/owner/Code/github.com/LostCityRS/Content/scripts/` returned **zero hits**. `Engine-TS/src/engine/script/ServerTriggerType.ts` has no `VARP` or `VAR_` enum entries (only PROC, LABEL, DEBUGPROC, AP*/OP* for npc/obj/loc, and trigger types for explicit interface events — no varp-change triggers). **The LostCity engine does not dispatch script triggers on varp changes.** §7.2 (Content `[varp,option_run]` trigger) is **INVALID** as a fix layer.
+`grep -E "^\[varp," $HOME/Code/github.com/LostCityRS/Content/scripts/` returned **zero hits**. `Engine-TS/src/engine/script/ServerTriggerType.ts` has no `VARP` or `VAR_` enum entries (only PROC, LABEL, DEBUGPROC, AP*/OP* for npc/obj/loc, and trigger types for explicit interface events — no varp-change triggers). **The LostCity engine does not dispatch script triggers on varp changes.** §7.2 (Content `[varp,option_run]` trigger) is **INVALID** as a fix layer.
 
 This narrows the fix-layer matrix significantly:
 - §7.1 invalid (no missed TS emit)

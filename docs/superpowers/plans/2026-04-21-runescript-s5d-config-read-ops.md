@@ -22,9 +22,9 @@
 - [ ] **Step 1: Investigate TS source to get exact decode codes**
 
 Read these three TS files to find the `decode(code, dat)` switch for each type:
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/config/EnumType.ts`
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/config/StructType.ts`
-- `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/config/LocType.ts` (if it exists in the cache/config dir) — LocType might split server/client like ObjType. **Load only server-side fields.** Skip any codes that read client-side data (model, icon, etc.).
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/config/EnumType.ts`
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/config/StructType.ts`
+- `$HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/config/LocType.ts` (if it exists in the cache/config dir) — LocType might split server/client like ObjType. **Load only server-side fields.** Skip any codes that read client-side data (model, icon, etc.).
 
 Extract the exact code numbers + wire format per field. The spec's field lists are targets but the real source is the TS decoder.
 

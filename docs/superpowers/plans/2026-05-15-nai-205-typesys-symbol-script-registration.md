@@ -6,7 +6,7 @@
 
 **Architecture:** Five new packages under `pkg/pack/compiler/`: `diagnostics`, `type`, `symbol`, `trigger`, `semantics`. The `ast → symbol/trigger/type` would-be-cycle is broken via four marker interfaces in `ast/symbol_refs.go` (`SymbolRef`, `TriggerRef`, `TypeRef`, `SymbolTableRef`), each with one exported zero-arg marker method that concrete types implement structurally — `ast` does not import the consumer packages. ScriptRegistration walks an `*ast.ScriptFile` via Go type-switch (no visitor pattern; continues NAI-204-D-AST-NO-VISITOR), writes seven fields on visited nodes, registers `ServerScriptSymbol`s into a passed-in root `SymbolTable`, and reports diagnostics via a passed-in `*diagnostics.Diagnostics`.
 
-**Tech Stack:** Go 1.26+, stdlib `testing` only. No new external deps. Existing deps: `pkg/pack/compiler/ast` (NAI-204), `pkg/pack/compiler/lexer` (NAI-203, for `NodeSourceLocation`). TS source-of-truth: `/home/owner/Code/github.com/LostCityRS/RuneScriptTS` at HEAD `b8c338801fbb72d294ff9576a58925a8d3f6de47` (same pin as NAI-203/204).
+**Tech Stack:** Go 1.26+, stdlib `testing` only. No new external deps. Existing deps: `pkg/pack/compiler/ast` (NAI-204), `pkg/pack/compiler/lexer` (NAI-203, for `NodeSourceLocation`). TS source-of-truth: `$HOME/Code/github.com/LostCityRS/RuneScriptTS` at HEAD `b8c338801fbb72d294ff9576a58925a8d3f6de47` (same pin as NAI-203/204).
 
 **Spec:** [`docs/superpowers/specs/2026-05-15-nai-205-typesys-symbol-script-registration-design.md`](../specs/2026-05-15-nai-205-typesys-symbol-script-registration-design.md)
 
@@ -31,8 +31,8 @@
   - `github.com/zsrv/goscape/pkg/pack/compiler/symbol` (T6)
   - `github.com/zsrv/goscape/pkg/pack/compiler/trigger` (T5)
   - `github.com/zsrv/goscape/pkg/pack/compiler/semantics` (T9–T13)
-- All file paths are absolute or rooted at `/home/owner/Code/github.com/zsrv/goscape/`.
-- **TS reference pin:** `/home/owner/Code/github.com/LostCityRS/RuneScriptTS` at HEAD `b8c338801fbb72d294ff9576a58925a8d3f6de47`.
+- All file paths are absolute or rooted at `$HOME/Code/github.com/zsrv/goscape/`.
+- **TS reference pin:** `$HOME/Code/github.com/LostCityRS/RuneScriptTS` at HEAD `b8c338801fbb72d294ff9576a58925a8d3f6de47`.
 - **Pre-flight per dispatch** ([[controller_preflight.md]]):
   - Verify nothing already in `pkg/pack/compiler/` collides with the constant/symbol names the task introduces (grep case-insensitively per [[plan_constants_under_different_naming]]).
   - Verify the cited TS line numbers still match TS-HEAD (the pin is fixed; this is a sanity check).

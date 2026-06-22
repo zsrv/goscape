@@ -74,7 +74,7 @@
 
 Run:
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Engine-TS && \
+cd $HOME/Code/github.com/LostCityRS/Engine-TS && \
   for op in PUSH_VARBIT POP_VARBIT SET_GENDER LC_OP OC_IOP OC_OP; do
     hit=$(rg -l "ScriptOpcode\.${op}\]" --type ts src/engine/script/handlers/ 2>/dev/null | head -1)
     if [ -z "$hit" ]; then echo "MISSING-IN-TS: $op"; else echo "FOUND-IN-TS:   $op ($hit)"; fi
@@ -555,7 +555,7 @@ Plan executor: per memory `audit_full_method_against_ts.md`, read the FULL TS `P
 - [ ] **Step 1: Read TS source**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Engine-TS && \
+cd $HOME/Code/github.com/LostCityRS/Engine-TS && \
   rg -nB2 -A20 "invTotalParamStack" src/engine/entity/Player.ts
 ```
 
@@ -1294,7 +1294,7 @@ EOF
 - [ ] **Step 1: Read TS body**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Engine-TS && \
+cd $HOME/Code/github.com/LostCityRS/Engine-TS && \
   sed -n '241,257p' src/engine/script/handlers/NpcOps.ts
 ```
 
@@ -1768,7 +1768,7 @@ EOF
 - [ ] **Step 1: Re-read TS body**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Engine-TS && \
+cd $HOME/Code/github.com/LostCityRS/Engine-TS && \
   sed -n '1191,1202p' src/engine/script/handlers/PlayerOps.ts
 ```
 
@@ -1959,7 +1959,7 @@ And ensure `(*Server).MergeLoc` matches this signature. Per memory `plan_sibling
 - [ ] **Step 2: Read TS body**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Engine-TS && \
+cd $HOME/Code/github.com/LostCityRS/Engine-TS && \
   sed -n '922,929p' src/engine/script/handlers/PlayerOps.ts
 ```
 
@@ -2127,7 +2127,7 @@ EOF
 - [ ] **Step 1: Re-read TS**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Engine-TS && \
+cd $HOME/Code/github.com/LostCityRS/Engine-TS && \
   sed -n '1127,1135p' src/engine/script/handlers/PlayerOps.ts
 ```
 
@@ -2468,7 +2468,7 @@ EOF
 - [ ] **Step 1: Re-read full TS body**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Engine-TS && \
+cd $HOME/Code/github.com/LostCityRS/Engine-TS && \
   sed -n '672,723p' src/engine/script/handlers/InvOps.ts
 ```
 
@@ -2770,7 +2770,7 @@ EOF
 - [ ] **Step 1: Re-read full TS body**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Engine-TS && \
+cd $HOME/Code/github.com/LostCityRS/Engine-TS && \
   sed -n '726,790p' src/engine/script/handlers/InvOps.ts
 ```
 

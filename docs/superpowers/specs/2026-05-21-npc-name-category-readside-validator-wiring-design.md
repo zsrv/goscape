@@ -213,9 +213,9 @@ Both small, mirror NPC_TYPE / NPC_CHANGETYPE precedent if it exists. If sibling 
 
 ## 6. Validation gates
 
-- `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test -race ./...` — 0 FAIL across all packages.
+- `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test -race ./...` — 0 FAIL across all packages.
 - `TestPackAll_TwelveStageSmoke` PASS (cache pipeline smoke).
-- `GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/gofmt -l pkg/script/handlers_npc.go pkg/script/handlers_npc_test.go` — empty.
+- `GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/gofmt -l pkg/script/handlers_npc.go pkg/script/handlers_npc_test.go` — empty.
 - Audit-grep deltas:
   - `grep -c 'checkNpcType(s, ' pkg/script/handlers_npc.go` → 8 → 10 (+2).
   - `grep -cE 'requireConfigs\(s, "(NPC_NAME|NPC_CATEGORY)"' pkg/script/handlers_npc.go` → 0 → 2 (+2).

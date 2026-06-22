@@ -449,7 +449,7 @@ task surfaces a deviation that wasn't anticipated at spec-write.
 
 - Go 1.26+ per `go_version.md`.
 - TS source canonical path: `Engine-TS` only per
-  `ts_source_canonical_path.md` — `/home/owner/Code/github.com/LostCityRS/Engine-TS`.
+  `ts_source_canonical_path.md` — `$HOME/Code/github.com/LostCityRS/Engine-TS`.
 
 ## 10. Pattern memories applicable
 

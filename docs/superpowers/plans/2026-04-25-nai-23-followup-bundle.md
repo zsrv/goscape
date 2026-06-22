@@ -22,7 +22,7 @@
 
 - [ ] **Step 1: Read entry context for `nai_followups.md:786`**
 
-Run: `Read /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` with offset=786, limit=10.
+Run: `Read $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` with offset=786, limit=10.
 Expected: First line is `### Stale `*Npc.typ` snapshot after changetype (newly observable post-NAI-18)`. Confirm the body starts with ``(*Npc).changeTypeImpl` at `modules/world/npc_masks.go:53-74` updates`.
 
 - [ ] **Step 2: Mark entry at `nai_followups.md:786` Resolved**
@@ -56,7 +56,7 @@ _Original deferral body (preserved for historical context):_
 
 - [ ] **Step 3: Read entry context for `nai_followups.md:1272`**
 
-Run: `Read /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` with offset=1272, limit=10.
+Run: `Read $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` with offset=1272, limit=10.
 Expected: First line is `### Promote `n.size` snapshot to LoS-path reads (`inApproachDistance`, `approachEntitySize`)`.
 
 - [ ] **Step 4: Mark entry at `nai_followups.md:1272` Resolved**
@@ -91,7 +91,7 @@ NAI-20 Task 2 introduced `*Npc.size` and `*Npc.blockWalk` snapshot fields
 
 - [ ] **Step 5: Read entry context for `nai_followups.md:244`**
 
-Run: `Read /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` with offset=244, limit=10.
+Run: `Read $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` with offset=244, limit=10.
 Expected: First line is `### Scope note: `npc_changetype` duration wiring status`.
 
 - [ ] **Step 6: Mark cross-ref at `nai_followups.md:244` Resolved**
@@ -129,7 +129,7 @@ See "From NAI-5" entry above for the full remediation plan.
 - [ ] **Step 7: Append addendum to `spec_followup_tracker_freshness.md`**
 
 Read the current file end to find the append point.
-Run: `Read /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/spec_followup_tracker_freshness.md`.
+Run: `Read $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/spec_followup_tracker_freshness.md`.
 
 Edit by appending after the existing "Spec-write checklist addition:" block. New text to append (after the existing final list item):
 
@@ -826,14 +826,14 @@ For multi-int handlers, table-drive: pop -1 in one slot at a time (other slots s
 
 - [ ] **Step 1: Enumerate popInt sites in `handlers_npc.go`**
 
-Run: `grep -n "state\.PopInt()" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_npc.go`
+Run: `grep -n "state\.PopInt()" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_npc.go`
 Record the line numbers and surrounding handler names.
 
 - [ ] **Step 2: For each site, apply the audit rubric**
 
 For each line found in Step 1:
 - Identify the enclosing handler (`func handle<X>(s *ScriptState) error`).
-- Read the TS counterpart at `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/NpcOps.ts` (same handler name, lowercase).
+- Read the TS counterpart at `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/NpcOps.ts` (same handler name, lowercase).
 - Decide: WRAP / SKIP / ESCALATE per the spec rubric.
 - If the handler already has a `checkNotNull` wrap (one of the 6 known), record the line and skip.
 
@@ -910,14 +910,14 @@ EOF
 
 - [ ] **Step 1: Enumerate popInt sites in `handlers_inv.go`**
 
-Run: `grep -n "state\.PopInt()" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_inv.go`
+Run: `grep -n "state\.PopInt()" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_inv.go`
 Record line numbers and surrounding handler names. Audit reports ~55 popInts; expect ~15-18 to be WRAP candidates after rubric application.
 
 - [ ] **Step 2: For each site, apply the audit rubric**
 
 For each popInt line:
 - Identify the enclosing handler.
-- Read the TS counterpart at `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/InvOps.ts` (same handler name, lowercase).
+- Read the TS counterpart at `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/InvOps.ts` (same handler name, lowercase).
 - Decide: WRAP / SKIP / ESCALATE per rubric.
 
 Build the per-handler audit table per the spec format. ESCALATE any unclear case.
@@ -980,14 +980,14 @@ EOF
 
 - [ ] **Step 1: Enumerate popInt sites in `handlers_interface.go`**
 
-Run: `grep -n "state\.PopInt()" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_interface.go`
+Run: `grep -n "state\.PopInt()" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_interface.go`
 Record line numbers and surrounding handler names.
 
 - [ ] **Step 2: For each site, apply the audit rubric**
 
 For each popInt line:
 - Identify the enclosing handler.
-- Read the TS counterpart at `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/InterfaceOps.ts` (or `IfOps.ts` — locate via grep if the filename differs).
+- Read the TS counterpart at `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/InterfaceOps.ts` (or `IfOps.ts` — locate via grep if the filename differs).
 - Decide: WRAP / SKIP / ESCALATE per rubric.
 
 Build the per-handler audit table. ESCALATE any unclear case.

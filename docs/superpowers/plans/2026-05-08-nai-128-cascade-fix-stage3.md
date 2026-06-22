@@ -892,7 +892,7 @@ Compare user's `grep nai128` output against the table:
 
 - [ ] **Step 2: Add memory entry for the gateway-probe pattern**
 
-Create `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nodedebug_gateway_probe_pattern.md`:
+Create `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nodedebug_gateway_probe_pattern.md`:
 
 ```markdown
 ---
@@ -934,7 +934,7 @@ shipped 6 gateways in ~100 LOC across 5 files + 1 plumbing change.
 
 - [ ] **Step 3: Add MEMORY.md index entry**
 
-Append to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (insert near other binding-pattern entries; put new entries at the top of the file):
+Append to `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (insert near other binding-pattern entries; put new entries at the top of the file):
 
 ```markdown
 - [NodeDebug gateway probe pattern](nodedebug_gateway_probe_pattern.md) — binding via 6 NodeDebug-gated s.log.Info gateways + tee+grep on smoke; permanent diagnostic (NAI-128 Stage 3 reference)
@@ -942,7 +942,7 @@ Append to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape
 
 - [ ] **Step 4: Verify MEMORY.md size**
 
-Run: `wc -c /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
+Run: `wc -c $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`
 If now well over 28KB, retire one stale CLOSED entry from the index (move detail to its topic file if needed).
 
 - [ ] **Step 5: Verify clean working tree**

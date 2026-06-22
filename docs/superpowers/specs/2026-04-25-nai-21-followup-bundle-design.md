@@ -180,10 +180,10 @@ Net delta: **2 lines changed**. Behaviorally identical; pure style consistency w
 Implementer must run before editing:
 
 ```
-grep -rn "NAI-17-D1" /home/owner/Code/github.com/zsrv/goscape/pkg \
-                     /home/owner/Code/github.com/zsrv/goscape/modules \
-                     /home/owner/Code/github.com/zsrv/goscape/cmd \
-                     /home/owner/Code/github.com/zsrv/goscape/docs
+grep -rn "NAI-17-D1" $HOME/Code/github.com/zsrv/goscape/pkg \
+                     $HOME/Code/github.com/zsrv/goscape/modules \
+                     $HOME/Code/github.com/zsrv/goscape/cmd \
+                     $HOME/Code/github.com/zsrv/goscape/docs
 ```
 
 Pre-flight result (HEAD `3514264`): zero production-code references; only `nai_followups.md` mentions. If the implementer-time grep surfaces additional sites, they must be enumerated and updated as part of this task.

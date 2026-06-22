@@ -36,7 +36,7 @@ func TestPack_RealContent_Integration(t *testing.T) {
 
 	srcDir := os.Getenv("GOSCAPE_CONTENT_DIR")
 	if srcDir == "" {
-		srcDir = "/home/owner/Code/github.com/LostCityRS/content"
+		t.Skip("set GOSCAPE_CONTENT_DIR to a Content checkout")
 	}
 	packDir := os.Getenv("GOSCAPE_PACK_DIR")
 	if packDir == "" {

@@ -14,7 +14,7 @@
 
 Resume doc: `.claude/resume/2026-05-22-combat-engine-fixes-packer-determinism-resume.md`.
 
-Three consecutive `goscape-cli pack --src-dir=/home/owner/Code/github.com/LostCityRS/Server225_2/content --out-dir=/home/owner/Code/github.com/zsrv/goscape/data/pack` invocations produce three different `server/script.dat` files (`cmp` diverges at byte 28207 / 129690 across pairs). Same idx checksum table layout, same 8032 file count, same ~4.37 MB total size. Decoding individual scripts: `[queue,reset_itest]` resolved to operand `18` in one run and `19` in another, meaning script-id assignment to script names is non-deterministic.
+Three consecutive `goscape-cli pack --src-dir=$HOME/Code/github.com/LostCityRS/Server225_2/content --out-dir=$HOME/Code/github.com/zsrv/goscape/data/pack` invocations produce three different `server/script.dat` files (`cmp` diverges at byte 28207 / 129690 across pairs). Same idx checksum table layout, same 8032 file count, same ~4.37 MB total size. Decoding individual scripts: `[queue,reset_itest]` resolved to operand `18` in one run and `19` in another, meaning script-id assignment to script names is non-deterministic.
 
 Explore-agent scoping pass + spot-verification confirmed these suspect sites in `pkg/pack/compiler/`:
 
@@ -69,13 +69,13 @@ The fix-and-verify loop uses two layers:
 User-shell command (sandbox does not let agents touch `data/pack/` outputs but the user can run this and paste results):
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 
 mkdir -p /tmp/claude/det-run1 /tmp/claude/det-run2 /tmp/claude/det-run3
 
 CGO_ENABLED=0 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go run -trimpath ./cmd/goscape-cli pack \
-  --src-dir=/home/owner/Code/github.com/LostCityRS/Server225_2/content \
+  $HOME/go/go1.26.3/bin/go run -trimpath ./cmd/goscape-cli pack \
+  --src-dir=$HOME/Code/github.com/LostCityRS/Server225_2/content \
   --out-dir=/tmp/claude/det-run1
 
 # Repeat for run2 / run3 (or copy via rsync if rerun cost too high).
@@ -246,9 +246,9 @@ func mustWriteFile(t *testing.T, path, content string) {
 - [ ] **Step 2: Run the test to see what state we're in**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go test -run TestRunServerCompiler_Deterministic ./pkg/pack/compiler/ -count=1 -v
+  $HOME/go/go1.26.3/bin/go test -run TestRunServerCompiler_Deterministic ./pkg/pack/compiler/ -count=1 -v
 ```
 
 Expected on the first run: at least `TestRunServerCompiler_DeterministicCrossRefs` should FAIL (this is the script-id-shuffle reproducer). `TestRunServerCompiler_DeterministicMinimal` may pass (insufficient fixture) or fail (sufficient).
@@ -322,7 +322,7 @@ When you read table.go, adapt the sort comparator to whatever `SymbolType`'s nat
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go test -run TestRunServerCompiler_Deterministic ./pkg/pack/compiler/ -count=1 -v
+  $HOME/go/go1.26.3/bin/go test -run TestRunServerCompiler_Deterministic ./pkg/pack/compiler/ -count=1 -v
 ```
 
 Expected: same failures (this is the first of several fixes), OR improvement (test now passes for one variant but not the other). Note whether the failing byte offset shifts or shrinks — that's signal that this fix helped.
@@ -331,7 +331,7 @@ Expected: same failures (this is the first of several fixes), OR improvement (te
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go test ./pkg/pack/compiler/symbol/... -count=1
+  $HOME/go/go1.26.3/bin/go test ./pkg/pack/compiler/symbol/... -count=1
 ```
 
 Expected: all green. If a symbol-table test asserts a specific iteration order, update the assertion to match the now-sorted order.
@@ -396,7 +396,7 @@ Ensure `slices` is imported (the file likely already imports it; check).
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go test -run TestRunServerCompiler_Deterministic ./pkg/pack/compiler/ -count=1 -v
+  $HOME/go/go1.26.3/bin/go test -run TestRunServerCompiler_Deterministic ./pkg/pack/compiler/ -count=1 -v
 ```
 
 Expected: progress (failing byte offset moves) or pass.
@@ -405,7 +405,7 @@ Expected: progress (failing byte offset moves) or pass.
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go test ./pkg/pack/compiler/... -count=1
+  $HOME/go/go1.26.3/bin/go test ./pkg/pack/compiler/... -count=1
 ```
 
 - [ ] **Step 5: Commit**
@@ -472,9 +472,9 @@ Add `"slices"` to imports if missing.
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go test ./pkg/pack/compiler/runescript/... -count=1
+  $HOME/go/go1.26.3/bin/go test ./pkg/pack/compiler/runescript/... -count=1
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go test -run TestRunServerCompiler_Deterministic ./pkg/pack/compiler/ -count=1 -v
+  $HOME/go/go1.26.3/bin/go test -run TestRunServerCompiler_Deterministic ./pkg/pack/compiler/ -count=1 -v
 ```
 
 - [ ] **Step 4: Commit**
@@ -542,7 +542,7 @@ and use it for all six.
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go test ./pkg/pack/compiler/... -count=1
+  $HOME/go/go1.26.3/bin/go test ./pkg/pack/compiler/... -count=1
 ```
 
 - [ ] **Step 4: Commit**
@@ -613,7 +613,7 @@ Repeat for all 9 source maps.
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go test ./pkg/pack/compiler/... -count=1
+  $HOME/go/go1.26.3/bin/go test ./pkg/pack/compiler/... -count=1
 ```
 
 - [ ] **Step 4: Commit**
@@ -641,19 +641,19 @@ future-proofing.
 User-shell:
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 
 rm -rf /tmp/claude/det-post1 /tmp/claude/det-post2
 mkdir -p /tmp/claude/det-post1 /tmp/claude/det-post2
 
 CGO_ENABLED=0 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go run -trimpath ./cmd/goscape-cli pack \
-  --src-dir=/home/owner/Code/github.com/LostCityRS/Server225_2/content \
+  $HOME/go/go1.26.3/bin/go run -trimpath ./cmd/goscape-cli pack \
+  --src-dir=$HOME/Code/github.com/LostCityRS/Server225_2/content \
   --out-dir=/tmp/claude/det-post1
 
 CGO_ENABLED=0 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go run -trimpath ./cmd/goscape-cli pack \
-  --src-dir=/home/owner/Code/github.com/LostCityRS/Server225_2/content \
+  $HOME/go/go1.26.3/bin/go run -trimpath ./cmd/goscape-cli pack \
+  --src-dir=$HOME/Code/github.com/LostCityRS/Server225_2/content \
   --out-dir=/tmp/claude/det-post2
 
 cmp /tmp/claude/det-post1/server/script.dat /tmp/claude/det-post2/server/script.dat
@@ -702,7 +702,7 @@ The resume doc lists helpers at `/tmp/claude/decode_script_n.go` (decodes script
 ```bash
 # Identify which script contains the offset.
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go run /tmp/claude/diff_all_scripts.go \
+  $HOME/go/go1.26.3/bin/go run /tmp/claude/diff_all_scripts.go \
   /tmp/claude/det-post1/server/script.dat \
   /tmp/claude/det-post2/server/script.dat | head
 ```
@@ -710,7 +710,7 @@ GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
 - [ ] **Step 3: Search for additional `range map` sites**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 grep -rn "for .* := range " pkg/pack/compiler/ | grep -v _test.go | grep -v 'sortedNumericKeys\|sortedStringKeys\|sortedIntKeys\|sortedKeysInt' > /tmp/claude/remaining-ranges.txt
 wc -l /tmp/claude/remaining-ranges.txt
 ```
@@ -730,13 +730,13 @@ After each new fix: commit, then re-run Task 8.
 
 - [ ] **Step 1: Identify TS-packed baseline location**
 
-The user maintains a TS-packed snapshot at `/home/owner/Code/github.com/zsrv/goscape/data/pack/server/script.dat` (per the resume's reference). Confirm timestamp / cocktail-guide content:
+The user maintains a TS-packed snapshot at `$HOME/Code/github.com/zsrv/goscape/data/pack/server/script.dat` (per the resume's reference). Confirm timestamp / cocktail-guide content:
 
 ```bash
 ls -la data/pack/server/script.{dat,idx}
 ```
 
-If this has drifted, re-pack with TS (`/home/owner/Code/github.com/LostCityRS/Engine-TS`) into a known temp dir.
+If this has drifted, re-pack with TS (`$HOME/Code/github.com/LostCityRS/Engine-TS`) into a known temp dir.
 
 - [ ] **Step 2: Diff Go vs TS**
 
@@ -751,7 +751,7 @@ If `script.idx` is byte-identical and `script.dat` differs: remaining divergence
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go run /tmp/claude/diff_all_scripts.go \
+  $HOME/go/go1.26.3/bin/go run /tmp/claude/diff_all_scripts.go \
   /tmp/claude/det-post1/server/script.dat \
   data/pack/server/script.dat | tee /tmp/claude/remaining-diffs.txt
 wc -l /tmp/claude/remaining-diffs.txt
@@ -776,9 +776,9 @@ If `≥10`: open a new plan doc `docs/superpowers/plans/YYYY-MM-DD-pack-ts-parit
 - [ ] **Step 1: Run the full repo test suite with race**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-  /home/owner/go/go1.26.3/bin/go test -race ./... -count=1
+cd $HOME/Code/github.com/zsrv/goscape
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
+  $HOME/go/go1.26.3/bin/go test -race ./... -count=1
 ```
 
 Expected: all green except the three pre-existing compiler-version-mismatch failures noted in the resume (`TestNAI128_RatLootCascade`, `TestReload_ScriptCount_NodeDebug_SuccessBroadcast`, `TestHandleClientCheat_Reload_Dispatches`). The new `TestRunServerCompiler_Deterministic*` tests must pass.
@@ -786,7 +786,7 @@ Expected: all green except the three pre-existing compiler-version-mismatch fail
 - [ ] **Step 2: gofmt clean**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/gofmt -l modules pkg cmd internal
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/gofmt -l modules pkg cmd internal
 ```
 
 Expected: no output.

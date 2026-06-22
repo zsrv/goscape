@@ -46,7 +46,7 @@ Stage 1 audit ELIMINATES the routefinder algorithm itself as the source of the N
 | `useRouteBlockerFlags` consumed in `findPath*` body | `useRouteBlockerFlags` consumed in `routeFindSize1`/`Size2`/`Big` body | DIVERGENT (goscape: never read; AS: no such field) |
 
 **Evidence:**
-- `rg "useRouteBlockerFlags" pkg/ /home/owner/Code/github.com/2004scape/rsmod-pathfinder/src/`: only goscape references, all in `routefinder.go` constructor; never read in any `routeFind*` body.
+- `rg "useRouteBlockerFlags" pkg/ $HOME/Code/github.com/2004scape/rsmod-pathfinder/src/`: only goscape references, all in `routefinder.go` constructor; never read in any `routeFind*` body.
 - `TestNAI94_RouteBlockerFlag_Consulted` differential subtests behave IDENTICALLY: both `useRouteBlockerFlags=true` and `=false` produce `Success=true Waypoints=[(3004,3000,0)]` despite the planted `FlagWallWestRouteBlocker` at (3002, 3000). The field is not consulted in any expansion branch.
 - AS root-cause analysis: route-blocker flag honoring is fully governed by which `CollisionStrategy` is passed at call time. `TypeNormal` (the default for `FindPathPlain`/`FindPathToEntity`/`FindPathToLoc`) ignores route-blocker flags in BOTH AS and goscape. Hans cheb=2 doesn't involve route-blocker tiles at all, so this hypothesis is structurally incompatible with the NAI-92 anomaly.
 

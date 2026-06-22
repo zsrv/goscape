@@ -2,7 +2,7 @@
 
 > **Sub-spec context:** Eleventh sub-spec in the runescript-s* series. Natural follow-up to S6j (OPLOC routing) — closes two of S6j's documented deviations (S6j-D1 handler op-gate + S6j-D7 defaultOp message) by adding the `LocType.Op []string` config field + wiring the `handleLocOp` script opcode. Mirrors the NpcType.Op / handleNpcOp template verbatim.
 
-> **TS-faithfulness gate:** User requires "true to TS." All behavioral claims cite TS line numbers in `/home/owner/Code/github.com/LostCityRS/Engine-TS`. No new deviations introduced.
+> **TS-faithfulness gate:** User requires "true to TS." All behavioral claims cite TS line numbers in `$HOME/Code/github.com/LostCityRS/Engine-TS`. No new deviations introduced.
 
 > **Scope:** Approach 1 (full bundle — LocType.Op + handler gate + loc_op opcode + defaultOp message). ~150 LOC impl + ~200 LOC tests across 3 tasks.
 

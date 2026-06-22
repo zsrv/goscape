@@ -846,7 +846,7 @@ After Task 6 commits, run the memory-prescribed cross-check:
 
 - [ ] **Grep `NPCModeQueue`** — expected: constants in `pkg/objtype/npctype.go`, consumers in `modules/world/npc_hunt.go` (2 references: `NPCModeQueue1` + `NPCModeQueue20`) and in `modules/world/npc_hunt_test.go` (3 references: `Queue3`, `Queue20`, plus the constants test in `pkg/objtype/npctype_test.go`).
 
-- [ ] **Fresh full-repo test** — `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...` from `/home/owner/Code/github.com/zsrv/goscape`. Must pass cleanly; no "pre-existing failure" hand-wave.
+- [ ] **Fresh full-repo test** — `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...` from `$HOME/Code/github.com/zsrv/goscape`. Must pass cleanly; no "pre-existing failure" hand-wave.
 
 - [ ] **go vet** — `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go vet ./...`. Must pass cleanly.
 

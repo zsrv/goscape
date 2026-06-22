@@ -407,9 +407,9 @@ Expected: PASS across all packages. Existing NAI-16 ChangeType tests, NAI-5 reve
 - [ ] **Step 1.17 — Commit**
 
 ```bash
-git -C /home/owner/Code/github.com/zsrv/goscape add pkg/objtype/npctype.go modules/world/npc.go modules/world/npc_source.go modules/world/npc_script.go modules/world/npc_masks.go modules/world/npc_test.go modules/world/npc_event_queue_test.go pkg/script/handlers_npc_test.go
+git -C $HOME/Code/github.com/zsrv/goscape add pkg/objtype/npctype.go modules/world/npc.go modules/world/npc_source.go modules/world/npc_script.go modules/world/npc_masks.go modules/world/npc_test.go modules/world/npc_event_queue_test.go pkg/script/handlers_npc_test.go
 
-git -C /home/owner/Code/github.com/zsrv/goscape commit --no-gpg-sign -m "$(cat <<'EOF'
+git -C $HOME/Code/github.com/zsrv/goscape commit --no-gpg-sign -m "$(cat <<'EOF'
 feat(world): NAI-17 Task 1 migrate HP scalars to 6-stat levels/baseLevels arrays
 
 Adds objtype.NpcStatCount=6, replaces *Npc.curHP/baseHP with
@@ -648,9 +648,9 @@ Expected: PASS. In particular, existing NAI-16 tests at `npc_test.go:43-136` (`T
 - [ ] **Step 2.7 — Commit**
 
 ```bash
-git -C /home/owner/Code/github.com/zsrv/goscape add pkg/script/active.go modules/world/npc_masks.go modules/world/npc_test.go
+git -C $HOME/Code/github.com/zsrv/goscape add pkg/script/active.go modules/world/npc_masks.go modules/world/npc_test.go
 
-git -C /home/owner/Code/github.com/zsrv/goscape commit --no-gpg-sign -m "$(cat <<'EOF'
+git -C $HOME/Code/github.com/zsrv/goscape commit --no-gpg-sign -m "$(cat <<'EOF'
 feat(world): NAI-17 Task 2 ChangeType stats-reset formula (TS:436-443)
 
 Refactors *Npc.ChangeType into changeTypeImpl(newType, duration, reset)
@@ -919,9 +919,9 @@ Expected: PASS. All existing tests + new Task 1/2/3 tests all green.
 - [ ] **Step 3.11 — Commit**
 
 ```bash
-git -C /home/owner/Code/github.com/zsrv/goscape add pkg/script/active.go pkg/script/handlers.go pkg/script/handlers_npc.go pkg/script/handlers_npc_test.go pkg/script/handlers_player_test.go modules/world/npc_masks.go modules/world/npc_test.go
+git -C $HOME/Code/github.com/zsrv/goscape add pkg/script/active.go pkg/script/handlers.go pkg/script/handlers_npc.go pkg/script/handlers_npc_test.go pkg/script/handlers_player_test.go modules/world/npc_masks.go modules/world/npc_test.go
 
-git -C /home/owner/Code/github.com/zsrv/goscape commit --no-gpg-sign -m "$(cat <<'EOF'
+git -C $HOME/Code/github.com/zsrv/goscape commit --no-gpg-sign -m "$(cat <<'EOF'
 feat(script): NAI-17 Task 3 NPC_CHANGETYPE_KEEPALL (opcode 2506) dispatch
 
 Adds *Npc.ChangeTypeKeepAll public method delegating to changeTypeImpl
@@ -1179,9 +1179,9 @@ Expected: PASS. In particular, existing NAI-5 test `TestNpcTurnRespawnAliveMorph
 - [ ] **Step 4.6 — Commit**
 
 ```bash
-git -C /home/owner/Code/github.com/zsrv/goscape add modules/world/npc.go modules/world/npc_test.go
+git -C $HOME/Code/github.com/zsrv/goscape add modules/world/npc.go modules/world/npc_test.go
 
-git -C /home/owner/Code/github.com/zsrv/goscape commit --no-gpg-sign -m "$(cat <<'EOF'
+git -C $HOME/Code/github.com/zsrv/goscape commit --no-gpg-sign -m "$(cat <<'EOF'
 feat(world): NAI-17 Task 4 revertType light/heavy branch on resetOnRevert
 
 Ports TS Npc.ts:1082-1091. Light path (KEEPALL consumer, resetOnRevert=false)
@@ -1323,9 +1323,9 @@ Expected: PASS. Existing HP-regen tests at `npc_event_queue_test.go` stay green 
 - [ ] **Step 5.6 — Commit**
 
 ```bash
-git -C /home/owner/Code/github.com/zsrv/goscape add modules/world/npc_script.go modules/world/npc_script_test.go
+git -C $HOME/Code/github.com/zsrv/goscape add modules/world/npc_script.go modules/world/npc_script_test.go
 
-git -C /home/owner/Code/github.com/zsrv/goscape commit --no-gpg-sign -m "$(cat <<'EOF'
+git -C $HOME/Code/github.com/zsrv/goscape commit --no-gpg-sign -m "$(cat <<'EOF'
 feat(world): NAI-17 Task 5 regen iterates all 6 stats (TS Npc.ts:515-523)
 
 Expands the regen convergence from HP-slot-only to a 6-slot loop matching
@@ -1343,7 +1343,7 @@ EOF
 ## Task 6 — Close: memory update + full-suite verify
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (mark "From NAI-16: Deferred: NPC stats-array + KEEPALL variant" entry as Resolved with close-commit ref)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (mark "From NAI-16: Deferred: NPC stats-array + KEEPALL variant" entry as Resolved with close-commit ref)
 
 **Rationale:** Close the sub-spec cleanly per `runescript_cadence.md`. The memory update names the close-commit hash so future NAI brainstorms can grep "From NAI-16" and see NAI-17 as the closure point. Apply `Closes memory:` trailer per `close_commit_memory_trailer.md`.
 
@@ -1359,7 +1359,7 @@ Expected: PASS. Include `-race` to surface any data races introduced by the stru
 
 - [ ] **Step 6.2 — Update `nai_followups.md`**
 
-Edit `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Locate the "## From NAI-16 (2026-04-23)" section containing the "### Deferred: NPC stats-array + KEEPALL variant" entry.
+Edit `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`. Locate the "## From NAI-16 (2026-04-23)" section containing the "### Deferred: NPC stats-array + KEEPALL variant" entry.
 
 Add a Resolved preamble BEFORE the existing body (preserve the original body as historical context, matching the pattern used for other Resolved entries in the file):
 
@@ -1395,13 +1395,13 @@ NAI-16 ported TS `Npc.changeType` minus the stats-reset branch
 - [ ] **Step 6.3 — Commit the close**
 
 ```bash
-git -C /home/owner/Code/github.com/zsrv/goscape add -- :!memory
+git -C $HOME/Code/github.com/zsrv/goscape add -- :!memory
 
 # Memory file lives outside the repo; stage explicitly if in-scope.
 # (The nai_followups.md edit above is in ~/.claude/projects/... NOT in
 # the goscape working tree. No `git add` needed for it.)
 
-git -C /home/owner/Code/github.com/zsrv/goscape commit --no-gpg-sign --allow-empty -m "$(cat <<'EOF'
+git -C $HOME/Code/github.com/zsrv/goscape commit --no-gpg-sign --allow-empty -m "$(cat <<'EOF'
 chore(nai): NAI-17 closed — NPC stats-array + NPC_CHANGETYPE_KEEPALL
 
 Tasks 1-5 complete. The "From NAI-16: Deferred: NPC stats-array + KEEPALL

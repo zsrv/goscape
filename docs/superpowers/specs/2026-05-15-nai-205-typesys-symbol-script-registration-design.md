@@ -100,7 +100,7 @@ Hand-port the RuneScriptTS compiler infrastructure that `ScriptRegistration` and
 
 - Go 1.26+ (per [[go_version]] memory).
 - No new external deps.
-- TS source-of-truth: `/home/owner/Code/github.com/LostCityRS/RuneScriptTS` at HEAD `b8c338801fbb72d294ff9576a58925a8d3f6de47` (same pin as NAI-203/204). In-scope files:
+- TS source-of-truth: `$HOME/Code/github.com/LostCityRS/RuneScriptTS` at HEAD `b8c338801fbb72d294ff9576a58925a8d3f6de47` (same pin as NAI-203/204). In-scope files:
   - `src/compiler/diagnostics/` — all five files (Diagnostic, DiagnosticType, Diagnostics, DiagnosticMessage, DiagnosticsHandler; the BaseDiagnosticsHandler portion of the last file is deferred).
   - `src/compiler/type/` — all eight top-level files + `wrapped/{ArrayType, GameVarType, WrappedType}.ts`.
   - `src/compiler/symbol/` — all four files; `pointers(checker)` method deferred.

@@ -20,10 +20,14 @@ type fixturePair struct {
 // Skips if either the jagfile or the fixtures JSON is absent (matches the
 // real-cache test convention; see modules/world/loctype_realcache_test.go).
 func TestFilter_AgainstTSFixtures(t *testing.T) {
-	const tsCache = "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/pack"
+	ref := os.Getenv("GOSCAPE_REF225_DIR")
+	if ref == "" {
+		t.Skip("GOSCAPE_REF225_DIR not set; skipping (needs the reference engine's data/pack/client/wordenc)")
+	}
+	tsCache := filepath.Join(ref, "data", "pack")
 	jagPath := filepath.Join(tsCache, "client", "wordenc")
 	if _, err := os.Stat(jagPath); err != nil {
-		t.Skipf("wordenc jagfile not present at %s; skipping (rebuild Engine-TS with 'bun run tools/pack/Build.ts')", jagPath)
+		t.Skipf("wordenc jagfile not present at %s; skipping (ensure data/pack/client/wordenc exists)", jagPath)
 	}
 
 	fixturesPath := filepath.Join("testdata", "wordenc-fixtures.json")

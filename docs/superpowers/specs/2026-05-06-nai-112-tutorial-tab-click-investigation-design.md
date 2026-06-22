@@ -65,7 +65,7 @@ Both symptoms point at the TUT_CLICKSIDE → `[tutorial,_]` script-trigger pipel
 
 ## 4. Stage 1 — audit dispatch
 
-**Subagent:** one Sonnet audit subagent dispatched after Bundle 0 pre-flight, read-only. Has Read access to all three external repos (`/home/owner/Code/github.com/LostCityRS/{Engine-TS,Client-Java,Server}`) plus the goscape repo.
+**Subagent:** one Sonnet audit subagent dispatched after Bundle 0 pre-flight, read-only. Has Read access to all three external repos (`$HOME/Code/github.com/LostCityRS/{Engine-TS,Client-Java,Server}`) plus the goscape repo.
 
 **Task:** derive the TS reference chain in this order:
 

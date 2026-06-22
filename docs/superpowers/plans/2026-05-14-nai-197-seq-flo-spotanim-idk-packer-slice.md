@@ -139,7 +139,7 @@ This task additively introduces four new lazy registry helpers and accompanying 
 
 Run:
 ```bash
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache grep -n "ensureLocPack\|ensureModelPack\|ensureTexturePack\|var (\|huntPack" /home/owner/Code/github.com/zsrv/goscape/pkg/pack/pack_configs.go
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache grep -n "ensureLocPack\|ensureModelPack\|ensureTexturePack\|var (\|huntPack" $HOME/Code/github.com/zsrv/goscape/pkg/pack/pack_configs.go
 ```
 Expected: var-block around lines 92-102 (9 declarations), closures lines 103-201 (9 closures).
 
@@ -233,7 +233,7 @@ _ = ensureIdkPack
 
 Run:
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./...
 ```
 Expected: clean exit, no errors.
@@ -242,7 +242,7 @@ Expected: clean exit, no errors.
 
 Run:
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -count=1
 ```
 Expected: all green.
@@ -427,7 +427,7 @@ func TestParseSeqConfig_UnknownKey(t *testing.T) {
 - [ ] **Step 2.1.2: Run tests, observe red**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestParseSeqConfig -count=1
 ```
 Expected: compile error — `parseSeqConfigFor` undefined.
@@ -2363,7 +2363,7 @@ Replace with:
 - [ ] **Step 6.4.1: Verify production-side build is green**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./...
 ```
 Expected: clean.

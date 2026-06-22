@@ -1846,7 +1846,7 @@ Per `close_commit_memory_trailer.md`. The non-derivable insight from this sub-sp
 
 Use the `Write` tool (not Bash printf — per `memory_write_sandbox_quirk.md`) to create:
 
-`/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/iterator_state_pattern.md`:
+`$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/iterator_state_pattern.md`:
 
 ```markdown
 ---

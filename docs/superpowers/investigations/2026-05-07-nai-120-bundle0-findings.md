@@ -358,8 +358,8 @@ Each `%name` reference was looked up in `LostCityRS/Content/scripts/**/*.varp|.v
 Bundle 1 audit subagent (Sonnet, Explore agent type, read-only) consumes:
 
 - **This findings note**, pinned at the commit hash from Task 6.
-- The 8 inner-ring `.rs2` files at `/home/owner/Code/github.com/LostCityRS/Content/scripts/skill_combat/scripts/player/` (excluding `spells/`).
-- TS handler source at `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/`.
+- The 8 inner-ring `.rs2` files at `$HOME/Code/github.com/LostCityRS/Content/scripts/skill_combat/scripts/player/` (excluding `spells/`).
+- TS handler source at `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/`.
 - Goscape var-registry path discovered in §3.1 (for varn-defaults binding on `%npc_combat_xp_multiplier`).
 
 Bundle 1 produces per-(D)/(V-PARTIAL) stanzas at `docs/superpowers/investigations/2026-05-07-nai-120-bundle1-audit.md` per spec §5.

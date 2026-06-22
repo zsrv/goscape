@@ -8,7 +8,7 @@
 
 **Stage 2 is NOT in this plan.** Per `superpowers_clear_between_spec_and_impl`: after Task 6 emits the Stage 2 resume prompt, the user `/clear`s and a fresh session authors the Stage 2 plan (`docs/superpowers/plans/2026-05-09-nai-139-stage-2-<short-tag>.md`) per spec §3 routing decision.
 
-**Tech Stack:** Go 1.26+ (no production code in Stage 1). Reference repos: `/home/owner/Code/github.com/LostCityRS/Content` (RuneScript content), `/home/owner/Code/github.com/LostCityRS/Engine-TS` (TS engine reference). Spec doc: `docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md` at commit `68fa3fa`.
+**Tech Stack:** Go 1.26+ (no production code in Stage 1). Reference repos: `$HOME/Code/github.com/LostCityRS/Content` (RuneScript content), `$HOME/Code/github.com/LostCityRS/Engine-TS` (TS engine reference). Spec doc: `docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md` at commit `68fa3fa`.
 
 ---
 
@@ -41,15 +41,15 @@ The Task 3 verification gate exists to catch these. Do not skip it.
 **Reference paths verified present at plan-write (HEAD = `68fa3fa`):**
 
 ```
-/home/owner/Code/github.com/LostCityRS/Content/scripts/tutorial/scripts/tutorial.rs2
-/home/owner/Code/github.com/LostCityRS/Content/scripts/player/scripts/stat.rs2
-/home/owner/Code/github.com/LostCityRS/Content/scripts/player/scripts/appearance.rs2
-/home/owner/Code/github.com/LostCityRS/Content/scripts/login_logout/login.rs2
-/home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers.go
-/home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_inv.go
-/home/owner/Code/github.com/zsrv/goscape/pkg/script/opcode.go
-/home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_inv_test.go
-/home/owner/Code/github.com/zsrv/goscape/modules/world/script_test.go
+$HOME/Code/github.com/LostCityRS/Content/scripts/tutorial/scripts/tutorial.rs2
+$HOME/Code/github.com/LostCityRS/Content/scripts/player/scripts/stat.rs2
+$HOME/Code/github.com/LostCityRS/Content/scripts/player/scripts/appearance.rs2
+$HOME/Code/github.com/LostCityRS/Content/scripts/login_logout/login.rs2
+$HOME/Code/github.com/zsrv/goscape/pkg/script/handlers.go
+$HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_inv.go
+$HOME/Code/github.com/zsrv/goscape/pkg/script/opcode.go
+$HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_inv_test.go
+$HOME/Code/github.com/zsrv/goscape/modules/world/script_test.go
 ```
 
 Audit subagents must locate any other relevant files (other `pkg/script/handlers_*.go` files, cache loaders in `pkg/objtype/`, script-cache loader, interface-config loader) by `Grep` / `Glob`.
@@ -77,10 +77,10 @@ If HEAD has drifted, abort.
 Run in parallel:
 
 ```bash
-sed -n '296,330p' /home/owner/Code/github.com/LostCityRS/Content/scripts/tutorial/scripts/tutorial.rs2
-sed -n '60,90p' /home/owner/Code/github.com/LostCityRS/Content/scripts/login_logout/login.rs2
-sed -n '65,82p' /home/owner/Code/github.com/LostCityRS/Content/scripts/player/scripts/stat.rs2
-sed -n '95,150p' /home/owner/Code/github.com/LostCityRS/Content/scripts/player/scripts/appearance.rs2
+sed -n '296,330p' $HOME/Code/github.com/LostCityRS/Content/scripts/tutorial/scripts/tutorial.rs2
+sed -n '60,90p' $HOME/Code/github.com/LostCityRS/Content/scripts/login_logout/login.rs2
+sed -n '65,82p' $HOME/Code/github.com/LostCityRS/Content/scripts/player/scripts/stat.rs2
+sed -n '95,150p' $HOME/Code/github.com/LostCityRS/Content/scripts/player/scripts/appearance.rs2
 ```
 
 Expected:
@@ -230,7 +230,7 @@ Audit goscape's handler dispatch coverage for the ~initalltabs proc subtree.
 TS source:
   - LostCityRS/Content/scripts/login_logout/login.rs2:62-89 — `[proc,initalltabs]` body.
   - LostCityRS/Content/scripts/player/scripts/appearance.rs2 (or similar — locate) — `[proc,update_weapon_category]` body.
-  - Locate `[proc,update_questlist]` by `grep -rn "\[proc,update_questlist\]" /home/owner/Code/github.com/LostCityRS/Content/scripts/`.
+  - Locate `[proc,update_questlist]` by `grep -rn "\[proc,update_questlist\]" $HOME/Code/github.com/LostCityRS/Content/scripts/`.
 
 Surface (depth-N from `~initalltabs`):
 

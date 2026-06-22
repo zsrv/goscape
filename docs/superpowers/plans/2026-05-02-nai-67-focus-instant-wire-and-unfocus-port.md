@@ -6,7 +6,7 @@
 
 **Architecture:** Two bundles. **B1 — focus-family wire + driver** has three TDD cycles (Player.focus, Npc.focus, Player.SetInteraction driver) + close commit; closes `NAI-65-D-FOCUS-INSTANT-WIRE`. **B2 — Npc.unfocus + respawn wire** has two TDD cycles (Npc.unfocus, resetEntityForRespawn wire) + close commit; opens `NAI-67-D-PLAYER-UNFOCUS-DEFERRED`.
 
-**Tech Stack:** Go 1.26+. TS source canonical path: `/home/owner/Code/github.com/LostCityRS/Engine-TS/`.
+**Tech Stack:** Go 1.26+. TS source canonical path: `$HOME/Code/github.com/LostCityRS/Engine-TS/`.
 
 **Spec:** `docs/superpowers/specs/2026-05-02-nai-67-focus-instant-wire-and-unfocus-port-design.md`.
 
@@ -786,7 +786,7 @@ EOF
 ### Task 2.3 — NAI-67 close + tracker entry
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (append NAI-67 close section)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (append NAI-67 close section)
 - Memory entry name reused: `nai_followups.md`
 
 **No production code changes — close commit only.**
@@ -803,7 +803,7 @@ Expected: only references inside `docs/superpowers/specs/2026-05-01-nai-65-pathi
 
 - [ ] **Step 3: Append NAI-67 entry to nai_followups.md memory.**
 
-Open `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` and append (after the existing NAI-66 close section):
+Open `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` and append (after the existing NAI-66 close section):
 
 ```markdown
 
@@ -860,7 +860,7 @@ Replace `<SHA>` placeholders by running `git log --oneline -10` after the close 
 Replace the `<SHAs>` in the body with the actual short commit SHAs from `git log --oneline -10` (T1.1..T1.3 in B1, T2.1..T2.2 in B2). Then commit:
 
 ```bash
-git -C /home/owner/Code/github.com/zsrv/goscape commit --allow-empty --no-gpg-sign -m "$(cat <<'EOF'
+git -C $HOME/Code/github.com/zsrv/goscape commit --allow-empty --no-gpg-sign -m "$(cat <<'EOF'
 chore(close): NAI-67 — focus instant-wire port + Player.SetInteraction driver + Npc.unfocus port
 
 B1 (focus-family wire + driver) closes NAI-65-D-FOCUS-INSTANT-WIRE.
@@ -886,7 +886,7 @@ EOF
 
 (Note: `--allow-empty` because no production-code change is in this commit — the close is informational. Memory file edit is outside the repo and not part of this commit.)
 
-- [ ] **Step 5: Save the memory file.** Memory edits to `/home/owner/.claude/projects/.../nai_followups.md` are outside the goscape repo and persist independently — no commit needed.
+- [ ] **Step 5: Save the memory file.** Memory edits to `$HOME/.claude/projects/.../nai_followups.md` are outside the goscape repo and persist independently — no commit needed.
 
 ---
 

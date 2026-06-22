@@ -1,8 +1,8 @@
 # PORTING.md
 
 Active tracker of open deviations between goscape (Go) and the upstream
-LostCityRS Engine-TS TypeScript reference at `../Engine-TS` (also at
-`/home/owner/Code/github.com/LostCityRS/Engine-TS` on the dev box).
+LostCityRS Engine-TS TypeScript reference (checked out alongside this repo
+as `../Engine-TS`).
 
 This is the **active backlog**. Closed/shipped rows + audit-history +
 goscape-extensions inventory live in [`docs/PORTING-CLOSED.md`](docs/PORTING-CLOSED.md).

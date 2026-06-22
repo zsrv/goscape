@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-17
 **Scope:** Port the 9 deferred TS `packAll` client-side stages plus the PixPack image codec they depend on. Retires `NAI-212-D-CLIENT-PACKERS-DEFERRED`.
-**Reference:** `/home/owner/Code/github.com/LostCityRS/Engine-TS/tools/pack/`
+**Reference:** `$HOME/Code/github.com/LostCityRS/Engine-TS/tools/pack/`
 **Tech stack:** Go 1.26+, stdlib only (no new third-party deps).
 
 ## Context

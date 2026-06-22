@@ -1210,7 +1210,7 @@ Expected: zero production hits. Doc hits in `docs/superpowers/specs/2026-05-12-n
 
 - [ ] **Step 2: Update memory entry**
 
-Edit `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai175_step_collision_strategy.md`:
+Edit `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai175_step_collision_strategy.md`:
 
 - Change description line to reflect closed status of D2/D3/D4.
 - Add a paragraph at end: "Closed by NAI-176 (date YYYY-MM-DD): D2 wrapper waypoint retention (B1), D3 width>1 axis-only arm (B2), D4 Player.stepOnce parity (B3) all ported; D-FLY tag remains in npc_interaction.go + movement.go for the no-content-wires stretch."
@@ -1228,7 +1228,7 @@ Smoke is OPTIONAL — close commit is fine without it given R5 explicitly accept
 - [ ] **Step 4: Close commit**
 
 ```bash
-git add /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai175_step_collision_strategy.md
+git add $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai175_step_collision_strategy.md
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 chore(close): NAI-176 — port NAI-175 D2/D3/D4 deviation arms
 

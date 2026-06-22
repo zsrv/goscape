@@ -21,8 +21,8 @@
 | `pkg/pack/compiler/cfg/nai208_deviation_pins_test.go` | T3 | Drop `NAI-208-D-LOGPROCREQ-DEFERRED` from the tags slice at L134. |
 | `pkg/pack/compiler/symbols.go` | T4 | Replace stale `populateInterfaceOverlay` doc comment at L594-601 per spec §3.2. |
 | `pkg/pack/compiler/symbols_test.go` | T4 | Replace stale `TestPopulateInterfaceOverlay_NilConfig_FallsBack` comment at L451-455 per spec §3.2. |
-| `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/compiler_deferrals_cleanup_close.md` (new) | T5 | Close memo. |
-| `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` | T5 | New top entry pointer. |
+| `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/compiler_deferrals_cleanup_close.md` (new) | T5 | Close memo. |
+| `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` | T5 | New top entry pointer. |
 
 Task ordering: T1 (helper + direct-proc test) → T2 (recursion + static-label-fallback tests) → T3 (wire + retire tag + drop pin) → T4 (NAI-212 doc refresh) → T5 (close). T1-T3 must run sequential (same file). T4 is independent of T1-T3 but depends on T3 being committed first (so the close memo at T5 captures the right HEAD).
 
@@ -262,7 +262,7 @@ Expected: PASS. The four pre-existing `TestPointerChecker_Run_*` tests should al
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 git status
 git add pkg/pack/compiler/cfg/pointer_checker.go pkg/pack/compiler/cfg/pointer_checker_validation_test.go
 git commit --no-gpg-sign -m "$(cat <<'EOF'
@@ -715,8 +715,8 @@ git show --stat HEAD
 ## Task 5: Close — gates + memory + close commit
 
 **Files:**
-- Create: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/compiler_deferrals_cleanup_close.md`
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (add top entry)
+- Create: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/compiler_deferrals_cleanup_close.md`
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` (add top entry)
 
 - [ ] **Step 1: Run the full `-race` gate**
 
@@ -729,8 +729,8 @@ Expected: 56+ packages OK / 0 FAIL. Note the elapsed time and key package times 
 - [ ] **Step 2: Run the smoke-pack gate**
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 
 Expected: `Result: 12 OK, 0 ERR, 0 SKIP` line. Note the total elapsed time.
@@ -758,7 +758,7 @@ Expected: 4 commits (T1, T2, T3, T4) plus this close commit will land at Step 6.
 
 - [ ] **Step 5: Write the close memo**
 
-Create `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/compiler_deferrals_cleanup_close.md`:
+Create `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/compiler_deferrals_cleanup_close.md`:
 
 ```markdown
 ---
@@ -802,7 +802,7 @@ Replace `[[drop-unused-log-field-cleanup]]` with a placeholder if no memory file
 
 - [ ] **Step 6: Add the MEMORY.md top-entry pointer**
 
-Edit `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`. Insert a new entry at the top of the entries list (immediately after any existing top-of-file content). The new line:
+Edit `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`. Insert a new entry at the top of the entries list (immediately after any existing top-of-file content). The new line:
 
 ```markdown
 - [Compiler deferrals cleanup close](compiler_deferrals_cleanup_close.md) — NAI-208 logProcRequirement port (~55 LOC + 3 tests) + NAI-212 fallback recharacterization (doc-only); 4 impl + 1 close commit on top of 8940d3af; -race clean 56+ pkgs; smoke-pack 12 OK / 0 ERR / 0 SKIP; retires NAI-208-D-LOGPROCREQ-DEFERRED + removes 2 phantom string references; NAI-211-D-MACRO-LOOKUP-DEFERRED deferred to macro-port slice

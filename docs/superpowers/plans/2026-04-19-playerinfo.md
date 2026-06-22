@@ -201,7 +201,7 @@ Expected: all pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 git add pkg/io/packet/alt.go pkg/io/packet/alt_test.go
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 feat(packet): add alt byte writers for scrambled RS2 protocol variants
@@ -285,7 +285,7 @@ Expected: all pass including TestPacketBitMSBFirst. Re-run all existing PacketBi
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 git add pkg/io/packet/
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 test(packet): audit PacketBit MSB-first compatibility with rsbuf pbit

@@ -1595,7 +1595,7 @@ Expected: all PASS, no race detector hits.
 
 - [ ] **Step 3: Memory updates**
 
-Check `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` for entries to add or update.
+Check `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/` for entries to add or update.
 
 Likely new entries (add only if surprising / non-derivable):
 
@@ -1612,7 +1612,7 @@ If no new memory entries were added, skip this step (the per-task commits are su
 If memory entries were added:
 
 ```bash
-git add /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/
+git add $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/
 git commit --no-gpg-sign -m "$(cat <<'EOF'
 chore(close): NAI-185 close — memory entries from admin-cheats cohort
 

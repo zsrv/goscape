@@ -102,7 +102,7 @@ Not a tracker entry — tracker-orphan because the underlying gap (Npc.followX/Z
 
 (Note: `Player.ts:51-52` in the After block is a deliberate placeholder fix; the actual TS declaration lives at `PathingEntity.ts:51-52`. Implementer corrects to `PathingEntity.ts:51-52` if mid-write the source check confirms.)
 
-**Correction during write:** the After block must cite `PathingEntity.ts:51-52` (where TS declares `followX: number = -1; followZ: number = -1;`), NOT `Player.ts:51-52`. Verified by `grep -nE "followX|followZ" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/PathingEntity.ts` → returns lines 51, 52, 446.
+**Correction during write:** the After block must cite `PathingEntity.ts:51-52` (where TS declares `followX: number = -1; followZ: number = -1;`), NOT `Player.ts:51-52`. Verified by `grep -nE "followX|followZ" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/PathingEntity.ts` → returns lines 51, 52, 446.
 
 ### 3.2 `modules/world/interaction_test.go:385-386`
 

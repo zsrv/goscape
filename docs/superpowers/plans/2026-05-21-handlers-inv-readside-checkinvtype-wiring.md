@@ -588,7 +588,7 @@ Then read the function body to confirm `testInvMain` is registered.
 - [ ] **Step 5.1: `gofmt -l` clean**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/gofmt -l pkg/script/handlers_inv.go
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/gofmt -l pkg/script/handlers_inv.go
 ```
 
 Expected: **no output** (file already gofmt-clean).
@@ -596,7 +596,7 @@ Expected: **no output** (file already gofmt-clean).
 - [ ] **Step 5.2: `go test -race ./...` 0 FAIL**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test -race ./...
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test -race ./...
 ```
 
 Expected: all packages PASS. Wall clock ~150-160s (modules/world is the long pole). If any FAIL, halt and diagnose.
@@ -604,7 +604,7 @@ Expected: all packages PASS. Wall clock ~150-160s (modules/world is the long pol
 - [ ] **Step 5.3: `TestPackAll_TwelveStageSmoke` PASS**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/cache/pack -run TestPackAll_TwelveStageSmoke -count=1
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/cache/pack -run TestPackAll_TwelveStageSmoke -count=1
 ```
 
 Expected: PASS.
@@ -627,7 +627,7 @@ If any post-impl count differs from expected, STOP — wiring incomplete or unin
 - [ ] **Step 5.5: Targeted handlers_inv_test PASS**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run "TestInv|TestBoth" -count=1 -v 2>&1 | tail -40
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run "TestInv|TestBoth" -count=1 -v 2>&1 | tail -40
 ```
 
 Expected: all `TestInv*` and `TestBoth*` tests PASS, including `TestInvLookupNilReturnsError`.

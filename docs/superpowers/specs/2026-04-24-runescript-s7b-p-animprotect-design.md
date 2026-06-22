@@ -228,7 +228,7 @@ Commit messages (close-commit format per `close_commit_memory_trailer.md`):
 ## 8. Follow-ups
 
 - **Anim playback porting** — when an in-engine anim playback path lands, the consumer of `Player.animProtect` must gate `playAnim` (or whichever entry point) on `animProtect == 0`, mirroring `Player.ts:1842`. Reference this design doc in that future sub-spec.
-- **Other `check(state.popInt(), NumberNotNull)` sites in TS** — opportunistic audit candidate. `grep -rn "NumberNotNull" /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/` enumerates ~12 TS sites; goscape may still have unported equivalents (or ported-without-check sites beyond the NPC one). Worth a one-shot deferral-sweep sub-spec à la NAI-16 once the count grows.
+- **Other `check(state.popInt(), NumberNotNull)` sites in TS** — opportunistic audit candidate. `grep -rn "NumberNotNull" $HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/` enumerates ~12 TS sites; goscape may still have unported equivalents (or ported-without-check sites beyond the NPC one). Worth a one-shot deferral-sweep sub-spec à la NAI-16 once the count grows.
 - **`require2` / secondary-active-player gating** — `ScriptOpcodePointers.ts:507` declares P_ANIMPROTECT also takes `require2: ['p_active_player2']`. Goscape's collapsed pointer model has no `_activePlayer2`. If/when a script is shown to invoke this opcode in the secondary form, the gating model needs revisiting (S7a-D1 territory). Not blocking; no known caller in `update_all`.
 
 ## 9. Self-review notes

@@ -6,7 +6,7 @@
 
 **Architecture:** Two-bundle sequential follow-up. Bundle 1 is a mechanical signature widening across `pkg/script/active.go` + `pkg/script/handlers.go` + `modules/world/player_script.go` + `modules/world/tick.go` plus 4 test files; the temporary `enqueueTyped` adapter wraps the new parallel-slice shape into the old single-arg call so behavior is unchanged. Bundle 2 is the actual TS-faithfulness work: per-opcode handler bodies, the `popScriptArgs` helper, and the script-missing error rollout. Sequential dispatch — Bundle 2 only after Bundle 1's commit lands.
 
-**Tech Stack:** Go 1.26+. Existing helpers: `checkNotNull(v int, op string) error` at `pkg/script/handlers_player.go:61`, `requireProtectedActivePlayer(s *ScriptState, op string) error` at `pkg/script/handlers_player.go:48` (already used by handlePDelay), `newSingleOp(name string, op Opcode) *ScriptFile` at `pkg/script/handlers_player_test.go:52`, `buildGreetScript(key uint32, ch string) *script.ScriptFile` at `modules/world/script_test.go:130`. TS source root at `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/`. Reference TS sources: `Engine-TS/src/engine/script/handlers/PlayerOps.ts:97-180` (4 queue ops), `:375-379` (P_DELAY), `:1248-1263` (popScriptArgs); `Engine-TS/src/engine/entity/PlayerQueueRequest.ts:15` (ScriptArgument sum-type); `Engine-TS/src/engine/entity/Player.ts:821` (enqueueScript args=[] default).
+**Tech Stack:** Go 1.26+. Existing helpers: `checkNotNull(v int, op string) error` at `pkg/script/handlers_player.go:61`, `requireProtectedActivePlayer(s *ScriptState, op string) error` at `pkg/script/handlers_player.go:48` (already used by handlePDelay), `newSingleOp(name string, op Opcode) *ScriptFile` at `pkg/script/handlers_player_test.go:52`, `buildGreetScript(key uint32, ch string) *script.ScriptFile` at `modules/world/script_test.go:130`. TS source root at `$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/`. Reference TS sources: `Engine-TS/src/engine/script/handlers/PlayerOps.ts:97-180` (4 queue ops), `:375-379` (P_DELAY), `:1248-1263` (popScriptArgs); `Engine-TS/src/engine/entity/PlayerQueueRequest.ts:15` (ScriptArgument sum-type); `Engine-TS/src/engine/entity/Player.ts:821` (enqueueScript args=[] default).
 
 **Spec reference:** `docs/superpowers/specs/2026-04-25-nai-26-queue-family-audit-design.md`.
 
@@ -48,13 +48,13 @@
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go version
 git log --oneline -3
-grep -n "type playerQueueRequest" /home/owner/Code/github.com/zsrv/goscape/modules/world/player_script.go
-grep -n "func (p \*Player) EnqueueScriptFile\|func (p \*Player) EnqueueScriptTyped" /home/owner/Code/github.com/zsrv/goscape/modules/world/player_script.go
-grep -n "EnqueueScriptTyped" /home/owner/Code/github.com/zsrv/goscape/pkg/script/active.go
-grep -n "func enqueueTyped\|handleQueue\|handleWeakQueue\|handleStrongQueue\|handleLongQueue\|handlePDelay" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers.go
-grep -n "intArg := req.IntArg\|s\.runScript" /home/owner/Code/github.com/zsrv/goscape/modules/world/tick.go
-grep -n "func.*runScript\b" /home/owner/Code/github.com/zsrv/goscape/modules/world/script.go
-grep -rn "EnqueueScriptTyped" /home/owner/Code/github.com/zsrv/goscape/ --include="*.go"
+grep -n "type playerQueueRequest" $HOME/Code/github.com/zsrv/goscape/modules/world/player_script.go
+grep -n "func (p \*Player) EnqueueScriptFile\|func (p \*Player) EnqueueScriptTyped" $HOME/Code/github.com/zsrv/goscape/modules/world/player_script.go
+grep -n "EnqueueScriptTyped" $HOME/Code/github.com/zsrv/goscape/pkg/script/active.go
+grep -n "func enqueueTyped\|handleQueue\|handleWeakQueue\|handleStrongQueue\|handleLongQueue\|handlePDelay" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers.go
+grep -n "intArg := req.IntArg\|s\.runScript" $HOME/Code/github.com/zsrv/goscape/modules/world/tick.go
+grep -n "func.*runScript\b" $HOME/Code/github.com/zsrv/goscape/modules/world/script.go
+grep -rn "EnqueueScriptTyped" $HOME/Code/github.com/zsrv/goscape/ --include="*.go"
 ```
 
 Record: confirmed line numbers for the 11 in-scope citations; confirmed `runScript` signature `(sf *script.ScriptFile, self script.ActivePlayer, protect bool, intArgs []int, stringArgs []string)`; confirmed cross-package `EnqueueScriptTyped` call sites are exactly the 6 `script_test.go` sites + the `enqueueTyped` adapter + the production method in `player_script.go` + the interface method in `active.go` + the test mock in `runner_test.go`. If any line drifted, update subsequent steps' citations.
@@ -592,7 +592,7 @@ func TestEnqueueScriptFileDirectPath(t *testing.T) {
 Add `"slices"` to the test file's imports if not already present. Re-grep at task time:
 
 ```bash
-grep -n "\"slices\"" /home/owner/Code/github.com/zsrv/goscape/modules/world/player_script_test.go
+grep -n "\"slices\"" $HOME/Code/github.com/zsrv/goscape/modules/world/player_script_test.go
 ```
 
 - [ ] **Step 12: Migrate the 6 `script_test.go` call sites (mechanical rename + nil/nil)**
@@ -732,9 +732,9 @@ EOF
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go version
 git log --oneline -3
-grep -n "func enqueueTyped\|func handleQueue\|func handleStrongQueue" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers.go
-grep -n "func TestQueueOpcode\|func TestQueueVariants" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_test.go
-grep -n "\"slices\"" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_test.go
+grep -n "func enqueueTyped\|func handleQueue\|func handleStrongQueue" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers.go
+grep -n "func TestQueueOpcode\|func TestQueueVariants" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_test.go
+grep -n "\"slices\"" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_test.go
 ```
 
 Verify Bundle 1 commit landed. Verify `enqueueTyped` is still present (Bundle 2's later tasks remove it). Verify the test file's `"slices"` import was added in Task 1 Step 10.
@@ -1014,8 +1014,8 @@ Task 2 produces no commit — the helper + its 5 unit tests bundle into a single
 
 ```bash
 git diff --staged pkg/script/handlers.go | head -40
-grep -n "func handleStrongQueue\|func enqueueTyped\|func popScriptArgs" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers.go
-grep -n "checkNotNull\b" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go
+grep -n "func handleStrongQueue\|func enqueueTyped\|func popScriptArgs" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers.go
+grep -n "checkNotNull\b" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers_player.go
 ```
 
 Verify `popScriptArgs` is staged (Task 2). Verify `checkNotNull` is at `handlers_player.go:61` (helper reuse target). Verify `handleStrongQueue` is the current 1-line wrapper at the end of `handlers.go`.
@@ -1295,7 +1295,7 @@ Task 3 produces no commit — its changes bundle into the Bundle-2 commit at Tas
 - [ ] **Step 1: Pre-flight verification**
 
 ```bash
-grep -n "func handleLongQueue\|func handleStrongQueue" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers.go
+grep -n "func handleLongQueue\|func handleStrongQueue" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers.go
 ```
 
 Verify Task 3 changes are staged (handleStrongQueue has the un-shared body).
@@ -1417,7 +1417,7 @@ Task 4 produces no commit — its changes bundle into the Bundle-2 commit at Tas
 - [ ] **Step 1: Pre-flight verification**
 
 ```bash
-grep -n "func handleQueue\|func handleWeakQueue\|func handlePDelay\|func enqueueTyped" /home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers.go
+grep -n "func handleQueue\|func handleWeakQueue\|func handlePDelay\|func enqueueTyped" $HOME/Code/github.com/zsrv/goscape/pkg/script/handlers.go
 ```
 
 Confirm `handleQueue`/`handleWeakQueue` are still 1-liners calling `enqueueTyped`, and `handlePDelay` body is unchanged from HEAD.
@@ -1528,7 +1528,7 @@ After Steps 2-3 land, `enqueueTyped` has zero consumers in production and tests.
 Re-grep to verify:
 
 ```bash
-grep -rn "enqueueTyped" /home/owner/Code/github.com/zsrv/goscape/ --include="*.go"
+grep -rn "enqueueTyped" $HOME/Code/github.com/zsrv/goscape/ --include="*.go"
 ```
 
 Expected: only the `func enqueueTyped` definition itself appears. No callers.
@@ -1644,7 +1644,7 @@ Replace with:
 Add `"fmt"` to the imports of `modules/world/player_script.go` if not already present:
 
 ```bash
-grep -n "\"fmt\"" /home/owner/Code/github.com/zsrv/goscape/modules/world/player_script.go
+grep -n "\"fmt\"" $HOME/Code/github.com/zsrv/goscape/modules/world/player_script.go
 ```
 
 If absent, add it to the existing import block.
@@ -1677,7 +1677,7 @@ func (m *mockPlayer) EnqueueScriptArgs(id uint32, delay int, intArgs []int, stri
 Add the opt-in error field to the `mockPlayer` struct. Re-grep for the mockPlayer struct:
 
 ```bash
-grep -n "type mockPlayer struct\|^}" /home/owner/Code/github.com/zsrv/goscape/pkg/script/runner_test.go | head -15
+grep -n "type mockPlayer struct\|^}" $HOME/Code/github.com/zsrv/goscape/pkg/script/runner_test.go | head -15
 ```
 
 Insert at an appropriate place in the struct (e.g. near the other queue-related fields like `enqueueCalls` at `runner_test.go:102`):
@@ -1838,7 +1838,7 @@ Concrete shape: register a fixture script that uses `OpPushIntArg0` + `OpPushInt
 Implementer pre-flight at this step: re-grep for arg-reading opcodes:
 
 ```bash
-grep -n "OpPushIntArg\|OpPushStringArg\|IntArgCount" /home/owner/Code/github.com/zsrv/goscape/pkg/script/opcode.go | head -10
+grep -n "OpPushIntArg\|OpPushStringArg\|IntArgCount" $HOME/Code/github.com/zsrv/goscape/pkg/script/opcode.go | head -10
 ```
 
 Verify whether `OpPushIntArg0`/`OpPushIntArg1` exist. If yes, build a 2-arg script that pushes both ints, appends them, and emits via `OpMes`. If no, fall back to the queue-empty assertion (less informative but still proves the plumbing works).
@@ -1900,7 +1900,7 @@ func TestProcessPlayerQueueDeliversAllArgs(t *testing.T) {
 Verify imports: the test file already imports `"slices"` if Bundle-1 added it to `player_script_test.go`. For `script_test.go`, re-check:
 
 ```bash
-grep -n "\"slices\"" /home/owner/Code/github.com/zsrv/goscape/modules/world/script_test.go
+grep -n "\"slices\"" $HOME/Code/github.com/zsrv/goscape/modules/world/script_test.go
 ```
 
 If absent, add `"slices"` to the import block (it appears alongside `"testing"`, `"time"`).

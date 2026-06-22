@@ -1610,7 +1610,7 @@ Update the NAI-11 deferral in `nai_followups.md` to "Resolved 2026-04-23 (NAI-13
 
 - [ ] **Step 7.1: Update the memory file**
 
-Edit `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`.
+Edit `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`.
 
 Find the "From NAI-11 (2026-04-22) → Deferred: PLAYER\* mode implementations" section. Prepend a **Resolved 2026-04-23 (NAI-13)** block before the existing body, keeping the original text below a `---` rule for historical context. The new block should read:
 

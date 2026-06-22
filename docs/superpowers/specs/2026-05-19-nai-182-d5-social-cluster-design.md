@@ -36,7 +36,7 @@ NAI-182-D5 lands all four social ServerGameProt opcodes (3 dispatcher hops + 1 f
 | `pkg/io/packet/packet.go` (P-methods) | `P1(uint8)`, `P2(uint16)`, `P4(uint32)`, `P8(uint64)` available. |
 | `pkg/friendspb/friends.pb.go` | `FriendEntry.WorldId int32`, `FriendEntry.Username37 uint64` — fields needed for UPDATE_FRIENDLIST encode. `WorldId=0` ⇒ "offline" per slice-3 close note. |
 
-TS source verified at `/home/owner/Code/github.com/LostCityRS/Engine-TS`:
+TS source verified at `$HOME/Code/github.com/LostCityRS/Engine-TS`:
 
 - `src/network/game/server/ServerGameProt.ts:48-51` — opcodes `UPDATE_IGNORELIST` (21, -2), `CHAT_FILTER_SETTINGS` (32, 3), `MESSAGE_PRIVATE` (41, -1), `UPDATE_FRIENDLIST` (152, 9).
 - `src/network/game/server/codec/UpdateFriendListEncoder.ts:9-12` — `buf.p8(message.name); buf.p1(message.nodeId);` (one packet per friend entry; 9 fixed bytes).
@@ -326,7 +326,7 @@ No new test code (signatures unchanged). T7 task verifies `go build ./...` clean
 ### 4.5 Whole-slice gate (T8)
 
 - `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... -count=1 -timeout 600s` — zero FAIL across all packages.
-- `cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content` — 12 OK / 0 ERR (baseline holds).
+- `cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content` — 12 OK / 0 ERR (baseline holds).
 - Optional e2e: extend `TestFriendsClient_E2E_SubscribeUpdatesStream` (or a sibling) to assert that an inbound `FriendsUpdate_PrivateMessage` results in a byte-pinned `OpMessagePrivate` write to the recipient's buffered conn. Whether to add this is left to T8 judgment per the slice-5b precedent (it caught real bugs there; the cost is one ~30-LOC test).
 
 ## 5. Risks & open premises (controller pre-flight)

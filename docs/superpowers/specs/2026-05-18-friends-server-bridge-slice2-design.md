@@ -464,7 +464,7 @@ Slice 2 is done when:
 1. `go build ./...` clean.
 2. `go test ./...` clean.
 3. `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./modules/world/...` clean.
-4. `goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content` → `12 OK / 0 ERR / 0 SKIP` (or matching the slice-1 baseline).
+4. `goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content` → `12 OK / 0 ERR / 0 SKIP` (or matching the slice-1 baseline).
 5. `grep -rn NAI-72-D-FRIENDS-SERVER-BRIDGE modules/world/` returns **zero matches**.
 6. `friends_smoke_test.go` PASS — proves the wire is real.
 7. 3 new deviation tags (`NAI-S2-D-*`) opened in code with retirement plans documented in this spec's §6.

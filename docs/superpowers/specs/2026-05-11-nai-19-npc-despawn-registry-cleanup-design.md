@@ -4,7 +4,7 @@
 
 **Scope label:** Medium-cadence (per `runescript_cadence`). Single bundle. ~50-70 LOC production + ~150-200 LOC tests. Single Sonnet implementer + one stage of formal code review.
 
-**Tech stack:** Go 1.26+, project root `/home/owner/Code/github.com/zsrv/goscape`.
+**Tech stack:** Go 1.26+, project root `$HOME/Code/github.com/zsrv/goscape`.
 
 ## 1. Motivation
 

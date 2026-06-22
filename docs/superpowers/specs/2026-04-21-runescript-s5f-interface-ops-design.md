@@ -36,7 +36,7 @@ modules/world/
 
 ### 1. New wire ops — `pkg/io/protocol/game/server/prot.go`
 
-Implementer verifies exact opcode numbers + payload sizes by reading `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/network/game/server/ServerGameProt.ts`. Expected shapes:
+Implementer verifies exact opcode numbers + payload sizes by reading `$HOME/Code/github.com/LostCityRS/Engine-TS/src/network/game/server/ServerGameProt.ts`. Expected shapes:
 
 | Op | Wire format |
 |---|---|

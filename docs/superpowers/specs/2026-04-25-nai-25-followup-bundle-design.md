@@ -41,7 +41,7 @@ The two items cluster naturally: Bundle 1 closes the From-NAI-24 deferral via TS
 
 #### TS source canonical path
 
-`/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts` (per `ts_source_canonical_path` memory). The TS method body at lines 1441-1462 is the line-by-line porting reference.
+`$HOME/Code/github.com/LostCityRS/Engine-TS/src/engine/entity/Player.ts` (per `ts_source_canonical_path` memory). The TS method body at lines 1441-1462 is the line-by-line porting reference.
 
 #### The three divergences
 

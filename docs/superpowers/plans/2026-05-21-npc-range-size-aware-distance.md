@@ -28,8 +28,8 @@ Single coherent change; no new files. The plumbing (interface + adapter + mock f
 All `go` commands MUST use:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go ...
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/gofmt -l ...
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go ...
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/gofmt -l ...
 ```
 
 All commits use `git commit --no-gpg-sign`.
@@ -75,7 +75,7 @@ Replace with:
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go build ./pkg/script/... ./modules/world/... 2>&1 | head -30
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go build ./pkg/script/... ./modules/world/... 2>&1 | head -30
 ```
 
 Expected: build errors from `modules/world/npc_script.go:11` (`var _ script.ActiveNpc = (*Npc)(nil)`) AND from `pkg/script/handlers_npc_test.go` (mockNpc missing NpcWidth/NpcLength methods).
@@ -174,7 +174,7 @@ func (m *mockNpc) NpcLength() int {
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ ./modules/world/ -count=1 2>&1 | tail -10
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ ./modules/world/ -count=1 2>&1 | tail -10
 ```
 
 Expected: PASS for both packages. The 5 existing NPC_RANGE tests (`TestNpcRange_SameLevel_Adjacent`/`_Diagonal`/`_DifferentLevel_Sentinel`/`_NoActiveNpc`/`_InvalidCoord`) pass unchanged because (a) the handler is still origin-based (no change yet) and (b) all 5 use mockNpc with zero width/length, which the default-zero-to-1 accessor maps to 1.
@@ -283,7 +283,7 @@ func TestNpcRange_Size3_TargetSouthwestOfFootprint(t *testing.T) {
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run "TestNpcRange_Size3" -count=1 -v 2>&1 | tail -25
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run "TestNpcRange_Size3" -count=1 -v 2>&1 | tail -25
 ```
 
 Expected:
@@ -393,7 +393,7 @@ Replace with:
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run "TestNpcRange" -count=1 -v 2>&1 | tail -25
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run "TestNpcRange" -count=1 -v 2>&1 | tail -25
 ```
 
 Expected: 8 PASSes total
@@ -417,7 +417,7 @@ Expected: 8 PASSes total
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test -race ./... -count=1 2>&1 | tail -5
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test -race ./... -count=1 2>&1 | tail -5
 ```
 
 Expected: All packages OK, 0 FAIL.
@@ -427,7 +427,7 @@ Expected: All packages OK, 0 FAIL.
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/packall/ -run TestPackAll_TwelveStageSmoke -count=1 2>&1 | tail -3
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/packall/ -run TestPackAll_TwelveStageSmoke -count=1 2>&1 | tail -3
 ```
 
 Expected: `ok  	github.com/zsrv/goscape/pkg/packall	<duration>s`
@@ -437,7 +437,7 @@ Expected: `ok  	github.com/zsrv/goscape/pkg/packall	<duration>s`
 Run:
 
 ```
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/gofmt -l pkg/script/active.go modules/world/npc_script.go pkg/script/handlers_npc_test.go pkg/script/handlers_npc.go
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/gofmt -l pkg/script/active.go modules/world/npc_script.go pkg/script/handlers_npc_test.go pkg/script/handlers_npc.go
 ```
 
 Expected: empty output (all 4 files clean).
@@ -543,7 +543,7 @@ Expected:
 
 ## Post-implementation: close-memo + MEMORY.md index entry
 
-After the impl commit lands, write a close memo at `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/npc_range_size_aware_distance_close.md` following the established session pattern, and prepend a one-line index entry to `MEMORY.md`. This is post-impl bookkeeping, not part of the task checklist; the controlling agent handles it after Task 4 completes.
+After the impl commit lands, write a close memo at `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/npc_range_size_aware_distance_close.md` following the established session pattern, and prepend a one-line index entry to `MEMORY.md`. This is post-impl bookkeeping, not part of the task checklist; the controlling agent handles it after Task 4 completes.
 
 ---
 

@@ -971,7 +971,7 @@ Replace the deviation comment block (lines 155-162) with a clean gate-explainer 
 
 - [ ] **Step 2.6: Add the gate to `handleOpLocU` (`modules/world/handler_oploc.go`, after line 195).**
 
-Position: AFTER coord viewport + loc lookup + locType registration, BEFORE listener resolution. Mirrors TS `OpLocUHandler.ts` — read the TS file at `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/network/game/client/handler/OpLocUHandler.ts` and confirm the gate position before insertion.
+Position: AFTER coord viewport + loc lookup + locType registration, BEFORE listener resolution. Mirrors TS `OpLocUHandler.ts` — read the TS file at `$HOME/Code/github.com/LostCityRS/Engine-TS/src/network/game/client/handler/OpLocUHandler.ts` and confirm the gate position before insertion.
 
 ```go
 // (after the existing block: viewport check, GetLoc, locTypes nil/range/nil-config check)

@@ -55,7 +55,7 @@ runConfigOpExpectErr(t, mc, OpNcName, []int{999}, "no NpcType with value (999) f
 - [ ] **Step 2: Run the assertion to confirm it FAILS (RED)**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestHandleNcName' -v
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestHandleNcName' -v
 ```
 
 Expected: FAIL with mismatched error substring (production still emits `"unknown npc id 999"`).
@@ -269,7 +269,7 @@ With:
 - [ ] **Step 12: Run the assertion to confirm GREEN**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestHandleNcName' -v
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run 'TestHandleNcName' -v
 ```
 
 Expected: PASS.
@@ -277,7 +277,7 @@ Expected: PASS.
 - [ ] **Step 13: Run full `pkg/script/` suite to confirm no regressions**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -count=1
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -count=1
 ```
 
 Expected: PASS.
@@ -285,7 +285,7 @@ Expected: PASS.
 - [ ] **Step 14: Run gofmt on edited files**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/gofmt -l pkg/script/handlers_config.go pkg/script/handlers_config_test.go
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/gofmt -l pkg/script/handlers_config.go pkg/script/handlers_config_test.go
 ```
 
 Expected: no output (clean).
@@ -403,7 +403,7 @@ func TestCheckObjType(t *testing.T) {
 - [ ] **Step 3: Run `TestCheckObjType` to confirm it PASSES (validator already exists)**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run TestCheckObjType -v
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run TestCheckObjType -v
 ```
 
 Expected: PASS (validator at `handlers_obj.go:44` already emits the canonical wording).
@@ -633,7 +633,7 @@ With:
 - [ ] **Step 14: Run T2's affected tests to confirm GREEN**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -count=1
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -count=1
 ```
 
 Expected: PASS.
@@ -641,7 +641,7 @@ Expected: PASS.
 - [ ] **Step 15: gofmt + audit-grep**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/gofmt -l pkg/script/handlers_config.go pkg/script/handlers_config_test.go pkg/script/handlers_obj_test.go
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/gofmt -l pkg/script/handlers_config.go pkg/script/handlers_config_test.go pkg/script/handlers_obj_test.go
 grep -n 'OC_NAME: unknown obj id\|OC_PARAM: unknown obj id\|OC_CATEGORY: unknown obj id\|OC_DESC: unknown obj id\|OC_MEMBERS: unknown obj id\|OC_WEIGHT: unknown obj id\|OC_WEARPOS: unknown obj id\|OC_WEARPOS2: unknown obj id\|OC_WEARPOS3: unknown obj id\|OC_COST: unknown obj id' pkg/script/handlers_config.go
 ```
 
@@ -794,7 +794,7 @@ With:
 - [ ] **Step 6: Run pkg/script tests**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -count=1
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -count=1
 ```
 
 Expected: PASS.
@@ -802,7 +802,7 @@ Expected: PASS.
 - [ ] **Step 7: gofmt + audit-grep**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/gofmt -l pkg/script/handlers_config.go
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/gofmt -l pkg/script/handlers_config.go
 grep -n 'OC_TRADEABLE: unknown obj id\|OC_DEBUGNAME: unknown obj id\|OC_CERT: unknown obj id\|OC_UNCERT: unknown obj id\|OC_STACKABLE: unknown obj id' pkg/script/handlers_config.go
 ```
 
@@ -859,7 +859,7 @@ if !strings.Contains(err.Error(), "no ObjType with value") {
 - [ ] **Step 2: Run the test to confirm RED**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run TestObjFindUnknownObjId -v
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run TestObjFindUnknownObjId -v
 ```
 
 Expected: FAIL — production still emits `"OBJ_FIND: unknown obj id 999"`.
@@ -899,7 +899,7 @@ Note: no local `ot` var was used here (handler never accesses fields of the look
 - [ ] **Step 4: Run the test to confirm GREEN**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -run TestObjFindUnknownObjId -v
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -run TestObjFindUnknownObjId -v
 ```
 
 Expected: PASS.
@@ -907,7 +907,7 @@ Expected: PASS.
 - [ ] **Step 5: Run full pkg/script suite**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./pkg/script/ -count=1
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./pkg/script/ -count=1
 ```
 
 Expected: PASS.
@@ -915,7 +915,7 @@ Expected: PASS.
 - [ ] **Step 6: Run race-detector suite (close-slice gate)**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test -race ./...
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test -race ./...
 ```
 
 Expected: PASS, ~155s wall clock (modules/world is long pole). 0 failures across 57+ pkgs.
@@ -923,7 +923,7 @@ Expected: PASS, ~155s wall clock (modules/world is long pole). 0 failures across
 - [ ] **Step 7: Run smoke test (close-slice gate)**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache /home/owner/go/go1.26.3/bin/go test ./modules/world/ -run TestPackAll_TwelveStageSmoke -v
+GOROOT=$HOME/go/go1.26.3 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache $HOME/go/go1.26.3/bin/go test ./modules/world/ -run TestPackAll_TwelveStageSmoke -v
 ```
 
 Expected: PASS.
@@ -931,7 +931,7 @@ Expected: PASS.
 - [ ] **Step 8: gofmt close-slice gate**
 
 ```bash
-GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/gofmt -l pkg/script/handlers_config.go pkg/script/handlers_obj.go pkg/script/handlers_config_test.go pkg/script/handlers_obj_test.go
+GOROOT=$HOME/go/go1.26.3 $HOME/go/go1.26.3/bin/gofmt -l pkg/script/handlers_config.go pkg/script/handlers_obj.go pkg/script/handlers_config_test.go pkg/script/handlers_obj_test.go
 ```
 
 Expected: no output (clean).
@@ -983,6 +983,6 @@ EOF
 - [ ] All file paths are absolute-relative to repo root, no `.../` or placeholders. ✓
 - [ ] `checkNpcType` and `checkObjType` referenced consistently (no `checkNpcType*` / `CheckObjType` casing drift). ✓
 - [ ] All commit messages use `--no-gpg-sign` per CLAUDE.md global. ✓
-- [ ] All `go` invocations use the `GOROOT=/home/owner/go/go1.26.3 ...` env per CLAUDE.md global. ✓
+- [ ] All `go` invocations use the `GOROOT=$HOME/go/go1.26.3 ...` env per CLAUDE.md global. ✓
 - [ ] No new `NAI-XXX-D-*` pins opened (pure refactor). ✓
 - [ ] T4 race-detector + smoke test gates run at slice close. ✓

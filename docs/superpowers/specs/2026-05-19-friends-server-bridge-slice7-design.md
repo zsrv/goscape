@@ -340,10 +340,10 @@ Each task is independently verifiable: T1 ships a proto-only change that compile
 ## 10. Verification gate
 
 ```bash
-unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
+unset GOROOT; export PATH="$HOME/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... -count=1 -timeout 600s
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack \
-  --content-dir /home/owner/Code/github.com/LostCityRS/content
+  --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 
 Expected: 30 packages PASS; smoke-pack 12 OK / 0 ERR / 0 SKIP.

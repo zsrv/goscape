@@ -1786,7 +1786,7 @@ EOF
 - Create: `pkg/pack/compiler/trigger/server_trigger_type.go`
 - Create: `pkg/pack/compiler/trigger/server_trigger_type_test.go`
 
-**TS source:** `src/runescript/trigger/ServerTriggerType.ts`. **Plan-task instruction:** read the TS file first (`cat /home/owner/Code/github.com/LostCityRS/RuneScriptTS/src/runescript/trigger/ServerTriggerType.ts`) to enumerate every trigger declaration. Each declaration becomes a `var ServerTrigger<Name> = &TriggerType{...}` in goscape. Preserve declaration order in the `ServerTriggerTypeAll` slice.
+**TS source:** `src/runescript/trigger/ServerTriggerType.ts`. **Plan-task instruction:** read the TS file first (`cat $HOME/Code/github.com/LostCityRS/RuneScriptTS/src/runescript/trigger/ServerTriggerType.ts`) to enumerate every trigger declaration. Each declaration becomes a `var ServerTrigger<Name> = &TriggerType{...}` in goscape. Preserve declaration order in the `ServerTriggerTypeAll` slice.
 
 Each TS `ServerTriggerType.X = new ServerTriggerType(id, identifier, subjectMode, allowParameters, parameters, allowReturns, returns, pointers)` maps to:
 
@@ -1809,7 +1809,7 @@ ServerTriggerX = &TriggerType{
 
 - [ ] **Step 1: Read the TS file**
 
-Run: `cat /home/owner/Code/github.com/LostCityRS/RuneScriptTS/src/runescript/trigger/ServerTriggerType.ts | head -300`
+Run: `cat $HOME/Code/github.com/LostCityRS/RuneScriptTS/src/runescript/trigger/ServerTriggerType.ts | head -300`
 
 Enumerate every static declaration (`static readonly X = new ServerTriggerType(...)`). Build a mental (or scratchpad) table of `(name, id, identifier, subjectMode, allowParameters, parameters, allowReturns, returns, pointers)` for each.
 

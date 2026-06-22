@@ -12,7 +12,7 @@ Port TS class-field default `tradeable = true` (`ObjType.ts:177`) into goscape's
 
 ## 2. TS source of truth
 
-`/home/owner/Code/github.com/LostCityRS/Engine-TS/src/cache/config/ObjType.ts`:
+`$HOME/Code/github.com/LostCityRS/Engine-TS/src/cache/config/ObjType.ts`:
 
 | Line | Code | Effect |
 |---|---|---|

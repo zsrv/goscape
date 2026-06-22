@@ -222,7 +222,7 @@ asserts `state.OtherActiveNpc != nil` but not `state.ActiveNpc != other`
 
 **Task 2.** Audit-record + retirement.
 
-1. **Edit** `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`:
+1. **Edit** `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md`:
    - Strike `NAI-40-SB3` from each `## NAI-N (CLOSED …)` deferred-items
      list it currently appears in (lines 2313, 2335, 2384, 2438 per
      the brainstorm grep — re-grep at execution time and enumerate ALL

@@ -83,7 +83,7 @@ static readonly FEMALE_MALE_MAP = new Map<number, number>([
 
 ### 4.1 Content bytecode audit
 
-Greppable `setgender` invocations in `/home/owner/Code/github.com/LostCityRS/Content/scripts/`:
+Greppable `setgender` invocations in `$HOME/Code/github.com/LostCityRS/Content/scripts/`:
 
 - **Exactly one production callsite**: `areas/area_falador/scripts/makeover_mage.rs2:58` — `setgender(calc(%if1 - 1));`
 - Surrounding logic (`if_button` cases at lines 34-41) sets `%if1 ∈ {1, 2}`, so the value passed to `setgender` is always `{0, 1}` (no garbage inputs reach this opcode in production content).

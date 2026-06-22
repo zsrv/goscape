@@ -768,8 +768,8 @@ User reports.
 ## Task 7 — Close commit + memory hygiene
 
 **Files:**
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (add NAI-112 close entry with cascade attribution)
-- Modify: `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` if a new memory is added (≥1 line, <200 chars)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md` (add NAI-112 close entry with cascade attribution)
+- Modify: `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md` if a new memory is added (≥1 line, <200 chars)
 
 **Goal:** finalize NAI-112 with a `Closes memory:` trailer per `close_commit_memory_trailer` (apply NAI-15 onward).
 

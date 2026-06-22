@@ -1221,7 +1221,7 @@ Replace `// ─── Step 10: ───` and `// ─── Step 11: ───` 
 Verify `LocTypesForTest` / `ObjTypesForTest`:
 
 ```bash
-grep -n "LocTypesForTest\|ObjTypesForTest" /home/owner/Code/github.com/zsrv/goscape/pkg/gamemap/*.go
+grep -n "LocTypesForTest\|ObjTypesForTest" $HOME/Code/github.com/zsrv/goscape/pkg/gamemap/*.go
 ```
 
 If absent, append to the gamemap getter file (or `gamemap.go` near `SetLocTypes`):

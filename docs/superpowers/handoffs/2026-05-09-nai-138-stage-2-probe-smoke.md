@@ -35,7 +35,7 @@ Leave the server running for both Run A and Run B.
 ### 2. Paired smoke runs
 
 **Run A — energy=0 path (the failing case)**
-1. Log in to the Java client (`/home/owner/Code/github.com/LostCityRS/Client-Java`).
+1. Log in to the Java client (`$HOME/Code/github.com/LostCityRS/Client-Java`).
 2. Confirm the run-mode button is ON (toggle it on if needed; it should glow / show the "running" pose).
 3. Walk continuously until the run-energy orb depletes to **0%**. Open ground works (e.g. somewhere outside Lumbridge); stop walking only after the orb hits 0.
 4. **Observe:** does the run-mode button visually de-toggle (the pose changes back to the walking pose) or does it stay stuck in the run pose?

@@ -154,7 +154,7 @@ This task additively introduces six new lazy registry helpers and accompanying `
 - [ ] **Step 1.1: Inspect existing helpers**
 
 ```bash
-grep -n "ensureObjPack\|ensureSeqPack\|ensureLk\|ensureParamTypes" /home/owner/Code/github.com/zsrv/goscape/pkg/pack/pack_configs.go
+grep -n "ensureObjPack\|ensureSeqPack\|ensureLk\|ensureParamTypes" $HOME/Code/github.com/zsrv/goscape/pkg/pack/pack_configs.go
 ```
 
 Expected: lines 102–155 region show all four existing `ensureFoo` closures.
@@ -280,7 +280,7 @@ _ = ensureTexturePack
 - [ ] **Step 1.5: Verify build**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./...
 ```
 
@@ -289,7 +289,7 @@ Expected: clean exit, no errors.
 - [ ] **Step 1.6: Verify existing tests pass**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -count=1
 ```
 
@@ -490,7 +490,7 @@ Bytes referenced: see `objtype.ScriptVarTypeInt` value confirmed at `scriptvarty
 - [ ] **Step 2.1.2: Run — expect FAIL (parseLocConfigFor undefined)**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestParseLocConfig -count=1 -v
 ```
 
@@ -628,7 +628,7 @@ func parseLocConfigFor(modelPack, categoryPack, seqPack, texturePack *PackFile, 
 - [ ] **Step 2.1.4: Run — expect parser tests PASS**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestParseLocConfig -count=1 -v
 ```
 
@@ -769,7 +769,7 @@ func TestPackLocConfigs_Param(t *testing.T) {
 - [ ] **Step 2.2.2: Run — expect FAIL (packLocConfigs undefined)**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestPackLocConfigs -count=1 -v
 ```
 
@@ -927,7 +927,7 @@ func packLocConfigs(configs map[string][]ConfigLine, locPack, modelPack *PackFil
 - [ ] **Step 2.2.4: Run — expect PASS**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestPackLocConfigs -count=1 -v
 ```
 
@@ -936,7 +936,7 @@ Expected: all `TestPackLocConfigs_*` tests PASS. If a specific opcode test fails
 - [ ] **Step 2.2.5: Run full pack package**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -count=1
 ```
 
@@ -1087,7 +1087,7 @@ func TestParseObjConfig_UnknownKey(t *testing.T) {
 - [ ] **Step 3.1.2: Run — expect FAIL**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestParseObjConfig -count=1 -v
 ```
 
@@ -1201,7 +1201,7 @@ Same completeness note as T2: branches marked `// ...` MUST be fully implemented
 - [ ] **Step 3.1.4: Run — expect PASS**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestParseObjConfig -count=1 -v
 ```
 
@@ -1330,7 +1330,7 @@ func indexOffset(t *testing.T, idx *Packet, i int) int {
 - [ ] **Step 3.2.2: Run — expect FAIL**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestPackObjConfigs -count=1 -v
 ```
 
@@ -1471,7 +1471,7 @@ func packObjConfigs(configs map[string][]ConfigLine, objPack *PackFile) (server,
 - [ ] **Step 3.2.4: Run — expect PASS**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestPackObjConfigs -count=1 -v
 ```
 
@@ -1610,7 +1610,7 @@ func TestParseNpcConfig_Param(t *testing.T) {
 - [ ] **Step 4.1.2: Run — expect FAIL**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestParseNpcConfig -count=1 -v
 ```
 
@@ -1700,7 +1700,7 @@ Same completeness note as T2/T3.
 - [ ] **Step 4.1.4: Run — expect PASS**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestParseNpcConfig -count=1 -v
 ```
 
@@ -1801,7 +1801,7 @@ func TestPackNpcConfigs_Param(t *testing.T) {
 - [ ] **Step 4.2.2: Run — expect FAIL**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestPackNpcConfigs -count=1 -v
 ```
 
@@ -1891,7 +1891,7 @@ func packNpcConfigs(configs map[string][]ConfigLine, npcPack *PackFile) (server,
 - [ ] **Step 4.2.4: Run — expect PASS**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestPackNpcConfigs -count=1 -v
 ```
 
@@ -2486,7 +2486,7 @@ func jagfileFromBytes(buf []byte) (*jagfile.Jagfile, error) {
 Same commit. The new `_ElevenConfigsLand` test supersedes it. Also audit `pack_configs_test.go` for any OTHER tests that assert the old ordering (e.g., `TestPackConfigs_MixedVarpVarnVars` at line 155 — check that test's expected-call-order assertions and update if needed).
 
 ```bash
-grep -n "varp.*before\|before.*varp\|order.*expected\|expected.*order" /home/owner/Code/github.com/zsrv/goscape/pkg/pack/pack_configs_test.go
+grep -n "varp.*before\|before.*varp\|order.*expected\|expected.*order" $HOME/Code/github.com/zsrv/goscape/pkg/pack/pack_configs_test.go
 ```
 
 If hits: update them inline.
@@ -2494,7 +2494,7 @@ If hits: update them inline.
 - [ ] **Step 5.5: Run pack package**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -count=1
 ```
 
@@ -2503,7 +2503,7 @@ Expected: all green. If `TestPackConfigs_NoVarpSource_NoClientJagfileWritten` (l
 - [ ] **Step 5.6: Run full test suite**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./... -count=1
 ```
 
@@ -2737,7 +2737,7 @@ func TestPackNpcRoundTrip(t *testing.T) {
 - [ ] **Step 6.4: Run round-trip tests**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestPack.*RoundTrip -count=1 -v
 ```
 
@@ -2796,7 +2796,7 @@ Append these blocks just before the function's closing brace:
 - [ ] **Step 7.2: Run integration test**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestPackConfigs_ElevenConfigsLand -count=1 -v
 ```
 
@@ -2919,7 +2919,7 @@ Per `[[pin_test_self_trigger_production_doc]]`: the new `NAI-196-D-UNCONDITIONAL
 - [ ] **Step 8.2: Run deviation pin tests**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -run TestNAI196 -count=1 -v
 ```
 
@@ -2928,7 +2928,7 @@ Expected: all five pin tests PASS.
 - [ ] **Step 8.3: Run full pack package**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/pack/... -count=1
 ```
 
@@ -2937,7 +2937,7 @@ Expected: all green.
 - [ ] **Step 8.4: Run full repo test suite**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./... -count=1
 ```
 
@@ -2946,7 +2946,7 @@ Expected: all green.
 - [ ] **Step 8.5: Run race-enabled pack tests**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd $HOME/Code/github.com/zsrv/goscape
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./pkg/pack/... -count=1
 ```
 

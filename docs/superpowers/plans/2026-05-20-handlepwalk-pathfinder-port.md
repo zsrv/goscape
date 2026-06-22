@@ -538,7 +538,7 @@ GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./... 2>&1 | grep -cE '
 - [ ] **Step 2: Smoke-pack**
 
 ```bash
-GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir /home/owner/Code/github.com/LostCityRS/content
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go run -trimpath ./cmd/goscape-cli smoke-pack --content-dir $HOME/Code/github.com/LostCityRS/content
 ```
 
 Expected: 12 OK / 0 ERR / 0 SKIP (matches baseline at HEAD `18a3560a`).

@@ -775,16 +775,16 @@ If any unintended file appears in the cumulative diff, investigate before procee
 
 - [ ] **Step 5.4: Retire the seed memory file**
 
-The seed memory `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai81_seed_loc_coord_p_arrivedelay.md` carried both NAI-81 and NAI-82 items. NAI-81's close commit referenced it; NAI-82 retires it. Delete the file:
+The seed memory `$HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai81_seed_loc_coord_p_arrivedelay.md` carried both NAI-81 and NAI-82 items. NAI-81's close commit referenced it; NAI-82 retires it. Delete the file:
 
 ```bash
-rm /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai81_seed_loc_coord_p_arrivedelay.md
+rm $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai81_seed_loc_coord_p_arrivedelay.md
 ```
 
 Then remove its index entry from `MEMORY.md`:
 
 ```bash
-grep -n "nai81_seed" /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md
+grep -n "nai81_seed" $HOME/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md
 ```
 
 Use the Edit tool to delete the matching line (the entry titled "NAI-82 seed — P_ARRIVEDELAY (NAI-81 closed)").
