@@ -101,7 +101,7 @@ func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 	// web.ts:81-84) were DROPPED upstream — TS web.ts (dee467c8) no longer
 	// serves either, and PackAll.ts no longer emits the backing
 	// data/pack/ondemand.zip or data/pack/server/build artifacts. Routes
-	// removed; the rev244-b6-* exceptions are retired (see PORTING.md, T26).
+	// removed; the rev244-b6-* exceptions are retired (see docs/PORTING.md, T26).
 
 	// /maps/ — goscape-specific HTTP cache fallback for per-zone map/loc files.
 	// No analog in 244 web.ts; kept as-is for the goscape-client CacheHTTPFallback

@@ -88,7 +88,7 @@ func CRC() *CRCSnapshot {
 // stronger (a crc32-colliding forged blob passes TS, never goscape). An
 // empty/absent cache yields an empty Table → every login rejected
 // out-of-date until a real cache exists (B6-deferred posture).
-// See PORTING.md.
+// See docs/PORTING.md.
 //
 // Module-init guard (CrcTable.ts:29-33): maps to the existing world-start
 // and ::reload call sites (modules/world/world.go + reload.go). No new call

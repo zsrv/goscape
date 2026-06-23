@@ -15,7 +15,7 @@
 // GOSCAPE_REF*-driven parity gate was retired at A16; coverage lives in the
 // self-consistency format test (symbols_export_ref_parity_test.go).
 //
-// PORTING-EXCEPTION (symbols-export-go-only, see PORTING.md).
+// PORTING-EXCEPTION (symbols-export-go-only, see docs/PORTING.md).
 //
 // CompilerSymbols.ts reference (historical): Engine-TS@9aadcec4
 // tools/pack/CompilerSymbols.ts.

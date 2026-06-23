@@ -89,7 +89,7 @@ type WebSocketConfig struct {
 	// machine; the proxy has no visibility into client.state. Enforcing the gate
 	// world-side requires a WS-origin marker on the client struct (out of scope
 	// for B3). Config field recorded for documentation; gate is not enforced
-	// until a WS-origin marker is added to the world client. See PORTING.md.
+	// until a WS-origin marker is added to the world client. See docs/PORTING.md.
 	WsOndemand bool `yaml:"ws_ondemand"`
 }
 
