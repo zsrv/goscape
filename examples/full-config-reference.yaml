@@ -72,7 +72,6 @@ ondemand:
   # CLI: --ondemand.http-listen-address (default: 127.0.0.1)
   http_listen_address: 127.0.0.1
   # CLI: --ondemand.http-listen-port (default: 8080)
-  # (The bundled example uses 8888; the built-in default is 8080.)
   http_listen_port: 8080
 
   # --- HTTP server timeouts (inlined dskit server.Config) ---
