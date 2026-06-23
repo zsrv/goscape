@@ -202,12 +202,12 @@ cadence vs. controller-direct verification:
 
 ### #274 flip-prediction (the no-op flip prediction)
 
-`deploy/bundled/goscape.yaml` and `pkg/util/build/build.go` are operator-flip
+`examples/bundled/goscape.yaml` and `pkg/util/build/build.go` are operator-flip
 files routinely modified in the primary worktree (uncommitted local edits).
 Branch work that doesn't touch these files MUST leave them byte-identical post-
 FF. Pre-FF protocol:
 
-- `md5sum deploy/bundled/goscape.yaml pkg/util/build/build.go` to snapshot the
+- `md5sum examples/bundled/goscape.yaml pkg/util/build/build.go` to snapshot the
   current operator-flip state.
 - Verify the branch's `git diff --name-only $(git merge-base main HEAD) HEAD`
   does NOT list either file.
