@@ -76,7 +76,7 @@ help: ## Display this help
 .PHONY: benchmark-store check-mod
 .PHONY: migrate migrate-image lint-markdown
 .PHONY: doc check-doc
-.PHONY: validate-example-configs generate-example-config-doc check-example-config-doc
+.PHONY: validate-example-configs
 .PHONY: clean clean-protos
 .PHONY: dev-k3d-goscape dev-k3d-down
 .PHONY: helm-test helm-lint
@@ -398,43 +398,18 @@ check-doc: doc
 ###################
 # Example Configs #
 ###################
-EXAMPLES_DOC_PATH := $(DOC_SOURCES_PATH)/configure/examples
-EXAMPLES_DOC_OUTPUT_PATH := $(EXAMPLES_DOC_PATH)/configuration-examples.md
-EXAMPLES_YAML_PATH := $(EXAMPLES_DOC_PATH)/yaml
-EXAMPLES_SKIP_VALIDATION_FLAG := "doc-example:skip-validation=true"
+EXAMPLES_CONFIG_PATH := examples
+EXAMPLES_SKIP_VALIDATION_FLAG := "example:skip-validation=true"
 
-# Validate the example configurations that we provide in ./docs/sources/configure/examples
-# We run the validation only for complete examples, not snippets.
-# Complete examples should contain "Example" in their file name.
-validate-example-configs: loki
-	for f in $$(grep -rL $(EXAMPLES_SKIP_VALIDATION_FLAG) $(EXAMPLES_YAML_PATH)/*.yaml); do echo "Validating provided example config: $$f" && ./cmd/goscape/goscape --config.file=$$f --verify-config || exit 1; done
-
-validate-dev-cluster-config: loki
-	./cmd/goscape/goscape --config.file=./tools/dev/loki-tsdb-storage-s3/config/loki.yaml --verify-config
-
-# Dynamically generate ./docs/sources/configure/examples.md using the example configs that we provide.
-# This target should be run if any of our example configs change.
-generate-example-config-doc:
-	echo "Removing existing doc at $(EXAMPLES_DOC_OUTPUT_PATH) and re-generating. . ."
-	# Title and Heading
-	echo -e "---\ntitle: Configuration\ndescription: Goscape Configuration Examples and Snippets\nweight:  100\n---\n# Configuration" > $(EXAMPLES_DOC_OUTPUT_PATH)
-	# Append each configuration and its file name to examples.md
-	for f in $$(find $(EXAMPLES_YAML_PATH)/*.yaml -printf "%f\n" | sort -k1n); do \
-		echo -e "\n## $$f\n\n\`\`\`yaml\n" >> $(EXAMPLES_DOC_OUTPUT_PATH); \
-		grep -v $(EXAMPLES_SKIP_VALIDATION_FLAG) $(EXAMPLES_YAML_PATH)/$$f >> $(EXAMPLES_DOC_OUTPUT_PATH); \
-		echo -e "\n\`\`\`\n" >> $(EXAMPLES_DOC_OUTPUT_PATH); \
+# Validate every example config under ./examples by loading it through the
+# server's strict config decoder (an unknown key is a fatal boot error). A
+# file may opt out by containing the EXAMPLES_SKIP_VALIDATION_FLAG marker
+# (for partial snippets that are not complete configs).
+validate-example-configs: goscape
+	@for f in $$(grep -L $(EXAMPLES_SKIP_VALIDATION_FLAG) $$(find $(EXAMPLES_CONFIG_PATH) -name '*.yaml')); do \
+		echo "Validating provided example config: $$f"; \
+		./cmd/goscape/goscape --config.file=$$f --config.verify=true || exit 1; \
 	done
-
-
-# Fail our CI build if changes are made to example configurations but our doc is not updated
-check-example-config-doc: generate-example-config-doc
-	@if ! (git diff --exit-code $(EXAMPLES_DOC_OUTPUT_PATH)); then \
-		echo -e "\nChanges found in generated example configuration doc"; \
-		echo "Run 'make generate-example-config-doc' and commit the changes to fix this error."; \
-		echo "If you are actively developing these files you can ignore this error"; \
-		echo -e "(Don't forget to check in the generated files when finished)\n"; \
-		exit 1; \
-	fi
 
 dev-k3d-goscape:
 	$(MAKE) -C $(CURDIR)/tools/dev/k3d goscape

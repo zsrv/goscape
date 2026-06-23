@@ -7,8 +7,8 @@ This is a Go rewrite of the TypeScript RuneScape server `LostCityRS/Engine-TS`. 
 ## Commands
 
 ```bash
-# Run (requires config.yaml)
-CGO_ENABLED=0 go run -trimpath ./cmd/goscape --config.file config.yaml
+# Run (requires a config file; see examples/)
+CGO_ENABLED=0 go run -trimpath ./cmd/goscape --config.file examples/bundled/goscape.yaml
 
 # Build binary
 CGO_ENABLED=0 go build -trimpath -o /go/bin/goscape ./cmd/goscape
@@ -40,7 +40,13 @@ make images
 
 Config follows a layered precedence: **defaults → config file → env vars → CLI flags**.
 
-The `--target` flag (or `target:` in config.yaml) selects which modules to run:
+Example configs live in `examples/`: `examples/bundled/goscape.yaml` is a minimal
+"run everything" preset; `examples/full-config-reference.yaml` documents **every**
+option at its default (copy only what you override). There is no default config
+path — `--config.file` is always required. Decoding is strict: an unknown key is a
+fatal boot error.
+
+The `--target` flag (or `target:` in the config file) selects which modules to run:
 - `ondemand` — HTTP OnDemand server only
 - `world` — TCP game server only
 - `login` — gRPC login service only
