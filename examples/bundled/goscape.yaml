@@ -1,6 +1,6 @@
-# deploy/bundled/goscape.yaml
+# examples/bundled/goscape.yaml
 # Example config for the standalone goscape game server.
-# Start goscape with: go run ./cmd/goscape --config.file deploy/bundled/goscape.yaml
+# Start goscape with: go run ./cmd/goscape --config.file examples/bundled/goscape.yaml
 #
 # The game server is self-contained: login and friends persist to local SQLite,
 # so no external services are required to run it.
