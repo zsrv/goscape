@@ -366,7 +366,7 @@ func UnpackFull(jag *jagfile.Jagfile, dir, name, outputName string, errorf func(
 	// TS Pix.ts:52-54 — write PNG file only when unpackJagToPng returned non-null.
 	// On dimension failure img is nil and we skip the write (mirrors `if (png)` guard).
 	if img != nil {
-		// PORTING-EXCEPTION (rev244-b7-png-bytes, Jimp-vs-image/png encoder — parity is decoded-pixel-level). See PORTING.md.
+		// PORTING-EXCEPTION (rev244-b7-png-bytes, Jimp-vs-image/png encoder — parity is decoded-pixel-level). See docs/PORTING.md.
 		pngPath := filepath.Join(dir, outName+".png")
 		if err := writePNG(pngPath, img); err != nil {
 			return fmt.Errorf("pix: write PNG: %w", err)

@@ -58,7 +58,7 @@ func (h *handler) WorldStartup(ctx context.Context, req *loginpb.WorldStartupReq
 	// account_login reset by the now-undefined profile — the upstream
 	// reset matches nothing at the pin. goscape keeps the field and the
 	// per-profile reset (correct behavior over broken-line fidelity;
-	// rev244-b3-ws-origin precedent). See PORTING.md.
+	// rev244-b3-ws-origin precedent). See docs/PORTING.md.
 	if err := clearWorldSessions(ctx, h.db, int(req.NodeId), req.Profile); err != nil {
 		return nil, status.Errorf(codes.Internal, "clearWorldSessions: %v", err)
 	}
@@ -246,7 +246,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		return resp, nil
 	}
 
-	// 8. Record session + login row atomically (PORTING.md Arc 18 DB-1).
+	// 8. Record session + login row atomically (docs/PORTING.md Arc 18 DB-1).
 	// The intermediate save-file read sits inside the transaction window
 	// but does not itself perform DB I/O; if it fails (non-ErrNotExist),
 	// the deferred rollback drops the just-inserted session row so we

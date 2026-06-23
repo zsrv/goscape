@@ -105,7 +105,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		// line would silently drop everything written before client-out.
 		// Resetting here preserves the stat's TS-INTENT ("bytes out this
 		// cycle") at the cost of the literal reset-line position. See
-		// PORTING.md §B4.
+		// docs/PORTING.md §B4.
 		s.cycleStats[statBandwidthOut] = 0
 
 		// ── CLIENT_IN (TS World.ts:626-691) ──────────────────────────────

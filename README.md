@@ -64,7 +64,7 @@ skip automatically when it isn't present.
 
 ## Development notes
 
-- `PORTING.md` and `docs/PORTING-CLOSED.md` track the port's parity work against the TS
+- `docs/PORTING.md` and `docs/PORTING-CLOSED.md` track the port's parity work against the TS
   reference; `docs/superpowers/audits/` holds the function-level parity audits.
 - Binary I/O lives in `pkg/io/` (`packet` RS2 buffers, `protocol` opcodes/framing,
   `isaac` cipher); the RuneScript toolchain in `pkg/pack/`.

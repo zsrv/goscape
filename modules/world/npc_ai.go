@@ -62,7 +62,7 @@ func (n *Npc) turn(s *Server) {
 	// TS's own "Dev note: Is this necessary?"). goscape's Npc therefore has no
 	// jump field and intentionally omits the call. The player side (real wire
 	// effect via computePlayer) is ported in processValidateDistanceWalked. See
-	// PORTING.md / fix-tracker M3.
+	// docs/PORTING.md / fix-tracker M3.
 }
 
 // fireNpcLifecycle runs the once-per-cycle lifecycle transition (respawn /

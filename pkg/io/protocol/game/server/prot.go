@@ -28,7 +28,7 @@ var (
 	// IF_SETHIDE=227/3, IF_SETOBJECT=222/6, IF_SETCOLOUR=38/4,
 	// IF_SETPOSITION=27/6, IF_SETSCROLLPOS=14/4,
 	// IF_SETTAB=91/3, IF_SETTAB_ACTIVE=138/1.
-	// IF_SETRECOL removed at 244 — encoder/model deleted upstream; see PORTING.md §B2/§B4.
+	// IF_SETRECOL removed at 244 — encoder/model deleted upstream; see docs/PORTING.md §B2/§B4.
 	OpIfSetText       = Op{Opcode: 41, PayloadSize: -2}
 	OpIfSetModel      = Op{Opcode: 211, PayloadSize: 4}
 	OpIfSetNpcHead    = Op{Opcode: 3, PayloadSize: 4}

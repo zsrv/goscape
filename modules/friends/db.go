@@ -18,7 +18,7 @@ import (
 //go:embed migrations/*.sql
 var migrations embed.FS
 
-// PORTING.md Arc 18 DB-2 — schema-decoupling note:
+// docs/PORTING.md Arc 18 DB-2 — schema-decoupling note:
 //
 // friendlist / ignorelist / private_chat / public_chat store bare
 // username37 integers without referential integrity against an

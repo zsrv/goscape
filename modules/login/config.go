@@ -46,7 +46,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.DurationVar(&c.NodeHopTime, "login.node-hop-time", 45*time.Second, "Mirror of TS NODE_HOP_TIME: world-hop cooldown after a graceful logout on another world (hop-timer login reject).")
 }
 
-// Validate enforces runtime invariants (PORTING.md Arc 18 CFG-1).
+// Validate enforces runtime invariants (docs/PORTING.md Arc 18 CFG-1).
 // When the module is disabled it short-circuits — the values are not
 // consulted by any live code path.
 func (c *Config) Validate() error {
