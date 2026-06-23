@@ -74,5 +74,5 @@ skip automatically when it isn't present.
 ## License
 
 MIT — see [LICENSE](LICENSE). goscape is a from-scratch Go port of Lost City's MIT-licensed
-Engine-TS; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for upstream attributions
+Engine-TS; see [`NOTICE`](NOTICE) for upstream attributions
 (including the `pkg/dskit` port of Grafana's Apache-2.0 dskit).
