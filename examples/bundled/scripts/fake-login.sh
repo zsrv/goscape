@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/bundled/scripts/fake-login.sh
+# examples/bundled/scripts/fake-login.sh
 # Trigger one PlayerLogin against the bundled goscape login service via grpcurl.
 # Requires: grpcurl (https://github.com/fullstorydev/grpcurl).
 set -euo pipefail

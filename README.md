@@ -36,11 +36,11 @@ make            # or: go build ./cmd/goscape ./cmd/goscape-cli
 ./cmd/goscape-cli/goscape-cli pack -h
 
 # Run with the bundled example config
-CGO_ENABLED=0 go run -trimpath ./cmd/goscape --config.file deploy/bundled/goscape.yaml
+CGO_ENABLED=0 go run -trimpath ./cmd/goscape --config.file examples/bundled/goscape.yaml
 ```
 
-See `deploy/bundled/README.md` for the example config, ports, and data locations, and
-`deploy/bundled/scripts/fake-login.sh` for a one-shot login smoke test (needs `grpcurl`).
+See `examples/bundled/README.md` for the example config, ports, and data locations, and
+`examples/bundled/scripts/fake-login.sh` for a one-shot login smoke test (needs `grpcurl`).
 
 ## CLI
 
