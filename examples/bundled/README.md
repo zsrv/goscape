@@ -27,7 +27,7 @@ go run ./cmd/goscape --config.file examples/bundled/goscape.yaml --config.verify
 
 | Port | Module | Notes |
 |------|--------|-------|
-| 8888 | ondemand | HTTP OnDemand server |
+| 8080 | ondemand | HTTP OnDemand server |
 | 2004 | login  | gRPC login service |
 | (world) | world | TCP game server (port from world config) |
 
