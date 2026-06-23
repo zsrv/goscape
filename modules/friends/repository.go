@@ -184,7 +184,7 @@ func (r *Repository) GetChatMode(username37 uint64) int32 {
 // AddFriend adds target to owner's friend list. Idempotent: a duplicate
 // insert (same profile+owner+target PK) is silently ignored.
 //
-// PORTING.md Arc 18 DB-2: the recheck-then-insert is wrapped in a
+// docs/PORTING.md Arc 18 DB-2: the recheck-then-insert is wrapped in a
 // per-call BeginTx so the read-modify-write window cannot interleave
 // with a concurrent DeleteFriend.
 func (r *Repository) AddFriend(ctx context.Context, owner, target uint64) error {
@@ -600,7 +600,7 @@ func (r *Repository) LogPrivateMessage(ctx context.Context, from, to uint64, coo
 // rev-244 re-key: rows are keyed (profile, world, username) — TS
 // FriendServer.ts:287-305 resolves username to account_id; goscape
 // stores the username directly (federated DB, no account table —
-// NO-LANDING-SITE row, PORTING.md §B5). Append-only, no dedupe, no
+// NO-LANDING-SITE row, docs/PORTING.md §B5). Append-only, no dedupe, no
 // validation; insert failure surfaces codes.Internal at the handler.
 func (r *Repository) LogPublicMessage(ctx context.Context, world int32, username string, coord int32, message string) error {
 	_, err := r.db.ExecContext(ctx,

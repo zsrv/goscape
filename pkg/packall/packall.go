@@ -158,7 +158,7 @@ func PackAll(srcDir, outDir, dataPackDir, rawDir string) error {
 	// zip.Store method and FIXED ModTime (time.Unix(0,0).UTC()) so goscape's
 	// zip is deterministic. The zip container bytes are NOT byte-identical to
 	// TS output (zip header timestamps, tool identifiers differ); entry
-	// content is identical. See PORTING.md §B6 decision rows.
+	// content is identical. See docs/PORTING.md §B6 decision rows.
 	if err := WriteOndemandZip(outDir, cache); err != nil {
 		return fmt.Errorf("PackAll: ondemand.zip: %w", err)
 	}

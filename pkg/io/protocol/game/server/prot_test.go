@@ -28,7 +28,7 @@ func TestServerProt244Table(t *testing.T) {
 		{"IF_SETHIDE", OpIfSetHide, 123, 3},
 		{"IF_SETOBJECT", OpIfSetObject, 164, 6},
 		{"IF_SETMODEL", OpIfSetModel, 245, 4},
-		// IF_SETRECOL (103/6) removed at 244 — encoder/model deleted upstream; see PORTING.md §B2/§B4.
+		// IF_SETRECOL (103/6) removed at 244 — encoder/model deleted upstream; see docs/PORTING.md §B2/§B4.
 		{"IF_SETANIM", OpIfSetAnim, 219, 4},
 		{"IF_SETPLAYERHEAD", OpIfSetPlayerHead, 108, 2},
 		{"IF_SETTEXT", OpIfSetText, 154, -2},

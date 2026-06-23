@@ -25,7 +25,7 @@ import (
 // Origin header must exactly match one entry; otherwise the request is
 // rejected with 403 before any upgrade is attempted. TS terminates the
 // connection AFTER the upgrade (web.ts:127-129) in the 225 baseline; the
-// 244 pin comments this out entirely. See PORTING.md.
+// 244 pin comments this out entirely. See docs/PORTING.md.
 //
 // # Fallthrough
 //

@@ -61,7 +61,7 @@ func (b *slogLoggerBridge) NotifyPlayerReport(p *Player, offender, reason string
 // rev-244 B5: world/profile stamped per the 244 inputTrack envelope
 // (LoggerClient.ts:76-86). The TS `timestamp` param is not modeled —
 // goscape's seam has no caller-supplied timestamp (the slog record
-// carries its own time); recorded with the B5 logger rows in PORTING.md.
+// carries its own time); recorded with the B5 logger rows in docs/PORTING.md.
 func (b *slogLoggerBridge) SubmitInputTracking(username, sessionUUID string, blobs []InputTrackingBlob) {
 	blobsAny := make([]any, len(blobs))
 	for i, bl := range blobs {
