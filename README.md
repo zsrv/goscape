@@ -22,7 +22,8 @@ The binary is module-targeted (Grafana dskit-style service lifecycle; see `pkg/d
 
 Select with `--target` or `target:` in the config file. Configuration follows a layered
 precedence: defaults → config file → env vars → CLI flags. Verify a config without
-starting: `--config.verify`.
+starting: `--config.verify`. Every option is documented at its default in
+`examples/full-config-reference.yaml`.
 
 ## Quick start
 
@@ -41,6 +42,7 @@ CGO_ENABLED=0 go run -trimpath ./cmd/goscape --config.file examples/bundled/gosc
 
 See `examples/bundled/README.md` for the example config, ports, and data locations, and
 `examples/bundled/scripts/fake-login.sh` for a one-shot login smoke test (needs `grpcurl`).
+For the complete set of tunables, see `examples/full-config-reference.yaml`.
 
 ## CLI
 

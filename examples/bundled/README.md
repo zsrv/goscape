@@ -15,8 +15,9 @@ CGO_ENABLED=0 go run -trimpath ./cmd/goscape \
 bash examples/bundled/scripts/fake-login.sh            # trigger one login (needs grpcurl)
 ```
 
-`goscape.yaml` here is a minimal preset (ondemand / login / friends / world). Verify
-a config without starting the server:
+`goscape.yaml` here is a minimal preset (ondemand / login / friends / world). For the
+full set of options — every key at its default, with descriptions — see
+`examples/full-config-reference.yaml`. Verify a config without starting the server:
 
 ```bash
 go run ./cmd/goscape --config.file examples/bundled/goscape.yaml --config.verify
