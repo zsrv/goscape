@@ -912,7 +912,7 @@ func TestRepository_LogPublicMessage_EmptyMessageAllowed(t *testing.T) {
 // resolves username -> account_id against the shared account table;
 // goscape's friends DB is username-keyed by design (DB-2 federation) —
 // the username is stored directly (account_id resolution has no landing
-// site; see the B5 rows in PORTING.md).
+// site; see the B5 rows in docs/PORTING.md).
 func TestLogPublicMessage_Rev244Shape(t *testing.T) {
 	r := NewRepository(createTestDB(t), "main")
 	if err := r.LogPublicMessage(t.Context(), 10, "bob", 12345, "hello"); err != nil {

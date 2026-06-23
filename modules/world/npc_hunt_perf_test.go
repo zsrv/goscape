@@ -69,7 +69,7 @@ func TestHuntNpcsSteadyStateZeroAlloc(t *testing.T) {
 }
 
 // BenchmarkHuntPlayers measures one hunt scan at typical (8) and crowded
-// (40) candidate counts. PORTING.md perf-row evidence.
+// (40) candidate counts. docs/PORTING.md perf-row evidence.
 func BenchmarkHuntPlayers(b *testing.B) {
 	for _, count := range []int{8, 40} {
 		b.Run(map[int]string{8: "players8", 40: "players40"}[count], func(b *testing.B) {

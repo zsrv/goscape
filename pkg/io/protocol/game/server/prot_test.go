@@ -29,7 +29,7 @@ func TestServerProt245_2Table(t *testing.T) {
 		{"IF_SETOBJECT", OpIfSetObject, 153, 6},
 		{"IF_SETMODEL", OpIfSetModel, 60, 4},
 		// IF_SETRECOL absent from ServerGameProt.ts @3c16994c — removed at 244;
-		// encoder/model deleted upstream; see PORTING.md §B2/§B4.
+		// encoder/model deleted upstream; see docs/PORTING.md §B2/§B4.
 		{"IF_SETANIM", OpIfSetAnim, 69, 4},
 		{"IF_SETPLAYERHEAD", OpIfSetPlayerHead, 83, 2},
 		{"IF_SETTEXT", OpIfSetText, 32, -2},
@@ -184,7 +184,7 @@ func TestSubSpec3COpcodes(t *testing.T) {
 // the AllOps name table. TS 244 deletes IfSetRecolEncoder.ts + its model;
 // the wire row is absent from ServerGameProt.ts @3c16994c as well (verified
 // with grep — no IF_SETRECOL line exists at the 245.2 pin).
-// See PORTING.md §B2/§B4 for context.
+// See docs/PORTING.md §B2/§B4 for context.
 func TestIfSetRecolRemoved244(t *testing.T) {
 	for _, e := range AllOps() {
 		if e.Name == "IF_SETRECOL" {

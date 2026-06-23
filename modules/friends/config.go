@@ -25,7 +25,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.DurationVar(&c.GracefulShutdownTimeout, "friends.graceful-shutdown-timeout", 30*time.Second, "Timeout for graceful gRPC server shutdown.")
 }
 
-// Validate enforces runtime invariants (PORTING.md Arc 18 CFG-1 mirror).
+// Validate enforces runtime invariants (docs/PORTING.md Arc 18 CFG-1 mirror).
 // When the module is disabled it short-circuits.
 func (c *Config) Validate() error {
 	if !c.Enable {

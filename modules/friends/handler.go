@@ -488,7 +488,7 @@ func (h *handler) RelayQueueScript(_ context.Context, req *friendspb.RelayQueueS
 // `world: nodeId`). req.Username carries the username TEXT; TS resolves
 // to account_id but goscape stores the username directly — no account
 // table in the federated friends DB (DB-2, db.go:21-35). See
-// PORTING.md §B5 NO-LANDING-SITE row.
+// docs/PORTING.md §B5 NO-LANDING-SITE row.
 //
 // Retires NAI-S6-D-PUBLIC-CHAT-DEFERRED.
 func (h *handler) PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest) (*emptypb.Empty, error) {
