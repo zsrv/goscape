@@ -10,16 +10,16 @@ Requirements: Go ≥ 1.23.
 
 ```bash
 CGO_ENABLED=0 go run -trimpath ./cmd/goscape \
-  --config.file deploy/bundled/goscape.yaml          # start the server
+  --config.file examples/bundled/goscape.yaml          # start the server
 
-bash deploy/bundled/scripts/fake-login.sh            # trigger one login (needs grpcurl)
+bash examples/bundled/scripts/fake-login.sh            # trigger one login (needs grpcurl)
 ```
 
 `goscape.yaml` here is a minimal preset (ondemand / login / friends / world). Verify
 a config without starting the server:
 
 ```bash
-go run ./cmd/goscape --config.file deploy/bundled/goscape.yaml --config.verify
+go run ./cmd/goscape --config.file examples/bundled/goscape.yaml --config.verify
 ```
 
 ## Services & ports
