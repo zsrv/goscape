@@ -78,7 +78,7 @@ func TestSnapshotPlayersClearsStaleTail(t *testing.T) {
 }
 
 // BenchmarkSnapshotPlayers measures one tick pass's snapshot at typical
-// (50) and stress (500) player counts. PORTING.md perf-row evidence.
+// (50) and stress (500) player counts. docs/PORTING.md perf-row evidence.
 func BenchmarkSnapshotPlayers(b *testing.B) {
 	for _, n := range []int{50, 500} {
 		b.Run(map[int]string{50: "players50", 500: "players500"}[n], func(b *testing.B) {

@@ -118,7 +118,7 @@ type Server struct {
 	// playerLoop (~25+ call sites across server.go, tick.go,
 	// player_info.go, friends_smoke_test.go) for no behavioural change
 	// at the wire boundary. Documented; deferred indefinitely. See
-	// PORTING.md.
+	// docs/PORTING.md.
 	playerLoop []*Player
 	newPlayers []*Player // guarded by playersMu; drained by processLogins
 	playersMu  sync.RWMutex

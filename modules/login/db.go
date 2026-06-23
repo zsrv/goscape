@@ -255,7 +255,7 @@ func clearWorldSessions(ctx context.Context, db *sql.DB, nodeID int, profile str
 // legacy. Broader than a setLoggedOut-site fix and broader than any
 // reasonable bundle slot. The deviation is real but only triggers on
 // multi-profile accounts; single-profile deployments are unaffected.
-// See PORTING.md.
+// See docs/PORTING.md.
 func setLoggedOut(ctx context.Context, db *sql.DB, accountID int, profile string) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {

@@ -195,7 +195,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK, account, saveBytes, sessionUUID), nil
 	}
 
-	// 8. Record session + login row atomically (PORTING.md Arc 18 DB-1).
+	// 8. Record session + login row atomically (docs/PORTING.md Arc 18 DB-1).
 	// The intermediate save-file read sits inside the transaction window
 	// but does not itself perform DB I/O; if it fails (non-ErrNotExist),
 	// the deferred rollback drops the just-inserted session row so we

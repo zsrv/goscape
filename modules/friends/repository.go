@@ -156,7 +156,7 @@ func (r *Repository) GetChatMode(username37 uint64) int32 {
 // AddFriend adds target to owner's friend list. Idempotent: a duplicate
 // insert (same profile+owner+target PK) is silently ignored.
 //
-// PORTING.md Arc 18 DB-2: the recheck-then-insert is wrapped in a
+// docs/PORTING.md Arc 18 DB-2: the recheck-then-insert is wrapped in a
 // per-call BeginTx so the read-modify-write window cannot interleave
 // with a concurrent DeleteFriend.
 func (r *Repository) AddFriend(ctx context.Context, owner, target uint64) error {
