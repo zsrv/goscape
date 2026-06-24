@@ -3,16 +3,16 @@ package world
 import (
 	"flag"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/zsrv/goscape/pkg/dskit/server"
 	"github.com/zsrv/goscape/pkg/io/protocol"
+	"github.com/zsrv/goscape/pkg/util/log"
 )
 
 type Config struct {
 	SignalHandler     SignalHandler `yaml:"-"`
-	LogLevel          *slog.Level   `yaml:"log_level"`
+	LogLevel          *log.Level    `yaml:"log_level"`
 	LogFormat         string        `yaml:"log_format"`
 	NodeDebugprocChar string        `yaml:"node_debugproc_char"`
 	TCPListenNetwork  string        `yaml:"tcp_listen_network"`

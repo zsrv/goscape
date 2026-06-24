@@ -1997,6 +1997,7 @@ func newInOperableTestServer(t *testing.T) (*Server, *objtype.LocType) {
 		rsbuf:          rsbuf.New(),
 		players:        newPlayerList(2048),
 	}
+	s.initChildLoggers(s.log)
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = noopBridges{}
@@ -2851,6 +2852,7 @@ func newObjReachTestServer(t *testing.T) *Server {
 		rsbuf:          rsbuf.New(),
 		players:        newPlayerList(2048),
 	}
+	s.initChildLoggers(s.log)
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = noopBridges{}

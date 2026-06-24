@@ -41,6 +41,7 @@ import (
 	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/tapper"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 	"github.com/zsrv/goscape/pkg/wordenc/encfilter"
 	"github.com/zsrv/goscape/pkg/zone"
 )
@@ -59,7 +60,12 @@ type Server struct {
 	handler     SignalHandler
 	tcpListener net.Listener
 	quit        chan interface{}
-	log         *slog.Logger
+	log         *slog.Logger // component=world.server (server lifecycle)
+	logNet      *slog.Logger // component=world.net (per-connection I/O)
+	logTick     *slog.Logger // component=world.tick
+	logScript   *slog.Logger // component=world.script
+	logContent  *slog.Logger // component=world.content
+	logFriends  *slog.Logger // component=world.friends
 	loginClient LoginClient
 	// tap is the seam handle owned by the tapper dskit
 	// module. Nil in test paths (newTestServer); production always non-nil via
@@ -412,7 +418,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		tap:           tap,
 		quit:          make(chan interface{}),
 
-		log:              logger,
+		log:              logger.With("component", compServer),
 		invs:             make(map[int]*inventory.Inventory),
 		zoneMap:          zone.NewZoneMap(),
 		zonesTracking:    map[*zone.Zone]struct{}{},
@@ -430,6 +436,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// ignore the pm, their array is filled with 0 as default"). R4: atomic
 	// field can't be initialized in a struct literal, so Store post-alloc.
 	s.pmCount.Store(1)
+	s.initChildLoggers(logger)
 	s.rsaKey = rsaKey
 	s.packFn = packall.PackAll
 	s.reloadFn = s.Reload
@@ -438,22 +445,22 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// Arc 18 R3 — bridges parent context; canceled by Shutdown so
 	// in-flight fire-and-forget gRPC calls observe shutdown promptly.
 	s.bridgesCtx, s.bridgesCancel = context.WithCancel(context.Background())
-	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.bridgesCtx, s.log)
-	s.friendsDispatcher = newEmitFriendsDispatcher(s, s.log)
-	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, cfg.NodeProfile, s.log)
+	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.bridgesCtx, logger.With("component", compFriends))
+	s.friendsDispatcher = newEmitFriendsDispatcher(s, logger.With("component", compFriends))
+	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, cfg.NodeProfile, logger.With("component", compFriends))
 	// Slice 5b: production dispatcher composes the slice-5a slog
 	// dispatcher with WorldStateOps so each RELAY_* event both logs
 	// AND applies its world-state effect.
-	innerSlog := newSlogWorldEventsDispatcher(s.log)
+	innerSlog := newSlogWorldEventsDispatcher(logger.With("component", compFriends))
 	s.worldEventsDispatcher = newActionWorldEventsDispatcher(innerSlog, s)
 	if friendsClient != nil {
 		ctx, cancel := context.WithCancel(context.Background())
 		s.worldEventsCancel = cancel
-		sub := newWorldEventsSubscriber(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.worldEventsDispatcher, s.log)
+		sub := newWorldEventsSubscriber(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.worldEventsDispatcher, logger.With("component", compFriends))
 		go sub.run(ctx)
 	}
-	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.bridgesCtx, s.log)
-	s.loggerBridge = NewSlogLoggerBridge(s.log, s.cfg.NodeID, s.cfg.NodeProfile)
+	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.bridgesCtx, logger.With("component", compLogin))
+	s.loggerBridge = NewSlogLoggerBridge(logger, s.cfg.NodeID, s.cfg.NodeProfile)
 	s.locOps = &serverLocOps{s: s}
 	s.tcpWg.Add(1)
 
@@ -903,7 +910,7 @@ func (s *Server) serveConn(conn net.Conn) {
 	defer s.tcpWg.Done()
 	defer func() {
 		if r := recover(); r != nil {
-			s.log.Error("recovered panic in connection handler",
+			s.logNet.Error("recovered panic in connection handler",
 				"panic", r,
 				"remote_addr", conn.RemoteAddr(),
 				"stack", string(debug.Stack()))
@@ -914,20 +921,20 @@ func (s *Server) serveConn(conn net.Conn) {
 
 func (s *Server) handleTCPConn(conn net.Conn) {
 	//c := newClient(conn, s, s.log)
-	c := newClient(conn, s.cfg.TCPServerWriteTimeout, s.log)
+	c := newClient(conn, s.cfg.TCPServerWriteTimeout, s.logNet)
 	c.server = s
 	c.tap = s.tap
 
 	// Fix 1: disable Nagle's algorithm so small game packets are sent immediately.
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		if err := tcpConn.SetNoDelay(true); err != nil {
-			s.log.Warn("failed to set TCP_NODELAY", "error", err)
+			s.logNet.Warn("failed to set TCP_NODELAY", "error", err)
 		}
 		if s.cfg.TCPKeepAlivePeriod > 0 {
 			if err := tcpConn.SetKeepAlive(true); err != nil {
-				s.log.Warn("failed to enable TCP keepalive", "error", err)
+				s.logNet.Warn("failed to enable TCP keepalive", "error", err)
 			} else if err := tcpConn.SetKeepAlivePeriod(s.cfg.TCPKeepAlivePeriod); err != nil {
-				s.log.Warn("failed to set TCP keepalive period", "error", err)
+				s.logNet.Warn("failed to set TCP keepalive period", "error", err)
 			}
 		}
 	}
@@ -942,13 +949,13 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 			c.player = nil
 		}
 		if err := c.flushWrite(); err != nil {
-			s.log.Warn("failed to flush on connection close", "error", err, "remote_addr", conn.RemoteAddr())
+			s.logNet.Warn("failed to flush on connection close", "error", err, "remote_addr", conn.RemoteAddr())
 		}
 		c.in.Release()
 		putBufioReader64k(c.bufr)
 		putBufioWriter64k(c.bufw)
 		conn.Close()
-		s.log.Info("connection closed", "remote_addr", conn.RemoteAddr())
+		s.logNet.Debug("connection closed", "remote_addr", conn.RemoteAddr())
 	}()
 
 	// rev-244 B3: connect-time seed send REMOVED.
@@ -966,7 +973,7 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		// bot/integration tests aren't killed by the normal timeout.
 		if !s.cfg.NodeDebugSocket {
 			if err := c.conn.SetReadDeadline(time.Now().Add(s.cfg.TCPServerReadTimeout)); err != nil {
-				s.log.Error("failed to set read deadline", "error", err)
+				s.logNet.Error("failed to set read deadline", "error", err)
 				return
 			}
 		}
@@ -974,7 +981,7 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		n, err := c.bufr.Read(buf)
 		if err != nil {
 			if err != io.EOF {
-				s.log.Error("connection read error", "error", err)
+				s.logNet.Error("connection read error", "error", err)
 			}
 			// logger-transport-4: TS TcpServer.ts:44-67 emits an ENGINE
 			// session log on every disconnect kind (close / error / timeout)
@@ -989,10 +996,9 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		}
 
 		msg := buf[:n]
-		// LOG-1: per-byte payload dump is noise at Info. Keep num_bytes at
-		// Info for traffic-volume diagnostics; demote raw bytes to Debug.
-		c.log.Info("received data", "num_bytes", len(msg))
-		c.log.Debug("received data payload", "data", fmt.Sprintf("%v", msg))
+		// LOG-1: per-packet, demoted to trace (firehose).
+		applog.Trace(c.log, "received data", "num_bytes", len(msg))
+		applog.Trace(c.log, "received data payload", "data", fmt.Sprintf("%v", msg))
 
 		switch c.state {
 		case ClientStateLogin:
@@ -1053,7 +1059,7 @@ func (c *client) handleData() error {
 	case ClientStateLogin:
 		return c.handleLogin()
 	default:
-		c.log.Info("unhandled client state", "state", c.state)
+		c.log.Warn("unhandled client state", "state", c.state)
 		return errors.New("unhandled client state")
 	}
 }
@@ -1117,7 +1123,7 @@ func (c *client) handleLogin() error {
 
 		pLen, ok := protocol.CheckPacketLength(c.in, loginreq.OpReqInitGameConnection)
 		if !ok {
-			c.log.Info("partial packet data received, waiting for more", "opcode", loginreq.OpReqInitGameConnection, "length", pLen)
+			applog.Trace(c.log, "partial packet data received, waiting for more", "opcode", loginreq.OpReqInitGameConnection, "length", pLen)
 			return protocol.ErrPayloadTooSmall
 		}
 
@@ -1291,7 +1297,7 @@ func (c *client) callPlayerLoginRPC(req *loginpb.PlayerLoginRequest, safeName st
 		}
 		return loginresp.OpLoginServerOffline.Opcode, err
 	}
-	c.log.Info("PlayerLogin RPC response", "result", resp.GetResult())
+	c.log.Debug("PlayerLogin RPC response", "result", resp.GetResult())
 
 	result := resp.GetResult()
 	reply := loginResultToRS2(result)

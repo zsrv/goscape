@@ -49,7 +49,7 @@
 # CLI: --target
 target: all
 
-# Minimum severity to log. One of: debug | info | warn | error.
+# Minimum severity to log. One of: trace | debug | info | warn | error.
 # CLI: --log.level   (default: info)
 log_level: info
 
@@ -152,9 +152,10 @@ ondemand:
   #  -----END PUBLIC KEY-----
 
   # --- Advanced dskit server.Config knobs (inlined; no CLI flag; rarely set) ---
-  # Per-module log overrides; fall back to the top-level log_level/log_format.
+  # Per-module log level override (yaml-only; no CLI flag); falls back to the
+  # top-level log_level. Valid levels: debug, info, warn, error.
+  # (ondemand inherits the dskit HTTP server layer, which does not support trace.)
   #log_level: info
-  #log_format: text
   # HTTP server read-header timeout (default: 0 = no separate header timeout).
   #http_server_read_header_timeout: 0s
   # Log connections closed before any response was written.
@@ -183,6 +184,9 @@ friends:
   world_player_limit: 2000
   # CLI: --friends.graceful-shutdown-timeout (default: 30s)
   graceful_shutdown_timeout: 30s
+  # Per-module log level override (yaml-only; no CLI flag); falls back to the
+  # top-level log_level. Valid levels: trace, debug, info, warn, error.
+  #log_level: info
 
 
 # ----------------------------------------------------------------------------
@@ -211,6 +215,9 @@ login:
   auto_subscribe_members: true
   # CLI: --login.graceful-shutdown-timeout (default: 30s)
   graceful_shutdown_timeout: 30s
+  # Per-module log level override (yaml-only; no CLI flag); falls back to the
+  # top-level log_level. Valid levels: trace, debug, info, warn, error.
+  #log_level: info
 
 
 # ----------------------------------------------------------------------------
@@ -313,10 +320,9 @@ world:
   node_debug_socket: false
 
   # --- Advanced / rarely set ---
-  # Per-module log overrides; fall back to the top-level log_level/log_format.
-  # (yaml-only; no CLI flag.)
+  # Per-module log level override (yaml-only; no CLI flag); falls back to the
+  # top-level log_level. Valid levels: trace, debug, info, warn, error.
   #log_level: info
-  #log_format: text
   # TCP read-header timeout (yaml-only; default: 0 = none).
   #tcp_server_read_header_timeout: 0s
 

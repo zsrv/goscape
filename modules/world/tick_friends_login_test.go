@@ -100,6 +100,7 @@ func TestProcessLogins_FriendsPlayerLogin_LogsWarnOnRejection(t *testing.T) {
 
 	buf := &syncBuffer{}
 	s.log = slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	s.initChildLoggers(s.log) // re-derive child loggers from the replaced s.log
 
 	fake := newFakeFriendsClient()
 	fake.playerLoginAccepted = false
