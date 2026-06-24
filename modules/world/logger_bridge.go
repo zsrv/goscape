@@ -10,7 +10,7 @@ import (
 
 // slogLoggerBridge is the production default LoggerBridge impl. Emits
 // one structured slog record per call under a child logger keyed
-// component=logger_bridge. NAI-73 closes NAI-72-D-LOGGER-BRIDGE by
+// component=world.report. NAI-73 closes NAI-72-D-LOGGER-BRIDGE by
 // shipping this default; tests still bind recordingBridges via
 // installRecordingBridges(s).
 type slogLoggerBridge struct {
@@ -20,11 +20,11 @@ type slogLoggerBridge struct {
 }
 
 // NewSlogLoggerBridge wraps parent in a child logger keyed
-// component=logger_bridge. nodeID/profile are stamped on records whose
+// component=world.report. nodeID/profile are stamped on records whose
 // TS message shapes carry world/profile (LoggerClient.ts:48-87).
 func NewSlogLoggerBridge(parent *slog.Logger, nodeID int, profile string) LoggerBridge {
 	return &slogLoggerBridge{
-		log:     parent.With("component", "logger_bridge"),
+		log:     parent.With("component", compReport),
 		nodeID:  nodeID,
 		profile: profile,
 	}

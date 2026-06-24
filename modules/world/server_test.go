@@ -342,6 +342,7 @@ func newTestServer(t *testing.T) *Server {
 	}
 	// R4 (Arc 18): pmCount is atomic.Uint32; init to 1 per TS World.ts:167.
 	s.pmCount.Store(1)
+	s.initChildLoggers(s.log)
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = noopBridges{}

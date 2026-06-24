@@ -105,12 +105,12 @@ func (s *Server) runContentWatcher() {
 		// ASYNC-1: bail out if persistent failures exhaust the attempt
 		// ceiling. Server keeps running; only content-hot-reload disabled.
 		if attempt > watcherMaxAttempts {
-			s.log.Error("contentWatcher: max restart attempts exceeded, giving up",
+			s.logContent.Error("contentWatcher: max restart attempts exceeded, giving up",
 				"attempts", attempt-1, "ran", ran)
 			return
 		}
 		delay := nextWatcherBackoff(attempt)
-		s.log.Warn("contentWatcher: session ended, restarting",
+		s.logContent.Warn("contentWatcher: session ended, restarting",
 			"attempt", attempt, "delay", delay, "ran", ran)
 		select {
 		case <-time.After(delay):
@@ -127,7 +127,7 @@ func (s *Server) runContentWatcher() {
 func (s *Server) runWatchSession() bool {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
-		s.log.Error("contentWatcher: fsnotify init failed", "err", err)
+		s.logContent.Error("contentWatcher: fsnotify init failed", "err", err)
 		return true
 	}
 	defer w.Close()
@@ -135,7 +135,7 @@ func (s *Server) runWatchSession() bool {
 	for _, sub := range canonicalContentSubdirs {
 		root := filepath.Join(s.cfg.ContentPath, sub)
 		if err := addWatchesRecursive(w, root); err != nil {
-			s.log.Warn("contentWatcher: add-watches failed", "root", root, "err", err)
+			s.logContent.Warn("contentWatcher: add-watches failed", "root", root, "err", err)
 			// continue with partial coverage
 		}
 	}
@@ -151,7 +151,7 @@ func (s *Server) runWatchSession() bool {
 
 		case ev, ok := <-w.Events:
 			if !ok {
-				s.log.Warn("contentWatcher: Events chan closed")
+				s.logContent.Warn("contentWatcher: Events chan closed")
 				return true
 			}
 			// Dynamic add-on-CREATE-dir: subdirs created mid-session
@@ -165,10 +165,10 @@ func (s *Server) runWatchSession() bool {
 
 		case err, ok := <-w.Errors:
 			if !ok {
-				s.log.Warn("contentWatcher: Errors chan closed")
+				s.logContent.Warn("contentWatcher: Errors chan closed")
 				return true
 			}
-			s.log.Warn("contentWatcher: fsnotify error", "err", err)
+			s.logContent.Warn("contentWatcher: fsnotify error", "err", err)
 
 		case <-debounceC:
 			debounceC = nil
@@ -234,25 +234,25 @@ func (s *Server) maybeReplayDispatch() bool {
 	stampPath := filepath.Join(s.cfg.CachePath, ".pack-stamp")
 	ref, ok, err := readPackStamp(stampPath)
 	if err != nil {
-		s.log.Warn("contentWatcher: pack stamp unreadable, treating as stale",
+		s.logContent.Warn("contentWatcher: pack stamp unreadable, treating as stale",
 			"path", stampPath, "err", err)
 		s.dispatchRebuildRequest()
 		return true
 	}
 	if !ok {
-		s.log.Info("contentWatcher: no pack stamp, triggering replay rebuild",
+		s.logContent.Info("contentWatcher: no pack stamp, triggering replay rebuild",
 			"path", stampPath)
 		s.dispatchRebuildRequest()
 		return true
 	}
 	newer, err := scanContentNewerThan(s.cfg.ContentPath, canonicalContentSubdirs, ref)
 	if err != nil {
-		s.log.Warn("contentWatcher: replay scan failed, skipping replay",
+		s.logContent.Warn("contentWatcher: replay scan failed, skipping replay",
 			"err", err)
 		return false
 	}
 	if newer {
-		s.log.Info("contentWatcher: detected post-stamp edits, triggering replay rebuild",
+		s.logContent.Info("contentWatcher: detected post-stamp edits, triggering replay rebuild",
 			"stamp", ref)
 		s.dispatchRebuildRequest()
 		return true

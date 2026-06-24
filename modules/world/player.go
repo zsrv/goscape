@@ -24,6 +24,7 @@ import (
 	"github.com/zsrv/goscape/pkg/tapper"
 	"github.com/zsrv/goscape/pkg/telemetry"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 	"github.com/zsrv/goscape/pkg/zone"
 )
 
@@ -1340,7 +1341,7 @@ func (p *Player) readPacket() (opcode int, ok bool, handled bool, err error) {
 	opcode = c.opcode
 	c.opcode = -1
 
-	c.log.Debug("game packet", "opcode", opcode, "name", gameclient.Ops[opcode].Name, "len", len(payload))
+	applog.Trace(c.log, "game packet", "opcode", opcode, "name", gameclient.Ops[opcode].Name, "len", len(payload))
 
 	if c.server != nil && c.tap != nil {
 		c.tap.Tap(p.accountID, c.sessionID, tapper.DirIn,
