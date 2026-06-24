@@ -16,7 +16,7 @@ func TestGlobalLogLevelParsesTrace(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	if slog.Level(c.LogLevel) != log.LevelTrace {
-		t.Errorf("LogLevel = %v, want trace(-8)", slog.Level(c.LogLevel))
+		t.Errorf("LogLevel = %v, want %v", slog.Level(c.LogLevel), log.LevelTrace)
 	}
 }
 

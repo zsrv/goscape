@@ -152,11 +152,10 @@ ondemand:
   #  -----END PUBLIC KEY-----
 
   # --- Advanced dskit server.Config knobs (inlined; no CLI flag; rarely set) ---
-  # Per-module log overrides (yaml-only; no CLI flag); fall back to top-level
-  # log_level/log_format. Valid levels: debug, info, warn, error.
+  # Per-module log level override (yaml-only; no CLI flag); falls back to the
+  # top-level log_level. Valid levels: debug, info, warn, error.
   # (ondemand inherits the dskit HTTP server layer, which does not support trace.)
   #log_level: info
-  #log_format: text
   # HTTP server read-header timeout (default: 0 = no separate header timeout).
   #http_server_read_header_timeout: 0s
   # Log connections closed before any response was written.
@@ -327,10 +326,9 @@ world:
   node_debug_socket: false
 
   # --- Advanced / rarely set ---
-  # Per-module log overrides (yaml-only; no CLI flag); fall back to top-level
-  # log_level/log_format. Valid levels: trace, debug, info, warn, error.
+  # Per-module log level override (yaml-only; no CLI flag); falls back to the
+  # top-level log_level. Valid levels: trace, debug, info, warn, error.
   #log_level: info
-  #log_format: text
   # TCP read-header timeout (yaml-only; default: 0 = none).
   #tcp_server_read_header_timeout: 0s
 

@@ -12,7 +12,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
-	applog "github.com/zsrv/goscape/pkg/util/log"
 	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/io/packet"
@@ -25,6 +24,7 @@ import (
 	"github.com/zsrv/goscape/pkg/tapper"
 	"github.com/zsrv/goscape/pkg/telemetry"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 	"github.com/zsrv/goscape/pkg/zone"
 )
 

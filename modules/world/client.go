@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/uuid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
-	applog "github.com/zsrv/goscape/pkg/util/log"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 	"github.com/zsrv/goscape/pkg/tapper"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 )
 
 // errCloseConn signals that the connection should be closed cleanly after a

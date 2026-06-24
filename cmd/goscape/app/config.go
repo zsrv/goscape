@@ -12,9 +12,9 @@ import (
 )
 
 type Config struct {
-	Target    string     `yaml:"target,omitempty"`
-	LogFormat string     `yaml:"log_format,omitempty"`
-	LogLevel  log.Level  `yaml:"log_level,omitempty"` // global log level, default for modules too
+	Target    string    `yaml:"target,omitempty"`
+	LogFormat string    `yaml:"log_format,omitempty"`
+	LogLevel  log.Level `yaml:"log_level,omitempty"` // global log level, default for modules too
 
 	OnDemand ondemand.Config `yaml:"ondemand,omitempty"`
 	Friends  friends.Config  `yaml:"friends,omitempty"`

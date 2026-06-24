@@ -427,7 +427,7 @@ func (s *Server) processLogins() {
 		if s.friendsClient != nil && p.username != "" {
 			subCtx, subCancel := context.WithCancel(context.Background())
 			p.friendsSubCancel = subCancel
-			p.friendsSub = newFriendsSubscriber(s.friendsClient, int32(s.cfg.NodeID), s.cfg.NodeProfile, p.username37, s.friendsDispatcher, s.log)
+			p.friendsSub = newFriendsSubscriber(s.friendsClient, int32(s.cfg.NodeID), s.cfg.NodeProfile, p.username37, s.friendsDispatcher, s.logFriends)
 			go p.friendsSub.run(subCtx)
 		}
 

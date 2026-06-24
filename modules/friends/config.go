@@ -10,7 +10,7 @@ import (
 
 // Config holds the friends-server module's runtime configuration.
 type Config struct {
-	LogLevel *log.Level `yaml:"log_level"` // optional per-module override; nil = inherit global
+	LogLevel                *log.Level    `yaml:"log_level"` // optional per-module override; nil = inherit global
 	GRPCListenAddress       string        `yaml:"grpc_listen_address"`
 	SQLiteDSN               string        `yaml:"sqlite_dsn"`
 	Profile                 string        `yaml:"profile"`

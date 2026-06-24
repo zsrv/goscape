@@ -24,9 +24,11 @@ const (
 // line to emit two component= attrs — callers must pass the un-stamped base.
 // Called by NewServer (passing the raw logger parameter) and by test helpers
 // that construct a Server directly (passing their plain discard/buffer logger).
+// Derives logNet, logTick, logScript, logContent, and logFriends children.
 func (s *Server) initChildLoggers(base *slog.Logger) {
 	s.logNet = base.With("component", compNet)
 	s.logTick = base.With("component", compTick)
 	s.logScript = base.With("component", compScript)
 	s.logContent = base.With("component", compContent)
+	s.logFriends = base.With("component", compFriends)
 }

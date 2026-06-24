@@ -3,7 +3,7 @@ package world
 import "testing"
 
 func TestComponentConstantsAreDistinct(t *testing.T) {
-	all := []string{compWorld, compServer, compNet, compTick, compScript, compFriends, compLogin, compContent}
+	all := []string{compWorld, compServer, compNet, compTick, compScript, compFriends, compLogin, compContent, compReport}
 	seen := map[string]bool{}
 	for _, c := range all {
 		if c == "" {

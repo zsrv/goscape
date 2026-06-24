@@ -41,8 +41,8 @@ import (
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/tapper"
-	applog "github.com/zsrv/goscape/pkg/util/log"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 	"github.com/zsrv/goscape/pkg/wordenc/encfilter"
 	"github.com/zsrv/goscape/pkg/zone"
 )
@@ -61,11 +61,12 @@ type Server struct {
 	handler     SignalHandler
 	tcpListener net.Listener
 	quit        chan interface{}
-	log        *slog.Logger // component=world.server (server lifecycle)
-	logNet     *slog.Logger // component=world.net (per-connection I/O)
-	logTick    *slog.Logger // component=world.tick
-	logScript  *slog.Logger // component=world.script
-	logContent *slog.Logger // component=world.content
+	log         *slog.Logger // component=world.server (server lifecycle)
+	logNet      *slog.Logger // component=world.net (per-connection I/O)
+	logTick     *slog.Logger // component=world.tick
+	logScript   *slog.Logger // component=world.script
+	logContent  *slog.Logger // component=world.content
+	logFriends  *slog.Logger // component=world.friends
 	loginClient LoginClient
 	// tap is the seam handle owned by the tapper dskit
 	// module. Nil in test paths (newTestServer); production always non-nil via
