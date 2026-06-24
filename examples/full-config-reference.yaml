@@ -49,7 +49,7 @@
 # CLI: --target
 target: all
 
-# Minimum severity to log. One of: debug | info | warn | error.
+# Minimum severity to log. One of: trace | debug | info | warn | error.
 # CLI: --log.level   (default: info)
 log_level: info
 
@@ -152,7 +152,9 @@ ondemand:
   #  -----END PUBLIC KEY-----
 
   # --- Advanced dskit server.Config knobs (inlined; no CLI flag; rarely set) ---
-  # Per-module log overrides; fall back to the top-level log_level/log_format.
+  # Per-module log overrides (yaml-only; no CLI flag); fall back to top-level
+  # log_level/log_format. Valid levels: debug, info, warn, error.
+  # (ondemand inherits the dskit HTTP server layer, which does not support trace.)
   #log_level: info
   #log_format: text
   # HTTP server read-header timeout (default: 0 = no separate header timeout).
@@ -186,6 +188,10 @@ friends:
   profile: main
   # CLI: --friends.graceful-shutdown-timeout (default: 30s)
   graceful_shutdown_timeout: 30s
+  # Per-module log overrides (yaml-only; no CLI flag); fall back to top-level
+  # log_level/log_format. Valid levels: trace, debug, info, warn, error.
+  #log_level: info
+  #log_format: text
 
 
 # ----------------------------------------------------------------------------
@@ -217,6 +223,10 @@ login:
   # World-hop cooldown after a graceful logout on another world (hop-timer login
   # reject). CLI: --login.node-hop-time (default: 45s)
   node_hop_time: 45s
+  # Per-module log overrides (yaml-only; no CLI flag); fall back to top-level
+  # log_level/log_format. Valid levels: trace, debug, info, warn, error.
+  #log_level: info
+  #log_format: text
 
 
 # ----------------------------------------------------------------------------
@@ -319,8 +329,8 @@ world:
   node_debug_socket: false
 
   # --- Advanced / rarely set ---
-  # Per-module log overrides; fall back to the top-level log_level/log_format.
-  # (yaml-only; no CLI flag.)
+  # Per-module log overrides (yaml-only; no CLI flag); fall back to top-level
+  # log_level/log_format. Valid levels: trace, debug, info, warn, error.
   #log_level: info
   #log_format: text
   # TCP read-header timeout (yaml-only; default: 0 = none).
