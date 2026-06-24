@@ -413,7 +413,7 @@ func (s *Server) processLogins() {
 					StaffLvl:    staffLvl,
 				}, func(accepted bool) {
 					if !accepted {
-						s.log.Warn("friends-server rejected player login (cap reached or RPC error)",
+						s.logTick.Warn("friends-server rejected player login (cap reached or RPC error)",
 							slog.Int("world_id", int(worldID)),
 							slog.Uint64("username37", username37),
 						)
@@ -450,7 +450,7 @@ func (s *Server) processLogins() {
 		// corrupt SAV doesn't deny login. Deviation
 		// NAI-PLAYERLOADING-D-DECODE-ERR-FALLS-BACK-TO-BOOTSTRAP.
 		if err := LoadSave(p, p.client.savePayload, s.invTypes, s.varpTypes); err != nil {
-			s.log.Warn("LoadSave failed; falling back to empty bootstrap",
+			s.logTick.Warn("LoadSave failed; falling back to empty bootstrap",
 				slog.String("username", p.username), slog.Any("err", err))
 			_ = LoadSave(p, nil, s.invTypes, s.varpTypes)
 		}
@@ -641,7 +641,7 @@ func (s *Server) processLogouts() {
 			if logoutScript != nil {
 				s.runScript(logoutScript, p, nil, script.TriggerLogout, true, nil, nil)
 			} else {
-				s.log.Warn("no [logout] trigger registered; removing player without it",
+				s.logTick.Warn("no [logout] trigger registered; removing player without it",
 					"player", p.username)
 			}
 

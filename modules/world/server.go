@@ -41,6 +41,7 @@ import (
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/tapper"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
 	"github.com/zsrv/goscape/pkg/wordenc/encfilter"
 	"github.com/zsrv/goscape/pkg/zone"
@@ -452,10 +453,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// ignore the pm, their array is filled with 0 as default"). R4: atomic
 	// field can't be initialized in a struct literal, so Store post-alloc.
 	s.pmCount.Store(1)
-	s.logNet = logger.With("component", compNet)
-	s.logTick = logger.With("component", compTick)
-	s.logScript = logger.With("component", compScript)
-	s.logContent = logger.With("component", compContent)
+	s.initChildLoggers()
 	s.rsaKey = rsaKey
 	s.packFn = packall.PackAll
 	s.reloadFn = s.Reload
@@ -944,7 +942,7 @@ func (s *Server) serveConn(conn net.Conn) {
 	defer s.tcpWg.Done()
 	defer func() {
 		if r := recover(); r != nil {
-			s.log.Error("recovered panic in connection handler",
+			s.logNet.Error("recovered panic in connection handler",
 				"panic", r,
 				"remote_addr", conn.RemoteAddr(),
 				"stack", string(debug.Stack()))
@@ -962,13 +960,13 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 	// Fix 1: disable Nagle's algorithm so small game packets are sent immediately.
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		if err := tcpConn.SetNoDelay(true); err != nil {
-			s.log.Warn("failed to set TCP_NODELAY", "error", err)
+			s.logNet.Warn("failed to set TCP_NODELAY", "error", err)
 		}
 		if s.cfg.TCPKeepAlivePeriod > 0 {
 			if err := tcpConn.SetKeepAlive(true); err != nil {
-				s.log.Warn("failed to enable TCP keepalive", "error", err)
+				s.logNet.Warn("failed to enable TCP keepalive", "error", err)
 			} else if err := tcpConn.SetKeepAlivePeriod(s.cfg.TCPKeepAlivePeriod); err != nil {
-				s.log.Warn("failed to set TCP keepalive period", "error", err)
+				s.logNet.Warn("failed to set TCP keepalive period", "error", err)
 			}
 		}
 	}
@@ -989,13 +987,13 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 			s.onDemand.clientClosed(&clientODAdapter{c: c})
 		}
 		if err := c.flushWrite(); err != nil {
-			s.log.Warn("failed to flush on connection close", "error", err, "remote_addr", conn.RemoteAddr())
+			s.logNet.Warn("failed to flush on connection close", "error", err, "remote_addr", conn.RemoteAddr())
 		}
 		c.in.Release()
 		putBufioReader64k(c.bufr)
 		putBufioWriter64k(c.bufw)
 		conn.Close()
-		s.log.Info("connection closed", "remote_addr", conn.RemoteAddr())
+		s.logNet.Debug("connection closed", "remote_addr", conn.RemoteAddr())
 	}()
 
 	// rev-244 B3: connect-time seed send REMOVED.
@@ -1013,7 +1011,7 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		// bot/integration tests aren't killed by the normal timeout.
 		if !s.cfg.NodeDebugSocket {
 			if err := c.conn.SetReadDeadline(time.Now().Add(s.cfg.TCPServerReadTimeout)); err != nil {
-				s.log.Error("failed to set read deadline", "error", err)
+				s.logNet.Error("failed to set read deadline", "error", err)
 				return
 			}
 		}
@@ -1021,7 +1019,7 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		n, err := c.bufr.Read(buf)
 		if err != nil {
 			if err != io.EOF {
-				s.log.Error("connection read error", "error", err)
+				s.logNet.Error("connection read error", "error", err)
 			}
 			// logger-transport-4: TS TcpServer.ts:44-67 emits an ENGINE
 			// session log on every disconnect kind (close / error / timeout)
@@ -1036,10 +1034,9 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		}
 
 		msg := buf[:n]
-		// LOG-1: per-byte payload dump is noise at Info. Keep num_bytes at
-		// Info for traffic-volume diagnostics; demote raw bytes to Debug.
-		c.log.Info("received data", "num_bytes", len(msg))
-		c.log.Debug("received data payload", "data", fmt.Sprintf("%v", msg))
+		// LOG-1: per-packet, demoted to trace (firehose).
+		applog.Trace(c.log, "received data", "num_bytes", len(msg))
+		applog.Trace(c.log, "received data payload", "data", fmt.Sprintf("%v", msg))
 
 		switch c.state {
 		case ClientStateLogin:
@@ -1100,7 +1097,7 @@ func (c *client) handleData() error {
 	case ClientStateLogin:
 		return c.handleLogin()
 	default:
-		c.log.Info("unhandled client state", "state", c.state)
+		c.log.Warn("unhandled client state", "state", c.state)
 		return errors.New("unhandled client state")
 	}
 }
@@ -1187,7 +1184,7 @@ func (c *client) handleLogin() error {
 
 		pLen, ok := protocol.CheckPacketLength(c.in, loginreq.OpReqInitGameConnection)
 		if !ok {
-			c.log.Info("partial packet data received, waiting for more", "opcode", loginreq.OpReqInitGameConnection, "length", pLen)
+			applog.Trace(c.log, "partial packet data received, waiting for more", "opcode", loginreq.OpReqInitGameConnection, "length", pLen)
 			return protocol.ErrPayloadTooSmall
 		}
 
@@ -1379,7 +1376,7 @@ func (c *client) callPlayerLoginRPC(req *loginpb.PlayerLoginRequest, safeName st
 		}
 		return loginresp.OpLoginServerOffline.Opcode, err
 	}
-	c.log.Info("PlayerLogin RPC response", "result", resp.GetResult())
+	c.log.Debug("PlayerLogin RPC response", "result", resp.GetResult())
 
 	result := resp.GetResult()
 	reply := loginResultToRS2(result)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 	"github.com/zsrv/goscape/pkg/tapper"
@@ -154,7 +155,7 @@ func (c *client) bufferData(data []byte) bool {
 func (c *client) write(data []byte) {
 	// TODO: return error?
 	c.bufw.Write(data)
-	c.log.Debug("sent data", "opcode", c.opcode, "num_bytes", len(data), "data", fmt.Sprintf("%v", data))
+	applog.Trace(c.log, "sent data", "opcode", c.opcode, "num_bytes", len(data), "data", fmt.Sprintf("%v", data))
 }
 
 // flushWrite sets the write deadline and flushes the buffered writer.

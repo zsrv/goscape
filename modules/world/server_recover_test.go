@@ -47,6 +47,7 @@ func TestServeConn_ContainsPanicAndReleasesWaitGroup(t *testing.T) {
 			NodeDebugSocket: true,
 		},
 	}
+	s.initChildLoggers()
 
 	s.tcpWg.Add(1)
 
