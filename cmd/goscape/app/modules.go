@@ -48,6 +48,7 @@ func (g *App) initOnDemand() (services.Service, error) {
 		g.logger.Error("failed to create logger", "module", "ondemand", "err", err)
 		os.Exit(1)
 	}
+	logger = logger.With("component", "ondemand")
 
 	g.cfg.OnDemand.Server.Log = logger
 
@@ -97,11 +98,15 @@ func (g *App) initLogin() (services.Service, error) {
 	}
 
 	logLevel := slog.Level(g.cfg.LogLevel)
+	if g.cfg.Login.LogLevel != nil {
+		logLevel = slog.Level(*g.cfg.Login.LogLevel)
+	}
 	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout)
 	if err != nil {
 		g.logger.Error("failed to create logger", "module", "login", "err", err)
 		os.Exit(1)
 	}
+	logger = logger.With("component", "login")
 
 	l, err := login.New(g.cfg.Login, logger)
 	if err != nil {
@@ -119,11 +124,15 @@ func (g *App) initFriends() (services.Service, error) {
 	}
 
 	logLevel := slog.Level(g.cfg.LogLevel)
+	if g.cfg.Friends.LogLevel != nil {
+		logLevel = slog.Level(*g.cfg.Friends.LogLevel)
+	}
 	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout)
 	if err != nil {
 		g.logger.Error("failed to create logger", "module", "friends", "err", err)
 		os.Exit(1)
 	}
+	logger = logger.With("component", "friends")
 
 	f, err := friends.New(g.cfg.Friends, logger)
 	if err != nil {
@@ -142,7 +151,7 @@ func (g *App) initWorld() (services.Service, error) {
 
 	logLevel := slog.Level(g.cfg.LogLevel)
 	if g.cfg.World.LogLevel != nil {
-		logLevel = *g.cfg.World.LogLevel
+		logLevel = slog.Level(*g.cfg.World.LogLevel)
 	}
 
 	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout)

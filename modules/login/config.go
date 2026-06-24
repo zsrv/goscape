@@ -6,9 +6,12 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/zsrv/goscape/pkg/util/log"
 )
 
 type Config struct {
+	LogLevel *log.Level `yaml:"log_level"` // optional per-module override; nil = inherit global
 	GRPCListenAddress       string        `yaml:"grpc_listen_address"`
 	SQLiteDSN               string        `yaml:"sqlite_dsn"`
 	SavePath                string        `yaml:"save_path"`
