@@ -256,9 +256,9 @@ func (s *Server) Reload(clearInvs bool) error {
 		}
 	} else {
 		if scriptErr != nil {
-			s.log.Error("script reload failed", "err", scriptErr)
+			s.logContent.Error("script reload failed", "err", scriptErr)
 		} else {
-			s.log.Debug("scripts reloaded", "count", count)
+			s.logContent.Debug("scripts reloaded", "count", count)
 		}
 	}
 
