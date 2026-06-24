@@ -8,12 +8,13 @@ import (
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
 	"github.com/zsrv/goscape/modules/world"
+	"github.com/zsrv/goscape/pkg/util/log"
 )
 
 type Config struct {
 	Target    string     `yaml:"target,omitempty"`
 	LogFormat string     `yaml:"log_format,omitempty"`
-	LogLevel  slog.Level `yaml:"log_level,omitempty"` // global log level, default for modules too
+	LogLevel  log.Level  `yaml:"log_level,omitempty"` // global log level, default for modules too
 
 	OnDemand ondemand.Config `yaml:"ondemand,omitempty"`
 	Friends  friends.Config  `yaml:"friends,omitempty"`
@@ -34,7 +35,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	// Global settings
 
 	f.StringVar(&c.Target, "target", SingleBinary, "Target module")
-	f.TextVar(&c.LogLevel, "log.level", slog.LevelInfo, "Only log messages with the given severity or above. Valid levels: [debug, info, warn, error]")
+	f.TextVar(&c.LogLevel, "log.level", log.Level(slog.LevelInfo), "Only log messages with the given severity or above. Valid levels: [trace, debug, info, warn, error]")
 	f.StringVar(&c.LogFormat, "log.format", "text", "Output log messages in the given format. Valid formats: [text, json]")
 
 	// Everything else

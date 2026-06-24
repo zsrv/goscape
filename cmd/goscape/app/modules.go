@@ -38,7 +38,7 @@ func (g *App) initOnDemand() (services.Service, error) {
 		return services.NewIdleService(nil, nil), nil
 	}
 
-	logLevel := g.cfg.LogLevel
+	logLevel := slog.Level(g.cfg.LogLevel)
 	if g.cfg.OnDemand.Server.LogLevel != nil {
 		logLevel = *g.cfg.OnDemand.Server.LogLevel
 	}
@@ -96,7 +96,7 @@ func (g *App) initLogin() (services.Service, error) {
 		return services.NewIdleService(nil, nil), nil
 	}
 
-	logLevel := g.cfg.LogLevel
+	logLevel := slog.Level(g.cfg.LogLevel)
 	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout)
 	if err != nil {
 		g.logger.Error("failed to create logger", "module", "login", "err", err)
@@ -118,7 +118,7 @@ func (g *App) initFriends() (services.Service, error) {
 		return services.NewIdleService(nil, nil), nil
 	}
 
-	logLevel := g.cfg.LogLevel
+	logLevel := slog.Level(g.cfg.LogLevel)
 	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout)
 	if err != nil {
 		g.logger.Error("failed to create logger", "module", "friends", "err", err)
@@ -140,7 +140,7 @@ func (g *App) initWorld() (services.Service, error) {
 		return services.NewIdleService(nil, nil), nil
 	}
 
-	logLevel := g.cfg.LogLevel
+	logLevel := slog.Level(g.cfg.LogLevel)
 	if g.cfg.World.LogLevel != nil {
 		logLevel = *g.cfg.World.LogLevel
 	}
