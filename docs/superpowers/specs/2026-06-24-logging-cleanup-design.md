@@ -12,7 +12,8 @@ Current state:
 
 - `pkg/util/log/log.go` wraps `log/slog` with `NewLogger(level, format, w)` → text (`slog.NewTextHandler`) or JSON handler, both with `AddSource: true`, everything written to **stdout**. This file is **byte-identical across all 5 rev branches** (`c7c375f6…`).
 - **One global level.** `Config.LogLevel slog.Level` (`cmd/goscape/app/config.go:16`, flag `log.level`, default `info`) plus `Config.LogFormat`. The config struct's level/format lines are identical across all 5 branches.
-- **Partial per-module override.** Only ondemand has one: `modules.go:41-44` reads `g.cfg.OnDemand.Server.LogLevel` (a `*slog.Level`) and falls back to the global. `world`, `login`, and `friends` create their loggers with the **global** level and ignore any per-module setting.
+- **Partial per-module override.** **ondemand** (`modules.go:41-44`, via `g.cfg.OnDemand.Server.LogLevel *slog.Level`) and **world** (`modules.go:143-146`, via `modules/world/config.go:15` `LogLevel *slog.Level`) already resolve an override and fall back to the global. **login** and **friends** do not — they create their loggers with the **global** level only.
+- **`NewLogger` is shared with the CLI.** `pkg/util/log.NewLogger` is called by 5 `cmd/goscape-cli` tools (pack/unpack/compile/worldmap/smoke_pack), all passing `slog.Level`. Per the non-goals, CLI tooling is out of scope, so `NewLogger` keeps its `slog.Level` signature.
 - **No component attribution.** Each module gets a fresh `*slog.Logger` in `modules.go` (lines 46/100/122/148) but none stamp which subsystem a line came from. The sole exception is `slogLoggerBridge`, which sets `component=logger_bridge` (`modules/world/logger_bridge.go:27`).
 - **Call-site distribution** (server code, non-test): `warn` 108, `info` 51, `debug` 37, `error` 34. **158 of ~200 calls live in `modules/world`.**
 
@@ -41,6 +42,7 @@ All four requested outcomes, via the mechanism below:
 - **One `component=` attribute per line, dotted `<module>.<subsystem>`** — no separate redundant `module=` attribute. The prefix *is* the module.
 - **`trace` is a named level**, not a re-bucket onto `debug` and not a second `trace2`. One new level keeps `debug` usable without over-engineering.
 - **Trace ergonomics via a package helper**, not a wrapper logger type — only a handful of firehose sites need it, so changing every `log *slog.Logger` field to a wrapper is not worth it.
+- **`log.Level` is a config-only type.** It exists to parse/marshal `"trace"` in YAML/flags. It is converted to `slog.Level` at the `modules.go`/`main.go` boundary; `NewLogger` and every logger field stay `slog.Level`. This keeps the CLI tooling (non-goal) untouched.
 - **Default behavior unchanged.** Global default stays `info`, format stays `text`, output stays stdout. Every new knob is opt-in (nil override = inherit global).
 - **Shared infra is one identical patch on all 5 branches; the call-site sweep is per-branch** (each branch has a subset of call sites).
 
@@ -90,13 +92,13 @@ Modules without sub-parts carry `component=<module>` (e.g. `component=login`). `
 
 | File | Change |
 |---|---|
-| `pkg/util/log/log.go` | `NewLogger`/`NewStdLogger`/`NewStructuredLogger` take `log.Level`; add a `ReplaceAttr` hook that (a) renders `LevelTrace` as `TRACE` and (b) trims `source` to `file.go:line`; add `func Trace(l *slog.Logger, msg string, args ...any)` helper |
-| `cmd/goscape/app/config.go` | `LogLevel` field becomes `log.Level`; flag default `log.LevelInfo`; help text lists `trace` |
-| `cmd/goscape/main.go` | **Remove** the `fmt.Printf("%+v\n", config) // DEBUG` line (smell #1) |
-| `cmd/goscape/app/modules.go` | Stamp `component=<module>` on each module logger at creation; resolve per-module overrides for world/login/friends the same way ondemand is resolved at lines 41-44 |
-| `modules/world/config.go` | New `LogLevel *log.Level` (`yaml:"log_level,omitempty"`, flag `world.log-level`) |
-| `modules/login/config.go` | New `LogLevel *log.Level` (`yaml:"log_level,omitempty"`, flag `login.log-level`) |
-| `modules/friends/config.go` | New `LogLevel *log.Level` (`yaml:"log_level,omitempty"`, flag `friends.log-level`) |
+| `pkg/util/log/log.go` | Keep `slog.Level` signatures; add a shared `*slog.HandlerOptions`-building helper with a `ReplaceAttr` that (a) renders `LevelTrace` as `TRACE` and (b) trims `source` to `file.go:line`; add `func Trace(l *slog.Logger, msg string, args ...any)` helper |
+| `cmd/goscape/app/config.go` | `LogLevel` field type `slog.Level` → `log.Level`; flag default `log.LevelInfo`; help text lists `trace` |
+| `cmd/goscape/main.go` | `log.NewLogger(slog.Level(config.LogLevel), …)`; **remove** the `fmt.Printf("%+v\n", config) // DEBUG` line (smell #1) |
+| `cmd/goscape/app/modules.go` | Stamp `component=<module>` on each module logger; convert override/global `log.Level`→`slog.Level` at the `NewLogger` boundary; **add** override resolution for login + friends (ondemand + world already resolve theirs) |
+| `modules/world/config.go` | Change existing `LogLevel *slog.Level` → `*log.Level` (already wired in `modules.go:143-146`); swap the now-unused `log/slog` import for `pkg/util/log` |
+| `modules/login/config.go` | **New** `LogLevel *log.Level` (`yaml:"log_level"`, **YAML-only**, no flag — matches world's existing precedent) |
+| `modules/friends/config.go` | **New** `LogLevel *log.Level` (`yaml:"log_level"`, **YAML-only**, no flag — matches world's existing precedent) |
 | `examples/full-config-reference.yaml` | Document `trace` on `log_level` + the new per-module `log_level` keys |
 | `examples/bundled/goscape.yaml` | Leave as-is unless it already sets `log_level`; the full reference is where the new keys are documented |
 
