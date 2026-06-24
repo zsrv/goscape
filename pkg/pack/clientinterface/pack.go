@@ -52,19 +52,19 @@ type component struct {
 //
 // NAI-192-D-NO-SRC-NO-OP mirror: missing src/scripts → no-op (return nil).
 //
-// NAI-213-D-NO-SOURCE-OF-TRUTH-FRESHNESS: TS PackClient.ts ORs a second
-// shouldBuild('tools/pack/interface', '.ts', ...) gate that re-builds
-// when the packer source itself changes. goscape has no equivalent
-// "watch the packer code" surface; only the scripts-dir gate is kept.
+// rev-254: TS PackClient.ts (2e3bcf43) COMMENTED OUT the shouldBuild
+// freshness gate entirely — packClientInterface always rebuilds the
+// client/server intermediates and always writes cache.write(0, 3, ...).
+// goscape mirrors that (no gate). A freshness gate here would skip the
+// cache write on a repack into a populated out-dir, and because PackAll
+// opens the cache with createNew=true (truncate every run) that left the
+// interface archive (idx0 file 3) empty → the OnDemand /interface 404.
 func Pack(reg *pack.Registry, srcDir, outDir string, modelFlags []int, cache *filestream.FileStream) error {
 	scriptsSrc := filepath.Join(srcDir, "scripts")
 	clientOut := filepath.Join(outDir, "client", "interface")
 	serverOut := filepath.Join(outDir, "server", "interface.dat")
 
 	if _, err := os.Stat(scriptsSrc); os.IsNotExist(err) {
-		return nil
-	}
-	if !pack.ShouldBuild(scriptsSrc, ".if", clientOut) {
 		return nil
 	}
 
