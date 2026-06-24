@@ -2042,6 +2042,7 @@ func newNpcInOperableTestServer(t *testing.T) *Server {
 		locObjTracker:  newLocObjTracker(),
 		rsbuf:          rsbuf.New(),
 	}
+	s.initChildLoggers(s.log)
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = noopBridges{}
@@ -2303,6 +2304,7 @@ func newNpcObjReachTestServer(t *testing.T) *Server {
 		locObjTracker:  newLocObjTracker(),
 		rsbuf:          rsbuf.New(),
 	}
+	s.initChildLoggers(s.log)
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = noopBridges{}

@@ -35,7 +35,7 @@ func New(cfg Config, logger *slog.Logger, tap tapper.Tapper) (*World, error) {
 
 	w := &World{
 		cfg: cfg,
-		log: logger,
+		log: logger.With("component", compWorld),
 	}
 
 	// NOTE: World server doesn't have any subservices
@@ -54,10 +54,10 @@ func New(cfg Config, logger *slog.Logger, tap tapper.Tapper) (*World, error) {
 
 	var loginClient LoginClient
 	if cfg.LoginServerEnabled {
-		lc, err := NewLoginClient(cfg.LoginServerAddress, logger)
+		lc, err := NewLoginClient(cfg.LoginServerAddress, logger.With("component", compLogin))
 		if err != nil {
 			// Log the error but don't fail startup — the world should run even if login is unreachable.
-			logger.Warn("failed to create login client", slog.Any("err", err))
+			w.log.Warn("failed to create login client", slog.Any("err", err))
 		} else {
 			loginClient = lc
 		}
@@ -66,9 +66,9 @@ func New(cfg Config, logger *slog.Logger, tap tapper.Tapper) (*World, error) {
 
 	var friendsClient FriendsClient
 	if cfg.FriendsServerEnabled {
-		fc, err := NewFriendsClient(cfg.FriendsServerAddress, logger)
+		fc, err := NewFriendsClient(cfg.FriendsServerAddress, logger.With("component", compFriends))
 		if err != nil {
-			logger.Warn("failed to create friends client", slog.Any("err", err))
+			w.log.Warn("failed to create friends client", slog.Any("err", err))
 		} else {
 			friendsClient = fc
 		}

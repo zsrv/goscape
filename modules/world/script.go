@@ -230,14 +230,14 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 		if state.ActiveNpc != nil {
 			state.ActiveNpc.StoreActiveScript(state)
 		} else {
-			s.log.Warn("player script reached NpcSuspended with nil ActiveNpc; dropping",
+			s.logScript.Warn("player script reached NpcSuspended with nil ActiveNpc; dropping",
 				"script", state.Script.Name)
 		}
 	default:
 		// Unhandled non-terminal Execution value (Running, or any
 		// future-added state). WorldSuspended/NpcSuspended/Suspended/
 		// PauseButton/CountDialog all have explicit arms above.
-		s.log.Warn("script in unsupported execution state",
+		s.logScript.Warn("script in unsupported execution state",
 			"script", state.Script.Name, "execution", state.Execution)
 		self.ClearActiveScript()
 	}
@@ -292,7 +292,7 @@ func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 		if state.Self != nil {
 			state.Self.StoreActiveScript(state)
 		} else {
-			s.log.Warn("world-queue script Suspended with nil Self; dropping",
+			s.logScript.Warn("world-queue script Suspended with nil Self; dropping",
 				"script", state.Script.Name)
 		}
 	case script.NpcSuspended:
@@ -300,7 +300,7 @@ func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 		if state.ActiveNpc != nil {
 			state.ActiveNpc.StoreActiveScript(state)
 		} else {
-			s.log.Warn("world-queue script NpcSuspended with nil ActiveNpc; dropping",
+			s.logScript.Warn("world-queue script NpcSuspended with nil ActiveNpc; dropping",
 				"script", state.Script.Name)
 		}
 	case script.PauseButton, script.CountDialog:
@@ -310,7 +310,7 @@ func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 		// through with no rebind and no warn.
 	default:
 		// Running, or any future-added Execution value.
-		s.log.Warn("world-queue script in unexpected execution state",
+		s.logScript.Warn("world-queue script in unexpected execution state",
 			"script", state.Script.Name, "execution", state.Execution)
 	}
 }
@@ -321,7 +321,7 @@ func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 // extending with the file / pc / backtrace fields is purely additive.
 // Mirrors TS ScriptRunner.ts:215-226 console.error block (file + backtrace).
 func (s *Server) logScriptExecuteError(msg string, state *script.ScriptState, err error) {
-	s.log.Warn(msg,
+	s.logScript.Warn(msg,
 		"script", state.Script.Name,
 		"file", state.Script.FileName,
 		"pc", state.PC,

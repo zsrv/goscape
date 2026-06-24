@@ -1996,6 +1996,7 @@ func newInOperableTestServer(t *testing.T) (*Server, *objtype.LocType) {
 		locObjTracker:  newLocObjTracker(),
 		rsbuf:          rsbuf.New(),
 	}
+	s.initChildLoggers(s.log)
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = noopBridges{}
@@ -2849,6 +2850,7 @@ func newObjReachTestServer(t *testing.T) *Server {
 		locObjTracker:  newLocObjTracker(),
 		rsbuf:          rsbuf.New(),
 	}
+	s.initChildLoggers(s.log)
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = noopBridges{}

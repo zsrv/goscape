@@ -55,10 +55,12 @@ func TestNpcSetDelayed(t *testing.T) {
 // NPC-anchored scripts. Reuses the pattern from script_test.go:939-952.
 func newServerForScriptTest(t *testing.T) *Server {
 	t.Helper()
-	return &Server{
+	s := &Server{
 		log:   discardLogger(),
 		rsbuf: rsbuf.New(),
 	}
+	s.initChildLoggers(s.log)
+	return s
 }
 
 func TestRunNpcScriptFiresAndFinishes(t *testing.T) {

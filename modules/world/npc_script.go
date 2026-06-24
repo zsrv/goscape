@@ -468,7 +468,7 @@ func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveN
 		} else {
 			// TS would null-deref (script.activePlayer is null); clear
 			// defensively. Genuinely unreachable.
-			s.log.Warn("npc script suspended with no active player to hold the continuation; dropping",
+			s.logScript.Warn("npc script suspended with no active player to hold the continuation; dropping",
 				"script", state.Script.Name, "execution", state.Execution)
 			npc.ClearActiveScript()
 		}
@@ -607,8 +607,8 @@ func (s *Server) processNpcQueue(n *Npc) {
 		if sf == nil {
 			continue
 		}
-		if s.cfg.NodeDebug && s.log != nil {
-			s.log.Info("nai128.npc.queuefire",
+		if s.cfg.NodeDebug && s.logScript != nil {
+			s.logScript.Debug("nai128.npc.queuefire",
 				"npc", n.uid,
 				"typeId", n.typeId,
 				"trigger", int(trigger),
