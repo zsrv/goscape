@@ -24,7 +24,7 @@ type slogLoggerBridge struct {
 // TS message shapes carry world/profile (LoggerClient.ts:48-87).
 func NewSlogLoggerBridge(parent *slog.Logger, nodeID int, profile string) LoggerBridge {
 	return &slogLoggerBridge{
-		log:     parent.With("component", "logger_bridge"),
+		log:     parent.With("component", compReport),
 		nodeID:  nodeID,
 		profile: profile,
 	}

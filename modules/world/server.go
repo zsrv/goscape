@@ -60,7 +60,11 @@ type Server struct {
 	handler     SignalHandler
 	tcpListener net.Listener
 	quit        chan interface{}
-	log         *slog.Logger
+	log        *slog.Logger // component=world.server (server lifecycle)
+	logNet     *slog.Logger // component=world.net (per-connection I/O)
+	logTick    *slog.Logger // component=world.tick
+	logScript  *slog.Logger // component=world.script
+	logContent *slog.Logger // component=world.content
 	loginClient LoginClient
 	// tap is the seam handle owned by the tapper dskit
 	// module. Nil in test paths (newTestServer); production always non-nil via
@@ -430,7 +434,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		tap:           tap,
 		quit:          make(chan interface{}),
 
-		log:              logger,
+		log:              logger.With("component", compServer),
 		invs:             make(map[int]*inventory.Inventory),
 		zoneMap:          zone.NewZoneMap(),
 		zonesTracking:    map[*zone.Zone]struct{}{},
@@ -448,6 +452,10 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// ignore the pm, their array is filled with 0 as default"). R4: atomic
 	// field can't be initialized in a struct literal, so Store post-alloc.
 	s.pmCount.Store(1)
+	s.logNet = logger.With("component", compNet)
+	s.logTick = logger.With("component", compTick)
+	s.logScript = logger.With("component", compScript)
+	s.logContent = logger.With("component", compContent)
 	s.rsaKey = rsaKey
 	s.packFn = packall.PackAll
 	s.reloadFn = s.Reload
@@ -456,22 +464,22 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// Arc 18 R3 — bridges parent context; canceled by Shutdown so
 	// in-flight fire-and-forget gRPC calls observe shutdown promptly.
 	s.bridgesCtx, s.bridgesCancel = context.WithCancel(context.Background())
-	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.bridgesCtx, s.log)
-	s.friendsDispatcher = newEmitFriendsDispatcher(s, s.log)
-	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, cfg.NodeProfile, s.log)
+	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.bridgesCtx, logger.With("component", compFriends))
+	s.friendsDispatcher = newEmitFriendsDispatcher(s, logger.With("component", compFriends))
+	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, cfg.NodeProfile, logger.With("component", compFriends))
 	// Slice 5b: production dispatcher composes the slice-5a slog
 	// dispatcher with WorldStateOps so each RELAY_* event both logs
 	// AND applies its world-state effect.
-	innerSlog := newSlogWorldEventsDispatcher(s.log)
+	innerSlog := newSlogWorldEventsDispatcher(logger.With("component", compFriends))
 	s.worldEventsDispatcher = newActionWorldEventsDispatcher(innerSlog, s)
 	if friendsClient != nil {
 		ctx, cancel := context.WithCancel(context.Background())
 		s.worldEventsCancel = cancel
-		sub := newWorldEventsSubscriber(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.worldEventsDispatcher, s.log)
+		sub := newWorldEventsSubscriber(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.worldEventsDispatcher, logger.With("component", compFriends))
 		go sub.run(ctx)
 	}
-	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.bridgesCtx, s.log)
-	s.loggerBridge = NewSlogLoggerBridge(s.log, s.cfg.NodeID, s.cfg.NodeProfile)
+	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.bridgesCtx, logger.With("component", compLogin))
+	s.loggerBridge = NewSlogLoggerBridge(logger, s.cfg.NodeID, s.cfg.NodeProfile)
 	s.locOps = &serverLocOps{s: s}
 	s.tcpWg.Add(1)
 
@@ -947,7 +955,7 @@ func (s *Server) serveConn(conn net.Conn) {
 
 func (s *Server) handleTCPConn(conn net.Conn) {
 	//c := newClient(conn, s, s.log)
-	c := newClient(conn, s.cfg.TCPServerWriteTimeout, s.log)
+	c := newClient(conn, s.cfg.TCPServerWriteTimeout, s.logNet)
 	c.server = s
 	c.tap = s.tap
 
