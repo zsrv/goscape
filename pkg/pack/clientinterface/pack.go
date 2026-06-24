@@ -66,10 +66,50 @@ func Pack(reg *pack.Registry, srcDir, outDir string, modelFlags []int, cache *fi
 	if _, err := os.Stat(scriptsSrc); os.IsNotExist(err) {
 		return nil
 	}
-	if !pack.ShouldBuild(scriptsSrc, ".if", clientOut) {
+	// TS PackClient.ts:26: rebuild = shouldRebuildInterfacePack(). goscape
+	// watches only the scripts/.if surface (NAI-213-D-NO-SOURCE-OF-TRUTH-
+	// FRESHNESS, above).
+	rebuild := pack.ShouldBuild(scriptsSrc, ".if", clientOut)
+
+	// TS PackClient.ts:28-30: skip ONLY when not rebuilding AND the cache
+	// already holds the interface archive. PackAll opens the FileStream with
+	// createNew=true, which TRUNCATES dat+idx on every run — so on a fresh
+	// cache cache.Has(0,3) is false and we MUST fall through to the
+	// unconditional cache.Write below, re-writing the existing intermediate
+	// into the truncated cache. Dropping this Has() guard (as goscape did)
+	// left interface (idx0 file 3) empty on every repack into a populated
+	// out-dir, which made the OnDemand /interface route 404.
+	if !rebuild && (cache == nil || cache.Has(0, 3)) {
 		return nil
 	}
 
+	// TS PackClient.ts:32-46: regenerate the client/server intermediates only
+	// when the sources are stale. When !rebuild we reuse the existing
+	// data/pack/client/interface (guaranteed present: !rebuild implies
+	// ShouldBuild saw the file on disk).
+	if rebuild {
+		if err := buildInterfaceIntermediates(reg, srcDir, clientOut, serverOut, modelFlags); err != nil {
+			return err
+		}
+	}
+
+	// TS PackClient.ts:48: cache.write(0, 3, fs.readFileSync('data/pack/client/interface'))
+	// — UNCONDITIONAL. Re-writes the intermediate (freshly built or pre-existing)
+	// into the cache so a createNew=true truncate never leaves it empty.
+	if cache != nil {
+		data, err := os.ReadFile(clientOut)
+		if err != nil {
+			return fmt.Errorf("Pack: read client/interface for cache: %w", err)
+		}
+		cache.Write(0, 3, data, 0)
+	}
+	return nil
+}
+
+// buildInterfaceIntermediates regenerates the client jagfile
+// (outDir/client/interface) and server config blob (outDir/server/interface.dat)
+// from source. Mirrors the rebuild branch of TS PackClient.ts:32-46.
+func buildInterfaceIntermediates(reg *pack.Registry, srcDir, clientOut, serverOut string, modelFlags []int) error {
 	client, server, err := packInterface(reg, srcDir, modelFlags)
 	if err != nil {
 		return err
@@ -109,24 +149,17 @@ func Pack(reg *pack.Registry, srcDir, outDir string, modelFlags []int, cache *fi
 		fmt.Fprintf(os.Stderr, "clientinterface: %v (NAI-213-D-BUILDVERIFY-INTERFACE-MAY-DIVERGE)\n", err)
 	}
 
+	// TS PackClient.ts:40-42: jag.write('data', client); jag.save('data/pack/client/interface').
 	if err := os.MkdirAll(filepath.Dir(clientOut), 0o755); err != nil {
 		return err
 	}
-	jag := jagfile.NewEmptyJagfile(true) // TS PackClient.ts:8 Jagfile.new(true)
+	jag := jagfile.NewEmptyJagfile(true) // TS PackClient.ts:33 Jagfile.new(true)
 	jag.Write("data", client)
 	if err := jag.Save(clientOut); err != nil {
 		return err
 	}
 
-	// TS PackClient.ts:31: cache.write(0, 3, fs.readFileSync('data/pack/client/interface'))
-	if cache != nil {
-		data, err := os.ReadFile(clientOut)
-		if err != nil {
-			return fmt.Errorf("Pack: read client/interface for cache: %w", err)
-		}
-		cache.Write(0, 3, data, 0)
-	}
-
+	// TS PackClient.ts:44: server.save('data/pack/server/interface.dat').
 	if err := os.MkdirAll(filepath.Dir(serverOut), 0o755); err != nil {
 		return err
 	}

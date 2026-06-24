@@ -4,7 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/zsrv/goscape/pkg/io/filestream"
 	"github.com/zsrv/goscape/pkg/io/jagfile"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pack"
@@ -291,6 +293,87 @@ func TestPack_MissingSrcReturnsNil(t *testing.T) {
 	reg := &pack.Registry{SrcDir: filepath.Join(tmp, "src")}
 	if err := Pack(reg, filepath.Join(tmp, "src"), filepath.Join(tmp, "out"), nil, nil); err != nil {
 		t.Errorf("Pack: %v, want nil", err)
+	}
+}
+
+// TestPack_RepackWritesArchiveIntoTruncatedCache reproduces the rev-274
+// stale-cache 404 bug. PackAll opens the FileStream with createNew=true, which
+// TRUNCATES dat+idx on every run, then calls clientinterface.Pack. On a second
+// pack the intermediate data/pack/client/interface already exists and is fresh,
+// so the freshness gate (ShouldBuild) says "no rebuild". TS PackClient.ts:48
+// still writes the archive into the freshly-truncated cache unconditionally and
+// only early-returns when `!rebuild && cache.has(0, 3)`. goscape dropped the
+// `cache.has(0, 3)` guard, so it returned early and left interface (idx0 file 3)
+// empty — the OnDemand /interface route then 404s.
+//
+// The test mirrors two consecutive PackAll runs: createNew=true truncate +
+// ClearFsCache before each Pack. After the second pack the interface archive
+// must still be present.
+func TestPack_RepackWritesArchiveIntoTruncatedCache(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "src")
+	scriptsDir := filepath.Join(src, "scripts")
+	packDir := filepath.Join(src, "pack")
+	if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "interface.pack"), []byte("0=mychat\n1=mychat:layer1\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile interface.pack: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "interface.order"), []byte("0\n1\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile interface.order: %v", err)
+	}
+	for _, name := range []string{"obj", "model", "seq", "varp"} {
+		if err := os.WriteFile(filepath.Join(packDir, name+".pack"), []byte(""), 0o644); err != nil {
+			t.Fatalf("WriteFile %s: %v", name, err)
+		}
+	}
+	ifPath := filepath.Join(scriptsDir, "mychat.if")
+	if err := os.WriteFile(ifPath, []byte("[layer1]\ntype=layer\nwidth=100\nheight=100\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile mychat.if: %v", err)
+	}
+	// Age the source so the freshly-written client/interface is unambiguously
+	// newer ⇒ ShouldBuild==false (no rebuild) on the second pack.
+	past := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(ifPath, past, past); err != nil {
+		t.Fatalf("Chtimes: %v", err)
+	}
+
+	reg := &pack.Registry{SrcDir: src}
+	out := filepath.Join(tmp, "out")
+
+	// First PackAll run: fresh (empty) cache, then pack.
+	pack.ClearFsCache()
+	cache1 := filestream.New(out, true, false)
+	if err := Pack(reg, src, out, nil, cache1); err != nil {
+		t.Fatalf("first Pack: %v", err)
+	}
+	if !cache1.Has(0, 3) {
+		t.Fatalf("first pack did not write interface archive (0,3)")
+	}
+	if err := cache1.Close(); err != nil {
+		t.Fatalf("cache1 Close: %v", err)
+	}
+
+	// Second PackAll run: createNew=true truncates the cache (so (0,3) is gone),
+	// but out/client/interface already exists and is fresh.
+	pack.ClearFsCache()
+	cache2 := filestream.New(out, true, false)
+	defer cache2.Close()
+	if cache2.Has(0, 3) {
+		t.Fatalf("precondition failed: createNew=true should have truncated (0,3)")
+	}
+	if err := Pack(reg, src, out, nil, cache2); err != nil {
+		t.Fatalf("second Pack: %v", err)
+	}
+	if !cache2.Has(0, 3) {
+		t.Fatalf("repack lost interface archive (0,3): cache empty after fresh-cache repack")
+	}
+	if data := cache2.Read(0, 3, false); len(data) == 0 {
+		t.Fatalf("repack wrote empty interface archive (0,3)")
 	}
 }
 
