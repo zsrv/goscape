@@ -60,7 +60,7 @@ func newServerForScriptTest(t *testing.T) *Server {
 		rsbuf:   rsbuf.New(),
 		players: newPlayerList(2048),
 	}
-	s.initChildLoggers()
+	s.initChildLoggers(s.log)
 	return s
 }
 

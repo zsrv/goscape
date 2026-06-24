@@ -453,7 +453,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// ignore the pm, their array is filled with 0 as default"). R4: atomic
 	// field can't be initialized in a struct literal, so Store post-alloc.
 	s.pmCount.Store(1)
-	s.initChildLoggers()
+	s.initChildLoggers(logger)
 	s.rsaKey = rsaKey
 	s.packFn = packall.PackAll
 	s.reloadFn = s.Reload
