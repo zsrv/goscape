@@ -5133,20 +5133,8 @@ func (h *recordingHandler) Handle(_ context.Context, r slog.Record) error {
 func (h *recordingHandler) WithAttrs(_ []slog.Attr) slog.Handler { return h }
 func (h *recordingHandler) WithGroup(_ string) slog.Handler      { return h }
 
-// installRecordingLogger swaps slog.Default for a recording handler at
-// INFO level for the duration of the test. Returns the handler so the
-// test can read records; restoration is automatic via t.Cleanup.
-func installRecordingLogger(t *testing.T) *recordingHandler {
-	t.Helper()
-	prev := slog.Default()
-	h := &recordingHandler{}
-	slog.SetDefault(slog.New(h))
-	t.Cleanup(func() { slog.SetDefault(prev) })
-	return h
-}
-
 func TestPTeleport_FrameT_EmittedWhenNodeDebugTrue(t *testing.T) {
-	rec := installRecordingLogger(t)
+	rec := &recordingHandler{}
 	mp := &mockPlayer{}
 	s := &ScriptState{
 		Script:    &ScriptFile{Name: "frame_t_emit"},
@@ -5154,6 +5142,7 @@ func TestPTeleport_FrameT_EmittedWhenNodeDebugTrue(t *testing.T) {
 		Self:      mp,
 		Pointers:  PtrProtectedActivePlayer,
 		NodeDebug: true,
+		Log:       slog.New(rec),
 	}
 	s.Pointers |= PtrActivePlayer
 	s.PushInt(packCoord(0, 3098, 3107))
@@ -5171,13 +5160,14 @@ func TestPTeleport_FrameT_EmittedWhenNodeDebugTrue(t *testing.T) {
 }
 
 func TestPTeleport_FrameT_SuppressedWhenNodeDebugFalse(t *testing.T) {
-	rec := installRecordingLogger(t)
+	rec := &recordingHandler{}
 	mp := &mockPlayer{}
 	s := &ScriptState{
 		Script:   &ScriptFile{Name: "frame_t_silent"},
 		IntStack: make([]int, StackCapacity),
 		Self:     mp,
 		Pointers: PtrProtectedActivePlayer,
+		Log:      slog.New(rec),
 		// NodeDebug zero-value = false
 	}
 	s.Pointers |= PtrActivePlayer
@@ -5193,7 +5183,7 @@ func TestPTeleport_FrameT_SuppressedWhenNodeDebugFalse(t *testing.T) {
 }
 
 func TestPTeleport_FrameT_FieldValues(t *testing.T) {
-	rec := installRecordingLogger(t)
+	rec := &recordingHandler{}
 	mp := &mockPlayer{coordPacked: packCoord(0, 3094, 3107)}
 	s := &ScriptState{
 		Script:    &ScriptFile{Name: "open_and_close_door"},
@@ -5202,6 +5192,7 @@ func TestPTeleport_FrameT_FieldValues(t *testing.T) {
 		Self:      mp,
 		Pointers:  PtrProtectedActivePlayer,
 		NodeDebug: true,
+		Log:       slog.New(rec),
 	}
 	s.Pointers |= PtrActivePlayer
 	argCoord := packCoord(0, 3098, 3107)
