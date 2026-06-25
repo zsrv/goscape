@@ -22,7 +22,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger, err := log.NewLogger(slog.Level(config.LogLevel), config.LogFormat, os.Stdout)
+	logger, err := log.NewLogger(slog.Level(config.LogLevel), config.LogFormat, os.Stdout, log.WithSourceFormat(config.LogSource))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create logger: %v\n", err)
 		os.Exit(1)

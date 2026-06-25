@@ -4,39 +4,46 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"path/filepath"
-	"strconv"
 	"strings"
 )
 
+// options holds the optional logger settings configured via Option.
+type options struct {
+	source SourceFormat
+}
+
+// Option customises a logger built by NewLogger.
+type Option func(*options)
+
+// WithSourceFormat sets how the `source` attribute is rendered. The default
+// (when no option is passed) is SourceRelative.
+func WithSourceFormat(sf SourceFormat) Option {
+	return func(o *options) { o.source = sf }
+}
+
 // NewLogger creates a slog.Logger writing to w in the given format.
 // format is "text" (key-value) or "json".
-func NewLogger(level slog.Level, format string, w io.Writer) (*slog.Logger, error) {
+func NewLogger(level slog.Level, format string, w io.Writer, opts ...Option) (*slog.Logger, error) {
+	o := options{source: SourceRelative}
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	switch strings.ToLower(format) {
 	case "text":
-		return NewStdLogger(level, w), nil
+		return slog.New(slog.NewTextHandler(w, handlerOptions(level, o.source))), nil
 	case "json":
-		return NewStructuredLogger(level, w), nil
+		return slog.New(slog.NewJSONHandler(w, handlerOptions(level, o.source))), nil
 	default:
 		return nil, fmt.Errorf("invalid log format: %s", format)
 	}
 }
 
-// NewStdLogger creates a logger that logs messages in key-value format.
-func NewStdLogger(level slog.Level, w io.Writer) *slog.Logger {
-	return slog.New(slog.NewTextHandler(w, handlerOptions(level)))
-}
-
-// NewStructuredLogger creates a logger that logs messages in JSON format.
-func NewStructuredLogger(level slog.Level, w io.Writer) *slog.Logger {
-	return slog.New(slog.NewJSONHandler(w, handlerOptions(level)))
-}
-
 // handlerOptions builds the shared slog.HandlerOptions: AddSource on, the
 // given minimum level, and a ReplaceAttr that (1) renders LevelTrace as
-// "TRACE" (slog would otherwise print "DEBUG-4") and (2) trims the source
-// to "file.go:line" (the default prints the absolute compile path).
-func handlerOptions(level slog.Level) *slog.HandlerOptions {
+// "TRACE" (slog would otherwise print "DEBUG-4") and (2) rewrites the source
+// path according to source (the default prints the absolute compile path).
+func handlerOptions(level slog.Level, source SourceFormat) *slog.HandlerOptions {
 	return &slog.HandlerOptions{
 		AddSource: true,
 		Level:     level,
@@ -48,7 +55,7 @@ func handlerOptions(level slog.Level) *slog.HandlerOptions {
 				}
 			case slog.SourceKey:
 				if src, ok := a.Value.Any().(*slog.Source); ok && src != nil {
-					a.Value = slog.StringValue(filepath.Base(src.File) + ":" + strconv.Itoa(src.Line))
+					a.Value = slog.StringValue(renderSource(src, source))
 				}
 			}
 			return a
