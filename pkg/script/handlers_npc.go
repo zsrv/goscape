@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/zsrv/goscape/pkg/objtype"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 )
 
 // handleNpcAdd (NPC_ADD, opcode 2500) pops [coord, id, duration] and
@@ -1342,7 +1343,7 @@ func handleNpcFindHero(s *ScriptState) error {
 	lookupNonNil := false
 	defer func() {
 		if s.NodeDebug && s.Log != nil {
-			s.Log.Info("nai128.npc.findhero",
+			applog.Trace(s.Log, "nai128.npc.findhero",
 				"topUID", topUID,
 				"lookupNonNil", lookupNonNil,
 				"pushed", pushed,
