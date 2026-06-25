@@ -10,6 +10,7 @@ import (
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/telemetry"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 )
 
 // resolveInv looks up the inventory for typeID via the script's
@@ -1063,7 +1064,7 @@ func handleInvDropSlot(s *ScriptState) error {
 			AccountValue: count * objType.Cost,
 		})
 		if s.NodeDebug && s.Log != nil {
-			s.Log.Info("nai162.wealth.invdropslot",
+			applog.Trace(s.Log, "nai162.wealth.invdropslot",
 				"event_type", WealthEventTypeDrop,
 				"value", count*objType.Cost,
 				"inv", invID,
@@ -1715,7 +1716,7 @@ func handleBothMoveInv(s *ScriptState) error {
 				RecipientSession: toPlayer.RecipientSession(),
 			})
 			if s.NodeDebug && s.Log != nil {
-				s.Log.Info("nai162.wealth.bothmoveinv_stake",
+				applog.Trace(s.Log, "nai162.wealth.bothmoveinv_stake",
 					"event_type", WealthEventTypeStake,
 					"value", fromTotal,
 					"inv", from,
@@ -1780,7 +1781,7 @@ func handleBothMoveInv(s *ScriptState) error {
 				},
 			})
 			if s.NodeDebug && s.Log != nil {
-				s.Log.Info("nai162.wealth.bothmoveinv_trade",
+				applog.Trace(s.Log, "nai162.wealth.bothmoveinv_trade",
 					"event_type", WealthEventTypeTrade,
 					"value", fromTotal,
 					"inv", from,
@@ -2074,7 +2075,7 @@ func handleBothDropSlot(s *ScriptState) error {
 			RecipientSession: toPlayer.RecipientSession(),
 		})
 		if s.NodeDebug && s.Log != nil {
-			s.Log.Info("nai162.wealth.bothdropslot",
+			applog.Trace(s.Log, "nai162.wealth.bothdropslot",
 				"event_type", WealthEventTypePVP,
 				"value", count*objType.Cost,
 				"inv", invID,
@@ -2260,7 +2261,7 @@ func handleInvDropAll(s *ScriptState) error {
 			AccountValue: totalValue,
 		})
 		if s.NodeDebug && s.Log != nil {
-			s.Log.Info("nai162.wealth.invdropall",
+			applog.Trace(s.Log, "nai162.wealth.invdropall",
 				"event_type", WealthEventTypeDeath,
 				"value", totalValue,
 				"items", len(items),

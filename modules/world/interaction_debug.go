@@ -2,6 +2,7 @@ package world
 
 import (
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 )
 
 // targetTypeID extracts the type/config ID from an interaction target for
@@ -45,7 +46,7 @@ func emitInteractionTickFrame(
 	if !hadTarget || !s.cfg.NodeDebug || s.log == nil {
 		return
 	}
-	s.log.Debug("interaction tick",
+	applog.Trace(s.log, "interaction tick",
 		"tick", s.currentTick,
 		"player_uid", p.uid,
 		"target_kind", targetKindString(initialTarget),
@@ -113,7 +114,7 @@ func emitOpLocGate(s *Server, p *Player, gate string, op, x, z, locId int) {
 	if !s.cfg.NodeDebug || s.log == nil {
 		return
 	}
-	s.log.Debug("oploc gate",
+	applog.Trace(s.log, "oploc gate",
 		"tick", s.currentTick,
 		"player_uid", p.uid,
 		"gate", gate,

@@ -11,6 +11,7 @@ import (
 	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/telemetry"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 )
 
 // requireActiveObj returns an error if the operand-resolved active obj slot
@@ -294,7 +295,7 @@ func handleObjTakeItem(s *ScriptState) error {
 			AccountValue: objCount * objCfg.Cost,
 		})
 		if s.NodeDebug && s.Log != nil {
-			s.Log.Info("nai162.wealth.objtake",
+			applog.Trace(s.Log, "nai162.wealth.objtake",
 				"event_type", WealthEventTypePickup,
 				"value", objCount*objCfg.Cost,
 				"obj", objTypeID,

@@ -8,6 +8,7 @@ import (
 	"math/rand/v2"
 
 	"github.com/zsrv/goscape/pkg/objtype"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 )
 
 // NumStats is the authentic skill count in rev 225. Stat ops validate
@@ -753,7 +754,7 @@ func handlePTeleport(s *ScriptState) error {
 			selfCoord = s.activePlayer().CoordPacked()
 			selfName = s.activePlayer().Username()
 		}
-		slog.Info("p_teleport",
+		applog.Trace(slog.Default(), "p_teleport",
 			"script_name", scriptName,
 			"script_pc", s.PC,
 			"self_username", selfName,
@@ -866,7 +867,7 @@ func handlePRun(s *ScriptState) error {
 			tick = s.World.CurrentTick()
 		}
 		varpPre = s.activePlayer().Varp(varpID)
-		s.Log.Info("nai138.p_run",
+		applog.Trace(s.Log, "nai138.p_run",
 			"script_name", scriptName,
 			"script_pc", s.PC,
 			"tick", tick,
