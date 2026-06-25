@@ -2,6 +2,7 @@ package world
 
 import (
 	"github.com/zsrv/goscape/pkg/objtype"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 )
 
 // updateEnergy drains or recovers run energy for one tick, and
@@ -57,7 +58,7 @@ func (p *Player) updateEnergy() {
 			if varpID >= 0 && varpID < len(p.varps) {
 				varpPre = p.varps[varpID]
 			}
-			p.client.server.log.Info("nai138.update_energy.zero",
+			applog.Trace(p.client.server.log, "nai138.update_energy.zero",
 				"tick", p.client.server.currentTick,
 				"player_uid", p.uid,
 				"varp_id", varpID,
