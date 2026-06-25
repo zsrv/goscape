@@ -5,6 +5,7 @@ import (
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 )
 
 // Compile-time check: *Npc satisfies script.ActiveNpc.
@@ -83,7 +84,7 @@ func (n *Npc) NpcBaseStat(stat int) int {
 // NpcOps.ts:479. NAI-120 Bundle 2D.
 func (n *Npc) AddHeroPoints(playerUID, amount int) {
 	if n.server != nil && n.server.cfg.NodeDebug && n.server.log != nil {
-		n.server.log.Info("nai128.heropoints.add",
+		applog.Trace(n.server.log, "nai128.heropoints.add",
 			"npc", n.uid,
 			"typeId", n.typeId,
 			"playerUID", playerUID,
@@ -609,7 +610,7 @@ func (s *Server) processNpcQueue(n *Npc) {
 			continue
 		}
 		if s.cfg.NodeDebug && s.logScript != nil {
-			s.logScript.Debug("nai128.npc.queuefire",
+			applog.Trace(s.logScript, "nai128.npc.queuefire",
 				"npc", n.uid,
 				"typeId", n.typeId,
 				"trigger", int(trigger),

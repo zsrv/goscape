@@ -5,6 +5,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/script"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 	"github.com/zsrv/goscape/pkg/zone"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
@@ -224,7 +225,7 @@ func (w worldVarsView) AddObj(level, x, z, typeID, count, duration, receiverID i
 	}
 	w.s.AddObj(obj, receiverID, duration, dropperAccountID)
 	if w.s.cfg.NodeDebug && w.s.log != nil {
-		w.s.log.Debug("nai128.obj.add",
+		applog.Trace(w.s.log, "nai128.obj.add",
 			"level", level,
 			"x", x,
 			"z", z,
@@ -256,7 +257,7 @@ func (w worldVarsView) EnqueueObjDelayed(level, x, z, typeID, count, duration, d
 	}
 	w.s.enqueueObjDelayed(obj, receiverID, duration, delay, dropperAccountID)
 	if w.s.cfg.NodeDebug && w.s.log != nil {
-		w.s.log.Debug("nai134.obj.delayed.enqueue",
+		applog.Trace(w.s.log, "nai134.obj.delayed.enqueue",
 			"level", level, "x", x, "z", z,
 			"typeID", typeID, "count", count,
 			"duration", duration, "delay", delay,

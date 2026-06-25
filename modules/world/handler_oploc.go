@@ -3,6 +3,7 @@ package world
 import (
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 )
 
 // handleOpLoc is the shared implementation for OPLOC1..OPLOC5.
@@ -108,7 +109,7 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 
 	// NAI-79 Stage 1 — handler frame for H1/H2 evidence channel.
 	if s.cfg.NodeDebug && s.log != nil {
-		s.log.Debug("oploc handler",
+		applog.Trace(s.log, "oploc handler",
 			"tick", s.currentTick,
 			"player_uid", p.uid,
 			"op", op,
