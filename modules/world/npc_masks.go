@@ -3,6 +3,7 @@ package world
 import (
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 )
 
 // Animate schedules sequence id with the given client-side delay on the
@@ -165,7 +166,7 @@ func (n *Npc) Damage(amount, dmgType int) {
 	}
 	n.levels[objtype.NpcStatHitpoints] = cur
 	if n.server != nil && n.server.cfg.NodeDebug && n.server.log != nil {
-		n.server.log.Info("nai128.npc.damage",
+		applog.Trace(n.server.log, "nai128.npc.damage",
 			"npc", n.uid,
 			"typeId", n.typeId,
 			"amount", amount,

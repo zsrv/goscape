@@ -6,6 +6,7 @@ import (
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 )
 
 // writeVarp queues a VARP_SMALL or VARP_LARGE packet for the given
@@ -29,7 +30,7 @@ func (p *Player) writeVarp(id int, value int32) {
 	payload := buf.Bytes()
 	if p.client != nil && p.client.server != nil &&
 		p.client.server.cfg.NodeDebug && p.client.server.log != nil {
-		p.client.server.log.Info("nai138.write_varp",
+		applog.Trace(p.client.server.log, "nai138.write_varp",
 			"tick", p.client.server.currentTick,
 			"player_uid", p.uid,
 			"id", id,

@@ -5,6 +5,7 @@ import (
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
+	applog "github.com/zsrv/goscape/pkg/util/log"
 	"github.com/zsrv/goscape/pkg/zone"
 )
 
@@ -393,7 +394,7 @@ func (n *Npc) EnqueueScriptForTrigger(trigger script.ServerTriggerType, delay, l
 		LastInt: lastIntArg,
 	})
 	if n.server != nil && n.server.cfg.NodeDebug && n.server.log != nil {
-		n.server.log.Info("nai128.npc.enqueue",
+		applog.Trace(n.server.log, "nai128.npc.enqueue",
 			"npc", n.uid,
 			"typeId", n.typeId,
 			"trigger", int(trigger),
