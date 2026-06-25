@@ -2,7 +2,6 @@ package script
 
 import (
 	"fmt"
-	"log/slog"
 	"strconv"
 	"strings"
 )
@@ -203,7 +202,7 @@ func handleTextSwitch(s *ScriptState) error {
 // into pages of linesPerPage each.
 //
 // On invalid fontId (Configs.FontType returns nil — TS FontTypeValid
-// would throw) the handler logs slog.Warn and falls back to the
+// would throw) the handler logs a warning via s.Log and falls back to the
 // NAI-75 light-fidelity '|'-only split. Goscape defensive per
 // defensive_gate_doc_comment_label.md.
 func handleSplitInit(s *ScriptState) error {
@@ -225,8 +224,10 @@ func handleSplitInit(s *ScriptState) error {
 	if font := s.Configs.FontType(fontId); font != nil {
 		lines = font.Split(text, maxWidth)
 	} else {
-		slog.Warn("SPLIT_INIT: invalid fontId; falling back to '|' split",
-			"script", s.Script.Name, "fontId", fontId)
+		if s.Log != nil {
+			s.Log.Warn("SPLIT_INIT: invalid fontId; falling back to '|' split",
+				"script", s.Script.Name, "fontId", fontId)
+		}
 		lines = strings.Split(text, "|")
 	}
 
@@ -245,8 +246,10 @@ func handleSplitInit(s *ScriptState) error {
 		pages = append(pages, lines[i:end])
 	}
 	s.SplitPages = pages
-	slog.Debug("SPLIT_INIT processed",
-		"script", s.Script.Name, "pages", len(pages), "mesanim", s.SplitMesanim)
+	if s.Log != nil {
+		s.Log.Debug("SPLIT_INIT processed",
+			"script", s.Script.Name, "pages", len(pages), "mesanim", s.SplitMesanim)
+	}
 	return nil
 }
 
@@ -259,15 +262,19 @@ func handleSplitGet(s *ScriptState) error {
 	page := s.PopInt()
 	if page < 0 || page >= len(s.SplitPages) {
 		s.PushString("")
-		slog.Debug("SPLIT_GET out of page range",
-			"script", s.Script.Name, "page", page, "pages", len(s.SplitPages))
+		if s.Log != nil {
+			s.Log.Debug("SPLIT_GET out of page range",
+				"script", s.Script.Name, "page", page, "pages", len(s.SplitPages))
+		}
 		return nil
 	}
 	pg := s.SplitPages[page]
 	if line < 0 || line >= len(pg) {
 		s.PushString("")
-		slog.Debug("SPLIT_GET out of line range",
-			"script", s.Script.Name, "page", page, "line", line, "lines", len(pg))
+		if s.Log != nil {
+			s.Log.Debug("SPLIT_GET out of line range",
+				"script", s.Script.Name, "page", page, "line", line, "lines", len(pg))
+		}
 		return nil
 	}
 	s.PushString(pg[line])
@@ -312,8 +319,10 @@ func handleSplitLineCount(s *ScriptState) error {
 	page := s.PopInt()
 	if page < 0 || page >= len(s.SplitPages) {
 		s.PushInt(0)
-		slog.Debug("SPLIT_LINECOUNT out of page range",
-			"script", s.Script.Name, "page", page, "pages", len(s.SplitPages))
+		if s.Log != nil {
+			s.Log.Debug("SPLIT_LINECOUNT out of page range",
+				"script", s.Script.Name, "page", page, "pages", len(s.SplitPages))
+		}
 		return nil
 	}
 	s.PushInt(len(s.SplitPages[page]))
