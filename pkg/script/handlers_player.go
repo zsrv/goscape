@@ -3,7 +3,6 @@ package script
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"math"
 	"math/rand/v2"
 
@@ -718,7 +717,7 @@ func handlePTeleport(s *ScriptState) error {
 		return err
 	}
 
-	if s.NodeDebug {
+	if s.NodeDebug && s.Log != nil {
 		var (
 			scriptName string
 			selfCoord  int
@@ -731,7 +730,7 @@ func handlePTeleport(s *ScriptState) error {
 			selfCoord = s.activePlayer().CoordPacked()
 			selfName = s.activePlayer().Username()
 		}
-		applog.Trace(slog.Default(), "p_teleport",
+		applog.Trace(s.Log, "p_teleport",
 			"script_name", scriptName,
 			"script_pc", s.PC,
 			"self_username", selfName,
