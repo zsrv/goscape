@@ -57,6 +57,15 @@ log_level: info
 # CLI: --log.format   (default: text)
 log_format: text
 
+# How the `source` attribute is rendered. One of:
+#   relative  module-root-relative path, e.g. modules/world/npc_masks.go:42
+#             (stays clickable from the repo root in an IDE) — default
+#   short     filename only, e.g. npc_masks.go:42
+#   full      the compiler's path: absolute under a plain `go run`, or
+#             import-path-rooted under -trimpath builds
+# CLI: --log.source   (default: relative)
+log_source: relative
+
 
 # ----------------------------------------------------------------------------
 # ondemand — HTTP OnDemand server (serves the client cache + /rs2.cgi bootstrap,
