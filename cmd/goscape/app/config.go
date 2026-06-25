@@ -12,9 +12,10 @@ import (
 )
 
 type Config struct {
-	Target    string    `yaml:"target,omitempty"`
-	LogFormat string    `yaml:"log_format,omitempty"`
-	LogLevel  log.Level `yaml:"log_level,omitempty"` // global log level, default for modules too
+	Target    string           `yaml:"target,omitempty"`
+	LogFormat string           `yaml:"log_format,omitempty"`
+	LogLevel  log.Level        `yaml:"log_level,omitempty"`  // global log level, default for modules too
+	LogSource log.SourceFormat `yaml:"log_source,omitempty"` // how the `source` attribute is rendered
 
 	OnDemand ondemand.Config `yaml:"ondemand,omitempty"`
 	Friends  friends.Config  `yaml:"friends,omitempty"`
@@ -37,6 +38,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.StringVar(&c.Target, "target", SingleBinary, "Target module")
 	f.TextVar(&c.LogLevel, "log.level", log.Level(slog.LevelInfo), "Only log messages with the given severity or above. Valid levels: [trace, debug, info, warn, error]")
 	f.StringVar(&c.LogFormat, "log.format", "text", "Output log messages in the given format. Valid formats: [text, json]")
+	f.TextVar(&c.LogSource, "log.source", log.SourceRelative, "Render the source attribute as a path. relative (default): module-root-relative, e.g. modules/world/file.go:42 (clickable from the repo root). short: filename only. full: the compiler's path.")
 
 	// Everything else
 
