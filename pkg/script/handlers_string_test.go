@@ -666,11 +666,25 @@ func TestSplitInitMesanimPrefixResolves(t *testing.T) {
 	}
 }
 
-func TestSplitInitFontWrap_BreaksOnMaxWidth(t *testing.T) {
-	if _, err := os.Stat(filepath.Join("..", "..", "data", "pack", "client", "title")); err != nil {
-		t.Skipf("data/pack/client/title unavailable: %v", err)
+// ref254FontPackDir resolves the rev-254 reference cache pack dir from
+// GOSCAPE_REF254_DIR, or "" when unset/unavailable (see the cross-revision
+// cache note on the fonttype tests).
+func ref254FontPackDir() string {
+	if ref := os.Getenv("GOSCAPE_REF254_DIR"); ref != "" {
+		dir := filepath.Join(ref, "data", "pack")
+		if _, err := os.Stat(filepath.Join(dir, "client", "title")); err == nil {
+			return dir
+		}
 	}
-	fonts, err := fonttype.Load(filepath.Join("..", "..", "data", "pack"))
+	return ""
+}
+
+func TestSplitInitFontWrap_BreaksOnMaxWidth(t *testing.T) {
+	packDir := ref254FontPackDir()
+	if packDir == "" {
+		t.Skip("Server254-ref cache not available; set GOSCAPE_REF254_DIR")
+	}
+	fonts, err := fonttype.Load(packDir)
 	if err != nil {
 		t.Fatalf("fonttype.Load: %v", err)
 	}
