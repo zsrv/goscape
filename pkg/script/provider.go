@@ -17,14 +17,33 @@ type Provider struct {
 	scripts []*ScriptFile
 	byKey   map[uint32]*ScriptFile
 	byName  map[string]*ScriptFile
+	// log receives Load's per-script decode diagnostics. Optionally set via
+	// NewProvider; when nil, logger() falls back to slog.Default().
+	log *slog.Logger
 }
 
-// NewProvider allocates an empty Provider.
-func NewProvider() *Provider {
-	return &Provider{
+// NewProvider allocates an empty Provider. An optional logger may be passed;
+// Load emits its per-script decode diagnostics through it. When omitted (the
+// common case for tests), those diagnostics fall back to slog.Default().
+// Only the first logger argument is used.
+func NewProvider(logger ...*slog.Logger) *Provider {
+	p := &Provider{
 		byKey:  make(map[uint32]*ScriptFile),
 		byName: make(map[string]*ScriptFile),
 	}
+	if len(logger) > 0 {
+		p.log = logger[0]
+	}
+	return p
+}
+
+// logger returns the Provider's configured logger, or slog.Default() when no
+// logger was supplied to NewProvider.
+func (p *Provider) logger() *slog.Logger {
+	if p.log != nil {
+		return p.log
+	}
+	return slog.Default()
 }
 
 // Load reads script.dat and script.idx from cacheDir, validates the compiler
@@ -32,7 +51,8 @@ func NewProvider() *Provider {
 // Returns the count of successfully-decoded scripts (mirrors TS
 // ScriptProvider.load return shape), or -1 with a non-nil error on
 // top-level file-read or version-mismatch failure. Per-script decode
-// failures are logged via slog and counted as a skipped entry (NOT
+// failures are logged via the Provider's logger (NewProvider's optional
+// logger, else slog.Default()) and counted as a skipped entry (NOT
 // reflected in the returned count). NAI-190.
 //
 // cacheDir is typically "data/pack/server" relative to the project root.
@@ -87,7 +107,7 @@ func (p *Provider) Load(cacheDir string) (int, error) {
 			continue
 		}
 		if datOffset+size > len(dat) {
-			slog.Warn("script.Load: dat truncated", "id", id, "need", size)
+			p.logger().Warn("script.Load: dat truncated", "id", id, "need", size)
 			continue
 		}
 
@@ -96,7 +116,7 @@ func (p *Provider) Load(cacheDir string) (int, error) {
 
 		f, err := Decode(blob)
 		if err != nil {
-			slog.Warn("script.Load: decode failed", "id", id, "err", err)
+			p.logger().Warn("script.Load: decode failed", "id", id, "err", err)
 			continue
 		}
 
