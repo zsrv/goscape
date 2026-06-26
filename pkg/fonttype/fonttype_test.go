@@ -6,6 +6,20 @@ import (
 	"testing"
 )
 
+// ref244PackDir resolves the rev-244 reference cache pack dir from
+// GOSCAPE_REF244_DIR, or "" when unset/unavailable. The repo's own data/pack
+// is revision-specific generated output shared across worktrees; pinning to the
+// per-branch reference cache avoids the cross-revision-cache hazard.
+func ref244PackDir() string {
+	if ref := os.Getenv("GOSCAPE_REF244_DIR"); ref != "" {
+		dir := filepath.Join(ref, "data", "pack")
+		if _, err := os.Stat(filepath.Join(dir, "client", "title")); err == nil {
+			return dir
+		}
+	}
+	return ""
+}
+
 func TestCharLookup_AsciiA(t *testing.T) {
 	if CharLookup['A'] != 0 {
 		t.Errorf("CharLookup['A']: got %d, want 0", CharLookup['A'])
@@ -32,9 +46,9 @@ func TestCharLookup_Unknown(t *testing.T) {
 }
 
 func TestLoad_FourFonts(t *testing.T) {
-	cacheDir := filepath.Join("..", "..", "data", "pack")
-	if _, err := os.Stat(filepath.Join(cacheDir, "client", "title")); err != nil {
-		t.Skipf("data/pack/client/title unavailable: %v", err)
+	cacheDir := ref244PackDir()
+	if cacheDir == "" {
+		t.Skip("Server244-ref cache not available; set GOSCAPE_REF244_DIR")
 	}
 	fonts, err := Load(cacheDir)
 	if err != nil {
@@ -51,9 +65,9 @@ func TestLoad_FourFonts(t *testing.T) {
 }
 
 func TestFontType_StringWidth_Empty(t *testing.T) {
-	cacheDir := filepath.Join("..", "..", "data", "pack")
-	if _, err := os.Stat(filepath.Join(cacheDir, "client", "title")); err != nil {
-		t.Skipf("data/pack/client/title unavailable: %v", err)
+	cacheDir := ref244PackDir()
+	if cacheDir == "" {
+		t.Skip("Server244-ref cache not available; set GOSCAPE_REF244_DIR")
 	}
 	fonts, err := Load(cacheDir)
 	if err != nil {
@@ -65,9 +79,9 @@ func TestFontType_StringWidth_Empty(t *testing.T) {
 }
 
 func TestFontType_StringWidth_AtColorEscape(t *testing.T) {
-	cacheDir := filepath.Join("..", "..", "data", "pack")
-	if _, err := os.Stat(filepath.Join(cacheDir, "client", "title")); err != nil {
-		t.Skipf("data/pack/client/title unavailable: %v", err)
+	cacheDir := ref244PackDir()
+	if cacheDir == "" {
+		t.Skip("Server244-ref cache not available; set GOSCAPE_REF244_DIR")
 	}
 	fonts, err := Load(cacheDir)
 	if err != nil {
@@ -84,9 +98,9 @@ func TestFontType_StringWidth_AtColorEscape(t *testing.T) {
 }
 
 func TestFontType_Split_EmptyString(t *testing.T) {
-	cacheDir := filepath.Join("..", "..", "data", "pack")
-	if _, err := os.Stat(filepath.Join(cacheDir, "client", "title")); err != nil {
-		t.Skipf("data/pack/client/title unavailable: %v", err)
+	cacheDir := ref244PackDir()
+	if cacheDir == "" {
+		t.Skip("Server244-ref cache not available; set GOSCAPE_REF244_DIR")
 	}
 	fonts, err := Load(cacheDir)
 	if err != nil {
@@ -99,9 +113,9 @@ func TestFontType_Split_EmptyString(t *testing.T) {
 }
 
 func TestFontType_Split_NoBreakNeeded(t *testing.T) {
-	cacheDir := filepath.Join("..", "..", "data", "pack")
-	if _, err := os.Stat(filepath.Join(cacheDir, "client", "title")); err != nil {
-		t.Skipf("data/pack/client/title unavailable: %v", err)
+	cacheDir := ref244PackDir()
+	if cacheDir == "" {
+		t.Skip("Server244-ref cache not available; set GOSCAPE_REF244_DIR")
 	}
 	fonts, err := Load(cacheDir)
 	if err != nil {
@@ -115,9 +129,9 @@ func TestFontType_Split_NoBreakNeeded(t *testing.T) {
 }
 
 func TestFontType_Split_OnPipe(t *testing.T) {
-	cacheDir := filepath.Join("..", "..", "data", "pack")
-	if _, err := os.Stat(filepath.Join(cacheDir, "client", "title")); err != nil {
-		t.Skipf("data/pack/client/title unavailable: %v", err)
+	cacheDir := ref244PackDir()
+	if cacheDir == "" {
+		t.Skip("Server244-ref cache not available; set GOSCAPE_REF244_DIR")
 	}
 	fonts, err := Load(cacheDir)
 	if err != nil {
@@ -131,9 +145,9 @@ func TestFontType_Split_OnPipe(t *testing.T) {
 }
 
 func TestFontType_Split_OnSpace_ExceedsMaxWidth(t *testing.T) {
-	cacheDir := filepath.Join("..", "..", "data", "pack")
-	if _, err := os.Stat(filepath.Join(cacheDir, "client", "title")); err != nil {
-		t.Skipf("data/pack/client/title unavailable: %v", err)
+	cacheDir := ref244PackDir()
+	if cacheDir == "" {
+		t.Skip("Server244-ref cache not available; set GOSCAPE_REF244_DIR")
 	}
 	fonts, err := Load(cacheDir)
 	if err != nil {
@@ -160,9 +174,9 @@ func TestFontType_Split_OnSpace_ExceedsMaxWidth(t *testing.T) {
 }
 
 func TestFontType_Split_NoSpaceForcesFullLine(t *testing.T) {
-	cacheDir := filepath.Join("..", "..", "data", "pack")
-	if _, err := os.Stat(filepath.Join(cacheDir, "client", "title")); err != nil {
-		t.Skipf("data/pack/client/title unavailable: %v", err)
+	cacheDir := ref244PackDir()
+	if cacheDir == "" {
+		t.Skip("Server244-ref cache not available; set GOSCAPE_REF244_DIR")
 	}
 	fonts, err := Load(cacheDir)
 	if err != nil {

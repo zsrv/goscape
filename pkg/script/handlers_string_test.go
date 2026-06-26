@@ -10,6 +10,19 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
+// ref244FontPackDir resolves the rev-244 reference cache pack dir from
+// GOSCAPE_REF244_DIR, or "" when unset/unavailable (see the cross-revision
+// cache note on the fonttype tests).
+func ref244FontPackDir() string {
+	if ref := os.Getenv("GOSCAPE_REF244_DIR"); ref != "" {
+		dir := filepath.Join(ref, "data", "pack")
+		if _, err := os.Stat(filepath.Join(dir, "client", "title")); err == nil {
+			return dir
+		}
+	}
+	return ""
+}
+
 // -- Config-registry validator unit tests --
 
 func TestCheckMesanimType(t *testing.T) {
@@ -667,10 +680,11 @@ func TestSplitInitMesanimPrefixResolves(t *testing.T) {
 }
 
 func TestSplitInitFontWrap_BreaksOnMaxWidth(t *testing.T) {
-	if _, err := os.Stat(filepath.Join("..", "..", "data", "pack", "client", "title")); err != nil {
-		t.Skipf("data/pack/client/title unavailable: %v", err)
+	packDir := ref244FontPackDir()
+	if packDir == "" {
+		t.Skip("Server244-ref cache not available; set GOSCAPE_REF244_DIR")
 	}
-	fonts, err := fonttype.Load(filepath.Join("..", "..", "data", "pack"))
+	fonts, err := fonttype.Load(packDir)
 	if err != nil {
 		t.Fatalf("fonttype.Load: %v", err)
 	}
