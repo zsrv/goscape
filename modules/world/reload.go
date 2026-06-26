@@ -241,7 +241,7 @@ func (s *Server) Reload(clearInvs bool) error {
 	// ─── Step 9: reload scripts + broadcast result (TS L272-285) ───
 	serverDir := filepath.Join(cachePath, "server")
 	if s.scriptProvider == nil {
-		s.scriptProvider = script.NewProvider()
+		s.scriptProvider = script.NewProvider(s.log)
 	}
 	count, scriptErr := s.scriptProvider.Load(serverDir)
 	if s.cfg.NodeDebug {

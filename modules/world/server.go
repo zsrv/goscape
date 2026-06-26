@@ -617,7 +617,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		return nil, fmt.Errorf("load wordenc: %w", err)
 	}
 
-	s.scriptProvider = script.NewProvider()
+	s.scriptProvider = script.NewProvider(s.log)
 	if count, err := s.scriptProvider.Load(filepath.Join(cfg.CachePath, "server")); err != nil {
 		s.log.Warn("script provider load failed; scripts will not run", "err", err)
 		s.scriptProvider = nil
