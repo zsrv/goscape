@@ -88,9 +88,18 @@ func TestProviderRejectsVersionMismatch(t *testing.T) {
 }
 
 func TestProviderLoadRealCache(t *testing.T) {
-	cacheDir := filepath.Join("..", "..", "data", "pack", "server")
+	// Pinned to the rev-244 reference cache (Server244-ref, compiler version
+	// 26). The repo's own data/pack is revision-specific generated output
+	// shared across worktrees; reading it directly fails this v26 branch
+	// whenever another revision's pack (e.g. version 27) is present. Env-gating
+	// to GOSCAPE_REF244_DIR avoids that cross-revision-cache hazard.
+	ref := os.Getenv("GOSCAPE_REF244_DIR")
+	if ref == "" {
+		t.Skip("GOSCAPE_REF244_DIR not set; skipping real-cache load")
+	}
+	cacheDir := filepath.Join(ref, "data", "pack", "server")
 	if _, err := os.Stat(filepath.Join(cacheDir, "script.dat")); os.IsNotExist(err) {
-		t.Skip("real cache not present; skipping")
+		t.Skip("Server244-ref cache not present; skipping")
 	}
 
 	p := NewProvider()
