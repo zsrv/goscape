@@ -35,6 +35,37 @@ func buildTrivialScript(name string, lookupKey uint32) []byte {
 	return buildScript(name, "test.rs2", lookupKey, 0, 0, 0, 0, instrs)
 }
 
+func TestProviderLoadDiagnosticsUseInjectedLogger(t *testing.T) {
+	rec, lg := captureLogger()
+	p := NewProvider(lg)
+
+	dir := t.TempDir()
+	// entryCount=1 but the dat carries no blob bytes; idx declares size 10 for
+	// id 0, so Load takes the "dat truncated" diagnostic branch.
+	dat := buildFakeDat(CompilerVersion, [][]byte{{}})
+	idx := buildFakeIdx([]int{10})
+	if err := os.WriteFile(filepath.Join(dir, "script.dat"), dat, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "script.idx"), idx, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := p.Load(dir); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	found := false
+	for i := range rec.records {
+		if rec.records[i].Message == "script.Load: dat truncated" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("want 'dat truncated' diagnostic on the injected logger; got %d records", len(rec.records))
+	}
+}
+
 func TestProviderRejectsVersionMismatch(t *testing.T) {
 	dir := t.TempDir()
 
