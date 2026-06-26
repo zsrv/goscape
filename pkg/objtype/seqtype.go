@@ -69,11 +69,16 @@ func (t *SeqType) Decode(code uint8, dat *packet.Packet) error {
 				// parse. Match TS by dropping the bounds guard so OOR panics here
 				// (Go equivalent of TS's throw — both halt parsing on bad data;
 				// silent-default would mask data-corruption that TS would catch).
-				// cfg-media-1 (2026-05-28 audit). The nil-frames guard is
-				// preserved as additive robustness (CONFIRMED-EXCEPTION in the
-				// ledger) for test fixtures that omit a SeqFrame back-ref;
-				// production callers (LoadSeqTypes/parseSeqTypes) always set it.
-				if t.frames != nil {
+				// cfg-media-1 (2026-05-28 audit). The nil-frames AND empty-
+				// registry guards are preserved as additive robustness
+				// (CONFIRMED-EXCEPTION in the ledger): a missing back-ref OR an
+				// empty Instances (e.g. an absent/cross-revision main_file_cache
+				// where LoadSeqFrames yields no frames) falls through to the
+				// L101 default instead of indexing past the empty slice. A
+				// POPULATED registry with an OOR frames[i] still panics (TS
+				// throws). Production callers (LoadSeqTypes/parseSeqTypes) set a
+				// populated registry.
+				if t.frames != nil && len(t.frames.Instances) > 0 {
 					d = int32(t.frames.Instances[t.Frames[i]].Delay)
 				}
 			}

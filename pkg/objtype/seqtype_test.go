@@ -139,6 +139,30 @@ func TestSeqTypeDecode_DelayZeroNoFallbackUsesOne(t *testing.T) {
 	}
 }
 
+// TestSeqTypeDecode_DelayZeroEmptyFrames_UsesDefault: a non-nil but EMPTY
+// SeqFrameConfigs (len(Instances)==0) — as produced by an absent or
+// cross-revision main_file_cache where LoadSeqFrames yields no frames — must
+// fall through to the TS L101 default of 1 rather than indexing past the empty
+// slice and panicking. The populated-but-OOR path below still panics
+// (TS-faithful, cfg-media-1). CONFIRMED-EXCEPTION: additive robustness for
+// absent/wrong-era caches; production callers have a populated registry.
+func TestSeqTypeDecode_DelayZeroEmptyFrames_UsesDefault(t *testing.T) {
+	emptyFrames := &SeqFrameConfigs{} // Instances == nil/empty
+	st, err := decodeSeq(emptyFrames, func(p *packet.Packet) {
+		p.P1(1)
+		p.P1(1)
+		p.P2(0x0005) // frames[0] = 5
+		p.P2(0x0000) // iframes[0] = 0
+		p.P2(0x0000) // delay[0] = 0 → empty Instances → falls through to d=1
+	})
+	if err != nil {
+		t.Fatalf("DecodeType: %v", err)
+	}
+	if st.Delay[0] != 1 {
+		t.Errorf("Delay[0]: got %d, want 1 (TS L101 default when Instances empty)", st.Delay[0])
+	}
+}
+
 // cfg-media-1: TS SeqType.decode L97 derefs SeqFrame.instances[frames[i]].delay
 // unconditionally — an OOR frames[i] throws TypeError, aborting the config
 // parse. goscape pre-fix wrapped the deref in `idx >= 0 && idx < len(Instances)`
