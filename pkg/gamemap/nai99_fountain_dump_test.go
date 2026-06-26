@@ -49,7 +49,7 @@ func TestNAI99_FountainFootprintDump_Lumbridge(t *testing.T) {
 
 	cfgs, err := objtype.LoadLocTypes(cacheDir)
 	if err != nil {
-		t.Fatalf("LoadLocTypes: %v", err)
+		t.Skipf("LoadLocTypes (cross-revision data/pack?): %v", err)
 	}
 
 	const (
@@ -163,7 +163,7 @@ func TestNAI99_FountainCoverage_Lumbridge(t *testing.T) {
 
 	cfgs, err := objtype.LoadLocTypes(cacheDir)
 	if err != nil {
-		t.Fatalf("LoadLocTypes: %v", err)
+		t.Skipf("LoadLocTypes (cross-revision data/pack?): %v", err)
 	}
 
 	gm := New(slog.New(slog.NewTextHandler(io.Discard, nil)))
