@@ -314,15 +314,10 @@ func TestLoadSeqTypes_FromPack(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(cacheDir, "server", "seq.dat")); err != nil {
 		t.Skipf("no pack data: %v", err)
 	}
-	// A cross-revision data/pack can make the seq loaders index past
-	// short/wrong-format frame data and panic; treat that (and any load
-	// error) as a skip — this is a real-cache probe, green only against a
-	// matching-era pack.
-	defer func() {
-		if r := recover(); r != nil {
-			t.Skipf("seq load panicked (likely cross-revision data/pack): %v", r)
-		}
-	}()
+	// A cross-revision data/pack has wrong-format frame data; treat any load
+	// error as a skip — this is a real-cache probe, green only against a
+	// matching-era pack. (The decode delay-fallback no longer panics on an
+	// empty SeqFrame registry; see SeqType.decode in seqtype.go.)
 	frames, err := LoadSeqFrames(cacheDir)
 	if err != nil {
 		t.Skipf("LoadSeqFrames (cross-revision data/pack?): %v", err)
