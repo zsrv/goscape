@@ -116,12 +116,19 @@ func TestSendUpdateRunWeight_NegativeRoundsTowardZero(t *testing.T) {
 }
 
 // drainConn reads everything currently in the pipe. Must be called BEFORE flush.
+//
+// The read deadline only bounds the NO-DATA case: a no-op flush writes nothing,
+// so the read waits the whole deadline out. When there IS data it arrives
+// synchronously during flushWrite (the in-memory net.Pipe rendezvous is
+// sub-millisecond), long before the deadline. Keep it short: ~120 no-data call
+// sites × a 1s deadline added ~2 min to the world suite, tripping tight
+// -timeout values; 100ms is ample margin and cuts that to ~12s.
 func drainConn(t *testing.T, c net.Conn) <-chan []byte {
 	t.Helper()
 	received := make(chan []byte, 1)
 	go func() {
 		buf := make([]byte, 4096)
-		c.SetReadDeadline(time.Now().Add(time.Second))
+		c.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 		n, _ := c.Read(buf)
 		received <- buf[:n]
 	}()
