@@ -112,8 +112,8 @@ func TestHeroPoints_TopContributor(t *testing.T) {
 // quicksort's parity tiebreak resolves the tie differently from linear
 // first-max — hand-traced reference:
 //
-//   • Linear first-max: picks uid 1 (first amount=100 in insertion order).
-//   • TS RS-quicksort (sentinel-padded): picks uid 3.
+//   - Linear first-max: picks uid 1 (first amount=100 in insertion order).
+//   - TS RS-quicksort (sentinel-padded): picks uid 3.
 //
 // The non-adjacent placement of the tied-max entries is the
 // load-bearing fixture property — adjacent tied-max entries

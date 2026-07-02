@@ -15,14 +15,15 @@ import (
 // at TS PackShared.ts:435,459,467,507,531,555,573,603 @ 9aadcec4.
 //
 // 225 values (for reference):
-//   seqCRC      was 1638136604  → now 1405403166  (PackShared.ts:435)
-//   locCRC      was 891497087   → now 1195428820  (PackShared.ts:459)
-//   floCRC      new constant    → now 1976597026  (PackShared.ts:467)
-//   spotanimCRC was -1279835623 → now 117013845   (PackShared.ts:507)
-//   npcCRC      was -2140681882 → now -997428438  (PackShared.ts:531)
-//   objCRC      was -840233510  → now 1589810970  (PackShared.ts:555)
-//   idkCRC      new constant    → now -359342366  (PackShared.ts:573)
-//   varpCRC     was 705633567   → now -1961744050 (PackShared.ts:603)
+//
+//	seqCRC      was 1638136604  → now 1405403166  (PackShared.ts:435)
+//	locCRC      was 891497087   → now 1195428820  (PackShared.ts:459)
+//	floCRC      new constant    → now 1976597026  (PackShared.ts:467)
+//	spotanimCRC was -1279835623 → now 117013845   (PackShared.ts:507)
+//	npcCRC      was -2140681882 → now -997428438  (PackShared.ts:531)
+//	objCRC      was -840233510  → now 1589810970  (PackShared.ts:555)
+//	idkCRC      new constant    → now -359342366  (PackShared.ts:573)
+//	varpCRC     was 705633567   → now -1961744050 (PackShared.ts:603)
 const (
 	clientConfigCRCSeq      int32 = 1405403166
 	clientConfigCRCLoc      int32 = 1195428820
@@ -153,7 +154,9 @@ func PackConfigs(srcDir, outDir string) error {
 // cache is an optional *filestream.FileStream. When non-nil, the packed
 // client/config jagfile bytes are written to cache.Write(0, 2, data, 0),
 // mirroring TS PackShared.ts:641 @ 9aadcec4:
-//   cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
+//
+//	cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
+//
 // Callers that do not yet have a FileStream pass nil (e.g.
 // PackConfigsForRegistry).
 //

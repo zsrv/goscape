@@ -20,13 +20,13 @@ import (
 // WriteCompilerSymbols writes all 32 .sym files to symbolsDir. It mirrors
 // CompilerSymbols.ts generateCompilerSymbols() at Engine-TS@9aadcec4.
 //
-// srcDir:     content root — has scripts/ (*.constant files) and pack/
-//             (*.pack files). In packall: the content directory.
-// outDir:     the data/pack directory holding packed server/*.dat files
-//             consumed by InvType, Component, VarP, VarN, VarS, Param, DbTable
-//             loaders. In packall: outDir (same as packall.PackAll outDir).
+// srcDir: content root — has scripts/ (*.constant files) and pack/
+// (*.pack files). In packall: the content directory.
+// outDir: the data/pack directory holding packed server/*.dat files
+// consumed by InvType, Component, VarP, VarN, VarS, Param, DbTable
+// loaders. In packall: outDir (same as packall.PackAll outDir).
 // symbolsDir: destination directory; created if absent. In packall: sibling
-//             of outDir named "symbols" (e.g. data/pack → data/symbols).
+// of outDir named "symbols" (e.g. data/pack → data/symbols).
 //
 // All writes are atomic at the file level: each .sym is written in full then
 // saved. Missing pack files silently produce empty .sym output (mirrors TS

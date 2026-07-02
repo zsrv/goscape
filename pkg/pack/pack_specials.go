@@ -41,4 +41,3 @@ func packAndSaveCategoryDat(serverOut string, categoryPack *PackFile) error {
 	// Length() — i.e. len(Data) — for the byte count.
 	return dat.Save(filepath.Join(serverOut, "category.dat"), dat.Length(), 0)
 }
-

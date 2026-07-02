@@ -88,7 +88,9 @@ func TestNameMapLoadDirFiltersEmpties(t *testing.T) {
 //
 // Before fix (TrimSuffix \r only): line "1\r2=beta" keeps \r →
 // strconv.Atoi("1\r2") fails → "beta" never stored.
-// After  fix (.replace(/\r/g,'')): "12=beta" → id=12, name="beta".
+// After  fix: "12=beta" → id=12, name="beta". The fix mirrors TS's
+//
+//	.replace(/\r/g,'')
 func TestLoadPack_CRNormalization(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "cr.pack")

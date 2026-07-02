@@ -385,8 +385,8 @@ func TestCoordOpsAbortOnInvalidCoord(t *testing.T) {
 		{"COORDZ", OpCoordZ, []int{-1}},
 		{"DISTANCE/c1", OpDistance, []int{-1, 0}},
 		{"DISTANCE/c2", OpDistance, []int{0, -1}},
-		{"MOVECOORD", OpMoveCoord, []int{-1, 0, 0, 0}},   // [coord, x, y, z]
-		{"INZONE/from", OpInZone, []int{-1, 0, 0}},       // [from, to, pos]
+		{"MOVECOORD", OpMoveCoord, []int{-1, 0, 0, 0}}, // [coord, x, y, z]
+		{"INZONE/from", OpInZone, []int{-1, 0, 0}},     // [from, to, pos]
 		{"INZONE/pos", OpInZone, []int{0, 0, -1}},
 	}
 	for _, tc := range cases {

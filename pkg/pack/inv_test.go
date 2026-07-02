@@ -172,7 +172,7 @@ func TestPackInvConfigs_ProtectTrueDoesNotEmit(t *testing.T) {
 // push order is file-scan order.
 // Previously (225) this produced 3 entries with 2 filler slots (0xffff,0,0).
 // TS source: tools/pack/config/InvConfig.ts:115-116 (stock.push(value)) +
-//            tools/pack/config/InvConfig.ts:148-158 (dense emit, no filler branch).
+// tools/pack/config/InvConfig.ts:148-158 (dense emit, no filler branch).
 func TestPackInvConfigs_StockDense_GapBecomesOneEntry(t *testing.T) {
 	pf := newTestPF("inv", map[int]string{0: "shop"})
 	cfgs := map[string][]ConfigLine{

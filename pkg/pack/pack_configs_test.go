@@ -667,7 +667,8 @@ func TestPackConfigs_OrphanPackNameRejected(t *testing.T) {
 // is supplied.
 //
 // TS source: tools/pack/config/PackShared.ts:641 @ 9aadcec4:
-//   cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
+//
+//	cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
 //
 // Test:
 //  1. Create a minimal fixture (varp only — unconditional branch).
@@ -720,12 +721,13 @@ func TestPackConfigsConfigJagCacheWrite(t *testing.T) {
 // numbers to their rev-244 values (TS PackShared.ts @ 9aadcec4).
 //
 // Old 225 values for reference (updated at 9aadcec4):
-//   seq      1638136604 → 1405403166  (PackShared.ts:435)
-//   loc       891497087 → 1195428820  (PackShared.ts:459)
-//   spotanim -1279835623 → 117013845  (PackShared.ts:507)
-//   npc      -2140681882 → -997428438 (PackShared.ts:531)
-//   obj       -840233510 → 1589810970 (PackShared.ts:555)
-//   varp       705633567 → -1961744050 (PackShared.ts:603)
+//
+//	seq      1638136604 → 1405403166  (PackShared.ts:435)
+//	loc       891497087 → 1195428820  (PackShared.ts:459)
+//	spotanim -1279835623 → 117013845  (PackShared.ts:507)
+//	npc      -2140681882 → -997428438 (PackShared.ts:531)
+//	obj       -840233510 → 1589810970 (PackShared.ts:555)
+//	varp       705633567 → -1961744050 (PackShared.ts:603)
 func TestClientConfigCRCConstants_Rev244(t *testing.T) {
 	tests := []struct {
 		name string
