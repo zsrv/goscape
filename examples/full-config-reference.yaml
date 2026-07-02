@@ -230,8 +230,8 @@ world:
   # --- TCP timeouts ---
   # CLI: --world.tcp-read-timeout (default: 30s)
   tcp_server_read_timeout: 30s
-  # CLI: --world.tcp-write-timeout (default: 30s)
-  tcp_server_write_timeout: 30s
+  # CLI: --world.tcp-write-timeout (default: 2s; per-flush budget on tick goroutine)
+  tcp_server_write_timeout: 2s
   # CLI: --world.tcp-idle-timeout (default: 120s)
   tcp_server_idle_timeout: 120s
   # TCP keepalive idle period before the first probe; 0 disables.

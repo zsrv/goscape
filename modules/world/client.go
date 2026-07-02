@@ -182,6 +182,17 @@ func (c *client) flushWrite() error {
 	return c.bufw.Flush()
 }
 
+// flushWriteOrClose flushes the buffered writer; on failure it closes the
+// conn so the reader goroutine exits and tears the connection down through
+// the normal disconnect path (TS: socket error event → close). bufio's
+// error is sticky, so without the close a dead connection lingered,
+// silently receiving nothing, until the read-side timeout.
+func (c *client) flushWriteOrClose() {
+	if err := c.flushWrite(); err != nil {
+		_ = c.conn.Close()
+	}
+}
+
 // sendLoginOK queues the player for world registration on the next tick,
 // sends the login-accepted byte, and transitions to ClientStateGame.
 // Actual slot assignment happens in processLogins (next tick).
