@@ -647,7 +647,12 @@ func TestProcessLogoutsDecrementsSubscribedNpcObservers(t *testing.T) {
 	})
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	c := newClient(serverConn, time.Second, logger)
-	t.Cleanup(func() { c.in.Release() })
+	// dropConnRef, not a raw c.in.Release(): this test drives the player
+	// through processLogouts -> removePlayerOnTick, which calls
+	// dropTickRef and may already have pool-returned the buffers. A second
+	// unconditional Release here would double-return the same pooled
+	// object (arch-28.4b).
+	t.Cleanup(func() { c.dropConnRef() })
 	c.server = s
 	c.state = ClientStateGame
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
@@ -693,7 +698,10 @@ func newLoggingOutPlayer(t *testing.T, s *Server) *Player {
 	serverConn, clientConn := net.Pipe()
 	t.Cleanup(func() { serverConn.Close(); clientConn.Close() })
 	c := newClient(serverConn, time.Second, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	t.Cleanup(func() { c.in.Release() })
+	// dropConnRef: see newTestClient's comment (server_test.go) — this
+	// helper's callers all drive processLogouts -> removePlayerOnTick,
+	// which may already have released the buffers via dropTickRef.
+	t.Cleanup(func() { c.dropConnRef() })
 	c.server = s
 	c.state = ClientStateGame
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})

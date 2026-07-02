@@ -907,16 +907,19 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 			c.sessionID = ""
 		}
 		if c.player != nil {
+			// Post-login: the tick co-owns bufw/c.in until it processes
+			// the removal — no flush here (it would race the tick's own
+			// flushWrite) and no pool return (dropConnRef defers that to
+			// whichever owner exits last).
 			s.removePlayerOnDisconnect(c.player)
 			c.player = nil
-		}
-		if err := c.flushWrite(); err != nil {
+		} else if err := c.flushWrite(); err != nil {
+			// Pre-login: this goroutine is the only writer; flush any
+			// pending login reply before closing.
 			s.logNet.Warn("failed to flush on connection close", "error", err, "remote_addr", conn.RemoteAddr())
 		}
-		c.in.Release()
-		putBufioReader64k(c.bufr)
-		putBufioWriter64k(c.bufw)
 		conn.Close()
+		c.dropConnRef()
 		s.logNet.Debug("connection closed", "remote_addr", conn.RemoteAddr())
 	}()
 
@@ -1529,6 +1532,12 @@ func (s *Server) removePlayerOnTick(p *Player) {
 	// logout regardless of how the player left.
 	p.AddSessionLog(LoggerEventTypeModerator, "Logged out")
 	s.removePlayerInternal(p)
+	// Last tick-side touch of this connection's buffers: drop the tick's
+	// ref (idempotent — the idle-logout and disconnect paths can both
+	// land here for the same player).
+	if p.client != nil {
+		p.client.dropTickRef()
+	}
 }
 
 // removePlayerOnDisconnect handles an ungraceful socket close from the
