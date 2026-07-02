@@ -83,14 +83,30 @@ type Server struct {
 	// site falls back to DefaultRSAKey when nil.
 	rsaKey *protocol.RSAKey
 	tcpWg  sync.WaitGroup
-	// wsGateMu guards the quit-check/tcpWg.Add pair in HandleConn against
-	// Shutdown's close(quit)+Wait, making the WS-bridge admission gate
-	// atomic: a connection either registers in tcpWg before quit closes
-	// (so Shutdown's Wait observes it) or is refused. The raw-TCP path
-	// needs no gate — serveTCP holds a floor registration in tcpWg for
-	// the life of the accept loop, so its Add(1) calls never race a Wait
-	// that could observe a transient zero counter.
-	wsGateMu sync.Mutex
+	// admissionGateMu guards the quit-check/tcpWg.Add/trackConn triple at
+	// BOTH admission sites (serveTCP's accept loop and the WS bridge's
+	// HandleConn) against Shutdown's close(quit)+closeLiveConns+Wait,
+	// making admission atomic: a connection either registers in tcpWg AND
+	// the live-conn registry before quit closes (so Shutdown both closes
+	// it and observes it in Wait) or is refused. Gating matters even in
+	// production: a chatty client re-arms its read deadline forever, so an
+	// admitted-but-untracked conn would wedge Shutdown — the gate is what
+	// makes closeLiveConns complete. (serveTCP's floor registration in
+	// tcpWg only prevents WaitGroup misuse — Add racing a Wait that saw a
+	// transient zero — it cannot prevent a missed trackConn.)
+	admissionGateMu sync.Mutex
+	// liveConns/liveConnsMu track every accepted connection so Shutdown can
+	// close them. The read loop in handleTCPConn re-arms its deadline on
+	// every successful read, so a chatty client that keeps sending never
+	// trips the deadline on its own — without an explicit close, Shutdown's
+	// tcpWg.Wait would block on that connection's goroutine forever
+	// (arch-28.4c). Populated by trackConn at the two admission sites,
+	// under admissionGateMu and synchronously with each tcpWg.Add(1)
+	// (serveTCP's accept loop; HandleConn), and cleared by untrackConn
+	// (deferred in serveConn); closeLiveConns (called from Shutdown)
+	// closes every tracked conn.
+	liveConns   map[net.Conn]struct{}
+	liveConnsMu sync.Mutex
 	// tickWg tracks the runTickLoop goroutine spawned in Run(). Shutdown
 	// closes s.quit and then waits on tickWg so the tick goroutine has
 	// fully exited before cleanup proceeds. Arc 18 R2 — without this,
@@ -395,6 +411,15 @@ type Server struct {
 	// NAI-S5A-D-WORLDEVENTS-DROP-ON-FULL posture (slice 5b adopts the
 	// same posture client-side).
 	relayActionQueue chan func()
+
+	// removalQueue/removalMu back enqueueRemoval/drainRemovals: an
+	// unbounded, guaranteed-delivery queue for lifecycle-critical
+	// closures (player removal on disconnect). Unlike
+	// relayActionQueue this never drops — a dropped removal ghosts a
+	// player in-world for the 100-tick no-response timeout while the
+	// tick keeps writing into a dead connection's buffers (arch-28.4a).
+	removalQueue []func()
+	removalMu    sync.Mutex
 
 	// cycleStats/lastCycleStats mirror TS World.cycleStats /
 	// lastCycleStats (Uint16Array(12), World.ts — both pins; the surface
@@ -864,13 +889,20 @@ func (s *Server) Shutdown() {
 	// by the tick's final save-all (and by a just-completed logout) are
 	// parented to bridgesCtx; cancelling it now would abort them mid-flight
 	// and lose the saves. It is cancelled at the end, after waitForSaveFlush.
-	// Under wsGateMu so HandleConn's quit-check/tcpWg.Add gate is atomic
-	// with this close (see conn_handler.go).
-	s.wsGateMu.Lock()
+	// Under admissionGateMu so both admission sites' quit-check/tcpWg.Add/
+	// trackConn sequences (serveTCP's accept loop; HandleConn, see
+	// conn_handler.go) are atomic with this close.
+	s.admissionGateMu.Lock()
 	close(s.quit)
-	s.wsGateMu.Unlock()
+	s.admissionGateMu.Unlock()
 	s.log.Debug("closing tcp listener")
 	s.tcpListener.Close()
+	// Close every accepted connection: read loops re-arm their deadlines
+	// per read, so without this a connected client blocks tcpWg.Wait
+	// indefinitely. Closing is safe concurrently with in-flight reads and
+	// writes; each conn goroutine exits through its normal error path
+	// (enqueueing its player's removal for the tick's final save-all).
+	s.closeLiveConns()
 	s.log.Debug("waiting for tcp connections to close")
 	s.tcpWg.Wait()
 	s.log.Debug("all tcp connections closed")
@@ -898,13 +930,57 @@ func (s *Server) Shutdown() {
 		s.bridgesCancel()
 	}
 	s.log.Debug("player saves flushed")
+}
 
-	//_, cancel := context.WithTimeout(context.Background(), s.cfg.ServerGracefulShutdownTimeout)
-	//defer cancel() // releases resources if httpServer.Shutdown completes before timeout elapses. TODO: revisit this statement
-	//// TODO: can we even use ctx here if tcplistener doesn't accept one and this is the proper way to shut down?
-	//_ = s.tcpListener.Close() // TODO: revisit, compare to what http server shutdown does
-	//// TODO: need to close listener but also close client connections
-	//// https://eli.thegreenplace.net/2020/graceful-shutdown-of-a-tcp-server-in-go/
+// trackConn registers an accepted connection so Shutdown can close it.
+// The read loop re-arms its deadline on every read, so without an
+// explicit close a chatty client keeps its goroutine alive and
+// tcpWg.Wait never returns.
+//
+// Called at the two admission sites (serveTCP's accept loop; HandleConn),
+// both under admissionGateMu and synchronous with the matching
+// tcpWg.Add(1) — NOT inside the spawned serveConn goroutine. The gate
+// makes admission atomic with Shutdown's close(quit)+closeLiveConns, so
+// closeLiveConns can never miss a connection that Wait() would block on:
+// a chatty client re-arms its read deadline forever, so an untracked conn
+// wedges Shutdown even in production.
+func (s *Server) trackConn(conn net.Conn) {
+	s.liveConnsMu.Lock()
+	if s.liveConns == nil {
+		s.liveConns = make(map[net.Conn]struct{})
+	}
+	s.liveConns[conn] = struct{}{}
+	s.liveConnsMu.Unlock()
+}
+
+// untrackConn removes a connection from the live registry. Called from
+// serveConn's teardown, after which Shutdown's closeLiveConns will no
+// longer see (or double-close) this conn.
+func (s *Server) untrackConn(conn net.Conn) {
+	s.liveConnsMu.Lock()
+	delete(s.liveConns, conn)
+	s.liveConnsMu.Unlock()
+}
+
+// closeLiveConns closes every currently-tracked connection. Safe to call
+// concurrently with trackConn/untrackConn: each closed conn's read loop
+// exits through its normal error path and untracks itself independently.
+//
+// The registry is snapshotted under liveConnsMu but the Close calls run
+// AFTER unlocking: Close is not guaranteed cheap (the WS bridge's NetConn
+// performs a close handshake with an internal timeout), and holding the
+// lock through it would serialize every exiting conn goroutine's
+// untrackConn behind that handshake.
+func (s *Server) closeLiveConns() {
+	s.liveConnsMu.Lock()
+	conns := make([]net.Conn, 0, len(s.liveConns))
+	for conn := range s.liveConns {
+		conns = append(conns, conn)
+	}
+	s.liveConnsMu.Unlock()
+	for _, conn := range conns {
+		_ = conn.Close()
+	}
 }
 
 func (s *Server) serveTCP() error {
@@ -929,7 +1005,32 @@ func (s *Server) serveTCP() error {
 			}
 		}
 
+		// Admission gate, mirroring HandleConn: atomic with Shutdown's
+		// close(quit)+closeLiveConns, this conn is either registered in
+		// tcpWg AND the live-conn registry before quit closes (so Shutdown
+		// both closes it and waits for it) or refused. Without the gate, a
+		// conn accepted just before closeLiveConns but tracked just after
+		// is invisible to it — and a chatty client re-arms its read
+		// deadline forever, so even in production such an untracked conn
+		// wedges Shutdown; the gate is what makes closeLiveConns complete.
+		// trackConn stays synchronous with the Add(1), BEFORE the goroutine
+		// is spawned, for the same reason (arch-28.4c review).
+		s.admissionGateMu.Lock()
+		select {
+		case <-s.quit:
+			s.admissionGateMu.Unlock()
+			// Shutdown already ran closeLiveConns; nothing will close this
+			// conn later, so refuse it here. Return (not continue), matching
+			// the loop's quit semantics above: the listener is closing, so
+			// the next Accept would just error into that same return path.
+			_ = conn.Close()
+			s.log.Debug("tcp listener closed")
+			return nil
+		default:
+		}
 		s.tcpWg.Add(1)
+		s.trackConn(conn)
+		s.admissionGateMu.Unlock()
 
 		// Handle the connection in a new goroutine for concurrency
 		go s.serveConn(conn)
@@ -951,8 +1052,17 @@ func (s *Server) serveTCP() error {
 // during unwinding, so this is the Go equivalent of TS's per-connection
 // try/catch -> client.terminate() (TcpServer.ts:29-41). tcpWg.Done() is
 // deferred so Shutdown's tcpWg.Wait() can never hang on a panicked connection.
+//
+// The caller must have already registered conn via trackConn, synchronously
+// with its tcpWg.Add(1) (serveTCP's accept loop; HandleConn's admission
+// gate) — tracking here instead would open a scheduling window where the
+// conn holds a tcpWg count but is invisible to closeLiveConns, letting
+// Shutdown's Wait block on a connection it cannot close (arch-28.4c
+// review). untrackConn stays deferred here, pairing with tcpWg.Done: both
+// fire on every exit path, including mid-panic-recovery.
 func (s *Server) serveConn(conn net.Conn) {
 	defer s.tcpWg.Done()
+	defer s.untrackConn(conn)
 	defer func() {
 		if r := recover(); r != nil {
 			s.logNet.Error("recovered panic in connection handler",
@@ -989,23 +1099,26 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 			c.tap.SessionEnded(c.accountID, c.sessionID, time.Now(), tapper.CloseReasonDisconnect)
 			c.sessionID = ""
 		}
-		if c.player != nil {
-			s.removePlayerOnDisconnect(c.player)
-			c.player = nil
-		}
 		// rev-274 Task 22a: drop this connection's OnDemand queue + round-robin
 		// entry (TS OnDemandThread 'client_closed' → deleteClient). Harmless for
 		// non-ondemand connections (the connID was never inserted → map miss).
 		if s.onDemand != nil {
 			s.onDemand.clientClosed(&clientODAdapter{c: c})
 		}
-		if err := c.flushWrite(); err != nil {
+		if c.player != nil {
+			// Post-login: the tick co-owns bufw/c.in until it processes
+			// the removal — no flush here (it would race the tick's own
+			// flushWrite) and no pool return (dropConnRef defers that to
+			// whichever owner exits last).
+			s.removePlayerOnDisconnect(c.player)
+			c.player = nil
+		} else if err := c.flushWrite(); err != nil {
+			// Pre-login: this goroutine is the only writer; flush any
+			// pending login reply before closing.
 			s.logNet.Warn("failed to flush on connection close", "error", err, "remote_addr", conn.RemoteAddr())
 		}
-		c.in.Release()
-		putBufioReader64k(c.bufr)
-		putBufioWriter64k(c.bufw)
 		conn.Close()
+		c.dropConnRef()
 		s.logNet.Debug("connection closed", "remote_addr", conn.RemoteAddr())
 	}()
 
@@ -1694,18 +1807,27 @@ func (s *Server) removePlayerOnTick(p *Player) {
 	// the order here — fire BEFORE removePlayerInternal so p.session, p.x,
 	// p.z are still set when AddSessionLog snapshots them. The graceful and
 	// disconnect paths both funnel through this function (the disconnect
-	// path enqueues this on the relay queue), so the log emits once per
+	// path enqueues this on the removal queue), so the log emits once per
 	// logout regardless of how the player left.
 	p.AddSessionLog(LoggerEventTypeModerator, "Logged out")
 	s.removePlayerInternal(p)
+	// Last tick-side touch of this connection's buffers: drop the tick's
+	// ref (idempotent — the idle-logout and disconnect paths can both
+	// land here for the same player).
+	if p.client != nil {
+		p.client.dropTickRef()
+	}
 }
 
 // removePlayerOnDisconnect handles an ungraceful socket close from the
 // per-conn goroutine. It cannot call p.Save() here (that reads player state
 // the tick goroutine concurrently mutates — a data race), so it defers the
-// whole removal to the tick by enqueuing removePlayerOnTick on the
-// relayActionQueue (drained at the top of the tick loop). removePlayerOnTick
-// runs on-tick, so p.Save() is safe and the player IS saved — matching TS,
+// whole removal to the tick by enqueuing removePlayerOnTick on the removal
+// queue; guaranteed, non-lossy (drained at the top of the tick loop, before
+// the lossy relay queue — arch-28.4a: a dropped removal here ghosts the
+// player in-world for the 100-tick no-response timeout while the tick keeps
+// writing into a dead connection's buffers). removePlayerOnTick runs
+// on-tick, so p.Save() is safe and the player IS saved — matching TS,
 // which keeps a dropped player in-world and saves them via the idle-logout
 // (the earlier "PlayerForceLogout, no save" path lost all progress since the
 // last 15-minute autosave, and its "TS has the same window" note was wrong).
@@ -1713,7 +1835,7 @@ func (s *Server) removePlayerOnTick(p *Player) {
 // removePlayerInternal is idempotent (slot-identity guard), so this is safe
 // even if the tick's own no-connection idle-logout fires for the same player.
 func (s *Server) removePlayerOnDisconnect(p *Player) {
-	s.enqueueRelayAction(func() {
+	s.enqueueRemoval(func() {
 		s.removePlayerOnTick(p)
 	})
 }

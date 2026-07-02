@@ -1157,7 +1157,7 @@ func (p *Player) processOut() {
 	p.updateStats()
 	p.updateAfkZones()
 	p.encodeOut()
-	p.client.flushWrite()
+	p.client.flushWriteOrClose()
 }
 
 func (p *Player) processIn(currentTick int) {
