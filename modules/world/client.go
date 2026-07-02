@@ -123,7 +123,8 @@ type client struct {
 	// in-flight pump send while the conn goroutine's defer pool-returns
 	// the buffers. Pre-existing race (the old code released
 	// unconditionally at the same point); tracked as an arch-28 residual
-	// — see PORTING.md's arch-28 fidelity backport entry (Arc 31).
+	// — see the arch-28 fidelity backport entry (2026-07-02) at the tail
+	// of docs/PORTING.md.
 	teardownRefs atomic.Int32
 	connRefOnce  sync.Once
 	tickRefOnce  sync.Once
