@@ -46,8 +46,16 @@ func freeFriendsPort(t *testing.T) int {
 // than a bufconn harness (handler_test.go only has a fake in-process
 // ServerStream, not a dialable one). The client deliberately never
 // closes its stream, so the only thing that can end it server-side is
-// running's closeAll call; if that wiring regresses, this test times out
-// waiting for AwaitTerminated instead of failing fast.
+// running's closeAll call.
+//
+// The AwaitTerminated bound is deliberately 2s — meaningfully below
+// defaultGracefulStopBound (5s) — so the two halves of the arch-29.4
+// fix stay distinguishable: finishing under 2s REQUIRES the closeAll
+// wiring in Friends.running (with only the backstop, shutdown takes the
+// full 5s grace window — measured 5.02s with the closeAll calls
+// reverted — and fails this bound; with the wiring it completes in
+// ~20ms). The backstop itself is pinned separately by
+// TestGRPCServer_Shutdown_ForcesStopAfterGrace in server_test.go.
 func TestFriends_Running_StopsWithOpenSubscriberStream(t *testing.T) {
 	port := freeFriendsPort(t)
 	cfg := Config{
@@ -100,10 +108,12 @@ func TestFriends_Running_StopsWithOpenSubscriberStream(t *testing.T) {
 	// stream server-side.
 	f.StopAsync()
 
-	termCtx, cancelTerm := context.WithTimeout(context.Background(), 6*time.Second)
+	// 2s: below defaultGracefulStopBound so only the closeAll wiring —
+	// not the forced-Stop backstop — can satisfy it (see doc comment).
+	termCtx, cancelTerm := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelTerm()
 	if err := f.AwaitTerminated(termCtx); err != nil {
-		t.Fatalf("AwaitTerminated: %v (Friends did not stop with an open subscriber stream attached)", err)
+		t.Fatalf("AwaitTerminated: %v (stop with an open subscriber stream took >=2s; closeAll wiring in Friends.running regressed — only the GracefulStop backstop is ending the stream)", err)
 	}
 
 	// The stream must have ended too (drop past any buffered initial
