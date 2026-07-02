@@ -36,11 +36,6 @@ func New(cfg Config, logger *slog.Logger) (*Friends, error) {
 	return f, nil
 }
 
-// NewFriendsService is the factory used by the dskit module manager.
-func NewFriendsService(cfg Config, logger *slog.Logger) (services.Service, error) {
-	return New(cfg, logger)
-}
-
 func (f *Friends) starting(_ context.Context) error {
 	db, err := openDB(f.cfg.SQLiteDSN)
 	if err != nil {

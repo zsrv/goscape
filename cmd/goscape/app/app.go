@@ -7,8 +7,6 @@ import (
 	"log/slog"
 	"sync"
 
-	"go.uber.org/atomic"
-
 	"github.com/zsrv/goscape/modules/friends"
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
@@ -70,6 +68,24 @@ func New(logger *slog.Logger, cfg Config) (*App, error) {
 	return app, nil
 }
 
+// resolveModuleName maps a service back to its module key ("unknown"
+// if unregistered) — shared by the failure listener and the post-stop
+// exit-code check so their classifications can't drift (arch-29.9).
+func resolveModuleName(serviceMap map[string]services.Service, svc services.Service) string {
+	for m, s := range serviceMap {
+		if s == svc {
+			return m
+		}
+	}
+	return "unknown"
+}
+
+// isRequestedStop reports whether a FailureCase represents a requested
+// shutdown rather than a failure (ErrStopProcess, context.Canceled).
+func isRequestedStop(err error) bool {
+	return errors.Is(err, modules.ErrStopProcess) || errors.Is(err, context.Canceled)
+}
+
 // failedServicesError maps any Failed services back to their module
 // names and returns a joined error, or nil if everything stopped
 // cleanly. ErrStopProcess (a module requesting shutdown) and
@@ -82,17 +98,10 @@ func failedServicesError(sm *services.Manager, serviceMap map[string]services.Se
 	var errs []error
 	for _, s := range sm.ServicesByState()[services.Failed] {
 		fc := s.FailureCase()
-		if errors.Is(fc, modules.ErrStopProcess) || errors.Is(fc, context.Canceled) {
+		if isRequestedStop(fc) {
 			continue
 		}
-		name := "unknown"
-		for m, svc := range serviceMap {
-			if svc == s {
-				name = m
-				break
-			}
-		}
-		errs = append(errs, fmt.Errorf("module %s failed: %w", name, fc))
+		errs = append(errs, fmt.Errorf("module %s failed: %w", resolveModuleName(serviceMap, s), fc))
 	}
 	return errors.Join(errs...)
 }
@@ -119,9 +128,6 @@ func (g *App) Run() error {
 		return fmt.Errorf("failed to start service manager: %w", err)
 	}
 
-	// Used to delay shutdown but return "not ready" during this delay
-	shutdownRequested := atomic.NewBool(false)
-
 	// listen for events from this manager and log them
 	healthy := func() { g.logger.Info("goscape started") }
 	stopped := func() { g.logger.Info("goscape stopped") }
@@ -129,22 +135,16 @@ func (g *App) Run() error {
 		// if any service fails, stop everything
 		sm.StopAsync()
 
-		// find out which module failed
-		for m, s := range serviceMap {
-			if s == service {
-				err := service.FailureCase()
-				if errors.Is(err, modules.ErrStopProcess) {
-					g.logger.Info("received stop signal via return error", "module", m, "err", err)
-				} else if errors.Is(err, context.Canceled) {
-					return
-				} else if err != nil {
-					g.logger.Error("module failed", "module", m, "err", err)
-				}
-				return
-			}
+		m := resolveModuleName(serviceMap, service)
+		err := service.FailureCase()
+		switch {
+		case errors.Is(err, modules.ErrStopProcess):
+			g.logger.Info("received stop signal via return error", "module", m, "err", err)
+		case isRequestedStop(err):
+			// context.Canceled: normal stop signal, nothing to log.
+		case err != nil:
+			g.logger.Error("module failed", "module", m, "err", err)
 		}
-
-		g.logger.Error("module failed", "module", "unknown", "err", service.FailureCase())
 	}
 	sm.AddListener(services.NewManagerListener(healthy, stopped, serviceFailed))
 
@@ -168,9 +168,6 @@ func (g *App) Run() error {
 	defer sync.OnceFunc(handler.Stop)()
 	go func() {
 		handler.Loop()
-
-		shutdownRequested.Store(true)
-
 		sm.StopAsync()
 	}()
 

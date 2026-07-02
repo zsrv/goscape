@@ -53,8 +53,6 @@ func New(cfg Config, logger *slog.Logger, serv *server.Server, worldConn connhan
 		return nil, err
 	}
 
-	//subservices := []services.Service(nil)
-
 	sourceIPs, err := middleware.NewSourceIPs(cfg.Server.LogSourceIPsHeader, cfg.Server.LogSourceIPsRegex, cfg.Server.LogSourceIPsFull)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure source IP extractor: %w", err)
@@ -82,17 +80,6 @@ func New(cfg Config, logger *slog.Logger, serv *server.Server, worldConn connhan
 		a.cache = cache
 	}
 
-	// NOTE: OnDemand server doesn't have any subservices
-	//var err error
-	//a.subservices, err = services.NewManager(subservices...)
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed to create subservices: %w", err)
-	//}
-	//a.subservicesWatcher = services.NewFailureWatcher()
-	//a.subservicesWatcher.WatchManager(a.subservices)
-
-	//a.Service = services.NewBasicService(a.starting, a.running, a.stopping)
-	//a.Service = services.NewBasicService(nil, runFn, stoppingFn)
 	return a, nil
 }
 
