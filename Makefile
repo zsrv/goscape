@@ -21,8 +21,6 @@ GOARCH             ?= $(shell go env GOARCH)
 GOARM              ?= $(shell go env GOARM)
 GOEXPERIMENT       ?= $(shell go env GOEXPERIMENT)
 
-GOTEST             ?= go test
-
 # Build flags
 VPREFIX            := github.com/zsrv/goscape/pkg/util/build
 GO_LDFLAGS         := -X $(VPREFIX).Branch=$(GIT_BRANCH) \
@@ -90,14 +88,6 @@ DONT_FIND := -name tools -prune -o -name vendor -prune -o -name operator -prune 
 
 # Protobuf files
 PROTO_DEFS := $(shell find . $(DONT_FIND) -type f -name '*.proto' -print)
-
-# Documentation source path
-DOC_SOURCES_PATH := docs/sources
-DOC_TEMPLATE_PATH := docs/templates
-
-# Configuration flags documentation
-DOC_FLAGS_TEMPLATE := $(DOC_TEMPLATE_PATH)/configuration.template
-DOC_FLAGS := $(DOC_SOURCES_PATH)/shared/configuration.md
 
 ################
 # Main Targets #
@@ -335,7 +325,10 @@ format:
 		-type f -name '*.go' -exec goimports -w -local github.com/zsrv/goscape {} \;
 
 
-# main is the codeless docs hub; diff against the revision branch.
+# Diff base for check-format, derived from the current branch. Known failure
+# modes: an unpushed local branch makes origin/<branch> unresolvable (check-format
+# hard-fails), and a detached HEAD resolves to the literal "HEAD" and thus
+# origin/HEAD. Acceptable while check-format is not wired into CI.
 GIT_TARGET_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 check-format: format
 	git diff --name-only HEAD origin/$(GIT_TARGET_BRANCH) -- "*.go" | xargs --no-run-if-empty git diff --exit-code -- \
