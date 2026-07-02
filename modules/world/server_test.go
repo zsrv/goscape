@@ -35,7 +35,12 @@ func newTestClient(t *testing.T) (*client, net.Conn) {
 		clientConn.Close()
 	})
 	c := newClient(serverConn, time.Second, discardLogger())
-	t.Cleanup(func() { c.in.Release() })
+	// dropConnRef (not a raw c.in.Release()) so this is a no-op if the test
+	// already drove the client through removePlayerOnTick/processLogouts —
+	// those call dropTickRef, which pool-returns the buffers once refs hit
+	// 0. A second unconditional Release here would double-return the same
+	// pooled object (arch-28.4b).
+	t.Cleanup(func() { c.dropConnRef() })
 	return c, clientConn
 }
 
