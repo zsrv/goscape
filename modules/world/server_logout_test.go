@@ -127,8 +127,8 @@ func TestRemovePlayerOnDisconnect_SavesViaTickLogout(t *testing.T) {
 		t.Fatalf("addPlayer: %v", err)
 	}
 
-	s.removePlayerOnDisconnect(p) // enqueues removePlayerOnTick on the relay queue
-	s.drainRelayActions()         // run it on-tick (race-free p.Save())
+	s.removePlayerOnDisconnect(p) // enqueues removePlayerOnTick on the removal queue
+	s.drainRemovals()             // run it on-tick (race-free p.Save())
 
 	select {
 	case <-fake.playerLogoutFired:
@@ -204,7 +204,7 @@ func TestRemovePlayerOnDisconnect_NoLoginClient_NoRPC(t *testing.T) {
 	}
 
 	s.removePlayerOnDisconnect(p) // enqueues; must not panic
-	s.drainRelayActions()         // runs the relayed removePlayerOnTick on-tick
+	s.drainRemovals()             // runs the removed player's removePlayerOnTick on-tick
 	if s.players.get(p.pid) != nil {
 		t.Error("removePlayerInternal must run (via the relayed tick logout) when loginClient is nil")
 	}

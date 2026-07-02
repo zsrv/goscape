@@ -54,8 +54,8 @@ func TestRemovePlayerOnDisconnect_FiresFriendsPlayerLogout(t *testing.T) {
 		t.Fatalf("addPlayer: %v", err)
 	}
 
-	s.removePlayerOnDisconnect(p) // enqueues removePlayerOnTick on the relay queue
-	s.drainRelayActions()         // run it on-tick → fires the friends PlayerLogout
+	s.removePlayerOnDisconnect(p) // enqueues removePlayerOnTick on the removal queue
+	s.drainRemovals()             // run it on-tick → fires the friends PlayerLogout
 
 	select {
 	case got := <-fake.playerLogoutReqs:

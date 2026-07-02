@@ -43,6 +43,31 @@ func (s *Server) drainRelayActions() {
 	}
 }
 
+// enqueueRemoval posts a lifecycle-critical closure (player removal on
+// disconnect) for execution on the next tick. Unlike enqueueRelayAction
+// this NEVER drops: a dropped removal ghosts the player in-world for the
+// 100-tick no-response timeout while the tick keeps writing into a dead
+// connection's buffers. Unbounded by design — growth is bounded by the
+// number of concurrently disconnecting players.
+func (s *Server) enqueueRemoval(action func()) {
+	s.removalMu.Lock()
+	s.removalQueue = append(s.removalQueue, action)
+	s.removalMu.Unlock()
+}
+
+// drainRemovals runs every pending removal in FIFO order. Must be invoked
+// from the tick goroutine, before drainRelayActions, so a disconnect
+// enqueued last tick is processed before any relay traffic this tick.
+func (s *Server) drainRemovals() {
+	s.removalMu.Lock()
+	actions := s.removalQueue
+	s.removalQueue = nil
+	s.removalMu.Unlock()
+	for _, action := range actions {
+		action()
+	}
+}
+
 // lookupPlayerByUsername37 returns the active player whose username37
 // matches u37, or nil if none. Compares the pre-computed Player.username37
 // field directly (set at login) rather than recomputing the base37 hash
