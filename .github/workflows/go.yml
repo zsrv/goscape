@@ -1,0 +1,30 @@
+name: go
+
+on:
+  push:
+    branches: ['rev-*']
+  pull_request:
+    branches: ['rev-*']
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: CGO_ENABLED=0 go build -trimpath ./...
+      - name: Test
+        run: go test ./...
+
+  race:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Race-detector tests (concurrent packages)
+        run: CGO_ENABLED=1 go test -race ./modules/... ./pkg/dskit/... ./pkg/io/...
