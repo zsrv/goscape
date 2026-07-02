@@ -236,10 +236,13 @@ func (c *client) sendLoginOK() error {
 		if cfgs := c.server.loginConfigs(); cfgs.invTypes != nil {
 			p.SetAppearanceInv(cfgs.invTypes.Worn)
 		}
+		// tick co-owns the buffers until removePlayerOnTick (arch-28.4b).
+		// Taking the ref before publishing to appendNewPlayer preserves the
+		// owner-ref-before-publication invariant even if a future same-tick
+		// removal path appears.
+		c.teardownRefs.Add(1)
 		c.server.appendNewPlayer(p)
 		c.player = p
-		// tick co-owns the buffers until removePlayerOnTick (arch-28.4b).
-		c.teardownRefs.Add(1)
 	}
 
 	if c.tap != nil && c.tap.Enabled() {

@@ -573,10 +573,10 @@ func TestLoadSave_V6Dense_SyntheticVarps(t *testing.T) {
 	negThree := int32(-3)
 	pkt.P4(uint32(negThree))
 	pkt.P4(0)
-	pkt.P1(0) // invCount=0
-	pkt.P1(0) // v3+: afkCount=0
-	pkt.P2(0) // lastAfkZone
-	pkt.P1(0) // v4+: chat modes
+	pkt.P1(0)                     // invCount=0
+	pkt.P1(0)                     // v3+: afkCount=0
+	pkt.P2(0)                     // lastAfkZone
+	pkt.P1(0)                     // v4+: chat modes
 	pkt.P8(uint64(1718000000000)) // v6+: lastLoginTime
 	crc := packet.GetCRC(pkt.Data, 0, len(pkt.Data))
 	pkt.P4(crc)

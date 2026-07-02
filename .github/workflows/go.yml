@@ -1,5 +1,12 @@
 name: go
 
+permissions:
+  contents: read
+
+concurrency:
+  group: go-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: ['rev-*']
@@ -18,6 +25,8 @@ jobs:
         run: CGO_ENABLED=0 go build -trimpath ./...
       - name: Test
         run: go test ./...
+      - name: Format and vet
+        run: test -z "$(gofmt -l .)" && go vet ./...
 
   race:
     runs-on: ubuntu-latest

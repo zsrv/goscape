@@ -29,11 +29,11 @@ func u4be(v uint32) []byte { return []byte{byte(v >> 24), byte(v >> 16), byte(v 
 
 func TestUnpackSeq_Opcode1_FrameTable_RegistryHit(t *testing.T) {
 	// count=1, frame=2 (AnimPack has "run"), iframe=0xFFFF→-1 (not emitted), delay=0 (not emitted)
-	body := []byte{1, 1} // opcode=1, count=1
-	body = append(body, u2be(2)...)    // frame[0]=2
-	body = append(body, 0xFF, 0xFF)    // iframe[0]=65535→-1
-	body = append(body, u2be(0)...)    // delay[0]=0
-	body = append(body, 0)             // terminator
+	body := []byte{1, 1}            // opcode=1, count=1
+	body = append(body, u2be(2)...) // frame[0]=2
+	body = append(body, 0xFF, 0xFF) // iframe[0]=65535→-1
+	body = append(body, u2be(0)...) // delay[0]=0
+	body = append(body, 0)          // terminator
 
 	cfg := buildSeqConfigIdx(body)
 	seqPack := makePackFile(0, "myseq")
@@ -47,9 +47,9 @@ func TestUnpackSeq_Opcode1_FrameTable_RegistryHit(t *testing.T) {
 func TestUnpackSeq_Opcode1_FrameTable_Fallback(t *testing.T) {
 	// frame=5 with no AnimPack entry → "anim_5"
 	body := []byte{1, 1}
-	body = append(body, u2be(5)...)    // frame[0]=5
-	body = append(body, u2be(0)...)    // iframe[0]=0 (not -1, so emitted)
-	body = append(body, u2be(0)...)    // delay[0]=0
+	body = append(body, u2be(5)...) // frame[0]=5
+	body = append(body, u2be(0)...) // iframe[0]=0 (not -1, so emitted)
+	body = append(body, u2be(0)...) // delay[0]=0
 	body = append(body, 0)
 
 	cfg := buildSeqConfigIdx(body)
@@ -62,9 +62,9 @@ func TestUnpackSeq_Opcode1_FrameTable_Fallback(t *testing.T) {
 func TestUnpackSeq_Opcode1_FrameTable_Delay(t *testing.T) {
 	// delay non-zero → emit delayN=
 	body := []byte{1, 1}
-	body = append(body, u2be(3)...)    // frame[0]=3
-	body = append(body, 0xFF, 0xFF)    // iframe[0]=65535→-1
-	body = append(body, u2be(20)...)   // delay[0]=20
+	body = append(body, u2be(3)...)  // frame[0]=3
+	body = append(body, 0xFF, 0xFF)  // iframe[0]=65535→-1
+	body = append(body, u2be(20)...) // delay[0]=20
 	body = append(body, 0)
 
 	cfg := buildSeqConfigIdx(body)
@@ -77,12 +77,12 @@ func TestUnpackSeq_Opcode1_MultiFrames_OrderCheck(t *testing.T) {
 	// count=2: frame[0]=1,iframe[0]=-1,delay[0]=5; frame[1]=2,iframe[1]=3,delay[1]=0
 	// Expected output order: frame1, delay1, frame2 (no delay2), iframe2
 	body := []byte{1, 2}
-	body = append(body, u2be(1)...)    // frame[0]=1
-	body = append(body, 0xFF, 0xFF)    // iframe[0]=-1
-	body = append(body, u2be(5)...)    // delay[0]=5
-	body = append(body, u2be(2)...)    // frame[1]=2
-	body = append(body, u2be(3)...)    // iframe[1]=3
-	body = append(body, u2be(0)...)    // delay[1]=0
+	body = append(body, u2be(1)...) // frame[0]=1
+	body = append(body, 0xFF, 0xFF) // iframe[0]=-1
+	body = append(body, u2be(5)...) // delay[0]=5
+	body = append(body, u2be(2)...) // frame[1]=2
+	body = append(body, u2be(3)...) // iframe[1]=3
+	body = append(body, u2be(0)...) // delay[1]=0
 	body = append(body, 0)
 
 	cfg := buildSeqConfigIdx(body)

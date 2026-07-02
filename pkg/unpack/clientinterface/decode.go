@@ -93,9 +93,9 @@ type Component struct {
 	ActiveText string // TS: activeText gjstr (initialized null → Go empty string)
 
 	// Colour fields — TS g4s (signed 32-bit)
-	Colour          int // TS: colour g4s (initialized 0)
-	ActiveColour    int // TS: activeColour g4s (initialized 0)
-	OverColour      int // TS: overColour g4s (initialized 0)
+	Colour           int // TS: colour g4s (initialized 0)
+	ActiveColour     int // TS: activeColour g4s (initialized 0)
+	OverColour       int // TS: overColour g4s (initialized 0)
 	ActiveOverColour int // TS: activeOverColour g4s (Unpack.ts:221)
 
 	// TYPE_GRAPHIC — TS lines 223-225

@@ -174,7 +174,6 @@ func TestPackAll_TwelveStageSmoke(t *testing.T) {
 	}
 }
 
-
 // TestPackAll_PackConfigsErrorPropagates pins NAI-212 spec §7 PackAll
 // test 2: error from a stage is wrapped with the stage name.
 //

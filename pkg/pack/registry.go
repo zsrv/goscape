@@ -73,20 +73,20 @@ func (r *Registry) EnsureVarp() (*PackFile, error)      { return r.ensure(&r.Var
 //
 // TS: VarbitPack = new PackFile('varbit', validateConfigPack, '.varbit', true)
 // TS source: tools/pack/PackFile.ts:220 @ 2e3bcf43.
-func (r *Registry) EnsureVarbit() (*PackFile, error) { return r.ensure(&r.Varbit, "varbit") }
-func (r *Registry) EnsureVarn() (*PackFile, error)      { return r.ensure(&r.Varn, "varn") }
-func (r *Registry) EnsureVars() (*PackFile, error)      { return r.ensure(&r.Vars, "vars") }
-func (r *Registry) EnsureInv() (*PackFile, error)       { return r.ensure(&r.Inv, "inv") }
-func (r *Registry) EnsureSpotAnim() (*PackFile, error)  { return r.ensure(&r.SpotAnim, "spotanim") }
-func (r *Registry) EnsureIdk() (*PackFile, error)       { return r.ensure(&r.Idk, "idk") }
-func (r *Registry) EnsureFlo() (*PackFile, error)       { return r.ensure(&r.Flo, "flo") }
-func (r *Registry) EnsureCategory() (*PackFile, error)  { return r.ensure(&r.Category, "category") }
-func (r *Registry) EnsureHunt() (*PackFile, error)      { return r.ensure(&r.Hunt, "hunt") }
-func (r *Registry) EnsureParam() (*PackFile, error)     { return r.ensure(&r.Param, "param") }
-func (r *Registry) EnsureDbTable() (*PackFile, error)   { return r.ensure(&r.DbTable, "dbtable") }
-func (r *Registry) EnsureDbRow() (*PackFile, error)     { return r.ensure(&r.DbRow, "dbrow") }
-func (r *Registry) EnsureMesAnim() (*PackFile, error)   { return r.ensure(&r.MesAnim, "mesanim") }
-func (r *Registry) EnsureStruct() (*PackFile, error)    { return r.ensure(&r.Struct, "struct") }
+func (r *Registry) EnsureVarbit() (*PackFile, error)   { return r.ensure(&r.Varbit, "varbit") }
+func (r *Registry) EnsureVarn() (*PackFile, error)     { return r.ensure(&r.Varn, "varn") }
+func (r *Registry) EnsureVars() (*PackFile, error)     { return r.ensure(&r.Vars, "vars") }
+func (r *Registry) EnsureInv() (*PackFile, error)      { return r.ensure(&r.Inv, "inv") }
+func (r *Registry) EnsureSpotAnim() (*PackFile, error) { return r.ensure(&r.SpotAnim, "spotanim") }
+func (r *Registry) EnsureIdk() (*PackFile, error)      { return r.ensure(&r.Idk, "idk") }
+func (r *Registry) EnsureFlo() (*PackFile, error)      { return r.ensure(&r.Flo, "flo") }
+func (r *Registry) EnsureCategory() (*PackFile, error) { return r.ensure(&r.Category, "category") }
+func (r *Registry) EnsureHunt() (*PackFile, error)     { return r.ensure(&r.Hunt, "hunt") }
+func (r *Registry) EnsureParam() (*PackFile, error)    { return r.ensure(&r.Param, "param") }
+func (r *Registry) EnsureDbTable() (*PackFile, error)  { return r.ensure(&r.DbTable, "dbtable") }
+func (r *Registry) EnsureDbRow() (*PackFile, error)    { return r.ensure(&r.DbRow, "dbrow") }
+func (r *Registry) EnsureMesAnim() (*PackFile, error)  { return r.ensure(&r.MesAnim, "mesanim") }
+func (r *Registry) EnsureStruct() (*PackFile, error)   { return r.ensure(&r.Struct, "struct") }
 
 // EnsureAnimSet lazy-constructs the animset PackFile.
 //

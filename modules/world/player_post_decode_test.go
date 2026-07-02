@@ -330,4 +330,3 @@ func TestProcessPostDecode_NoPathingNoWalktrigger(t *testing.T) {
 		}
 	}
 }
-

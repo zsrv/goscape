@@ -32,6 +32,7 @@ import (
 //  7. sprites.PackTitle    → cache.Write(0,1)
 //  8. sprites.PackMedia    → cache.Write(0,4)
 //  9. sprites.PackTexture  → cache.Write(0,6)
+//
 // 10. wordenc.Pack         → cache.Write(0,7)
 // 11. audio.PackSound      → cache.Write(0,8)
 // 12. graphics.Pack        → cache.Write(1,id) + cache.Write(2,id)

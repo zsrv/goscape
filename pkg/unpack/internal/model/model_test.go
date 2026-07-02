@@ -472,10 +472,10 @@ func TestModelsHaveTexture(t *testing.T) {
 	// model 2: untextured face (infoVal=1 → bits 0x3=1, not >1) with matching colour
 	// model 3: no faceInfo (hasInfo=0) with matching colour → no faceInfo nil → false
 	s := New()
-	s.Unpack(0, buildTexturedFaceModel(textureID, 2))   // textured, matching
-	s.Unpack(1, buildTexturedFaceModel(0x00BB, 2))      // textured, non-matching
-	s.Unpack(2, buildTexturedFaceModel(textureID, 1))   // infoVal bits=1 (not >1)
-	s.Unpack(3, buildSyntheticModel())                   // hasInfo=0, faceInfo=nil
+	s.Unpack(0, buildTexturedFaceModel(textureID, 2)) // textured, matching
+	s.Unpack(1, buildTexturedFaceModel(0x00BB, 2))    // textured, non-matching
+	s.Unpack(2, buildTexturedFaceModel(textureID, 1)) // infoVal bits=1 (not >1)
+	s.Unpack(3, buildSyntheticModel())                // hasInfo=0, faceInfo=nil
 
 	// case 1: textured face matching id → true
 	assert.True(t, s.ModelsHaveTexture([]int{0}, textureID), "textured face matching id must return true")

@@ -1032,7 +1032,7 @@ func (s *Server) serveTCP() error {
 			// the loop's quit semantics above: the listener is closing, so
 			// the next Accept would just error into that same return path.
 			_ = conn.Close()
-			s.log.Debug("tcp listener closed")
+			s.log.Debug("refusing connection accepted during shutdown")
 			return nil
 		default:
 		}
@@ -1785,7 +1785,7 @@ func (s *Server) sendPlayerLogoutWithRetry(username string, save []byte) {
 		}
 		if attempt >= logoutSaveAttempts || s.bridgesCtx.Err() != nil {
 			s.log.Error("PlayerLogout RPC failed; save lost until next login",
-				slog.String("username", username), slog.Int("attempts", attempt), slog.Any("err", err))
+				slog.String("username", username), slog.Int("attempt", attempt), slog.Any("err", err))
 			return
 		}
 		s.log.Warn("PlayerLogout RPC failed; retrying",
