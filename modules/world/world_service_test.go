@@ -21,10 +21,10 @@ func TestWorldServiceStoppingWithoutRun(t *testing.T) {
 	runCalled := make(chan struct{})
 	fns := worldServiceFns(
 		func() error { <-runCalled; return nil }, // run: blocks until shutdown fires
-		func() { close(runCalled) },               // shutdown: unblocks run
-		func() bool { return false },               // gracefulExit
-		nil,                                        // lc close (disabled)
-		nil,                                        // fc close (disabled)
+		func() { close(runCalled) },              // shutdown: unblocks run
+		func() bool { return false },             // gracefulExit
+		nil,                                      // lc close (disabled)
+		nil,                                      // fc close (disabled)
 		func(context.Context) error { return nil }, // starting body (CRC/RPCs stand-in)
 		func() []terminationWaiter { return nil },  // servicesToWaitFor
 		discardLogger(),
