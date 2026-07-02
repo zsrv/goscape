@@ -70,6 +70,33 @@ func New(logger *slog.Logger, cfg Config) (*App, error) {
 	return app, nil
 }
 
+// failedServicesError maps any Failed services back to their module
+// names and returns a joined error, or nil if everything stopped
+// cleanly. ErrStopProcess (a module requesting shutdown) and
+// context.Canceled (normal stop signal) are not failures. Without
+// this check App.Run returned AwaitStopped's nil regardless of how
+// services ended, so a crashed module exited the process with status
+// 0 — invisible to systemd Restart=on-failure and orchestrators.
+// (Upstream Loki/Tempo perform the same post-stop inspection.)
+func failedServicesError(sm *services.Manager, serviceMap map[string]services.Service) error {
+	var errs []error
+	for _, s := range sm.ServicesByState()[services.Failed] {
+		fc := s.FailureCase()
+		if errors.Is(fc, modules.ErrStopProcess) || errors.Is(fc, context.Canceled) {
+			continue
+		}
+		name := "unknown"
+		for m, svc := range serviceMap {
+			if svc == s {
+				name = m
+				break
+			}
+		}
+		errs = append(errs, fmt.Errorf("module %s failed: %w", name, fc))
+	}
+	return errors.Join(errs...)
+}
+
 // Run starts, and blocks until a signal is received or Stop is called.
 func (g *App) Run() error {
 	if !g.ModuleManager.IsUserVisibleModule(g.cfg.Target) {
@@ -144,7 +171,10 @@ func (g *App) Run() error {
 		return fmt.Errorf("failed to start service manager: %w", err)
 	}
 
-	return sm.AwaitStopped(context.Background())
+	if err := sm.AwaitStopped(context.Background()); err != nil {
+		return err
+	}
+	return failedServicesError(sm, serviceMap)
 }
 
 // Stop the app. It panics if the app is not running.
