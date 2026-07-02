@@ -82,6 +82,14 @@ type Server struct {
 	// site falls back to DefaultRSAKey when nil.
 	rsaKey *protocol.RSAKey
 	tcpWg  sync.WaitGroup
+	// wsGateMu guards the quit-check/tcpWg.Add pair in HandleConn against
+	// Shutdown's close(quit)+Wait, making the WS-bridge admission gate
+	// atomic: a connection either registers in tcpWg before quit closes
+	// (so Shutdown's Wait observes it) or is refused. The raw-TCP path
+	// needs no gate — serveTCP holds a floor registration in tcpWg for
+	// the life of the accept loop, so its Add(1) calls never race a Wait
+	// that could observe a transient zero counter.
+	wsGateMu sync.Mutex
 	// tickWg tracks the runTickLoop goroutine spawned in Run(). Shutdown
 	// closes s.quit and then waits on tickWg so the tick goroutine has
 	// fully exited before cleanup proceeds. Arc 18 R2 — without this,
@@ -823,7 +831,11 @@ func (s *Server) Shutdown() {
 	// by the tick's final save-all (and by a just-completed logout) are
 	// parented to bridgesCtx; cancelling it now would abort them mid-flight
 	// and lose the saves. It is cancelled at the end, after waitForSaveFlush.
+	// Under wsGateMu so HandleConn's quit-check/tcpWg.Add gate is atomic
+	// with this close (see conn_handler.go).
+	s.wsGateMu.Lock()
 	close(s.quit)
+	s.wsGateMu.Unlock()
 	s.log.Debug("closing tcp listener")
 	s.tcpListener.Close()
 	s.log.Debug("waiting for tcp connections to close")
