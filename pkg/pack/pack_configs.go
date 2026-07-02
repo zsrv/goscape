@@ -16,24 +16,26 @@ import (
 // idk did NOT change at 245.2.
 //
 // 225 values (for reference, updated at 9aadcec4):
-//   seqCRC      was 1638136604  → 244: 1405403166  (PackShared.ts:435)
-//   locCRC      was 891497087   → 244: 1195428820  (PackShared.ts:459)
-//   floCRC      new constant    → 244: 1976597026  (PackShared.ts:467)
-//   spotanimCRC was -1279835623 → 244:  117013845  (PackShared.ts:507)
-//   npcCRC      was -2140681882 → 244: -997428438  (PackShared.ts:531)
-//   objCRC      was -840233510  → 244: 1589810970  (PackShared.ts:555)
-//   idkCRC      new constant    → 244: -359342366  (PackShared.ts:573)
-//   varpCRC     was 705633567   → 244: -1961744050 (PackShared.ts:603)
+//
+//	seqCRC      was 1638136604  → 244: 1405403166  (PackShared.ts:435)
+//	locCRC      was 891497087   → 244: 1195428820  (PackShared.ts:459)
+//	floCRC      new constant    → 244: 1976597026  (PackShared.ts:467)
+//	spotanimCRC was -1279835623 → 244:  117013845  (PackShared.ts:507)
+//	npcCRC      was -2140681882 → 244: -997428438  (PackShared.ts:531)
+//	objCRC      was -840233510  → 244: 1589810970  (PackShared.ts:555)
+//	idkCRC      new constant    → 244: -359342366  (PackShared.ts:573)
+//	varpCRC     was 705633567   → 244: -1961744050 (PackShared.ts:603)
 //
 // 244 → 245.2 changes (updated at 3c16994c):
-//   seqCRC      1405403166  → -1858954999 (PackShared.ts:438)
-//   locCRC      1195428820  →  626415911  (PackShared.ts:462)
-//   floCRC      1976597026  → -532285888  (PackShared.ts:486)
-//   spotanimCRC  117013845  →   96621343  (PackShared.ts:510)
-//   npcCRC      -997428438  →  417024969  (PackShared.ts:534)
-//   objCRC      1589810970  →  344600333  (PackShared.ts:558)
-//   idkCRC      -359342366  → -359342366  (PackShared.ts:582) UNCHANGED
-//   varpCRC    -1961744050  → 1480086078  (PackShared.ts:606)
+//
+//	seqCRC      1405403166  → -1858954999 (PackShared.ts:438)
+//	locCRC      1195428820  →  626415911  (PackShared.ts:462)
+//	floCRC      1976597026  → -532285888  (PackShared.ts:486)
+//	spotanimCRC  117013845  →   96621343  (PackShared.ts:510)
+//	npcCRC      -997428438  →  417024969  (PackShared.ts:534)
+//	objCRC      1589810970  →  344600333  (PackShared.ts:558)
+//	idkCRC      -359342366  → -359342366  (PackShared.ts:582) UNCHANGED
+//	varpCRC    -1961744050  → 1480086078  (PackShared.ts:606)
 const (
 	clientConfigCRCSeq      int32 = -1858954999
 	clientConfigCRCLoc      int32 = 626415911
@@ -164,7 +166,9 @@ func PackConfigs(srcDir, outDir string) error {
 // cache is an optional *filestream.FileStream. When non-nil, the packed
 // client/config jagfile bytes are written to cache.Write(0, 2, data, 0),
 // mirroring TS PackShared.ts:641 @ 9aadcec4:
-//   cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
+//
+//	cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
+//
 // Callers that do not yet have a FileStream pass nil (e.g.
 // PackConfigsForRegistry).
 //

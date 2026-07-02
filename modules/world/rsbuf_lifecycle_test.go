@@ -147,10 +147,10 @@ func TestDeadRespawnNpcPushesActiveFalseToRsbuf(t *testing.T) {
 		t.Fatal("rsbuf NPC slot should not be nil for RESPAWN-lifecycle dead NPC (only DESPAWN nils the slot)")
 	}
 	if entry.Active {
-		t.Errorf("rsbuf NPC Active = true after NPC marked dead; want false. "+
-			"Root cause: processInfo skipped ComputeNpc(active=false) for dead NPC "+
-			"(tick.go dead-bool guard), leaving corpse visible to clients indefinitely. "+
-			"Fix: remove n.dead guard so dead RESPAWN NPCs get ComputeNpc(active=false). "+
+		t.Errorf("rsbuf NPC Active = true after NPC marked dead; want false. " +
+			"Root cause: processInfo skipped ComputeNpc(active=false) for dead NPC " +
+			"(tick.go dead-bool guard), leaving corpse visible to clients indefinitely. " +
+			"Fix: remove n.dead guard so dead RESPAWN NPCs get ComputeNpc(active=false). " +
 			"TS ref: World.ts:1066-1096 iterates ALL npcs with npc.isActive.")
 	}
 }

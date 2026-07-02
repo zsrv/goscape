@@ -31,8 +31,11 @@ import (
 //   - 10 new floorcol refColor entries (agility … viking_mud_overlay).
 //   - f11-f30 font members removed from the jag.
 //   - Jag member write order changed to interleaved (see below).
-//   - CSV + labels reads use the \r-strip idiom (.replace(/\r/g,'')
-//     before .split('\n')).
+//   - CSV + labels reads use the \r-strip idiom before .split('\n').
+//
+// The \r-strip idiom is TS's:
+//
+//	.replace(/\r/g,'')
 //
 // Tag NAI-WORLDMAP-D-READDIR-SORTED: os.ReadDir returns lexically
 // sorted entries; TS fs.readdirSync is filesystem-order. The per-

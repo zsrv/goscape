@@ -215,7 +215,7 @@ func TestUnpackConfigNames_DefaultRegistration(t *testing.T) {
 	// Instead, use ReadConfigIdx directly with synthetic packets.
 
 	// Build idx packet: count=3, len[0]=0, len[1]=0, len[2]=0
-	idxBytes := make([]byte, 2+3*2) // 2 for count + 3*2 for per-entry lengths
+	idxBytes := make([]byte, 2+3*2)              // 2 for count + 3*2 for per-entry lengths
 	binary.BigEndian.PutUint16(idxBytes[0:2], 3) // count
 	// all lengths = 0, already zeroed
 

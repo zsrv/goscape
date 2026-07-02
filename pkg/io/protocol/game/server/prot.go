@@ -41,9 +41,9 @@ var (
 	// IF_SETSCROLLPOS sets a layer component's vertical scrollbar position.
 	// 4-byte payload: p2(component) p2(y). New in 245.2 —
 	// TS IfSetScrollPosEncoder.ts @3c16994c, ServerGameProt.ts: IF_SETSCROLLPOS=226/4.
-	OpIfSetScrollPos  = Op{Opcode: 226, PayloadSize: 4}
-	OpIfSetTab        = Op{Opcode: 29, PayloadSize: 3}
-	OpIfSetTabActive  = Op{Opcode: 8, PayloadSize: 1}
+	OpIfSetScrollPos = Op{Opcode: 226, PayloadSize: 4}
+	OpIfSetTab       = Op{Opcode: 29, PayloadSize: 3}
+	OpIfSetTabActive = Op{Opcode: 8, PayloadSize: 1}
 
 	// S5g: dialog suspension. Server sends only the opcode byte to
 	// prompt the client to open an "enter a number" count dialog.

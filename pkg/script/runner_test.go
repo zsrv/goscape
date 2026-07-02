@@ -419,10 +419,10 @@ type mockPlayer struct {
 	}
 	lastIfSetTab       struct{ com, tab int }
 	lastIfSetObject    struct{ com, objID, scale int }
-	lastIfSetColour     struct{ com, colour int }
-	lastIfSetPosition   struct{ com, x, y int }
-	lastIfSetScrollPos  struct{ com, y int }
-	lastIfSetTabActive  int // just tab
+	lastIfSetColour    struct{ com, colour int }
+	lastIfSetPosition  struct{ com, x, y int }
+	lastIfSetScrollPos struct{ com, y int }
+	lastIfSetTabActive int // just tab
 
 	lastSetResumeButtons [5]int
 

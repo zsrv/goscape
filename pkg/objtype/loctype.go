@@ -22,39 +22,39 @@ type LocType struct {
 	ConfigType
 
 	// Client-side render + gameplay fields (codes 1-73)
-	Models        []uint16 // code 1, paired with Shapes
-	Shapes        []uint8  // code 1, paired with Models
-	Name          string   // code 2
-	Desc          string   // code 3
-	Width         int      // code 14, default 1
-	Length        int      // code 15, default 1
-	BlockWalk     bool     // code 17 sets false; default true
-	BlockRange    bool     // code 18 sets false; default true
-	Active        int      // code 19; default -1, PostDecode coerces to 0/1
-	HillSkew      bool     // code 21
-	ShareLight    bool     // code 22
-	Occlude       bool     // code 23
-	Anim          int      // code 24, 65535 → -1; default -1
-	HasAlpha      bool     // code 25
-	WallWidth     int      // code 28; default 16
-	Ambient       int8     // code 29 (G1B)
-	Contrast      int8     // code 39 (G1B)
-	Op            []string // codes 30-34, lazy 5-slot init; "hidden" stored verbatim
-	RecolS        []uint16 // code 40, paired with RecolD
-	RecolD        []uint16 // code 40
-	MapFunction   int      // code 60; default -1
-	Mirror        bool     // code 62
-	Shadow        bool     // code 64 sets false; default true
-	ResizeX       int      // code 65; default 128
-	ResizeY       int      // code 66; default 128
-	ResizeZ       int      // code 67; default 128
-	MapScene      int      // code 68; default -1
-	ForceApproach int      // code 69
-	OffsetX       int16    // code 70 (G2S)
-	OffsetY       int16    // code 71 (G2S)
-	OffsetZ       int16    // code 72 (G2S)
-	ForceDecor        bool // code 73
-	BreakRouteFinding bool // code 74, new in 245.2 (TS LocType.ts:194-195)
+	Models            []uint16 // code 1, paired with Shapes
+	Shapes            []uint8  // code 1, paired with Models
+	Name              string   // code 2
+	Desc              string   // code 3
+	Width             int      // code 14, default 1
+	Length            int      // code 15, default 1
+	BlockWalk         bool     // code 17 sets false; default true
+	BlockRange        bool     // code 18 sets false; default true
+	Active            int      // code 19; default -1, PostDecode coerces to 0/1
+	HillSkew          bool     // code 21
+	ShareLight        bool     // code 22
+	Occlude           bool     // code 23
+	Anim              int      // code 24, 65535 → -1; default -1
+	HasAlpha          bool     // code 25
+	WallWidth         int      // code 28; default 16
+	Ambient           int8     // code 29 (G1B)
+	Contrast          int8     // code 39 (G1B)
+	Op                []string // codes 30-34, lazy 5-slot init; "hidden" stored verbatim
+	RecolS            []uint16 // code 40, paired with RecolD
+	RecolD            []uint16 // code 40
+	MapFunction       int      // code 60; default -1
+	Mirror            bool     // code 62
+	Shadow            bool     // code 64 sets false; default true
+	ResizeX           int      // code 65; default 128
+	ResizeY           int      // code 66; default 128
+	ResizeZ           int      // code 67; default 128
+	MapScene          int      // code 68; default -1
+	ForceApproach     int      // code 69
+	OffsetX           int16    // code 70 (G2S)
+	OffsetY           int16    // code 71 (G2S)
+	OffsetZ           int16    // code 72 (G2S)
+	ForceDecor        bool     // code 73
+	BreakRouteFinding bool     // code 74, new in 245.2 (TS LocType.ts:194-195)
 
 	// Server-side fields
 	Category int      // code 61

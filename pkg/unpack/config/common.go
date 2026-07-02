@@ -169,4 +169,3 @@ func (e *Env) UnpackLoc(cfg *ConfigIdx, id int) ([]string, error) {
 func (e *Env) UnpackLocModels(cfg *ConfigIdx, id int) LocModels {
 	return unpackLocModels(cfg, id, e.warnf)
 }
-

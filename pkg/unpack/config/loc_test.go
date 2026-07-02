@@ -30,15 +30,15 @@ func TestLocShapeSuffix_Table(t *testing.T) {
 		shape  int
 		suffix string
 	}{
-		{0, "_1"},   // wall_straight
-		{1, "_2"},   // wall_diagonalcorner
-		{4, "_q"},   // walldecor_straight_nooffset
-		{5, "_w"},   // walldecor_straight_offset
-		{9, "_5"},   // wall_diagonal
-		{10, "_8"},  // centrepiece_straight
-		{22, "_0"},  // grounddecor
-		{18, "_z"},  // roofedge_straight
-		{21, "_v"},  // roofedge_squarecorner
+		{0, "_1"},  // wall_straight
+		{1, "_2"},  // wall_diagonalcorner
+		{4, "_q"},  // walldecor_straight_nooffset
+		{5, "_w"},  // walldecor_straight_offset
+		{9, "_5"},  // wall_diagonal
+		{10, "_8"}, // centrepiece_straight
+		{22, "_0"}, // grounddecor
+		{18, "_z"}, // roofedge_straight
+		{21, "_v"}, // roofedge_squarecorner
 	}
 	for _, tc := range cases {
 		if LocShapeSuffix[tc.shape] != tc.suffix {
@@ -78,36 +78,36 @@ func TestUnpackLocModels_LdModels_AlwaysEmpty(t *testing.T) {
 func TestUnpackLocModels_SkipAllOpcodes(t *testing.T) {
 	// Sequence of skip-read opcodes followed by terminator.
 	body := []byte{
-		14, 3,       // width=3
-		15, 2,       // length=2
-		17,          // no-op (blockwalk)
-		18,          // no-op (blockrange)
-		19, 1,       // active=true
+		14, 3, // width=3
+		15, 2, // length=2
+		17,    // no-op (blockwalk)
+		18,    // no-op (blockrange)
+		19, 1, // active=true
 		21,          // no-op (hillskew)
 		22,          // no-op (sharelight)
 		23,          // no-op (occlude)
 		24, 0x00, 5, // seq anim
-		25,          // no-op (hasalpha)
-		28, 4,       // wallwidth=4
-		29, 0xFE,    // ambient=-2 (g1b)
-		39, 0x02,    // contrast=2 (g1b)
+		25,    // no-op (hasalpha)
+		28, 4, // wallwidth=4
+		29, 0xFE, // ambient=-2 (g1b)
+		39, 0x02, // contrast=2 (g1b)
 		30, 0x41, 0x0a, // op1 "A" + LF
 		40, 1, 0x00, 10, 0x00, 20, // recol pair
 		60, 0x00, 7, // mapfunction=7
-		62,          // no-op (mirror)
-		64,          // no-op (shadow)
+		62,            // no-op (mirror)
+		64,            // no-op (shadow)
 		65, 0x00, 100, // resizex
 		66, 0x00, 100, // resizey
 		67, 0x00, 100, // resizez
-		68, 0x00, 5,   // mapscene
-		69, 0x0F,      // forceapproach flags
-		70, 0x00, 5,   // offsetx
-		71, 0x00, 5,   // offsety
-		72, 0x00, 5,   // offsetz
-		73,            // no-op (forcedecor)
-		74,            // no-op
-		75, 1,         // bool
-		0,             // terminator
+		68, 0x00, 5, // mapscene
+		69, 0x0F, // forceapproach flags
+		70, 0x00, 5, // offsetx
+		71, 0x00, 5, // offsety
+		72, 0x00, 5, // offsetz
+		73,    // no-op (forcedecor)
+		74,    // no-op
+		75, 1, // bool
+		0, // terminator
 	}
 	cfg := buildLocCfgIdx(body)
 	// Should not panic; models should be empty.
@@ -126,8 +126,8 @@ func TestUnpackLocModels_UnknownOpcode_BailsAndWarns(t *testing.T) {
 	// never be reached in TS (infinite loop). Go must return before the terminator.
 	body := []byte{
 		1, 1, 0x00, 42, 5, // opcode 1: count=1, model=42, shape=5
-		200,               // unknown opcode — triggers bail
-		0,                 // terminator (unreachable in TS; Go bails before this)
+		200, // unknown opcode — triggers bail
+		0,   // terminator (unreachable in TS; Go bails before this)
 	}
 	cfg := buildLocCfgIdx(body)
 
@@ -259,7 +259,7 @@ func TestUnpackLoc_Opcode70_72_Offsets(t *testing.T) {
 	// offsetx=-1, offsety=100, offsetz=0
 	body := []byte{
 		70, 0xFF, 0xFF, // offsetx = -1
-		71, 0x00, 100,  // offsety = 100
+		71, 0x00, 100, // offsety = 100
 		72, 0x00, 0x00, // offsetz = 0
 		0,
 	}
@@ -413,7 +413,7 @@ func TestUnpackLoc_Recol_Threshold100(t *testing.T) {
 	body := []byte{
 		40, 1,
 		0x00, 101, // recolSrc[0]=101 (>=100)
-		0x00, 50,  // recolDst[0]=50
+		0x00, 50, // recolDst[0]=50
 		0,
 	}
 	cfg := buildLocCfgIdx(body)
@@ -479,11 +479,11 @@ func TestUnpackLoc_Recol_LocMode_RetexWhenReverseHslEmpty(t *testing.T) {
 // All N recol pairs from opcode 40 are emitted without gaps.
 func TestUnpackLoc_Recol_Dense_NotSparse(t *testing.T) {
 	body := []byte{
-		40, 2,     // count=2
+		40, 2, // count=2
 		0x00, 110, // recolSrc[0]=110
-		0x00, 50,  // recolDst[0]=50
+		0x00, 50, // recolDst[0]=50
 		0x00, 120, // recolSrc[1]=120
-		0x00, 60,  // recolDst[1]=60
+		0x00, 60, // recolDst[1]=60
 		0,
 	}
 	cfg := buildLocCfgIdx(body)

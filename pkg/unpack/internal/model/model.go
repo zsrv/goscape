@@ -28,23 +28,23 @@ package model
 // A nil data field means the original cache entry was empty/nil.
 // TS Model.ts:3-21 (Metadata class).
 type metadata struct {
-	data                []byte
-	vertexCount         int
-	faceCount           int
-	texturedFaceCount   int
-	vertexFlagsOffset   int
-	vertexXOffset       int
-	vertexYOffset       int
-	vertexZOffset       int
-	vertexLabelsOffset  int
-	faceVerticesOffset  int
+	data                   []byte
+	vertexCount            int
+	faceCount              int
+	texturedFaceCount      int
+	vertexFlagsOffset      int
+	vertexXOffset          int
+	vertexYOffset          int
+	vertexZOffset          int
+	vertexLabelsOffset     int
+	faceVerticesOffset     int
 	faceOrientationsOffset int
-	faceColoursOffset   int
-	faceInfosOffset     int
-	facePrioritiesOffset int
-	faceAlphasOffset    int
-	faceLabelsOffset    int
-	faceTextureAxisOffset int
+	faceColoursOffset      int
+	faceInfosOffset        int
+	facePrioritiesOffset   int
+	faceAlphasOffset       int
+	faceLabelsOffset       int
+	faceTextureAxisOffset  int
 }
 
 // Model is a decoded RS2 model.  Fields mirror the TS Model instance fields.
@@ -107,7 +107,7 @@ func (s *Store) Unpack(id int, data []byte) {
 
 	// nil/empty data → zeroed entry. TS Model.ts:50-56.
 	if len(data) == 0 {
-		info := &metadata{} // vertexCount/faceCount/texturedFaceCount all 0; offsets all 0/-1
+		info := &metadata{}           // vertexCount/faceCount/texturedFaceCount all 0; offsets all 0/-1
 		info.facePrioritiesOffset = 0 // TS default is 0, not -1
 		s.meta[id] = info
 		return
@@ -307,11 +307,11 @@ func (s *Store) decode(info *metadata) *Model {
 
 	// ---- Vertex decode ---- TS Model.ts:193-238
 	// Five cursors (point1..point5) with independent positions into data.
-	p1 := info.vertexFlagsOffset   // vertex flags cursor
-	p2 := info.vertexXOffset       // vertex X delta cursor
-	p3 := info.vertexYOffset       // vertex Y delta cursor
-	p4 := info.vertexZOffset       // vertex Z delta cursor
-	p5 := info.vertexLabelsOffset  // vertex labels cursor (may be -1 / ignored)
+	p1 := info.vertexFlagsOffset  // vertex flags cursor
+	p2 := info.vertexXOffset      // vertex X delta cursor
+	p3 := info.vertexYOffset      // vertex Y delta cursor
+	p4 := info.vertexZOffset      // vertex Z delta cursor
+	p5 := info.vertexLabelsOffset // vertex labels cursor (may be -1 / ignored)
 
 	var dx, dy, dz int32
 	for v := 0; v < model.VertexCount; v++ {
@@ -343,11 +343,11 @@ func (s *Store) decode(info *metadata) *Model {
 	}
 
 	// ---- Face attribute decode ---- TS Model.ts:241-273
-	f1 := info.faceColoursOffset   // faceColour cursor  (face1)
-	f2 := info.faceInfosOffset     // faceInfo cursor    (face2); may be -1
+	f1 := info.faceColoursOffset    // faceColour cursor  (face1)
+	f2 := info.faceInfosOffset      // faceInfo cursor    (face2); may be -1
 	f3 := info.facePrioritiesOffset // facePriority cursor (face3); may be -1
-	f4 := info.faceAlphasOffset    // faceAlpha cursor   (face4); may be -1
-	f5 := info.faceLabelsOffset    // faceLabel cursor   (face5); may be -1
+	f4 := info.faceAlphasOffset     // faceAlpha cursor   (face4); may be -1
+	f5 := info.faceLabelsOffset     // faceLabel cursor   (face5); may be -1
 
 	for f := 0; f < model.FaceCount; f++ {
 		model.FaceColour[f] = int32(uint16(data[f1])<<8 | uint16(data[f1+1]))
@@ -372,7 +372,7 @@ func (s *Store) decode(info *metadata) *Model {
 	}
 
 	// ---- Face vertex index decode ---- TS Model.ts:276-314
-	v1 := info.faceVerticesOffset    // face vertex deltas (vertex1)
+	v1 := info.faceVerticesOffset     // face vertex deltas (vertex1)
 	v2 := info.faceOrientationsOffset // face orientations (vertex2)
 
 	var fa, fb, fc, last int32

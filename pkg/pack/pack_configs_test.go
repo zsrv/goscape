@@ -667,7 +667,8 @@ func TestPackConfigs_OrphanPackNameRejected(t *testing.T) {
 // is supplied.
 //
 // TS source: tools/pack/config/PackShared.ts:641 @ 9aadcec4:
-//   cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
+//
+//	cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
 //
 // Test:
 //  1. Create a minimal fixture (varp only — unconditional branch).
@@ -720,14 +721,15 @@ func TestPackConfigsConfigJagCacheWrite(t *testing.T) {
 // numbers to their rev-245.2 values (TS PackShared.ts @ 3c16994c).
 //
 // Old 244 values for reference (updated at 9aadcec4 → now 3c16994c):
-//   seq      1638136604 → 1405403166 → -1858954999 (PackShared.ts:438)
-//   loc       891497087 → 1195428820 →  626415911  (PackShared.ts:462)
-//   flo          (new)  → 1976597026 → -532285888  (PackShared.ts:486)
-//   spotanim -1279835623 →  117013845 →   96621343  (PackShared.ts:510)
-//   npc      -2140681882 →  -997428438 →  417024969  (PackShared.ts:534)
-//   obj       -840233510 → 1589810970 →  344600333  (PackShared.ts:558)
-//   idk          (new)  → -359342366 → -359342366  (PackShared.ts:582) UNCHANGED
-//   varp       705633567 → -1961744050 → 1480086078  (PackShared.ts:606)
+//
+//	seq      1638136604 → 1405403166 → -1858954999 (PackShared.ts:438)
+//	loc       891497087 → 1195428820 →  626415911  (PackShared.ts:462)
+//	flo          (new)  → 1976597026 → -532285888  (PackShared.ts:486)
+//	spotanim -1279835623 →  117013845 →   96621343  (PackShared.ts:510)
+//	npc      -2140681882 →  -997428438 →  417024969  (PackShared.ts:534)
+//	obj       -840233510 → 1589810970 →  344600333  (PackShared.ts:558)
+//	idk          (new)  → -359342366 → -359342366  (PackShared.ts:582) UNCHANGED
+//	varp       705633567 → -1961744050 → 1480086078  (PackShared.ts:606)
 func TestClientConfigCRCConstants_Rev2452(t *testing.T) {
 	tests := []struct {
 		name string
