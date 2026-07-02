@@ -40,23 +40,36 @@ func openDB(dsn string) (*sql.DB, error) {
 	if err := ensureDBParentDir(dsn); err != nil {
 		return nil, fmt.Errorf("ensure db parent dir: %w", err)
 	}
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open("sqlite", dsnWithPragmas(dsn))
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
+	// One writer at a time is SQLite's own model; serializing the pool
+	// removes SQLITE_BUSY between our own transactions and matches the
+	// TS engine's better-sqlite3 single-connection posture.
+	db.SetMaxOpenConns(1)
 	if _, err = db.Exec(`PRAGMA journal_mode=WAL`); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("sqlite pragma journal_mode: %w", err)
-	}
-	if _, err = db.Exec(`PRAGMA foreign_keys=ON`); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("sqlite pragma foreign_keys: %w", err)
 	}
 	if err = migrateDB(db); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
 	return db, nil
+}
+
+// dsnWithPragmas appends the per-connection pragmas every pooled
+// connection must carry. busy_timeout and foreign_keys are
+// per-connection settings (unlike journal_mode, which is persistent
+// in the file), so they must ride the DSN — a db.Exec PRAGMA would
+// only reach whichever single connection the pool hands out.
+func dsnWithPragmas(dsn string) string {
+	sep := "?"
+	if strings.Contains(dsn, "?") {
+		sep = "&"
+	}
+	return dsn + sep + "_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
 }
 
 // ensureDBParentDir creates the parent directory of the sqlite DSN's

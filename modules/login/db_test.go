@@ -6,7 +6,9 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -45,6 +47,133 @@ func insertTestAccount(t *testing.T, db *sql.DB, username, password string) int6
 // noopLogger returns a *slog.Logger that discards all output.
 func noopLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
+func TestOpenDB_PragmasApplied(t *testing.T) {
+	dsn := filepath.Join(t.TempDir(), "login.db")
+	db, err := openDB(dsn)
+	if err != nil {
+		t.Fatalf("openDB: %v", err)
+	}
+	defer db.Close()
+
+	var busy int
+	if err := db.QueryRow(`PRAGMA busy_timeout`).Scan(&busy); err != nil {
+		t.Fatalf("query busy_timeout: %v", err)
+	}
+	if busy != 5000 {
+		t.Errorf("busy_timeout: got %d, want 5000", busy)
+	}
+	var fk int
+	if err := db.QueryRow(`PRAGMA foreign_keys`).Scan(&fk); err != nil {
+		t.Fatalf("query foreign_keys: %v", err)
+	}
+	if fk != 1 {
+		t.Errorf("foreign_keys: got %d, want 1", fk)
+	}
+}
+
+// TestOpenDB_ConcurrentWriteTxs pins the pool-serialization half of the
+// arch-28.1 fix contract: concurrent write transactions on ONE handle must
+// serialize at the database/sql pool layer (SetMaxOpenConns(1)) instead of
+// failing SQLITE_BUSY. Pre-fix this fails with "database is locked" almost
+// every run (the unbounded pool handed each tx its own connection). The
+// busy_timeout half — contention across SEPARATE handles, which the pool
+// cap cannot serialize — is pinned by TestOpenDB_BusyTimeoutCrossHandle.
+func TestOpenDB_ConcurrentWriteTxs(t *testing.T) {
+	dsn := filepath.Join(t.TempDir(), "login.db")
+	db, err := openDB(dsn)
+	if err != nil {
+		t.Fatalf("openDB: %v", err)
+	}
+	defer db.Close()
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 20)
+	for i := range 20 {
+		wg.Go(func() {
+			tx, err := db.BeginTx(t.Context(), nil)
+			if err != nil {
+				errs <- err
+				return
+			}
+			_, err = tx.Exec(`INSERT INTO ipban (ip, added_by) VALUES (?, 'test')`,
+				fmt.Sprintf("10.0.0.%d", i))
+			if err != nil {
+				tx.Rollback()
+				errs <- err
+				return
+			}
+			time.Sleep(5 * time.Millisecond) // widen the write-lock hold
+			errs <- tx.Commit()
+		})
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent write tx: %v", err)
+		}
+	}
+}
+
+// TestOpenDB_BusyTimeoutCrossHandle pins the busy_timeout half of the
+// arch-28.1 fix contract: contention across SEPARATE *sql.DB handles on the
+// same database file — which SetMaxOpenConns(1) cannot serialize, because
+// each handle owns its own single-connection pool (the real-world shape:
+// goscape-cli or an operator's sqlite3 shell alongside the server). Handle A
+// holds the write lock in an open transaction; handle B's INSERT must block
+// on busy_timeout(5000) until A commits, then succeed. Pre-fix
+// (busy_timeout=0) handle B fails immediately with SQLITE_BUSY
+// ("database is locked").
+func TestOpenDB_BusyTimeoutCrossHandle(t *testing.T) {
+	dsn := filepath.Join(t.TempDir(), "login.db")
+	dbA, err := openDB(dsn)
+	if err != nil {
+		t.Fatalf("openDB A: %v", err)
+	}
+	defer dbA.Close()
+	dbB, err := openDB(dsn)
+	if err != nil {
+		t.Fatalf("openDB B: %v", err)
+	}
+	defer dbB.Close()
+
+	// Handle A: take and hold the write lock.
+	tx, err := dbA.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("begin tx A: %v", err)
+	}
+	if _, err := tx.Exec(`INSERT INTO ipban (ip, added_by) VALUES ('10.1.0.1', 'test')`); err != nil {
+		tx.Rollback()
+		t.Fatalf("insert A: %v", err)
+	}
+	commitErr := make(chan error, 1)
+	go func() {
+		time.Sleep(200 * time.Millisecond) // hold the lock while B contends
+		commitErr <- tx.Commit()
+	}()
+
+	// Handle B: must block on busy_timeout until A commits, then succeed.
+	if _, err := dbB.Exec(`INSERT INTO ipban (ip, added_by) VALUES ('10.1.0.2', 'test')`); err != nil {
+		t.Fatalf("cross-handle insert B: %v", err)
+	}
+	if err := <-commitErr; err != nil {
+		t.Fatalf("commit A: %v", err)
+	}
+}
+
+func TestDSNWithPragmas(t *testing.T) {
+	got := dsnWithPragmas("data/login.db")
+	want := "data/login.db?_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
+	if got != want {
+		t.Errorf("plain dsn: got %q, want %q", got, want)
+	}
+	got = dsnWithPragmas("file:x?mode=memory&cache=shared")
+	want = "file:x?mode=memory&cache=shared&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
+	if got != want {
+		t.Errorf("param dsn: got %q, want %q", got, want)
+	}
 }
 
 func TestAccountByUsername_NotFound(t *testing.T) {
