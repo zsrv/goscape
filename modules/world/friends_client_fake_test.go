@@ -18,6 +18,7 @@ type fakeFriendsClient struct {
 	mu sync.Mutex
 
 	worldConnectCalls []worldConnectCall
+	worldConnectErr   error // returned by WorldConnect; nil (success) by default
 
 	playerLoginReqs    chan *friendspb.PlayerLoginRequest
 	playerLogoutReqs   chan *friendspb.PlayerLogoutRequest
@@ -93,10 +94,11 @@ func newFakeFriendsClient() *fakeFriendsClient {
 // Compile-time assertion that fakeFriendsClient implements FriendsClient.
 var _ FriendsClient = (*fakeFriendsClient)(nil)
 
-func (f *fakeFriendsClient) WorldConnect(ctx context.Context, worldID int32, profile string) {
+func (f *fakeFriendsClient) WorldConnect(ctx context.Context, worldID int32, profile string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.worldConnectCalls = append(f.worldConnectCalls, worldConnectCall{WorldID: worldID, Profile: profile})
+	return f.worldConnectErr
 }
 
 func (f *fakeFriendsClient) PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginRequest, onResponse func(accepted bool)) {

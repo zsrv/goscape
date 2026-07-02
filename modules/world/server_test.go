@@ -346,6 +346,10 @@ func newTestServer(t *testing.T) *Server {
 	}
 	// R4 (Arc 18): pmCount is atomic.Uint32; init to 1 per TS World.ts:167.
 	s.pmCount.Store(1)
+	// arch-29.3 fix wave: the fixture models a world whose WorldStartup
+	// registration already succeeded, so the login gate is open. Gate
+	// tests Store(false) explicitly to model a pending registration.
+	s.worldStartupDone.Store(true)
 	s.initChildLoggers(s.log)
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}

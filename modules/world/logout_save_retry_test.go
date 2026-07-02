@@ -21,7 +21,9 @@ type flakyLoginClient struct {
 
 var _ LoginClient = (*flakyLoginClient)(nil)
 
-func (f *flakyLoginClient) WorldStartup(ctx context.Context, nodeID int32, profile string) {}
+func (f *flakyLoginClient) WorldStartup(ctx context.Context, nodeID int32, profile string) error {
+	return nil
+}
 
 func (f *flakyLoginClient) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginRequest) (*loginpb.PlayerLoginResponse, error) {
 	return nil, nil
