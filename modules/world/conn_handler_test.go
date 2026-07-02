@@ -86,10 +86,10 @@ func (eofConn) SetDeadline(time.Time) error      { return nil }
 func (eofConn) SetReadDeadline(time.Time) error  { return nil }
 func (eofConn) SetWriteDeadline(time.Time) error { return nil }
 
-// TestHandleConn_ShutdownRace exercises the wsGateMu admission gate: many
+// TestHandleConn_ShutdownRace exercises the admissionGateMu admission gate: many
 // HandleConn calls race one shutdown transition, all released by a single
 // start channel (no sleeps). The shutdown goroutine mirrors exactly the
-// gate-relevant slice of Server.Shutdown — close(s.quit) under wsGateMu,
+// gate-relevant slice of Server.Shutdown — close(s.quit) under admissionGateMu,
 // then tcpWg.Wait() — because full Shutdown needs a live tcpListener and
 // tick plumbing the minimal test Server lacks. Pre-mutex, this interleaving
 // could Add(1) concurrently with a Wait that had observed a transient zero
@@ -115,9 +115,9 @@ func TestHandleConn_ShutdownRace(t *testing.T) {
 	go func() {
 		defer close(shutdownDone)
 		<-start
-		s.wsGateMu.Lock()
+		s.admissionGateMu.Lock()
 		close(s.quit)
-		s.wsGateMu.Unlock()
+		s.admissionGateMu.Unlock()
 		s.tcpWg.Wait()
 	}()
 
