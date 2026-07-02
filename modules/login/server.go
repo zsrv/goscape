@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/zsrv/goscape/pkg/loginpb"
@@ -18,7 +20,14 @@ type grpcServer struct {
 }
 
 func newGRPCServer(cfg Config, db *sql.DB, log *slog.Logger) *grpcServer {
-	s := grpc.NewServer()
+	// arch-29.2: permit the world's 30s keepalive probes (default
+	// EnforcementPolicy MinTime is 5m and would GOAWAY the client).
+	s := grpc.NewServer(
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             15 * time.Second,
+			PermitWithoutStream: true,
+		}),
+	)
 	loginpb.RegisterLoginServiceServer(s, &handler{
 		db:  db,
 		cfg: cfg,
