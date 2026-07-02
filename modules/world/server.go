@@ -999,7 +999,7 @@ func (s *Server) serveTCP() error {
 			// the loop's quit semantics above: the listener is closing, so
 			// the next Accept would just error into that same return path.
 			_ = conn.Close()
-			s.log.Debug("tcp listener closed")
+			s.log.Debug("refusing connection accepted during shutdown")
 			return nil
 		default:
 		}
