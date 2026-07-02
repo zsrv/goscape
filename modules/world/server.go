@@ -302,6 +302,11 @@ type Server struct {
 	bridgesCtx    context.Context
 	bridgesCancel context.CancelFunc
 
+	// logoutSaveRetryDelay is the pause between sendPlayerLogoutWithRetry
+	// attempts (arch-28.5). Set to 2*time.Second in NewServer; tests shrink
+	// it to keep retry tests fast.
+	logoutSaveRetryDelay time.Duration
+
 	// sessionLogs is the per-tick session-log accumulator. NAI-74. Pushed by
 	// Player.AddSessionLog; flushed via processSessionLogs in the tick loop.
 	//
@@ -478,6 +483,9 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// Arc 18 R3 — bridges parent context; canceled by Shutdown so
 	// in-flight fire-and-forget gRPC calls observe shutdown promptly.
 	s.bridgesCtx, s.bridgesCancel = context.WithCancel(context.Background())
+	// arch-28.5: default retry pause for sendPlayerLogoutWithRetry; tests
+	// override to keep retry loops fast.
+	s.logoutSaveRetryDelay = 2 * time.Second
 	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.bridgesCtx, logger.With("component", compFriends))
 	s.friendsDispatcher = newEmitFriendsDispatcher(s, logger.With("component", compFriends))
 	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, cfg.NodeProfile, logger.With("component", compFriends))
@@ -1631,10 +1639,53 @@ func (s *Server) removePlayerInternal(p *Player) {
 	p.appearanceInv = -1
 }
 
+// logoutSaveAttempts bounds sendPlayerLogoutWithRetry's retry loop
+// (arch-28.5): TS's login "server" is an in-process worker whose message
+// queue survives with the process, so a momentary outage never lost a
+// save; the gRPC split introduced a loss window (last-autosave rollback,
+// up to ~15 min) that a couple of retries close for restart-blip outages.
+// Retries abort early once bridgesCtx is cancelled (shutdown's
+// waitForSaveFlush stays bounded).
+const logoutSaveAttempts = 3
+
+// sendPlayerLogoutWithRetry fires the PlayerLogout RPC, retrying up to
+// logoutSaveAttempts total attempts on failure (arch-28.5), with
+// s.logoutSaveRetryDelay between attempts. Blocking — callers run it on
+// their own goroutine (removePlayerOnTick tracks it via saveWg). Aborts
+// early if s.bridgesCtx is cancelled, so shutdown's bounded
+// waitForSaveFlush isn't held hostage by a dead login service.
+func (s *Server) sendPlayerLogoutWithRetry(username string, save []byte) {
+	req := &loginpb.PlayerLogoutRequest{
+		NodeId:   int32(s.cfg.NodeID),
+		Profile:  s.cfg.NodeProfile,
+		Username: username,
+		Save:     save,
+	}
+	for attempt := 1; ; attempt++ {
+		ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
+		_, err := s.loginClient.PlayerLogout(ctx, req)
+		cancel()
+		if err == nil {
+			return
+		}
+		if attempt >= logoutSaveAttempts || s.bridgesCtx.Err() != nil {
+			s.log.Error("PlayerLogout RPC failed; save lost until next login",
+				slog.String("username", username), slog.Int("attempt", attempt), slog.Any("err", err))
+			return
+		}
+		s.log.Warn("PlayerLogout RPC failed; retrying",
+			slog.String("username", username), slog.Int("attempt", attempt), slog.Any("err", err))
+		select {
+		case <-time.After(s.logoutSaveRetryDelay):
+		case <-s.bridgesCtx.Done():
+		}
+	}
+}
+
 // removePlayerOnTick handles graceful logout from the tick goroutine.
 // Captures p.Save() while still on-tick (thread-safe) and fires a
-// best-effort PlayerLogout RPC in a goroutine, then performs internal
-// cleanup.
+// best-effort PlayerLogout RPC (bounded retry, arch-28.5) in a goroutine,
+// then performs internal cleanup.
 //
 // Deviation NAI-PLAYERLOADING-D-LOGOUT-NO-FORCE-FALLBACK: on RPC
 // failure, log only — no PlayerForceLogout belt-and-braces (TS parity).
@@ -1651,20 +1702,7 @@ func (s *Server) removePlayerOnTick(p *Player) {
 		s.saveWg.Add(1)
 		go func() {
 			defer s.saveWg.Done()
-			// Arc 18 R3 — parent moved from context.Background to
-			// Server.bridgesCtx so Shutdown cancels in-flight RPC promptly.
-			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
-			defer cancel()
-			_, err := s.loginClient.PlayerLogout(ctx, &loginpb.PlayerLogoutRequest{
-				NodeId:   int32(s.cfg.NodeID),
-				Profile:  s.cfg.NodeProfile,
-				Username: username,
-				Save:     save,
-			})
-			if err != nil {
-				s.log.Warn("PlayerLogout RPC failed",
-					slog.String("username", username), slog.Any("err", err))
-			}
+			s.sendPlayerLogoutWithRetry(username, save)
 		}()
 	}
 	if s.friendsClient != nil && p.username != "" {
