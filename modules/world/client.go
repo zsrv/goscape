@@ -123,6 +123,15 @@ type client struct {
 	// goroutine alone recycled bufw into a NEW connection while the
 	// tick was still flushing the old player's frames into it
 	// (arch-28.4b).
+	//
+	// The refcount models exactly those two owners (conn + tick). The
+	// OnDemand pump goroutine (onDemand.cycle → clientODAdapter.send) is a
+	// known third bufw writer OUTSIDE this model: a pure-OnDemand
+	// connection (c.player == nil, refcount stays at 1) can have an
+	// in-flight pump send while the conn goroutine's defer pool-returns the
+	// buffers. Pre-existing race (the old code released unconditionally at
+	// the same point); tracked as an arch-28 residual — see PORTING.md
+	// Arc 28.
 	teardownRefs atomic.Int32
 	connRefOnce  sync.Once
 	tickRefOnce  sync.Once
