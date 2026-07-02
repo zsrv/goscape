@@ -52,6 +52,11 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		default:
 		}
 
+		// arch-28.4a: drain guaranteed disconnect removals before the
+		// lossy relay queue, so a disconnect enqueued last tick is
+		// processed before any relay traffic this tick.
+		s.drainRemovals()
+
 		// Slice 5b: drain inbound RELAY_* actions enqueued by the world
 		// events dispatcher BEFORE processShutdown so a same-tick
 		// RELAY_SHUTDOWN observes its own shutdownTick assignment.

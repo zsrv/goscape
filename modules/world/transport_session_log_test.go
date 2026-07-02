@@ -108,7 +108,7 @@ func TestRemovePlayerOnDisconnect_EmitsLoggedOutSessionLog(t *testing.T) {
 	}
 
 	s.removePlayerOnDisconnect(p)
-	s.drainRelayActions()
+	s.drainRemovals()
 
 	s.sessionLogsMu.Lock()
 	defer s.sessionLogsMu.Unlock()
