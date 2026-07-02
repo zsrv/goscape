@@ -198,11 +198,22 @@ func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToW
 	startingBody := func(ctx context.Context) error {
 		cachePath := serv.cfg.CachePath
 		cache.MakeCRCs(cachePath)
+		// arch-29.3: WorldStartup/WorldConnect are idempotent registration
+		// calls (the former also clears stale account_login.logged_in rows
+		// from an ungraceful shutdown). Retry them in the background on
+		// serv.bridgesCtx instead of making one blocking attempt on the
+		// startingFn ctx — a failed attempt at boot (e.g. login mid-restart)
+		// must not strand crashed-out players at ALREADY_LOGGED_IN, nor
+		// block boot on the ~20s gRPC min-connect timeout.
 		if lc != nil {
-			lc.WorldStartup(ctx, int32(serv.cfg.NodeID), serv.cfg.NodeProfile)
+			serv.retryBridgeRegistration("login WorldStartup", func(ctx context.Context) error {
+				return lc.WorldStartup(ctx, int32(serv.cfg.NodeID), serv.cfg.NodeProfile)
+			})
 		}
 		if fc != nil {
-			fc.WorldConnect(ctx, int32(serv.cfg.NodeID), serv.cfg.NodeProfile)
+			serv.retryBridgeRegistration("friends WorldConnect", func(ctx context.Context) error {
+				return fc.WorldConnect(ctx, int32(serv.cfg.NodeID), serv.cfg.NodeProfile)
+			})
 		}
 		// NAI-REBUILD-ASYNC: spawn long-lived pack worker + optional
 		// fsnotify watcher when ContentPath is configured. Both exit

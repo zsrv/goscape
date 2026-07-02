@@ -15,13 +15,21 @@ import (
 // Production impl: grpcFriendsClient (this file). Test impl:
 // fakeFriendsClient (friends_client_fake_test.go).
 //
-// All RPCs except Close and SubscribeUpdates are fire-and-forget: errors
-// are logged via the embedded *slog.Logger and swallowed. The friends-
-// server is best-effort by design — slice-1 and slice-2 deviation tags
-// (e.g. NAI-S2-D-PLAYERLOGOUT-BOTH-PATHS) document the posture; the
-// world does not depend on its responses.
+// All RPCs except Close, WorldConnect, SubscribeUpdates and
+// SubscribeWorldEvents are fire-and-forget: errors are logged via the
+// embedded *slog.Logger and swallowed. The friends-server is best-effort
+// by design — slice-1 and slice-2 deviation tags (e.g.
+// NAI-S2-D-PLAYERLOGOUT-BOTH-PATHS) document the posture; the world does
+// not depend on its responses. WorldConnect is the one exception
+// (arch-29.3): it still logs + returns the error so
+// Server.retryBridgeRegistration can retry the idempotent registration
+// call until it succeeds instead of leaving the world permanently
+// unregistered after one transient failure at boot.
 type FriendsClient interface {
-	WorldConnect(ctx context.Context, worldID int32, profile string)
+	// WorldConnect is not fire-and-forget like the rest of this interface:
+	// it returns its error so the caller (retryBridgeRegistration) can
+	// retry an idempotent registration until it succeeds — arch-29.3.
+	WorldConnect(ctx context.Context, worldID int32, profile string) error
 	// PlayerLogin registers the player on the friends server. onResponse is
 	// invoked once after the RPC completes: accepted=true on success,
 	// accepted=false on cap-reached or RPC error. May be nil.
@@ -94,17 +102,21 @@ func (c *grpcFriendsClient) Close() error {
 
 // WorldConnect notifies the friends server that this world is connecting.
 // Validates the profile and initializes the world's player-count slot.
-func (c *grpcFriendsClient) WorldConnect(ctx context.Context, worldID int32, profile string) {
-	if _, err := c.client.WorldConnect(ctx, &friendspb.WorldConnectRequest{
+// Returns the RPC error (in addition to logging it) so the caller can
+// retry — arch-29.3.
+func (c *grpcFriendsClient) WorldConnect(ctx context.Context, worldID int32, profile string) error {
+	_, err := c.client.WorldConnect(ctx, &friendspb.WorldConnectRequest{
 		WorldId: worldID,
 		Profile: profile,
-	}); err != nil {
+	})
+	if err != nil {
 		c.log.Warn("WorldConnect RPC failed",
 			slog.Int("world_id", int(worldID)),
 			slog.String("profile", profile),
 			slog.Any("err", err),
 		)
 	}
+	return err
 }
 
 // PlayerLogin registers the player on the friends server. onResponse is

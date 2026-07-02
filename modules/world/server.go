@@ -316,6 +316,11 @@ type Server struct {
 	// it to keep retry tests fast.
 	logoutSaveRetryDelay time.Duration
 
+	// bridgeRetryDelay is the pause between retryBridgeRegistration
+	// attempts (arch-29.3). Set to 5*time.Second in NewServer; tests shrink
+	// it to keep retry tests fast.
+	bridgeRetryDelay time.Duration
+
 	// sessionLogs is the per-tick session-log accumulator. NAI-74. Pushed by
 	// Player.AddSessionLog; flushed via processSessionLogs in the tick loop.
 	//
@@ -504,6 +509,9 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// arch-28.5: default retry pause for sendPlayerLogoutWithRetry; tests
 	// override to keep retry loops fast.
 	s.logoutSaveRetryDelay = 2 * time.Second
+	// arch-29.3: default retry pause for retryBridgeRegistration; tests
+	// override to keep retry loops fast.
+	s.bridgeRetryDelay = 5 * time.Second
 	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.bridgesCtx, logger.With("component", compFriends))
 	s.friendsDispatcher = newEmitFriendsDispatcher(s, logger.With("component", compFriends))
 	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, cfg.NodeProfile, logger.With("component", compFriends))
@@ -1800,6 +1808,37 @@ func (s *Server) sendPlayerLogoutWithRetry(username string, save []byte) {
 		case <-s.bridgesCtx.Done():
 		}
 	}
+}
+
+// retryBridgeRegistration runs an idempotent bridge registration call
+// (WorldStartup / WorldConnect) until it succeeds once, in a background
+// goroutine parented to bridgesCtx. Each attempt gets bridgeCallTimeout.
+// arch-29.3: one failed WorldStartup at boot used to strand every
+// crashed-out player at ALREADY_LOGGED_IN with no self-healing — the
+// gRPC UPDATE clearing account_login.logged_in is idempotent, so retrying
+// forever in the background (rather than blocking boot or giving up after
+// one Warn-and-swallow attempt) is safe and closes that gap.
+func (s *Server) retryBridgeRegistration(name string, call func(context.Context) error) {
+	go func() {
+		for {
+			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
+			err := call(ctx)
+			cancel()
+			if err == nil {
+				return
+			}
+			if s.bridgesCtx.Err() != nil {
+				return
+			}
+			s.log.Warn("bridge registration failed; retrying",
+				slog.String("call", name), slog.Any("err", err))
+			select {
+			case <-time.After(s.bridgeRetryDelay):
+			case <-s.bridgesCtx.Done():
+				return
+			}
+		}
+	}()
 }
 
 // removePlayerOnTick handles graceful logout from the tick goroutine.
