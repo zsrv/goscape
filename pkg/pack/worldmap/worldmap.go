@@ -28,8 +28,11 @@ import (
 //   - packWater helper + its 16 call sites commented out upstream →
 //     deleted here (no dead code).
 //   - 10 new floorcol refColor entries (agility … viking_mud_overlay).
-//   - CSV + labels reads use the \r-strip idiom (.replace(/\r/g,'')
-//     before .split('\n')).
+//   - CSV + labels reads use the \r-strip idiom before .split('\n').
+//
+// The \r-strip idiom is:
+//
+//	.replace(/\r/g,'')
 //
 // 254 delta (TS Worldmap.ts @ 2e3bcf43):
 //   - Underground-pass level exception RE-ADDED in new form:

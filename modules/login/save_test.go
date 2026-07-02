@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	world "github.com/zsrv/goscape/modules/world"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
-	world "github.com/zsrv/goscape/modules/world"
 )
 
 // makeValidSave builds a minimal SAV blob that passes verifySave: magic 0x2004,

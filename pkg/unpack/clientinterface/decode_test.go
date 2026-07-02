@@ -1067,10 +1067,10 @@ func TestDecode_TypeRect_ActiveOverColour(t *testing.T) {
 	b.pOverLayer(-1)
 	b.pNoComparatorsNoScripts()
 
-	b.pbool(false)   // fill
-	b.p4s(0)         // colour
-	b.p4s(0)         // activeColour
-	b.p4s(0)         // overColour
+	b.pbool(false)  // fill
+	b.p4s(0)        // colour
+	b.p4s(0)        // activeColour
+	b.p4s(0)        // overColour
 	b.p4s(0x00AABB) // activeOverColour sentinel
 
 	pkt := makePacket(36, b.data)

@@ -760,7 +760,8 @@ func TestPackConfigs_OrphanNonTransmittedAccepted(t *testing.T) {
 // is supplied.
 //
 // TS source: tools/pack/config/PackShared.ts:641 @ 9aadcec4:
-//   cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
+//
+//	cache.write(0, 2, fs.readFileSync('data/pack/client/config'))
 //
 // Test:
 //  1. Create a minimal fixture (varp only — unconditional branch).
@@ -813,15 +814,16 @@ func TestPackConfigsConfigJagCacheWrite(t *testing.T) {
 // numbers to their rev-254 values (TS PackShared.ts @ 2e3bcf43).
 //
 // History (244 @ 9aadcec4 → 245.2 @ 3c16994c → 254 @ 2e3bcf43):
-//   seq      1405403166 → -1858954999 →  -716271600 (PackShared.ts:445)
-//   loc      1195428820 →  626415911  →  -826309209 (PackShared.ts:469)
-//   flo      1976597026 → -532285888  → -1566957964 (PackShared.ts:493)
-//   spotanim  117013845 →   96621343  →  -555849646 (PackShared.ts:517)
-//   npc      -997428438 →  417024969  →  1077655221 (PackShared.ts:541)
-//   obj      1589810970 →  344600333  →   535204494 (PackShared.ts:565)
-//   idk      -359342366 → -359342366  →  -359342366 (PackShared.ts:589) UNCHANGED
-//   varp    -1961744050 → 1480086078  →  1039564548 (PackShared.ts:613)
-//   varbit       (new at 254)         → -1387031023 (PackShared.ts:637)
+//
+//	seq      1405403166 → -1858954999 →  -716271600 (PackShared.ts:445)
+//	loc      1195428820 →  626415911  →  -826309209 (PackShared.ts:469)
+//	flo      1976597026 → -532285888  → -1566957964 (PackShared.ts:493)
+//	spotanim  117013845 →   96621343  →  -555849646 (PackShared.ts:517)
+//	npc      -997428438 →  417024969  →  1077655221 (PackShared.ts:541)
+//	obj      1589810970 →  344600333  →   535204494 (PackShared.ts:565)
+//	idk      -359342366 → -359342366  →  -359342366 (PackShared.ts:589) UNCHANGED
+//	varp    -1961744050 → 1480086078  →  1039564548 (PackShared.ts:613)
+//	varbit       (new at 254)         → -1387031023 (PackShared.ts:637)
 func TestClientConfigCRCConstants_Rev254(t *testing.T) {
 	tests := []struct {
 		name string

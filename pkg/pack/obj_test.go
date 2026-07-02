@@ -914,8 +914,8 @@ func TestPackObjConfigs_ResizeAmbientContrast(t *testing.T) {
 		0x6E, 0x01, 0x02, // resizex p2
 		0x6F, 0x03, 0x04, // resizey p2
 		0x70, 0x05, 0x06, // resizez p2
-		0x71, 0x07,       // ambient p1
-		0x72, 0x08,       // contrast p1
+		0x71, 0x07, // ambient p1
+		0x72, 0x08, // contrast p1
 		0x00,
 	}
 	if !bytes.Equal(client.Dat.Data, want) {

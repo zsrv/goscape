@@ -17,14 +17,14 @@ import (
 
 // Constants — cf-zlib deflate.h / trees.c
 const (
-	maxMatch    = 258
-	minMatch    = 3 // cf-zlib zutil.h:74: #define MIN_MATCH 3 (used for sym_buf length offset)
-	actualMin   = 4 // cf-zlib deflate.c:96 ACTUAL_MIN_MATCH
+	maxMatch  = 258
+	minMatch  = 3 // cf-zlib zutil.h:74: #define MIN_MATCH 3 (used for sym_buf length offset)
+	actualMin = 4 // cf-zlib deflate.c:96 ACTUAL_MIN_MATCH
 
-	wBits    = 15          // windowBits for level 6 / memLevel 8
-	wSize    = 1 << wBits  // 32768
+	wBits    = 15         // windowBits for level 6 / memLevel 8
+	wSize    = 1 << wBits // 32768
 	wMask    = wSize - 1
-	hashBits = 8 + 7       // memLevel+7 = 15; cf-zlib deflate.c:250
+	hashBits = 8 + 7 // memLevel+7 = 15; cf-zlib deflate.c:250
 	hashSize = 1 << hashBits
 	hashMask = hashSize - 1
 
@@ -48,9 +48,9 @@ const (
 	staticTrees = 1
 	dynTrees    = 2
 
-	endBlock = 256
-	rep36    = 16
-	repZ310  = 17
+	endBlock  = 256
+	rep36     = 16
+	repZ310   = 17
 	repZ11138 = 18
 
 	// Data types — cf-zlib zlib.h
@@ -59,10 +59,10 @@ const (
 	zUnknown = 2
 
 	// Compression parameters for level 6 — cf-zlib deflate.c:119
-	goodMatch   = 8
-	maxLazy     = 16
-	niceLength  = 128
-	maxChain    = 128
+	goodMatch  = 8
+	maxLazy    = 16
+	niceLength = 128
+	maxChain   = 128
 
 	minLookahead = maxMatch + actualMin + 1
 	maxDist      = wSize - minLookahead
@@ -472,7 +472,7 @@ func trTallyDist(s *deflateState, distance, length uint32) bool {
 	s.symNext += 3
 	dist--
 	s.dynLTree[int(lengthCode[ln])+literals+1].Code++ // freq++
-	s.dynDTree[dCode(uint(dist))].Code++               // freq++
+	s.dynDTree[dCode(uint(dist))].Code++              // freq++
 	return s.symNext == symEnd
 }
 
@@ -575,7 +575,7 @@ func CompressCFGz(src []byte, off, length int) []byte {
 	input := src[off : off+length]
 
 	// Conservative output capacity (gzip bound)
-	outCap := 18 + length + (length>>12) + (length>>14) + (length>>25) + 13 + 100
+	outCap := 18 + length + (length >> 12) + (length >> 14) + (length >> 25) + 13 + 100
 	s := newDeflateState(outCap)
 
 	// --- gzip header (10 bytes) --- cf-zlib deflate.c:667-681

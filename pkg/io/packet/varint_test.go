@@ -75,9 +75,9 @@ func TestVarIntRoundTrip(t *testing.T) {
 // decode sequentially from one buffer.
 func TestGVarIntDecodesHandBuiltStreams(t *testing.T) {
 	p := NewPacket([]byte{
-		0x07,             // 7
-		0x81, 0x00,       // 128
-		0xFF, 0x7F,       // 16383
+		0x07,       // 7
+		0x81, 0x00, // 128
+		0xFF, 0x7F, // 16383
 		0x8F, 0xFF, 0xFF, 0xFF, 0x7F, // -1 (unsigned 0xFFFFFFFF wraps to int32 -1)
 	})
 	for i, want := range []int32{7, 128, 16383, -1} {

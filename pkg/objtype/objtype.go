@@ -143,28 +143,28 @@ func applyPostDecodeFixups(otc *ObjTypeConfigs, ptc *ParamTypeConfigs) {
 
 type ObjType struct {
 	ConfigType
-	Model            int
-	Name             string
-	Desc             string
-	RecolS           []uint16
-	RecolD           []uint16
-	Zoom2D           int
-	Xan2D            int
-	Yan2D            int
-	Zan2D            int
-	Xof2D            int
-	Yof2D            int
-	Code9            bool
-	Code10           int
-	Stackable        bool
-	Cost             int
-	Members          bool
+	Model     int
+	Name      string
+	Desc      string
+	RecolS    []uint16
+	RecolD    []uint16
+	Zoom2D    int
+	Xan2D     int
+	Yan2D     int
+	Zan2D     int
+	Xof2D     int
+	Yof2D     int
+	Code9     bool
+	Code10    int
+	Stackable bool
+	Cost      int
+	Members   bool
 	// Op / IOp default to the 254-pin literals (TS ObjType.ts:151-152
 	// @2e3bcf43): op = [null, null, 'Take', null, null] and
 	// iop = [null, null, null, null, 'Drop'] — "" is the Go encoding of
 	// TS null. NewObjType seeds them via DefaultObjOps/DefaultObjIOps.
-	Op  []string
-	IOp []string
+	Op               []string
+	IOp              []string
 	ManWear          int
 	ManWear2         int
 	ManWearOffsetY   int

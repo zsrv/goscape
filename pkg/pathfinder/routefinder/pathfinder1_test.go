@@ -35,11 +35,11 @@ func TestRouteFinderRouteFindBig_SouthToNorthLoopBound(t *testing.T) {
 
 	rf := NewRouteFinderDefault(flags)
 	route := rf.FindRoute(0, srcX, srcZ, destX, destZ,
-		3,         // srcSize=3 → routeFindBig branch
-		1, 1,      // destWidth, destLength
-		0, -1,     // angle, shape
-		true,      // moveNear
-		0, 25,     // blockAccessFlags, maxWaypoints
+		3,    // srcSize=3 → routeFindBig branch
+		1, 1, // destWidth, destLength
+		0, -1, // angle, shape
+		true,  // moveNear
+		0, 25, // blockAccessFlags, maxWaypoints
 		collision.TypeNormal,
 	)
 
