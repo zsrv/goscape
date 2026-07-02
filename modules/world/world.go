@@ -76,6 +76,19 @@ func New(cfg Config, logger *slog.Logger, tap tapper.Tapper) (*World, error) {
 
 	server, err := NewServer(cfg, loginClient, friendsClient, logger, tap)
 	if err != nil {
+		// arch-29.8: NewServer failed after the bridge clients above were
+		// already dialed — close them so a construction failure doesn't
+		// leak their underlying gRPC connections.
+		if loginClient != nil {
+			if closeErr := loginClient.Close(); closeErr != nil {
+				w.log.Warn("failed to close login client after server init failure", slog.Any("err", closeErr))
+			}
+		}
+		if friendsClient != nil {
+			if closeErr := friendsClient.Close(); closeErr != nil {
+				w.log.Warn("failed to close friends client after server init failure", slog.Any("err", closeErr))
+			}
+		}
 		return nil, fmt.Errorf("failed to create server: %w", err)
 	}
 	w.Server = server
@@ -132,6 +145,29 @@ func worldServiceFns(
 
 	starting := func(ctx context.Context) error {
 		if err := startingBody(ctx); err != nil {
+			// arch-29.8 fix wave: BasicService skips stoppingFn entirely
+			// when startingFn returns an error ("if StartingFn returns
+			// error, no other functions are called" —
+			// pkg/dskit/services/basic_service.go:45; the runFn-skip half
+			// of that contract is pinned by
+			// TestWorldServiceFnsStartingBodyErrorSkipsRun). The bridge
+			// client closes live only in stopping, so a startingBody
+			// failure (MakeCRCs, Listen, ...) would leak both gRPC
+			// connections without this. No double-close is possible: the
+			// state machine makes the two paths exclusive — starting
+			// failure means stopping never runs (closes happen HERE);
+			// starting success means this branch never ran (closes happen
+			// in stopping).
+			if lcClose != nil {
+				if closeErr := lcClose(); closeErr != nil {
+					log.Warn("failed to close login client after starting failure", slog.Any("err", closeErr))
+				}
+			}
+			if fcClose != nil {
+				if closeErr := fcClose(); closeErr != nil {
+					log.Warn("failed to close friends client after starting failure", slog.Any("err", closeErr))
+				}
+			}
 			return err
 		}
 		// Spawn Run here, not in runFn: BasicService legally runs stoppingFn
@@ -200,6 +236,22 @@ func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToW
 		if err := cache.MakeCRCs(cachePath); err != nil {
 			return fmt.Errorf("crc table: %w", err)
 		}
+		// arch-29.8: bind the TCP listener here, not in NewServer — this
+		// startingFn only runs once the module manager has committed to
+		// starting world, so a failed init of a LATER module (e.g. a port
+		// conflict discovered while starting ondemand) never leaves this
+		// socket bound. Must happen before startWorldEventsSubscriber /
+		// Run, both of which assume serv.tcpListener is live.
+		if err := serv.Listen(); err != nil {
+			return fmt.Errorf("listen: %w", err)
+		}
+		// arch-29.8: spawn the friends-bridge subscriber here rather than in
+		// NewServer. World depends on {Common, Login, Friends} in
+		// cmd/goscape/app/modules.go, so by the time THIS startingFn runs,
+		// friends has already reached Running — spawning from NewServer
+		// (called during world's own module initFn, before any service is
+		// Running) could race a friends listener that doesn't exist yet.
+		serv.startWorldEventsSubscriber()
 		// arch-29.3: WorldStartup/WorldConnect are idempotent registration
 		// calls (the former also clears stale account_login.logged_in rows
 		// from an ungraceful shutdown). Retry them in the background on

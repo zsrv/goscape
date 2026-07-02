@@ -156,6 +156,16 @@ func (g *App) Run() error {
 	g.signalsHandlerMu.Lock()
 	g.signalsHandler = handler
 	g.signalsHandlerMu.Unlock()
+	// arch-29.8: guarantee handler.Stop() runs on every exit path out of
+	// Run, not just the signal-driven one below. Without this, a non-signal
+	// exit (sm.StartAsync failing, AwaitStopped erroring, a module failing
+	// before ever receiving a signal, ...) leaves the handler.Loop()
+	// goroutine parked forever waiting for a signal that will never come.
+	// Wrapped in sync.OnceFunc because Loop may already have returned via a
+	// real OS signal by the time this defer runs; signals.Handler.Stop is
+	// independently idempotent too (belt-and-braces against an external
+	// App.Stop() call racing this defer).
+	defer sync.OnceFunc(handler.Stop)()
 	go func() {
 		handler.Loop()
 

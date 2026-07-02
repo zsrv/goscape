@@ -9,6 +9,7 @@ import (
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
 	"github.com/zsrv/goscape/modules/world"
+	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/dskit/modules"
 	"github.com/zsrv/goscape/pkg/dskit/server"
 	"github.com/zsrv/goscape/pkg/dskit/services"
@@ -34,8 +35,13 @@ const (
 
 func (g *App) initOnDemand() (services.Service, error) {
 	if !g.cfg.OnDemand.Enable {
-		// TODO: still makes module appear to be running, move the check elsewhere?
-		return services.NewIdleService(nil, nil), nil
+		// arch-29.8: a disabled module contributes no service — returning
+		// an IdleService made it masquerade as Running, which vacuously
+		// satisfied AwaitRunning for any dependent and (for ondemand
+		// specifically) is what let a standalone ondemand serve a
+		// zero-value CRC snapshot instead of failing to start.
+		g.logger.Info("module disabled", "module", "ondemand")
+		return nil, nil
 	}
 
 	logLevel := slog.Level(g.cfg.LogLevel)
@@ -45,18 +51,11 @@ func (g *App) initOnDemand() (services.Service, error) {
 
 	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout, log.WithSourceFormat(g.cfg.LogSource))
 	if err != nil {
-		g.logger.Error("failed to create logger", "module", "ondemand", "err", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to create ondemand logger: %w", err)
 	}
 	logger = logger.With("component", "ondemand")
 
 	g.cfg.OnDemand.Server.Log = logger
-
-	server.DisableSignalHandling(&g.cfg.OnDemand.Server)
-	serv, err := server.New(g.cfg.OnDemand.Server)
-	if err != nil {
-		return nil, err
-	}
 
 	// The dskit DAG declares OnDemand: {Common, World}, so g.world has been
 	// initialised by the time initOnDemand runs (when World is enabled). When
@@ -67,6 +66,24 @@ func (g *App) initOnDemand() (services.Service, error) {
 	if g.world != nil && g.world.Server != nil {
 		worldConn = g.world.Server
 		worldSrv = g.world.Server
+	} else if g.cfg.OnDemand.CachePath != "" {
+		// arch-29.8: standalone ondemand (world disabled/not part of this
+		// target) must build its own CRC snapshot — previously it silently
+		// served the zero-value cache.CRC() left over from whatever ran
+		// last (or all-zero on a fresh process), because only world's
+		// startingFn ever called MakeCRCs. Runs BEFORE server.New below
+		// (arch-29.8 fix wave): MakeCRCs doesn't need the server, and
+		// failing before the HTTP listener binds means a bad cache path
+		// leaks nothing.
+		if err := cache.MakeCRCs(g.cfg.OnDemand.CachePath); err != nil {
+			return nil, fmt.Errorf("failed to build crc table: %w", err)
+		}
+	}
+
+	server.DisableSignalHandling(&g.cfg.OnDemand.Server)
+	serv, err := server.New(g.cfg.OnDemand.Server)
+	if err != nil {
+		return nil, err
 	}
 
 	a, err := ondemand.New(g.cfg.OnDemand, logger, serv, worldConn)
@@ -114,8 +131,9 @@ func (g *App) initOnDemand() (services.Service, error) {
 
 func (g *App) initLogin() (services.Service, error) {
 	if !g.cfg.Login.Enable {
-		// TODO: still makes module appear to be running, move the check elsewhere?
-		return services.NewIdleService(nil, nil), nil
+		// arch-29.8: see initOnDemand's disabled branch for rationale.
+		g.logger.Info("module disabled", "module", "login")
+		return nil, nil
 	}
 
 	logLevel := slog.Level(g.cfg.LogLevel)
@@ -124,8 +142,7 @@ func (g *App) initLogin() (services.Service, error) {
 	}
 	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout, log.WithSourceFormat(g.cfg.LogSource))
 	if err != nil {
-		g.logger.Error("failed to create logger", "module", "login", "err", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to create login logger: %w", err)
 	}
 	logger = logger.With("component", "login")
 
@@ -140,8 +157,9 @@ func (g *App) initLogin() (services.Service, error) {
 
 func (g *App) initFriends() (services.Service, error) {
 	if !g.cfg.Friends.Enable {
-		// TODO: still makes module appear to be running, move the check elsewhere?
-		return services.NewIdleService(nil, nil), nil
+		// arch-29.8: see initOnDemand's disabled branch for rationale.
+		g.logger.Info("module disabled", "module", "friends")
+		return nil, nil
 	}
 
 	logLevel := slog.Level(g.cfg.LogLevel)
@@ -150,8 +168,7 @@ func (g *App) initFriends() (services.Service, error) {
 	}
 	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout, log.WithSourceFormat(g.cfg.LogSource))
 	if err != nil {
-		g.logger.Error("failed to create logger", "module", "friends", "err", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to create friends logger: %w", err)
 	}
 	logger = logger.With("component", "friends")
 
@@ -166,8 +183,9 @@ func (g *App) initFriends() (services.Service, error) {
 
 func (g *App) initWorld() (services.Service, error) {
 	if !g.cfg.World.Enable {
-		// TODO: still makes module appear to be running, move the check elsewhere?
-		return services.NewIdleService(nil, nil), nil
+		// arch-29.8: see initOnDemand's disabled branch for rationale.
+		g.logger.Info("module disabled", "module", "world")
+		return nil, nil
 	}
 
 	logLevel := slog.Level(g.cfg.LogLevel)
@@ -177,8 +195,7 @@ func (g *App) initWorld() (services.Service, error) {
 
 	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout, log.WithSourceFormat(g.cfg.LogSource))
 	if err != nil {
-		g.logger.Error("failed to create logger", "module", "world", "err", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to create world logger: %w", err)
 	}
 
 	world.DisableSignalHandling(&g.cfg.World)

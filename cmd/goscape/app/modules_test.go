@@ -13,6 +13,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/dskit/modules"
 	"github.com/zsrv/goscape/pkg/dskit/services"
+	"github.com/zsrv/goscape/pkg/dskit/signals"
 )
 
 // discardLogger returns a logger that discards output, suitable for tests
@@ -198,13 +199,30 @@ func TestApp_New_All(t *testing.T) {
 	}
 }
 
-// TestApp_Run_GracefulStop confirms App.Run with all modules disabled
-// (each becomes an IdleService) starts cleanly and returns nil after
-// Stop() is invoked. Exercises the happy-path Run loop: InitModuleServices
-// → NewManager → StartAsync → AwaitStopped.
+// TestApp_Run_GracefulStop confirms App.Run starts cleanly and returns nil
+// after Stop() is invoked. Exercises the happy-path Run loop:
+// InitModuleServices → NewManager → StartAsync → AwaitStopped.
+//
+// arch-29.8: this used to rely on all four production modules being
+// disabled (each returning an IdleService) to populate the service map with
+// harmless no-op services. Disabled modules now contribute NO service (see
+// TestDisabledModulesYieldNoService in modules_disabled_test.go), so an
+// all-disabled --target=all now correctly yields zero services and
+// NewManager fails fast with "no services" — that degenerate case is not
+// what this test is about. A scoped ModuleManager with one explicit idle
+// module stands in for "a module that starts, runs, and stops cleanly on
+// signal," independent of the disabled-module masquerade this task removes.
 // COV-1 (Arc 18).
 func TestApp_Run_GracefulStop(t *testing.T) {
-	a, fh := newAppForTest(t, SingleBinary)
+	a, fh := newAppForTest(t, "idle")
+	mm := modules.NewManager(discardLogger())
+	mm.RegisterModule("idle", func() (services.Service, error) {
+		return services.NewIdleService(nil, nil), nil
+	})
+	if err := mm.AddDependency("idle"); err != nil {
+		t.Fatalf("AddDependency: %v", err)
+	}
+	a.ModuleManager = mm
 
 	runDone := make(chan error, 1)
 	go func() { runDone <- a.Run() }()
@@ -225,12 +243,25 @@ func TestApp_Run_GracefulStop(t *testing.T) {
 	}
 }
 
-// TestApp_Run_OnDemandTarget exercises Run with --target=ondemand and all modules
-// disabled — only the ondemand (and its transitive world) services init, both
-// as IdleServices. Confirms target selection narrows the service map.
+// TestApp_Run_OnDemandTarget exercises Run with --target=ondemand, confirming
+// target selection narrows the service map to just the requested module.
+//
+// arch-29.8: previously relied on the disabled-module IdleService masquerade
+// to populate serviceMap[OnDemand] with a harmless no-op (see
+// TestApp_Run_GracefulStop's comment for why that masquerade is gone). Uses
+// an explicit stand-in "ondemand" module on a scoped ModuleManager instead
+// of exercising the real (disabled-by-default) production initOnDemand.
 // COV-1 (Arc 18).
 func TestApp_Run_OnDemandTarget(t *testing.T) {
 	a, fh := newAppForTest(t, OnDemand)
+	mm := modules.NewManager(discardLogger())
+	mm.RegisterModule(OnDemand, func() (services.Service, error) {
+		return services.NewIdleService(nil, nil), nil
+	})
+	if err := mm.AddDependency(OnDemand); err != nil {
+		t.Fatalf("AddDependency: %v", err)
+	}
+	a.ModuleManager = mm
 
 	runDone := make(chan error, 1)
 	go func() { runDone <- a.Run() }()
@@ -246,8 +277,6 @@ func TestApp_Run_OnDemandTarget(t *testing.T) {
 		t.Fatal("Run did not return within 5s")
 	}
 
-	// --target=ondemand should instantiate OnDemand and its declared transitive
-	// deps (Common, World, Login, Friends because World depends on Login+Friends).
 	if _, ok := a.serviceMap[OnDemand]; !ok {
 		t.Errorf("serviceMap missing OnDemand")
 	}
@@ -373,4 +402,16 @@ func TestApp_Stop_DispatchesToSignalHandler(t *testing.T) {
 	if !fh.Stopped() {
 		t.Error("App.Stop() did not invoke signalsHandler.Stop")
 	}
+}
+
+// TestApp_Stop_DoubleCallIsSafe pins arch-29.8: calling Stop() twice with a
+// live (non-nil) handler must not panic. Before signals.Handler.Stop grew
+// its own sync.Once, a second Stop() closed an already-closed channel.
+// Uses the real *signals.Handler (not the test-package fake, which already
+// carried its own Once) so the fix is exercised at the layer it lives in.
+func TestApp_Stop_DoubleCallIsSafe(t *testing.T) {
+	a := &App{}
+	a.signalsHandler = signals.NewHandler(discardLogger())
+	a.Stop()
+	a.Stop() // must not panic
 }

@@ -489,13 +489,6 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		rsaKey = k
 	}
 
-	tcpListener, err := net.Listen(cfg.TCPListenNetwork, net.JoinHostPort(cfg.TCPListenAddress, strconv.Itoa(cfg.TCPListenPort)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tcp listener: %w", err)
-	}
-
-	logger.Info("tcp server listening", "addr", tcpListener.Addr())
-
 	handler := cfg.SignalHandler
 	if handler == nil {
 		handler = signals.NewHandler(logger)
@@ -504,7 +497,6 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	s := &Server{
 		cfg:           cfg,
 		handler:       handler,
-		tcpListener:   tcpListener,
 		loginClient:   loginClient,
 		friendsClient: friendsClient,
 		tap:           tap,
@@ -552,12 +544,15 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// AND applies its world-state effect.
 	innerSlog := newSlogWorldEventsDispatcher(logger.With("component", compFriends))
 	s.worldEventsDispatcher = newActionWorldEventsDispatcher(innerSlog, s)
-	if friendsClient != nil {
-		ctx, cancel := context.WithCancel(context.Background())
-		s.worldEventsCancel = cancel
-		sub := newWorldEventsSubscriber(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.worldEventsDispatcher, logger.With("component", compFriends))
-		go sub.run(ctx)
-	}
+	// arch-29.8: the world-events subscriber goroutine (talks to friends over
+	// the bridge client) is spawned by startWorldEventsSubscriber, called from
+	// world.go's startingBody — NOT here. Construction must not spawn
+	// goroutines that call out to a peer server before that peer is
+	// guaranteed to be up; the module DAG only guarantees friends is Running
+	// by the time world's OWN starting phase runs (World: {Common, Login,
+	// Friends} in cmd/goscape/app/modules.go), not by the time NewServer
+	// (called from world.New, which runs during world's module initFn,
+	// before any service reaches Running) returns.
 	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.bridgesCtx, logger.With("component", compLogin))
 	s.loggerBridge = NewSlogLoggerBridge(logger, s.cfg.NodeID, s.cfg.NodeProfile)
 	s.locOps = &serverLocOps{s: s}
@@ -792,6 +787,39 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	return s, nil
 }
 
+// Listen binds the TCP listener. arch-29.8: moved out of NewServer —
+// construction must not acquire real resources (a bound socket outlives
+// this call and must be torn down on any later init failure); acquisition
+// belongs to the service's starting phase (world.go's startingBody), which
+// runs after the module manager has committed to starting this module.
+// Must be called before Run/serveTCP; both assume s.tcpListener is non-nil.
+func (s *Server) Listen() error {
+	tcpListener, err := net.Listen(s.cfg.TCPListenNetwork, net.JoinHostPort(s.cfg.TCPListenAddress, strconv.Itoa(s.cfg.TCPListenPort)))
+	if err != nil {
+		return fmt.Errorf("failed to create tcp listener: %w", err)
+	}
+	s.log.Info("tcp server listening", "addr", tcpListener.Addr())
+	s.tcpListener = tcpListener
+	return nil
+}
+
+// startWorldEventsSubscriber spawns the friends-bridge world-events
+// subscriber goroutine. arch-29.8: moved out of NewServer — construction
+// must not spawn a goroutine that talks to a peer server (friends) before
+// that peer is guaranteed to be running. Called from world.go's
+// startingBody, which runs after friends has reached Running per the
+// module DAG (World depends on {Common, Login, Friends} in
+// cmd/goscape/app/modules.go).
+func (s *Server) startWorldEventsSubscriber() {
+	if s.friendsClient == nil {
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.worldEventsCancel = cancel
+	sub := newWorldEventsSubscriber(s.friendsClient, int32(s.cfg.NodeID), s.cfg.NodeProfile, s.worldEventsDispatcher, s.logFriends)
+	go sub.run(ctx)
+}
+
 // shouldSpawnNpc gates a boot-time NPC spawn against the world's members
 // flag, mirroring TS GameMap.loadNpcs (GameMap.ts:132 at pin 9aadcec4): a
 // members-only NpcType (npcType.members == true) spawns only on a members
@@ -947,7 +975,13 @@ func (s *Server) Shutdown() {
 	close(s.quit)
 	s.admissionGateMu.Unlock()
 	s.log.Debug("closing tcp listener")
-	s.tcpListener.Close()
+	// arch-29.8: nil-guarded — Listen() is now called from world.go's
+	// startingBody, so a service that fails before reaching Listen() (or a
+	// test-constructed Server that never bound) can still call Shutdown
+	// without a nil-interface panic.
+	if s.tcpListener != nil {
+		s.tcpListener.Close()
+	}
 	// Close every accepted connection: read loops re-arm their deadlines
 	// per read, so without this a connected client blocks tcpWg.Wait
 	// indefinitely. Closing is safe concurrently with in-flight reads and
@@ -1037,6 +1071,10 @@ func (s *Server) closeLiveConns() {
 	}
 }
 
+// serveTCP assumes s.tcpListener is already bound. It is only reachable via
+// Run, which is spawned from world.go's startingBody after Listen() has
+// already succeeded (arch-29.8) — never call serveTCP directly without
+// calling Listen() first.
 func (s *Server) serveTCP() error {
 	defer s.tcpListener.Close() // TODO: put somewhere else? is this in the greenplace example?
 	defer s.tcpWg.Done()
