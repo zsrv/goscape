@@ -91,6 +91,16 @@ type Server struct {
 	// the life of the accept loop, so its Add(1) calls never race a Wait
 	// that could observe a transient zero counter.
 	wsGateMu sync.Mutex
+	// liveConns/liveConnsMu track every accepted connection so Shutdown can
+	// close them. The read loop in handleTCPConn re-arms its deadline on
+	// every successful read, so a chatty client that keeps sending never
+	// trips the deadline on its own — without an explicit close, Shutdown's
+	// tcpWg.Wait would block on that connection's goroutine forever
+	// (arch-28.4c). Populated by trackConn (serveConn's first statement)
+	// and cleared by untrackConn (deferred in serveConn); closeLiveConns
+	// (called from Shutdown) closes every tracked conn.
+	liveConns   map[net.Conn]struct{}
+	liveConnsMu sync.Mutex
 	// tickWg tracks the runTickLoop goroutine spawned in Run(). Shutdown
 	// closes s.quit and then waits on tickWg so the tick goroutine has
 	// fully exited before cleanup proceeds. Arc 18 R2 — without this,
@@ -880,6 +890,12 @@ func (s *Server) Shutdown() {
 	s.wsGateMu.Unlock()
 	s.log.Debug("closing tcp listener")
 	s.tcpListener.Close()
+	// Close every accepted connection: read loops re-arm their deadlines
+	// per read, so without this a connected client blocks tcpWg.Wait
+	// indefinitely. Closing is safe concurrently with in-flight reads and
+	// writes; each conn goroutine exits through its normal error path
+	// (enqueueing its player's removal for the tick's final save-all).
+	s.closeLiveConns()
 	s.log.Debug("waiting for tcp connections to close")
 	s.tcpWg.Wait()
 	s.log.Debug("all tcp connections closed")
@@ -907,13 +923,39 @@ func (s *Server) Shutdown() {
 		s.bridgesCancel()
 	}
 	s.log.Debug("player saves flushed")
+}
 
-	//_, cancel := context.WithTimeout(context.Background(), s.cfg.ServerGracefulShutdownTimeout)
-	//defer cancel() // releases resources if httpServer.Shutdown completes before timeout elapses. TODO: revisit this statement
-	//// TODO: can we even use ctx here if tcplistener doesn't accept one and this is the proper way to shut down?
-	//_ = s.tcpListener.Close() // TODO: revisit, compare to what http server shutdown does
-	//// TODO: need to close listener but also close client connections
-	//// https://eli.thegreenplace.net/2020/graceful-shutdown-of-a-tcp-server-in-go/
+// trackConn registers an accepted connection so Shutdown can close it.
+// The read loop re-arms its deadline on every read, so without an
+// explicit close a chatty client keeps its goroutine alive and
+// tcpWg.Wait never returns.
+func (s *Server) trackConn(conn net.Conn) {
+	s.liveConnsMu.Lock()
+	if s.liveConns == nil {
+		s.liveConns = make(map[net.Conn]struct{})
+	}
+	s.liveConns[conn] = struct{}{}
+	s.liveConnsMu.Unlock()
+}
+
+// untrackConn removes a connection from the live registry. Called from
+// serveConn's teardown, after which Shutdown's closeLiveConns will no
+// longer see (or double-close) this conn.
+func (s *Server) untrackConn(conn net.Conn) {
+	s.liveConnsMu.Lock()
+	delete(s.liveConns, conn)
+	s.liveConnsMu.Unlock()
+}
+
+// closeLiveConns closes every currently-tracked connection. Safe to call
+// concurrently with trackConn/untrackConn: each closed conn's read loop
+// exits through its normal error path and untracks itself independently.
+func (s *Server) closeLiveConns() {
+	s.liveConnsMu.Lock()
+	defer s.liveConnsMu.Unlock()
+	for conn := range s.liveConns {
+		_ = conn.Close()
+	}
 }
 
 func (s *Server) serveTCP() error {
@@ -960,8 +1002,14 @@ func (s *Server) serveTCP() error {
 // during unwinding, so this is the Go equivalent of TS's per-connection
 // try/catch -> client.terminate() (TcpServer.ts:29-41). tcpWg.Done() is
 // deferred so Shutdown's tcpWg.Wait() can never hang on a panicked connection.
+//
+// trackConn/untrackConn bracket the whole call so Shutdown's
+// closeLiveConns can always reach this conn, even mid-panic-recovery
+// (arch-28.4c).
 func (s *Server) serveConn(conn net.Conn) {
+	s.trackConn(conn)
 	defer s.tcpWg.Done()
+	defer s.untrackConn(conn)
 	defer func() {
 		if r := recover(); r != nil {
 			s.logNet.Error("recovered panic in connection handler",
