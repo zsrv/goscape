@@ -73,9 +73,8 @@ help: ## Display this help
 .PHONY: all images check-generated-files goscape goscape-debug goscape-cli pack lint test clean protos proto
 .PHONY: format check-format
 .PHONY: goscape-image goscape-cli-image build-image build-image-push
-.PHONY: benchmark-store check-mod
+.PHONY: check-mod
 .PHONY: migrate migrate-image lint-markdown
-.PHONY: doc check-doc
 .PHONY: validate-example-configs
 .PHONY: clean clean-protos
 .PHONY: dev-k3d-goscape dev-k3d-down
@@ -171,28 +170,6 @@ helm-test: ## render the chart for each example values file (cluster-free smoke)
 		--set goscape.loginServerAddress=mgmt:2004 \
 		--set goscape.friendsServerAddress=mgmt:2005 >/dev/null
 
-#########
-# Mixin #
-#########
-
-MIXIN_PATH := production/goscape-mixin
-MIXIN_OUT_PATH := production/goscape-mixin-compiled
-MIXIN_OUT_PATH_SSD := production/goscape-mixin-compiled-ssd
-
-goscape-mixin: ## compile the goscape mixin
-	@rm -rf $(MIXIN_OUT_PATH) && mkdir $(MIXIN_OUT_PATH)
-	@cd $(MIXIN_PATH) && jb install
-	@mixtool generate all --output-alerts $(MIXIN_OUT_PATH)/alerts.yaml --output-rules $(MIXIN_OUT_PATH)/rules.yaml --directory $(MIXIN_OUT_PATH)/dashboards ${MIXIN_PATH}/mixin.libsonnet
-
-	@rm -rf $(MIXIN_OUT_PATH_SSD) && mkdir $(MIXIN_OUT_PATH_SSD)
-	@cd $(MIXIN_PATH) && jb install
-	@mixtool generate all --output-alerts $(MIXIN_OUT_PATH_SSD)/alerts.yaml --output-rules $(MIXIN_OUT_PATH_SSD)/rules.yaml --directory $(MIXIN_OUT_PATH_SSD)/dashboards ${MIXIN_PATH}/mixin-ssd.libsonnet
-
-goscape-mixin-check: goscape-mixin ## check the goscape mixin is up to date
-	@echo "Checking diff"
-	@git diff --exit-code -- $(MIXIN_OUT_PATH) || (echo "Please build mixin by running 'make goscape-mixin'" && false)
-	@git diff --exit-code -- $(MIXIN_OUT_PATH_SSD) || (echo "Please build mixin by running 'make goscape-mixin'" && false)
-
 #############
 # Releasing #
 #############
@@ -235,14 +212,6 @@ lint: ## run linters
 	go version
 	golangci-lint version
 	golangci-lint run -v $(LINT_FLAGS)
-	GOFLAGS=$(GOFLAGS) faillint -paths \
-		"sync/atomic=go.uber.org/atomic" \
-		./...
-
-	# Use our spanlogger implementation instead of the one in dskit to make sure we use the correct tracing lib.
-	faillint -paths \
-		"github.com/grafana/dskit/spanlogger=github.com/grafana/loki/pkg/util/spanlogger" \
-		./...
 
 ########
 # Test #
@@ -250,9 +219,6 @@ lint: ## run linters
 
 test: all ## run the unit tests
 	go test $(GO_FLAGS) -covermode=atomic -coverprofile=coverage.txt -p=4 ./... | tee test_results.txt
-
-test-integration:
-	$(GOTEST) -count=1 -v -tags=integration -timeout 15m ./integration
 
 compare-coverage:
 	./tools/diff_coverage.sh $(old) $(new) $(packages)
@@ -300,10 +266,6 @@ goscape-local-image: ## build the goscape docker image locally (set LOCAL_ARCH=l
 goscape-cli-image: ## build the goscape-cli docker image
 	$(OCI_BUILD) -t $(GOSCAPE_CLI_IMAGE) -f cmd/goscape-cli/Dockerfile .
 
-#################
-# Documentation #
-#################
-
 ########
 # Misc #
 ########
@@ -312,10 +274,6 @@ goscape-cli-image: ## build the goscape-cli docker image
 # up-to-date or not because PHONY targets are always rebuilt.
 .PHONY: ALWAYS_BUILD
 ALWAYS_BUILD:
-
-benchmark-store:
-	go run ./pkg/storage/hack/main.go
-	$(GOTEST) ./pkg/storage/ -bench=.  -benchmem -memprofile memprofile.out -cpuprofile cpuprofile.out -trace trace.out
 
 # support go modules
 check-mod:
@@ -378,22 +336,10 @@ format:
 
 
 # main is the codeless docs hub; diff against the revision branch.
-GIT_TARGET_BRANCH ?= rev-225
+GIT_TARGET_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 check-format: format
 	git diff --name-only HEAD origin/$(GIT_TARGET_BRANCH) -- "*.go" | xargs --no-run-if-empty git diff --exit-code -- \
 	|| (echo "Please format code by running 'make format' and committing the changes" && false)
-
-# Documentation related commands
-
-doc: ## Generates the config file documentation
-	go run $(GO_FLAGS) ./tools/doc-generator $(DOC_FLAGS_TEMPLATE) > $(DOC_FLAGS)
-
-docs: doc
-
-check-doc: ## Check the documentation files are up to date
-check-doc: doc
-	@find . -name "*.md" | xargs git diff --exit-code -- \
-	|| (echo "Please update generated documentation by running 'make doc' and committing the changes" && false)
 
 ###################
 # Example Configs #
