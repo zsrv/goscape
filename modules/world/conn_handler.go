@@ -27,6 +27,14 @@ func (s *Server) HandleConn(conn net.Conn) {
 	default:
 	}
 	s.tcpWg.Add(1)
+	// trackConn synchronously with the Add(1), inside the gate: Shutdown
+	// runs closeLiveConns after releasing wsGateMu, so a connection
+	// admitted here is either tracked before closeLiveConns iterates (and
+	// gets closed) or refused above — never counted in tcpWg yet invisible
+	// to closeLiveConns. Lock order is wsGateMu → liveConnsMu (trackConn
+	// takes only the leaf liveConnsMu; nothing acquires wsGateMu while
+	// holding liveConnsMu).
+	s.trackConn(conn)
 	s.wsGateMu.Unlock()
 	// serveConn (not handleTCPConn directly): it owns the tcpWg.Done and
 	// the per-connection recover — without it a malformed WS-framed login

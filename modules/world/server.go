@@ -96,9 +96,11 @@ type Server struct {
 	// every successful read, so a chatty client that keeps sending never
 	// trips the deadline on its own — without an explicit close, Shutdown's
 	// tcpWg.Wait would block on that connection's goroutine forever
-	// (arch-28.4c). Populated by trackConn (serveConn's first statement)
-	// and cleared by untrackConn (deferred in serveConn); closeLiveConns
-	// (called from Shutdown) closes every tracked conn.
+	// (arch-28.4c). Populated by trackConn at the two admission sites,
+	// synchronously with each tcpWg.Add(1) (serveTCP's accept loop;
+	// HandleConn's wsGateMu-guarded gate) and cleared by untrackConn
+	// (deferred in serveConn); closeLiveConns (called from Shutdown)
+	// closes every tracked conn.
 	liveConns   map[net.Conn]struct{}
 	liveConnsMu sync.Mutex
 	// tickWg tracks the runTickLoop goroutine spawned in Run(). Shutdown
@@ -929,6 +931,12 @@ func (s *Server) Shutdown() {
 // The read loop re-arms its deadline on every read, so without an
 // explicit close a chatty client keeps its goroutine alive and
 // tcpWg.Wait never returns.
+//
+// Called at the two admission sites (serveTCP's accept loop; HandleConn's
+// wsGateMu-guarded gate), synchronously with the matching tcpWg.Add(1) —
+// NOT inside the spawned serveConn goroutine, so closeLiveConns can never
+// miss a connection that Wait() would block on merely because the
+// goroutine hasn't been scheduled yet.
 func (s *Server) trackConn(conn net.Conn) {
 	s.liveConnsMu.Lock()
 	if s.liveConns == nil {
@@ -980,7 +988,12 @@ func (s *Server) serveTCP() error {
 			}
 		}
 
+		// trackConn synchronously with the Add(1), BEFORE the goroutine is
+		// spawned: if it lived inside serveConn, a Shutdown running between
+		// Accept and the goroutine's first scheduled instruction would see a
+		// tcpWg count with no closable conn behind it and Wait forever.
 		s.tcpWg.Add(1)
+		s.trackConn(conn)
 
 		// Handle the connection in a new goroutine for concurrency
 		go s.serveConn(conn)
@@ -1003,11 +1016,14 @@ func (s *Server) serveTCP() error {
 // try/catch -> client.terminate() (TcpServer.ts:29-41). tcpWg.Done() is
 // deferred so Shutdown's tcpWg.Wait() can never hang on a panicked connection.
 //
-// trackConn/untrackConn bracket the whole call so Shutdown's
-// closeLiveConns can always reach this conn, even mid-panic-recovery
-// (arch-28.4c).
+// The caller must have already registered conn via trackConn, synchronously
+// with its tcpWg.Add(1) (serveTCP's accept loop; HandleConn's admission
+// gate) — tracking here instead would open a scheduling window where the
+// conn holds a tcpWg count but is invisible to closeLiveConns, letting
+// Shutdown's Wait block on a connection it cannot close (arch-28.4c
+// review). untrackConn stays deferred here, pairing with tcpWg.Done: both
+// fire on every exit path, including mid-panic-recovery.
 func (s *Server) serveConn(conn net.Conn) {
-	s.trackConn(conn)
 	defer s.tcpWg.Done()
 	defer s.untrackConn(conn)
 	defer func() {
