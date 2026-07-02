@@ -71,7 +71,10 @@ func Unpack(opts Options) error {
 	}
 
 	// TS line 18: new FileStream('data/unpack', false, true) — readOnly=true.
-	cache := filestream.New(opts.CacheDir, false, true)
+	cache, err := filestream.New(opts.CacheDir, false, true)
+	if err != nil {
+		return fmt.Errorf("midi: open cache: %w", err)
+	}
 	defer cache.Close()
 
 	// TS line 19: cache.read(0, 5) → versionlist Jagfile.

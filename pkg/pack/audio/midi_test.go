@@ -23,7 +23,11 @@ func newMidiCache(t *testing.T, dir string) *filestream.FileStream {
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll cache: %v", err)
 	}
-	return filestream.New(cacheDir, true, false)
+	fs, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
+	return fs
 }
 
 // seedMidiPack writes a minimal midi.pack file.

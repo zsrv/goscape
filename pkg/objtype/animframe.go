@@ -1,6 +1,7 @@
 package objtype
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -66,7 +67,10 @@ func LoadAnimFrames(dir string) (*AnimFrameConfigs, error) {
 		return &AnimFrameConfigs{}, nil
 	}
 
-	fs := filestream.New(dir, false, true)
+	fs, err := filestream.New(dir, false, true)
+	if err != nil {
+		return nil, fmt.Errorf("LoadAnimFrames: open cache at %s: %w", dir, err)
+	}
 	defer func() { _ = fs.Close() }()
 
 	return parseAnimFrames(fs), nil

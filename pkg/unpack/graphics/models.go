@@ -110,7 +110,10 @@ func Models(opts Options) error {
 	}
 
 	// TS line 16: new FileStream('data/unpack').
-	cache := filestream.New(opts.CacheDir, false, true)
+	cache, err := filestream.New(opts.CacheDir, false, true)
+	if err != nil {
+		return fmt.Errorf("graphics/models: open cache: %w", err)
+	}
 	defer cache.Close()
 
 	// TS line 24: versionlist = cache.read(0, 5) parsed as Jagfile.

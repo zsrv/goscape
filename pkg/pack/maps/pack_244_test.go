@@ -179,7 +179,10 @@ func TestPack_CacheWritesArchive4(t *testing.T) {
 	}
 
 	cacheDir := t.TempDir()
-	cache := filestream.New(cacheDir, true, false)
+	cache, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	defer cache.Close()
 
 	out := filepath.Join(tmp, "out")

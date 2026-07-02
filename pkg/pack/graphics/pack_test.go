@@ -34,7 +34,11 @@ func newCache(t *testing.T, dir string) *filestream.FileStream {
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll cache: %v", err)
 	}
-	return filestream.New(cacheDir, true, false)
+	fs, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
+	return fs
 }
 
 // TestPack_Ob2WritesToArchive1 verifies that a non-empty .ob2 file is

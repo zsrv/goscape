@@ -50,7 +50,10 @@ func buildModelCache(t *testing.T, cacheDir string, modelFlags []byte, modelData
 		t.Fatalf("readFile vl: %v", err)
 	}
 
-	fs2 := filestream.New(cacheDir, true, false)
+	fs2, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	if !fs2.Write(0, 5, vlBytes, 0) {
 		t.Fatal("write versionlist failed")
 	}
@@ -168,7 +171,10 @@ func buildAnimSet(t *testing.T, frameIds []int, flagsList []byte, tran2Vals [][]
 // returns nil (decompression of 0xFF fails).
 func buildAnimSetCache(t *testing.T, cacheDir string, sets [][]byte) {
 	t.Helper()
-	fs2 := filestream.New(cacheDir, true, false)
+	fs2, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	for i, s := range sets {
 		var raw []byte
 		if s != nil {

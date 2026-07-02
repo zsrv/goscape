@@ -43,6 +43,9 @@ type Tapper interface {
 	// no-op default returns false, preserving the zero-overhead disabled path.
 	Enabled() bool
 	SessionStarted(accountID int64, sessionID string, ts time.Time)
+	// Tap reports one packet. payload is only valid for the duration of the
+	// call; implementations must copy it before retaining or exporting it
+	// asynchronously — it aliases a live connection buffer.
 	Tap(accountID int64, sessionID string, dir Direction, opcode uint8, payload []byte, ts time.Time)
 	SessionEnded(accountID int64, sessionID string, ts time.Time, closeReason string)
 }

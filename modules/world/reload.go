@@ -270,7 +270,12 @@ func (s *Server) Reload(clearInvs bool) error {
 
 	// ─── Step 10: CRC regen (TS L288) ───
 	// preloadClient() was removed at 244 (PreloadedPacks.ts deleted).
-	cache.MakeCRCs(cachePath)
+	// arch-29.7: a reload must never crash a running world over a cache
+	// read failure — log and keep serving the previous CRC snapshot rather
+	// than aborting the reload (which would leave later steps unapplied).
+	if err := cache.MakeCRCs(cachePath); err != nil {
+		s.logContent.Error("crc table reload failed; keeping previous snapshot", "err", err)
+	}
 
 	// ─── Step 11: GameMap re-injection (DEVIATION-NAI-190-D1) ───
 	if s.gamemap != nil {

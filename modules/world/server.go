@@ -772,7 +772,10 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// (MkdirAll + WriteFile on first open), which is acceptable: every
 	// request will be rejected with a size=0 frame until a real pack
 	// populates the files (B6-deferred-cache posture).
-	odFS := filestream.New(cfg.CachePath, false, true)
+	odFS, err := filestream.New(cfg.CachePath, false, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open ondemand cache at %s: %w", cfg.CachePath, err)
+	}
 	s.onDemand = newOnDemand(odFS)
 
 	// A10: load the MIDI length cache from the same client-cache
@@ -1093,12 +1096,17 @@ func (s *Server) serveTCP() error {
 //
 // gap-login-wire-1: the RS2 packet read methods (G1/G2/G4/GData/GJStrLF) panic
 // on under-read rather than returning errors, so an unauthenticated, malformed
-// login packet — e.g. a short/truncated RSA block — drives RSADec into a
-// slice-out-of-range / io.EOF panic during login decode (see
-// req.TestUnmarshalBinary_TruncatedRSABlockPanics). Without per-connection
-// isolation that panic crosses the goroutine boundary and crashes the entire
-// world process, dropping every connected player. The recover() below contains
-// any such panic to the single offending connection: handleTCPConn's own defer
+// packet can drive packet decoding into a slice-out-of-range / io.EOF panic.
+// arch-29.7 closed the specific short/truncated-RSA-block case (RSADec now
+// bounds-checks and returns a clean error — see
+// req.TestUnmarshalBinary_TruncatedRSABlockReturnsError — which UnmarshalRSA's
+// existing error check turns into an OpClientOutOfDate reply + close, not a
+// panic), but other malformed-packet shapes still reach a panic (e.g. a G1/G2/
+// G4/GSmart EOF elsewhere in decoding, or GData's now-explicit short-dest
+// panic). Without per-connection isolation any such panic crosses the
+// goroutine boundary and crashes the entire world process, dropping every
+// connected player. The recover() below contains any such panic to the single
+// offending connection: handleTCPConn's own defer
 // has already run the connection teardown (player removal, flush, socket close)
 // during unwinding, so this is the Go equivalent of TS's per-connection
 // try/catch -> client.terminate() (TcpServer.ts:29-41). tcpWg.Done() is

@@ -21,7 +21,10 @@ func TestPack_WritesToCache(t *testing.T) {
 	}
 
 	cacheDir := t.TempDir()
-	fs := filestream.New(cacheDir, true, false)
+	fs, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	defer fs.Close()
 
 	if err := Pack(rawDir, fs); err != nil {

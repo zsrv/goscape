@@ -63,7 +63,10 @@ func TestMakeCRCsFromFileStream(t *testing.T) {
 	data4 := []byte("media archive data")
 
 	{
-		fs := filestream.New(dir, true, false)
+		fs, err := filestream.New(dir, true, false)
+		if err != nil {
+			t.Fatalf("filestream.New: %v", err)
+		}
 		if !fs.Write(0, 1, data1, 0) {
 			t.Fatal("Write(0,1) failed")
 		}
@@ -81,7 +84,9 @@ func TestMakeCRCsFromFileStream(t *testing.T) {
 	ResetCRCForTest()
 	t.Cleanup(ResetCRCForTest)
 
-	MakeCRCs(dir)
+	if err := MakeCRCs(dir); err != nil {
+		t.Fatalf("MakeCRCs: %v", err)
+	}
 
 	snap := CRC()
 	if snap == nil {
@@ -198,7 +203,10 @@ func TestMakeCRCsRollingHashTrailer(t *testing.T) {
 	data4 := []byte("media archive data")
 
 	{
-		fs := filestream.New(dir, true, false)
+		fs, err := filestream.New(dir, true, false)
+		if err != nil {
+			t.Fatalf("filestream.New: %v", err)
+		}
 		if !fs.Write(0, 1, data1, 0) {
 			t.Fatal("Write(0,1) failed")
 		}
@@ -216,7 +224,9 @@ func TestMakeCRCsRollingHashTrailer(t *testing.T) {
 	ResetCRCForTest()
 	t.Cleanup(ResetCRCForTest)
 
-	MakeCRCs(dir)
+	if err := MakeCRCs(dir); err != nil {
+		t.Fatalf("MakeCRCs: %v", err)
+	}
 
 	snap := CRC()
 	if snap == nil {
@@ -263,7 +273,9 @@ func TestMakeCRCsEmptyCache(t *testing.T) {
 	ResetCRCForTest()
 	t.Cleanup(ResetCRCForTest)
 
-	MakeCRCs(t.TempDir()) // fresh cache, count=0
+	if err := MakeCRCs(t.TempDir()); err != nil { // fresh cache, count=0
+		t.Fatalf("MakeCRCs: %v", err)
+	}
 
 	snap := CRC()
 	if snap == nil {
@@ -298,12 +310,16 @@ func TestMakeCRCsSwapIsAtomic(t *testing.T) {
 	t.Cleanup(ResetCRCForTest)
 
 	dir := t.TempDir()
-	MakeCRCs(dir)
+	if err := MakeCRCs(dir); err != nil {
+		t.Fatalf("MakeCRCs: %v", err)
+	}
 	old := CRC()
 	oldBytesCopy := append([]byte(nil), old.Bytes...)
 	oldTableCopy := append([]uint32(nil), old.Table...)
 
-	MakeCRCs(dir)
+	if err := MakeCRCs(dir); err != nil {
+		t.Fatalf("MakeCRCs: %v", err)
+	}
 	newSnap := CRC()
 	if newSnap == old {
 		t.Fatal("MakeCRCs reused the prior pointer; expected fresh snapshot")
@@ -323,7 +339,9 @@ func TestMakeCRCsPopulatesSnapshot(t *testing.T) {
 	ResetCRCForTest()
 	t.Cleanup(ResetCRCForTest)
 
-	MakeCRCs(t.TempDir())
+	if err := MakeCRCs(t.TempDir()); err != nil {
+		t.Fatalf("MakeCRCs: %v", err)
+	}
 
 	snap := CRC()
 	if snap == nil {

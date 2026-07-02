@@ -10,7 +10,10 @@ import (
 
 // TS FileStream.ts:131-196 (write) + 44-123 (read): single-sector round-trip.
 func TestWriteReadRoundTripSingleSector(t *testing.T) {
-	fs := New(t.TempDir(), true, false)
+	fs, err := New(t.TempDir(), true, false)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	defer fs.Close()
 
 	data := []byte("hello cache")
@@ -25,7 +28,10 @@ func TestWriteReadRoundTripSingleSector(t *testing.T) {
 
 // TS FileStream.ts:78-104: multi-sector chaining for payloads > 512 bytes.
 func TestWriteReadRoundTripMultiSector(t *testing.T) {
-	fs := New(t.TempDir(), true, false)
+	fs, err := New(t.TempDir(), true, false)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	defer fs.Close()
 
 	data := make([]byte, 1300) // 3 sectors
@@ -42,7 +48,10 @@ func TestWriteReadRoundTripMultiSector(t *testing.T) {
 
 // TS FileStream.ts:140-147: version != 0 appends a 2-byte big-endian trailer.
 func TestWriteVersionTrailer(t *testing.T) {
-	fs := New(t.TempDir(), true, false)
+	fs, err := New(t.TempDir(), true, false)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	defer fs.Close()
 
 	if !fs.Write(1, 0, []byte{0xAA}, 0x1234) {
@@ -57,7 +66,10 @@ func TestWriteVersionTrailer(t *testing.T) {
 
 // TS FileStream.ts:35-41: count = idx length / 6.
 func TestCount(t *testing.T) {
-	fs := New(t.TempDir(), true, false)
+	fs, err := New(t.TempDir(), true, false)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	defer fs.Close()
 
 	if n := fs.Count(1); n != 0 {
@@ -76,7 +88,10 @@ func TestCount(t *testing.T) {
 
 // TS FileStream.ts:198-225 (has) + 49-59 (read bounds): bounds and missing files.
 func TestHasAndReadBounds(t *testing.T) {
-	fs := New(t.TempDir(), true, false)
+	fs, err := New(t.TempDir(), true, false)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	defer fs.Close()
 
 	fs.Write(0, 0, []byte{7}, 0)
@@ -95,7 +110,10 @@ func TestHasAndReadBounds(t *testing.T) {
 // (TS: idx[5] is undefined -> !undefined -> false). Regression: this
 // panicked when the guard used > instead of >=.
 func TestWriteOutOfRangeArchive(t *testing.T) {
-	fs := New(t.TempDir(), true, false)
+	fs, err := New(t.TempDir(), true, false)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	defer fs.Close()
 
 	if fs.Write(5, 0, []byte{1}, 0) {
@@ -109,7 +127,10 @@ func TestWriteOutOfRangeArchive(t *testing.T) {
 // TS FileStream.ts:107-122: decompress=true gunzips for archive != 0,
 // returns raw for archive 0.
 func TestReadDecompress(t *testing.T) {
-	fs := New(t.TempDir(), true, false)
+	fs, err := New(t.TempDir(), true, false)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	defer fs.Close()
 
 	plain := []byte("the payload to be gzipped for archive one")
@@ -135,7 +156,10 @@ func TestReadDecompress(t *testing.T) {
 // (Multistream(false)), not fail on them. A corrupt member still returns nil
 // (gunzipSync throws).
 func TestReadDecompressVersionTrailer(t *testing.T) {
-	fs := New(t.TempDir(), true, false)
+	fs, err := New(t.TempDir(), true, false)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	defer fs.Close()
 
 	plain := []byte("model bytes behind a version trailer")
@@ -163,7 +187,10 @@ func TestReadDecompressVersionTrailer(t *testing.T) {
 // the constructor creates dat + idx0..idx4 when missing.
 func TestPersistenceAcrossOpens(t *testing.T) {
 	dir := t.TempDir()
-	fs1 := New(dir, true, false)
+	fs1, err := New(dir, true, false)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	fs1.Write(3, 2, []byte("persisted"), 0)
 	fs1.Close()
 
@@ -173,7 +200,10 @@ func TestPersistenceAcrossOpens(t *testing.T) {
 		}
 	}
 
-	fs2 := New(dir, false, true) // read-only reopen
+	fs2, err := New(dir, false, true) // read-only reopen
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	defer fs2.Close()
 	if got := fs2.Read(3, 2, false); !bytes.Equal(got, []byte("persisted")) {
 		t.Fatalf("reopen read = %q", got)
@@ -184,13 +214,19 @@ func TestPersistenceAcrossOpens(t *testing.T) {
 // DiscardPacked; a second Read returns the cached slice.
 func TestPackedCache(t *testing.T) {
 	dir := t.TempDir()
-	fs := New(dir, true, false)
+	fs, err := New(dir, true, false)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	defer fs.Close()
 
 	fs.Write(1, 0, []byte("cache me"), 0)
 	first := fs.Read(1, 0, false)
 	// Overwrite the entry behind the cache's back; the cached copy must win.
-	fs2 := New(dir, false, false)
+	fs2, err := New(dir, false, false)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	fs2.Write(1, 0, []byte("OVERWROTE"), 0)
 	fs2.Close()
 	second := fs.Read(1, 0, false)

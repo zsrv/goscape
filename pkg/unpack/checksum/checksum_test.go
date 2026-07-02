@@ -42,7 +42,10 @@ func writeCacheJag(t *testing.T, cacheDir string, createNew bool, archive, file 
 	if err != nil {
 		t.Fatalf("read tmp jag: %v", err)
 	}
-	fs2 := filestream.New(cacheDir, createNew, false)
+	fs2, err := filestream.New(cacheDir, createNew, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	if !fs2.Write(archive, file, data, 0) {
 		t.Fatalf("filestream.Write(%d,%d) failed", archive, file)
 	}

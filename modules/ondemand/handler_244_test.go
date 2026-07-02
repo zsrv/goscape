@@ -42,7 +42,10 @@ import (
 func newTestOnDemandWithCache(t *testing.T) (*OnDemand, map[int][]byte) {
 	t.Helper()
 	dir := t.TempDir()
-	fs := filestream.New(dir, true, false)
+	fs, err := filestream.New(dir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	t.Cleanup(func() { fs.Close() })
 
 	fixtures := make(map[int][]byte)
@@ -239,7 +242,10 @@ func TestRootHandler244_MidRouteGone(t *testing.T) {
 func TestRootHandler244_ArchiveMissing404(t *testing.T) {
 	dir := t.TempDir()
 	// Create an empty FileStream — file 1 has never been written.
-	fs := filestream.New(dir, true, false)
+	fs, err := filestream.New(dir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	defer fs.Close()
 
 	a := &OnDemand{

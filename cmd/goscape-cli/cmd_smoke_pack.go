@@ -119,7 +119,11 @@ func runSmokePack(args []string, stdout, stderr io.Writer) int {
 		effectiveDataPack = effectiveOut
 	}
 	runStart := time.Now()
-	results := runStages(*contentDir, effectiveOut, effectiveDataPack, "data/raw", *refDir, *stopOnError, logger)
+	results, err := runStages(*contentDir, effectiveOut, effectiveDataPack, "data/raw", *refDir, *stopOnError, logger)
+	if err != nil {
+		fmt.Fprintf(stderr, "smoke-pack: cache setup failed: %v\n", err)
+		return 3
+	}
 	totalElapsed := time.Since(runStart)
 	printSummary(stdout, results, totalElapsed, *refDir != "")
 
@@ -338,13 +342,21 @@ func safeRun(fn func() error) (err error) {
 // render as SKIP because they consume the *pack.Registry it produces. When
 // refDir != "", every successful stage is also byte-diffed against the same
 // relpath under refDir; results are attached to stageResult.Diffs.
-func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError bool, logger *slog.Logger) []stageResult {
+func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError bool, logger *slog.Logger) ([]stageResult, error) {
 	pack.ClearFsCache()
 
 	// Create the FileStream cache (createNew=true, matching TS PackAll.ts:43).
 	// The cache is shared across all stages that write to it; closed after all
 	// stages complete (including Worldmap which does not use it).
-	cache := filestream.New(outDir, true, false)
+	//
+	// arch-29.7: this is a genuine setup failure, not a per-stage one (every
+	// stage below depends on the same cache), so it is reported the same way
+	// as the other pre-run setup checks in runSmokePack (missing/unreadable
+	// --content-dir, logger init) — an error here, not a stageResult.
+	cache, err := filestream.New(outDir, true, false)
+	if err != nil {
+		return nil, fmt.Errorf("open cache at %s: %w", outDir, err)
+	}
 	defer cache.Close()
 
 	results := make([]stageResult, 0, 16)
@@ -385,7 +397,7 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 		} {
 			results = append(results, stageResult{Name: name, Status: stageSkip})
 		}
-		return results
+		return results, nil
 	}
 	pcDiffs, pcPrev := computeStageDiffs(refDir, outDir, prevSnapshot)
 	prevSnapshot = pcPrev
@@ -434,7 +446,7 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 				for _, remaining := range rest[i+1:] {
 					results = append(results, stageResult{Name: remaining.name, Status: stageSkip})
 				}
-				return results
+				return results, nil
 			}
 			continue
 		}
@@ -443,7 +455,7 @@ func runStages(srcDir, outDir, dataPackDir, rawDir, refDir string, stopOnError b
 		logger.Info("stage_done", "stage", st.name, "elapsed_ms", elapsed.Milliseconds(), "files", files, "bytes", bytesSum)
 		results = append(results, stageResult{Name: st.name, Status: stageOK, Elapsed: elapsed, OutputFiles: files, OutputBytes: bytesSum, Diffs: diffs})
 	}
-	return results
+	return results, nil
 }
 
 // computeStageDiffs is a no-op when refDir is empty. Otherwise it

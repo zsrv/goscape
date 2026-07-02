@@ -85,7 +85,10 @@ func TestPackTitle_WritesToCache(t *testing.T) {
 
 	out := filepath.Join(tmp, "out")
 	cacheDir := t.TempDir()
-	fs := filestream.New(cacheDir, true, false)
+	fs, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	defer fs.Close()
 
 	if err := PackTitle(src, out, fs); err != nil {
@@ -134,7 +137,10 @@ func TestPackMedia_WritesToCache(t *testing.T) {
 
 	out := filepath.Join(tmp, "out")
 	cacheDir := t.TempDir()
-	fs := filestream.New(cacheDir, true, false)
+	fs, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	defer fs.Close()
 
 	if err := PackMedia(src, out, fs); err != nil {
@@ -193,7 +199,10 @@ func TestPackTexture_WritesToCache(t *testing.T) {
 
 	out := filepath.Join(tmp, "out")
 	cacheDir := t.TempDir()
-	fs := filestream.New(cacheDir, true, false)
+	fs, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	defer fs.Close()
 
 	if err := PackTexture(reg, src, out, fs); err != nil {

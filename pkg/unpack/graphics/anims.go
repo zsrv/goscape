@@ -96,7 +96,10 @@ func Anims(opts Options) error {
 	}
 
 	// TS line 14: new FileStream('data/unpack').
-	cache := filestream.New(opts.CacheDir, false, true)
+	cache, err := filestream.New(opts.CacheDir, false, true)
+	if err != nil {
+		return fmt.Errorf("graphics/anims: open cache: %w", err)
+	}
 	defer cache.Close()
 
 	modelsDir := filepath.Join(opts.SrcDir, "models")

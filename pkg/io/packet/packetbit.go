@@ -20,6 +20,13 @@ var Bitmask = []uint32{
 //
 // Byte access functions must not be used again until [Packet.AccessBytes]
 // is called.
+//
+// BitPos (and the byte offsets PBit/GBit derive from it) is an absolute bit
+// index into p.Data, not relative to Pos — unlike Pos itself, which byte
+// access advances relative to nothing in particular but reads/writes
+// starting at Data[Pos]. Grow checks against BitPos-derived byte offsets
+// must therefore compare against len(p.Data), never [Packet.Len] (which is
+// Pos-relative).
 func (p *Packet) AccessBits() {
 	p.BitPos = p.Pos << 3
 }
@@ -64,8 +71,16 @@ func (p *Packet) PBit(n int, value int) {
 	p.BitPos += n
 
 	// grow if necessary
-	if bytePos+1 > p.Len() {
-		_, err := p.Write(make([]byte, (bytePos+1)-p.Len()))
+	//
+	// bytePos is an absolute byte index derived from BitPos (see
+	// AccessBits doc), so it must be compared against len(p.Data), the
+	// absolute buffer length — not p.Len(), which is Pos-relative
+	// (len(p.Data)-Pos). The two coincide only when Pos==0, which is why
+	// this bug was latent for every existing PBit caller: rsbuf's
+	// playerinfo/npcinfo builders are fresh write-only packets that never
+	// advance Pos off zero, so len(p.Data) not p.Len() is a no-op for them.
+	if bytePos+1 > len(p.Data) {
+		_, err := p.Write(make([]byte, (bytePos+1)-len(p.Data)))
 		if err != nil {
 			panic(err)
 		}
@@ -77,10 +92,11 @@ func (p *Packet) PBit(n int, value int) {
 		bytePos += 1
 		n -= remaining
 
-		// grow if necessary
-		if bytePos+1 > p.Len() {
-			//b.Grow((bytePos + 1) - b.Len())
-			p.Write(make([]byte, (bytePos+1)-p.Len()))
+		// grow if necessary (see the comment on the first grow check above)
+		if bytePos+1 > len(p.Data) {
+			if _, err := p.Write(make([]byte, (bytePos+1)-len(p.Data))); err != nil {
+				panic(err)
+			}
 		}
 	}
 

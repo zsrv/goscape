@@ -238,7 +238,11 @@ func TestOnDemandConcurrentEnqueue(t *testing.T) {
 
 func makeODFS(t *testing.T) *filestream.FileStream {
 	t.Helper()
-	return filestream.New(t.TempDir(), true, false)
+	fs, err := filestream.New(t.TempDir(), true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
+	return fs
 }
 
 // header6 builds the 6-byte OnDemand chunk header:

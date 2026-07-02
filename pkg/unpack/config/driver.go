@@ -561,7 +561,10 @@ func Unpack(opts Options) error {
 
 	// TS line 299: const cache = new FileStream('data/unpack')
 	// TS defaults: createNew=false, readOnly=false.
-	cache := filestream.New(opts.CacheDir, false, false)
+	cache, err := filestream.New(opts.CacheDir, false, false)
+	if err != nil {
+		return fmt.Errorf("Unpack: open cache: %w", err)
+	}
 	defer cache.Close()
 
 	// TS line 300-303: const temp = cache.read(0, 2); if (!temp) return
@@ -584,14 +587,24 @@ func Unpack(opts Options) error {
 	if opts.PackDir != "" {
 		packDatPath := filepath.Join(opts.PackDir, "main_file_cache.dat")
 		if _, err2 := os.Stat(packDatPath); err2 == nil {
-			cache2 := filestream.New(opts.PackDir, false, false)
-			temp2 := cache2.Read(0, 2, false)
-			if temp2 != nil {
-				jag2, _ = jagfile.NewJagfile(packet.NewPacket(temp2))
+			cache2, err3 := filestream.New(opts.PackDir, false, false)
+			if err3 != nil {
+				// Best-effort compare cache: PackDir's presence was already
+				// confirmed by the Stat above, so a New failure here is an
+				// unexpected I/O error, not a "no compare cache" signal.
+				// Falls back to the unpack cache's modelRenameOffset (set
+				// just above) and skips jag2, matching the historical
+				// behavior for an absent/unreadable PackDir.
+				errorf("open compare cache %s: %v", opts.PackDir, err3)
+			} else {
+				temp2 := cache2.Read(0, 2, false)
+				if temp2 != nil {
+					jag2, _ = jagfile.NewJagfile(packet.NewPacket(temp2))
+				}
+				// TS line 299: set even when the config jag read fails.
+				modelRenameOffset = cache2.Count(1)
+				cache2.Close()
 			}
-			// TS line 299: set even when the config jag read fails.
-			modelRenameOffset = cache2.Count(1)
-			cache2.Close()
 		}
 	}
 

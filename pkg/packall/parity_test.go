@@ -322,9 +322,15 @@ func TestPackAll_OrigCacheParity(t *testing.T) {
 		t.Fatalf("PackAll: %v", err)
 	}
 
-	of := filestream.New(orig, false, true)
+	of, err := filestream.New(orig, false, true)
+	if err != nil {
+		t.Fatalf("filestream.New(orig): %v", err)
+	}
 	defer of.Close()
-	gf := filestream.New(outDir, false, true)
+	gf, err := filestream.New(outDir, false, true)
+	if err != nil {
+		t.Fatalf("filestream.New(outDir): %v", err)
+	}
 	defer gf.Close()
 
 	stripVer := func(b []byte) []byte {

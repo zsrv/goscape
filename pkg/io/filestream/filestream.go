@@ -6,6 +6,7 @@ package filestream
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -43,34 +44,39 @@ type FileStream struct {
 // New opens (or creates) the cache files rooted at dir.
 //
 // TS FileStream.ts:14-32 (constructor)
-func New(dir string, createNew, readOnly bool) *FileStream {
+//
+// arch-29.7: New used to panic on any I/O failure (unwritable dir, permission
+// denied, etc.) despite most callers being error-returning constructors —
+// a caller that itself returns error had no way to fail cleanly without an
+// unwanted recover. Every failure mode below now returns an error instead.
+func New(dir string, createNew, readOnly bool) (*FileStream, error) {
 	// TS: if (!fs.existsSync(dir)) { fs.mkdirSync(dir, { recursive: true }); }
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		panic(err)
+		return nil, fmt.Errorf("filestream: mkdir %s: %w", dir, err)
 	}
 
 	// TS: if (createNew || !fs.existsSync(`${dir}/main_file_cache.dat`)) { … }
 	datPath := filepath.Join(dir, "main_file_cache.dat")
 	if createNew {
 		if err := os.WriteFile(datPath, nil, 0o666); err != nil {
-			panic(err)
+			return nil, fmt.Errorf("filestream: create %s: %w", datPath, err)
 		}
 		for i := 0; i <= 4; i++ {
 			p := filepath.Join(dir, "main_file_cache.idx"+string(rune('0'+i)))
 			if err := os.WriteFile(p, nil, 0o666); err != nil {
-				panic(err)
+				return nil, fmt.Errorf("filestream: create %s: %w", p, err)
 			}
 		}
 	} else {
 		// Create dat if it doesn't exist (mirrors TS "|| !exists" branch).
 		if _, err := os.Stat(datPath); os.IsNotExist(err) {
 			if err2 := os.WriteFile(datPath, nil, 0o666); err2 != nil {
-				panic(err2)
+				return nil, fmt.Errorf("filestream: create %s: %w", datPath, err2)
 			}
 			for i := 0; i <= 4; i++ {
 				p := filepath.Join(dir, "main_file_cache.idx"+string(rune('0'+i)))
 				if err2 := os.WriteFile(p, nil, 0o666); err2 != nil {
-					panic(err2)
+					return nil, fmt.Errorf("filestream: create %s: %w", p, err2)
 				}
 			}
 		}
@@ -83,7 +89,7 @@ func New(dir string, createNew, readOnly bool) *FileStream {
 
 	datFile, err := os.OpenFile(datPath, flag, 0o666)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("filestream: open %s: %w", datPath, err)
 	}
 
 	f := &FileStream{}
@@ -93,13 +99,17 @@ func New(dir string, createNew, readOnly bool) *FileStream {
 		p := filepath.Join(dir, "main_file_cache.idx"+string(rune('0'+i)))
 		idxFile, err2 := os.OpenFile(p, flag, 0o666)
 		if err2 != nil {
-			panic(err2)
+			_ = datFile.Close()
+			for j := 0; j < i; j++ {
+				_ = f.idx[j].Close()
+			}
+			return nil, fmt.Errorf("filestream: open %s: %w", p, err2)
 		}
 		f.idx[i] = idxFile
 		f.packed[i] = make(map[int][]byte)
 	}
 
-	return f
+	return f, nil
 }
 
 // Close closes all underlying files. This is a Go addition for deterministic

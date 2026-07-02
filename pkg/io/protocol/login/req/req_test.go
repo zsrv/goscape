@@ -126,21 +126,34 @@ func TestUnmarshalHeader_ExtendedRevisionEscape(t *testing.T) {
 	}
 }
 
-func TestUnmarshalBinary_TruncatedRSABlockPanics(t *testing.T) {
-	// Root-cause reproduction for gap-login-wire-1: the RS2 packet read
-	// methods (G1/GData) panic on under-read rather than returning errors, so
-	// a login packet whose cleartext header is well-formed but whose RSA tail
-	// is truncated drives RSADec -> GData into a slice-out-of-range panic.
-	// UnmarshalRSA's `if err := r.RSADec(...); err != nil` guard never sees an
-	// error because RSADec panics first. This panic is unauthenticated and
-	// attacker-controllable, so the per-connection handler MUST contain it
-	// (see TestServeConn_* in modules/world) — TS isolates per-connection via
-	// try/catch -> client.terminate() (TcpServer.ts:29-41).
-	//
-	// Packet layout: opcode(16) + size(39) + rev(1) + info(1) +
-	// 9*4 checksums(36) + numBytes(64). The header consumes rev+info+36 = 38
-	// bytes, leaving the single numBytes=64 byte; RSADec reads it as the RSA
-	// block length and then GData(rsax, 64) slices past the end of the buffer.
+// TestUnmarshalBinary_TruncatedRSABlockReturnsError pins the arch-29.7 fix:
+// a login packet whose cleartext header is well-formed but whose RSA tail is
+// truncated must return a clean error from UnmarshalBinary, not panic.
+//
+// Before arch-29.7 this was TestUnmarshalBinary_TruncatedRSABlockPanics: the
+// RS2 packet read methods (G1/GData) panicked on under-read rather than
+// returning errors, so this exact input drove RSADec -> GData into an
+// unauthenticated, attacker-controllable slice-out-of-range panic
+// (gap-login-wire-1) that only serveConn's per-connection recover() in
+// modules/world/server.go contained. RSADec now bounds-checks the declared
+// block length against what's actually buffered and returns an error
+// instead, so UnmarshalRSA's existing `if err := r.RSADec(...); err != nil`
+// guard fires cleanly. World-side callers already turn a RSADec/UnmarshalRSA
+// error into an OpClientOutOfDate reply + close (server.go's handleLogin),
+// exactly like any other malformed-login rejection — no reject-byte or
+// wire-behavior change there, just panic-avoidance for this input class.
+// serveConn's recover() itself is UNCHANGED and still guards other panic
+// classes (e.g. G1/G2/G4/GSmart EOF panics elsewhere in packet decoding that
+// arch-29.7 did not touch) — see TestServeConn_ContainsPanicAndReleasesWaitGroup
+// in modules/world/server_recover_test.go, which exercises the recover via a
+// synthetic panic unrelated to RSADec.
+//
+// Packet layout: opcode(16) + size(39) + rev(1) + info(1) +
+// 9*4 checksums(36) + numBytes(64). The header consumes rev+info+36 = 38
+// bytes, leaving the single numBytes=64 byte; RSADec reads it as the RSA
+// block length, sees only 0 bytes remain, and returns an error instead of
+// calling GData with an out-of-range length.
+func TestUnmarshalBinary_TruncatedRSABlockReturnsError(t *testing.T) {
 	p := packet.NewPacket(nil)
 	p.P1(OpReqInitGameConnection.Opcode)
 	p.P1(39) // payload size: rev + info + 9*4 checksums + 1 (numBytes)
@@ -152,16 +165,11 @@ func TestUnmarshalBinary_TruncatedRSABlockPanics(t *testing.T) {
 	p.P1(64) // RSA block length byte claiming 64 bytes that aren't present
 	malformed := p.Bytes()
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("UnmarshalBinary on a truncated RSA block did not panic; " +
-				"gap-login-wire-1 root cause may have changed — revisit the " +
-				"per-connection recover() in modules/world/server.go")
-		}
-	}()
-
 	var q GameLogin
-	_ = q.UnmarshalBinary(malformed)
+	if err := q.UnmarshalBinary(malformed); err == nil {
+		t.Fatal("UnmarshalBinary on a truncated RSA block returned nil error; " +
+			"want a clean error (arch-29.7 RSADec bounds check)")
+	}
 }
 
 func TestGameLogin_RoundTrip(t *testing.T) {

@@ -70,7 +70,10 @@ func Compare(cacheDir, packDir, typ string, out io.Writer) error {
 
 	// TS Compare.ts:54-57: cache1 = new FileStream('data/unpack')
 	//   config1 = new Jagfile(new Packet(cache1.read(0, 2)!))
-	cache1 := filestream.New(cacheDir, false, false)
+	cache1, err := filestream.New(cacheDir, false, false)
+	if err != nil {
+		return fmt.Errorf("Compare: open cache1: %w", err)
+	}
 	defer cache1.Close()
 	raw1 := cache1.Read(0, 2, false)
 	if raw1 == nil {
