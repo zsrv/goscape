@@ -21,7 +21,6 @@ login:
   node_profile: main
   auto_register: true
   auto_subscribe_members: true
-  graceful_shutdown_timeout: 30s
 
 friends:
   enable: true

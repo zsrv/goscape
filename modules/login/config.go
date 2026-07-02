@@ -11,17 +11,16 @@ import (
 )
 
 type Config struct {
-	LogLevel                *log.Level    `yaml:"log_level"` // optional per-module override; nil = inherit global
-	GRPCListenAddress       string        `yaml:"grpc_listen_address"`
-	SQLiteDSN               string        `yaml:"sqlite_dsn"`
-	SavePath                string        `yaml:"save_path"`
-	NodeProfile             string        `yaml:"node_profile"`
-	GRPCListenPort          int           `yaml:"grpc_listen_port"`
-	BCryptCost              int           `yaml:"bcrypt_cost"`
-	AutoRegister            bool          `yaml:"auto_register"`
-	AutoSubscribeMembers    bool          `yaml:"auto_subscribe_members"`
-	Enable                  bool          `yaml:"enable"`
-	GracefulShutdownTimeout time.Duration `yaml:"graceful_shutdown_timeout"`
+	LogLevel             *log.Level `yaml:"log_level"` // optional per-module override; nil = inherit global
+	GRPCListenAddress    string     `yaml:"grpc_listen_address"`
+	SQLiteDSN            string     `yaml:"sqlite_dsn"`
+	SavePath             string     `yaml:"save_path"`
+	NodeProfile          string     `yaml:"node_profile"`
+	GRPCListenPort       int        `yaml:"grpc_listen_port"`
+	BCryptCost           int        `yaml:"bcrypt_cost"`
+	AutoRegister         bool       `yaml:"auto_register"`
+	AutoSubscribeMembers bool       `yaml:"auto_subscribe_members"`
+	Enable               bool       `yaml:"enable"`
 	// NodeHopTime is the world-hop cooldown: a non-staff account that
 	// gracefully logged out of a DIFFERENT world is rejected with
 	// LOGIN_RESULT_HOP_TIMER (+remaining) until this long after
@@ -45,7 +44,6 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.BoolVar(&c.AutoRegister, "login.auto-register", true, "Automatically create accounts on first login.")
 	f.BoolVar(&c.AutoSubscribeMembers, "login.auto-subscribe-members", true, "Automatically upgrade non-member accounts to members on member worlds.")
 	f.BoolVar(&c.Enable, "login.enable", false, "Whether to run the login module.")
-	f.DurationVar(&c.GracefulShutdownTimeout, "login.graceful-shutdown-timeout", 30*time.Second, "Timeout for graceful gRPC server shutdown.")
 	f.DurationVar(&c.NodeHopTime, "login.node-hop-time", 45*time.Second, "Mirror of TS NODE_HOP_TIME: world-hop cooldown after a graceful logout on another world (hop-timer login reject).")
 }
 

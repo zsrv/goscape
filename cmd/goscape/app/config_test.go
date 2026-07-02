@@ -61,3 +61,53 @@ func TestConfigCheckConfig(t *testing.T) {
 		t.Errorf("CheckConfig() = %v, want empty", got)
 	}
 }
+
+// newDefaultTestConfig returns a fresh default Config (flags registered on a
+// throwaway FlagSet, mirroring NewDefaultConfig) for tests that need to
+// mutate fields afterward. arch-29.5.
+func newDefaultTestConfig(t *testing.T) *Config {
+	t.Helper()
+	return NewDefaultConfig()
+}
+
+// TestValidateFansOutToAllModules confirms Validate reaches every module's
+// Validate, not just World's — before arch-29.5, --config.verify green-lit
+// login/friends/ondemand configs that then failed at boot. arch-29.5.
+func TestValidateFansOutToAllModules(t *testing.T) {
+	cfg := newDefaultTestConfig(t)
+	cfg.Login.Enable = true
+	cfg.Login.BCryptCost = 99 // out of range per modules/login/config.go Validate
+	err := cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "login") {
+		t.Fatalf("want login validation error, got %v", err)
+	}
+}
+
+// TestCheckConfigWarnsOnOndemandWorldDrift pins the ondemand<->world
+// node_port drift warning: when both modules are enabled but their mirrored
+// node fields disagree, /rs2.cgi silently advertises a game port the world
+// isn't listening on. arch-29.5.
+func TestCheckConfigWarnsOnOndemandWorldDrift(t *testing.T) {
+	cfg := newDefaultTestConfig(t)
+	cfg.World.Enable = true
+	cfg.OnDemand.Enable = true
+	cfg.World.TCPListenPort = 43594
+	cfg.OnDemand.Port = 40000 // drifted
+	warnings := cfg.CheckConfig()
+	if len(warnings) == 0 {
+		t.Fatal("want a node_port drift warning")
+	}
+}
+
+// TestCheckConfigSilentWhenAligned confirms the default ondemand/world node
+// fields agree out of the box, so enabling both modules with no overrides
+// produces no drift warnings. arch-29.5.
+func TestCheckConfigSilentWhenAligned(t *testing.T) {
+	cfg := newDefaultTestConfig(t)
+	cfg.World.Enable = true
+	cfg.OnDemand.Enable = true
+	// defaults are aligned
+	if w := cfg.CheckConfig(); len(w) != 0 {
+		t.Fatalf("want no warnings, got %v", w)
+	}
+}

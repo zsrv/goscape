@@ -811,15 +811,14 @@ func TestLoginClient_E2E_PlayerSessionIsUUID(t *testing.T) {
 	savePath := t.TempDir()
 
 	cfg := login.Config{
-		GRPCListenAddress:       "127.0.0.1",
-		GRPCListenPort:          port,
-		SQLiteDSN:               dbPath,
-		SavePath:                savePath,
-		AutoRegister:            true,
-		AutoSubscribeMembers:    true,
-		BCryptCost:              4,
-		Enable:                  true,
-		GracefulShutdownTimeout: 5 * time.Second,
+		GRPCListenAddress:    "127.0.0.1",
+		GRPCListenPort:       port,
+		SQLiteDSN:            dbPath,
+		SavePath:             savePath,
+		AutoRegister:         true,
+		AutoSubscribeMembers: true,
+		BCryptCost:           4,
+		Enable:               true,
 	}
 	log := discardLogger()
 	svc, err := login.New(cfg, log)
