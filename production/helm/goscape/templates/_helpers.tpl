@@ -173,8 +173,22 @@ spec:
           containerPort: {{ $ctx.Values.goscape.ports.friendsGRPC }}
         {{- end }}
       readinessProbe:
+        {{- if eq $mode "Management" }}
+        {{- /* Management runs only login-grpc/friends-grpc — no ondemand
+               HTTP port exists to httpGet /healthz against, so this
+               deployment keeps the coarser tcpSocket check (arch-29.6). */}}
         tcpSocket:
-          port: {{ if eq $mode "Management" }}login-grpc{{ else }}world-tcp{{ end }}
+          port: login-grpc
+        {{- else }}
+        {{- /* SingleBinary and World both always run ondemand alongside
+               world (see the ports block above), so /healthz's tick-
+               liveness check is available and replaces the old tcpSocket
+               probe, which only proved the TCP listener was up — not
+               that the tick loop was still moving (arch-29.6). */}}
+        httpGet:
+          path: /healthz
+          port: ondemand-http
+        {{- end }}
         initialDelaySeconds: 10
         periodSeconds: 10
       {{- with $w.containerSecurityContext }}

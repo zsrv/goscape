@@ -63,8 +63,10 @@ func (g *App) initOnDemand() (services.Service, error) {
 	// the world module is disabled, worldConn stays nil and the / WS route
 	// falls back to RootHandler only.
 	var worldConn connhandler.ConnHandler
+	var worldSrv *world.Server
 	if g.world != nil && g.world.Server != nil {
 		worldConn = g.world.Server
+		worldSrv = g.world.Server
 	}
 
 	a, err := ondemand.New(g.cfg.OnDemand, logger, serv, worldConn)
@@ -81,6 +83,25 @@ func (g *App) initOnDemand() (services.Service, error) {
 	} else {
 		g.ondemand.Server.HTTP.HandleFunc("GET /", g.ondemand.RootHandler)
 	}
+
+	// arch-29.6: /healthz + /debug/status. worldSrv is nil when the world
+	// module is disabled (standalone ondemand) — snap then reports
+	// hasWorld=false and /healthz degrades to a plain process-up 200. Two
+	// mirrored HealthSnapshot structs (world's and ondemand's) avoid a
+	// modules/ondemand → modules/world import; this adapter is the only
+	// place that converts between them.
+	ondemand.RegisterHealthRoutes(g.ondemand.Server.HTTP, func() (ondemand.HealthSnapshot, bool) {
+		if worldSrv == nil {
+			return ondemand.HealthSnapshot{}, false
+		}
+		s := worldSrv.HealthSnapshot()
+		return ondemand.HealthSnapshot{
+			LastTick:        s.LastTick,
+			CurrentTick:     s.CurrentTick,
+			PlayersOnline:   s.PlayersOnline,
+			LastCycleMillis: s.LastCycleMillis,
+		}, true
+	})
 
 	servicesToWaitFor := func() []services.Service {
 		return []services.Service{}
