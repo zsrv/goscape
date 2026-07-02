@@ -37,6 +37,15 @@ func main() {
 		os.Exit(0)
 	}
 
+	if !isValid {
+		// arch-29.5: normal-mode boot used to log and proceed anyway,
+		// letting an invalid config fail again later (e.g. mid-Manager
+		// startup) instead of failing fast at the same point verify mode
+		// would have caught it.
+		logger.Error("configuration invalid; refusing to start")
+		os.Exit(1)
+	}
+
 	// TODO: OpenTelemetry
 
 	// Start goscape
@@ -54,7 +63,11 @@ func main() {
 	}
 }
 
-// configIsValid runs hard validation and warns the user for suspect configurations.
+// configIsValid runs hard validation and warns the user for suspect
+// configurations. Only Validate errors make the config invalid — CheckConfig
+// warnings are logged but never fail verification (a warning that fails
+// --config.verify would be a contradiction: warnings describe configs that
+// can still boot, just suspiciously).
 func configIsValid(logger *slog.Logger, config *app.Config) bool {
 	if err := config.Validate(); err != nil {
 		logger.Error("configuration invalid", "err", err)
@@ -68,7 +81,6 @@ func configIsValid(logger *slog.Logger, config *app.Config) bool {
 			}
 			logger.Warn("configuration warnings exist", output...)
 		}
-		return false
 	}
 	return true
 }

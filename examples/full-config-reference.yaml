@@ -194,8 +194,10 @@ friends:
   # The single profile this friends server serves; mismatched WORLD_CONNECTs are
   # rejected. CLI: --friends.profile (default: main)
   profile: main
-  # CLI: --friends.graceful-shutdown-timeout (default: 30s)
-  graceful_shutdown_timeout: 30s
+  # Bounds how long GracefulStop waits for open streams to close before
+  # shutdown forces a hard Stop. CLI: --friends.graceful-shutdown-timeout
+  # (default: 5s)
+  graceful_shutdown_timeout: 5s
   # Per-module log level override (yaml-only; no CLI flag); falls back to the
   # top-level log_level. Valid levels: trace, debug, info, warn, error.
   #log_level: info
@@ -225,8 +227,6 @@ login:
   # Upgrade non-members to members on member worlds.
   # CLI: --login.auto-subscribe-members (default: true)
   auto_subscribe_members: true
-  # CLI: --login.graceful-shutdown-timeout (default: 30s)
-  graceful_shutdown_timeout: 30s
   # World-hop cooldown after a graceful logout on another world (hop-timer login
   # reject). CLI: --login.node-hop-time (default: 45s)
   node_hop_time: 45s
@@ -260,8 +260,6 @@ world:
   # TCP keepalive idle period before the first probe; 0 disables.
   # CLI: --world.tcp-keepalive-period (default: 30s)
   tcp_keepalive_period: 30s
-  # CLI: --world.graceful-shutdown-timeout (default: 30s)
-  graceful_shutdown_timeout: 30s
 
   # --- Cache / content ---
   # Cache root; gamemap loads map-pack files from <path>/maps/.
@@ -347,8 +345,6 @@ world:
   # Unused at rev-254 (TS still defines the env var; nothing reads it).
   #node_submit_input: false
   #node_limit_bytes_per_tracking_session: 50000
-  # Declared but consumed by no code path.
-  #enable_tcp_server: false
 
 
 # ----------------------------------------------------------------------------

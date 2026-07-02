@@ -13,7 +13,6 @@ import (
 type Config struct {
 	SignalHandler     SignalHandler `yaml:"-"`
 	LogLevel          *log.Level    `yaml:"log_level"`
-	LogFormat         string        `yaml:"log_format"`
 	NodeDebugprocChar string        `yaml:"node_debugproc_char"`
 	TCPListenNetwork  string        `yaml:"tcp_listen_network"`
 	TCPListenAddress  string        `yaml:"tcp_listen_address"`
@@ -35,7 +34,6 @@ type Config struct {
 	TCPKeepAlivePeriod               time.Duration      `yaml:"tcp_keepalive_period"`
 	NodeWalktriggerSetting           WalkTriggerSetting `yaml:"node_walktrigger_setting"`
 	TCPServerReadTimeout             time.Duration      `yaml:"tcp_server_read_timeout"`
-	ServerGracefulShutdownTimeout    time.Duration      `yaml:"graceful_shutdown_timeout"`
 	NodeID                           int                `yaml:"node_id"`
 	TCPServerReadHeaderTimeout       time.Duration      `yaml:"tcp_server_read_header_timeout"`
 	NodeMaxConnected                 int                `yaml:"node_max_connected"`
@@ -58,7 +56,6 @@ type Config struct {
 	NodeAutoSubscribeMembers         bool               `yaml:"node_auto_subscribe_members"`
 	ContentWatch                     bool               `yaml:"content_watch"`
 	Enable                           bool               `yaml:"enable"`
-	EnableTCPServer                  bool               `yaml:"enable_tcp_server"`
 }
 
 // RegisterFlagsAndApplyDefaults registers flags and applies defaults.
@@ -73,7 +70,6 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	//f.StringVar(&c.Config.MinVersion, "ondemand.http-tls-min-version", "", "HTTP TLS Min Version.")
 	f.IntVar(&c.TCPListenPort, "world.tcp-listen-port", 43594, "TCP world server listen port")
 	//f.IntVar(&c.Config.HTTPConnLimit, "ondemand.http-conn-limit", 0, "Maximum number of simultaneous http connections, <=0 to disable")
-	f.DurationVar(&c.ServerGracefulShutdownTimeout, "world.graceful-shutdown-timeout", 30*time.Second, "Timeout for graceful shutdowns")
 	// logger-transport-3 (2026-05-28 audit): TS TcpServer.ts:19 sets the
 	// idle-socket timeout to 30000 ms via `s.setTimeout(30000)`. The pre-fix
 	// 5s default disconnected idle clients 6x more aggressively than TS,
