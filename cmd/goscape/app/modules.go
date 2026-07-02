@@ -57,12 +57,6 @@ func (g *App) initOnDemand() (services.Service, error) {
 
 	g.cfg.OnDemand.Server.Log = logger
 
-	server.DisableSignalHandling(&g.cfg.OnDemand.Server)
-	serv, err := server.New(g.cfg.OnDemand.Server)
-	if err != nil {
-		return nil, err
-	}
-
 	// The dskit DAG declares OnDemand: {Common, World}, so g.world has been
 	// initialised by the time initOnDemand runs (when World is enabled). When
 	// the world module is disabled, worldConn stays nil and the / WS route
@@ -77,10 +71,19 @@ func (g *App) initOnDemand() (services.Service, error) {
 		// target) must build its own CRC snapshot — previously it silently
 		// served the zero-value cache.CRC() left over from whatever ran
 		// last (or all-zero on a fresh process), because only world's
-		// startingFn ever called MakeCRCs.
+		// startingFn ever called MakeCRCs. Runs BEFORE server.New below
+		// (arch-29.8 fix wave): MakeCRCs doesn't need the server, and
+		// failing before the HTTP listener binds means a bad cache path
+		// leaks nothing.
 		if err := cache.MakeCRCs(g.cfg.OnDemand.CachePath); err != nil {
 			return nil, fmt.Errorf("failed to build crc table: %w", err)
 		}
+	}
+
+	server.DisableSignalHandling(&g.cfg.OnDemand.Server)
+	serv, err := server.New(g.cfg.OnDemand.Server)
+	if err != nil {
+		return nil, err
 	}
 
 	a, err := ondemand.New(g.cfg.OnDemand, logger, serv, worldConn)

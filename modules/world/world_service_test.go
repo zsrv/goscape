@@ -74,6 +74,69 @@ func TestWorldServiceFnsStartingBodyErrorSkipsRun(t *testing.T) {
 	}
 }
 
+// TestWorldServiceFnsStartingBodyErrorClosesClients pins the arch-29.8 fix
+// wave: BasicService skips stoppingFn entirely when startingFn returns an
+// error ("if StartingFn returns error, no other functions are called" —
+// pkg/dskit/services/basic_service.go:45), and the bridge client closes
+// used to live only in stopping — so a startingBody failure (MakeCRCs,
+// Listen, ...) leaked both gRPC connections. The starting closure must now
+// close both clients exactly once before propagating the error.
+func TestWorldServiceFnsStartingBodyErrorClosesClients(t *testing.T) {
+	wantErr := errors.New("boom")
+	lcCloses, fcCloses := 0, 0
+	fns := worldServiceFns(
+		func() error { return nil },
+		func() {},
+		func() bool { return false },
+		func() error { lcCloses++; return nil },
+		func() error { fcCloses++; return nil },
+		func(context.Context) error { return wantErr },
+		func() []terminationWaiter { return nil },
+		discardLogger(),
+	)
+
+	if err := fns.starting(t.Context()); !errors.Is(err, wantErr) {
+		t.Fatalf("starting: got %v, want %v", err, wantErr)
+	}
+	if lcCloses != 1 || fcCloses != 1 {
+		t.Fatalf("close counts after starting failure: lc=%d fc=%d, want 1/1", lcCloses, fcCloses)
+	}
+	// stoppingFn is never invoked on this path (BasicService contract), so
+	// there is no second call site to double-fire the closes.
+}
+
+// TestWorldServiceFnsSuccessPathClosesOnlyInStopping pins the exclusive
+// counterpart: when starting succeeds, the closes must NOT fire in starting
+// — stopping owns them, and fires each exactly once. Together with
+// TestWorldServiceFnsStartingBodyErrorClosesClients this covers both sides
+// of the state-machine exclusivity that makes a double-close impossible.
+func TestWorldServiceFnsSuccessPathClosesOnlyInStopping(t *testing.T) {
+	lcCloses, fcCloses := 0, 0
+	fns := worldServiceFns(
+		func() error { return nil }, // run: returns immediately; serverDone is fed
+		func() {},
+		func() bool { return true }, // graceful, irrelevant to closes
+		func() error { lcCloses++; return nil },
+		func() error { fcCloses++; return nil },
+		func(context.Context) error { return nil },
+		func() []terminationWaiter { return nil },
+		discardLogger(),
+	)
+
+	if err := fns.starting(t.Context()); err != nil {
+		t.Fatalf("starting: %v", err)
+	}
+	if lcCloses != 0 || fcCloses != 0 {
+		t.Fatalf("close counts after successful starting: lc=%d fc=%d, want 0/0", lcCloses, fcCloses)
+	}
+	if err := fns.stopping(nil); err != nil {
+		t.Fatalf("stopping: %v", err)
+	}
+	if lcCloses != 1 || fcCloses != 1 {
+		t.Fatalf("close counts after stopping: lc=%d fc=%d, want 1/1", lcCloses, fcCloses)
+	}
+}
+
 // TestWorldServiceFnsRunFnOutcomes pins runFn's three post-run branches —
 // unchanged from NewWorldService's pre-restructure inline runFn: an error
 // from run() propagates, a nil return under a graceful exit yields nil,

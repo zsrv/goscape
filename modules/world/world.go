@@ -145,6 +145,29 @@ func worldServiceFns(
 
 	starting := func(ctx context.Context) error {
 		if err := startingBody(ctx); err != nil {
+			// arch-29.8 fix wave: BasicService skips stoppingFn entirely
+			// when startingFn returns an error ("if StartingFn returns
+			// error, no other functions are called" —
+			// pkg/dskit/services/basic_service.go:45; the runFn-skip half
+			// of that contract is pinned by
+			// TestWorldServiceFnsStartingBodyErrorSkipsRun). The bridge
+			// client closes live only in stopping, so a startingBody
+			// failure (MakeCRCs, Listen, ...) would leak both gRPC
+			// connections without this. No double-close is possible: the
+			// state machine makes the two paths exclusive — starting
+			// failure means stopping never runs (closes happen HERE);
+			// starting success means this branch never ran (closes happen
+			// in stopping).
+			if lcClose != nil {
+				if closeErr := lcClose(); closeErr != nil {
+					log.Warn("failed to close login client after starting failure", slog.Any("err", closeErr))
+				}
+			}
+			if fcClose != nil {
+				if closeErr := fcClose(); closeErr != nil {
+					log.Warn("failed to close friends client after starting failure", slog.Any("err", closeErr))
+				}
+			}
 			return err
 		}
 		// Spawn Run here, not in runFn: BasicService legally runs stoppingFn
