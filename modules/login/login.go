@@ -32,11 +32,6 @@ func New(cfg Config, logger *slog.Logger) (*Login, error) {
 	return l, nil
 }
 
-// NewLoginService is the factory used by the dskit module manager.
-func NewLoginService(cfg Config, logger *slog.Logger) (services.Service, error) {
-	return New(cfg, logger)
-}
-
 func (l *Login) starting(ctx context.Context) error {
 	db, err := openDB(l.cfg.SQLiteDSN)
 	if err != nil {

@@ -7,7 +7,6 @@ import (
 
 	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/dskit/services"
-	"github.com/zsrv/goscape/pkg/dskit/signals"
 	"github.com/zsrv/goscape/pkg/tapper"
 )
 
@@ -45,11 +44,6 @@ func New(cfg Config, logger *slog.Logger, tap tapper.Tapper) (*World, error) {
 	//}
 	//w.subservicesWatcher = services.NewFailureWatcher()
 	//w.subservicesWatcher.WatchManager(w.subservices)
-
-	handler := cfg.SignalHandler
-	if handler == nil {
-		handler = signals.NewHandler(logger)
-	}
 
 	var loginClient LoginClient
 	if cfg.LoginServerEnabled {

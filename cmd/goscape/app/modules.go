@@ -124,9 +124,7 @@ func (g *App) initOnDemand() (services.Service, error) {
 		return []services.Service{}
 	}
 
-	//return g.ondemand, nil
 	return ondemand.NewOndemandService(g.ondemand, serv, servicesToWaitFor), nil
-	//return g.ondemand.Service, nil
 }
 
 func (g *App) initLogin() (services.Service, error) {
