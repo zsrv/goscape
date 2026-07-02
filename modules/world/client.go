@@ -137,7 +137,7 @@ type client struct {
 	// in-flight pump send while the conn goroutine's defer pool-returns the
 	// buffers. Pre-existing race (the old code released unconditionally at
 	// the same point); tracked as an arch-28 residual — see PORTING.md
-	// Arc 28.
+	// Arc 30 (the arch-28.* fix-ID prefix predates the arc renumbering).
 	teardownRefs atomic.Int32
 	connRefOnce  sync.Once
 	tickRefOnce  sync.Once
