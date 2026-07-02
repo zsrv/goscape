@@ -649,9 +649,10 @@ func BenchmarkClientSetup(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		c := newClient(nil, 30*time.Second, slog.Default())
-		c.in.Release()
-		putBufioReader64k(c.bufr)
-		putBufioWriter64k(c.bufw)
+		// dropConnRef, not raw pool returns: the refcount contract
+		// (arch-28.4b) owns buffer release; a fresh client's only owner is
+		// the conn side, so this pool-returns all three buffers.
+		c.dropConnRef()
 	}
 }
 

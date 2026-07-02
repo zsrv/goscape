@@ -90,13 +90,114 @@ func (w *World) GetLoginClient() LoginClient { return w.loginClient }
 // GetFriendsClient returns the FriendsClient for this world (may be nil if disabled).
 func (w *World) GetFriendsClient() FriendsClient { return w.friendsClient }
 
+// terminationWaiter is the minimal surface worldServiceFns needs from a
+// dependency service in stoppingFn — narrowed from services.Service so
+// unit tests can inject fakes without implementing the full Service
+// interface.
+type terminationWaiter interface {
+	AwaitTerminated(ctx context.Context) error
+}
+
+// svcFns bundles the three services.BasicService closures produced by
+// worldServiceFns.
+type svcFns struct {
+	starting func(ctx context.Context) error
+	run      func(ctx context.Context) error
+	stopping func(err error) error
+}
+
+// worldServiceFns builds the three services.BasicService closures for the
+// world service from injectable primitives, so the seam below is
+// unit-testable without a real *Server, LoginClient, or FriendsClient
+// (arch-28.4c).
+//
+// run blocks until the server stops; shutdown stops it; gracefulExit
+// reports whether the stop was an intentional ::reboot/::slowreboot vs. an
+// unexpected exit; lcClose/fcClose are the login/friends client Close
+// funcs (nil when that client is disabled); startingBody is the slow
+// startup work (cache preload, CRC compute, WorldStartup/WorldConnect
+// RPCs, content-watch wiring) that must complete before Run can usefully
+// proceed; servicesToWaitFor lists the dependency services stoppingFn
+// must await before shutting the server down.
+func worldServiceFns(
+	run func() error,
+	shutdown func(),
+	gracefulExit func() bool,
+	lcClose func() error,
+	fcClose func() error,
+	startingBody func(ctx context.Context) error,
+	servicesToWaitFor func() []terminationWaiter,
+	log *slog.Logger,
+) svcFns {
+	serverDone := make(chan error, 1)
+
+	starting := func(ctx context.Context) error {
+		if err := startingBody(ctx); err != nil {
+			return err
+		}
+		// Spawn Run here, not in runFn: BasicService legally runs stoppingFn
+		// WITHOUT runFn (service context canceled between Starting and
+		// Running — reachable because this startingFn does slow work: cache
+		// preload, CRC compute, WorldStartup/WorldConnect RPCs).
+		// stoppingFn blocks on <-serverDone, so the goroutine that feeds
+		// serverDone must be alive by the time startingFn returns nil
+		// (arch-28.4c).
+		go func() {
+			defer close(serverDone)
+			serverDone <- run()
+		}()
+		return nil
+	}
+
+	runFn := func(ctx context.Context) error {
+		select {
+		case <-ctx.Done():
+			return nil
+		case err := <-serverDone:
+			if err != nil {
+				return err
+			}
+			if gracefulExit() {
+				return nil // NAI-182 — ::reboot / ::slowreboot graceful exit
+			}
+			return fmt.Errorf("server stopped unexpectedly")
+		}
+	}
+
+	stopping := func(_ error) error {
+		// wait until all modules are done, and then shut the server down
+		for _, s := range servicesToWaitFor() {
+			_ = s.AwaitTerminated(context.Background())
+		}
+
+		// shut the TCP server down (this also unblocks Run)
+		shutdown()
+
+		// if not closed yet, wait until the server stops
+		<-serverDone
+		log.Info("world server stopped")
+
+		if lcClose != nil {
+			if err := lcClose(); err != nil {
+				log.Warn("failed to close login client", slog.Any("err", err))
+			}
+		}
+		if fcClose != nil {
+			if err := fcClose(); err != nil {
+				log.Warn("failed to close friends client", slog.Any("err", err))
+			}
+		}
+		return nil
+	}
+
+	return svcFns{starting: starting, run: runFn, stopping: stopping}
+}
+
 // NewWorldService constructs a services.Service from a Server component.
 // The Server should not react to signals. Early return from Run function
 // is considered to be an error.
 func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToWaitFor func() []services.Service) services.Service {
-	serverDone := make(chan error, 1)
-
-	startingFn := func(ctx context.Context) error {
+	startingBody := func(ctx context.Context) error {
 		cachePath := serv.cfg.CachePath
 		if err := cache.PreloadClient(filepath.Join(cachePath, "client")); err != nil {
 			return fmt.Errorf("world: preload client assets: %w", err)
@@ -122,53 +223,35 @@ func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToW
 		return nil
 	}
 
-	runFn := func(ctx context.Context) error {
-		go func() {
-			defer close(serverDone)
-			serverDone <- serv.Run()
-		}()
-
-		select {
-		case <-ctx.Done():
-			return nil
-		case err := <-serverDone:
-			if err != nil {
-				return err
-			}
-			if serv.shutdownGraceful {
-				return nil // NAI-182 — ::reboot / ::slowreboot graceful exit
-			}
-			return fmt.Errorf("server stopped unexpectedly")
+	waitFor := func() []terminationWaiter {
+		ss := servicesToWaitFor()
+		out := make([]terminationWaiter, len(ss))
+		for i, s := range ss {
+			out[i] = s
 		}
+		return out
 	}
 
-	stoppingFn := func(_ error) error {
-		// wait until all modules are done, and then shut the server down
-		for _, s := range servicesToWaitFor() {
-			_ = s.AwaitTerminated(context.Background())
-		}
-
-		// shut the TCP server down (this also unblocks Run)
-		serv.Shutdown()
-
-		// if not closed yet, wait until the server stops
-		<-serverDone
-		serv.log.Info("world server stopped")
-
-		if lc != nil {
-			if err := lc.Close(); err != nil {
-				serv.log.Warn("failed to close login client", slog.Any("err", err))
-			}
-		}
-		if fc != nil {
-			if err := fc.Close(); err != nil {
-				serv.log.Warn("failed to close friends client", slog.Any("err", err))
-			}
-		}
-		return nil
+	var lcClose, fcClose func() error
+	if lc != nil {
+		lcClose = lc.Close
+	}
+	if fc != nil {
+		fcClose = fc.Close
 	}
 
-	return services.NewBasicService(startingFn, runFn, stoppingFn)
+	fns := worldServiceFns(
+		serv.Run,
+		serv.Shutdown,
+		func() bool { return serv.shutdownGraceful },
+		lcClose,
+		fcClose,
+		startingBody,
+		waitFor,
+		serv.log,
+	)
+
+	return services.NewBasicService(fns.starting, fns.run, fns.stopping)
 }
 
 // DisableSignalHandling puts a dummy signal handler

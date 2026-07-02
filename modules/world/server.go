@@ -82,14 +82,30 @@ type Server struct {
 	// site falls back to DefaultRSAKey when nil.
 	rsaKey *protocol.RSAKey
 	tcpWg  sync.WaitGroup
-	// admissionGateMu guards the quit-check/tcpWg.Add pair in HandleConn
-	// against Shutdown's close(quit)+Wait, making the WS-bridge admission
-	// gate atomic: a connection either registers in tcpWg before quit
-	// closes (so Shutdown's Wait observes it) or is refused. The raw-TCP
-	// path needs no gate — serveTCP holds a floor registration in tcpWg
-	// for the life of the accept loop, so its Add(1) calls never race a
-	// Wait that could observe a transient zero counter.
+	// admissionGateMu guards the quit-check/tcpWg.Add/trackConn triple at
+	// BOTH admission sites (serveTCP's accept loop and the WS bridge's
+	// HandleConn) against Shutdown's close(quit)+closeLiveConns+Wait,
+	// making admission atomic: a connection either registers in tcpWg AND
+	// the live-conn registry before quit closes (so Shutdown both closes
+	// it and observes it in Wait) or is refused. Gating matters even in
+	// production: a chatty client re-arms its read deadline forever, so an
+	// admitted-but-untracked conn would wedge Shutdown — the gate is what
+	// makes closeLiveConns complete. (serveTCP's floor registration in
+	// tcpWg only prevents WaitGroup misuse — Add racing a Wait that saw a
+	// transient zero — it cannot prevent a missed trackConn.)
 	admissionGateMu sync.Mutex
+	// liveConns/liveConnsMu track every accepted connection so Shutdown can
+	// close them. The read loop in handleTCPConn re-arms its deadline on
+	// every successful read, so a chatty client that keeps sending never
+	// trips the deadline on its own — without an explicit close, Shutdown's
+	// tcpWg.Wait would block on that connection's goroutine forever
+	// (arch-28.4c). Populated by trackConn at the two admission sites,
+	// under admissionGateMu and synchronously with each tcpWg.Add(1)
+	// (serveTCP's accept loop; HandleConn), and cleared by untrackConn
+	// (deferred in serveConn); closeLiveConns (called from Shutdown)
+	// closes every tracked conn.
+	liveConns   map[net.Conn]struct{}
+	liveConnsMu sync.Mutex
 	// tickWg tracks the runTickLoop goroutine spawned in Run(). Shutdown
 	// closes s.quit and then waits on tickWg so the tick goroutine has
 	// fully exited before cleanup proceeds. Arc 18 R2 — without this,
@@ -786,13 +802,20 @@ func (s *Server) Shutdown() {
 	// by the tick's final save-all (and by a just-completed logout) are
 	// parented to bridgesCtx; cancelling it now would abort them mid-flight
 	// and lose the saves. It is cancelled at the end, after waitForSaveFlush.
-	// Under admissionGateMu so HandleConn's quit-check/tcpWg.Add gate is
-	// atomic with this close (see conn_handler.go).
+	// Under admissionGateMu so both admission sites' quit-check/tcpWg.Add/
+	// trackConn sequences (serveTCP's accept loop; HandleConn, see
+	// conn_handler.go) are atomic with this close.
 	s.admissionGateMu.Lock()
 	close(s.quit)
 	s.admissionGateMu.Unlock()
 	s.log.Debug("closing tcp listener")
 	s.tcpListener.Close()
+	// Close every accepted connection: read loops re-arm their deadlines
+	// per read, so without this a connected client blocks tcpWg.Wait
+	// indefinitely. Closing is safe concurrently with in-flight reads and
+	// writes; each conn goroutine exits through its normal error path
+	// (enqueueing its player's removal for the tick's final save-all).
+	s.closeLiveConns()
 	s.log.Debug("waiting for tcp connections to close")
 	s.tcpWg.Wait()
 	s.log.Debug("all tcp connections closed")
@@ -815,13 +838,57 @@ func (s *Server) Shutdown() {
 		s.bridgesCancel()
 	}
 	s.log.Debug("player saves flushed")
+}
 
-	//_, cancel := context.WithTimeout(context.Background(), s.cfg.ServerGracefulShutdownTimeout)
-	//defer cancel() // releases resources if httpServer.Shutdown completes before timeout elapses. TODO: revisit this statement
-	//// TODO: can we even use ctx here if tcplistener doesn't accept one and this is the proper way to shut down?
-	//_ = s.tcpListener.Close() // TODO: revisit, compare to what http server shutdown does
-	//// TODO: need to close listener but also close client connections
-	//// https://eli.thegreenplace.net/2020/graceful-shutdown-of-a-tcp-server-in-go/
+// trackConn registers an accepted connection so Shutdown can close it.
+// The read loop re-arms its deadline on every read, so without an
+// explicit close a chatty client keeps its goroutine alive and
+// tcpWg.Wait never returns.
+//
+// Called at the two admission sites (serveTCP's accept loop; HandleConn),
+// both under admissionGateMu and synchronous with the matching
+// tcpWg.Add(1) — NOT inside the spawned serveConn goroutine. The gate
+// makes admission atomic with Shutdown's close(quit)+closeLiveConns, so
+// closeLiveConns can never miss a connection that Wait() would block on:
+// a chatty client re-arms its read deadline forever, so an untracked conn
+// wedges Shutdown even in production.
+func (s *Server) trackConn(conn net.Conn) {
+	s.liveConnsMu.Lock()
+	if s.liveConns == nil {
+		s.liveConns = make(map[net.Conn]struct{})
+	}
+	s.liveConns[conn] = struct{}{}
+	s.liveConnsMu.Unlock()
+}
+
+// untrackConn removes a connection from the live registry. Called from
+// serveConn's teardown, after which Shutdown's closeLiveConns will no
+// longer see (or double-close) this conn.
+func (s *Server) untrackConn(conn net.Conn) {
+	s.liveConnsMu.Lock()
+	delete(s.liveConns, conn)
+	s.liveConnsMu.Unlock()
+}
+
+// closeLiveConns closes every currently-tracked connection. Safe to call
+// concurrently with trackConn/untrackConn: each closed conn's read loop
+// exits through its normal error path and untracks itself independently.
+//
+// The registry is snapshotted under liveConnsMu but the Close calls run
+// AFTER unlocking: Close is not guaranteed cheap (the WS bridge's NetConn
+// performs a close handshake with an internal timeout), and holding the
+// lock through it would serialize every exiting conn goroutine's
+// untrackConn behind that handshake.
+func (s *Server) closeLiveConns() {
+	s.liveConnsMu.Lock()
+	conns := make([]net.Conn, 0, len(s.liveConns))
+	for conn := range s.liveConns {
+		conns = append(conns, conn)
+	}
+	s.liveConnsMu.Unlock()
+	for _, conn := range conns {
+		_ = conn.Close()
+	}
 }
 
 func (s *Server) serveTCP() error {
@@ -846,7 +913,32 @@ func (s *Server) serveTCP() error {
 			}
 		}
 
+		// Admission gate, mirroring HandleConn: atomic with Shutdown's
+		// close(quit)+closeLiveConns, this conn is either registered in
+		// tcpWg AND the live-conn registry before quit closes (so Shutdown
+		// both closes it and waits for it) or refused. Without the gate, a
+		// conn accepted just before closeLiveConns but tracked just after
+		// is invisible to it — and a chatty client re-arms its read
+		// deadline forever, so even in production such an untracked conn
+		// wedges Shutdown; the gate is what makes closeLiveConns complete.
+		// trackConn stays synchronous with the Add(1), BEFORE the goroutine
+		// is spawned, for the same reason (arch-28.4c review).
+		s.admissionGateMu.Lock()
+		select {
+		case <-s.quit:
+			s.admissionGateMu.Unlock()
+			// Shutdown already ran closeLiveConns; nothing will close this
+			// conn later, so refuse it here. Return (not continue), matching
+			// the loop's quit semantics above: the listener is closing, so
+			// the next Accept would just error into that same return path.
+			_ = conn.Close()
+			s.log.Debug("refusing connection accepted during shutdown")
+			return nil
+		default:
+		}
 		s.tcpWg.Add(1)
+		s.trackConn(conn)
+		s.admissionGateMu.Unlock()
 
 		// Handle the connection in a new goroutine for concurrency
 		go s.serveConn(conn)
@@ -868,8 +960,17 @@ func (s *Server) serveTCP() error {
 // during unwinding, so this is the Go equivalent of TS's per-connection
 // try/catch -> client.terminate() (TcpServer.ts:29-41). tcpWg.Done() is
 // deferred so Shutdown's tcpWg.Wait() can never hang on a panicked connection.
+//
+// The caller must have already registered conn via trackConn, synchronously
+// with its tcpWg.Add(1) (serveTCP's accept loop; HandleConn's admission
+// gate) — tracking here instead would open a scheduling window where the
+// conn holds a tcpWg count but is invisible to closeLiveConns, letting
+// Shutdown's Wait block on a connection it cannot close (arch-28.4c
+// review). untrackConn stays deferred here, pairing with tcpWg.Done: both
+// fire on every exit path, including mid-panic-recovery.
 func (s *Server) serveConn(conn net.Conn) {
 	defer s.tcpWg.Done()
+	defer s.untrackConn(conn)
 	defer func() {
 		if r := recover(); r != nil {
 			s.logNet.Error("recovered panic in connection handler",
