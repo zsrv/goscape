@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -106,10 +107,30 @@ type client struct {
 	// stays set across teardown so the defer in handleTCPConn can fire
 	// SessionEnded before the field is cleared.
 	sessionID string
+	// teardownRefs counts the goroutines that may still touch this
+	// client's pooled buffers: the conn goroutine (always, from
+	// newClient) and the tick goroutine (from successful login in
+	// sendLoginOK until removePlayerOnTick). The last owner out
+	// returns the buffers to their pools — releasing on the conn
+	// goroutine alone recycled bufw into a NEW connection while the
+	// tick was still flushing the old player's frames into it
+	// (arch-28.4b).
+	//
+	// The refcount models exactly those two owners (conn + tick). The
+	// OnDemand pump goroutine (onDemand.run → clientODAdapter.send) is a
+	// known third bufw writer OUTSIDE this model: a pure-OnDemand
+	// connection (c.player == nil, refcount stays at 1) can have an
+	// in-flight pump send while the conn goroutine's defer pool-returns
+	// the buffers. Pre-existing race (the old code released
+	// unconditionally at the same point); tracked as an arch-28 residual
+	// — see PORTING.md's arch-28 fidelity backport entry (Arc 31).
+	teardownRefs atomic.Int32
+	connRefOnce  sync.Once
+	tickRefOnce  sync.Once
 }
 
 func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, logger *slog.Logger) *client {
-	return &client{
+	c := &client{
 		log: logger,
 
 		//server: server,
@@ -124,7 +145,30 @@ func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, log
 
 		opcode: -1,
 	}
+	// The conn goroutine is always an owner of the pooled buffers, from
+	// construction until its handleTCPConn defer runs (arch-28.4b).
+	c.teardownRefs.Store(1)
+	return c
 }
+
+// dropRef releases one buffer owner; the last one returns the pooled
+// buffers. Callers use dropConnRef/dropTickRef (idempotent per side).
+func (c *client) dropRef() {
+	if c.teardownRefs.Add(-1) == 0 {
+		c.in.Release()
+		putBufioReader64k(c.bufr)
+		putBufioWriter64k(c.bufw)
+	}
+}
+
+// dropConnRef releases the conn goroutine's ref on the pooled buffers.
+// Idempotent — safe to call more than once for the same client.
+func (c *client) dropConnRef() { c.connRefOnce.Do(c.dropRef) }
+
+// dropTickRef releases the tick goroutine's ref on the pooled buffers.
+// Idempotent — safe to call more than once for the same client (the idle-
+// logout and disconnect paths can both land on the same player).
+func (c *client) dropTickRef() { c.tickRefOnce.Do(c.dropRef) }
 
 // bufferData appends data to the incoming buffer, returning false and discarding
 // the data if it would exceed maxClientInBufSize.
@@ -164,6 +208,11 @@ func (c *client) sendLoginOK() error {
 		if cfgs := c.server.loginConfigs(); cfgs.invTypes != nil {
 			p.SetAppearanceInv(cfgs.invTypes.Worn)
 		}
+		// tick co-owns the buffers until removePlayerOnTick (arch-28.4b).
+		// Taking the ref before publishing to appendNewPlayer preserves the
+		// owner-ref-before-publication invariant even if a future same-tick
+		// removal path appears.
+		c.teardownRefs.Add(1)
 		c.server.appendNewPlayer(p)
 		c.player = p
 	}
