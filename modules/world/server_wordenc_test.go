@@ -39,7 +39,9 @@ func TestNewServer_LoadsWordencFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewServer failed: %v", err)
 	}
-	t.Cleanup(func() { s.tcpListener.Close() })
+	// arch-29.8: NewServer no longer binds the TCP listener (see
+	// TestNewServerDoesNotBind in server_lifecycle_test.go) — nothing to
+	// close here.
 	if s.wordenc == nil {
 		t.Fatal("NewServer must populate s.wordenc; got nil")
 	}

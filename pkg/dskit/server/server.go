@@ -110,6 +110,10 @@ func newServer(cfg Config) (*Server, error) {
 
 	httpMiddleware, err := BuildHTTPMiddleware(cfg, logger)
 	if err != nil {
+		// arch-29.8: httpListener is already bound (see "Set up listeners
+		// first" above) — close it on this error path so a middleware
+		// build failure doesn't leak the socket.
+		_ = httpListener.Close()
 		return nil, fmt.Errorf("error building http middleware: %w", err)
 	}
 

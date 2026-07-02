@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"sync"
 	"syscall"
 )
 
@@ -25,6 +26,7 @@ type Handler struct {
 	log       *slog.Logger
 	receivers []SignalReceiver
 	quit      chan struct{}
+	stopOnce  sync.Once
 }
 
 // NewHandler makes a new Handler.
@@ -36,9 +38,12 @@ func NewHandler(log *slog.Logger, receivers ...SignalReceiver) *Handler {
 	}
 }
 
-// Stop the handler
+// Stop the handler. Idempotent (arch-29.8): a real OS signal can already
+// have unblocked Loop before a caller (e.g. App.Run's deferred cleanup, or
+// an explicit App.Stop) also calls Stop — without this guard the second
+// close(h.quit) would panic.
 func (h *Handler) Stop() {
-	close(h.quit)
+	h.stopOnce.Do(func() { close(h.quit) })
 }
 
 // Loop handles signals.
