@@ -274,7 +274,15 @@ func (p *Packet) GJStrNUL() string {
 }
 
 // GData gets data.
+//
+// dest must have at least length bytes of capacity; GData panics loudly
+// (arch-29.7) rather than silently under-copying and still advancing Pos by
+// length — a short dest previously desynced the caller's read position with
+// no signal that fewer bytes were actually delivered.
 func (p *Packet) GData(dest []byte, length int) {
+	if len(dest) < length {
+		panic(fmt.Sprintf("packet: GData dest %d < length %d", len(dest), length))
+	}
 	copy(dest, p.Data[p.Pos:p.Pos+length])
 	p.Pos += length
 }
@@ -571,6 +579,14 @@ func (p *Packet) RSAEnc(modulus *big.Int, exponent *big.Int) {
 func (p *Packet) RSADec(modulus *big.Int, exponent *big.Int) (*Packet, error) {
 	// we aren't using BigInteger, so we have to do this manually
 	numBytes := p.G1()
+	// arch-29.7: bounds-check before GData rather than letting a declared
+	// block length longer than what's actually buffered fall through to a
+	// slice-out-of-range panic. RSADec's signature already promises an
+	// error return; honor it instead of only being safe via the caller's
+	// panic recovery (gap-login-wire-1).
+	if int(numBytes) > p.Len() {
+		return nil, fmt.Errorf("rsa block truncated: declared %d, have %d", numBytes, p.Len())
+	}
 	rsax := make([]byte, numBytes)
 	p.GData(rsax, int(numBytes))
 	if len(rsax) == 65 && rsax[0] == 0 {

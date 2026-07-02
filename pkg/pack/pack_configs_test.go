@@ -782,7 +782,10 @@ func TestPackConfigsConfigJagCacheWrite(t *testing.T) {
 	writeFile(t, filepath.Join(srcDir, "pack", "vars.pack"), "")
 	ClearFsCache()
 
-	cache := filestream.New(cacheDir, true, false)
+	cache, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	defer cache.Close()
 
 	reg := &Registry{SrcDir: srcDir}

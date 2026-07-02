@@ -75,7 +75,11 @@ func New(cfg Config, logger *slog.Logger, serv *server.Server, worldConn connhan
 	// can run as a separate process (--target ondemand) without the world module.
 	// CachePath defaults to "./data/pack", matching the world module's flag idiom.
 	if cfg.CachePath != "" {
-		a.cache = filestream.New(cfg.CachePath, false, true)
+		cache, err := filestream.New(cfg.CachePath, false, true)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open cache at %s: %w", cfg.CachePath, err)
+		}
+		a.cache = cache
 	}
 
 	// NOTE: OnDemand server doesn't have any subservices

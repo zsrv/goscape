@@ -80,7 +80,10 @@ func TestPackSound_WritesToCache(t *testing.T) {
 
 	outDir := filepath.Join(tmp, "out")
 	cacheDir := t.TempDir()
-	fs := filestream.New(cacheDir, true, false)
+	fs, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	defer fs.Close()
 
 	if err := PackSound(reg, src, outDir, fs); err != nil {

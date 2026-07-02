@@ -268,7 +268,10 @@ func buildTestCache(t *testing.T, cacheDir string, soundsDatBytes []byte) {
 		t.Fatalf("ReadFile jag: %v", err)
 	}
 
-	fs2 := filestream.New(cacheDir, true, false)
+	fs2, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	if !fs2.Write(0, 8, jagBytes, 0) {
 		t.Fatal("write archive 0/file 8 to cache failed")
 	}

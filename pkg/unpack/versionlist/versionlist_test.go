@@ -28,7 +28,10 @@ func buildVersionlistCache(t *testing.T, cacheDir string, members map[string][]b
 	if err != nil {
 		t.Fatalf("readFile vl: %v", err)
 	}
-	fs2 := filestream.New(cacheDir, true, false)
+	fs2, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	if !fs2.Write(0, 5, vlBytes, 0) {
 		t.Fatal("write versionlist to cache failed")
 	}

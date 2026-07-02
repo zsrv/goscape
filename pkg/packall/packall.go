@@ -79,7 +79,10 @@ func PackAll(srcDir, outDir, dataPackDir, rawDir string) error {
 
 	// TS PackAll.ts:43: const cache = new FileStream('data/pack', true)
 	// createNew=true truncates the cache on every pack (TS parity).
-	cache := filestream.New(outDir, true, false)
+	cache, err := filestream.New(outDir, true, false)
+	if err != nil {
+		return fmt.Errorf("PackAll: open cache: %w", err)
+	}
 	defer cache.Close()
 
 	if err := pack.PackConfigsForPackAll(srcDir, outDir, reg, modelFlags, cache); err != nil {

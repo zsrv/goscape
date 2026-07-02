@@ -19,6 +19,24 @@ type Operation struct {
 	Opcode      uint8
 }
 
+// CheckPacketLength reports whether p already buffers a complete packet for
+// operation o, returning the packet's total size (header + payload) as the
+// second value would suggest — but the first return's meaning is NOT
+// uniform across the false-returning paths, and callers must branch on the
+// bool rather than interpret the int the same way in every case:
+//
+//   - On the two "not enough header yet" paths (dynamic -2/-1 payload sizes
+//     with fewer than 3/2 bytes buffered), the first return is p.Len() —
+//     bytes currently AVAILABLE — because the declared packet size cannot be
+//     computed until the length-prefix bytes themselves arrive.
+//   - On every other path (the length prefix is known, or the size is
+//     static), the first return is the declared packetSize — bytes NEEDED —
+//     regardless of whether that size is fully buffered yet (the bool is what
+//     tells you).
+//
+// Only when the bool is true is the first return guaranteed to equal the
+// packet's full size. Do not compare the int across calls, or diff it
+// against p.Len() again, expecting one consistent semantic.
 func CheckPacketLength(p *packet.Packet, o Operation) (int, bool) {
 	headerSize := 1 // opcode
 	payloadSize := 0

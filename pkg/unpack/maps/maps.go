@@ -181,7 +181,10 @@ func Unpack(opts Options) error {
 	}
 
 	// TS line 10: new FileStream('data/unpack', false, true)  — readOnly=true.
-	cache := filestream.New(opts.CacheDir, false, true)
+	cache, err := filestream.New(opts.CacheDir, false, true)
+	if err != nil {
+		return fmt.Errorf("maps: open cache: %w", err)
+	}
 	defer cache.Close()
 
 	// TS lines 12-15: cache.read(0, 5) → versionlist Jagfile.

@@ -31,7 +31,10 @@ import (
 func Run(cacheDir string, out io.Writer) error {
 	// TS checksum.ts:5: const cache = new FileStream('data/unpack')
 	// ctor signature: (dir, createNew=false, readOnly=false)
-	cache := filestream.New(cacheDir, false, false)
+	cache, err := filestream.New(cacheDir, false, false)
+	if err != nil {
+		return fmt.Errorf("checksum: open cache: %w", err)
+	}
 	defer cache.Close()
 
 	type jagSpec struct {

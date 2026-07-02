@@ -604,7 +604,10 @@ func writeToCacheDir(t *testing.T, cacheDir string, archive, file int, data []by
 	if gzipCompress {
 		payload = gzipBytes(t, data)
 	}
-	fs := filestream.New(cacheDir, false, false)
+	fs, err := filestream.New(cacheDir, false, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	defer fs.Close()
 	if ok := fs.Write(archive, file, payload, 0); !ok {
 		t.Fatalf("Write(%d, %d) failed", archive, file)

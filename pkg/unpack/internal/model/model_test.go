@@ -517,8 +517,8 @@ func TestRealCacheSmoke(t *testing.T) {
 	}
 
 	packDir := dir + "/data/pack"
-	fs := filestream.New(packDir, false, true)
-	require.NotNil(t, fs, "filestream must open")
+	fs, err := filestream.New(packDir, false, true)
+	require.NoError(t, err, "filestream must open")
 
 	count := fs.Count(1)
 	assert.Greater(t, count, 3000, "expected >3000 models in archive 1")

@@ -197,7 +197,9 @@ func worldServiceFns(
 func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToWaitFor func() []services.Service) services.Service {
 	startingBody := func(ctx context.Context) error {
 		cachePath := serv.cfg.CachePath
-		cache.MakeCRCs(cachePath)
+		if err := cache.MakeCRCs(cachePath); err != nil {
+			return fmt.Errorf("crc table: %w", err)
+		}
 		// arch-29.3: WorldStartup/WorldConnect are idempotent registration
 		// calls (the former also clears stale account_login.logged_in rows
 		// from an ungraceful shutdown). Retry them in the background on

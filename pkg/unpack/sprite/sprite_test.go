@@ -68,7 +68,8 @@ func writeCacheJag(t *testing.T, jag *jagfile.Jagfile, archive, file int) string
 func writeCacheRaw(t *testing.T, rawData []byte, archive, file int) string {
 	t.Helper()
 	cacheDir := t.TempDir()
-	fs := filestream.New(cacheDir, true, false)
+	fs, err := filestream.New(cacheDir, true, false)
+	require.NoError(t, err)
 	defer fs.Close()
 	ok := fs.Write(archive, file, rawData, 0)
 	require.True(t, ok, "filestream.Write must succeed")

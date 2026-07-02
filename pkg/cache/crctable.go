@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"sync/atomic"
@@ -97,13 +98,22 @@ func CRC() *CRCSnapshot {
 // filestream.New creates missing cache files when cachePath does not exist
 // yet; an empty cache yields count=0 → 36 zero CRC bytes + the rolling hash
 // of an all-zero table (1234<<9) + empty table.
-func MakeCRCs(cachePath string) {
+//
+// arch-29.7: MakeCRCs now returns an error instead of letting a failing
+// filestream.New panic through it. Callers: world.go's startingBody fails
+// boot cleanly on error (no cache to build CRCs from means no login is ever
+// possible, so refusing to start is correct); reload.go logs the error and
+// keeps serving the previous snapshot rather than crash the running world.
+func MakeCRCs(cachePath string) error {
 	// Open FileStream read-only; New creates empty dat/idx if missing.
 	// TS: OnDemand.cache is a FileStream opened once at server start;
 	// Go opens a short-lived view here so MakeCRCs stays self-contained
 	// and does not require a shared FileStream reference in the package.
 	// readOnly=true avoids O_RDWR on files the packer may be writing.
-	fs := filestream.New(cachePath, false, true)
+	fs, err := filestream.New(cachePath, false, true)
+	if err != nil {
+		return fmt.Errorf("crctable: open cache at %s: %w", cachePath, err)
+	}
 	defer fs.Close() //nolint:errcheck // Close on read-only cache; errors are non-fatal.
 
 	count := fs.Count(0)
@@ -155,6 +165,7 @@ func MakeCRCs(cachePath string) {
 		Bytes: append([]byte(nil), wire[:]...),
 		Table: table,
 	})
+	return nil
 }
 
 // loadCrc returns the CRC for a packed-client archive file, or 0 if the

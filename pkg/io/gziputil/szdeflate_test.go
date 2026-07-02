@@ -44,7 +44,10 @@ func TestCompressSZGz_OrigCorpus(t *testing.T) {
 		t.Skipf("original cache absent (%s); skipping corpus check", dir)
 	}
 
-	fs := filestream.New(dir, false, true)
+	fs, err := filestream.New(dir, false, true)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	defer fs.Close()
 
 	total, ok, fail := 0, 0, 0

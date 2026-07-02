@@ -106,7 +106,10 @@ func Unpack(opts Options) error {
 	}
 
 	// TS line 215: new FileStream('data/unpack') — createNew=false, readOnly=false.
-	cache := filestream.New(opts.CacheDir, false, false)
+	cache, err := filestream.New(opts.CacheDir, false, false)
+	if err != nil {
+		return fmt.Errorf("sound: open cache: %w", err)
+	}
 	defer cache.Close()
 
 	// TS line 216: cache.read(0, 8) — archive 0, file 8, decompress=false.

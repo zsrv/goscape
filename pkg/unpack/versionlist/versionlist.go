@@ -28,7 +28,10 @@ import (
 // constructor), reads archive 0 / file 5, and returns the parsed Jagfile.
 // TS: new FileStream('data/unpack') — createNew=false, readOnly=false.
 func openVersionlist(cacheDir string) (*filestream.FileStream, *jagfile.Jagfile, error) {
-	cache := filestream.New(cacheDir, false, false)
+	cache, err := filestream.New(cacheDir, false, false)
+	if err != nil {
+		return nil, nil, fmt.Errorf("open cache: %w", err)
+	}
 	data := cache.Read(0, 5, false)
 	if data == nil {
 		cache.Close()

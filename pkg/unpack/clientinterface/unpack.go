@@ -52,7 +52,10 @@ func Unpack(opts Options) error {
 	}
 
 	// TS line 859: const cache = new FileStream('data/unpack')
-	cache := filestream.New(opts.CacheDir, false, false)
+	cache, err := filestream.New(opts.CacheDir, false, false)
+	if err != nil {
+		return fmt.Errorf("clientinterface: open cache: %w", err)
+	}
 	defer cache.Close()
 
 	// TS line 860: const interfaceData = cache.read(0, 3)

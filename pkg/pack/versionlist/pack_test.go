@@ -29,7 +29,10 @@ import (
 //     MapPack.max=1
 func buildCache(t *testing.T, cacheDir string) *filestream.FileStream {
 	t.Helper()
-	fs := filestream.New(cacheDir, true, false)
+	fs, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 
 	// archive 1, file 0: 3 payload bytes + 2-byte version trailer.
 	fs.Write(1, 0, []byte{0x01, 0x02, 0x03, 0x00, 0x01}, 0)
@@ -242,7 +245,10 @@ func TestPack_CRCExcludesTrailer(t *testing.T) {
 	// Custom cache: single model with distinct payload.
 	fullData := []byte{0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x05} // 4 payload + 2 trailer
 
-	fs := filestream.New(cacheDir, true, false)
+	fs, err := filestream.New(cacheDir, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New: %v", err)
+	}
 	defer fs.Close()
 	fs.Write(1, 0, fullData, 0) // write WITHOUT version appended (already in fullData)
 	// Write dummy entries for other archives so the jag build succeeds.

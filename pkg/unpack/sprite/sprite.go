@@ -47,7 +47,10 @@ type Options struct {
 //	    Pix.unpackFull(media, path.basename(name, path.extname(name)), `${BUILD_SRC_DIR}/sprites`);
 //	}
 func Media(opts Options) error {
-	cache := filestream.New(opts.CacheDir, false, true)
+	cache, err := filestream.New(opts.CacheDir, false, true)
+	if err != nil {
+		return fmt.Errorf("sprite: Media: open cache: %w", err)
+	}
 	defer cache.Close()
 
 	// TS media.ts:11 — cache.read(0, 4)
@@ -100,7 +103,10 @@ func Media(opts Options) error {
 // TexturePack.getById reads pack/texture.pack to map id → name (e.g. 0 → "door").
 // The overrideName controls the output file stem; the jag lookup key is id.toString().
 func Textures(opts Options) error {
-	cache := filestream.New(opts.CacheDir, false, true)
+	cache, err := filestream.New(opts.CacheDir, false, true)
+	if err != nil {
+		return fmt.Errorf("sprite: Textures: open cache: %w", err)
+	}
 	defer cache.Close()
 
 	// TS textures.ts:11 — cache.read(0, 6)
@@ -157,7 +163,10 @@ func Textures(opts Options) error {
 //	const titleImages = ['logo', 'runes', 'titlebox', 'titlebutton'];
 //	for (const name of titleImages) { Pix.unpackFull(title, name, `${BUILD_SRC_DIR}/title`); }
 func Title(opts Options) error {
-	cache := filestream.New(opts.CacheDir, false, true)
+	cache, err := filestream.New(opts.CacheDir, false, true)
+	if err != nil {
+		return fmt.Errorf("sprite: Title: open cache: %w", err)
+	}
 	defer cache.Close()
 
 	// TS title.ts:10 — cache.read(0, 1)

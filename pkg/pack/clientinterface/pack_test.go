@@ -347,7 +347,10 @@ func TestPack_RepackWritesArchiveIntoTruncatedCache(t *testing.T) {
 
 	// First PackAll run: fresh (empty) cache, then pack.
 	pack.ClearFsCache()
-	cache1 := filestream.New(out, true, false)
+	cache1, err := filestream.New(out, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New cache1: %v", err)
+	}
 	if err := Pack(reg, src, out, nil, cache1); err != nil {
 		t.Fatalf("first Pack: %v", err)
 	}
@@ -361,7 +364,10 @@ func TestPack_RepackWritesArchiveIntoTruncatedCache(t *testing.T) {
 	// Second PackAll run: createNew=true truncates the cache (so (0,3) is gone),
 	// but out/client/interface already exists and is fresh.
 	pack.ClearFsCache()
-	cache2 := filestream.New(out, true, false)
+	cache2, err := filestream.New(out, true, false)
+	if err != nil {
+		t.Fatalf("filestream.New cache2: %v", err)
+	}
 	defer cache2.Close()
 	if cache2.Has(0, 3) {
 		t.Fatalf("precondition failed: createNew=true should have truncated (0,3)")
