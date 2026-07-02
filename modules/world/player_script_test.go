@@ -149,7 +149,7 @@ func TestAddXPLevelUpUnbuffedAdvancesLevels(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
-	p.levels[objtype.PlayerStatAttack] = 2  // un-buffed
+	p.levels[objtype.PlayerStatAttack] = 2         // un-buffed
 	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → 1800, crosses 1740 = level 3
 	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
 		t.Errorf("baseLevels: got %d, want 3", p.baseLevels[objtype.PlayerStatAttack])
@@ -164,7 +164,7 @@ func TestAddXPLevelUpWhileDrained(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
-	p.levels[objtype.PlayerStatAttack] = 1  // drained below base
+	p.levels[objtype.PlayerStatAttack] = 1         // drained below base
 	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → level 3
 	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
 		t.Errorf("baseLevels: got %d, want 3", p.baseLevels[objtype.PlayerStatAttack])
@@ -181,7 +181,7 @@ func TestAddXPMultiLevelUpUnbuffed(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.stats[objtype.PlayerStatAttack] = 0
 	p.baseLevels[objtype.PlayerStatAttack] = 1
-	p.levels[objtype.PlayerStatAttack] = 1   // un-buffed
+	p.levels[objtype.PlayerStatAttack] = 1          // un-buffed
 	p.AddXP(objtype.PlayerStatAttack, 11540, false) // GetExpByLevel(10)
 	if p.baseLevels[objtype.PlayerStatAttack] != 10 {
 		t.Errorf("baseLevels: got %d, want 10", p.baseLevels[objtype.PlayerStatAttack])
@@ -234,7 +234,7 @@ func TestAddXPBuffedLevelUpPreservesBuff(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
-	p.levels[objtype.PlayerStatAttack] = 5  // buffed by +3
+	p.levels[objtype.PlayerStatAttack] = 5         // buffed by +3
 	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → level 3
 	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
 		t.Errorf("baseLevels: got %d, want 3", p.baseLevels[objtype.PlayerStatAttack])
