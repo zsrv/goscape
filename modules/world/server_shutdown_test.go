@@ -56,7 +56,7 @@ func newChattyShutdownTestServer(t *testing.T) *Server {
 // arch-28.4c: a client that keeps sending must not wedge Shutdown — the
 // live-conn registry closes it. Pre-fix: the read deadline re-arms on
 // every read, so a connection that never stops talking never errors out
-// on its own, and tcpWg.Wait blocks until the test's 10s guard fires.
+// on its own, and tcpWg.Wait blocks until the test's 2s bound fires.
 func TestShutdownClosesChattyConn(t *testing.T) {
 	s := newChattyShutdownTestServer(t)
 
@@ -77,15 +77,26 @@ func TestShutdownClosesChattyConn(t *testing.T) {
 	// Shutdown could race the accept and this test would pass vacuously
 	// regardless of the fix.
 	//
-	// The write itself is an OpReqInitGameConnection (16) header
-	// declaring a 200-byte payload without supplying it: handleLogin's
-	// CheckPacketLength sees an incomplete packet and returns
-	// ErrPayloadTooSmall, which handleTCPConn's read loop treats as a
-	// no-op continue (unlike every other opcode/error in ClientStateLogin,
-	// which closes the connection) — safe to repeat indefinitely without
-	// tripping a close of our own.
-	partialInit := []byte{16, 200}
-	if _, err := conn.Write(partialInit); err != nil {
+	// Chatty-payload design — must stay incomplete FOREVER, not just per
+	// write: bufferData APPENDS every received chunk to c.in, and
+	// ClientStateLogin never consumes an incomplete packet
+	// (CheckPacketLength → ErrPayloadTooSmall → continue), so repeated
+	// bytes ACCUMULATE toward packet completion. A resent 2-byte header
+	// {16, 200} would complete a 202-byte packet after ~101 sends (~5s at
+	// 50ms), whereupon UnmarshalHeader parses garbage, the revision check
+	// fails, and the conn self-closes via sendLoginError — masking a
+	// reverted closeLiveConns (the original vacuous shape this test was
+	// rewritten to eliminate). Instead: one OpReqInitGameConnection (16)
+	// header declaring the maximum payload a -1-size login op can carry
+	// (255, one-byte length prefix → full packet = 1 opcode + 1 length +
+	// 255 payload = 257 bytes), then drip ONE filler byte per 50ms.
+	// Arithmetic: 20 bytes/sec; even over the whole 2s Shutdown bound the
+	// buffer holds 2 + ~40 = ~42 of 257 bytes — completion would need
+	// ~12.75s, >6x the assertion window (and >2.5x the old 10s guard), so
+	// no parse, no self-close, and each drip re-arms the 200ms read
+	// deadline, keeping the conn alive until closeLiveConns kills it.
+	maxHeader := []byte{16, 255}
+	if _, err := conn.Write(maxHeader); err != nil {
 		t.Fatalf("initial write: %v", err)
 	}
 	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
@@ -97,13 +108,14 @@ func TestShutdownClosesChattyConn(t *testing.T) {
 	}
 
 	stop := make(chan struct{})
-	go func() { // chatty client: keeps sending, re-arming the read deadline
+	go func() { // chatty client: drips filler, re-arming the read deadline
+		filler := []byte{0}
 		for {
 			select {
 			case <-stop:
 				return
 			case <-time.After(50 * time.Millisecond):
-				if _, err := conn.Write(partialInit); err != nil {
+				if _, err := conn.Write(filler); err != nil {
 					return
 				}
 			}
@@ -111,11 +123,15 @@ func TestShutdownClosesChattyConn(t *testing.T) {
 	}()
 	defer close(stop)
 
+	// 2s bound: tight enough that any self-close path slower than the drip
+	// cadence (packet completion needs ~12.75s; the 200ms read deadline
+	// never fires while the drip continues) cannot fake a pass — only
+	// closeLiveConns actually closing the conn lets Shutdown return here.
 	done := make(chan struct{})
 	go func() { defer close(done); s.Shutdown() }()
 	select {
 	case <-done:
-	case <-time.After(10 * time.Second):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Shutdown wedged on a chatty connection")
 	}
 }
