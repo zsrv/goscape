@@ -321,6 +321,26 @@ type Server struct {
 	// it to keep retry tests fast.
 	bridgeRetryDelay time.Duration
 
+	// bridgeWg tracks the retryBridgeRegistration goroutines so Shutdown
+	// can join them after bridgesCancel — arch-29.3 fix wave: Shutdown
+	// must never return with a registration retrier still live.
+	bridgeWg sync.WaitGroup
+
+	// worldStartupDone gates the PlayerLogin dispatch (callPlayerLoginRPC)
+	// until the WorldStartup registration RPC has succeeded — arch-29.3
+	// fix wave. WorldStartup performs a blanket
+	// `UPDATE account_login SET logged_in=0 WHERE node_id=? AND profile=?`,
+	// so admitting a login while the background registration retry is
+	// still pending would let the eventually-successful retry wipe that
+	// LIVE session's logged_in flag and falsify the duplicate-login guard.
+	// Because the gate only opens inside the same RPC that performs the
+	// wipe (worldStartupCall), any login admitted after it opens strictly
+	// postdates the wipe — restoring the TS ordering guarantee (the TS
+	// login queue processes the reset before any login). Standalone worlds
+	// (no login client) have no registration to wait for; initLoginGate
+	// opens the gate immediately for them.
+	worldStartupDone atomic.Bool
+
 	// sessionLogs is the per-tick session-log accumulator. NAI-74. Pushed by
 	// Player.AddSessionLog; flushed via processSessionLogs in the tick loop.
 	//
@@ -512,6 +532,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// arch-29.3: default retry pause for retryBridgeRegistration; tests
 	// override to keep retry loops fast.
 	s.bridgeRetryDelay = 5 * time.Second
+	s.initLoginGate(loginClient)
 	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.bridgesCtx, logger.With("component", compFriends))
 	s.friendsDispatcher = newEmitFriendsDispatcher(s, logger.With("component", compFriends))
 	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, cfg.NodeProfile, logger.With("component", compFriends))
@@ -945,6 +966,9 @@ func (s *Server) Shutdown() {
 	if s.bridgesCancel != nil {
 		s.bridgesCancel()
 	}
+	// arch-29.3 fix wave: join the registration retriers (retryBridgeRegistration)
+	// so Shutdown never returns with live goroutines.
+	s.bridgeWg.Wait()
 	s.log.Debug("player saves flushed")
 }
 
@@ -1497,6 +1521,22 @@ func (c *client) handleLogin() error {
 // on RPC error so the caller can fail-fast via sendLoginError. Extracted from
 // handleLogin to enable unit testing with a stubbed LoginClient.
 func (c *client) callPlayerLoginRPC(req *loginpb.PlayerLoginRequest, safeName string) (byte, error) {
+	// arch-29.3 fix wave (reviewer Critical): reject logins until the
+	// WorldStartup registration has succeeded. WorldStartup blanket-clears
+	// logged_in for this node+profile; a login admitted while the
+	// background registration retry is still pending would have its LIVE
+	// session's flag wiped by the eventually-successful retry, falsifying
+	// the duplicate-login guard. A not-yet-registered world and a down
+	// login server are operationally the same, so reuse the identical
+	// offline reject (opcode 8). This also makes the steady-state variant
+	// unreachable: the gate only opens after the wipe (worldStartupCall),
+	// and the retry loop exits on first success.
+	if !c.server.worldStartupDone.Load() {
+		err := errors.New("world startup registration pending; rejecting login")
+		c.log.Warn("PlayerLogin rejected: WorldStartup registration still pending",
+			slog.String("username", safeName))
+		return loginresp.OpLoginServerOffline.Opcode, err
+	}
 	// CTX-1: bound the login RPC by Server.bridgesCtx + bridgeCallTimeout so
 	// Shutdown cancels in-flight calls promptly and a hung login server
 	// doesn't deadlock the per-connection goroutine. Mirrors the pattern
@@ -1819,7 +1859,7 @@ func (s *Server) sendPlayerLogoutWithRetry(username string, save []byte) {
 // forever in the background (rather than blocking boot or giving up after
 // one Warn-and-swallow attempt) is safe and closes that gap.
 func (s *Server) retryBridgeRegistration(name string, call func(context.Context) error) {
-	go func() {
+	s.bridgeWg.Go(func() {
 		for {
 			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
 			err := call(ctx)
@@ -1838,7 +1878,37 @@ func (s *Server) retryBridgeRegistration(name string, call func(context.Context)
 				return
 			}
 		}
-	}()
+	})
+}
+
+// initLoginGate seeds the worldStartupDone login gate (arch-29.3 fix
+// wave). A standalone world (nil login client) has no WorldStartup
+// registration to wait for — there is no login server whose stale
+// logged_in rows could be wiped — so its gate starts open. With a login
+// client configured, the gate stays closed until worldStartupCall's first
+// success. Split out of NewServer so the nil/non-nil branch is unit
+// testable without NewServer's listener + cache dependencies.
+func (s *Server) initLoginGate(loginClient LoginClient) {
+	if loginClient == nil {
+		s.worldStartupDone.Store(true)
+	}
+}
+
+// worldStartupCall returns the retryBridgeRegistration call for the login
+// WorldStartup registration. On the first success it opens the login gate
+// (worldStartupDone) — arch-29.3 fix wave: the gate must open strictly
+// AFTER the blanket logged_in wipe inside the WorldStartup RPC, so every
+// admitted login postdates the wipe and the retry can never erase a live
+// session's flag. The retry loop exits on that same success, which also
+// makes the steady-state variant of the race unreachable.
+func (s *Server) worldStartupCall(lc LoginClient) func(context.Context) error {
+	return func(ctx context.Context) error {
+		if err := lc.WorldStartup(ctx, int32(s.cfg.NodeID), s.cfg.NodeProfile); err != nil {
+			return err
+		}
+		s.worldStartupDone.Store(true)
+		return nil
+	}
 }
 
 // removePlayerOnTick handles graceful logout from the tick goroutine.

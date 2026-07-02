@@ -205,10 +205,11 @@ func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToW
 		// startingFn ctx — a failed attempt at boot (e.g. login mid-restart)
 		// must not strand crashed-out players at ALREADY_LOGGED_IN, nor
 		// block boot on the ~20s gRPC min-connect timeout.
+		// worldStartupCall opens the login gate (worldStartupDone) on its
+		// first success, so logins stay rejected until the logged_in wipe
+		// inside WorldStartup has actually happened (arch-29.3 fix wave).
 		if lc != nil {
-			serv.retryBridgeRegistration("login WorldStartup", func(ctx context.Context) error {
-				return lc.WorldStartup(ctx, int32(serv.cfg.NodeID), serv.cfg.NodeProfile)
-			})
+			serv.retryBridgeRegistration("login WorldStartup", serv.worldStartupCall(lc))
 		}
 		if fc != nil {
 			serv.retryBridgeRegistration("friends WorldConnect", func(ctx context.Context) error {
