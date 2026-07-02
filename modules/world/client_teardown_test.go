@@ -53,8 +53,8 @@ type errWriteConn struct {
 	closed atomic.Bool
 }
 
-func (c *errWriteConn) Write([]byte) (int, error) { return 0, errors.New("stalled peer") }
-func (c *errWriteConn) Close() error              { c.closed.Store(true); return c.Conn.Close() }
+func (c *errWriteConn) Write([]byte) (int, error)      { return 0, errors.New("stalled peer") }
+func (c *errWriteConn) Close() error                   { c.closed.Store(true); return c.Conn.Close() }
 func (*errWriteConn) SetWriteDeadline(time.Time) error { return nil }
 
 func TestFlushWriteOrCloseClosesOnError(t *testing.T) {
