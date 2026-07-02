@@ -171,8 +171,8 @@ func TestPackInvConfigs_ProtectTrueDoesNotEmit(t *testing.T) {
 // (restored from 225, superseding the 244 dense push list): stock3=... alone
 // (no stock1/2) packs THREE entries — slots 1/2 emit 0xffff,0,0 filler rows.
 // TS source: tools/pack/config/InvConfig.ts:125-134 (stock[index] = value) +
-//            tools/pack/config/InvConfig.ts:162-184 (filler branch p2(-1),
-//            p2(0), p4(0) for undefined holes) @ 2e3bcf43.
+// tools/pack/config/InvConfig.ts:162-184 (filler branch p2(-1), p2(0), p4(0)
+// for undefined holes) @ 2e3bcf43.
 // Real-content witness: adventurershop (ardougne_east.inv) skips stock2.
 func TestPackInvConfigs_StockSparse_GapEmitsFillers(t *testing.T) {
 	pf := newTestPF("inv", map[int]string{0: "shop"})
@@ -248,7 +248,7 @@ func TestPackInvConfigs_StockSparse_BoundsCheck(t *testing.T) {
 // stock entries emit in slot-index order regardless of declaration order
 // (the 244 dense list used file-scan order).
 // TS source: tools/pack/config/InvConfig.ts:125 (stock[index] = value) +
-//            :166 (emit loop walks indices 0..length) @ 2e3bcf43.
+// :166 (emit loop walks indices 0..length) @ 2e3bcf43.
 func TestPackInvConfigs_StockSparse_IndexOrder(t *testing.T) {
 	pf := newTestPF("inv", map[int]string{0: "i"})
 	cfgs := map[string][]ConfigLine{

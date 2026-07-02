@@ -97,8 +97,10 @@ func TestAnimIndex_NilOut(t *testing.T) {
 // are rendered correctly and absent entries emit "undefined".
 // TestMidiIndex_IgnoresRegistry verifies that under 274 suspendAutoReload the
 // MidiPack singleton is constructed empty (TS PackFile.ts:276 @dee467c8), so a
-// midi.pack on disk is NOT consulted and every line carries the empty name field
-// — TS console.log(i, '', prefetch) renders "<i>  <prefetch>" (double space).
+// midi.pack on disk is NOT consulted and every line carries the empty name
+// field, rendering "<i>  <prefetch>" (double space) — TS:
+//
+//	console.log(i, '', prefetch)
 func TestMidiIndex_IgnoresRegistry(t *testing.T) {
 	// midi_index: 3 entries with prefetch bytes [0, 1, 0].
 	midiIndexBytes := []byte{0, 1, 0}

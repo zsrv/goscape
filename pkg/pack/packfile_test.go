@@ -264,14 +264,15 @@ func TestPackFileGetByIDMissingReturnsEmpty(t *testing.T) {
 // BUILD_VERIFY check behind `if (transmitted)`. The check now runs for ALL
 // config packs.
 //
-// TS diff e1dea19f..9aadcec4 -- tools/pack/PackFile.ts:
+// TS diff e1dea19f..9aadcec4 -- tools/pack/PackFile.ts (the | gutter keeps
+// the -/+ diff markers out of gofmt's doc-comment list detection):
 //
-//	-    if (transmitted) {
-//	-        for (const name of pack.names) {
-//	-            if (Environment.BUILD_VERIFY && !configNames.has(name) ...
-//	-    }
-//	+    for (const name of pack.names) {
-//	+        if (Environment.BUILD_VERIFY && !configNames.has(name) ...
+//	| -    if (transmitted) {
+//	| -        for (const name of pack.names) {
+//	| -            if (Environment.BUILD_VERIFY && !configNames.has(name) ...
+//	| -    }
+//	| +    for (const name of pack.names) {
+//	| +        if (Environment.BUILD_VERIFY && !configNames.has(name) ...
 //
 // In Go, BUILD_VERIFY is not an env-var gate — the check is always-on
 // (consistent with Go dropping env-var gates in favour of structural enforcement).

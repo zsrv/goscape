@@ -348,8 +348,8 @@ func parseTone(buf *packet.Packet) error {
 //   - phase 1: for direction 0,1: pairs[direction] × (g2 freq, g2 range).
 //   - phase 2: for direction 0,1, pair 0..pairs[direction]-1: if
 //     (migration & ((1<<(direction*4))<<pair)) != 0 → g2 freq + g2 range.
-//   - if migration != 0 || unities[1] != unities[0] → unpackShape (g1 length
-//     + length × (g2 shapeDelta, g2 shapePeak)).
+//   - if migration != 0 || unities[1] != unities[0] → unpackShape (g1 length +
+//     length × (g2 shapeDelta, g2 shapePeak)).
 func parseFilter(buf *packet.Packet) {
 	count := int(buf.G1())
 	if count == 0 {

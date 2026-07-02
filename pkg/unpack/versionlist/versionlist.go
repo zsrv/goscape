@@ -108,9 +108,13 @@ func AnimIndex(cacheDir string, out io.Writer) error {
 //	console.log(i, MidiPack.getById(i), prefetch)
 //
 // JS console.log with three args joins them with a space: "<i> <name> <prefetch>".
-// At 274 (suspendAutoReload) MidiPack is empty, so getById(i) returns the empty
-// string '' (not undefined) — console.log renders it as nothing, producing a
-// double space "<i>  <prefetch>" (e.g. "0  0"). Go mirrors the empty-name path
+// At 274 (suspendAutoReload) MidiPack is empty, so getById(i) returns the JS
+// empty string (not undefined):
+//
+//	''
+//
+// console.log renders it as nothing, producing a double space
+// "<i>  <prefetch>" (e.g. "0  0"). Go mirrors the empty-name path
 // directly (see the inline note at the emit site below).
 //
 // srcDir is the content tree root (BUILD_SRC_DIR in TS); the MidiPack
