@@ -396,6 +396,15 @@ type Server struct {
 	// same posture client-side).
 	relayActionQueue chan func()
 
+	// removalQueue/removalMu back enqueueRemoval/drainRemovals: an
+	// unbounded, guaranteed-delivery queue for lifecycle-critical
+	// closures (player removal on disconnect). Unlike
+	// relayActionQueue this never drops — a dropped removal ghosts a
+	// player in-world for the 100-tick no-response timeout while the
+	// tick keeps writing into a dead connection's buffers (arch-28.4a).
+	removalQueue []func()
+	removalMu    sync.Mutex
+
 	// cycleStats/lastCycleStats mirror TS World.cycleStats /
 	// lastCycleStats (Uint16Array(12), World.ts — both pins; the surface
 	// is new to goscape at rev-244 B4, closing a pre-existing 225-era
@@ -1694,7 +1703,7 @@ func (s *Server) removePlayerOnTick(p *Player) {
 	// the order here — fire BEFORE removePlayerInternal so p.session, p.x,
 	// p.z are still set when AddSessionLog snapshots them. The graceful and
 	// disconnect paths both funnel through this function (the disconnect
-	// path enqueues this on the relay queue), so the log emits once per
+	// path enqueues this on the removal queue), so the log emits once per
 	// logout regardless of how the player left.
 	p.AddSessionLog(LoggerEventTypeModerator, "Logged out")
 	s.removePlayerInternal(p)
@@ -1703,9 +1712,12 @@ func (s *Server) removePlayerOnTick(p *Player) {
 // removePlayerOnDisconnect handles an ungraceful socket close from the
 // per-conn goroutine. It cannot call p.Save() here (that reads player state
 // the tick goroutine concurrently mutates — a data race), so it defers the
-// whole removal to the tick by enqueuing removePlayerOnTick on the
-// relayActionQueue (drained at the top of the tick loop). removePlayerOnTick
-// runs on-tick, so p.Save() is safe and the player IS saved — matching TS,
+// whole removal to the tick by enqueuing removePlayerOnTick on the removal
+// queue; guaranteed, non-lossy (drained at the top of the tick loop, before
+// the lossy relay queue — arch-28.4a: a dropped removal here ghosts the
+// player in-world for the 100-tick no-response timeout while the tick keeps
+// writing into a dead connection's buffers). removePlayerOnTick runs
+// on-tick, so p.Save() is safe and the player IS saved — matching TS,
 // which keeps a dropped player in-world and saves them via the idle-logout
 // (the earlier "PlayerForceLogout, no save" path lost all progress since the
 // last 15-minute autosave, and its "TS has the same window" note was wrong).
@@ -1713,7 +1725,7 @@ func (s *Server) removePlayerOnTick(p *Player) {
 // removePlayerInternal is idempotent (slot-identity guard), so this is safe
 // even if the tick's own no-connection idle-logout fires for the same player.
 func (s *Server) removePlayerOnDisconnect(p *Player) {
-	s.enqueueRelayAction(func() {
+	s.enqueueRemoval(func() {
 		s.removePlayerOnTick(p)
 	})
 }
