@@ -13,11 +13,26 @@ import (
 	"github.com/zsrv/goscape/pkg/friendspb"
 )
 
+// defaultGracefulStopBound caps how long shutdown waits for GracefulStop
+// before forcing a hard Stop (arch-29.4). Friends.running closes every
+// registered subscriber's done channel (via subscriptions.closeAll /
+// worldSubscriptions.closeAll) before calling shutdown, so in the normal
+// case GracefulStop finishes almost immediately. This bound exists only
+// for stragglers the registries could not reach — e.g. a Subscribe that
+// lands in the narrow race between closeAll running and GracefulStop
+// actually closing the listener. Stop() cuts that straggler's connection,
+// which drives its handler's stream ctx.Done() branch to return.
+const defaultGracefulStopBound = 5 * time.Second
+
 // grpcServer wraps a *grpc.Server registered with the friends handler.
 // Sibling to modules/login/server.go.
 type grpcServer struct {
 	server *grpc.Server
 	log    *slog.Logger
+	// grace bounds shutdown's wait on GracefulStop. Set to
+	// defaultGracefulStopBound in production; tests may override it to
+	// keep the forced-Stop path fast.
+	grace time.Duration
 }
 
 func newGRPCServer(cfg Config, repos *repositories, subs *subscriptions, worldSubs *worldSubscriptions, log *slog.Logger) *grpcServer {
@@ -37,7 +52,7 @@ func newGRPCServer(cfg Config, repos *repositories, subs *subscriptions, worldSu
 		log:       log,
 	})
 	reflection.Register(s)
-	return &grpcServer{server: s, log: log}
+	return &grpcServer{server: s, log: log, grace: defaultGracefulStopBound}
 }
 
 // listen binds the TCP port and returns the listener. Called during
@@ -57,7 +72,22 @@ func (s *grpcServer) serve(lis net.Listener) error {
 	return s.server.Serve(lis)
 }
 
-// shutdown triggers a graceful stop of the gRPC server.
+// shutdown drains gracefully but never hangs: the registries' closeAll
+// (called by Friends.running before shutdown) releases every stream a
+// client isn't actively ending, so GracefulStop normally returns almost
+// immediately; anything still open once the grace window elapses is cut
+// with a hard Stop (arch-29.4).
 func (s *grpcServer) shutdown() {
-	s.server.GracefulStop()
+	done := make(chan struct{})
+	go func() {
+		s.server.GracefulStop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(s.grace):
+		s.log.Warn("GracefulStop grace window elapsed; forcing Stop")
+		s.server.Stop()
+		<-done
+	}
 }
