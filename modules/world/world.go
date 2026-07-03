@@ -198,6 +198,19 @@ func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToW
 	startingBody := func(ctx context.Context) error {
 		cachePath := serv.cfg.CachePath
 		cache.MakeCRCs(cachePath)
+		// arch-29.13: start the single friends-mutation dispatcher worker
+		// here, alongside the other bridge goroutine spawns below (this
+		// branch predates arch-29.8's acquisition-in-starting convention
+		// for the world-events subscriber, which still starts directly
+		// from NewServer — see server.go — so there is no sibling
+		// startWorldEventsSubscriber() call to place this next to).
+		// Folded into bridgeWg (Go 1.25's WaitGroup.Go, same pattern as
+		// retryBridgeRegistration below) so Shutdown's existing
+		// bridgeWg.Wait() call (after bridgesCancel) joins this worker
+		// too — no separate Wait needed.
+		serv.bridgeWg.Go(func() {
+			serv.friendsMutationDispatcher.run(serv.bridgesCtx)
+		})
 		// arch-29.3: WorldStartup/WorldConnect are idempotent registration
 		// calls (the former also clears stale account_login.logged_in rows
 		// from an ungraceful shutdown). Retry them in the background on
