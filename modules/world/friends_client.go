@@ -75,6 +75,7 @@ type grpcFriendsClient struct {
 func NewFriendsClient(addr string, log *slog.Logger) (FriendsClient, error) {
 	conn, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		worldClientKeepalive(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("grpc dial friends server: %w", err)

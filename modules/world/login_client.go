@@ -37,6 +37,7 @@ type grpcLoginClient struct {
 func NewLoginClient(addr string, log *slog.Logger) (LoginClient, error) {
 	conn, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		worldClientKeepalive(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("grpc dial login server: %w", err)
