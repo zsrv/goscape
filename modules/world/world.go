@@ -221,6 +221,15 @@ func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToW
 				return fc.WorldConnect(ctx, int32(serv.cfg.NodeID), serv.cfg.NodeProfile)
 			})
 		}
+		// arch-29.13: start the single friends-mutation dispatcher worker
+		// here too, alongside the other bridge/registration spawns above
+		// (same acquisition-in-starting rationale). Folded into bridgeWg
+		// (Go 1.25's WaitGroup.Go, same pattern as retryBridgeRegistration)
+		// so Shutdown's existing bridgeWg.Wait() call (after bridgesCancel)
+		// joins this worker too — no separate Wait needed.
+		serv.bridgeWg.Go(func() {
+			serv.friendsMutationDispatcher.run(serv.bridgesCtx)
+		})
 		// NAI-REBUILD-ASYNC: spawn long-lived pack worker + optional
 		// fsnotify watcher when ContentPath is configured. Both exit
 		// when serv.quit closes (via stoppingFn → Shutdown).
