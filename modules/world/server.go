@@ -1560,18 +1560,16 @@ func (s *Server) deviceLoginRateLimitExceeded(uid uint32, remoteAddr string) boo
 	return false
 }
 
-// getTotalPlayers returns the count of live (non-nil) players in the
-// server's player slot table. Lock-free read — matches existing read
-// patterns at npc_hunt.go:116, handler_opnpc.go:17 (playersMu guards
-// writes only).
+// getTotalPlayers returns the count of live players. It reads the
+// playerCount atomic (maintained at the two guarded add/remove sites, so it
+// equals the live slot occupancy) instead of iterating the slot table
+// lock-free: the old iteration raced the tick goroutine's slot writes
+// whenever called off-tick — e.g. the connection-admission check at ~L1286
+// (getTotalPlayers() > NodeMaxConnected) runs on a connection goroutine.
+// Also O(1) and a closer match to TS World.getTotalPlayers
+// (World.ts:1730-1732: return this.players.count).
 func (s *Server) getTotalPlayers() int {
-	n := 0
-	for _, p := range s.players {
-		if p != nil {
-			n++
-		}
-	}
-	return n
+	return int(s.playerCount.Load())
 }
 
 // isUsernameLoggingOut reports whether a player slot is occupied by an

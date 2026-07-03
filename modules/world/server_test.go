@@ -784,6 +784,9 @@ func setPlayerCountForTest(t *testing.T, s *Server, playerCount int) {
 			s.players[i] = nil
 		}
 	}
+	// getTotalPlayers reads the playerCount atomic (not a slot-table scan),
+	// so mirror the seeded occupancy into it.
+	s.playerCount.Store(int32(playerCount))
 }
 
 // TestScaleByPlayerCountFormula pins the TS World.scaleByPlayerCount

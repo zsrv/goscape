@@ -238,6 +238,7 @@ func TestProcessShutdown_AcceleratesTickRateAfterDuration2(t *testing.T) {
 	// the online==0 check, so a zero-player world graceful-exits without
 	// touching tickRate.
 	s.players[1] = &Player{slot: 1}
+	s.playerCount.Store(1) // getTotalPlayers reads the atomic, not a slot scan
 
 	if s.tickRate != defaultTickRate {
 		t.Fatalf("precondition: tickRate=%v, want defaultTickRate (%v)", s.tickRate, defaultTickRate)
