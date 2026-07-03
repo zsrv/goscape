@@ -2,7 +2,7 @@ package routefinder
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 )
@@ -123,7 +123,7 @@ func (rf NaiveRouteFinder) isDiagonal(srcX, srcZ, srcWidth, srcLength, destX, de
 }
 
 func (rf NaiveRouteFinder) cardinalDestination(level, srcX, srcZ int) RouteCoordinates {
-	direction := directions[rand.Intn(len(directions))]
+	direction := directions[rand.IntN(len(directions))]
 	return NewRouteCoordinates(srcX+direction[0], srcZ+direction[1], level)
 }
 

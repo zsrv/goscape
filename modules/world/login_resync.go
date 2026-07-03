@@ -85,7 +85,7 @@ func onReconnect(s *Server, p *Player) {
 	}
 
 	// (h) per-stat UPDATE_STAT for all 21 skills.
-	for i := 0; i < objtype.PlayerStatCount; i++ {
+	for i := range objtype.PlayerStatCount {
 		sendUpdateStat(p, i, int(p.stats[i]), int(p.levels[i]))
 	}
 

@@ -866,7 +866,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 			// NOT filter on PlayerStatEnabled value. STAT18/STAT19 are
 			// reserved/unused so the call has no in-game effect, but
 			// TS-fidelity requires the SetStat invocation.
-			for i := 0; i < objtype.PlayerStatCount; i++ {
+			for i := range objtype.PlayerStatCount {
 				if i == objtype.PlayerStatHitpoints {
 					p.SetStat(i, 10)
 				} else {
@@ -1098,7 +1098,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 			// TS L323-338. Not NP-gated. Fills inventory with 28
 			// random items filtered by NodeMembers + DummyItem + CertTemplate.
 			// Retry-loop matches TS `while (random === -1)`.
-			for i := 0; i < 28; i++ {
+			for range 28 {
 				for {
 					id := rand.IntN(len(p.client.server.objTypes.Configs))
 					obj := p.client.server.objTypes.Configs[id]

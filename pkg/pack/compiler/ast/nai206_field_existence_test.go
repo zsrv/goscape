@@ -13,7 +13,7 @@ import (
 func TestNAI206_DeferredFieldsExist(t *testing.T) {
 	cases := []struct {
 		name      string
-		instance  interface{}
+		instance  any
 		fieldName string
 		wantKind  reflect.Kind
 	}{
