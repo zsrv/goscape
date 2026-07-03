@@ -867,7 +867,10 @@ func (s *Server) Run() error {
 	// TODO: WS support
 	go func() {
 		err := s.serveTCP()
-		if errors.Is(err, net.ErrClosed) { // TODO: verify if this is appropriate - does errclosed only happen when server closes the conn, not client?
+		// net.ErrClosed from Accept only arises when Shutdown closes the
+		// listener (never from a client-side close), so mapping it to nil is
+		// the clean-shutdown path; the accept loop's <-s.quit guard corroborates.
+		if errors.Is(err, net.ErrClosed) {
 			err = nil
 		}
 
@@ -1016,7 +1019,11 @@ func (s *Server) closeLiveConns() {
 }
 
 func (s *Server) serveTCP() error {
-	defer s.tcpListener.Close() // TODO: put somewhere else? is this in the greenplace example?
+	// Shutdown is the primary listener owner (nil-guarded, under the admission
+	// gate); this defer additionally covers a serveTCP accept error that
+	// returns before Shutdown runs. The resulting double-Close is harmless
+	// (the second returns ErrClosed, which callers ignore).
+	defer s.tcpListener.Close()
 	defer s.tcpWg.Done()
 
 	// Accept incoming connections in a loop
@@ -1162,8 +1169,6 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 	buf := getReadBuf64k()
 	defer putReadBuf64k(buf)
 	for {
-		// TODO: https://eli.thegreenplace.net/2020/graceful-shutdown-of-a-tcp-server-in-go/
-
 		// Fix 6: skip the read deadline in debug-socket mode so long-running
 		// bot/integration tests aren't killed by the normal timeout.
 		if !s.cfg.NodeDebugSocket {
@@ -1449,10 +1454,6 @@ func (c *client) handleLogin() error {
 		default:
 			return c.sendLoginError(reply)
 		}
-
-		// TODO: save var from msg
-
-		// TODO: save + reconnecting check
 
 		c.log.Info("login accepted", "safename", safeName, "reply", reply, "reconnecting", reconnecting)
 		return c.sendLoginOK()
