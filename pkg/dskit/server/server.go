@@ -179,6 +179,17 @@ func (s *Server) Shutdown() {
 	_ = s.HTTPServer.Shutdown(ctx)
 }
 
+// Close releases the bound listener without running the server. It exists for
+// the construct-then-abort path: New binds the listener eagerly ("Set up
+// listeners first, so we can fail early"), but Run/Shutdown otherwise own its
+// lifecycle (HTTPServer.Shutdown only closes listeners it is actively
+// serving). A caller that New()s a Server and then fails a later construction
+// step before Run — e.g. modules.go initOnDemand when ondemand.New errors —
+// must Close it to avoid leaking the socket.
+func (s *Server) Close() error {
+	return s.httpListener.Close()
+}
+
 func BuildHTTPMiddleware(cfg Config, logger *slog.Logger) ([]middleware.Interface, error) {
 	sourceIPs, err := middleware.NewSourceIPs(cfg.LogSourceIPsHeader, cfg.LogSourceIPsRegex, cfg.LogSourceIPsFull)
 	if err != nil {
