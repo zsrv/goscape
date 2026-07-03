@@ -124,14 +124,13 @@ type client struct {
 	// tick was still flushing the old player's frames into it
 	// (arch-28.4b).
 	//
-	// The refcount models exactly those two owners (conn + tick). The
-	// OnDemand pump goroutine (onDemand.cycle → clientODAdapter.send) is a
-	// known third bufw writer OUTSIDE this model: a pure-OnDemand
-	// connection (c.player == nil, refcount stays at 1) can have an
-	// in-flight pump send while the conn goroutine's defer pool-returns the
-	// buffers. Pre-existing race (the old code released unconditionally at
-	// the same point); tracked as an arch-28 residual — see PORTING.md
-	// Arc 28.
+	// The refcount models those two owners (conn + tick) plus the OnDemand
+	// pump goroutine (onDemand.cycle → clientODAdapter.send), which
+	// participates transiently: tryRef/dropRef bracket each send instead of
+	// holding a standing ref like conn/tick. This closes the arch-28
+	// residual where a pure-OnDemand connection's in-flight pump send could
+	// race the conn goroutine's defer pool-returning the buffers
+	// (arch-29.1 — see PORTING.md Arc 28).
 	teardownRefs atomic.Int32
 	connRefOnce  sync.Once
 	tickRefOnce  sync.Once
@@ -177,6 +176,23 @@ func (c *client) dropConnRef() { c.connRefOnce.Do(c.dropRef) }
 // Idempotent — safe to call more than once for the same client (the idle-
 // logout and disconnect paths can both land on the same player).
 func (c *client) dropTickRef() { c.tickRefOnce.Do(c.dropRef) }
+
+// tryRef acquires a transient buffer reference iff the client is still
+// live (refcount > 0). The OnDemand pump takes one around each send so
+// dropRef's pool return can never race an in-flight frame flush. CAS
+// loop: a plain Add would resurrect a client whose buffers were already
+// returned.
+func (c *client) tryRef() bool {
+	for {
+		v := c.teardownRefs.Load()
+		if v <= 0 {
+			return false
+		}
+		if c.teardownRefs.CompareAndSwap(v, v+1) {
+			return true
+		}
+	}
+}
 
 // bufferData appends data to the incoming buffer, returning false and discarding
 // the data if it would exceed maxClientInBufSize.
@@ -320,6 +336,13 @@ type clientODAdapter struct {
 }
 
 func (a *clientODAdapter) send(data []byte) error {
+	// arch-29.1: transient ref brackets the write+flush so teardown's
+	// pool return waits out an in-flight frame. A refused send means the
+	// connection is closing; serveClient treats it like any send error.
+	if !a.c.tryRef() {
+		return net.ErrClosed
+	}
+	defer a.c.dropRef()
 	a.c.write(data)
 	return a.c.flushWrite()
 }

@@ -77,3 +77,61 @@ func TestWriteTimeoutDefault(t *testing.T) {
 		t.Fatalf("default write timeout: got %v, want 2s", cfg.TCPServerWriteTimeout)
 	}
 }
+
+// arch-29.1: the OnDemand pump takes a transient ref around each send so
+// the pooled buffers can never be returned while a frame flush is in
+// flight. After the last owner drops, send must refuse with net.ErrClosed.
+func TestODAdapterSendRefusedAfterTeardown(t *testing.T) {
+	p1, p2 := net.Pipe()
+	defer p1.Close()
+	c := newClient(p2, time.Second, slog.Default())
+	c.dropConnRef() // last owner out: buffers returned
+	a := &clientODAdapter{c: c}
+	if err := a.send([]byte{0x01}); !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("send after teardown: got %v, want net.ErrClosed", err)
+	}
+}
+
+// Run with -race: concurrent pump sends versus the conn-side drop must
+// never touch a pool-returned buffer. Pre-fix this is the documented
+// arch-28 residual data race.
+func TestODAdapterSendTeardownRace(t *testing.T) {
+	for range 50 {
+		p1, p2 := net.Pipe()
+		go func() { // keep the pipe drained so flush doesn't block
+			buf := make([]byte, 256)
+			for {
+				if _, err := p1.Read(buf); err != nil {
+					return
+				}
+			}
+		}()
+		c := newClient(p2, 50*time.Millisecond, slog.Default())
+		a := &clientODAdapter{c: c}
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			for range 10 {
+				if err := a.send([]byte{0xFF}); err != nil {
+					return
+				}
+			}
+		})
+		wg.Go(func() { c.dropConnRef() })
+		wg.Wait()
+		p1.Close()
+	}
+}
+
+func TestTryRefLifecycle(t *testing.T) {
+	p1, p2 := net.Pipe()
+	defer p1.Close()
+	c := newClient(p2, time.Second, slog.Default())
+	if !c.tryRef() {
+		t.Fatal("tryRef on live client must succeed")
+	}
+	c.dropRef()     // transient ref back: 2->1
+	c.dropConnRef() // 1->0, released
+	if c.tryRef() {
+		t.Fatal("tryRef after release must fail")
+	}
+}
