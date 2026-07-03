@@ -117,8 +117,8 @@ type client struct {
 	// (arch-28.4b).
 	//
 	// The refcount models those two owners (conn + tick) plus the OnDemand
-	// pump goroutine (onDemand.run → clientODAdapter.send), which
-	// participates transiently: tryRef/dropRef bracket each send instead of
+	// pump goroutine (onDemand.cycle → onDemand.send → clientODAdapter.send),
+	// which participates transiently: tryRef/dropRef bracket each send instead of
 	// holding a standing ref like conn/tick. This closes the arch-28
 	// residual where a pure-OnDemand connection's in-flight pump send could
 	// race the conn goroutine's defer pool-returning the buffers
