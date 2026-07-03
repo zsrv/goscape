@@ -88,6 +88,11 @@ func (g *App) initOnDemand() (services.Service, error) {
 
 	a, err := ondemand.New(g.cfg.OnDemand, logger, serv, worldConn)
 	if err != nil {
+		// server.New already bound the HTTP listener; ondemand.New failing
+		// here (bad cache path, bad source-IP regex) would otherwise leak the
+		// socket, since no service ever runs to Shutdown it (arch-29.8
+		// follow-up).
+		_ = serv.Close()
 		return nil, fmt.Errorf("failed to create ondemand: %w", err)
 	}
 	g.ondemand = a

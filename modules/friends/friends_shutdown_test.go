@@ -65,6 +65,11 @@ func TestFriends_Running_StopsWithOpenSubscriberStream(t *testing.T) {
 		WorldPlayerLimit:  100,
 		Enable:            true,
 		SQLiteDSN:         filepath.Join(t.TempDir(), "friends.db"),
+		// Explicit 5s grace — the value newGRPCServer previously derived by
+		// coercing this field's zero value; Config.Validate now rejects a
+		// non-positive grace, so it must be set. The distinguishing logic
+		// below depends on grace being the 5s default.
+		GracefulShutdownTimeout: defaultGracefulStopBound,
 	}
 	f, err := New(cfg, noopLogger())
 	if err != nil {

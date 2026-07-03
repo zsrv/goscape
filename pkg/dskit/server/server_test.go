@@ -189,6 +189,48 @@ func TestServerRun_Default404(t *testing.T) {
 	s.Shutdown()
 }
 
+// TestServerClose_ReleasesListener confirms Close releases the listener bound
+// by New for the construct-then-abort path (modules.go initOnDemand closes the
+// server when ondemand.New fails after server.New already bound the socket).
+// While the Server holds the listener the port is in use; after Close it can
+// be rebound.
+func TestServerClose_ReleasesListener(t *testing.T) {
+	// Reserve a concrete free port, then release it so the Server can claim a
+	// known address we can later probe for rebindability.
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("probe listen: %v", err)
+	}
+	addr := probe.Addr().String()
+	port := probe.Addr().(*net.TCPAddr).Port
+	probe.Close()
+
+	cfg := newTestConfig()
+	cfg.HTTPListenPort = port
+	s, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	// The Server holds the listener: the port must be in use.
+	if l, err := net.Listen("tcp", addr); err == nil {
+		l.Close()
+		s.httpListener.Close()
+		t.Fatal("port rebindable while Server holds it; expected address-in-use")
+	}
+
+	if err := s.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// After Close the port is free again.
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		t.Fatalf("port not rebindable after Close: %v", err)
+	}
+	l.Close()
+}
+
 // TestServerShutdown_Idempotent confirms calling Shutdown multiple times
 // does not panic. Production code defers Shutdown after New, and the
 // service.go stoppingFn also calls Shutdown — both paths run on graceful
