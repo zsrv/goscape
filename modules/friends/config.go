@@ -27,7 +27,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.IntVar(&c.WorldPlayerLimit, "friends.world-player-limit", 2000, "Per-world player slot cap.")
 	f.StringVar(&c.Profile, "friends.profile", "main", "The single profile this friends server serves (TS FriendServer @2e3bcf43 binds to Environment.NODE_PROFILE, default 'main'; mismatched WORLD_CONNECTs are rejected).")
 	f.BoolVar(&c.Enable, "friends.enable", false, "Whether to run the friends module.")
-	f.DurationVar(&c.GracefulShutdownTimeout, "friends.graceful-shutdown-timeout", 30*time.Second, "Timeout for graceful gRPC server shutdown.")
+	f.DurationVar(&c.GracefulShutdownTimeout, "friends.graceful-shutdown-timeout", defaultGracefulStopBound, "Bounds how long GracefulStop waits for open streams to close (after Friends.running's closeAll) before shutdown forces a hard Stop.")
 }
 
 // Validate enforces runtime invariants (docs/PORTING.md Arc 18 CFG-1 mirror).
@@ -47,6 +47,13 @@ func (c *Config) Validate() error {
 	}
 	if c.Profile == "" {
 		return fmt.Errorf("friends: Profile must be non-empty when friends.enable=true")
+	}
+	// newGRPCServer coerces a non-positive grace to defaultGracefulStopBound
+	// rather than wiring shutdown to time.After(0). Reject it here so an
+	// operator who writes graceful_shutdown_timeout: 0s gets a clear error
+	// instead of a silent 5s fallback (an omitted key keeps the default).
+	if c.GracefulShutdownTimeout <= 0 {
+		return fmt.Errorf("friends: GracefulShutdownTimeout must be > 0, got %s", c.GracefulShutdownTimeout)
 	}
 	return nil
 }
