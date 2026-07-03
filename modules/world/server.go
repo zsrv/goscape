@@ -168,6 +168,28 @@ type Server struct {
 	huntScratch []entity
 	currentTick int
 
+	// lastTickNano/currentTickAtomic/lastCycleMillis mirror tick-goroutine
+	// state into atomics so HealthSnapshot (arch-29.6) can be called from
+	// any goroutine (the ondemand /healthz + /debug/status handlers) without
+	// racing s.currentTick, which is tick-goroutine-owned. Stamped together,
+	// once per tick, by stampTick (tick.go, immediately after s.currentTick++)
+	// — zero locks added to the tick path. lastCycleMillis carries the just-
+	// completed tick's wall-clock work duration (rev-225 has no lastCycleStats
+	// array, so stampTick receives time.Since(start) directly from the loop).
+	lastTickNano      atomic.Int64 // UnixNano of the last completed tick; 0 before the first tick
+	currentTickAtomic atomic.Int64 // snapshot of s.currentTick
+	lastCycleMillis   atomic.Int64 // last tick's wall-clock work duration in ms
+
+	// playerCount is the live player count HealthSnapshot reports as
+	// PlayersOnline (arch-29.6). rev-225 stores players in a bare
+	// [2048]*Player array (no playerList wrapper with an atomic count), so
+	// this atomic is maintained at the two guarded write sites: incremented
+	// in addPlayer on a successful slot claim, decremented in
+	// removePlayerInternal only past its slot-identity guard (making a double
+	// removal idempotent — the count never drifts negative). Read lock-free
+	// from any goroutine.
+	playerCount atomic.Int32
+
 	// shutdownTick is the tick on which the world will halt. -1 means
 	// no shutdown scheduled. Set by Server.rebootTimer; consumed by
 	// Server.processShutdown (called at top of tick body when
@@ -1478,6 +1500,8 @@ func (s *Server) addPlayer(p *Player) error {
 			if s.rsbuf != nil {
 				s.rsbuf.AddPlayer(int32(p.slot))
 			}
+			// arch-29.6: track the live count for HealthSnapshot.PlayersOnline.
+			s.playerCount.Add(1)
 			return nil
 		}
 	}
@@ -1604,6 +1628,10 @@ func (s *Server) removePlayerInternal(p *Player) {
 	if p.slot < 1 || p.slot >= len(s.players) || s.players[p.slot] != p {
 		return
 	}
+	// arch-29.6: past the slot-identity guard this is a genuine removal, so
+	// the decrement is idempotent under double-removal (a repeat call returns
+	// at the guard above). Keeps HealthSnapshot.PlayersOnline accurate.
+	s.playerCount.Add(-1)
 	if s.zoneMap != nil && p.zoneListElement != nil {
 		z := s.zoneMap.Get(p.level, p.x, p.z)
 		z.LeavePlayer(p, p.zoneListElement, s.zoneMap.Grid(p.level))

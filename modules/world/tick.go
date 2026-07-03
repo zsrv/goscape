@@ -174,6 +174,11 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processCleanup()
 		s.processSessionLogs() // NAI-74: TS World.cycle session-log block (W.ts:428-442)
 		s.currentTick++
+		// arch-29.6: mirror tick state into the health-snapshot atomics.
+		// time.Since(start) is this tick's wall-clock work duration — the
+		// equivalent of rev-274's cycleStats[statCycle] (which rev-225 does
+		// not track), measured at the same point (just after currentTick++).
+		s.stampTick(time.Since(start).Milliseconds())
 
 		// NAI-188: re-read s.tickRate every iteration so ::speed
 		// mutations take effect on the next sleep. Named currentRate
