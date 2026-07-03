@@ -455,21 +455,37 @@ func checkVarNameUniqueness(pfs ...*PackFile) error {
 	return nil
 }
 
+// saveTransmittedConfig is the shared tail of the eight transmitted
+// packAndSave* funcs (flo, idk, loc, npc, obj, seq, spotanim, varp —
+// the configs that contribute to the client jagfile): save the server
+// pack, then queue the client pack into clientJag. name is the
+// lowercase file basename (e.g. "varp") used for both
+// serverOut/<name>.{dat,idx} and the clientJag entry names.
+//
+// NAI-191-D-VALIDATE-FLAGS-DEFERRED: rev-225 has not yet wired
+// BuildVerify CRC checks into these configs (see
+// nai193_deviation_pins_test.go et al.), so this helper does not call
+// BuildVerify -- only server.Save + the two clientJag.Write calls are
+// duplicated across the eight callers.
+func saveTransmittedConfig(serverOut, name string, server, client *PackedData, clientJag *jagfile.Jagfile) error {
+	if err := server.Save(
+		filepath.Join(serverOut, name+".dat"),
+		filepath.Join(serverOut, name+".idx"),
+	); err != nil {
+		return err
+	}
+	clientJag.Write(name+".dat", client.Dat)
+	clientJag.Write(name+".idx", client.Idx)
+	return nil
+}
+
 func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, clientJag *jagfile.Jagfile) error {
 	cfgs, err := ReadTypedConfigs(srcDir, ".varp", nil, parseVarpConfig, c)
 	if err != nil {
 		return err
 	}
 	server, client := packVarpConfigs(cfgs, pf)
-	if err := server.Save(
-		filepath.Join(serverOut, "varp.dat"),
-		filepath.Join(serverOut, "varp.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("varp.dat", client.Dat)
-	clientJag.Write("varp.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig(serverOut, "varp", server, client, clientJag)
 }
 
 func packAndSaveVarn(srcDir, serverOut string, pf *PackFile, c Constants) error {
@@ -606,15 +622,7 @@ func packAndSaveLoc(srcDir, serverOut string, locPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
-	if err := server.Save(
-		filepath.Join(serverOut, "loc.dat"),
-		filepath.Join(serverOut, "loc.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("loc.dat", client.Dat)
-	clientJag.Write("loc.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig(serverOut, "loc", server, client, clientJag)
 }
 
 // packAndSaveNpc reads .npc sources, packs them, writes server
@@ -634,15 +642,7 @@ func packAndSaveNpc(srcDir, serverOut string, npcPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
-	if err := server.Save(
-		filepath.Join(serverOut, "npc.dat"),
-		filepath.Join(serverOut, "npc.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("npc.dat", client.Dat)
-	clientJag.Write("npc.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig(serverOut, "npc", server, client, clientJag)
 }
 
 // packAndSaveObj reads .obj sources, packs them, writes server
@@ -662,15 +662,7 @@ func packAndSaveObj(srcDir, serverOut string, objPack, modelPack, categoryPack, 
 	if err != nil {
 		return err
 	}
-	if err := server.Save(
-		filepath.Join(serverOut, "obj.dat"),
-		filepath.Join(serverOut, "obj.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("obj.dat", client.Dat)
-	clientJag.Write("obj.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig(serverOut, "obj", server, client, clientJag)
 }
 
 // packAndSaveSeq reads .seq sources, packs them, writes server
@@ -688,15 +680,7 @@ func packAndSaveSeq(srcDir, serverOut string, seqPack, animPack, objPack *PackFi
 		return err
 	}
 	server, client := packSeqConfigs(cfgs, seqPack)
-	if err := server.Save(
-		filepath.Join(serverOut, "seq.dat"),
-		filepath.Join(serverOut, "seq.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("seq.dat", client.Dat)
-	clientJag.Write("seq.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig(serverOut, "seq", server, client, clientJag)
 }
 
 // packAndSaveFlo reads .flo sources, packs them, writes server
@@ -713,15 +697,7 @@ func packAndSaveFlo(srcDir, serverOut string, floPack, texturePack *PackFile, c 
 		return err
 	}
 	server, client := packFloConfigs(cfgs, floPack)
-	if err := server.Save(
-		filepath.Join(serverOut, "flo.dat"),
-		filepath.Join(serverOut, "flo.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("flo.dat", client.Dat)
-	clientJag.Write("flo.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig(serverOut, "flo", server, client, clientJag)
 }
 
 // packAndSaveSpotAnim reads .spotanim sources, packs them, writes
@@ -737,15 +713,7 @@ func packAndSaveSpotAnim(srcDir, serverOut string, spotanimPack, modelPack, seqP
 		return err
 	}
 	server, client := packSpotAnimConfigs(cfgs, spotanimPack)
-	if err := server.Save(
-		filepath.Join(serverOut, "spotanim.dat"),
-		filepath.Join(serverOut, "spotanim.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("spotanim.dat", client.Dat)
-	clientJag.Write("spotanim.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig(serverOut, "spotanim", server, client, clientJag)
 }
 
 // packAndSaveDbTable reads .dbtable sources, packs them, and writes
@@ -815,13 +783,5 @@ func packAndSaveIdk(srcDir, serverOut string, idkPack, modelPack *PackFile, c Co
 		return err
 	}
 	server, client := packIdkConfigs(cfgs, idkPack)
-	if err := server.Save(
-		filepath.Join(serverOut, "idk.dat"),
-		filepath.Join(serverOut, "idk.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("idk.dat", client.Dat)
-	clientJag.Write("idk.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig(serverOut, "idk", server, client, clientJag)
 }

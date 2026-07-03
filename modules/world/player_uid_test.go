@@ -75,7 +75,7 @@ func TestComposeUID(t *testing.T) {
 
 func TestAddPlayerComposesUID(t *testing.T) {
 	s := &Server{
-		quit: make(chan interface{}),
+		quit: make(chan struct{}),
 		log:  discardLogger(),
 	}
 
@@ -94,7 +94,7 @@ func TestAddPlayerComposesUID(t *testing.T) {
 
 func TestAddPlayerEmptyUsernameComposesSlotOnlyUID(t *testing.T) {
 	s := &Server{
-		quit: make(chan interface{}),
+		quit: make(chan struct{}),
 		log:  discardLogger(),
 	}
 

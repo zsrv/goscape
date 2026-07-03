@@ -29,13 +29,7 @@ func packLocShapeAngle(shape, angle int) byte {
 
 // clampU16 clamps a non-negative int count to the [0, 65535] wire range.
 func clampU16(n int) uint16 {
-	if n < 0 {
-		return 0
-	}
-	if n > 65535 {
-		return 65535
-	}
-	return uint16(n)
+	return uint16(min(max(n, 0), 65535))
 }
 
 // --- LOC_* ---

@@ -39,7 +39,7 @@ func newChattyShutdownTestServer(t *testing.T) *Server {
 			TCPServerReadTimeout:  200 * time.Millisecond,
 			TCPServerWriteTimeout: time.Second,
 		},
-		quit:        make(chan interface{}),
+		quit:        make(chan struct{}),
 		tcpListener: lis,
 	}
 	s.initChildLoggers(s.log)
