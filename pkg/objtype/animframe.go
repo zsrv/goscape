@@ -57,10 +57,12 @@ func LoadAnimFrames(dir string) (*AnimFrameConfigs, error) {
 	// root — callers pass cfg.CachePath (e.g. "data/pack") exactly as TS does.
 	// TS AnimFrame.ts:17-24 (Engine-TS 9aadcec4).
 	//
-	// Pre-existence guard: filestream.New panics if the dat doesn't exist and
-	// can't be created (read-only fs or absent dir). TS never hits this path
-	// because OnDemand initialises the FileStream upfront; Go guards with a
-	// stat check so test fixtures without a cache get an empty registry.
+	// Pre-existence guard: filestream.New returns an error (not a panic,
+	// since arch-29.7) if the dat doesn't exist and can't be created
+	// (read-only fs or absent dir). TS never hits this path because
+	// OnDemand initialises the FileStream upfront; Go guards with a stat
+	// check instead so that case matches TS's silent skip — test fixtures
+	// without a cache get an empty registry rather than a load error.
 	datPath := filepath.Join(dir, "main_file_cache.dat")
 	if _, err := os.Stat(datPath); err != nil {
 		// Cache is absent — return empty registry, matching TS silent skip.

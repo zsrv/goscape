@@ -49,27 +49,32 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	c.World.RegisterFlagsAndApplyDefaults(f)
 }
 
-// Validate fans out to each module's Validate, returning the first error
-// wrapped with the module's name.
+// Validate fans out to each module's Validate, returning the first error.
 //
 // CFG-2 (Arc 18) fanned out world; arch-29.5 completes the fan-out —
 // --config.verify used to green-light login/friends/ondemand configs that
 // then failed at boot. World, Login, and Friends each short-circuit
 // internally on !c.Enable; OnDemand.Validate does not (it only guards
 // WsTokenProtection), so the call is gated here instead.
+//
+// Login, Friends, and OnDemand's own Validate errors already self-prefix
+// ("login: ...", "friends: ...", "ondemand: ..."), so they're returned
+// unwrapped here to avoid a doubled prefix. World's Validate instead uses
+// flag-style prefixes (e.g. "world.tcp-listen-port"), so it still needs
+// the "world: " wrap added here.
 func (c *Config) Validate() error {
 	if err := c.World.Validate(); err != nil {
 		return fmt.Errorf("world: %w", err)
 	}
 	if err := c.Login.Validate(); err != nil {
-		return fmt.Errorf("login: %w", err)
+		return err
 	}
 	if err := c.Friends.Validate(); err != nil {
-		return fmt.Errorf("friends: %w", err)
+		return err
 	}
 	if c.OnDemand.Enable {
 		if err := c.OnDemand.Validate(); err != nil {
-			return fmt.Errorf("ondemand: %w", err)
+			return err
 		}
 	}
 	return nil
