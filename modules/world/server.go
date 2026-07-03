@@ -1081,10 +1081,15 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 			// whichever owner exits last).
 			s.removePlayerOnDisconnect(c.player)
 			c.player = nil
-		} else if err := c.flushWrite(); err != nil {
+		} else if c.state != ClientStateOndemand {
 			// Pre-login: this goroutine is the only writer; flush any
-			// pending login reply before closing.
-			s.logNet.Warn("failed to flush on connection close", "error", err, "remote_addr", conn.RemoteAddr())
+			// pending login reply before closing. OnDemand-state conns
+			// skip it — the pump goroutine co-owns bufw via transient
+			// refs (arch-29.1) and there is nothing useful to flush at
+			// teardown.
+			if err := c.flushWrite(); err != nil {
+				s.logNet.Warn("failed to flush on connection close", "error", err, "remote_addr", conn.RemoteAddr())
+			}
 		}
 		conn.Close()
 		c.dropConnRef()
