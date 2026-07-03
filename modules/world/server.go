@@ -321,8 +321,8 @@ type Server struct {
 
 	// bridgesCtx is the parent context for fire-and-forget gRPC calls
 	// from grpcFriendsBridge / loginGRPCBridgeMod, from the inline login-side
-	// PlayerLogout (sendPlayerLogoutWithRetry) / PlayerForceLogout /
-	// PlayerAutosave goroutines spawned in server.go, and from the friends
+	// PlayerLogout (sendPlayerLogoutWithRetry) and PlayerAutosave
+	// goroutines spawned in server.go, and from the friends
 	// PlayerLogin / PlayerLogout mutations that server.go and tick.go now
 	// enqueue on the single friendsMutationDispatcher worker (arch-29.13)
 	// instead of spawning a goroutine per call. Each call wraps it with a
