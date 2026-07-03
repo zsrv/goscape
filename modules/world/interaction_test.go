@@ -1989,7 +1989,7 @@ func TestTryInteract_OutOfRangeReturnsFalse(t *testing.T) {
 func newInOperableTestServer(t *testing.T) (*Server, *objtype.LocType) {
 	t.Helper()
 	s := &Server{
-		quit:           make(chan interface{}),
+		quit:           make(chan struct{}),
 		log:            discardLogger(),
 		scriptProvider: defaultTestProvider(),
 		zoneMap:        zone.NewZoneMap(),
@@ -2236,7 +2236,7 @@ func TestPlayer_InOperableDistance_PathingEntity_Reach(t *testing.T) {
 func TestPlayer_InOperableDistance_PathingEntity_NilGamemap_FallsThroughToCheb(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	// Construct a Server with NO gamemap — exercises the defensive branch.
-	s := &Server{quit: make(chan interface{}), log: discardLogger()}
+	s := &Server{quit: make(chan struct{}), log: discardLogger()}
 	p.client.server = s
 	p.x, p.z, p.level = 100, 100, 0
 
@@ -2844,7 +2844,7 @@ func TestPlayerApRangeCalledDoesNotLeakAcrossIdleTick(t *testing.T) {
 func newObjReachTestServer(t *testing.T) *Server {
 	t.Helper()
 	s := &Server{
-		quit:           make(chan interface{}),
+		quit:           make(chan struct{}),
 		log:            discardLogger(),
 		scriptProvider: defaultTestProvider(),
 		zoneMap:        zone.NewZoneMap(),

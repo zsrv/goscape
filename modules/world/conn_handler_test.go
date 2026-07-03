@@ -21,7 +21,7 @@ func newHandleConnTestServer(t *testing.T) *Server {
 	s := &Server{
 		log:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 		cfg:  Config{NodeDebugSocket: true},
-		quit: make(chan any),
+		quit: make(chan struct{}),
 	}
 	s.initChildLoggers(s.log)
 	return s
