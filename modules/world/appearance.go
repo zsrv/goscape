@@ -64,7 +64,7 @@ func (p *Player) generateAppearance(objs *objtype.ObjTypeConfigs, invs *objtype.
 	buf.P1(uint8(p.gender))
 	buf.P1(uint8(p.headicons))
 
-	for slot := 0; slot < 12; slot++ {
+	for slot := range 12 {
 		if skipped[slot] {
 			buf.P1(0)
 			continue
@@ -85,7 +85,7 @@ func (p *Player) generateAppearance(objs *objtype.ObjTypeConfigs, invs *objtype.
 		buf.P2(uint16(0x100 + p.body[bodyIdx]))
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		buf.P1(uint8(p.colors[i]))
 	}
 

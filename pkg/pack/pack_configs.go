@@ -578,31 +578,60 @@ func checkVarNameUniqueness(pfs ...*PackFile) error {
 	return nil
 }
 
-func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
-	cfgs, err := ReadTypedConfigs(srcDir, ".varp", nil, parseVarpConfig, c)
+// readAndValidate is the shared head of all 19 packAndSave* funcs:
+// ReadTypedConfigs the .<ext> sources under srcDir, then
+// validatePackNamesAgainstCfgs the result against pf (a no-op unless
+// transmitted). required and parse are forwarded verbatim to
+// ReadTypedConfigs.
+func readAndValidate(srcDir, ext string, required []string, parse ParseFn, c Constants, pf *PackFile, transmitted bool) (map[string][]ConfigLine, error) {
+	cfgs, err := ReadTypedConfigs(srcDir, ext, required, parse, c)
 	if err != nil {
+		return nil, err
+	}
+	if err := validatePackNamesAgainstCfgs(pf, cfgs, ext, transmitted); err != nil {
+		return nil, err
+	}
+	return cfgs, nil
+}
+
+// saveTransmittedConfig is the shared tail of the nine transmitted
+// packAndSave* funcs (flo, idk, loc, npc, obj, seq, spotanim, varp,
+// varbit — see the transmitted set documented on
+// validatePackNamesAgainstCfgs): BuildVerify the client buffer against
+// crc (log-not-throw), save the server pack, then queue the client
+// pack into clientJag.
+//
+// label is the caller's func name (e.g. "packAndSaveVarp"), used
+// verbatim in the BUILD_VERIFY stderr diagnostic. name is the
+// lowercase file basename (e.g. "varp") used for both
+// serverOut/<name>.{dat,idx} and the clientJag entry names. The exact
+// CRC magic numbers/TS line references live in the clientConfigCRC*
+// const block above.
+func saveTransmittedConfig(label, name, serverOut string, server, client *PackedData, clientJag *jagfile.Jagfile, crc int32) error {
+	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), crc); err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v (BUILD_VERIFY)\n", label, err)
+	}
+	if err := server.Save(
+		filepath.Join(serverOut, name+".dat"),
+		filepath.Join(serverOut, name+".idx"),
+	); err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".varp", true); err != nil {
+	clientJag.Write(name+".dat", client.Dat)
+	clientJag.Write(name+".idx", client.Idx)
+	return nil
+}
+
+func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
+	cfgs, err := readAndValidate(srcDir, ".varp", nil, parseVarpConfig, c, pf, true)
+	if err != nil {
 		return err
 	}
 	server, client, err := packVarpConfigs(cfgs, pf, modelFlags)
 	if err != nil {
 		return err
 	}
-	// TS PackShared.ts:613 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, 1039564548)
-	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCVarp); err != nil {
-		fmt.Fprintf(os.Stderr, "packAndSaveVarp: %v (BUILD_VERIFY)\n", err)
-	}
-	if err := server.Save(
-		filepath.Join(serverOut, "varp.dat"),
-		filepath.Join(serverOut, "varp.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("varp.dat", client.Dat)
-	clientJag.Write("varp.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig("packAndSaveVarp", "varp", serverOut, server, client, clientJag, clientConfigCRCVarp)
 }
 
 // packAndSaveVarbit reads .varbit sources, packs them, writes server
@@ -620,37 +649,19 @@ func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, client
 // TS source: tools/pack/config/PackShared.ts:618-640 +
 // tools/pack/config/VarbitConfig.ts @ 2e3bcf43.
 func packAndSaveVarbit(srcDir, serverOut string, pf, varpPack *PackFile, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
-	cfgs, err := ReadTypedConfigs(srcDir, ".varbit",
+	cfgs, err := readAndValidate(srcDir, ".varbit",
 		[]string{"basevar", "startbit", "endbit"},
-		parseVarbitConfigFor(varpPack), c)
+		parseVarbitConfigFor(varpPack), c, pf, true)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".varbit", true); err != nil {
 		return err
 	}
 	server, client := packVarbitConfigs(cfgs, pf, modelFlags)
-	// TS PackShared.ts:637 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, -1387031023)
-	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCVarbit); err != nil {
-		fmt.Fprintf(os.Stderr, "packAndSaveVarbit: %v (BUILD_VERIFY)\n", err)
-	}
-	if err := server.Save(
-		filepath.Join(serverOut, "varbit.dat"),
-		filepath.Join(serverOut, "varbit.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("varbit.dat", client.Dat)
-	clientJag.Write("varbit.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig("packAndSaveVarbit", "varbit", serverOut, server, client, clientJag, clientConfigCRCVarbit)
 }
 
 func packAndSaveVarn(srcDir, serverOut string, pf *PackFile, c Constants, modelFlags []int) error {
-	cfgs, err := ReadTypedConfigs(srcDir, ".varn", nil, parseVarnConfig, c)
+	cfgs, err := readAndValidate(srcDir, ".varn", nil, parseVarnConfig, c, pf, false)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".varn", false); err != nil {
 		return err
 	}
 	pd := packVarnConfigs(cfgs, pf, modelFlags)
@@ -658,11 +669,8 @@ func packAndSaveVarn(srcDir, serverOut string, pf *PackFile, c Constants, modelF
 }
 
 func packAndSaveVars(srcDir, serverOut string, pf *PackFile, c Constants, modelFlags []int) error {
-	cfgs, err := ReadTypedConfigs(srcDir, ".vars", nil, parseVarsConfig, c)
+	cfgs, err := readAndValidate(srcDir, ".vars", nil, parseVarsConfig, c, pf, false)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".vars", false); err != nil {
 		return err
 	}
 	pd := packVarsConfigs(cfgs, pf, modelFlags)
@@ -715,11 +723,8 @@ func loadParamLookups(srcDir string, varpPF *PackFile) (*paramLookups, error) {
 //
 // TS source: tools/pack/PackShared.ts (param branch of packConfigs).
 func packAndSaveParam(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c Constants, modelFlags []int) error {
-	cfgs, err := ReadTypedConfigs(srcDir, ".param", nil, parseParamConfig, c)
+	cfgs, err := readAndValidate(srcDir, ".param", nil, parseParamConfig, c, pf, false)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".param", false); err != nil {
 		return err
 	}
 	server, _, err := packParamConfigs(cfgs, pf, lk, modelFlags)
@@ -733,11 +738,8 @@ func packAndSaveParam(srcDir, serverOut string, pf *PackFile, lk *paramLookups, 
 }
 
 func packAndSaveEnum(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c Constants, modelFlags []int) error {
-	cfgs, err := ReadTypedConfigs(srcDir, ".enum", nil, parseEnumConfig, c)
+	cfgs, err := readAndValidate(srcDir, ".enum", nil, parseEnumConfig, c, pf, false)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".enum", false); err != nil {
 		return err
 	}
 	pd, err := packEnumConfigs(cfgs, pf, lk, modelFlags)
@@ -748,11 +750,8 @@ func packAndSaveEnum(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c
 }
 
 func packAndSaveInv(srcDir, serverOut string, pf, objPack *PackFile, c Constants, modelFlags []int) error {
-	cfgs, err := ReadTypedConfigs(srcDir, ".inv", nil, parseInvConfigFor(objPack), c)
+	cfgs, err := readAndValidate(srcDir, ".inv", nil, parseInvConfigFor(objPack), c, pf, false)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".inv", false); err != nil {
 		return err
 	}
 	pd, err := packInvConfigs(cfgs, pf, modelFlags)
@@ -763,11 +762,8 @@ func packAndSaveInv(srcDir, serverOut string, pf, objPack *PackFile, c Constants
 }
 
 func packAndSaveMesAnim(srcDir, serverOut string, pf, seqPack *PackFile, c Constants, modelFlags []int) error {
-	cfgs, err := ReadTypedConfigs(srcDir, ".mesanim", nil, parseMesAnimConfigFor(seqPack), c)
+	cfgs, err := readAndValidate(srcDir, ".mesanim", nil, parseMesAnimConfigFor(seqPack), c, pf, false)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".mesanim", false); err != nil {
 		return err
 	}
 	pd := packMesAnimConfigs(cfgs, pf, modelFlags)
@@ -775,11 +771,8 @@ func packAndSaveMesAnim(srcDir, serverOut string, pf, seqPack *PackFile, c Const
 }
 
 func packAndSaveStruct(srcDir, serverOut string, pf *PackFile, paramTypes *objtype.ParamTypeConfigs, lk *paramLookups, c Constants, modelFlags []int) error {
-	cfgs, err := ReadTypedConfigs(srcDir, ".struct", nil, parseStructConfigFor(paramTypes, lk), c)
+	cfgs, err := readAndValidate(srcDir, ".struct", nil, parseStructConfigFor(paramTypes, lk), c, pf, false)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(pf, cfgs, ".struct", false); err != nil {
 		return err
 	}
 	pd := packStructConfigs(cfgs, pf, modelFlags)
@@ -796,30 +789,15 @@ func packAndSaveStruct(srcDir, serverOut string, pf *PackFile, paramTypes *objty
 // TS source: tools/pack/config/LocConfig.ts:172-432.
 func packAndSaveLoc(srcDir, serverOut string, locPack, modelPack, categoryPack, seqPack, texturePack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseLocConfigFor(categoryPack, seqPack, texturePack, lk, paramTypes)
-	cfgs, err := ReadTypedConfigs(srcDir, ".loc", nil, parse, c)
+	cfgs, err := readAndValidate(srcDir, ".loc", nil, parse, c, locPack, true)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(locPack, cfgs, ".loc", true); err != nil {
 		return err
 	}
 	server, client, err := packLocConfigs(cfgs, locPack, modelPack, modelFlags)
 	if err != nil {
 		return err
 	}
-	// TS PackShared.ts:469 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, -826309209)
-	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCLoc); err != nil {
-		fmt.Fprintf(os.Stderr, "packAndSaveLoc: %v (BUILD_VERIFY)\n", err)
-	}
-	if err := server.Save(
-		filepath.Join(serverOut, "loc.dat"),
-		filepath.Join(serverOut, "loc.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("loc.dat", client.Dat)
-	clientJag.Write("loc.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig("packAndSaveLoc", "loc", serverOut, server, client, clientJag, clientConfigCRCLoc)
 }
 
 // packAndSaveNpc reads .npc sources, packs them, writes server
@@ -831,30 +809,15 @@ func packAndSaveLoc(srcDir, serverOut string, locPack, modelPack, categoryPack, 
 // TS source: tools/pack/config/NpcConfig.ts:265-509.
 func packAndSaveNpc(srcDir, serverOut string, npcPack, modelPack, categoryPack, seqPack, huntPack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack, lk, paramTypes)
-	cfgs, err := ReadTypedConfigs(srcDir, ".npc", nil, parse, c)
+	cfgs, err := readAndValidate(srcDir, ".npc", nil, parse, c, npcPack, true)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(npcPack, cfgs, ".npc", true); err != nil {
 		return err
 	}
 	server, client, err := packNpcConfigs(cfgs, npcPack, modelFlags)
 	if err != nil {
 		return err
 	}
-	// TS PackShared.ts:541 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, 1077655221)
-	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCNpc); err != nil {
-		fmt.Fprintf(os.Stderr, "packAndSaveNpc: %v (BUILD_VERIFY)\n", err)
-	}
-	if err := server.Save(
-		filepath.Join(serverOut, "npc.dat"),
-		filepath.Join(serverOut, "npc.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("npc.dat", client.Dat)
-	clientJag.Write("npc.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig("packAndSaveNpc", "npc", serverOut, server, client, clientJag, clientConfigCRCNpc)
 }
 
 // packAndSaveObj reads .obj sources, packs them, writes server
@@ -866,30 +829,15 @@ func packAndSaveNpc(srcDir, serverOut string, npcPack, modelPack, categoryPack, 
 // TS source: tools/pack/config/ObjConfig.ts:196-440.
 func packAndSaveObj(srcDir, serverOut string, objPack, modelPack, categoryPack, seqPack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseObjConfigFor(modelPack, categoryPack, seqPack, objPack, lk, paramTypes)
-	cfgs, err := ReadTypedConfigs(srcDir, ".obj", nil, parse, c)
+	cfgs, err := readAndValidate(srcDir, ".obj", nil, parse, c, objPack, true)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(objPack, cfgs, ".obj", true); err != nil {
 		return err
 	}
 	server, client, err := packObjConfigs(cfgs, objPack, modelFlags)
 	if err != nil {
 		return err
 	}
-	// TS PackShared.ts:565 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, 535204494)
-	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCObj); err != nil {
-		fmt.Fprintf(os.Stderr, "packAndSaveObj: %v (BUILD_VERIFY)\n", err)
-	}
-	if err := server.Save(
-		filepath.Join(serverOut, "obj.dat"),
-		filepath.Join(serverOut, "obj.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("obj.dat", client.Dat)
-	clientJag.Write("obj.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig("packAndSaveObj", "obj", serverOut, server, client, clientJag, clientConfigCRCObj)
 }
 
 // packAndSaveSeq reads .seq sources, packs them, writes server
@@ -902,27 +850,12 @@ func packAndSaveObj(srcDir, serverOut string, objPack, modelPack, categoryPack, 
 // TS source: tools/pack/config/SeqConfig.ts:121-208.
 func packAndSaveSeq(srcDir, serverOut string, seqPack, animPack, objPack *PackFile, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseSeqConfigFor(animPack, objPack)
-	cfgs, err := ReadTypedConfigs(srcDir, ".seq", nil, parse, c)
+	cfgs, err := readAndValidate(srcDir, ".seq", nil, parse, c, seqPack, true)
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(seqPack, cfgs, ".seq", true); err != nil {
-		return err
-	}
 	server, client := packSeqConfigs(cfgs, seqPack, modelFlags)
-	// TS PackShared.ts:445 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, -716271600)
-	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCSeq); err != nil {
-		fmt.Fprintf(os.Stderr, "packAndSaveSeq: %v (BUILD_VERIFY)\n", err)
-	}
-	if err := server.Save(
-		filepath.Join(serverOut, "seq.dat"),
-		filepath.Join(serverOut, "seq.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("seq.dat", client.Dat)
-	clientJag.Write("seq.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig("packAndSaveSeq", "seq", serverOut, server, client, clientJag, clientConfigCRCSeq)
 }
 
 // packAndSaveFlo reads .flo sources, packs them, writes server
@@ -934,27 +867,12 @@ func packAndSaveSeq(srcDir, serverOut string, seqPack, animPack, objPack *PackFi
 // TS source: tools/pack/config/FloConfig.ts:63-104.
 func packAndSaveFlo(srcDir, serverOut string, floPack, texturePack *PackFile, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseFloConfigFor(texturePack)
-	cfgs, err := ReadTypedConfigs(srcDir, ".flo", nil, parse, c)
+	cfgs, err := readAndValidate(srcDir, ".flo", nil, parse, c, floPack, true)
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(floPack, cfgs, ".flo", true); err != nil {
-		return err
-	}
 	server, client := packFloConfigs(cfgs, floPack, modelFlags)
-	// TS PackShared.ts:493 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, -1566957964)
-	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCFlo); err != nil {
-		fmt.Fprintf(os.Stderr, "packAndSaveFlo: %v (BUILD_VERIFY)\n", err)
-	}
-	if err := server.Save(
-		filepath.Join(serverOut, "flo.dat"),
-		filepath.Join(serverOut, "flo.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("flo.dat", client.Dat)
-	clientJag.Write("flo.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig("packAndSaveFlo", "flo", serverOut, server, client, clientJag, clientConfigCRCFlo)
 }
 
 // packAndSaveSpotAnim reads .spotanim sources, packs them, writes
@@ -965,27 +883,12 @@ func packAndSaveFlo(srcDir, serverOut string, floPack, texturePack *PackFile, c 
 // TS source: tools/pack/config/SpotAnimConfig.ts:92-152.
 func packAndSaveSpotAnim(srcDir, serverOut string, spotanimPack, modelPack, seqPack *PackFile, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseSpotAnimConfigFor(modelPack, seqPack)
-	cfgs, err := ReadTypedConfigs(srcDir, ".spotanim", nil, parse, c)
+	cfgs, err := readAndValidate(srcDir, ".spotanim", nil, parse, c, spotanimPack, true)
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(spotanimPack, cfgs, ".spotanim", true); err != nil {
-		return err
-	}
 	server, client := packSpotAnimConfigs(cfgs, spotanimPack, modelFlags)
-	// TS PackShared.ts:517 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, -555849646)
-	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCSpotAnim); err != nil {
-		fmt.Fprintf(os.Stderr, "packAndSaveSpotAnim: %v (BUILD_VERIFY)\n", err)
-	}
-	if err := server.Save(
-		filepath.Join(serverOut, "spotanim.dat"),
-		filepath.Join(serverOut, "spotanim.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("spotanim.dat", client.Dat)
-	clientJag.Write("spotanim.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig("packAndSaveSpotAnim", "spotanim", serverOut, server, client, clientJag, clientConfigCRCSpotAnim)
 }
 
 // packAndSaveDbTable reads .dbtable sources, packs them, and writes
@@ -993,11 +896,8 @@ func packAndSaveSpotAnim(srcDir, serverOut string, spotanimPack, modelPack, seqP
 //
 // TS source: tools/pack/config/DbTableConfig.ts:78-224.
 func packAndSaveDbTable(srcDir, serverOut string, dbtablePack *PackFile, lk *paramLookups, c Constants, modelFlags []int) error {
-	cfgs, err := ReadTypedConfigs(srcDir, ".dbtable", nil, parseDbTableConfig, c)
+	cfgs, err := readAndValidate(srcDir, ".dbtable", nil, parseDbTableConfig, c, dbtablePack, false)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(dbtablePack, cfgs, ".dbtable", false); err != nil {
 		return err
 	}
 	pd, err := packDbTableConfigs(cfgs, dbtablePack, lk, modelFlags)
@@ -1014,11 +914,8 @@ func packAndSaveDbTable(srcDir, serverOut string, dbtablePack *PackFile, lk *par
 // TS source: tools/pack/config/DbRowConfig.ts:84-185.
 func packAndSaveDbRow(srcDir, serverOut string, dbrowPack, dbtablePack *PackFile, dbtableTypes *objtype.DbTableTypeConfigs, lk *paramLookups, c Constants, modelFlags []int) error {
 	parse := parseDbRowConfigFor(dbtablePack)
-	cfgs, err := ReadTypedConfigs(srcDir, ".dbrow", nil, parse, c)
+	cfgs, err := readAndValidate(srcDir, ".dbrow", nil, parse, c, dbrowPack, false)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(dbrowPack, cfgs, ".dbrow", false); err != nil {
 		return err
 	}
 	pd, err := packDbRowConfigs(cfgs, dbrowPack, dbtableTypes, lk, modelFlags)
@@ -1037,11 +934,8 @@ func packAndSaveDbRow(srcDir, serverOut string, dbrowPack, dbtablePack *PackFile
 // TS source: tools/pack/config/HuntConfig.ts:383-545.
 func packAndSaveHunt(srcDir, serverOut string, huntPack, categoryPack, invPack, locPack, npcPack, objPack, paramPack, varnPack, varpPack *PackFile, c Constants, modelFlags []int) error {
 	parse := parseHuntConfigFor(categoryPack, invPack, locPack, npcPack, objPack, paramPack, varnPack, varpPack)
-	cfgs, err := ReadTypedConfigs(srcDir, ".hunt", nil, parse, c)
+	cfgs, err := readAndValidate(srcDir, ".hunt", nil, parse, c, huntPack, false)
 	if err != nil {
-		return err
-	}
-	if err := validatePackNamesAgainstCfgs(huntPack, cfgs, ".hunt", false); err != nil {
 		return err
 	}
 	pd, err := packHuntConfigs(cfgs, huntPack, modelFlags)
@@ -1059,27 +953,12 @@ func packAndSaveHunt(srcDir, serverOut string, huntPack, categoryPack, invPack, 
 // TS source: tools/pack/config/IdkConfig.ts:126-205.
 func packAndSaveIdk(srcDir, serverOut string, idkPack, modelPack *PackFile, c Constants, clientJag *jagfile.Jagfile, modelFlags []int) error {
 	parse := parseIdkConfigFor(modelPack)
-	cfgs, err := ReadTypedConfigs(srcDir, ".idk", nil, parse, c)
+	cfgs, err := readAndValidate(srcDir, ".idk", nil, parse, c, idkPack, true)
 	if err != nil {
 		return err
 	}
-	if err := validatePackNamesAgainstCfgs(idkPack, cfgs, ".idk", true); err != nil {
-		return err
-	}
 	server, client := packIdkConfigs(cfgs, idkPack, modelFlags)
-	// TS PackShared.ts:589 @ 2e3bcf43: Packet.checkcrc(client.data, 0, client.pos, -359342366)
-	if err := BuildVerify(client.Dat.Data, len(client.Dat.Data), clientConfigCRCIdk); err != nil {
-		fmt.Fprintf(os.Stderr, "packAndSaveIdk: %v (BUILD_VERIFY)\n", err)
-	}
-	if err := server.Save(
-		filepath.Join(serverOut, "idk.dat"),
-		filepath.Join(serverOut, "idk.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("idk.dat", client.Dat)
-	clientJag.Write("idk.idx", client.Idx)
-	return nil
+	return saveTransmittedConfig("packAndSaveIdk", "idk", serverOut, server, client, clientJag, clientConfigCRCIdk)
 }
 
 // validatePackNamesAgainstCfgs builds the configNames set from the keys of

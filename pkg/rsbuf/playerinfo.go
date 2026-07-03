@@ -368,11 +368,5 @@ func (pi *PlayerInfo) fits(bitsToAdd, bytesToAdd int) bool {
 // and (ni *NpcInfo) method blocks. Replaced the legacy free clamp function
 // at NAI-30 B4 T4.6 (rename, not delete + add) when EncodeLegacy retired.
 func clampInt(v, lo, hi int) int {
-	if v < lo {
-		return lo
-	}
-	if v > hi {
-		return hi
-	}
-	return v
+	return min(max(v, lo), hi)
 }
