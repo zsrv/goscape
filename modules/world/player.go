@@ -771,7 +771,7 @@ func newPlayer(c *client) *Player {
 	// Sentinel values so the first tick of updateStats emits all 21 UpdateStat
 	// packets. stats[i] is int32 (always >= 0 in gameplay); levels[i] is uint8
 	// (max real value 99). -1 and 255 are unreachable legitimate values.
-	for i := 0; i < 21; i++ {
+	for i := range 21 {
 		p.lastStats[i] = -1
 		p.lastLevels[i] = 255
 	}
@@ -982,7 +982,7 @@ func (p *Player) updateInvs() {
 	}
 }
 func (p *Player) updateStats() {
-	for i := 0; i < 21; i++ {
+	for i := range 21 {
 		if p.stats[i] != p.lastStats[i] || p.levels[i] != p.lastLevels[i] {
 			sendUpdateStat(p, i, int(p.stats[i]), int(p.levels[i]))
 			p.lastStats[i] = p.stats[i]
