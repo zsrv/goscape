@@ -16,6 +16,7 @@ type fakeLoginClient struct {
 	mu sync.Mutex
 
 	worldStartupCalls []worldStartupCall
+	worldStartupErr   error // returned by WorldStartup; nil (success) by default
 
 	lastPlayerLoginReq  *loginpb.PlayerLoginRequest
 	lastPlayerLogoutReq *loginpb.PlayerLogoutRequest
@@ -59,10 +60,11 @@ func newFakeLoginClient() *fakeLoginClient {
 // Compile-time assertion that fakeLoginClient implements LoginClient.
 var _ LoginClient = (*fakeLoginClient)(nil)
 
-func (f *fakeLoginClient) WorldStartup(ctx context.Context, nodeID int32, profile string) {
+func (f *fakeLoginClient) WorldStartup(ctx context.Context, nodeID int32, profile string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.worldStartupCalls = append(f.worldStartupCalls, worldStartupCall{NodeID: nodeID, Profile: profile})
+	return f.worldStartupErr
 }
 
 func (f *fakeLoginClient) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginRequest) (*loginpb.PlayerLoginResponse, error) {

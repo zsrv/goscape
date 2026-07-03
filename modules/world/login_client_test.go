@@ -135,6 +135,68 @@ func TestCallPlayerLoginRPC_ReplyByteMapping(t *testing.T) {
 	}
 }
 
+// arch-29.3 fix wave (reviewer Critical): logins must be rejected until
+// the WorldStartup registration has succeeded. WorldStartup's blanket
+// UPDATE clears logged_in for the whole node+profile; if a login were
+// admitted while the registration retry loop was still pending, the
+// eventually-successful retry would wipe the LIVE session's logged_in
+// flag and falsify the duplicate-login guard. The reject is the same
+// wire behavior as the login-server-unreachable path (opcode 8) — a
+// not-yet-registered world and a down login server are operationally
+// the same.
+func TestLoginGateBlocksUntilWorldStartup(t *testing.T) {
+	fake := newFakeLoginClient()
+	fake.playerLoginResp = &loginpb.PlayerLoginResponse{
+		Result: loginpb.LoginResult_LOGIN_RESULT_OK,
+	}
+	c, _ := newClientWithFakeLoginServer(t, fake)
+	c.server.worldStartupDone.Store(false) // registration still retrying
+	req := sampleLoginReq(t, c)
+
+	reply, err := c.callPlayerLoginRPC(req, "test")
+	if err == nil {
+		t.Fatal("want error while WorldStartup registration is pending, got nil")
+	}
+	if reply != loginresp.OpLoginServerOffline.Opcode {
+		t.Errorf("reply: got %d, want OpLoginServerOffline (%d) — gate must reuse the unreachable-login-server reject",
+			reply, loginresp.OpLoginServerOffline.Opcode)
+	}
+	if got := fake.snapshotPlayerLoginReq(); got != nil {
+		t.Fatalf("PlayerLogin must NOT be dispatched while the gate is closed; captured %v", got)
+	}
+
+	c.server.worldStartupDone.Store(true) // registration succeeded
+	reply, err = c.callPlayerLoginRPC(req, "test")
+	if err != nil {
+		t.Fatalf("callPlayerLoginRPC after gate open: unexpected err %v", err)
+	}
+	if reply != loginresp.OpOK.Opcode {
+		t.Errorf("reply after gate open: got %d, want OpOK (%d)", reply, loginresp.OpOK.Opcode)
+	}
+	if fake.snapshotPlayerLoginReq() == nil {
+		t.Fatal("PlayerLogin should be dispatched once the gate is open")
+	}
+}
+
+// arch-29.3 fix wave: a standalone world (no login client configured) has
+// no WorldStartup registration to wait for, so its login gate starts open;
+// a world WITH a login client starts gated until the registration succeeds.
+func TestLoginGateOpenWhenStandalone(t *testing.T) {
+	s := newTestServer(t)
+	s.worldStartupDone.Store(false)
+	s.initLoginGate(nil)
+	if !s.worldStartupDone.Load() {
+		t.Fatal("standalone world (nil login client) must not gate logins")
+	}
+
+	s2 := newTestServer(t)
+	s2.worldStartupDone.Store(false)
+	s2.initLoginGate(newFakeLoginClient())
+	if s2.worldStartupDone.Load() {
+		t.Fatal("gate must start closed when a login client is configured")
+	}
+}
+
 func TestCallPlayerLoginRPC_RPCErrorReturnsServerOffline(t *testing.T) {
 	rpcErr := errors.New("simulated rpc failure")
 	fake := newFakeLoginClient()
