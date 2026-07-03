@@ -48,7 +48,8 @@ func (h *handler) ensureWorld(worldId int32) {
 
 // WorldConnect initializes the world's slot. Mirrors TS FriendServer
 // WORLD_CONNECT at 2e3bcf43 (FriendServer.ts:99-112). Re-init by the same
-// world resets that world's player counter to 0.
+// world is a no-op that preserves that world's existing player counter
+// (see Repository.InitializeWorld) — it does NOT reset it to 0.
 //
 // 254 pin: the profile-mismatch reject is BACK (244 had removed it) —
 // TS closes the socket and logs:
