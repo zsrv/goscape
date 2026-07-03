@@ -13,12 +13,17 @@ const healthzStaleAfter = 10 * time.Second
 
 // healthzBootGrace: how long after the health routes are registered a world
 // that has not yet completed its first tick is still treated as "starting"
-// rather than "wedged". A world normally ticks within one ~600ms cycle of
-// starting, so this is generous (cache load, an async WorldStartup retry).
-// Past it, a world that never produced a first tick is wedged during startup —
-// which the pre-first-tick grace alone would otherwise hide forever, since
-// LastTick stays at its zero value and time.Since is never consulted. Closing
-// that blind spot is the arch-29.6 follow-up this bound exists for.
+// rather than "wedged". Registration happens during ondemand module init
+// (≈ process start), and ondemand begins serving /healthz concurrently with
+// the world's startingFn, so this window spans the world's whole startup —
+// cache load (cache.MakeCRCs), Listen, an async WorldStartup retry — not just
+// the ~600ms tick cycle. 30s is generous for a normal cache; an abnormally
+// slow cold-cache load could push the first tick past it and briefly return
+// 503, which is acceptable (see RegisterHealthRoutes: /healthz is a readiness
+// probe, self-healing on the first tick). Past the grace with still no first
+// tick, a world is wedged during startup — the blind spot the pre-first-tick
+// grace alone would otherwise hide forever (LastTick stays at its zero value,
+// so time.Since is never consulted). This bound is the arch-29.6 follow-up.
 const healthzBootGrace = 30 * time.Second
 
 // HealthSnapshot is the subset of world state the health endpoints need.
@@ -33,9 +38,11 @@ type HealthSnapshot struct {
 	LastCycleMillis int
 }
 
-// healthzStatus decides the GET /healthz response. It is pure so both the
-// boot-deadline and staleness branches are testable without a real clock:
-// sinceBoot is how long the health routes have been registered.
+// healthzStatus decides the GET /healthz response. It is pure so the
+// boot-deadline branch is testable without a real clock: sinceBoot (how long
+// the health routes have been registered) is injected. The staleness branch
+// still reads time.Since(s.LastTick), which tests control by choosing LastTick
+// relative to time.Now().
 //
 // Boot-grace decision (arch-29.6): before the world's tick loop has completed
 // a single tick, HealthSnapshot.LastTick is time.Unix(0, 0) (the atomic
@@ -71,10 +78,14 @@ func healthzStatus(s HealthSnapshot, hasWorld bool, sinceBoot time.Duration) (in
 // RegisterHealthRoutes wires GET /healthz and GET /debug/status onto mux.
 // snap returns (HealthSnapshot, false) when no world is wired (standalone
 // ondemand) — in that case /healthz is a plain process-up 200. bootTime is
-// captured here (health routes are registered once, during ondemand init,
-// at or after the world starts) and fed to healthzStatus as the boot-deadline
-// reference; capturing at-or-after world start only ever makes the deadline
-// more lenient, never a false positive.
+// captured here (health routes are registered once, during ondemand module
+// init, ≈ process start) and fed to healthzStatus as the boot-deadline
+// reference. ondemand serves /healthz concurrently with the world's startup,
+// so the boot deadline spans the world's cache load — a slow cold-cache boot
+// can therefore return a transient 503 before the first tick. That is
+// acceptable: /healthz is wired only as a readiness probe (production/helm),
+// never a liveness probe, so a 503 removes the pod from Service endpoints but
+// never restarts it, and it self-heals the moment the first tick lands.
 func RegisterHealthRoutes(mux *http.ServeMux, snap func() (HealthSnapshot, bool)) {
 	bootTime := time.Now()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
