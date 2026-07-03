@@ -48,5 +48,12 @@ func (c *Config) Validate() error {
 	if c.Profile == "" {
 		return fmt.Errorf("friends: Profile must be non-empty when friends.enable=true")
 	}
+	// newGRPCServer coerces a non-positive grace to defaultGracefulStopBound
+	// rather than wiring shutdown to time.After(0). Reject it here so an
+	// operator who writes graceful_shutdown_timeout: 0s gets a clear error
+	// instead of a silent 5s fallback (an omitted key keeps the default).
+	if c.GracefulShutdownTimeout <= 0 {
+		return fmt.Errorf("friends: GracefulShutdownTimeout must be > 0, got %s", c.GracefulShutdownTimeout)
+	}
 	return nil
 }
