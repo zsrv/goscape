@@ -75,6 +75,44 @@ func TestWorldSubscriptions_DeregisterIdentityChecked(t *testing.T) {
 	}
 }
 
+// TestWorldSubscriptions_CloseAll mirrors TestSubscriptions_CloseAll
+// (arch-29.4) for the world-events registry: closeAll releases every
+// live subscriber's done channel exactly once and empties the registry
+// so a subsequent register does not see (and re-close) a stale entry.
+func TestWorldSubscriptions_CloseAll(t *testing.T) {
+	s := newWorldSubscriptions(noopLogger())
+	a := newWorldSubscriber("main", 1)
+	b := newWorldSubscriber("main", 2)
+	s.register(a)
+	s.register(b)
+
+	s.closeAll()
+
+	for _, sub := range []*worldSubscriber{a, b} {
+		select {
+		case <-sub.done:
+		default:
+			t.Fatalf("expected sub.done closed by closeAll")
+		}
+	}
+	s.mu.Lock()
+	n := len(s.by)
+	s.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("expected registry emptied by closeAll, got %d entries", n)
+	}
+
+	// A late registration for a key closeAll already cleared must not
+	// panic and must not itself be pre-closed.
+	c := newWorldSubscriber("main", 1)
+	s.register(c)
+	select {
+	case <-c.done:
+		t.Fatalf("newly registered subscriber's done must not be closed")
+	default:
+	}
+}
+
 func TestWorldSubscriptions_SendNoSubscriberSilent(t *testing.T) {
 	s := newWorldSubscriptions(noopLogger())
 	ev := &friendspb.WorldEvent{Event: &friendspb.WorldEvent_Reload{Reload: &friendspb.ReloadEvent{}}}

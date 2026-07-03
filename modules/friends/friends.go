@@ -72,6 +72,19 @@ func (f *Friends) running(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
+		// arch-29.4: release every open subscriber stream before asking
+		// gRPC to stop. SubscribeUpdates/SubscribeWorldEvents loops exit
+		// only on client-driven ctx.Done or sub.done; with nothing else
+		// server-side ending them, GracefulStop would otherwise wait
+		// forever for a subscriber a client never closes — the
+		// standalone `--target friends` SIGTERM hang while worlds are
+		// attached. closeAll leaves both registries empty but usable:
+		// a Subscribe landing after this point (the narrow race before
+		// GracefulStop actually stops accepting) registers normally and
+		// exits via its stream ctx once shutdown's grace window forces
+		// Stop (see grpcServer.shutdown / defaultGracefulStopBound).
+		f.subs.closeAll()
+		f.worldSubs.closeAll()
 		f.srv.shutdown()
 		<-serverDone
 		return nil
