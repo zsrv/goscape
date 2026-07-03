@@ -19,7 +19,7 @@ type LoginClient interface {
 	PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginRequest) (*loginpb.PlayerLoginResponse, error)
 	PlayerLogout(ctx context.Context, req *loginpb.PlayerLogoutRequest) (*loginpb.PlayerLogoutResponse, error)
 	PlayerAutosave(ctx context.Context, req *loginpb.PlayerAutosaveRequest)
-	PlayerForceLogout(ctx context.Context, req *loginpb.PlayerForceLogoutRequest)
+	PlayerForceLogout(ctx context.Context, req *loginpb.PlayerForceLogoutRequest) // currently uncalled; retained to mirror the login RPC surface (see grpcLoginClient.PlayerForceLogout)
 	PlayerBan(ctx context.Context, req *loginpb.PlayerBanRequest)
 	PlayerMute(ctx context.Context, req *loginpb.PlayerMuteRequest)
 	Close() error
@@ -92,7 +92,12 @@ func (c *grpcLoginClient) PlayerAutosave(ctx context.Context, req *loginpb.Playe
 	}
 }
 
-// PlayerForceLogout clears the logged-in flag without writing a save (used on disconnect without save data).
+// PlayerForceLogout clears the logged-in flag on the login server without
+// writing a save. Currently UNCALLED: the disconnect-without-save path that
+// once invoked it was removed for TS parity (it discarded all progress since
+// the last autosave — see removePlayerOnDisconnect in server.go). Retained to
+// mirror the login service's RPC surface (loginpb.LoginServiceClient) so a
+// future faithful caller can wire it without reconstructing the client method.
 func (c *grpcLoginClient) PlayerForceLogout(ctx context.Context, req *loginpb.PlayerForceLogoutRequest) {
 	if _, err := c.client.PlayerForceLogout(ctx, req); err != nil {
 		c.log.Warn("PlayerForceLogout RPC failed",
