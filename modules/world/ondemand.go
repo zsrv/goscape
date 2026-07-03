@@ -141,9 +141,9 @@ func (od *onDemand) cycle() {
 // begun by OnDemand.ts:39 (setTimeout(this.cycle.bind(this), 50)).
 // It blocks until stop is closed (called by the world service shutdown).
 //
-// stop is chan interface{} to match the Server.quit field type used
-// throughout the world module for shutdown signalling.
-func (od *onDemand) run(stop <-chan interface{}) {
+// stop is a receive-only signal channel matching Server.quit used throughout
+// the world server.
+func (od *onDemand) run(stop <-chan struct{}) {
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 	for {
