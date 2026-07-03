@@ -80,3 +80,71 @@ func TestLogoutSaveGivesUpAfterMaxAttempts(t *testing.T) {
 		t.Fatalf("calls: got %d, want exactly 3 attempts", got)
 	}
 }
+
+// blockingLoginClient is a test-only LoginClient whose PlayerLogout blocks
+// until its ctx is done (or release is closed, as a belt-and-suspenders
+// unblock), then returns ctx.Err(). Used to pin arch-29.11: cancelling
+// bridgesCtx mid-attempt must abort sendPlayerLogoutWithRetry's loop
+// promptly instead of leaving it to burn through logoutSaveAttempts on the
+// configured retry delay. The other LoginClient methods are unused by this
+// test and stubbed as no-ops, mirroring flakyLoginClient.
+type blockingLoginClient struct {
+	release chan struct{}
+	calls   atomic.Int32
+}
+
+var _ LoginClient = (*blockingLoginClient)(nil)
+
+func (b *blockingLoginClient) WorldStartup(ctx context.Context, nodeID int32, profile string) error {
+	return nil
+}
+
+func (b *blockingLoginClient) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginRequest) (*loginpb.PlayerLoginResponse, error) {
+	return nil, nil
+}
+
+func (b *blockingLoginClient) PlayerLogout(ctx context.Context, req *loginpb.PlayerLogoutRequest) (*loginpb.PlayerLogoutResponse, error) {
+	b.calls.Add(1)
+	select {
+	case <-ctx.Done():
+	case <-b.release:
+	}
+	return nil, ctx.Err()
+}
+
+func (b *blockingLoginClient) PlayerAutosave(ctx context.Context, req *loginpb.PlayerAutosaveRequest) {
+}
+
+func (b *blockingLoginClient) PlayerForceLogout(ctx context.Context, req *loginpb.PlayerForceLogoutRequest) {
+}
+
+func (b *blockingLoginClient) PlayerBan(ctx context.Context, req *loginpb.PlayerBanRequest) {}
+
+func (b *blockingLoginClient) PlayerMute(ctx context.Context, req *loginpb.PlayerMuteRequest) {}
+
+func (b *blockingLoginClient) Close() error { return nil }
+
+// arch-29.11: cancelling bridgesCtx mid-retry must abort the loop
+// promptly (shutdown's bridgesCancel path) instead of burning the
+// remaining attempts.
+func TestLogoutSaveAbortsOnBridgesCancel(t *testing.T) {
+	block := make(chan struct{})
+	fake := &blockingLoginClient{release: block} // PlayerLogout waits on ctx.Done, returns ctx.Err()
+	s := newRetryTestServer(t, fake)
+	s.logoutSaveRetryDelay = time.Hour // any retry sleep would hang the test — abort must preempt it
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.sendPlayerLogoutWithRetry("player_one", []byte{1})
+	}()
+	time.Sleep(20 * time.Millisecond)
+	s.bridgesCancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("retry loop did not abort on bridgesCancel")
+	}
+	if got := fake.calls.Load(); got > 2 {
+		t.Fatalf("calls after cancel: got %d, want <= 2", got)
+	}
+}
