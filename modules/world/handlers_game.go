@@ -110,11 +110,11 @@ func init() {
 	gameHandlers[gameclient.OpcTutorialClickSide] = handleTutorialClickSide // TUTORIAL_CLICKSIDE
 
 	gameHandlers[gameclient.OpcIfButton] = handleIfButton                 // IF_BUTTON
-	gameHandlers[gameclient.OpcInvButton1] = handleInvButton1             // INV_BUTTON1
-	gameHandlers[gameclient.OpcInvButton2] = handleInvButton2             // INV_BUTTON2
-	gameHandlers[gameclient.OpcInvButton3] = handleInvButton3             // INV_BUTTON3
-	gameHandlers[gameclient.OpcInvButton4] = handleInvButton4             // INV_BUTTON4
-	gameHandlers[gameclient.OpcInvButton5] = handleInvButton5             // INV_BUTTON5
+	gameHandlers[gameclient.OpcInvButton1] = invButtonHandler(1)          // INV_BUTTON1
+	gameHandlers[gameclient.OpcInvButton2] = invButtonHandler(2)          // INV_BUTTON2
+	gameHandlers[gameclient.OpcInvButton3] = invButtonHandler(3)          // INV_BUTTON3
+	gameHandlers[gameclient.OpcInvButton4] = invButtonHandler(4)          // INV_BUTTON4
+	gameHandlers[gameclient.OpcInvButton5] = invButtonHandler(5)          // INV_BUTTON5
 	gameHandlers[gameclient.OpcInvButtonD] = handleInvButtonD             // INV_BUTTOND
 	gameHandlers[gameclient.OpcIfPlayerDesign] = handleIfPlayerDesignGame // IF_PLAYERDESIGN
 }
@@ -163,39 +163,18 @@ func handleIfButton(p *Player, payload []byte) error {
 	return p.client.server.handleIfButton(p, payload)
 }
 
-func handleInvButton1(p *Player, payload []byte) error {
-	if p.client == nil || p.client.server == nil {
-		return nil
+// invButtonHandler returns the gameHandlers adapter for INV_BUTTON<n>
+// (n=1..5). Looks up the Server via p.client.server, matching handleIfButton
+// and the other Server-method adapters in this file. Replaces five
+// byte-identical handleInvButton1..5 adapters that differed only by the
+// trailing int literal passed to (*Server).handleInvButton.
+func invButtonHandler(n int) func(*Player, []byte) error {
+	return func(p *Player, payload []byte) error {
+		if p.client == nil || p.client.server == nil {
+			return nil
+		}
+		return p.client.server.handleInvButton(p, payload, n)
 	}
-	return p.client.server.handleInvButton(p, payload, 1)
-}
-
-func handleInvButton2(p *Player, payload []byte) error {
-	if p.client == nil || p.client.server == nil {
-		return nil
-	}
-	return p.client.server.handleInvButton(p, payload, 2)
-}
-
-func handleInvButton3(p *Player, payload []byte) error {
-	if p.client == nil || p.client.server == nil {
-		return nil
-	}
-	return p.client.server.handleInvButton(p, payload, 3)
-}
-
-func handleInvButton4(p *Player, payload []byte) error {
-	if p.client == nil || p.client.server == nil {
-		return nil
-	}
-	return p.client.server.handleInvButton(p, payload, 4)
-}
-
-func handleInvButton5(p *Player, payload []byte) error {
-	if p.client == nil || p.client.server == nil {
-		return nil
-	}
-	return p.client.server.handleInvButton(p, payload, 5)
 }
 
 func handleInvButtonD(p *Player, payload []byte) error {
@@ -882,16 +861,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 			if objType == nil {
 				return nil
 			}
-			count := 1
-			if len(sub) > 1 {
-				count = parseIntOr(sub[1], 1)
-				if count < 1 {
-					count = 1
-				}
-				if count > 0x7fffffff {
-					count = 0x7fffffff
-				}
-			}
+			count := clampCount(sub, 1)
 			p.InvAdd(p.client.server.invTypes.Inv, objType.ID, count, false)
 		case "givemany":
 			// TS L339-352 — givemany <obj>. Fixed count = 1000.
@@ -1010,9 +980,8 @@ func handleClientCheat(p *Player, payload []byte) error {
 			if args == "" {
 				return nil
 			}
-			other := p.client.server.LookupPlayerByUsername(args)
+			other := lookupOrReport(p, args)
 			if other == nil {
-				p.MessageGame(fmt.Sprintf("%s is not logged in.", args))
 				return nil
 			}
 			other.CloseModal(true)
@@ -1057,13 +1026,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 				return nil
 			}
 			// TS L202: rev-254 moved the int32 clamp ABOVE the lookup.
-			value := parseIntOr(sub[1], 0)
-			if value > 0x7fffffff {
-				value = 0x7fffffff
-			}
-			if value < -0x80000000 {
-				value = -0x80000000
-			}
+			value := clampInt32(sub, 1)
 			var cfg *objtype.VarPlayerType
 			varbit := p.client.server.varbitTypes.ByName(sub[0])
 			if varbit != nil {
@@ -1118,9 +1081,8 @@ func handleClientCheat(p *Player, payload []byte) error {
 			if len(sub) < 3 {
 				return nil
 			}
-			other := p.client.server.LookupPlayerByUsername(sub[0])
+			other := lookupOrReport(p, sub[0])
 			if other == nil {
-				p.MessageGame(fmt.Sprintf("%s is not logged in.", sub[0]))
 				return nil
 			}
 			cfg := p.client.server.varpTypes.ByName(sub[1])
@@ -1136,13 +1098,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 				other.ClearInteraction()
 				other.unsetMapFlag()
 			}
-			value := parseIntOr(sub[2], 0)
-			if value > 0x7fffffff {
-				value = 0x7fffffff
-			}
-			if value < -0x80000000 {
-				value = -0x80000000
-			}
+			value := clampInt32(sub, 2)
 			other.SetVarp(cfg.ID, int32(value))
 			p.MessageGame(fmt.Sprintf("set %s: to %d on %s", cfg.DebugName, value, other.username))
 		case "getvar":
@@ -1197,9 +1153,8 @@ func handleClientCheat(p *Player, payload []byte) error {
 			if len(sub) < 2 {
 				return nil
 			}
-			other := p.client.server.LookupPlayerByUsername(sub[0])
+			other := lookupOrReport(p, sub[0])
 			if other == nil {
-				p.MessageGame(fmt.Sprintf("%s is not logged in.", sub[0]))
 				return nil
 			}
 			cfg := p.client.server.varpTypes.ByName(sub[1])
@@ -1221,25 +1176,15 @@ func handleClientCheat(p *Player, payload []byte) error {
 			if len(sub) < 2 {
 				return nil
 			}
-			other := p.client.server.LookupPlayerByUsername(sub[0])
+			other := lookupOrReport(p, sub[0])
 			if other == nil {
-				p.MessageGame(fmt.Sprintf("%s is not logged in.", sub[0]))
 				return nil
 			}
 			objType := p.client.server.objTypes.ByName(sub[1])
 			if objType == nil {
 				return nil
 			}
-			count := 1
-			if len(sub) > 2 {
-				count = parseIntOr(sub[2], 1)
-				if count < 1 {
-					count = 1
-				}
-				if count > 0x7fffffff {
-					count = 0x7fffffff
-				}
-			}
+			count := clampCount(sub, 2)
 			other.InvAdd(p.client.server.invTypes.Inv, objType.ID, count, false)
 		case "givecrap":
 			// TS L323-338. Not NP-gated. Fills inventory with 28
@@ -1338,9 +1283,8 @@ func handleClientCheat(p *Player, payload []byte) error {
 			if args == "" {
 				return nil
 			}
-			other := p.client.server.LookupPlayerByUsername(args)
+			other := lookupOrReport(p, args)
 			if other == nil {
-				p.MessageGame(fmt.Sprintf("%s is not logged in.", args))
 				return nil
 			}
 			p.CloseModal(true)
@@ -1453,6 +1397,60 @@ func handleClientCheat(p *Player, payload []byte) error {
 	}
 
 	return nil
+}
+
+// clampCount parses sub[idx] as an item count for the give/giveother cheat
+// handlers, clamping to [1, 0x7fffffff]. Missing arg (len(sub) <= idx)
+// defaults to 1, matching TS L288-302 (give) / L303-322 (giveother). The
+// arg index differs between the two callers (give reads sub[1], giveother
+// reads sub[2]), hence idx is a parameter rather than hardcoded.
+func clampCount(sub []string, idx int) int {
+	count := 1
+	if len(sub) > idx {
+		count = parseIntOr(sub[idx], 1)
+		if count < 1 {
+			count = 1
+		}
+		if count > 0x7fffffff {
+			count = 0x7fffffff
+		}
+	}
+	return count
+}
+
+// clampInt32 parses sub[idx] as an integer for the setvar/setvarother cheat
+// handlers, clamping to the int32 range [-0x80000000, 0x7fffffff].
+// Non-numeric input defaults to 0 via parseIntOr. Callers must guarantee
+// len(sub) > idx: unlike clampCount, this helper does not length-guard and
+// panics on a missing arg. Both callers satisfy this (setvar rejects
+// len(sub) < 2, setvarother rejects len(sub) < 3 before calling). The arg
+// index differs between the two callers (setvar reads sub[1], setvarother
+// reads sub[2]), hence idx is a parameter rather than hardcoded.
+func clampInt32(sub []string, idx int) int {
+	value := parseIntOr(sub[idx], 0)
+	if value > 0x7fffffff {
+		value = 0x7fffffff
+	}
+	if value < -0x80000000 {
+		value = -0x80000000
+	}
+	return value
+}
+
+// lookupOrReport looks up other by username for the teleother/setvarother/
+// getvarother/giveother/teleto cheat handlers. On a miss it sends the
+// caller the "%s is not logged in." MessageGame and returns nil; callers
+// must treat a nil return as "handler done, return nil". Does NOT cover
+// ::kick (handlers_game.go case "kick"), which uses a different message
+// ("does not exist or is not logged in.") and if/else control flow rather
+// than an early return — that site is intentionally left inline.
+func lookupOrReport(p *Player, name string) *Player {
+	other := p.client.server.LookupPlayerByUsername(name)
+	if other == nil {
+		p.MessageGame(fmt.Sprintf("%s is not logged in.", name))
+		return nil
+	}
+	return other
 }
 
 // parseIntOr ports TS tryParseInt (src/util/TryParse.ts:11-26) used by the
