@@ -60,7 +60,7 @@ type SignalHandler interface {
 type Server struct {
 	handler     SignalHandler
 	tcpListener net.Listener
-	quit        chan interface{}
+	quit        chan struct{}
 	log         *slog.Logger // component=world.server (server lifecycle)
 	logNet      *slog.Logger // component=world.net (per-connection I/O)
 	logTick     *slog.Logger // component=world.tick
@@ -511,7 +511,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		loginClient:   loginClient,
 		friendsClient: friendsClient,
 		tap:           tap,
-		quit:          make(chan interface{}),
+		quit:          make(chan struct{}),
 
 		log:              logger.With("component", compServer),
 		invs:             make(map[int]*inventory.Inventory),

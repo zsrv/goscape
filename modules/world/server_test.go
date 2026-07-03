@@ -348,7 +348,7 @@ func newTestServerWithDispatcher(t *testing.T, startWorker bool) *Server {
 	bridgesCtx, bridgesCancel := context.WithCancel(context.Background())
 	t.Cleanup(bridgesCancel)
 	s := &Server{
-		quit:             make(chan interface{}),
+		quit:             make(chan struct{}),
 		log:              discardLogger(),
 		scriptProvider:   defaultTestProvider(),
 		zoneMap:          zone.NewZoneMap(),

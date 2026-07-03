@@ -372,7 +372,7 @@ func TestOnDemandImmediatePump(t *testing.T) {
 	c := newTestODClient(&closed)
 	c.firstSend = make(chan struct{})
 
-	stop := make(chan interface{})
+	stop := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() { defer wg.Done(); od.run(stop) }()
@@ -656,7 +656,7 @@ func TestOnDemandRunLoopLifecycle(t *testing.T) {
 	c := newTestODClient(&closed)
 	c.firstSend = make(chan struct{})
 
-	stop := make(chan interface{})
+	stop := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() { defer wg.Done(); od.run(stop) }()
