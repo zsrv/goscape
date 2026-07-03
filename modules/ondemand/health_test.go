@@ -60,6 +60,32 @@ func TestHealthzBootGraceBeforeFirstTick(t *testing.T) {
 	}
 }
 
+// TestHealthzStatus exercises the pure decision helper directly, so the
+// boot-deadline and staleness branches can be pinned without a real clock.
+func TestHealthzStatus(t *testing.T) {
+	tests := []struct {
+		name      string
+		snap      HealthSnapshot
+		hasWorld  bool
+		sinceBoot time.Duration
+		wantCode  int
+	}{
+		{"no world is process-up", HealthSnapshot{}, false, time.Hour, http.StatusOK},
+		{"before first tick within boot grace", HealthSnapshot{LastTick: time.Unix(0, 0)}, true, 5 * time.Second, http.StatusOK},
+		{"before first tick past boot grace", HealthSnapshot{LastTick: time.Unix(0, 0)}, true, healthzBootGrace + time.Second, http.StatusServiceUnavailable},
+		{"zero time.Time past boot grace", HealthSnapshot{}, true, healthzBootGrace + time.Second, http.StatusServiceUnavailable},
+		{"fresh tick", HealthSnapshot{LastTick: time.Now()}, true, time.Hour, http.StatusOK},
+		{"stale tick", HealthSnapshot{LastTick: time.Now().Add(-time.Minute)}, true, time.Hour, http.StatusServiceUnavailable},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if code, _ := healthzStatus(tt.snap, tt.hasWorld, tt.sinceBoot); code != tt.wantCode {
+				t.Fatalf("healthzStatus = %d, want %d", code, tt.wantCode)
+			}
+		})
+	}
+}
+
 func TestDebugStatusJSON(t *testing.T) {
 	mux := http.NewServeMux()
 	RegisterHealthRoutes(mux, func() (HealthSnapshot, bool) {
