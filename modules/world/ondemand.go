@@ -385,9 +385,9 @@ func (od *onDemand) hasWork(cq *clientQueue) bool {
 // schedulePump→pump wake chain (OnDemandThread.ts:159-200), but the goroutine
 // loops the round-robin to empty per wake instead of re-arming via setImmediate.
 //
-// stop is chan interface{} to match Server.quit used throughout the world
-// module for shutdown signalling.
-func (od *onDemand) run(stop <-chan interface{}) {
+// stop is a receive-only signal channel matching Server.quit used throughout
+// the world server.
+func (od *onDemand) run(stop <-chan struct{}) {
 	for {
 		select {
 		case <-stop:

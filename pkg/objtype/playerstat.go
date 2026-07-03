@@ -99,7 +99,7 @@ var levelExperience [99]int
 
 func init() {
 	acc := 0
-	for i := 0; i < 99; i++ {
+	for i := range 99 {
 		level := i + 1
 		delta := int(math.Floor(float64(level) + math.Pow(2.0, float64(level)/7.0)*300.0))
 		acc += delta
