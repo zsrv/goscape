@@ -15,7 +15,7 @@ import (
 // Production impl: grpcLoginClient (this file). Test impl:
 // fakeLoginClient (login_client_fake_test.go).
 type LoginClient interface {
-	WorldStartup(ctx context.Context, nodeID int32, profile string)
+	WorldStartup(ctx context.Context, nodeID int32, profile string) error
 	PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginRequest) (*loginpb.PlayerLoginResponse, error)
 	PlayerLogout(ctx context.Context, req *loginpb.PlayerLogoutRequest) (*loginpb.PlayerLogoutResponse, error)
 	PlayerAutosave(ctx context.Context, req *loginpb.PlayerAutosaveRequest)
@@ -55,8 +55,13 @@ func (c *grpcLoginClient) Close() error {
 }
 
 // WorldStartup notifies the login server that this world is starting.
-// Clears any stale sessions from a previous (ungraceful) shutdown.
-func (c *grpcLoginClient) WorldStartup(ctx context.Context, nodeID int32, profile string) {
+// Clears any stale sessions from a previous (ungraceful) shutdown. Returns
+// the RPC error (in addition to logging it) so the caller can retry —
+// arch-29.3: this is the only mechanism that clears stale
+// account_login.logged_in rows, so a swallowed failure here used to strand
+// every crashed-out player at ALREADY_LOGGED_IN until an operator
+// intervened.
+func (c *grpcLoginClient) WorldStartup(ctx context.Context, nodeID int32, profile string) error {
 	_, err := c.client.WorldStartup(ctx, &loginpb.WorldStartupRequest{
 		NodeId:  nodeID,
 		Profile: profile,
@@ -64,6 +69,7 @@ func (c *grpcLoginClient) WorldStartup(ctx context.Context, nodeID int32, profil
 	if err != nil {
 		c.log.Warn("WorldStartup RPC failed", slog.Any("err", err))
 	}
+	return err
 }
 
 // PlayerLogin runs the full auth flow on the login server and returns the response.
