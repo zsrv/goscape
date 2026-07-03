@@ -2035,7 +2035,7 @@ func TestNpcUnfocusWritesDefaultSouthFaceAngle(t *testing.T) {
 func newNpcInOperableTestServer(t *testing.T) *Server {
 	t.Helper()
 	s := &Server{
-		quit:           make(chan interface{}),
+		quit:           make(chan struct{}),
 		log:            discardLogger(),
 		scriptProvider: defaultTestProvider(),
 		zoneMap:        zone.NewZoneMap(),
@@ -2298,7 +2298,7 @@ func TestNpc_PathToTarget_SmartStrategy_LocTarget_ThreadsShapeAngle(t *testing.T
 func newNpcObjReachTestServer(t *testing.T) *Server {
 	t.Helper()
 	s := &Server{
-		quit:           make(chan interface{}),
+		quit:           make(chan struct{}),
 		log:            discardLogger(),
 		scriptProvider: defaultTestProvider(),
 		zoneMap:        zone.NewZoneMap(),

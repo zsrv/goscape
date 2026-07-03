@@ -103,6 +103,77 @@ func checkStructType(s *ScriptState, id int, op string) error {
 	return nil
 }
 
+// resolveLocType folds the requireConfigs → PopInt → checkLocType →
+// Configs.LocType prologue shared by the single-id LC_* config-read
+// handlers (LC_NAME, LC_CATEGORY, LC_DESC, LC_DEBUGNAME, LC_WIDTH,
+// LC_LENGTH). Pops exactly one int (the loc id) and returns the
+// resolved *objtype.LocType, or the first non-nil error from either
+// check — preserving the requireConfigs-before-checkLocType order.
+func resolveLocType(s *ScriptState, op string) (*objtype.LocType, error) {
+	if err := requireConfigs(s, op); err != nil {
+		return nil, err
+	}
+	id := s.PopInt()
+	if err := checkLocType(s, id, op); err != nil {
+		return nil, err
+	}
+	return s.Configs.LocType(id), nil
+}
+
+// resolveNpcType is the NC_* analog of resolveLocType — folds
+// requireConfigs → PopInt → checkNpcType → Configs.NpcType. Shared by
+// NC_NAME, NC_CATEGORY, NC_DESC, NC_DEBUGNAME, NC_SIZE, NC_VISLEVEL.
+func resolveNpcType(s *ScriptState, op string) (*objtype.NpcType, error) {
+	if err := requireConfigs(s, op); err != nil {
+		return nil, err
+	}
+	id := s.PopInt()
+	if err := checkNpcType(s, id, op); err != nil {
+		return nil, err
+	}
+	return s.Configs.NpcType(id), nil
+}
+
+// resolveObjType is the OC_* analog of resolveLocType — folds
+// requireConfigs → PopInt → checkObjType → Configs.ObjType. Shared by
+// the single-id OC_* config-read handlers (OC_NAME, OC_CATEGORY,
+// OC_DESC, OC_MEMBERS, OC_WEIGHT, OC_WEARPOS/2/3, OC_COST,
+// OC_TRADEABLE, OC_DEBUGNAME, OC_CERT, OC_UNCERT, OC_STACKABLE).
+func resolveObjType(s *ScriptState, op string) (*objtype.ObjType, error) {
+	if err := requireConfigs(s, op); err != nil {
+		return nil, err
+	}
+	id := s.PopInt()
+	if err := checkObjType(s, id, op); err != nil {
+		return nil, err
+	}
+	return s.Configs.ObjType(id), nil
+}
+
+// pushStringOrNull pushes v, or the literal "null" when v is empty.
+// Shared tail for LC_DESC/LC_DEBUGNAME, NC_DESC/NC_DEBUGNAME, and
+// OC_DESC/OC_DEBUGNAME.
+func pushStringOrNull(s *ScriptState, v string) {
+	if v == "" {
+		s.PushString("null")
+	} else {
+		s.PushString(v)
+	}
+}
+
+// pushNameOrDebugOrNull pushes name, falling back to debug, then the
+// literal "null" when both are empty. Shared tail for LC_NAME,
+// NC_NAME, OC_NAME.
+func pushNameOrDebugOrNull(s *ScriptState, name, debug string) {
+	if name != "" {
+		s.PushString(name)
+	} else if debug != "" {
+		s.PushString(debug)
+	} else {
+		s.PushString("null")
+	}
+}
+
 // -- EnumOps --
 
 // handleEnum (ENUM, opcode 4400) pops [inputType, outputType, enumID, key]
@@ -201,21 +272,11 @@ func handleStructParam(s *ScriptState) error {
 // handleLcName (LC_NAME) pops a loc id and pushes its name, falling
 // back to debugname, then "null".
 func handleLcName(s *ScriptState) error {
-	if err := requireConfigs(s, "LC_NAME"); err != nil {
+	lt, err := resolveLocType(s, "LC_NAME")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkLocType(s, id, "LC_NAME"); err != nil {
-		return err
-	}
-	lt := s.Configs.LocType(id)
-	if lt.Name != "" {
-		s.PushString(lt.Name)
-	} else if lt.DebugName != "" {
-		s.PushString(lt.DebugName)
-	} else {
-		s.PushString("null")
-	}
+	pushNameOrDebugOrNull(s, lt.Name, lt.DebugName)
 	return nil
 }
 
@@ -235,14 +296,10 @@ func handleLcParam(s *ScriptState) error {
 
 // handleLcCategory (LC_CATEGORY) pops a loc id and pushes its category.
 func handleLcCategory(s *ScriptState) error {
-	if err := requireConfigs(s, "LC_CATEGORY"); err != nil {
+	lt, err := resolveLocType(s, "LC_CATEGORY")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkLocType(s, id, "LC_CATEGORY"); err != nil {
-		return err
-	}
-	lt := s.Configs.LocType(id)
 	s.PushInt(lt.Category)
 	return nil
 }
@@ -250,64 +307,40 @@ func handleLcCategory(s *ScriptState) error {
 // handleLcDesc (LC_DESC) pops a loc id and pushes its description.
 // Empty Desc pushes "null" matching TS fallback.
 func handleLcDesc(s *ScriptState) error {
-	if err := requireConfigs(s, "LC_DESC"); err != nil {
+	lt, err := resolveLocType(s, "LC_DESC")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkLocType(s, id, "LC_DESC"); err != nil {
-		return err
-	}
-	lt := s.Configs.LocType(id)
-	if lt.Desc == "" {
-		s.PushString("null")
-	} else {
-		s.PushString(lt.Desc)
-	}
+	pushStringOrNull(s, lt.Desc)
 	return nil
 }
 
 // handleLcDebugName (LC_DEBUGNAME) pops a loc id and pushes its debugname.
 func handleLcDebugName(s *ScriptState) error {
-	if err := requireConfigs(s, "LC_DEBUGNAME"); err != nil {
+	lt, err := resolveLocType(s, "LC_DEBUGNAME")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkLocType(s, id, "LC_DEBUGNAME"); err != nil {
-		return err
-	}
-	lt := s.Configs.LocType(id)
-	if lt.DebugName == "" {
-		s.PushString("null")
-	} else {
-		s.PushString(lt.DebugName)
-	}
+	pushStringOrNull(s, lt.DebugName)
 	return nil
 }
 
 // handleLcWidth (LC_WIDTH) pops a loc id and pushes its tile width.
 func handleLcWidth(s *ScriptState) error {
-	if err := requireConfigs(s, "LC_WIDTH"); err != nil {
+	lt, err := resolveLocType(s, "LC_WIDTH")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkLocType(s, id, "LC_WIDTH"); err != nil {
-		return err
-	}
-	lt := s.Configs.LocType(id)
 	s.PushInt(lt.Width)
 	return nil
 }
 
 // handleLcLength (LC_LENGTH) pops a loc id and pushes its tile length.
 func handleLcLength(s *ScriptState) error {
-	if err := requireConfigs(s, "LC_LENGTH"); err != nil {
+	lt, err := resolveLocType(s, "LC_LENGTH")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkLocType(s, id, "LC_LENGTH"); err != nil {
-		return err
-	}
-	lt := s.Configs.LocType(id)
 	s.PushInt(lt.Length)
 	return nil
 }
@@ -317,21 +350,11 @@ func handleLcLength(s *ScriptState) error {
 // handleNcName (NC_NAME) pops a npc id and pushes its name (or debugname
 // fallback; "null" when both are empty).
 func handleNcName(s *ScriptState) error {
-	if err := requireConfigs(s, "NC_NAME"); err != nil {
+	nt, err := resolveNpcType(s, "NC_NAME")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkNpcType(s, id, "NC_NAME"); err != nil {
-		return err
-	}
-	nt := s.Configs.NpcType(id)
-	if nt.Name != "" {
-		s.PushString(nt.Name)
-	} else if nt.DebugName != "" {
-		s.PushString(nt.DebugName)
-	} else {
-		s.PushString("null")
-	}
+	pushNameOrDebugOrNull(s, nt.Name, nt.DebugName)
 	return nil
 }
 
@@ -371,51 +394,31 @@ func handleNpcParam(s *ScriptState) error {
 
 // handleNcCategory (NC_CATEGORY) pops a npc id and pushes its category.
 func handleNcCategory(s *ScriptState) error {
-	if err := requireConfigs(s, "NC_CATEGORY"); err != nil {
+	nt, err := resolveNpcType(s, "NC_CATEGORY")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkNpcType(s, id, "NC_CATEGORY"); err != nil {
-		return err
-	}
-	nt := s.Configs.NpcType(id)
 	s.PushInt(nt.Category)
 	return nil
 }
 
 // handleNcDesc (NC_DESC) pops a npc id and pushes its description.
 func handleNcDesc(s *ScriptState) error {
-	if err := requireConfigs(s, "NC_DESC"); err != nil {
+	nt, err := resolveNpcType(s, "NC_DESC")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkNpcType(s, id, "NC_DESC"); err != nil {
-		return err
-	}
-	nt := s.Configs.NpcType(id)
-	if nt.Desc == "" {
-		s.PushString("null")
-	} else {
-		s.PushString(nt.Desc)
-	}
+	pushStringOrNull(s, nt.Desc)
 	return nil
 }
 
 // handleNcDebugName (NC_DEBUGNAME) pops a npc id and pushes its debugname.
 func handleNcDebugName(s *ScriptState) error {
-	if err := requireConfigs(s, "NC_DEBUGNAME"); err != nil {
+	nt, err := resolveNpcType(s, "NC_DEBUGNAME")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkNpcType(s, id, "NC_DEBUGNAME"); err != nil {
-		return err
-	}
-	nt := s.Configs.NpcType(id)
-	if nt.DebugName == "" {
-		s.PushString("null")
-	} else {
-		s.PushString(nt.DebugName)
-	}
+	pushStringOrNull(s, nt.DebugName)
 	return nil
 }
 
@@ -448,14 +451,10 @@ func handleNcOp(s *ScriptState) error {
 
 // handleNcSize (NC_SIZE) pops a npc id and pushes its tile size.
 func handleNcSize(s *ScriptState) error {
-	if err := requireConfigs(s, "NC_SIZE"); err != nil {
+	nt, err := resolveNpcType(s, "NC_SIZE")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkNpcType(s, id, "NC_SIZE"); err != nil {
-		return err
-	}
-	nt := s.Configs.NpcType(id)
 	s.PushInt(int(nt.Size))
 	return nil
 }
@@ -463,14 +462,10 @@ func handleNcSize(s *ScriptState) error {
 // handleNcVisLevel (NC_VISLEVEL) pops a npc id and pushes its visible
 // combat level (vislevel).
 func handleNcVisLevel(s *ScriptState) error {
-	if err := requireConfigs(s, "NC_VISLEVEL"); err != nil {
+	nt, err := resolveNpcType(s, "NC_VISLEVEL")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkNpcType(s, id, "NC_VISLEVEL"); err != nil {
-		return err
-	}
-	nt := s.Configs.NpcType(id)
 	s.PushInt(nt.VisLevel)
 	return nil
 }
@@ -480,21 +475,11 @@ func handleNcVisLevel(s *ScriptState) error {
 // handleOcName (OC_NAME) pops an obj id and pushes its name (or debugname
 // fallback; "null" when both are empty).
 func handleOcName(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_NAME"); err != nil {
+	ot, err := resolveObjType(s, "OC_NAME")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_NAME"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
-	if ot.Name != "" {
-		s.PushString(ot.Name)
-	} else if ot.DebugName != "" {
-		s.PushString(ot.DebugName)
-	} else {
-		s.PushString("null")
-	}
+	pushNameOrDebugOrNull(s, ot.Name, ot.DebugName)
 	return nil
 }
 
@@ -514,46 +499,30 @@ func handleOcParam(s *ScriptState) error {
 
 // handleOcCategory (OC_CATEGORY) pops an obj id and pushes its category.
 func handleOcCategory(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_CATEGORY"); err != nil {
+	ot, err := resolveObjType(s, "OC_CATEGORY")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_CATEGORY"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
 	s.PushInt(ot.Category)
 	return nil
 }
 
 // handleOcDesc (OC_DESC) pops an obj id and pushes its description.
 func handleOcDesc(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_DESC"); err != nil {
+	ot, err := resolveObjType(s, "OC_DESC")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_DESC"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
-	if ot.Desc == "" {
-		s.PushString("null")
-	} else {
-		s.PushString(ot.Desc)
-	}
+	pushStringOrNull(s, ot.Desc)
 	return nil
 }
 
 // handleOcMembers (OC_MEMBERS) pops an obj id and pushes 1/0 for members.
 func handleOcMembers(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_MEMBERS"); err != nil {
+	ot, err := resolveObjType(s, "OC_MEMBERS")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_MEMBERS"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
 	if ot.Members {
 		s.PushInt(1)
 	} else {
@@ -564,84 +533,60 @@ func handleOcMembers(s *ScriptState) error {
 
 // handleOcWeight (OC_WEIGHT) pops an obj id and pushes its weight (grams).
 func handleOcWeight(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_WEIGHT"); err != nil {
+	ot, err := resolveObjType(s, "OC_WEIGHT")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_WEIGHT"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
 	s.PushInt(ot.Weight)
 	return nil
 }
 
 // handleOcWearPos (OC_WEARPOS) pops an obj id and pushes its primary wearpos.
 func handleOcWearPos(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_WEARPOS"); err != nil {
+	ot, err := resolveObjType(s, "OC_WEARPOS")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_WEARPOS"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
 	s.PushInt(ot.WearPos)
 	return nil
 }
 
 // handleOcWearPos2 (OC_WEARPOS2) pops an obj id and pushes its 2nd wearpos.
 func handleOcWearPos2(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_WEARPOS2"); err != nil {
+	ot, err := resolveObjType(s, "OC_WEARPOS2")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_WEARPOS2"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
 	s.PushInt(ot.WearPos2)
 	return nil
 }
 
 // handleOcWearPos3 (OC_WEARPOS3) pops an obj id and pushes its 3rd wearpos.
 func handleOcWearPos3(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_WEARPOS3"); err != nil {
+	ot, err := resolveObjType(s, "OC_WEARPOS3")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_WEARPOS3"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
 	s.PushInt(ot.WearPos3)
 	return nil
 }
 
 // handleOcCost (OC_COST) pops an obj id and pushes its shop cost.
 func handleOcCost(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_COST"); err != nil {
+	ot, err := resolveObjType(s, "OC_COST")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_COST"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
 	s.PushInt(ot.Cost)
 	return nil
 }
 
 // handleOcTradeable (OC_TRADEABLE) pops an obj id and pushes 1/0 tradeable.
 func handleOcTradeable(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_TRADEABLE"); err != nil {
+	ot, err := resolveObjType(s, "OC_TRADEABLE")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_TRADEABLE"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
 	if ot.Tradeable {
 		s.PushInt(1)
 	} else {
@@ -652,19 +597,11 @@ func handleOcTradeable(s *ScriptState) error {
 
 // handleOcDebugName (OC_DEBUGNAME) pops an obj id and pushes its debugname.
 func handleOcDebugName(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_DEBUGNAME"); err != nil {
+	ot, err := resolveObjType(s, "OC_DEBUGNAME")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_DEBUGNAME"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
-	if ot.DebugName == "" {
-		s.PushString("null")
-	} else {
-		s.PushString(ot.DebugName)
-	}
+	pushStringOrNull(s, ot.DebugName)
 	return nil
 }
 
@@ -674,14 +611,10 @@ func handleOcDebugName(s *ScriptState) error {
 //	certtemplate == -1 && certlink >= 0  →  push certlink (swap to cert)
 //	otherwise                            →  push input id unchanged
 func handleOcCert(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_CERT"); err != nil {
+	ot, err := resolveObjType(s, "OC_CERT")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_CERT"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
 	if ot.CertTemplate == -1 && ot.CertLink >= 0 {
 		s.PushInt(ot.CertLink)
 	} else {
@@ -696,14 +629,10 @@ func handleOcCert(s *ScriptState) error {
 //	certtemplate >= 0 && certlink >= 0  →  push certlink (swap to base)
 //	otherwise                           →  push input id unchanged
 func handleOcUncert(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_UNCERT"); err != nil {
+	ot, err := resolveObjType(s, "OC_UNCERT")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_UNCERT"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
 	if ot.CertTemplate >= 0 && ot.CertLink >= 0 {
 		s.PushInt(ot.CertLink)
 	} else {
@@ -714,14 +643,10 @@ func handleOcUncert(s *ScriptState) error {
 
 // handleOcStackable (OC_STACKABLE) pops an obj id and pushes 1/0 stackable.
 func handleOcStackable(s *ScriptState) error {
-	if err := requireConfigs(s, "OC_STACKABLE"); err != nil {
+	ot, err := resolveObjType(s, "OC_STACKABLE")
+	if err != nil {
 		return err
 	}
-	id := s.PopInt()
-	if err := checkObjType(s, id, "OC_STACKABLE"); err != nil {
-		return err
-	}
-	ot := s.Configs.ObjType(id)
 	if ot.Stackable {
 		s.PushInt(1)
 	} else {
