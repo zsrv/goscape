@@ -86,18 +86,30 @@ func (eofConn) SetDeadline(time.Time) error      { return nil }
 func (eofConn) SetReadDeadline(time.Time) error  { return nil }
 func (eofConn) SetWriteDeadline(time.Time) error { return nil }
 
-// TestHandleConn_ShutdownRace exercises the admissionGateMu admission gate: many
-// HandleConn calls race one shutdown transition, all released by a single
-// start channel (no sleeps). The shutdown goroutine mirrors exactly the
-// gate-relevant slice of Server.Shutdown — close(s.quit) under admissionGateMu,
-// then tcpWg.Wait() — because full Shutdown needs a live tcpListener and
-// tick plumbing the minimal test Server lacks. Pre-mutex, this interleaving
-// could Add(1) concurrently with a Wait that had observed a transient zero
-// counter (WaitGroup misuse: possible panic, early Wait return, and a data
-// race under -race). The test asserts no panic, no race, and that Wait
-// completes — i.e. every admitted connection is observed by the Wait.
+// TestHandleConn_ShutdownRace exercises the admissionGateMu admission gate:
+// many HandleConn calls race one real s.Shutdown() call, all released by a
+// single start channel (no sleeps). Built on newChattyShutdownTestServer
+// (real listener + serveTCP, server_shutdown_test.go) rather than
+// newHandleConnTestServer's minimal Server, so this drives the genuine
+// Shutdown — close(s.quit) under admissionGateMu, closeLiveConns, tcpWg.Wait,
+// and the rest — instead of a hand-rolled mirror of just its gate-relevant
+// lines. The old mirror pinned only HandleConn's side of the admission
+// protocol: it could not detect a future removal of Shutdown's own
+// admissionGateMu usage (reviewer finding T3-minor, Arc 28 ledger). This
+// test exercises the real Shutdown path end-to-end, closing that
+// structural gap ("never calls the real Shutdown"). NOTE: this harness's
+// tcpWg floor registration (held by serveTCP for the server's lifetime)
+// plus eofConn's immediate-EOF reads mean it does NOT reliably
+// discriminate an admissionGateMu-removal regression in Shutdown at
+// default scheduling — a diagnostic scheduling-delay experiment proved
+// the guarded race is real; see .superpowers/sdd/task-11-report.md
+// (arch-29.11). Pre-mutex, this interleaving could Add(1) concurrently
+// with a Wait that had observed a transient zero counter (WaitGroup
+// misuse: possible panic, early Wait return, and a data race under
+// -race). The test asserts no panic, no race, and that Shutdown
+// completes — i.e. every admitted connection is observed by its tcpWg.Wait.
 func TestHandleConn_ShutdownRace(t *testing.T) {
-	s := newHandleConnTestServer(t)
+	s := newChattyShutdownTestServer(t)
 
 	const conns = 64
 	start := make(chan struct{})
@@ -115,10 +127,7 @@ func TestHandleConn_ShutdownRace(t *testing.T) {
 	go func() {
 		defer close(shutdownDone)
 		<-start
-		s.admissionGateMu.Lock()
-		close(s.quit)
-		s.admissionGateMu.Unlock()
-		s.tcpWg.Wait()
+		s.Shutdown()
 	}()
 
 	close(start)
@@ -126,6 +135,6 @@ func TestHandleConn_ShutdownRace(t *testing.T) {
 	select {
 	case <-shutdownDone:
 	case <-time.After(5 * time.Second):
-		t.Fatal("shutdown-side tcpWg.Wait did not complete")
+		t.Fatal("Shutdown did not complete")
 	}
 }
