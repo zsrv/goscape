@@ -355,6 +355,28 @@ func newTestServer(t *testing.T) *Server {
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = noopBridges{}
+	// arch-29.13: wire a running friendsMutationDispatcher so tests that
+	// inject a fake friendsClient and drive processLogins/removePlayerOnTick
+	// directly (tick_friends_login_test.go, server_friends_logout_test.go)
+	// observe the enqueued PlayerLogin/PlayerLogout RPC without having to
+	// spin up the full NewWorldService startingBody. Cleanup cancels
+	// bridgesCtx itself (idempotent with the bridgesCancel cleanup
+	// registered above) and waits for the worker to exit so no test leaks
+	// it into the next test.
+	s.friendsMutationDispatcher = newFriendsMutationDispatcher(s.log)
+	dispatcherDone := make(chan struct{})
+	go func() {
+		defer close(dispatcherDone)
+		s.friendsMutationDispatcher.run(s.bridgesCtx)
+	}()
+	t.Cleanup(func() {
+		bridgesCancel()
+		select {
+		case <-dispatcherDone:
+		case <-time.After(time.Second):
+			t.Fatal("friendsMutationDispatcher worker did not exit after bridgesCancel")
+		}
+	})
 	s.locOps = &serverLocOps{s: s}
 	s.reloadFn = s.Reload
 	s.watchSessionFn = s.runWatchSession
