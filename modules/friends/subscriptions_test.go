@@ -95,6 +95,45 @@ func TestSubscriptions_DeregisterIgnoresStale(t *testing.T) {
 	}
 }
 
+// TestSubscriptions_CloseAll pins arch-29.4: closeAll releases every live
+// subscriber's done channel exactly once and empties the registry so a
+// subsequent register does not see (and re-close) a stale entry — the
+// double-close guard register's close-prior path relies on.
+func TestSubscriptions_CloseAll(t *testing.T) {
+	s := newSubscriptions(noopLogger())
+	a := newSubscriber(1, 100)
+	b := newSubscriber(1, 200)
+	s.register(a)
+	s.register(b)
+
+	s.closeAll()
+
+	for _, sub := range []*subscriber{a, b} {
+		select {
+		case <-sub.done:
+		default:
+			t.Fatalf("expected sub.done closed by closeAll")
+		}
+	}
+	s.mu.Lock()
+	n := len(s.by)
+	s.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("expected registry emptied by closeAll, got %d entries", n)
+	}
+
+	// A late registration for a key closeAll already cleared must not
+	// panic (the registry has no prior entry left to double-close) and
+	// must not itself be pre-closed.
+	c := newSubscriber(1, 100)
+	s.register(c)
+	select {
+	case <-c.done:
+		t.Fatalf("newly registered subscriber's done must not be closed")
+	default:
+	}
+}
+
 func TestSubscriptions_SendUnknownNoop(t *testing.T) {
 	s := newSubscriptions(noopLogger())
 	// No panic, no block.

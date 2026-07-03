@@ -74,6 +74,21 @@ func (s *worldSubscriptions) deregister(sub *worldSubscriber) {
 	}
 }
 
+// closeAll releases every live subscriber's SubscribeWorldEvents loop
+// (closes each done channel) and empties the registry. Mirrors
+// (*subscriptions).closeAll — see subscriptions.go for the full
+// arch-29.4 rationale (called at service stop; deleting under the lock
+// keeps register's close-prior path from double-closing a later
+// registration for the same key).
+func (s *worldSubscriptions) closeAll() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for k, sub := range s.by {
+		close(sub.done)
+		delete(s.by, k)
+	}
+}
+
 // send pushes ev to the subscriber for worldId (no-op if none).
 // Non-blocking; on full channel, logs warn and drops the event.
 func (s *worldSubscriptions) send(worldId int32, ev *friendspb.WorldEvent) {

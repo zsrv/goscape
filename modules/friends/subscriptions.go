@@ -76,6 +76,23 @@ func (s *subscriptions) deregister(sub *subscriber) {
 	}
 }
 
+// closeAll releases every live subscriber's SubscribeUpdates loop (closes
+// each done channel) and empties the registry. Called at service stop
+// (Friends.running's ctx.Done path) so gRPC's GracefulStop is not held
+// open by streams that only a client would otherwise end — arch-29.4.
+// Deleting each entry while under the lock is what keeps register's
+// close-prior path from double-closing: once closeAll has run, the
+// registry holds none of these subscribers, so a later register for the
+// same key finds nothing to close.
+func (s *subscriptions) closeAll() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for k, sub := range s.by {
+		close(sub.done)
+		delete(s.by, k)
+	}
+}
+
 // send pushes u to the subscriber for username37 (no-op if none).
 // Non-blocking; on full channel, logs warn and drops the update.
 func (s *subscriptions) send(username37 uint64, u *friendspb.FriendsUpdate) {
