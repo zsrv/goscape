@@ -1417,9 +1417,12 @@ func clampCount(sub []string, idx int) int {
 
 // clampInt32 parses sub[idx] as an integer for the setvar/setvarother cheat
 // handlers, clamping to the int32 range [-0x80000000, 0x7fffffff].
-// Non-numeric/absent input defaults to 0 via parseIntOr. The arg index
-// differs between the two callers (setvar reads sub[1], setvarother reads
-// sub[2]), hence idx is a parameter rather than hardcoded.
+// Non-numeric input defaults to 0 via parseIntOr. Callers must guarantee
+// len(sub) > idx: unlike clampCount, this helper does not length-guard and
+// panics on a missing arg. Both callers satisfy this (setvar rejects
+// len(sub) < 2, setvarother rejects len(sub) < 3 before calling). The arg
+// index differs between the two callers (setvar reads sub[1], setvarother
+// reads sub[2]), hence idx is a parameter rather than hardcoded.
 func clampInt32(sub []string, idx int) int {
 	value := parseIntOr(sub[idx], 0)
 	if value > 0x7fffffff {
