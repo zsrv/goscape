@@ -36,6 +36,21 @@ func resolveInv(s *ScriptState, typeID int) *inventory.Inventory {
 	return s.Inv.Get(s.activePlayer(), typeID)
 }
 
+// resolveInvOrErr wraps resolveInv with the nil-check + error every
+// INV_* handler repeats after resolveInv: "no inv for type %d" tagged
+// with op. Defensive: unreachable post-checkInvType for valid configs;
+// retained for the InvLookup-unset case (s.Inv == nil → resolveInv
+// returns nil). Callers must have already run checkInvType(s, typeID,
+// op) — this helper does not repeat that validation, so the error
+// ordering of a handler's existing check chain is preserved exactly.
+func resolveInvOrErr(s *ScriptState, typeID int, op string) (*inventory.Inventory, error) {
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return nil, fmt.Errorf("%s: no inv for type %d", op, typeID)
+	}
+	return inv, nil
+}
+
 // selectProtectedActivePlayerSlot returns the slot-routed protect-flag
 // for the current opcode's intOperand, mirroring TS's
 // `ProtectedActivePlayer[state.intOperand]` (ScriptPointer.ts:39) — a
@@ -102,11 +117,9 @@ func handleInvGetObj(s *ScriptState) error {
 	if err := checkInvType(s, typeID, "INV_GETOBJ"); err != nil {
 		return err
 	}
-	inv := resolveInv(s, typeID)
-	if inv == nil {
-		// Defensive: unreachable post-checkInvType for valid configs;
-		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
-		return fmt.Errorf("INV_GETOBJ: no inv for type %d", typeID)
+	inv, err := resolveInvOrErr(s, typeID, "INV_GETOBJ")
+	if err != nil {
+		return err
 	}
 	it := inv.Get(slot)
 	if it == nil {
@@ -125,11 +138,9 @@ func handleInvGetNum(s *ScriptState) error {
 	if err := checkInvType(s, typeID, "INV_GETNUM"); err != nil {
 		return err
 	}
-	inv := resolveInv(s, typeID)
-	if inv == nil {
-		// Defensive: unreachable post-checkInvType for valid configs;
-		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
-		return fmt.Errorf("INV_GETNUM: no inv for type %d", typeID)
+	inv, err := resolveInvOrErr(s, typeID, "INV_GETNUM")
+	if err != nil {
+		return err
 	}
 	it := inv.Get(slot)
 	if it == nil {
@@ -164,11 +175,9 @@ func handleInvFreeSpace(s *ScriptState) error {
 	if err := checkInvType(s, typeID, "INV_FREESPACE"); err != nil {
 		return err
 	}
-	inv := resolveInv(s, typeID)
-	if inv == nil {
-		// Defensive: unreachable post-checkInvType for valid configs;
-		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
-		return fmt.Errorf("INV_FREESPACE: no inv for type %d", typeID)
+	inv, err := resolveInvOrErr(s, typeID, "INV_FREESPACE")
+	if err != nil {
+		return err
 	}
 	s.PushInt(inv.FreeSlotCount())
 	return nil
@@ -266,11 +275,9 @@ func handleInvItemSpace(s *ScriptState) error {
 	if err := checkObjStack(count, "INV_ITEMSPACE"); err != nil {
 		return err
 	}
-	inv := resolveInv(s, typeID)
-	if inv == nil {
-		// Defensive: unreachable post-checkInvType for valid configs;
-		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
-		return fmt.Errorf("INV_ITEMSPACE: no inv for type %d", typeID)
+	inv, err := resolveInvOrErr(s, typeID, "INV_ITEMSPACE")
+	if err != nil {
+		return err
 	}
 	if size < 0 || size > inv.Capacity {
 		return fmt.Errorf("INV_ITEMSPACE: size %d out of range for inv %d", size, typeID)
@@ -304,11 +311,9 @@ func handleInvItemSpace2(s *ScriptState) error {
 	if err := checkObjStack(count, "INV_ITEMSPACE2"); err != nil {
 		return err
 	}
-	inv := resolveInv(s, typeID)
-	if inv == nil {
-		// Defensive: unreachable post-checkInvType for valid configs;
-		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
-		return fmt.Errorf("INV_ITEMSPACE2: no inv for type %d", typeID)
+	inv, err := resolveInvOrErr(s, typeID, "INV_ITEMSPACE2")
+	if err != nil {
+		return err
 	}
 	s.PushInt(invItemSpaceRemaining(s, inv, obj, count, size))
 	return nil
@@ -325,11 +330,9 @@ func handleInvTotalParam(s *ScriptState) error {
 	if err := checkInvType(s, typeID, "INV_TOTALPARAM"); err != nil {
 		return err
 	}
-	inv := resolveInv(s, typeID)
-	if inv == nil {
-		// Defensive: unreachable post-checkInvType for valid configs;
-		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
-		return fmt.Errorf("INV_TOTALPARAM: no inv for type %d", typeID)
+	inv, err := resolveInvOrErr(s, typeID, "INV_TOTALPARAM")
+	if err != nil {
+		return err
 	}
 	if err := checkParamType(s, param, "INV_TOTALPARAM"); err != nil {
 		return err
@@ -374,11 +377,9 @@ func handleInvTotalCat(s *ScriptState) error {
 	if err := checkCategoryType(s, category, "INV_TOTALCAT"); err != nil {
 		return err
 	}
-	inv := resolveInv(s, typeID)
-	if inv == nil {
-		// Defensive: unreachable post-checkInvType for valid configs;
-		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
-		return fmt.Errorf("INV_TOTALCAT: no inv for type %d", typeID)
+	inv, err := resolveInvOrErr(s, typeID, "INV_TOTALCAT")
+	if err != nil {
+		return err
 	}
 	if s.Configs == nil {
 		return fmt.Errorf("INV_TOTALCAT: Configs not set on ScriptState")
@@ -495,11 +496,9 @@ func performInvAdd(s *ScriptState, typeID, obj, count int, dropOverflow bool, op
 		return fmt.Errorf("%s: dummyitem in non-dummyinv: %s -> %s", op, objType.DebugName, invType.DebugName)
 	}
 
-	inv := resolveInv(s, typeID)
-	if inv == nil {
-		// Defensive: unreachable post-checkInvType for valid configs;
-		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
-		return fmt.Errorf("%s: no inv for type %d", op, typeID)
+	inv, err := resolveInvOrErr(s, typeID, op)
+	if err != nil {
+		return err
 	}
 
 	stackable := lookupStackable(s, obj)
