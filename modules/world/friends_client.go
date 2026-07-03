@@ -33,6 +33,14 @@ type FriendsClient interface {
 	// PlayerLogin registers the player on the friends server. onResponse is
 	// invoked once after the RPC completes: accepted=true on success,
 	// accepted=false on cap-reached or RPC error. May be nil.
+	//
+	// Contract (arch-29.13): the production call site enqueues PlayerLogin
+	// on the single friendsMutationDispatcher worker, and onResponse runs
+	// synchronously on that worker AFTER the RPC returns — outside ctx's
+	// cancellation reach. onResponse MUST therefore be fast and
+	// non-blocking: a blocking callback stalls every queued friends
+	// mutation, not just this one. Today's only callback is a Warn log
+	// (tick.go processLogins).
 	PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginRequest, onResponse func(accepted bool))
 	PlayerLogout(ctx context.Context, req *friendspb.PlayerLogoutRequest)
 	ChatSetMode(ctx context.Context, req *friendspb.ChatSetModeRequest)

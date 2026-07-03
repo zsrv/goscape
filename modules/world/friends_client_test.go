@@ -21,7 +21,7 @@ const testWorldID = 42
 
 func TestGRPCFriendsBridge_AddFriend_FiresRPC(t *testing.T) {
 	fake := newFakeFriendsClient()
-	bridge := &grpcFriendsBridge{client: fake, worldID: testWorldID, parentCtx: context.Background(), log: discardLogger()}
+	bridge := &grpcFriendsBridge{client: fake, worldID: testWorldID, dispatcher: newRunningFriendsDispatcher(t), log: discardLogger()}
 
 	bridge.AddFriend("alice", 1234)
 
@@ -43,7 +43,7 @@ func TestGRPCFriendsBridge_AddFriend_FiresRPC(t *testing.T) {
 
 func TestGRPCFriendsBridge_RemoveFriend_FiresRPC(t *testing.T) {
 	fake := newFakeFriendsClient()
-	bridge := &grpcFriendsBridge{client: fake, worldID: testWorldID, parentCtx: context.Background(), log: discardLogger()}
+	bridge := &grpcFriendsBridge{client: fake, worldID: testWorldID, dispatcher: newRunningFriendsDispatcher(t), log: discardLogger()}
 
 	bridge.RemoveFriend("alice", 1234)
 
@@ -59,7 +59,7 @@ func TestGRPCFriendsBridge_RemoveFriend_FiresRPC(t *testing.T) {
 
 func TestGRPCFriendsBridge_AddIgnore_FiresRPC(t *testing.T) {
 	fake := newFakeFriendsClient()
-	bridge := &grpcFriendsBridge{client: fake, worldID: testWorldID, parentCtx: context.Background(), log: discardLogger()}
+	bridge := &grpcFriendsBridge{client: fake, worldID: testWorldID, dispatcher: newRunningFriendsDispatcher(t), log: discardLogger()}
 
 	bridge.AddIgnore("alice", 1234)
 
@@ -75,7 +75,7 @@ func TestGRPCFriendsBridge_AddIgnore_FiresRPC(t *testing.T) {
 
 func TestGRPCFriendsBridge_RemoveIgnore_FiresRPC(t *testing.T) {
 	fake := newFakeFriendsClient()
-	bridge := &grpcFriendsBridge{client: fake, worldID: testWorldID, parentCtx: context.Background(), log: discardLogger()}
+	bridge := &grpcFriendsBridge{client: fake, worldID: testWorldID, dispatcher: newRunningFriendsDispatcher(t), log: discardLogger()}
 
 	bridge.RemoveIgnore("alice", 1234)
 
@@ -91,7 +91,7 @@ func TestGRPCFriendsBridge_RemoveIgnore_FiresRPC(t *testing.T) {
 
 func TestGRPCFriendsBridge_SetChatMode_FiresRPC(t *testing.T) {
 	fake := newFakeFriendsClient()
-	bridge := &grpcFriendsBridge{client: fake, worldID: testWorldID, parentCtx: context.Background(), log: discardLogger()}
+	bridge := &grpcFriendsBridge{client: fake, worldID: testWorldID, dispatcher: newRunningFriendsDispatcher(t), log: discardLogger()}
 
 	bridge.SetChatMode("alice", 2)
 
@@ -113,7 +113,7 @@ func TestGRPCFriendsBridge_SetChatMode_FiresRPC(t *testing.T) {
 
 func TestGRPCFriendsBridge_PrivateMessage_FiresRPC(t *testing.T) {
 	fake := newFakeFriendsClient()
-	bridge := &grpcFriendsBridge{client: fake, worldID: testWorldID, parentCtx: context.Background(), log: discardLogger()}
+	bridge := &grpcFriendsBridge{client: fake, worldID: testWorldID, dispatcher: newRunningFriendsDispatcher(t), log: discardLogger()}
 
 	bridge.PrivateMessage("alice", 2, 0xDEADBEEF, 1234, "hi bob", 0xC0DE)
 
@@ -168,7 +168,7 @@ func TestGRPCFriendsBridge_FireAndForget_DoesNotBlock(t *testing.T) {
 		gate:              gate,
 		hit:               make(chan struct{}),
 	}
-	bridge := &grpcFriendsBridge{client: gated, worldID: testWorldID, parentCtx: context.Background(), log: discardLogger()}
+	bridge := &grpcFriendsBridge{client: gated, worldID: testWorldID, dispatcher: newRunningFriendsDispatcher(t), log: discardLogger()}
 
 	done := make(chan struct{})
 	go func() {
@@ -194,7 +194,7 @@ func TestGRPCFriendsBridge_FireAndForget_DoesNotBlock(t *testing.T) {
 }
 
 func TestDefaultFriendsBridge_NonNilClient_ReturnsGRPCBridge(t *testing.T) {
-	got := defaultFriendsBridge(newFakeFriendsClient(), testWorldID, "main", context.Background(), discardLogger())
+	got := defaultFriendsBridge(newFakeFriendsClient(), testWorldID, "main", newFriendsMutationDispatcher(discardLogger()), discardLogger())
 	b, ok := got.(*grpcFriendsBridge)
 	if !ok {
 		t.Fatalf("defaultFriendsBridge: got %T, want *grpcFriendsBridge", got)
@@ -208,7 +208,7 @@ func TestDefaultFriendsBridge_NonNilClient_ReturnsGRPCBridge(t *testing.T) {
 }
 
 func TestDefaultFriendsBridge_NilClient_ReturnsNoop(t *testing.T) {
-	got := defaultFriendsBridge(nil, testWorldID, "main", context.Background(), discardLogger())
+	got := defaultFriendsBridge(nil, testWorldID, "main", nil, discardLogger())
 	if _, ok := got.(noopBridges); !ok {
 		t.Fatalf("defaultFriendsBridge: got %T, want noopBridges", got)
 	}
