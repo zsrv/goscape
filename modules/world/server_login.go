@@ -1,0 +1,374 @@
+package world
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"net"
+	"slices"
+	"strconv"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/zsrv/goscape/pkg/cache"
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/io/protocol"
+	loginreq "github.com/zsrv/goscape/pkg/io/protocol/login/req"
+	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
+	"github.com/zsrv/goscape/pkg/io/protocol/revision"
+	"github.com/zsrv/goscape/pkg/loginpb"
+	util "github.com/zsrv/goscape/pkg/util/jstring"
+	applog "github.com/zsrv/goscape/pkg/util/log"
+)
+
+// expectedRevision is the RS2 client build revision this world accepts.
+// TS World.ts revision check equivalent.
+const expectedRevision = revision.Expected
+
+func (c *client) handleData() error {
+	switch c.state {
+	case ClientStateLogin:
+		return c.handleLogin()
+	default:
+		c.log.Warn("unhandled client state", "state", c.state)
+		return errors.New("unhandled client state")
+	}
+}
+
+func (c *client) handleLogin() error {
+	opcode, err := c.in.Peek(1)
+	if err != nil {
+		c.log.Error("failed to read opcode", "opcode", opcode)
+		return errors.New("failed to read opcode")
+	}
+
+	switch opcode[0] {
+	default:
+		return fmt.Errorf("unexpected opcode in login state: %d", opcode[0])
+	case loginreq.OpReqInitGameConnection.Opcode, loginreq.OpReqGameReconnect.Opcode:
+		var req loginreq.GameLogin
+
+		pLen, ok := protocol.CheckPacketLength(c.in, loginreq.OpReqInitGameConnection)
+		if !ok {
+			applog.Trace(c.log, "partial packet data received, waiting for more", "opcode", loginreq.OpReqInitGameConnection, "length", pLen)
+			return protocol.ErrPayloadTooSmall
+		}
+
+		// Address-based login rate limit. TS World.ts:2106-2117 fires
+		// before RSA decrypt so brute-force attempts can't even burn RSA
+		// CPU. We mirror by gating here, just before req.UnmarshalBinary
+		// (which performs the RSA decrypt). Only enforced when
+		// NodeProduction=true and NodeRateLimitAddressLogin>0.
+		if c.server != nil && c.server.addressLoginRateLimitExceeded(c.conn.RemoteAddr().String()) {
+			return c.sendLoginError(loginresp.OpTooManyAttempts.Opcode)
+		}
+
+		// TS World.ts:2118-2160 gates the revision (2119) and CRC (2131)
+		// checks on the cleartext header BEFORE calling rsadec (2139), so a
+		// stale-revision or bad-CRC client never burns RSA CPU — the same
+		// rationale as the address rate-limit gate above. Decode the header
+		// first, validate rev+CRC, then decrypt the RSA tail. L37.
+		r := packet.NewPacket(c.in.Next(pLen))
+		if err := req.UnmarshalHeader(r); err != nil {
+			// Malformed cleartext header — tell client it's out of date.
+			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
+		}
+		c.lowMemory = req.LowMemory
+
+		if req.Revision != expectedRevision {
+			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
+		}
+
+		crcSnap := cache.CRC()
+		if !slices.Equal(crcSnap.Table, req.ArchiveChecksums[:]) {
+			// LOG-1: full CRC tables are bulky and only useful at debug time.
+			c.log.Info("invalid checksum", "remote_addr", c.conn.RemoteAddr())
+			c.log.Debug("invalid checksum detail", "crc_table", crcSnap.Table, "req_checksums", req.ArchiveChecksums)
+			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
+		}
+
+		rsaKey := protocol.DefaultRSAKey
+		if c.server != nil && c.server.rsaKey != nil {
+			rsaKey = c.server.rsaKey
+		}
+		if err := req.UnmarshalRSA(r, rsaKey); err != nil {
+			// RSA failure or malformed encrypted block — out of date.
+			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
+		}
+
+		// LOG-1: full req struct (incl. CRC table + password hash + ISAAC
+		// seed) at Info is noisy per-login. Demote to Debug; keep contextual
+		// Info-level success log at the end of handleLogin (line 955-ish).
+		c.log.Debug("unmarshalled OpReqInitGameConnection", "req", req)
+
+		c.decryptor = io2.New(req.ISAACSeed)
+		for i := range req.ISAACSeed {
+			req.ISAACSeed[i] += 50
+		}
+		c.encryptor = io2.New(req.ISAACSeed)
+
+		// Device-based login rate limit. TS World.ts:2163-2174 fires
+		// after RSA decrypt + uid/username unpack so we can key on
+		// `${uid}@${ip}`. Only enforced when NodeProduction=true and
+		// NodeRateLimitDeviceLogin>0.
+		if c.server != nil && c.server.deviceLoginRateLimitExceeded(req.UID, c.conn.RemoteAddr().String()) {
+			return c.sendLoginError(loginresp.OpTooManyAttempts.Opcode)
+		}
+
+		if len(req.Username) < 1 || len(req.Username) > 12 {
+			return c.sendLoginError(loginresp.OpInvalidUsernameOrPassword.Opcode)
+		}
+
+		if len(req.Password) < 1 || len(req.Password) > 20 {
+			return c.sendLoginError(loginresp.OpInvalidUsernameOrPassword.Opcode)
+		}
+
+		safeName := util.ToSafeName(req.Username)
+
+		// TS World.ts:2188-2192 — reject when world is past its
+		// configured connected-player cap. Uses NodeMaxConnected
+		// (default 1000) which mirrors Environment.NODE_MAX_CONNECTED.
+		if c.server != nil && c.server.getTotalPlayers() > c.server.cfg.NodeMaxConnected {
+			return c.sendLoginError(loginresp.OpServerFull.Opcode)
+		}
+
+		// world-tick-3: TS processLogins gate (World.ts:884-890) rejects
+		// new logins during the final 50-tick (~30s) pre-shutdown window
+		// via forceLogout(player, 14) — a single-byte 14 reply followed
+		// by socket close. goscape's handleLogin sends OpUpdateInProgress
+		// (opcode 14 in pkg/io/protocol/login/resp/resp.go), the same
+		// "The server is being updated. Please wait 1 minute and try
+		// again." byte the Java client renders. Placement at the world-
+		// state-rejects layer (alongside ServerFull above) instead of
+		// inside processLogins keeps the reject inside the login
+		// handshake — goscape's processLogins runs AFTER sendLoginOK,
+		// so this earlier gate is the TS-faithful pre-login-OK position.
+		if c.server != nil && c.server.shutdownSoon() {
+			return c.sendLoginError(loginresp.OpUpdateInProgress.Opcode)
+		}
+
+		// TS World.ts:2194-2199 — reject while the prior session for
+		// this username is still completing its logout. goscape models
+		// the TS logoutRequests set with the per-player loggingOut
+		// flag (player.go:310, player.go:710); a username is "still
+		// logging out" iff a live player slot is occupied by an entry
+		// with loggingOut=true.
+		if c.server != nil && c.server.isUsernameLoggingOut(safeName) {
+			return c.sendLoginError(loginresp.OpDuplicate.Opcode)
+		}
+
+		reconnecting := opcode[0] == loginreq.OpReqGameReconnect.Opcode
+		c.reconnecting = reconnecting
+
+		var reply byte
+		if c.server != nil && c.server.loginClient != nil {
+			loginReq := &loginpb.PlayerLoginRequest{
+				NodeId:        int32(c.server.cfg.NodeID),
+				Profile:       c.server.cfg.NodeProfile,
+				NodeMembers:   c.server.cfg.NodeMembers,
+				Username:      safeName,
+				Password:      req.Password,
+				Uid:           int32(req.UID),
+				RemoteAddress: c.conn.RemoteAddr().String(),
+				Reconnecting:  reconnecting,
+				HasSave:       false,
+			}
+
+			var err error
+			reply, err = c.callPlayerLoginRPC(loginReq, safeName)
+			if err != nil {
+				return c.sendLoginError(reply)
+			}
+		} else {
+			// login server not configured — reject with try again
+			reply = loginresp.OpTryAgain.Opcode
+		}
+
+		// Non-accepting replies: send the byte and close the connection.
+		switch reply {
+		case loginresp.OpOK.Opcode, loginresp.OpReconnectOK.Opcode, loginresp.OpLoginOKWithRights.Opcode:
+			// accepted — fall through to post-login handling below
+		default:
+			return c.sendLoginError(reply)
+		}
+
+		c.log.Info("login accepted", "safename", safeName, "reply", reply, "reconnecting", reconnecting)
+		return c.sendLoginOK()
+
+	}
+}
+
+// callPlayerLoginRPC runs the PlayerLogin RPC against c.server.loginClient,
+// maps the result to the RS2 wire reply byte, and caches accepted-session
+// fields on c. Returns (reply, nil) on success; (loginresp.OpLoginServerOffline.Opcode, err)
+// on RPC error so the caller can fail-fast via sendLoginError. Extracted from
+// handleLogin to enable unit testing with a stubbed LoginClient.
+func (c *client) callPlayerLoginRPC(req *loginpb.PlayerLoginRequest, safeName string) (byte, error) {
+	// arch-29.3 fix wave (reviewer Critical): reject logins until the
+	// WorldStartup registration has succeeded. WorldStartup blanket-clears
+	// logged_in for this node+profile; a login admitted while the
+	// background registration retry is still pending would have its LIVE
+	// session's flag wiped by the eventually-successful retry, falsifying
+	// the duplicate-login guard. A not-yet-registered world and a down
+	// login server are operationally the same, so reuse the identical
+	// offline reject (opcode 8). This also makes the steady-state variant
+	// unreachable: the gate only opens after the wipe (worldStartupCall),
+	// and the retry loop exits on first success.
+	if !c.server.worldStartupDone.Load() {
+		err := errors.New("world startup registration pending; rejecting login")
+		c.log.Warn("PlayerLogin rejected: WorldStartup registration still pending",
+			slog.String("username", safeName))
+		return loginresp.OpLoginServerOffline.Opcode, err
+	}
+	// CTX-1: bound the login RPC by Server.bridgesCtx + bridgeCallTimeout so
+	// Shutdown cancels in-flight calls promptly and a hung login server
+	// doesn't deadlock the per-connection goroutine. Mirrors the pattern
+	// shipped in Arc 19 R3 for friends/login bridges.
+	ctx, cancel := context.WithTimeout(c.server.bridgesCtx, bridgeCallTimeout)
+	defer cancel()
+	resp, err := c.server.loginClient.PlayerLogin(ctx, req)
+	if err != nil {
+		c.log.Warn("PlayerLogin RPC failed", "error", err)
+		// login-server-5: TS LoginServer's rejectLoginForSafety
+		// (LoginServer.ts:115-124) — fired from the LoginServer.ts:287-290
+		// reconnect-save / 346-347 missing-save-with-logout / 364-367
+		// corrupt-save sites — sends response 7 which World.ts:1857-1861
+		// maps to wire opcode 11 ("Login server rejected session. Please
+		// try again."). goscape's login handler at modules/login/handler.go
+		// :181/184/224/236 surfaces those four paths as codes.DataLoss;
+		// translate that specific status back to OpLoginServerRejected
+		// here so the world sends opcode 11 instead of opcode 8 (offline).
+		// Any non-DataLoss error keeps the prior OpLoginServerOffline
+		// posture — a real transport / Internal failure IS the login server
+		// being unreachable, which is what opcode 8 reports.
+		if st, ok := status.FromError(err); ok && st.Code() == codes.DataLoss {
+			return loginresp.OpLoginServerRejected.Opcode, err
+		}
+		return loginresp.OpLoginServerOffline.Opcode, err
+	}
+	c.log.Debug("PlayerLogin RPC response", "result", resp.GetResult())
+
+	result := resp.GetResult()
+	reply := loginResultToRS2(result)
+
+	// Only cache session details if the login was accepted.
+	if result == loginpb.LoginResult_LOGIN_RESULT_OK ||
+		result == loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER ||
+		result == loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK {
+		c.staffModLevel = resp.GetStaffModLevel()
+		c.members = resp.GetMembers()
+		c.username = safeName
+		c.savePayload = resp.GetSave()
+		c.sessionUUID = resp.GetSessionUuid()
+		c.accountID = int64(resp.GetAccountId())
+	}
+	return reply, nil
+}
+
+// loginResultToRS2 maps a gRPC LoginResult enum to the RS2 wire response byte
+// that the Java client understands.
+func loginResultToRS2(result loginpb.LoginResult) byte {
+	switch result {
+	case loginpb.LoginResult_LOGIN_RESULT_OK:
+		return loginresp.OpOK.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER:
+		return loginresp.OpOK.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK:
+		return loginresp.OpReconnectOK.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS:
+		return loginresp.OpInvalidUsernameOrPassword.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_ALREADY_LOGGED_IN:
+		return loginresp.OpDuplicate.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_ACCOUNT_DISABLED:
+		return loginresp.OpBanned.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_NOT_A_MEMBER:
+		return loginresp.OpNeedMembersAccount.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_LOGIN_IN_PROGRESS:
+		return loginresp.OpTooManyAttempts.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_IP_BANNED:
+		return loginresp.OpLoginServerRejected.Opcode
+	default:
+		// UNSPECIFIED / unknown future values
+		return loginresp.OpIPLimit.Opcode
+	}
+}
+
+// disconnectSessionLogEvent classifies a per-conn read-side error into the
+// TS-faithful ENGINE session-log message (and optional extra args). Mirrors
+// the three TcpServer.ts:44-67 handlers:
+//
+//   - s.on('close') → "TCP socket closed"   (io.EOF / net.ErrClosed)
+//   - s.on('timeout') → "TCP socket timeout" (net.Error.Timeout())
+//   - s.on('error')   → "TCP socket error"   (any other error, with err.Error()
+//     joined per AddSessionLog's TS args-join quirk)
+//
+// goscape collapses TS's three socket event handlers into one read-error
+// branch because Go's net.Conn surfaces all three failure modes through a
+// single Read() return — the discrimination happens by error type rather
+// than by event source.
+func disconnectSessionLogEvent(err error) (string, []string) {
+	if err == nil || errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+		return "TCP socket closed", nil
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return "TCP socket timeout", nil
+	}
+	return "TCP socket error", []string{err.Error()}
+}
+
+// bareHost strips the trailing ":port" from a `host:port` form returned
+// by net.Conn.RemoteAddr().String(), so the login rate-limit caches key
+// on the bare IP (mirrors TS Node `socket.remoteAddress` semantics at
+// Engine-TS/src/engine/World.ts:2107). If the input has no port (e.g.
+// unix socket addr from tests), returns it unchanged.
+func bareHost(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	return host
+}
+
+// addressLoginRateLimitExceeded records a login attempt from the given
+// remote address (host:port) and reports whether the per-IP window quota
+// has been crossed. Returns false when the gate is disabled (production
+// off or limit <= 0). Mirrors TS World.ts:2106-2117.
+func (s *Server) addressLoginRateLimitExceeded(remoteAddr string) bool {
+	if !s.cfg.NodeProduction || s.cfg.NodeRateLimitAddressLogin <= 0 {
+		return false
+	}
+	ip := bareHost(remoteAddr)
+	last, _ := s.addressLoginCache.Get(ip)
+	attempts := last + 1
+	s.addressLoginCache.Set(ip, attempts)
+	if attempts >= s.cfg.NodeRateLimitAddressLogin {
+		s.log.Info("login attempts exceeded (address)", "ip", ip, "attempts", attempts)
+		return true
+	}
+	return false
+}
+
+// deviceLoginRateLimitExceeded records a login attempt for the given
+// (uid, remote address) pair and reports whether the per-device window
+// quota has been crossed. Returns false when the gate is disabled.
+// Mirrors TS World.ts:2163-2174.
+func (s *Server) deviceLoginRateLimitExceeded(uid uint32, remoteAddr string) bool {
+	if !s.cfg.NodeProduction || s.cfg.NodeRateLimitDeviceLogin <= 0 {
+		return false
+	}
+	ip := bareHost(remoteAddr)
+	key := strconv.FormatUint(uint64(uid), 10) + "@" + ip
+	last, _ := s.deviceLoginCache.Get(key)
+	attempts := last + 1
+	s.deviceLoginCache.Set(key, attempts)
+	if attempts >= s.cfg.NodeRateLimitDeviceLogin {
+		s.log.Info("login attempts exceeded (device)", "key", key, "attempts", attempts)
+		return true
+	}
+	return false
+}
