@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync/atomic"
 )
 
 // playerList ports TS EntityList/PlayerList (EntityList.ts:6-115 at the 244
@@ -16,8 +17,17 @@ import (
 // entities directly by pid. Observable contract — allocation order,
 // iteration order, count, full-world sentinel — is identical.
 type playerList struct {
-	entities      []*Player
-	count         int
+	entities []*Player
+	// count is the live-player total (size - free.size). It is atomic.Int32
+	// because it is read cross-goroutine off the tick path — getTotalPlayers
+	// (server.go) on the connection-admission goroutine and HealthSnapshot
+	// (world_stats.go) on the ondemand HTTP handler goroutine both read it
+	// concurrently with the tick goroutine's set/remove writes. Only set and
+	// remove mutate it (inside playersMu at their addPlayer/removePlayerInternal
+	// call sites, which guards the entities slice); the atomic makes those
+	// lock-free reads race-safe, mirroring the rev-274 origin and the other
+	// rev branches.
+	count         atomic.Int32
 	lastUsedIndex int // last pid passed to set(); next() resumes after it. TS EntityList.ts:67
 }
 
@@ -39,7 +49,7 @@ func (l *playerList) get(pid int) *Player {
 
 func (l *playerList) set(pid int, p *Player) { // TS EntityList.ts:59-68
 	if l.entities[pid] == nil {
-		l.count++
+		l.count.Add(1)
 	}
 	l.entities[pid] = p
 	l.lastUsedIndex = pid
@@ -48,7 +58,7 @@ func (l *playerList) set(pid int, p *Player) { // TS EntityList.ts:59-68
 func (l *playerList) remove(pid int) { // TS EntityList.ts:70-77
 	if l.entities[pid] != nil {
 		l.entities[pid] = nil
-		l.count--
+		l.count.Add(-1)
 	}
 }
 

@@ -157,6 +157,18 @@ type Server struct {
 	huntScratch []entity
 	currentTick int
 
+	// lastTickNano/currentTickAtomic/lastCycleMillis mirror tick-goroutine
+	// state into atomics so HealthSnapshot (arch-29.6) can read it from any
+	// goroutine (the ondemand /healthz + /debug/status handlers) without
+	// racing s.currentTick/s.lastCycleStats, which are tick-goroutine-owned.
+	// Stamped together, once per tick, by stampTick (tick.go, immediately
+	// after s.currentTick++) — zero locks added to the tick path.
+	// (PlayersOnline is NOT stamped here: HealthSnapshot reads it live from
+	// playerList.count, which is itself atomic.Int32 — see world_stats.go.)
+	lastTickNano      atomic.Int64 // UnixNano of the last completed tick; 0 before the first tick
+	currentTickAtomic atomic.Int64 // snapshot of s.currentTick
+	lastCycleMillis   atomic.Int64 // snapshot of lastCycleStats[statCycle]
+
 	// shutdownTick is the tick on which the world will halt. -1 means
 	// no shutdown scheduled. Set by Server.rebootTimer; consumed by
 	// Server.processShutdown (called at top of tick body when
@@ -1612,9 +1624,10 @@ func (s *Server) addPlayer(p *Player) error {
 
 // getTotalPlayers returns the count of live players.
 // TS World.ts:1730-1732: return this.players.count.
-// Lock-free read — playersMu guards writes only.
+// Lock-free atomic read — safe off the tick goroutine (this runs on the
+// connection-admission path; players.count is atomic.Int32).
 func (s *Server) getTotalPlayers() int {
-	return s.players.count
+	return int(s.players.count.Load())
 }
 
 // isUsernameLoggingOut reports whether a player slot is occupied by an

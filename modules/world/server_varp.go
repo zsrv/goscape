@@ -60,10 +60,8 @@ func (w worldVarsView) PlayerCount() int {
 	if w.s == nil {
 		return 0
 	}
-	w.s.playersMu.RLock()
-	n := w.s.players.count
-	w.s.playersMu.RUnlock()
-	return n
+	// Lock-free atomic read: players.count is atomic.Int32.
+	return int(w.s.players.count.Load())
 }
 
 // MapMembers returns 1 if the server is a members world, else 0.

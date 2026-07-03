@@ -74,8 +74,8 @@ func TestPlayerListAllocation(t *testing.T) {
 			t.Fatalf("iteration order wrong: %v", got)
 		}
 		l.remove(4)
-		if l.count != 2 || l.get(4) != nil || l.get(900) != a {
-			t.Fatalf("count/get after remove: count=%d", l.count)
+		if l.count.Load() != 2 || l.get(4) != nil || l.get(900) != a {
+			t.Fatalf("count/get after remove: count=%d", l.count.Load())
 		}
 	})
 }
