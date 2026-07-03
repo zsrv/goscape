@@ -22,6 +22,12 @@ import (
 // lands in the narrow race between closeAll running and GracefulStop
 // actually closing the listener. Stop() cuts that straggler's connection,
 // which drives its handler's stream ctx.Done() branch to return.
+//
+// arch-29.5: also the default value of the friends.graceful-shutdown-timeout
+// flag (Config.GracefulShutdownTimeout) and the fallback newGRPCServer uses
+// when a caller constructs a Config literal without setting that field
+// (e.g. tests), so the effective grace window is always this bound unless
+// an operator overrides it.
 const defaultGracefulStopBound = 5 * time.Second
 
 // grpcServer wraps a *grpc.Server registered with the friends handler.
@@ -29,9 +35,10 @@ const defaultGracefulStopBound = 5 * time.Second
 type grpcServer struct {
 	server *grpc.Server
 	log    *slog.Logger
-	// grace bounds shutdown's wait on GracefulStop. Set to
-	// defaultGracefulStopBound in production; tests may override it to
-	// keep the forced-Stop path fast.
+	// grace bounds shutdown's wait on GracefulStop. Derived from
+	// Config.GracefulShutdownTimeout in newGRPCServer (falling back to
+	// defaultGracefulStopBound when unset); tests may override it directly
+	// to keep the forced-Stop path fast.
 	grace time.Duration
 }
 
@@ -52,7 +59,15 @@ func newGRPCServer(cfg Config, repo *Repository, subs *subscriptions, worldSubs 
 		log:       log,
 	})
 	reflection.Register(s)
-	return &grpcServer{server: s, log: log, grace: defaultGracefulStopBound}
+	// arch-29.5: Config literals built directly (tests, or any caller that
+	// skips RegisterFlagsAndApplyDefaults) leave GracefulShutdownTimeout at
+	// its zero value; fall back to defaultGracefulStopBound rather than
+	// wiring shutdown() to time.After(0).
+	grace := cfg.GracefulShutdownTimeout
+	if grace <= 0 {
+		grace = defaultGracefulStopBound
+	}
+	return &grpcServer{server: s, log: log, grace: grace}
 }
 
 // listen binds the TCP port and returns the listener. Called during
