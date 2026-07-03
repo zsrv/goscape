@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync/atomic"
 )
 
 // playerList ports TS EntityList/PlayerList (EntityList.ts:6-115 at the 244
@@ -16,8 +17,14 @@ import (
 // entities directly by pid. Observable contract — allocation order,
 // iteration order, count, full-world sentinel — is identical.
 type playerList struct {
-	entities      []*Player
-	count         int
+	entities []*Player
+	// count caches the occupied-slot total. Atomic because connection
+	// goroutines and the ondemand health handlers (HealthSnapshot,
+	// arch-29.6) read it while the tick goroutine mutates via set/remove;
+	// tick-side readers can also sit inside playersMu critical sections
+	// (an RLock there would self-deadlock). Written only at the two
+	// guarded set/remove sites below.
+	count         atomic.Int32
 	lastUsedIndex int // last pid passed to set(); next() resumes after it. TS EntityList.ts:67
 }
 
@@ -39,7 +46,7 @@ func (l *playerList) get(pid int) *Player {
 
 func (l *playerList) set(pid int, p *Player) { // TS EntityList.ts:59-68
 	if l.entities[pid] == nil {
-		l.count++
+		l.count.Add(1)
 	}
 	l.entities[pid] = p
 	l.lastUsedIndex = pid
@@ -48,7 +55,7 @@ func (l *playerList) set(pid int, p *Player) { // TS EntityList.ts:59-68
 func (l *playerList) remove(pid int) { // TS EntityList.ts:70-77
 	if l.entities[pid] != nil {
 		l.entities[pid] = nil
-		l.count--
+		l.count.Add(-1)
 	}
 }
 

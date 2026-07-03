@@ -418,8 +418,8 @@ func TestAddPlayerAssignsSlot(t *testing.T) {
 	if s.players.get(p.pid) != p {
 		t.Error("players.get(pid) should point to p")
 	}
-	if s.players.count != 1 {
-		t.Errorf("players.count: got %d, want 1", s.players.count)
+	if s.players.count.Load() != 1 {
+		t.Errorf("players.count: got %d, want 1", s.players.count.Load())
 	}
 }
 
@@ -436,8 +436,8 @@ func TestRemovePlayerClearsSlot(t *testing.T) {
 	if s.players.get(slot) != nil {
 		t.Error("players[slot] should be nil after remove")
 	}
-	if s.players.count != 0 {
-		t.Errorf("players.count: got %d, want 0", s.players.count)
+	if s.players.count.Load() != 0 {
+		t.Errorf("players.count: got %d, want 0", s.players.count.Load())
 	}
 }
 
@@ -500,7 +500,7 @@ func TestAddPlayerConcurrentSafety(t *testing.T) {
 
 	for range 50 {
 		s.playersMu.RLock()
-		_ = s.players.count
+		_ = s.players.count.Load()
 		s.playersMu.RUnlock()
 	}
 
@@ -547,7 +547,7 @@ func TestProcessLoginsDrainsNewPlayers(t *testing.T) {
 
 	s.playersMu.RLock()
 	queued := len(s.newPlayers)
-	inPlayers := s.players.count
+	inPlayers := s.players.count.Load()
 	s.playersMu.RUnlock()
 
 	if queued != 0 {
@@ -612,7 +612,7 @@ func TestProcessLogoutsTimeoutMarksLoggingOut(t *testing.T) {
 		t.Error("loggingOut should be true after lastResponse timeout")
 	}
 	s.playersMu.RLock()
-	still := s.players.count
+	still := s.players.count.Load()
 	s.playersMu.RUnlock()
 	if still != 0 {
 		t.Errorf("players.count should be 0 after logout, got %d", still)

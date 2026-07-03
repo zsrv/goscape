@@ -299,6 +299,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.snapshotCycleStats()                                             // TS W.ts:489-500
 
 		s.currentTick++
+		s.stampTick() // arch-29.6: mirror tick state into health-snapshot atomics
 
 		// NAI-188: re-read s.tickRate every iteration so ::speed
 		// mutations take effect on the next sleep. Named currentRate
