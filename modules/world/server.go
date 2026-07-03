@@ -320,12 +320,15 @@ type Server struct {
 	loggerBridge              LoggerBridge
 
 	// bridgesCtx is the parent context for fire-and-forget gRPC calls
-	// from grpcFriendsBridge / loginGRPCBridgeMod and from the inline
-	// PlayerLogout / PlayerForceLogout / PlayerAutosave / PlayerLogin
-	// goroutines spawned in server.go and tick.go. Each call wraps it
-	// with a per-call WithTimeout (bridgeCallTimeout). bridgesCancel is
-	// invoked from Shutdown so in-flight bridge calls observe cancellation
-	// promptly instead of running until their per-call deadline.
+	// from grpcFriendsBridge / loginGRPCBridgeMod, from the inline login-side
+	// PlayerLogout (sendPlayerLogoutWithRetry) / PlayerForceLogout /
+	// PlayerAutosave goroutines spawned in server.go, and from the friends
+	// PlayerLogin / PlayerLogout mutations that server.go and tick.go now
+	// enqueue on the single friendsMutationDispatcher worker (arch-29.13)
+	// instead of spawning a goroutine per call. Each call wraps it with a
+	// per-call WithTimeout (bridgeCallTimeout). bridgesCancel is invoked
+	// from Shutdown so in-flight bridge calls observe cancellation promptly
+	// instead of running until their per-call deadline.
 	// Arc 18 R3 — concurrency / shutdown-safety.
 	bridgesCtx    context.Context
 	bridgesCancel context.CancelFunc
