@@ -320,12 +320,15 @@ type Server struct {
 	loggerBridge              LoggerBridge
 
 	// bridgesCtx is the parent context for fire-and-forget gRPC calls
-	// from grpcFriendsBridge / loginGRPCBridgeMod and from the inline
-	// PlayerLogout / PlayerForceLogout / PlayerAutosave / PlayerLogin
-	// goroutines spawned in server.go and tick.go. Each call wraps it
-	// with a per-call WithTimeout (bridgeCallTimeout). bridgesCancel is
-	// invoked from Shutdown so in-flight bridge calls observe cancellation
-	// promptly instead of running until their per-call deadline.
+	// from grpcFriendsBridge / loginGRPCBridgeMod, from the inline login-side
+	// PlayerLogout (sendPlayerLogoutWithRetry) and PlayerAutosave
+	// goroutines spawned in server.go, and from the friends
+	// PlayerLogin / PlayerLogout mutations that server.go and tick.go now
+	// enqueue on the single friendsMutationDispatcher worker (arch-29.13)
+	// instead of spawning a goroutine per call. Each call wraps it with a
+	// per-call WithTimeout (bridgeCallTimeout). bridgesCancel is invoked
+	// from Shutdown so in-flight bridge calls observe cancellation promptly
+	// instead of running until their per-call deadline.
 	// Arc 18 R3 — concurrency / shutdown-safety.
 	bridgesCtx    context.Context
 	bridgesCancel context.CancelFunc
@@ -1222,12 +1225,7 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 			// whichever owner exits last).
 			s.removePlayerOnDisconnect(c.player)
 			c.player = nil
-		} else if c.state != ClientStateOndemand {
-			// Pre-login: this goroutine is the only writer; flush any
-			// pending login reply before closing. OnDemand-state conns
-			// skip it — the pump goroutine co-owns bufw via transient
-			// refs (arch-29.1) and there is nothing useful to flush at
-			// teardown.
+		} else if c.shouldFlushOnTeardown() {
 			if err := c.flushWrite(); err != nil {
 				s.logNet.Warn("failed to flush on connection close", "error", err, "remote_addr", conn.RemoteAddr())
 			}

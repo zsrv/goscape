@@ -321,6 +321,26 @@ func defaultTestProvider() *script.Provider {
 
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
+	return newTestServerWithDispatcher(t, true)
+}
+
+// newTestServerWithDispatcher is newTestServer's implementation,
+// parameterized on whether to start the friendsMutationDispatcher's worker
+// goroutine. startWorker=false is for tests that must observe enqueue's
+// effect in isolation (queue depth, "nothing executed yet") with no
+// concurrent drain racing the assertions — e.g.
+// TestFriendsMutationsRouteThroughDispatcher (friends_dispatcher_routing_test.go).
+//
+// Deliberately NOT implemented as "call newTestServer then overwrite
+// s.friendsMutationDispatcher with a fresh, unstarted instance": newTestServer
+// already spawns a goroutine that reads the s.friendsMutationDispatcher field
+// when IT runs, not when the goroutine is scheduled, so a post-hoc overwrite
+// races that read (a real -race failure, not just a logical bug) and, if the
+// goroutine loses the race, silently starts a second worker over the
+// "unstarted" instance. Branching startWorker before the field is ever read
+// avoids both.
+func newTestServerWithDispatcher(t *testing.T, startWorker bool) *Server {
+	t.Helper()
 	// Arc 18 R3 — bridgesCtx must be non-nil so tests that inject a
 	// non-nil loginClient/friendsClient and exercise removePlayerOnTick /
 	// autosavePlayers / processLogins (which now do
@@ -354,28 +374,30 @@ func newTestServer(t *testing.T) *Server {
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = noopBridges{}
-	// arch-29.13: wire a running friendsMutationDispatcher so tests that
-	// inject a fake friendsClient and drive processLogins/removePlayerOnTick
-	// directly (tick_friends_login_test.go, server_friends_logout_test.go)
+	// arch-29.13: wire a friendsMutationDispatcher so tests that inject a
+	// fake friendsClient and drive processLogins/removePlayerOnTick directly
+	// (tick_friends_login_test.go, server_friends_logout_test.go) can
 	// observe the enqueued PlayerLogin/PlayerLogout RPC without having to
-	// spin up the full NewWorldService startingBody. Cleanup cancels
-	// bridgesCtx itself (idempotent with the bridgesCancel cleanup
-	// registered above) and waits for the worker to exit so no test leaks
-	// it into the next test.
+	// spin up the full NewWorldService startingBody. When startWorker is
+	// true, cleanup cancels bridgesCtx itself (idempotent with the
+	// bridgesCancel cleanup registered above) and waits for the worker to
+	// exit so no test leaks it into the next test.
 	s.friendsMutationDispatcher = newFriendsMutationDispatcher(s.log)
-	dispatcherDone := make(chan struct{})
-	go func() {
-		defer close(dispatcherDone)
-		s.friendsMutationDispatcher.run(s.bridgesCtx)
-	}()
-	t.Cleanup(func() {
-		bridgesCancel()
-		select {
-		case <-dispatcherDone:
-		case <-time.After(time.Second):
-			t.Fatal("friendsMutationDispatcher worker did not exit after bridgesCancel")
-		}
-	})
+	if startWorker {
+		dispatcherDone := make(chan struct{})
+		go func() {
+			defer close(dispatcherDone)
+			s.friendsMutationDispatcher.run(s.bridgesCtx)
+		}()
+		t.Cleanup(func() {
+			bridgesCancel()
+			select {
+			case <-dispatcherDone:
+			case <-time.After(time.Second):
+				t.Fatal("friendsMutationDispatcher worker did not exit after bridgesCancel")
+			}
+		})
+	}
 	s.locOps = &serverLocOps{s: s}
 	s.reloadFn = s.Reload
 	s.watchSessionFn = s.runWatchSession
