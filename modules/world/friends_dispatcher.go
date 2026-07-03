@@ -176,6 +176,17 @@ func (d *friendsMutationDispatcher) enqueue(action func(context.Context)) {
 	}
 }
 
+// depth returns the current queue length. Test-only visibility into
+// enqueue's effect on the queue without a dequeuing worker running
+// (friends_dispatcher_test.go / friends_dispatcher_routing_test.go pin
+// call sites route through enqueue, one at a time, by checking depth
+// grows by exactly one per call before any worker drains it).
+func (d *friendsMutationDispatcher) depth() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return len(d.queue)
+}
+
 // run is the single dedicated worker: dequeues in strict FIFO order and
 // executes each action synchronously, so a slow action head-of-line
 // blocks everything queued behind it (deliberate — see type doc). Exits
