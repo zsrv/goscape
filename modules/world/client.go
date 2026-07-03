@@ -239,6 +239,28 @@ func (c *client) flushWriteOrClose() {
 	}
 }
 
+// shouldFlushOnTeardown reports whether handleTCPConn's teardown defer
+// should flush c.bufw before closing the connection. Pure extraction of
+// arch-29.1's flush-skip decision (server.go's teardown defer) so it can be
+// pinned directly, independent of driving a real op-15 handshake through
+// the full HandleConn path.
+//
+// True only for a pre-login connection (c.player == nil) that never
+// transitioned to ClientStateOndemand: this goroutine is the sole writer
+// of c.bufw in that case, so any pending login reply is worth flushing.
+//
+// False once a player exists — the tick goroutine co-owns bufw/c.in at
+// that point, and flushing here would race the tick's own flushWrite; the
+// caller's c.player != nil branch handles that case separately via
+// removePlayerOnDisconnect and never calls this method. Also false for an
+// OnDemand connection: the pump goroutine co-owns bufw via transient refs
+// (arch-29.1), and every OnDemand write (op-15's own reply, and every
+// clientODAdapter.send) already pairs with its own immediate flushWrite,
+// so there is never anything pending to flush at teardown.
+func (c *client) shouldFlushOnTeardown() bool {
+	return c.player == nil && c.state != ClientStateOndemand
+}
+
 // sendLoginOK queues the player for world registration on the next tick,
 // sends the 3-byte login-accepted reply [2, min(staffModLevel,2), 1], and
 // transitions to ClientStateGame.
