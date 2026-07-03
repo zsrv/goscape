@@ -874,7 +874,7 @@ func (p *Player) calcCombatLevel() int {
 	rangd := 0.325 * float64(rng/2+rng)
 	magic := 0.325 * float64(mag/2+mag)
 
-	return int(math.Floor(base + math.Max(melee, math.Max(rangd, magic))))
+	return int(math.Floor(base + max(melee, rangd, magic)))
 }
 
 // recomputeCombatLevel updates p.combatLevel if calcCombatLevel now
