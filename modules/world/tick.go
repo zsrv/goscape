@@ -396,11 +396,22 @@ func (s *Server) processLogins() {
 			profile := s.cfg.NodeProfile
 			privateChat := int32(p.privateChat)
 			staffLvl := p.staffModLevel
-			// Arc 18 R3 — per-call timeout + shutdown-derived parent so a
-			// hung friends-server cannot pile up goroutines.
-			go func() {
-				ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
-				defer cancel()
+			// arch-29.13: enqueue on the single global friends dispatcher
+			// instead of firing an ad hoc goroutine, so this PlayerLogin
+			// executes strictly before any later friends mutation for
+			// this player (e.g. a same-tick or later-tick PlayerLogout)
+			// — restoring the TS friendThread.postMessage FIFO
+			// guarantee. The onResponse callback runs synchronously on
+			// the dispatcher's worker goroutine, outside the per-call
+			// ctx's cancellation reach, so it MUST stay fast and
+			// non-blocking — a blocking callback stalls every queued
+			// friends mutation (see the FriendsClient.PlayerLogin
+			// contract). This Warn-only body satisfies that, and it
+			// touches only s.logTick, never tick-owned player state. The
+			// per-call timeout bounds the gRPC call and now lives on the
+			// dispatcher's worker (context.WithTimeout(bridgesCtx,
+			// callTimeout) per dequeue).
+			s.friendsMutationDispatcher.enqueue(func(ctx context.Context) {
 				s.friendsClient.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
 					WorldId:     worldID,
 					Profile:     profile,
@@ -415,7 +426,7 @@ func (s *Server) processLogins() {
 						)
 					}
 				})
-			}()
+			})
 		}
 
 		// NAI-S4A: start the SubscribeUpdates stream subscriber.

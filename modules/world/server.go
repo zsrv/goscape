@@ -283,13 +283,21 @@ type Server struct {
 	// NewServer; tests inject recordingBridges via installRecordingBridges.
 	// Real impls deferred per NAI-72-D-{FRIENDS-SERVER-BRIDGE,
 	// LOGIN-SERVER-BRIDGE-MOD, LOGGER-BRIDGE}.
-	friendsBridge         FriendsBridge
-	friendsDispatcher     FriendsDispatcher
-	friendsAdminBridge    FriendsAdminBridge
-	worldEventsDispatcher WorldEventsDispatcher
-	worldEventsCancel     context.CancelFunc
-	loginBridgeMod        LoginBridgeMod
-	loggerBridge          LoggerBridge
+	friendsBridge      FriendsBridge
+	friendsDispatcher  FriendsDispatcher
+	friendsAdminBridge FriendsAdminBridge
+	// friendsMutationDispatcher is the single global ordered FIFO queue
+	// for every friends-server mutation RPC (arch-29.13). NOT the same
+	// thing as friendsDispatcher above (that's the opposite-direction
+	// friends-server -> world push sink) — see friends_dispatcher.go's
+	// naming note. Constructed here in NewServer; its worker goroutine is
+	// started separately by NewWorldService's startingBody (folded into
+	// bridgeWg alongside retryBridgeRegistration, arch-29.3's convention).
+	friendsMutationDispatcher *friendsMutationDispatcher
+	worldEventsDispatcher     WorldEventsDispatcher
+	worldEventsCancel         context.CancelFunc
+	loginBridgeMod            LoginBridgeMod
+	loggerBridge              LoggerBridge
 
 	// bridgesCtx is the parent context for fire-and-forget gRPC calls
 	// from grpcFriendsBridge / loginGRPCBridgeMod and from the inline
@@ -515,7 +523,12 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// override to keep retry loops fast.
 	s.bridgeRetryDelay = 5 * time.Second
 	s.initLoginGate(loginClient)
-	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.bridgesCtx, logger.With("component", compFriends))
+	// arch-29.13: construct the dispatcher itself here (mirrors every
+	// other bridge field); its worker goroutine must NOT start yet — see
+	// the field doc comment — so this stays a plain allocation, no
+	// goroutine spawn, safe during NewServer/module-init.
+	s.friendsMutationDispatcher = newFriendsMutationDispatcher(logger.With("component", compFriends))
+	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), cfg.NodeProfile, s.friendsMutationDispatcher, logger.With("component", compFriends))
 	s.friendsDispatcher = newEmitFriendsDispatcher(s, logger.With("component", compFriends))
 	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, cfg.NodeProfile, logger.With("component", compFriends))
 	// Slice 5b: production dispatcher composes the slice-5a slog
@@ -1823,17 +1836,20 @@ func (s *Server) removePlayerOnTick(p *Player) {
 		username37 := p.username37
 		worldID := int32(s.cfg.NodeID)
 		profile := s.cfg.NodeProfile
-		// Arc 18 R3 — per-call timeout + shutdown-derived parent so a hung
-		// friends-server cannot pile up goroutines.
-		go func() {
-			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
-			defer cancel()
+		// arch-29.13: enqueue on the single global friends dispatcher
+		// instead of firing an ad hoc goroutine, so this PlayerLogout
+		// executes strictly after any PlayerLogin/other friends mutation
+		// for this player enqueued earlier this tick or a prior tick —
+		// restoring the TS friendThread.postMessage FIFO guarantee. The
+		// per-call timeout now lives on the dispatcher's worker
+		// (context.WithTimeout(bridgesCtx, callTimeout) per dequeue).
+		s.friendsMutationDispatcher.enqueue(func(ctx context.Context) {
 			s.friendsClient.PlayerLogout(ctx, &friendspb.PlayerLogoutRequest{
 				WorldId:    worldID,
 				Profile:    profile,
 				Username37: username37,
 			})
-		}()
+		})
 	}
 	if p.friendsSubCancel != nil {
 		p.friendsSubCancel()
