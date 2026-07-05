@@ -27,7 +27,7 @@
 #                               environment before parsing
 #
 # Env-var expansion: with --config.expand-env=true, any ${VAR} in a value is
-# replaced by the environment. Example: sqlite_dsn: ${GOSCAPE_DB:-data/login.db}
+# replaced by the environment. Example: dsn: ${GOSCAPE_DB:-data/goscape.db}
 #
 # NOTE: every value below is the built-in DEFAULT, with one exception — the four
 # module `enable:` keys are set to `true` so this file is a coherent "run
@@ -178,7 +178,27 @@ ondemand:
 
 
 # ----------------------------------------------------------------------------
-# friends — gRPC friends / private-message server (SQLite)
+# database — central database shared by login + friends (independent clients)
+# ----------------------------------------------------------------------------
+# Central database shared by the login and friends services. Both are
+# independent clients of it — with the sqlite backend they must share a
+# filesystem; postgres (Phase 2) lifts that to a network database.
+database:
+  # Backend: sqlite | postgres.
+  backend: sqlite
+  sqlite:
+    # SQLite file path (parent directories are created automatically).
+    dsn: data/goscape.db
+  postgres:
+    # PostgreSQL DSN, e.g. postgres://user:pass@host:5432/goscape?sslmode=disable
+    # Required when backend=postgres. Not yet supported (Phase 2).
+    dsn: ""
+    # Max open connections per service pool.
+    max_open_conns: 8
+
+
+# ----------------------------------------------------------------------------
+# friends — gRPC friends / private-message server
 # ----------------------------------------------------------------------------
 friends:
   # Run the friends module. CLI: --friends.enable (code default: false)
@@ -187,8 +207,6 @@ friends:
   grpc_listen_address: 127.0.0.1
   # CLI: --friends.grpc-listen-port (default: 2005)
   grpc_listen_port: 2005
-  # CLI: --friends.sqlite-dsn (default: data/friends.db)
-  sqlite_dsn: data/friends.db
   # Per-world player slot cap. CLI: --friends.world-player-limit (default: 2000)
   world_player_limit: 2000
   # The single profile this friends server serves; mismatched WORLD_CONNECTs are
@@ -204,7 +222,7 @@ friends:
 
 
 # ----------------------------------------------------------------------------
-# login — gRPC login service (SQLite account store + player saves)
+# login — gRPC login service (account store + player saves)
 # ----------------------------------------------------------------------------
 login:
   # Run the login module. CLI: --login.enable (code default: false)
@@ -213,8 +231,6 @@ login:
   grpc_listen_address: 127.0.0.1
   # CLI: --login.grpc-listen-port (default: 2004)
   grpc_listen_port: 2004
-  # CLI: --login.sqlite-dsn (default: data/login.db)
-  sqlite_dsn: data/login.db
   # Player save-file root directory. CLI: --login.save-path (default: data/players)
   save_path: data/players
   # bcrypt work factor for password hashing (valid 4..31).
