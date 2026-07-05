@@ -81,15 +81,14 @@ func sqliteDSNWithPragmas(dsn string) string {
 // SQLite itself doesn't create missing parent directories — it returns
 // SQLITE_CANTOPEN (error 14) on first query.
 func ensureDBParentDir(dsn string) error {
-	if dsn == ":memory:" || strings.HasPrefix(dsn, "file::memory:") {
+	// mode=memory is checked against the full DSN: it lives in the query
+	// string, which is stripped below before the path is examined.
+	if dsn == ":memory:" || strings.HasPrefix(dsn, "file::memory:") || strings.Contains(dsn, "mode=memory") {
 		return nil
 	}
 	p := strings.TrimPrefix(dsn, "file:")
 	if i := strings.IndexByte(p, '?'); i >= 0 {
 		p = p[:i]
-	}
-	if strings.Contains(p, "mode=memory") {
-		return nil
 	}
 	dir := filepath.Dir(p)
 	if dir == "" || dir == "." {

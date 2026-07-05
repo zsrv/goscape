@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -55,6 +56,31 @@ func TestOpen_SQLitePragmasApplied(t *testing.T) {
 	}
 	if mode != "wal" {
 		t.Errorf("journal_mode: got %q, want wal", mode)
+	}
+}
+
+func TestEnsureDBParentDir_ModeMemorySkipsMkdir(t *testing.T) {
+	// Regression: mode=memory lives in the DSN's query string, so the
+	// guard must run against the full DSN — checking after truncating at
+	// '?' can never fire, and a path-shaped in-memory DSN would
+	// spuriously mkdir. openTestDB masks this because url.PathEscape
+	// removes path separators.
+	dir := filepath.Join(t.TempDir(), "nonexistent-dir")
+	dsn := "file:" + filepath.Join(dir, "x.db") + "?mode=memory&cache=shared"
+	if err := ensureDBParentDir(dsn); err != nil {
+		t.Fatalf("ensureDBParentDir(mode=memory): unexpected error %v", err)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Errorf("ensureDBParentDir(mode=memory): parent dir was created; want no-op (stat err: %v)", err)
+	}
+
+	// Companion positive case: same DSN without mode=memory must mkdir.
+	dsnDisk := "file:" + filepath.Join(dir, "x.db") + "?cache=shared"
+	if err := ensureDBParentDir(dsnDisk); err != nil {
+		t.Fatalf("ensureDBParentDir(disk): unexpected error %v", err)
+	}
+	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+		t.Errorf("ensureDBParentDir(disk): parent dir not created (err: %v)", err)
 	}
 }
 
