@@ -9,6 +9,7 @@ import (
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
 	"github.com/zsrv/goscape/modules/world"
+	"github.com/zsrv/goscape/pkg/gamedb"
 	"github.com/zsrv/goscape/pkg/util/log"
 )
 
@@ -17,6 +18,8 @@ type Config struct {
 	LogFormat string           `yaml:"log_format,omitempty"`
 	LogLevel  log.Level        `yaml:"log_level,omitempty"`  // global log level, default for modules too
 	LogSource log.SourceFormat `yaml:"log_source,omitempty"` // how the `source` attribute is rendered
+
+	Database gamedb.Config `yaml:"database,omitempty"`
 
 	OnDemand ondemand.Config `yaml:"ondemand,omitempty"`
 	Friends  friends.Config  `yaml:"friends,omitempty"`
@@ -43,6 +46,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 
 	// Everything else
 
+	c.Database.RegisterFlagsAndApplyDefaults(f)
 	c.OnDemand.RegisterFlagsAndApplyDefaults(f)
 	c.Friends.RegisterFlagsAndApplyDefaults(f)
 	c.Login.RegisterFlagsAndApplyDefaults(f)
@@ -57,12 +61,16 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 // internally on !c.Enable; OnDemand.Validate does not (it only guards
 // WsTokenProtection), so the call is gated here instead.
 //
-// Login, Friends, and OnDemand's own Validate errors already self-prefix
-// ("login: ...", "friends: ...", "ondemand: ..."), so they're returned
-// unwrapped here to avoid a doubled prefix. World's Validate instead uses
-// flag-style prefixes (e.g. "world.tcp-listen-port"), so it still needs
-// the "world: " wrap added here.
+// Database, Login, Friends, and OnDemand's own Validate errors already
+// self-prefix ("database: ...", "login: ...", "friends: ...",
+// "ondemand: ..."), so they're returned unwrapped here to avoid a doubled
+// prefix. World's Validate instead uses flag-style prefixes (e.g.
+// "world.tcp-listen-port"), so it still needs the "world: " wrap added
+// here.
 func (c *Config) Validate() error {
+	if err := c.Database.Validate(); err != nil {
+		return err
+	}
 	if err := c.World.Validate(); err != nil {
 		return fmt.Errorf("world: %w", err)
 	}
