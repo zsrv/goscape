@@ -40,7 +40,7 @@ goscape:
   logFormat: json
   # -- Path to the baked-in packed cache (must match the image)
   cachePath: /usr/share/goscape/pack
-  # -- Data dir for stateful modes (login/friends SQLite + player saves)
+  # -- Data dir for stateful modes (central sqlite DB + player saves)
   dataPath: /var/lib/goscape
   ports:
     # -- ondemand HTTP container port

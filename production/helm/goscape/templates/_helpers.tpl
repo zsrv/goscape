@@ -68,6 +68,12 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 target: all
 log_level: {{ $g.logLevel | quote }}
 log_format: {{ $g.logFormat | quote }}
+{{- if or (eq $mode "SingleBinary") (eq $mode "Management") }}
+database:
+  backend: sqlite
+  sqlite:
+    dsn: {{ printf "%s/goscape.db" $g.dataPath | quote }}
+{{- end }}
 ondemand:
   enable: {{ or (eq $mode "SingleBinary") (eq $mode "World") }}
   http_listen_network: tcp
@@ -78,14 +84,12 @@ login:
   enable: {{ or (eq $mode "SingleBinary") (eq $mode "Management") }}
   grpc_listen_address: 0.0.0.0
   grpc_listen_port: {{ $g.ports.loginGRPC }}
-  sqlite_dsn: {{ printf "%s/login.db" $g.dataPath | quote }}
   save_path: {{ printf "%s/players" $g.dataPath | quote }}
   node_profile: {{ $g.node.profile | quote }}
 friends:
   enable: {{ or (eq $mode "SingleBinary") (eq $mode "Management") }}
   grpc_listen_address: 0.0.0.0
   grpc_listen_port: {{ $g.ports.friendsGRPC }}
-  sqlite_dsn: {{ printf "%s/friends.db" $g.dataPath | quote }}
   profile: {{ $g.node.profile | quote }}
 world:
   enable: {{ or (eq $mode "SingleBinary") (eq $mode "World") }}
