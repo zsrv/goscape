@@ -2,6 +2,7 @@ package friends
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"google.golang.org/grpc/codes"
@@ -188,31 +189,25 @@ func (h *handler) IgnorelistDel(ctx context.Context, req *friendspb.IgnorelistDe
 	return &emptypb.Empty{}, nil
 }
 
-// PrivateMessage persists the PM to private_chat under the request profile,
-// then routes a PrivateMessageDelivery to the target's open stream
-// (if any). Mirrors TS FriendServer.ts:266-285 — insert-then-send,
-// fail the RPC on insert error (matches the established
-// codes.Internal posture of FriendlistAdd/Del/IgnorelistAdd/Del).
+// PrivateMessage persists the PM to private_chat (account-id-keyed)
+// and routes a PrivateMessageDelivery to the target's open stream.
+// Mirrors TS FriendServer.ts:266-284: both endpoint accounts are
+// resolved against the central database first; if either is missing
+// the PM is dropped silently — no insert, no delivery, successful
+// result (TS throws inside the message handler and the outer catch
+// swallows it). Other insert failures keep the codes.Internal posture.
 //
 // req.Coord is server-side-persisted (and otherwise unused for
-// routing). req.WorldId is unused for routing because the registry
-// is keyed solely by (profile, username37); cross-world routing
-// therefore falls out for free.
-//
-// Account-existence checks are now RESTORED at the repository layer
-// (Repository.LogPrivateMessage resolves both endpoints against the
-// central database and returns errAccountMissing on a miss — TS
-// FriendServer.ts:270-271's executeTakeFirstOrThrow-throws-then-catch,
-// closing the former NAI-S4A-D-FED-NO-ACCOUNT-EXISTENCE-CHECK exception
-// that the federated per-service SQLite design could not express).
-// Mapping errAccountMissing to the TS silent-drop behavior at THIS
-// handler (instead of the codes.Internal below, which currently fires
-// for every LogPrivateMessage error including a missing account) is
-// Task 6's job.
+// routing). req.WorldId is unused for routing because the registry is
+// keyed solely by (profile, username37); cross-world routing therefore
+// falls out for free.
 func (h *handler) PrivateMessage(ctx context.Context, req *friendspb.PrivateMessageRequest) (*emptypb.Empty, error) {
 	repo := h.repo()
 	h.ensureWorld(req.WorldId)
 	if err := repo.LogPrivateMessage(ctx, req.Username37, req.TargetUsername37, req.Coord, req.Chat); err != nil {
+		if errors.Is(err, errAccountMissing) {
+			return &emptypb.Empty{}, nil
+		}
 		return nil, status.Errorf(codes.Internal, "LogPrivateMessage: %v", err)
 	}
 	h.subs.send(h.profile(), req.TargetUsername37, &friendspb.FriendsUpdate{
