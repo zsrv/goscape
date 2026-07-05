@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zsrv/goscape/pkg/gamedb"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // hiscoreTableExists reports whether a table is present in the migrated DB.
-func hiscoreTableExists(t *testing.T, db *sql.DB, name string) bool {
+func hiscoreTableExists(t *testing.T, db *gamedb.DB, name string) bool {
 	t.Helper()
 	var got string
 	err := db.QueryRow(
@@ -34,7 +35,7 @@ func TestMigrationCreatesHiscoreTables(t *testing.T) {
 	}
 }
 
-func queryHiscoreRow(t *testing.T, db *sql.DB, table string, accountID, typ int) (level int, value int64, date string, found bool) {
+func queryHiscoreRow(t *testing.T, db *gamedb.DB, table string, accountID, typ int) (level int, value int64, date string, found bool) {
 	t.Helper()
 	err := db.QueryRow(
 		`SELECT level, value, date FROM `+table+` WHERE account_id = ? AND type = ? AND profile = 'main'`,

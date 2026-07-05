@@ -1,7 +1,6 @@
 package login
 
 import (
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"net"
@@ -11,6 +10,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/zsrv/goscape/pkg/gamedb"
 	"github.com/zsrv/goscape/pkg/loginpb"
 )
 
@@ -19,7 +19,7 @@ type grpcServer struct {
 	log    *slog.Logger
 }
 
-func newGRPCServer(cfg Config, db *sql.DB, log *slog.Logger) *grpcServer {
+func newGRPCServer(cfg Config, db *gamedb.DB, log *slog.Logger) *grpcServer {
 	// arch-29.2: permit the world's 30s keepalive probes (default
 	// EnforcementPolicy MinTime is 5m and would GOAWAY the client).
 	s := grpc.NewServer(

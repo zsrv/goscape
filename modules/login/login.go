@@ -2,40 +2,45 @@ package login
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"net"
 
 	"github.com/zsrv/goscape/pkg/dskit/services"
+	"github.com/zsrv/goscape/pkg/gamedb"
 )
 
-// Login is the login server module. It owns the SQLite DB and the gRPC server.
+// Login is the login server module. It owns its private pool to the
+// central database and the gRPC server.
 type Login struct {
 	services.Service
 
-	cfg Config
-	log *slog.Logger
+	cfg   Config
+	dbCfg gamedb.Config
+	log   *slog.Logger
 
-	db  *sql.DB
+	db  *gamedb.DB
 	srv *grpcServer
 	lis net.Listener
 }
 
-// New validates the config and constructs the Login module.
-func New(cfg Config, logger *slog.Logger) (*Login, error) {
+// New validates the config and constructs the Login module. dbCfg is
+// the shared database: section — the module opens its OWN pool with it
+// in starting() (independent-clients model; schema is migrated by the
+// database module, which login depends on in the app graph).
+func New(cfg Config, dbCfg gamedb.Config, logger *slog.Logger) (*Login, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	l := &Login{cfg: cfg, log: logger}
+	l := &Login{cfg: cfg, dbCfg: dbCfg, log: logger}
 	l.Service = services.NewBasicService(l.starting, l.running, l.stopping)
 	return l, nil
 }
 
 func (l *Login) starting(ctx context.Context) error {
-	db, err := openDB(l.cfg.SQLiteDSN)
+	db, err := gamedb.Open(l.dbCfg, l.log)
 	if err != nil {
-		return fmt.Errorf("open login db: %w", err)
+		return fmt.Errorf("open central database: %w", err)
 	}
 
 	srv := newGRPCServer(l.cfg, db, l.log)
