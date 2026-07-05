@@ -24,20 +24,20 @@ var migrationsFS embed.FS
 // golang-migrate version error → the caller (database module or test)
 // fails fast.
 func (d *DB) Migrate(_ context.Context) error {
-	dir := "migrations/sqlite"
+	// Guarded up front: migrations/postgres does not exist yet, and
+	// letting fs.Sub/iofs.New touch it first would surface a confusing
+	// "open .: file does not exist" instead of this message (Phase 2
+	// replaces this branch with the pgx driver).
 	if d.dialect == dialectPostgres {
-		dir = "migrations/postgres"
+		return errors.New("gamedb: postgres migrations not yet supported (Phase 2)")
 	}
-	sub, err := fs.Sub(migrationsFS, dir)
+	sub, err := fs.Sub(migrationsFS, "migrations/sqlite")
 	if err != nil {
 		return fmt.Errorf("gamedb: migrations subdir: %w", err)
 	}
 	src, err := iofs.New(sub, ".")
 	if err != nil {
 		return fmt.Errorf("gamedb: iofs source: %w", err)
-	}
-	if d.dialect == dialectPostgres {
-		return errors.New("gamedb: postgres migrations not yet supported (Phase 2)")
 	}
 	drv, err := sqlitedriver.WithInstance(d.DB, &sqlitedriver.Config{})
 	if err != nil {
