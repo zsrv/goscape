@@ -199,25 +199,16 @@ func (h *handler) IgnorelistDel(ctx context.Context, req *friendspb.IgnorelistDe
 // is keyed solely by (profile, username37); cross-world routing
 // therefore falls out for free.
 //
-// NAI-S4A-D-FED-NO-ACCOUNT-EXISTENCE-CHECK — CONFIRMED EXCEPTION
-// (closes friend-server-5 from the 2026-05-28 fresh audit). TS resolves
-// both endpoint accounts via executeTakeFirstOrThrow (FriendServer.ts
-// :270-285), which throws on a missing account and drops the PM. goscape
-// stores the raw username37 ints with no existence check, so a PM to a
-// non-existent account is logged and routed.
-//
-// This is structural, not a bug: per the DB-2 schema-decoupling rationale
-// at modules/friends/db.go:21-35, the friends server is intentionally
-// federated from the login/account store (separate SQLite DB, separate
-// gRPC service). There is no `account` table to JOIN against — the
-// equivalent existence check would require a cross-service RPC into
-// login, adding a latency-and-availability dependency to every PM RPC,
-// which contradicts the federation choice. Subscriber-routing already
-// degrades correctly: a PM to an account that no live world is hosting
-// silently no-ops at h.subs.send (no subscriber → drop). Orphan
-// private_chat rows from deleted accounts are accepted as the same
-// federation trade-off documented in db.go for friendlist / ignorelist /
-// public_chat rows.
+// Account-existence checks are now RESTORED at the repository layer
+// (Repository.LogPrivateMessage resolves both endpoints against the
+// central database and returns errAccountMissing on a miss — TS
+// FriendServer.ts:270-271's executeTakeFirstOrThrow-throws-then-catch,
+// closing the former NAI-S4A-D-FED-NO-ACCOUNT-EXISTENCE-CHECK exception
+// that the federated per-service SQLite design could not express).
+// Mapping errAccountMissing to the TS silent-drop behavior at THIS
+// handler (instead of the codes.Internal below, which currently fires
+// for every LogPrivateMessage error including a missing account) is
+// Task 6's job.
 func (h *handler) PrivateMessage(ctx context.Context, req *friendspb.PrivateMessageRequest) (*emptypb.Empty, error) {
 	repo := h.repo()
 	h.ensureWorld(req.WorldId)
@@ -508,16 +499,19 @@ func (h *handler) RelayQueueScript(_ context.Context, req *friendspb.RelayQueueS
 // validation. Insert error → codes.Internal (matches slice 6
 // PrivateMessage posture and FRIENDLIST/IGNORELIST mutation handlers).
 //
-// rev-254 A3 re-key: rows are keyed by req.SessionUuid (TS 254 inserts
-// `session_uuid` directly with no account resolution). goscape keeps
-// the world column from 244 and the profile scoping — TS recovers them
-// via the login DB session table join, which the federated friends DB
-// lacks (DB-2, db.go:21-35).
+// TS 274 re-key: rows are keyed by req.SessionUuid alone — TS inserts
+// {session_uuid, timestamp, coord, message} directly with no account
+// resolution and no profile/world columns. The central database can
+// now recover profile/world by joining session_uuid against the
+// session table when needed; req.WorldId is no longer passed through
+// to the repository (Repository.LogPublicMessage's world parameter is
+// gone — the federation-era profile/world columns it used to carry are
+// gone from the schema).
 //
 // Retires NAI-S6-D-PUBLIC-CHAT-DEFERRED.
 func (h *handler) PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest) (*emptypb.Empty, error) {
 	repo := h.repo()
-	if err := repo.LogPublicMessage(ctx, req.WorldId, req.SessionUuid, req.Coord, req.Chat); err != nil {
+	if err := repo.LogPublicMessage(ctx, req.SessionUuid, req.Coord, req.Chat); err != nil {
 		return nil, status.Errorf(codes.Internal, "LogPublicMessage: %v", err)
 	}
 	return &emptypb.Empty{}, nil
