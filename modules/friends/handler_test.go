@@ -199,6 +199,8 @@ func TestHandler_ChatSetMode_PrivateChatCoercion(t *testing.T) {
 func TestHandler_FriendlistAdd_Persists(t *testing.T) {
 	h := newTestHandler(t)
 	ctx := t.Context()
+	seedAccount(t, h.repos.db, 0xAAAA)
+	seedAccount(t, h.repos.db, 0xBBBB)
 	if _, err := h.FriendlistAdd(ctx, &friendspb.FriendlistAddRequest{
 		WorldId:          1,
 		Profile:          "main",
@@ -219,6 +221,8 @@ func TestHandler_FriendlistAdd_Persists(t *testing.T) {
 func TestHandler_FriendlistDel_RemovesEntry(t *testing.T) {
 	h := newTestHandler(t)
 	ctx := t.Context()
+	seedAccount(t, h.repos.db, 0xAAAA)
+	seedAccount(t, h.repos.db, 0xBBBB)
 	if err := h.repos.get("main").AddFriend(ctx, 0xAAAA, 0xBBBB); err != nil {
 		t.Fatalf("AddFriend: %v", err)
 	}
@@ -242,6 +246,7 @@ func TestHandler_FriendlistDel_RemovesEntry(t *testing.T) {
 func TestHandler_IgnorelistAdd_Persists(t *testing.T) {
 	h := newTestHandler(t)
 	ctx := t.Context()
+	seedAccount(t, h.repos.db, 0xAAAA)
 	if _, err := h.IgnorelistAdd(ctx, &friendspb.IgnorelistAddRequest{
 		WorldId:          1,
 		Profile:          "main",
@@ -262,6 +267,7 @@ func TestHandler_IgnorelistAdd_Persists(t *testing.T) {
 func TestHandler_IgnorelistDel_RemovesEntry(t *testing.T) {
 	h := newTestHandler(t)
 	ctx := t.Context()
+	seedAccount(t, h.repos.db, 0xAAAA)
 	if err := h.repos.get("main").AddIgnore(ctx, 0xAAAA, 0xBBBB); err != nil {
 		t.Fatalf("AddIgnore: %v", err)
 	}
@@ -288,6 +294,10 @@ func TestHandler_IgnorelistDel_RemovesEntry(t *testing.T) {
 // implements the no-op (subscriptions.go:85-87).
 func TestPrivateMessage_NoSubscription(t *testing.T) {
 	h := newTestHandler(t)
+	// Both endpoints need accounts under the TS 9aadcec4 re-key —
+	// LogPrivateMessage now resolves from/to against the central database.
+	seedAccount(t, h.repos.db, 0xAAAA)
+	seedAccount(t, h.repos.db, 0xBBBB)
 	// No SubscribeUpdates call for the target — registry is empty for
 	// username37=0xBBBB.
 	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
@@ -351,6 +361,8 @@ func TestSubscribeUpdates_InitialSnapshots(t *testing.T) {
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.Register(1, 100, 0, 0)
+	seedAccount(t, db, 100)
+	seedAccount(t, db, 200)
 	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
 		t.Fatalf("AddFriend: %v", err)
 	}
@@ -397,6 +409,8 @@ func TestPlayerLogin_BroadcastsToFollowers(t *testing.T) {
 	cfg := Config{WorldPlayerLimit: 100}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
+	seedAccount(t, db, 100)
+	seedAccount(t, db, 200)
 	// Follower 100 friended target 200.
 	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
 		t.Fatalf("AddFriend: %v", err)
@@ -452,6 +466,8 @@ func TestBroadcast_ChatModeOffHidesWorld(t *testing.T) {
 	cfg := Config{WorldPlayerLimit: 100}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
+	seedAccount(t, db, 100)
+	seedAccount(t, db, 200)
 	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
 		t.Fatalf("AddFriend: %v", err)
 	}
@@ -495,6 +511,8 @@ func TestPlayerLogout_BroadcastsZeroWorld(t *testing.T) {
 	cfg := Config{WorldPlayerLimit: 100}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
+	seedAccount(t, db, 100)
+	seedAccount(t, db, 200)
 	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
 		t.Fatalf("AddFriend: %v", err)
 	}
@@ -536,6 +554,9 @@ func TestFriendlistAdd_AdderGetsTargetWorldAndFollowersBroadcast(t *testing.T) {
 	cfg := Config{WorldPlayerLimit: 100}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
+	seedAccount(t, db, 50)
+	seedAccount(t, db, 100)
+	seedAccount(t, db, 200)
 	// Pre-existing: adder 100 has a follower 50 who already friended 100.
 	if err := r.AddFriend(t.Context(), 50, 100); err != nil {
 		t.Fatalf("AddFriend (50->100): %v", err)
@@ -606,6 +627,8 @@ func TestPrivateMessage_DeliveredToRecipient(t *testing.T) {
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.Register(1, 200, 0, 0) // recipient online so the subscription can attach
+	seedAccount(t, db, 100)
+	seedAccount(t, db, 200)
 
 	// Recipient subscribes; drain initial empty snapshots.
 	stream := newTestStream(t)
@@ -669,6 +692,8 @@ func TestPrivateMessage_CrossWorld(t *testing.T) {
 	r.InitializeWorld(20, 100)
 	r.Register(1, 100, 0, 0)  // sender on world 1
 	r.Register(20, 200, 0, 0) // recipient on world 20
+	seedAccount(t, db, 100)
+	seedAccount(t, db, 200)
 
 	stream := newTestStream(t)
 	errc := make(chan error, 1)
@@ -721,6 +746,8 @@ func TestHandler_PrivateMessage_PersistsBeforeSending(t *testing.T) {
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.Register(1, 200, 0, 0) // recipient online
+	fromID := seedAccount(t, db, 100)
+	toID := seedAccount(t, db, 200)
 
 	stream := newTestStream(t)
 	errc := make(chan error, 1)
@@ -747,18 +774,19 @@ func TestHandler_PrivateMessage_PersistsBeforeSending(t *testing.T) {
 		t.Fatalf("PrivateMessage: %v", err)
 	}
 
-	// Persistence
+	// Persistence — TS 9aadcec4 re-key: private_chat is keyed by resolved
+	// account ids (account_id, to_account_id), not raw username37s.
 	var from, to int64
 	var coord int32
 	var msg string
 	if err := db.QueryRowContext(t.Context(),
-		`SELECT from_username37, to_username37, coord, message FROM private_chat`).
+		`SELECT account_id, to_account_id, coord, message FROM private_chat`).
 		Scan(&from, &to, &coord, &msg); err != nil {
 		t.Fatalf("SELECT private_chat: %v", err)
 	}
-	if from != 100 || to != 200 || coord != 12345 || msg != "hi" {
-		t.Errorf("row = (%d, %d, %d, %q), want (100, 200, 12345, %q)",
-			from, to, coord, msg, "hi")
+	if from != fromID || to != toID || coord != 12345 || msg != "hi" {
+		t.Errorf("row = (%d, %d, %d, %q), want (%d, %d, 12345, %q)",
+			from, to, coord, msg, fromID, toID, "hi")
 	}
 
 	// Delivery
@@ -786,6 +814,15 @@ func TestHandler_PrivateMessage_InsertErrorBlocksSend(t *testing.T) {
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.Register(1, 200, 0, 0)
+	// Seed both endpoints so LogPrivateMessage's account resolution
+	// would otherwise succeed. Note that db.Close() below still fails
+	// the very first query LogPrivateMessage issues — resolving
+	// `from`'s account id — not the later INSERT step; the point of
+	// this test is that a non-errAccountMissing failure anywhere in
+	// LogPrivateMessage still maps to codes.Internal, regardless of
+	// which query trips it.
+	seedAccount(t, db, 100)
+	seedAccount(t, db, 200)
 
 	stream := newTestStream(t)
 	errc := make(chan error, 1)
@@ -801,9 +838,10 @@ func TestHandler_PrivateMessage_InsertErrorBlocksSend(t *testing.T) {
 	stream.recvWithin(t, 2*time.Second)
 	stream.recvWithin(t, 2*time.Second)
 
-	// Force INSERT failure: close the underlying *sql.DB. The subscriber
-	// goroutine is now in select{} waiting for new updates; it doesn't
-	// query the DB until something arrives on its channel.
+	// Force a LogPrivateMessage failure: close the underlying *gamedb.DB.
+	// The subscriber goroutine is now in select{} waiting for new
+	// updates; it doesn't query the DB until something arrives on its
+	// channel.
 	if err := db.Close(); err != nil {
 		t.Fatalf("db.Close: %v", err)
 	}
@@ -830,6 +868,112 @@ func TestHandler_PrivateMessage_InsertErrorBlocksSend(t *testing.T) {
 		t.Fatalf("unexpected delivery after insert error: %T", u.Update)
 	case <-time.After(200 * time.Millisecond):
 		// expected: nothing arrives
+	}
+}
+
+// TestPrivateMessage_MissingTarget_DroppedSilently pins the TS 9aadcec4
+// re-key's restored account-existence check (TS FriendServer.ts:275-276
+// @9aadcec4: executeTakeFirstOrThrow on either endpoint throws, the
+// outer catch swallows it — no insert, no delivery, socket stays
+// healthy). goscape: the RPC succeeds, no private_chat row is written,
+// and nothing is delivered to the target's stream, even though the
+// target is subscribed and would otherwise receive it.
+func TestPrivateMessage_MissingTarget_DroppedSilently(t *testing.T) {
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	r := repos.get("main")
+	log := noopLogger()
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
+	r.InitializeWorld(1, 100)
+	seedAccount(t, db, 1) // sender exists; target 2 does not
+
+	// Target's would-be stream: subscribed so a wrongful delivery would
+	// be observable.
+	stream := newTestStream(t)
+	errc := make(chan error, 1)
+	go func() {
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Profile: "main", Username37: 2}, stream)
+	}()
+	t.Cleanup(func() {
+		stream.cancel()
+		<-errc
+	})
+	stream.recvWithin(t, 2*time.Second) // empty friendlist snapshot
+	stream.recvWithin(t, 2*time.Second) // empty ignorelist snapshot
+
+	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
+		WorldId: 1, Profile: "main", Username37: 1, TargetUsername37: 2, Coord: 0, Chat: "psst",
+	}); err != nil {
+		t.Fatalf("PrivateMessage: got %v, want nil (silent drop)", err)
+	}
+
+	var n int
+	if err := db.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM private_chat`).Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("private_chat rows: got %d, want 0", n)
+	}
+
+	// No delivery should land on the target's stream. Short non-fatal
+	// poll — recvWithin would t.Fatal on timeout.
+	select {
+	case u := <-stream.out:
+		t.Fatalf("unexpected delivery to missing target: %T", u.Update)
+	case <-time.After(200 * time.Millisecond):
+		// expected: nothing arrives
+	}
+}
+
+// TestPrivateMessage_BothExist_PersistedAndDelivered dual-pins the
+// presence side of TestPrivateMessage_MissingTarget_DroppedSilently:
+// when both endpoints resolve, the PM is still persisted to
+// private_chat and delivered to the target's stream.
+func TestPrivateMessage_BothExist_PersistedAndDelivered(t *testing.T) {
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	r := repos.get("main")
+	log := noopLogger()
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
+	r.InitializeWorld(1, 100)
+	seedAccount(t, db, 1)
+	seedAccount(t, db, 2)
+
+	stream := newTestStream(t)
+	errc := make(chan error, 1)
+	go func() {
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Profile: "main", Username37: 2}, stream)
+	}()
+	t.Cleanup(func() {
+		stream.cancel()
+		<-errc
+	})
+	stream.recvWithin(t, 2*time.Second) // empty friendlist snapshot
+	stream.recvWithin(t, 2*time.Second) // empty ignorelist snapshot
+
+	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
+		WorldId: 1, Profile: "main", Username37: 1, TargetUsername37: 2, Coord: 7, Chat: "hello",
+	}); err != nil {
+		t.Fatalf("PrivateMessage: %v", err)
+	}
+
+	var n int
+	if err := db.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM private_chat`).Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("private_chat rows: got %d, want 1", n)
+	}
+
+	u := stream.recvWithin(t, 2*time.Second)
+	pm, ok := u.Update.(*friendspb.FriendsUpdate_PrivateMessage)
+	if !ok {
+		t.Fatalf("update = %T, want FriendsUpdate_PrivateMessage", u.Update)
+	}
+	if pm.PrivateMessage.Chat != "hello" {
+		t.Errorf("Chat = %q, want %q", pm.PrivateMessage.Chat, "hello")
 	}
 }
 
@@ -1155,23 +1299,26 @@ func TestMultiProfile_WorldIsolation(t *testing.T) {
 	}
 }
 
-// --- public_chat audit (follow-up post-slice-7) ---
+// --- public_chat audit: TS 9aadcec4 account_id+profile+world shape ---
 
 // TestHandler_PublicMessage_PersistsRow pins the happy path: a valid
-// PublicMessageRequest returns (Empty, nil) AND the row is visible in
-// public_chat under r.profile. No delivery, no subscription, no
-// validation. Mirrors TS FriendServer.ts:286-297.
+// PublicMessageRequest whose username resolves to an account returns
+// (Empty, nil) AND the row is visible in public_chat under r.profile,
+// keyed by the resolved account_id (not the raw username string). No
+// delivery, no subscription. Mirrors TS FriendServer.ts:291-306
+// @9aadcec4.
 func TestHandler_PublicMessage_PersistsRow(t *testing.T) {
 	db := createTestDB(t)
 	repos := newRepositories(db)
 	log := noopLogger()
 	cfg := Config{WorldPlayerLimit: 100}
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
+	acctID := seedAccount(t, db, nameToBase37("alice"))
 
 	resp, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
 		WorldId:  10,
 		Profile:  "main",
-		Username: "uuid-pub-1",
+		Username: "alice",
 		Coord:    9876,
 		Chat:     "audit me",
 	})
@@ -1182,21 +1329,63 @@ func TestHandler_PublicMessage_PersistsRow(t *testing.T) {
 		t.Fatalf("PublicMessage: nil response, want non-nil Empty")
 	}
 
-	var username, msg string
-	var coord int32
+	var gotAccountID int64
+	var gotProfile string
+	var gotWorld, gotCoord int32
+	var msg string
 	if err := db.QueryRowContext(t.Context(),
-		`SELECT username, coord, message FROM public_chat`).
-		Scan(&username, &coord, &msg); err != nil {
+		`SELECT account_id, profile, world, coord, message FROM public_chat`).
+		Scan(&gotAccountID, &gotProfile, &gotWorld, &gotCoord, &msg); err != nil {
 		t.Fatalf("SELECT public_chat: %v", err)
 	}
-	if username != "uuid-pub-1" || coord != 9876 || msg != "audit me" {
-		t.Errorf("row = (%q, %d, %q), want (uuid-pub-1, 9876, audit me)", username, coord, msg)
+	if gotAccountID != acctID || gotProfile != "main" || gotWorld != 10 || gotCoord != 9876 || msg != "audit me" {
+		t.Errorf("row = (%d, %q, %d, %d, %q), want (%d, main, 10, 9876, audit me)",
+			gotAccountID, gotProfile, gotWorld, gotCoord, msg, acctID)
+	}
+}
+
+// TestHandler_PublicMessage_MissingAccount_DroppedSilently pins the
+// audit's second headline delta: TS resolves `username` against
+// `account` via executeTakeFirstOrThrow (FriendServer.ts:294
+// @9aadcec4), which throws on a missing account; the outer
+// per-connection try/catch (:88/419) swallows it — no persisted row,
+// no client-visible error. goscape maps Repository.LogPublicMessage's
+// errAccountMissing to the same silent-success posture.
+func TestHandler_PublicMessage_MissingAccount_DroppedSilently(t *testing.T) {
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	log := noopLogger()
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
+
+	resp, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
+		WorldId:  10,
+		Profile:  "main",
+		Username: "nobody",
+		Coord:    0,
+		Chat:     "should not persist",
+	})
+	if err != nil {
+		t.Fatalf("PublicMessage(missing account): got %v, want nil (silent drop)", err)
+	}
+	if resp == nil {
+		t.Fatalf("PublicMessage(missing account): nil response, want non-nil Empty")
+	}
+	var n int
+	if err := db.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM public_chat`).Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("public_chat rows: got %d, want 0", n)
 	}
 }
 
 // TestHandler_PublicMessage_InsertErrorReturnsInternal pins that a SQL
-// failure on public_chat insert returns codes.Internal. Forces the
-// failure by closing the *sql.DB before the call. Mirrors the slice 6
+// failure (of any kind, not just errAccountMissing) returns
+// codes.Internal. Forces the failure by closing the *gamedb.DB before
+// the call — account resolution itself fails first (a generic DB
+// error, not sql.ErrNoRows), so this never takes the errAccountMissing
+// silent-drop path. Mirrors the slice 6
 // TestHandler_PrivateMessage_InsertErrorBlocksSend pattern (minus the
 // delivery half, which doesn't exist for public_chat).
 func TestHandler_PublicMessage_InsertErrorReturnsInternal(t *testing.T) {
@@ -1225,38 +1414,5 @@ func TestHandler_PublicMessage_InsertErrorReturnsInternal(t *testing.T) {
 	}
 	if status.Code(err) != codes.Internal {
 		t.Fatalf("PublicMessage err code = %v, want %v", status.Code(err), codes.Internal)
-	}
-}
-
-// TestHandler_PublicMessage_Rev244Shape pins the rev-244 re-key: handler
-// persists (profile, world, username, coord, message) — world is now
-// persisted from req.WorldId, username from req.Username. TS
-// FriendServer.ts:287-305.
-func TestHandler_PublicMessage_Rev244Shape(t *testing.T) {
-	db := createTestDB(t)
-	repos := newRepositories(db)
-	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100}
-	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
-
-	if _, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
-		WorldId:  10,
-		Profile:  "main",
-		Username: "bob",
-		Coord:    7,
-		Chat:     "hi",
-	}); err != nil {
-		t.Fatalf("PublicMessage: %v", err)
-	}
-
-	var profile, username, message string
-	var world, coord int
-	if err := repos.get("main").db.QueryRow(
-		`SELECT profile, world, username, coord, message FROM public_chat`).
-		Scan(&profile, &world, &username, &coord, &message); err != nil {
-		t.Fatalf("SELECT public_chat: %v", err)
-	}
-	if profile != "main" || world != 10 || username != "bob" || coord != 7 || message != "hi" {
-		t.Errorf("row: profile=%s world=%d username=%s coord=%d message=%s", profile, world, username, coord, message)
 	}
 }

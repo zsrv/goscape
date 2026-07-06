@@ -177,9 +177,12 @@ ondemand:
   #http_path_prefix: ""
 
 
-# Central database. Currently only the login service is an independent
-# client of it (friends still persists to its own private SQLite file
-# below, via friends.sqlite_dsn, pending its own port to this section).
+# ----------------------------------------------------------------------------
+# database — central database shared by login + friends (independent clients)
+# ----------------------------------------------------------------------------
+# Central database shared by the login and friends services. Both are
+# independent clients of it — with the sqlite backend they must share a
+# filesystem; postgres lifts that to a network database.
 database:
   # Backend: sqlite | postgres.
   backend: sqlite
@@ -195,7 +198,7 @@ database:
 
 
 # ----------------------------------------------------------------------------
-# friends — gRPC friends / private-message server (SQLite)
+# friends — gRPC friends / private-message server
 # ----------------------------------------------------------------------------
 friends:
   # Run the friends module. CLI: --friends.enable (code default: false)
@@ -204,8 +207,6 @@ friends:
   grpc_listen_address: 127.0.0.1
   # CLI: --friends.grpc-listen-port (default: 2005)
   grpc_listen_port: 2005
-  # CLI: --friends.sqlite-dsn (default: data/friends.db)
-  sqlite_dsn: data/friends.db
   # Per-world player slot cap. CLI: --friends.world-player-limit (default: 2000)
   world_player_limit: 2000
   # CLI: --friends.graceful-shutdown-timeout (default: 30s)

@@ -11,7 +11,6 @@ func validConfig() Config {
 	return Config{
 		Enable:                  true,
 		GRPCListenPort:          2005,
-		SQLiteDSN:               "data/friends.db",
 		WorldPlayerLimit:        2000,
 		GracefulShutdownTimeout: defaultGracefulStopBound,
 	}
