@@ -7,7 +7,10 @@
 package gamedb_test
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"flag"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -129,5 +132,50 @@ func TestPostgres_TimestampDefaultScansAsTime(t *testing.T) {
 	}
 	if !created.Valid || created.Time.IsZero() {
 		t.Errorf("created: got %+v, want valid non-zero time", created)
+	}
+}
+
+// TestPostgres_SchemaCleanupActuallyDrops pins that OpenTestSchema's
+// cleanup really removes the throwaway schema. Regression: the cleanup
+// originally ran DROP SCHEMA with t.Context(), which Go cancels BEFORE
+// cleanup functions execute — the drop silently no-op'd (error was
+// discarded), schemas leaked across runs, and identically-named tests
+// on sibling branches collided with duplicate-key errors on seed rows.
+func TestPostgres_SchemaCleanupActuallyDrops(t *testing.T) {
+	dsn := os.Getenv("GOSCAPE_TEST_POSTGRES_DSN")
+	if dsn == "" {
+		t.Skip("GOSCAPE_TEST_POSTGRES_DSN not set")
+	}
+
+	const inner = "TestPostgres_SchemaCleanupActuallyDrops/leaky"
+	schema := fmt.Sprintf("t_%x", sha256.Sum256([]byte(inner)))[:32]
+
+	t.Run("leaky", func(t *testing.T) {
+		db := gamedbtest.OpenTestSchema(t, dsn, inner, noopLogger())
+		// Any write suffices; the point is the schema exists and holds state.
+		seedAccount(t, db, "cleanup-probe")
+	})
+
+	// Subtest cleanups have run by now. Probe with a fresh connection:
+	// the schema must be gone.
+	var cfg gamedb.Config
+	fs := flag.NewFlagSet("", flag.PanicOnError)
+	cfg.RegisterFlagsAndApplyDefaults(fs)
+	cfg.Backend = gamedb.BackendPostgres
+	cfg.Postgres.DSN = dsn
+	db, err := gamedb.Open(cfg, noopLogger())
+	if err != nil {
+		t.Fatalf("probe open: %v", err)
+	}
+	defer db.Close()
+	var n int
+	if err := db.QueryRowContext(t.Context(),
+		db.Rebind(`SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = ?`),
+		schema,
+	).Scan(&n); err != nil {
+		t.Fatalf("probe: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("schema %s survived cleanup (leak); want dropped", schema)
 	}
 }
