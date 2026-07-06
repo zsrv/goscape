@@ -33,6 +33,5 @@ go run ./cmd/goscape --config.file examples/bundled/goscape.yaml --config.verify
 
 ## Data
 
-- `data/login.db` — login SQLite store (created on first run)
+- `data/goscape.db` — the central SQLite database (created on first run; login and friends are both clients of it)
 - `data/players/` — player save files
-- `data/friends.db` — friends SQLite store
