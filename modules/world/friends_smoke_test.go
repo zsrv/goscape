@@ -15,6 +15,7 @@ import (
 	"github.com/zsrv/goscape/modules/friends"
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/pkg/friendspb"
+	"github.com/zsrv/goscape/pkg/gamedb"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/loginpb"
@@ -809,11 +810,26 @@ func TestLoginClient_E2E_PlayerSessionIsUUID(t *testing.T) {
 	port := freePort(t)
 	dbPath := filepath.Join(t.TempDir(), "login.db")
 	savePath := t.TempDir()
+	log := discardLogger()
+
+	// login.New's starting() only opens its own pool (independent-clients
+	// model) — it does not migrate. In production the database module
+	// migrates before login starts; here we pre-migrate directly.
+	dbCfg := gamedb.Config{Backend: gamedb.BackendSQLite, SQLite: gamedb.SQLiteConfig{DSN: dbPath}}
+	mdb, err := gamedb.Open(dbCfg, log)
+	if err != nil {
+		t.Fatalf("gamedb.Open (pre-migrate): %v", err)
+	}
+	if err := mdb.Migrate(t.Context()); err != nil {
+		t.Fatalf("gamedb.Migrate: %v", err)
+	}
+	if err := mdb.Close(); err != nil {
+		t.Fatalf("gamedb.Close (pre-migrate): %v", err)
+	}
 
 	cfg := login.Config{
 		GRPCListenAddress:       "127.0.0.1",
 		GRPCListenPort:          port,
-		SQLiteDSN:               dbPath,
 		SavePath:                savePath,
 		AutoRegister:            true,
 		AutoSubscribeMembers:    true,
@@ -821,8 +837,7 @@ func TestLoginClient_E2E_PlayerSessionIsUUID(t *testing.T) {
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
 	}
-	log := discardLogger()
-	svc, err := login.New(cfg, log)
+	svc, err := login.New(cfg, dbCfg, log)
 	if err != nil {
 		t.Fatalf("login.New: %v", err)
 	}
