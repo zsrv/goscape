@@ -2,9 +2,15 @@
 # Example config for the standalone goscape game server.
 # Start goscape with: go run ./cmd/goscape --config.file examples/bundled/goscape.yaml
 #
-# The game server is self-contained: login and friends persist to local SQLite,
-# so no external services are required to run it.
+# The game server is self-contained: login persists to the central SQLite
+# database (database: below) and friends persists to its own local SQLite
+# file, so no external services are required to run it.
 target: all
+
+database:
+  backend: sqlite
+  sqlite:
+    dsn: data/goscape.db
 
 ondemand:
   enable: true
@@ -16,7 +22,6 @@ login:
   enable: true
   grpc_listen_address: 127.0.0.1
   grpc_listen_port: 2004
-  sqlite_dsn: data/login.db
   save_path: data/players
   node_profile: main
   auto_register: true
