@@ -7,12 +7,14 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"os"
 	"path/filepath"
 	"slices"
 	"sync"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/gamedb"
+	"github.com/zsrv/goscape/pkg/gamedb/gamedbtest"
 	jstring "github.com/zsrv/goscape/pkg/util/jstring"
 )
 
@@ -22,11 +24,17 @@ func noopLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
-// createTestDB opens an isolated in-memory central DB via gamedb and
-// applies the unified migration lineage. Mirrors modules/login/db_test.go's
-// createTestDB (Task 4).
+// createTestDB opens an isolated central test DB: in-memory sqlite by
+// default; the env-configured Postgres (unique schema per test, dropped
+// on cleanup) when GOSCAPE_TEST_POSTGRES_DSN is set — the whole module
+// suite then runs against the real backend. Mirrors
+// modules/login/db_test.go's createTestDB (Task 4, extended Task 12).
 func createTestDB(t *testing.T) *gamedb.DB {
 	t.Helper()
+	if dsn := os.Getenv("GOSCAPE_TEST_POSTGRES_DSN"); dsn != "" {
+		return gamedbtest.OpenTestSchema(t, dsn, t.Name(), noopLogger())
+	}
+
 	var cfg gamedb.Config
 	fs := flag.NewFlagSet("", flag.PanicOnError)
 	cfg.RegisterFlagsAndApplyDefaults(fs)

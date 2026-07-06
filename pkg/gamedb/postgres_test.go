@@ -1,13 +1,45 @@
-package gamedb
+// Package gamedb_test (external test package, not internal gamedb) so
+// this file can import gamedbtest, which itself imports gamedb — an
+// internal (package gamedb) test file importing gamedbtest would be an
+// import cycle ("gamedb test binary" -> gamedbtest -> gamedb). The
+// external test package sidesteps that: it depends on both gamedb and
+// gamedbtest as ordinary imports, same as any other consumer.
+package gamedb_test
 
 import (
-	"crypto/sha256"
 	"database/sql"
-	"fmt"
+	"io"
+	"log/slog"
 	"os"
-	"strings"
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/gamedb"
+	"github.com/zsrv/goscape/pkg/gamedb/gamedbtest"
 )
+
+// noopLogger returns a *slog.Logger that discards all output. Mirrors
+// gamedb_test.go's internal noopLogger (duplicated here — this file is
+// the external gamedb_test package and can't reach that unexported
+// helper directly).
+func noopLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
+// seedAccount inserts a bare account row and returns its id. Mirrors
+// migrate_test.go's internal seedAccount (duplicated for the same
+// external-package reason as noopLogger above).
+func seedAccount(t *testing.T, db *gamedb.DB, username string) int64 {
+	t.Helper()
+	var id int64
+	err := db.QueryRowContext(t.Context(),
+		db.Rebind(`INSERT INTO account (username, password) VALUES (?, '') RETURNING id`),
+		username,
+	).Scan(&id)
+	if err != nil {
+		t.Fatalf("seedAccount(%s): %v", username, err)
+	}
+	return id
+}
 
 // postgresTestDB opens the env-configured Postgres with a UNIQUE
 // throwaway schema per test (search_path isolation) and applies the
@@ -15,37 +47,18 @@ import (
 // is set, e.g.:
 //
 //	GOSCAPE_TEST_POSTGRES_DSN='postgres://goscape:goscape@localhost:5432/goscape_test?sslmode=disable'
-func postgresTestDB(t *testing.T) *DB {
+//
+// Thin wrapper around gamedbtest.OpenTestSchema (the shared
+// schema-isolation harness also used by modules/login and
+// modules/friends) that additionally skips when no DSN is configured —
+// the module suites instead fall back to in-memory sqlite in that case.
+func postgresTestDB(t *testing.T) *gamedb.DB {
 	t.Helper()
 	dsn := os.Getenv("GOSCAPE_TEST_POSTGRES_DSN")
 	if dsn == "" {
 		t.Skip("GOSCAPE_TEST_POSTGRES_DSN not set")
 	}
-	schema := fmt.Sprintf("t_%x", sha256.Sum256([]byte(t.Name())))[:32]
-
-	cfg := defaultConfig()
-	cfg.Backend = BackendPostgres
-	sep := "?"
-	if strings.Contains(dsn, "?") {
-		sep = "&"
-	}
-	cfg.Postgres.DSN = dsn + sep + "search_path=" + schema
-
-	admin, err := Open(cfg, noopLogger())
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	if _, err := admin.ExecContext(t.Context(), `CREATE SCHEMA IF NOT EXISTS `+schema); err != nil {
-		t.Fatalf("create schema: %v", err)
-	}
-	t.Cleanup(func() {
-		_, _ = admin.ExecContext(t.Context(), `DROP SCHEMA IF EXISTS `+schema+` CASCADE`)
-		admin.Close()
-	})
-	if err := admin.Migrate(t.Context()); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
-	return admin
+	return gamedbtest.OpenTestSchema(t, dsn, t.Name(), noopLogger())
 }
 
 func TestPostgres_MigrateAndCascade(t *testing.T) {
@@ -77,7 +90,7 @@ func TestPostgres_MigrateAndCascade(t *testing.T) {
 	if err == nil {
 		t.Fatal("insert with unknown account ids: got nil error, want FK violation")
 	}
-	if !IsForeignKeyViolation(err) {
+	if !gamedb.IsForeignKeyViolation(err) {
 		t.Errorf("IsForeignKeyViolation(%v): got false, want true", err)
 	}
 }

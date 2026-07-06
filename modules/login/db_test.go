@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -14,12 +15,19 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/zsrv/goscape/pkg/gamedb"
+	"github.com/zsrv/goscape/pkg/gamedb/gamedbtest"
 )
 
-// createTestDB opens an isolated in-memory central DB via gamedb and
-// applies the unified migration lineage.
+// createTestDB opens an isolated central test DB: in-memory sqlite by
+// default; the env-configured Postgres (unique schema per test, dropped
+// on cleanup) when GOSCAPE_TEST_POSTGRES_DSN is set — the whole module
+// suite then runs against the real backend.
 func createTestDB(t *testing.T) *gamedb.DB {
 	t.Helper()
+	if dsn := os.Getenv("GOSCAPE_TEST_POSTGRES_DSN"); dsn != "" {
+		return gamedbtest.OpenTestSchema(t, dsn, t.Name(), noopLogger())
+	}
+
 	var cfg gamedb.Config
 	fs := flag.NewFlagSet("", flag.PanicOnError)
 	cfg.RegisterFlagsAndApplyDefaults(fs)
@@ -98,7 +106,7 @@ func TestAccountByUsername_WithLoginRow(t *testing.T) {
 
 	// Insert an account_login row with logged_in=1
 	_, err := db.ExecContext(t.Context(),
-		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		db.Rebind(`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`),
 		id, "main", 3, 1,
 	)
 	if err != nil {
@@ -137,7 +145,7 @@ func TestIPBanned_NotBanned(t *testing.T) {
 func TestIPBanned_Banned(t *testing.T) {
 	db := createTestDB(t)
 	_, err := db.ExecContext(t.Context(),
-		`INSERT INTO ipban (ip, added_by, added_on) VALUES (?, ?, ?)`,
+		db.Rebind(`INSERT INTO ipban (ip, added_by, added_on) VALUES (?, ?, ?)`),
 		"10.0.0.1", "admin", "2026-01-01 00:00:00",
 	)
 	if err != nil {
@@ -191,7 +199,7 @@ func TestUpsertAccountLogin_Insert(t *testing.T) {
 
 	var loggedIn, nodeID int
 	err = db.QueryRowContext(t.Context(),
-		`SELECT logged_in, node_id FROM account_login WHERE account_id = ? AND profile = ?`,
+		db.Rebind(`SELECT logged_in, node_id FROM account_login WHERE account_id = ? AND profile = ?`),
 		id, "main",
 	).Scan(&loggedIn, &nodeID)
 	if err != nil {
@@ -211,7 +219,7 @@ func TestUpsertAccountLogin_Update(t *testing.T) {
 
 	// Pre-insert a row with logged_in=0
 	_, err := db.ExecContext(t.Context(),
-		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		db.Rebind(`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`),
 		id, "main", 0, 0,
 	)
 	if err != nil {
@@ -225,7 +233,7 @@ func TestUpsertAccountLogin_Update(t *testing.T) {
 
 	var loggedIn, nodeID int
 	err = db.QueryRowContext(t.Context(),
-		`SELECT logged_in, node_id FROM account_login WHERE account_id = ? AND profile = ?`,
+		db.Rebind(`SELECT logged_in, node_id FROM account_login WHERE account_id = ? AND profile = ?`),
 		id, "main",
 	).Scan(&loggedIn, &nodeID)
 	if err != nil {
@@ -284,7 +292,7 @@ func TestInsertSession(t *testing.T) {
 	var sessionUUID, profile, remoteAddr string
 	var world, uid int
 	err = db.QueryRowContext(t.Context(),
-		`SELECT session_uuid, profile, world, uid, remote_address FROM session WHERE account_id = ?`,
+		db.Rebind(`SELECT session_uuid, profile, world, uid, remote_address FROM session WHERE account_id = ?`),
 		id,
 	).Scan(&sessionUUID, &profile, &world, &uid, &remoteAddr)
 	if err != nil {
@@ -312,7 +320,7 @@ func TestClearWorldSessions(t *testing.T) {
 	id := insertTestAccount(t, db, "clearuser", "pass")
 
 	_, err := db.ExecContext(t.Context(),
-		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		db.Rebind(`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`),
 		id, "main", 4, 1,
 	)
 	if err != nil {
@@ -326,7 +334,7 @@ func TestClearWorldSessions(t *testing.T) {
 
 	var loggedIn int
 	err = db.QueryRowContext(t.Context(),
-		`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`,
+		db.Rebind(`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`),
 		id, "main",
 	).Scan(&loggedIn)
 	if err != nil {
@@ -355,7 +363,7 @@ func TestSetLoggedOut(t *testing.T) {
 	var loggedIn, loggedOut int
 	var logoutTime sql.NullTime
 	err = db.QueryRowContext(t.Context(),
-		`SELECT logged_in, logged_out, logout_time FROM account_login WHERE account_id = ? AND profile = ?`,
+		db.Rebind(`SELECT logged_in, logged_out, logout_time FROM account_login WHERE account_id = ? AND profile = ?`),
 		id, "main",
 	).Scan(&loggedIn, &loggedOut, &logoutTime)
 	if err != nil {
@@ -399,7 +407,7 @@ func TestSetLoggedOut_ClearsRowRegardlessOfNodeId(t *testing.T) {
 
 	var loggedIn int
 	if err := db.QueryRowContext(t.Context(),
-		`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`,
+		db.Rebind(`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`),
 		id, "main",
 	).Scan(&loggedIn); err != nil {
 		t.Fatalf("query account_login: %v", err)
@@ -459,7 +467,7 @@ func TestSetAccountBanned(t *testing.T) {
 
 	var bannedUntil sql.NullTime
 	err = db.QueryRowContext(t.Context(),
-		`SELECT banned_until FROM account WHERE username = ?`,
+		db.Rebind(`SELECT banned_until FROM account WHERE username = ?`),
 		"banneduser",
 	).Scan(&bannedUntil)
 	if err != nil {
@@ -485,7 +493,7 @@ func TestSetAccountMuted(t *testing.T) {
 
 	var mutedUntil sql.NullTime
 	err = db.QueryRowContext(t.Context(),
-		`SELECT muted_until FROM account WHERE username = ?`,
+		db.Rebind(`SELECT muted_until FROM account WHERE username = ?`),
 		"muteduser",
 	).Scan(&mutedUntil)
 	if err != nil {
@@ -510,8 +518,8 @@ func TestSessionUUIDCheckRejectsNonUUID(t *testing.T) {
 	accountID := insertTestAccount(t, db, "checkrejecttest", "pass")
 
 	_, err := db.ExecContext(t.Context(),
-		`INSERT INTO session (session_uuid, account_id, profile, world, uid, login_time, remote_address)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		db.Rebind(`INSERT INTO session (session_uuid, account_id, profile, world, uid, login_time, remote_address)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`),
 		"not-a-uuid", accountID, "main", 0, 0, "2026-05-19T00:00:00Z", "127.0.0.1:1234",
 	)
 	if err == nil {
@@ -558,6 +566,10 @@ func TestMigration000005_Schema(t *testing.T) {
 	// account.logout_time is GONE (login-server-7 step v).
 	if _, err := db.Exec(`SELECT logout_time FROM account`); err == nil {
 		t.Errorf("account.logout_time still exists; migration 000005 must drop it")
+	}
+
+	if os.Getenv("GOSCAPE_TEST_POSTGRES_DSN") != "" {
+		t.Skip("sqlite-specific: PRAGMA foreign_key_check")
 	}
 
 	// FK integrity after the migration.
