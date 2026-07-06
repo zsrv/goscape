@@ -208,6 +208,9 @@ func TestSQLite_TimestampDefaultScansAsTime(t *testing.T) {
 	if !created.Valid || created.Time.IsZero() {
 		t.Errorf("created: got %+v, want valid non-zero time", created)
 	}
+	if age := time.Since(created.Time); age < 0 || age > time.Minute {
+		t.Errorf("created: got %v (age %v), want within 1 minute of now", created.Time, age)
+	}
 }
 
 func TestRebind_PostgresNumbersPlaceholders(t *testing.T) {
