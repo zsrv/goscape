@@ -33,8 +33,13 @@ type DB struct {
 
 // Open opens a pool for the configured backend. It does NOT migrate —
 // schema lifecycle belongs to the database module (NewMigratorService)
-// and to tests via (*DB).Migrate.
+// and to tests via (*DB).Migrate. A nil logger is tolerated (falls back
+// to a no-op logger) so library callers outside the module wiring can't
+// panic the open path.
 func Open(cfg Config, logger *slog.Logger) (*DB, error) {
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
+	}
 	switch cfg.Backend {
 	case BackendSQLite:
 		return openSQLite(cfg.SQLite, logger)

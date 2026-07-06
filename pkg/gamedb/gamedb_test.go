@@ -87,6 +87,24 @@ func TestEnsureDBParentDir_ModeMemorySkipsMkdir(t *testing.T) {
 	}
 }
 
+func TestOpen_NilLoggerSafe(t *testing.T) {
+	// Open's logger param is used for a Debug line on the open path; a
+	// nil *slog.Logger would panic there (slog methods dereference the
+	// handler). Open must tolerate nil by falling back to a no-op
+	// logger — services always pass a real logger, but library callers
+	// (tools, tests) may not.
+	c := defaultConfig()
+	c.SQLite.DSN = fmt.Sprintf("file:%s?mode=memory&cache=shared", url.PathEscape(t.Name()))
+	db, err := Open(c, nil)
+	if err != nil {
+		t.Fatalf("Open(nil logger): %v", err)
+	}
+	defer db.Close()
+	if err := db.Ping(); err != nil {
+		t.Errorf("Ping after nil-logger Open: %v", err)
+	}
+}
+
 func TestRebind_SQLiteIdentity(t *testing.T) {
 	db := openTestDB(t)
 	q := `SELECT id FROM account WHERE username = ? AND members = ?`
