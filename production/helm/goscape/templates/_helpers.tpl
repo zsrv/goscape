@@ -89,7 +89,6 @@ friends:
   enable: {{ or (eq $mode "SingleBinary") (eq $mode "Management") }}
   grpc_listen_address: 0.0.0.0
   grpc_listen_port: {{ $g.ports.friendsGRPC }}
-  sqlite_dsn: {{ printf "%s/friends.db" $g.dataPath | quote }}
 world:
   enable: {{ or (eq $mode "SingleBinary") (eq $mode "World") }}
   tcp_listen_network: tcp

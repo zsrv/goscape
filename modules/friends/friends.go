@@ -2,23 +2,24 @@ package friends
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"net"
 
 	"github.com/zsrv/goscape/pkg/dskit/services"
+	"github.com/zsrv/goscape/pkg/gamedb"
 )
 
-// Friends is the friends-server module. It owns the gRPC server and the
-// in-memory repository.
+// Friends is the friends-server module. It owns its private pool to the
+// central database, the gRPC server, and the repository.
 type Friends struct {
 	services.Service
 
-	cfg Config
-	log *slog.Logger
+	cfg   Config
+	dbCfg gamedb.Config
+	log   *slog.Logger
 
-	db        *sql.DB
+	db        *gamedb.DB
 	repo      *Repository
 	subs      *subscriptions
 	worldSubs *worldSubscriptions
@@ -26,25 +27,23 @@ type Friends struct {
 	lis       net.Listener
 }
 
-// New validates the config and constructs the Friends module.
-func New(cfg Config, logger *slog.Logger) (*Friends, error) {
+// New validates the config and constructs the Friends module. dbCfg is
+// the shared database: section — the module opens its OWN pool with it
+// in starting() (independent-clients model; schema is migrated by the
+// database module, which friends depends on in the app graph).
+func New(cfg Config, dbCfg gamedb.Config, logger *slog.Logger) (*Friends, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	f := &Friends{cfg: cfg, log: logger}
+	f := &Friends{cfg: cfg, dbCfg: dbCfg, log: logger}
 	f.Service = services.NewBasicService(f.starting, f.running, f.stopping)
 	return f, nil
 }
 
-// NewFriendsService is the factory used by the dskit module manager.
-func NewFriendsService(cfg Config, logger *slog.Logger) (services.Service, error) {
-	return New(cfg, logger)
-}
-
 func (f *Friends) starting(_ context.Context) error {
-	db, err := openDB(f.cfg.SQLiteDSN)
+	db, err := gamedb.Open(f.dbCfg, f.log)
 	if err != nil {
-		return fmt.Errorf("open friends db: %w", err)
+		return fmt.Errorf("open central database: %w", err)
 	}
 	repo := NewRepository(db, f.cfg.NodeProfile)
 	subs := newSubscriptions(f.log)

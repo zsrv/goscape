@@ -1,23 +1,75 @@
 package friends
 
 import (
-	"database/sql"
+	"errors"
+	"flag"
+	"fmt"
 	"io"
 	"log/slog"
+	"net/url"
+	"os"
+	"path/filepath"
 	"slices"
 	"sync"
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/gamedb"
+	"github.com/zsrv/goscape/pkg/gamedb/gamedbtest"
+	jstring "github.com/zsrv/goscape/pkg/util/jstring"
 )
 
-// noopLogger returns a *slog.Logger that discards all output.
-// Mirrors modules/login/db_test.go:42-44.
+// noopLogger returns a *slog.Logger that discards all output. Mirrors
+// modules/login/db_test.go's noopLogger.
 func noopLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
-// newTestRepo returns a Repository backed by a fresh in-memory SQLite
+// createTestDB opens an isolated central test DB: in-memory sqlite by
+// default; the env-configured Postgres (unique schema per test, dropped
+// on cleanup) when GOSCAPE_TEST_POSTGRES_DSN is set — the whole module
+// suite then runs against the real backend. Mirrors
+// modules/login/db_test.go's createTestDB.
+func createTestDB(t *testing.T) *gamedb.DB {
+	t.Helper()
+	if dsn := os.Getenv("GOSCAPE_TEST_POSTGRES_DSN"); dsn != "" {
+		return gamedbtest.OpenTestSchema(t, dsn, t.Name(), noopLogger())
+	}
+
+	var cfg gamedb.Config
+	fs := flag.NewFlagSet("", flag.PanicOnError)
+	cfg.RegisterFlagsAndApplyDefaults(fs)
+	cfg.SQLite.DSN = fmt.Sprintf("file:%s?mode=memory&cache=shared", url.PathEscape(t.Name()))
+	db, err := gamedb.Open(cfg, noopLogger())
+	if err != nil {
+		t.Fatalf("createTestDB: open: %v", err)
+	}
+	if err := db.Migrate(t.Context()); err != nil {
+		db.Close()
+		t.Fatalf("createTestDB: migrate: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	return db
+}
+
+// testGamedbConfig returns a gamedb.Config with all flag defaults
+// applied and the SQLite DSN pointed at a fresh on-disk file under
+// t.TempDir(). Used where a test needs to gamedb.Open the SAME
+// database twice (e.g. pre-migrating before handing the config to
+// Friends.New, which opens its own pool in starting()) — an in-memory
+// shared-cache DSN would also work, but a real file matches production
+// shape more closely for shutdown/lifecycle tests.
+func testGamedbConfig(t *testing.T) gamedb.Config {
+	t.Helper()
+	var cfg gamedb.Config
+	fs := flag.NewFlagSet("", flag.PanicOnError)
+	cfg.RegisterFlagsAndApplyDefaults(fs)
+	cfg.SQLite.DSN = filepath.Join(t.TempDir(), "goscape.db")
+	return cfg
+}
+
+// newTestRepo returns a Repository backed by a fresh in-memory central
 // database. The DB is closed via t.Cleanup. profile defaults to "test".
-func newTestRepo(t *testing.T) (*Repository, *sql.DB) {
+func newTestRepo(t *testing.T) (*Repository, *gamedb.DB) {
 	t.Helper()
 	db := createTestDB(t)
 	return NewRepository(db, "test"), db
@@ -117,9 +169,15 @@ func TestRepository_SetChatMode_UnknownPlayer_NoOp(t *testing.T) {
 	r.SetChatMode(0xDEADBEEF, 2) // must not panic
 }
 
+// TestRepository_AddFriend_Idempotent pins that a duplicate AddFriend is
+// a no-op (unique PK on (profile, account_id, friend_account_id)). Both
+// endpoints must exist under the account-id-keyed schema (AddFriend now
+// resolves owner and target against the central database).
 func TestRepository_AddFriend_Idempotent(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	ctx := t.Context()
+	seedAccount(t, db, 0xAAAA)
+	seedAccount(t, db, 0xBBBB)
 	if err := r.AddFriend(ctx, 0xAAAA, 0xBBBB); err != nil {
 		t.Fatalf("AddFriend: %v", err)
 	}
@@ -140,33 +198,49 @@ func TestRepository_AddFriend_Idempotent(t *testing.T) {
 // FriendServerRepository.loadFriends/loadIgnores (orderBy('created', 'asc')).
 // Rows are inserted with explicit created timestamps whose order differs from
 // insertion order, so a missing ORDER BY (which would surface insertion/rowid
-// order) is caught.
+// order) is caught. Re-keyed for the account-id schema: friendlist rows
+// reference friend_account_id (an account id), ignorelist rows still store the
+// raw username string in `value`.
 func TestRepository_GetFriends_OrderedByCreated(t *testing.T) {
 	r, db := newTestRepo(t)
 	ctx := t.Context()
-	const owner = 0xAAAA
+	ownerID := seedAccount(t, db, 0xAAAA)
+	id1111 := seedAccount(t, db, 0x1111)
+	id2222 := seedAccount(t, db, 0x2222)
+	id3333 := seedAccount(t, db, 0x3333)
 
-	// Insertion order: 1111, 2222, 3333. created order: 2222, 3333, 1111.
-	insert := func(table string, target int64, created string) {
+	insertFriend := func(friendID int64, created string) {
 		t.Helper()
 		_, err := db.Exec(
-			`INSERT INTO `+table+` (profile, owner_username37, target_username37, created)
-			 VALUES (?, ?, ?, ?)`,
-			"test", int64(owner), target, created,
+			db.Rebind(`INSERT INTO friendlist (profile, account_id, friend_account_id, created) VALUES (?, ?, ?, ?)`),
+			"test", ownerID, friendID, created,
 		)
 		if err != nil {
-			t.Fatalf("insert %s: %v", table, err)
+			t.Fatalf("insert friendlist: %v", err)
 		}
 	}
-	for _, table := range []string{"friendlist", "ignorelist"} {
-		insert(table, 0x1111, "2020-01-03 00:00:00")
-		insert(table, 0x2222, "2020-01-01 00:00:00")
-		insert(table, 0x3333, "2020-01-02 00:00:00")
+	insertIgnore := func(value, created string) {
+		t.Helper()
+		_, err := db.Exec(
+			db.Rebind(`INSERT INTO ignorelist (profile, account_id, value, created) VALUES (?, ?, ?, ?)`),
+			"test", ownerID, value, created,
+		)
+		if err != nil {
+			t.Fatalf("insert ignorelist: %v", err)
+		}
 	}
+
+	// Insertion order: 1111, 2222, 3333. created order: 2222, 3333, 1111.
+	insertFriend(id1111, "2020-01-03 00:00:00")
+	insertFriend(id2222, "2020-01-01 00:00:00")
+	insertFriend(id3333, "2020-01-02 00:00:00")
+	insertIgnore(jstring.FromBase37(0x1111), "2020-01-03 00:00:00")
+	insertIgnore(jstring.FromBase37(0x2222), "2020-01-01 00:00:00")
+	insertIgnore(jstring.FromBase37(0x3333), "2020-01-02 00:00:00")
 
 	want := []uint64{0x2222, 0x3333, 0x1111}
 
-	gotFriends, err := r.GetFriends(ctx, owner)
+	gotFriends, err := r.GetFriends(ctx, 0xAAAA)
 	if err != nil {
 		t.Fatalf("GetFriends: %v", err)
 	}
@@ -174,7 +248,7 @@ func TestRepository_GetFriends_OrderedByCreated(t *testing.T) {
 		t.Errorf("GetFriends order: got %v, want %v", gotFriends, want)
 	}
 
-	gotIgnores, err := r.GetIgnores(ctx, owner)
+	gotIgnores, err := r.GetIgnores(ctx, 0xAAAA)
 	if err != nil {
 		t.Fatalf("GetIgnores: %v", err)
 	}
@@ -198,9 +272,14 @@ func TestRepository_DeleteFriend_AbsentNoOp(t *testing.T) {
 	}
 }
 
+// TestRepository_AddIgnore_Idempotent pins that a duplicate AddIgnore is a
+// no-op (ON CONFLICT DO NOTHING on the (profile, account_id, value) PK).
+// Only the owner needs an account under TS semantics — AddIgnore never
+// resolves the target.
 func TestRepository_AddIgnore_Idempotent(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	ctx := t.Context()
+	seedAccount(t, db, 0xAAAA)
 	if err := r.AddIgnore(ctx, 0xAAAA, 0xBBBB); err != nil {
 		t.Fatalf("AddIgnore: %v", err)
 	}
@@ -217,8 +296,9 @@ func TestRepository_AddIgnore_Idempotent(t *testing.T) {
 }
 
 func TestRepository_DeleteIgnore_Removes(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	ctx := t.Context()
+	seedAccount(t, db, 0xAAAA)
 	if err := r.AddIgnore(ctx, 0xAAAA, 0xBBBB); err != nil {
 		t.Fatalf("AddIgnore: %v", err)
 	}
@@ -235,8 +315,11 @@ func TestRepository_DeleteIgnore_Removes(t *testing.T) {
 }
 
 func TestRepository_GetFollowers_TraversesCorrectly(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	ctx := t.Context()
+	for _, u := range []uint64{0xAAAA, 0xBBBB, 0xCCCC, 0xDDDD, 0xEEEE} {
+		seedAccount(t, db, u)
+	}
 	if err := r.AddFriend(ctx, 0xAAAA, 0xBBBB); err != nil {
 		t.Fatalf("AddFriend: %v", err)
 	}
@@ -282,8 +365,10 @@ func TestRepository_IsVisibleTo_ChatModeOn_Always(t *testing.T) {
 }
 
 func TestRepository_IsVisibleTo_ChatModeOff_Never(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	ctx := t.Context()
+	seedAccount(t, db, 0xAAAA)
+	seedAccount(t, db, 0xBBBB)
 	r.InitializeWorld(1, 10)
 	r.Register(1, 0xAAAA, 2, 0) // privateChat=OFF
 	if err := r.AddFriend(ctx, 0xAAAA, 0xBBBB); err != nil {
@@ -299,8 +384,10 @@ func TestRepository_IsVisibleTo_ChatModeOff_Never(t *testing.T) {
 }
 
 func TestRepository_IsVisibleTo_ChatModeFriends_OnlyFriends(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	ctx := t.Context()
+	seedAccount(t, db, 0xAAAA)
+	seedAccount(t, db, 0xBBBB)
 	r.InitializeWorld(1, 10)
 	r.Register(1, 0xAAAA, 1, 0) // privateChat=FRIENDS
 	if err := r.AddFriend(ctx, 0xAAAA, 0xBBBB); err != nil {
@@ -322,36 +409,78 @@ func TestRepository_IsVisibleTo_ChatModeFriends_OnlyFriends(t *testing.T) {
 	}
 }
 
-// TestRepository_IsVisibleTo_StaffBypassesOff pins H14: a staff viewer
-// (staffLvl > 1) sees an OFF player. TS FriendServerRepository.ts:336-338.
+// TestRepository_IsVisibleTo_StaffBypassesOff pins H14: a staff viewer sees
+// an OFF player. TS FriendServerRepository.ts:82-84 @e1dea19f registers a
+// player into playerStaff when `!has && staffLvl > 1`; goscape models the
+// playerStaff set as the read-time isStaffLocked check (threshold
+// staffLvl > 1).
 func TestRepository_IsVisibleTo_StaffBypassesOff(t *testing.T) {
 	r, _ := newTestRepo(t)
 	r.InitializeWorld(1, 10)
 	r.Register(1, 0xAAAA, 2, 0) // other: privateChat OFF
-	r.Register(1, 0xBBBB, 0, 2) // viewer: staffLvl 2 (>1)
+	r.Register(1, 0xBBBB, 0, 2) // viewer: staffLvl 2 (>1) — still staff
 	visible, err := r.IsVisibleTo(t.Context(), 0xBBBB, 0xAAAA)
 	if err != nil {
 		t.Fatalf("IsVisibleTo: %v", err)
 	}
 	if !visible {
-		t.Error("staff viewer must see an OFF player (H14)")
+		t.Error("staffLvl 2 viewer must see an OFF player (H14)")
 	}
-	// staffLvl 1 is NOT staff (threshold is > 1).
+	// staffLvl 1 is NOT staff under the TS threshold (staffLvl > 1).
 	r.Register(1, 0xCCCC, 0, 1)
 	visible, err = r.IsVisibleTo(t.Context(), 0xCCCC, 0xAAAA)
 	if err != nil {
 		t.Fatalf("IsVisibleTo: %v", err)
 	}
 	if visible {
-		t.Error("staffLvl 1 viewer must not bypass OFF (threshold is staffLvl > 1)")
+		t.Error("staffLvl 1 viewer must NOT bypass OFF (TS staffLvl > 1 threshold)")
+	}
+	// staffLvl 0 is NOT staff.
+	r.Register(1, 0xDDDD, 0, 0)
+	visible, err = r.IsVisibleTo(t.Context(), 0xDDDD, 0xAAAA)
+	if err != nil {
+		t.Fatalf("IsVisibleTo: %v", err)
+	}
+	if visible {
+		t.Error("staffLvl 0 viewer must not bypass OFF (not staff)")
+	}
+}
+
+// TestIsVisibleTo_StaffGateThreshold pins the fidelity fix ported forward
+// from rev-254's staff-gate commit: TS gates playerStaff membership at
+// staffLvl > 1, not > 0 (FriendServerRepository.ts:82-84 @e1dea19f). A
+// viewer registered with staffLvl 1 is NOT staff and must not bypass an
+// OFF player; staffLvl 2 IS staff and bypasses.
+func TestIsVisibleTo_StaffGateThreshold(t *testing.T) {
+	r, _ := newTestRepo(t)
+	r.InitializeWorld(1, 10)
+	r.Register(1, 0xAAAA, 2, 0) // other: privateChat OFF
+	r.Register(1, 0xBBBB, 0, 1) // viewer: staffLvl 1 — NOT staff at e1dea19f
+	visible, err := r.IsVisibleTo(t.Context(), 0xBBBB, 0xAAAA)
+	if err != nil {
+		t.Fatalf("IsVisibleTo: %v", err)
+	}
+	if visible {
+		t.Error("staffLvl 1 viewer must NOT bypass OFF (TS gates playerStaff at staffLvl > 1)")
+	}
+
+	r.Unregister(0xBBBB)
+	r.Register(1, 0xBBBB, 0, 2) // re-register viewer: staffLvl 2 — staff
+	visible, err = r.IsVisibleTo(t.Context(), 0xBBBB, 0xAAAA)
+	if err != nil {
+		t.Fatalf("IsVisibleTo: %v", err)
+	}
+	if !visible {
+		t.Error("staffLvl 2 viewer must bypass OFF (TS gates playerStaff at staffLvl > 1)")
 	}
 }
 
 // TestRepository_IsVisibleTo_IgnoredViewerHidden pins H15: if other has
 // ignored viewer, other is hidden even with ON. TS FriendServerRepository.ts:340-342.
 func TestRepository_IsVisibleTo_IgnoredViewerHidden(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	ctx := t.Context()
+	seedAccount(t, db, 0xAAAA)
 	r.InitializeWorld(1, 10)
 	r.Register(1, 0xAAAA, 0, 0) // other: privateChat ON
 	r.Register(1, 0xBBBB, 0, 0) // viewer: normal
@@ -380,8 +509,9 @@ func TestRepository_IsVisibleTo_IgnoredViewerHidden(t *testing.T) {
 // staff check (step 1) precedes the ignore check (step 2), so a staff viewer
 // sees a player who has ignored them.
 func TestRepository_IsVisibleTo_StaffBypassesIgnore(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	ctx := t.Context()
+	seedAccount(t, db, 0xAAAA)
 	r.InitializeWorld(1, 10)
 	r.Register(1, 0xAAAA, 0, 0) // other ON
 	r.Register(1, 0xBBBB, 0, 2) // viewer staff
@@ -399,8 +529,9 @@ func TestRepository_IsVisibleTo_StaffBypassesIgnore(t *testing.T) {
 
 // TestIsVisibleToMany_StaffAndIgnore pins the batched analogue of H14/H15.
 func TestIsVisibleToMany_StaffAndIgnore(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	ctx := t.Context()
+	seedAccount(t, db, 100)
 	r.InitializeWorld(1, 10)
 	r.Register(1, 100, 0, 0) // other: ON
 	r.Register(1, 200, 0, 2) // staff viewer
@@ -435,10 +566,14 @@ func TestRepository_IsVisibleTo_UnknownPlayer_NotVisible(t *testing.T) {
 	}
 }
 
+// TestRepository_AddFriend_Idempotent_SQL pins the raw-row idempotency
+// invariant directly against the account-id-keyed friendlist table.
 func TestRepository_AddFriend_Idempotent_SQL(t *testing.T) {
 	r, db := newTestRepo(t)
 	const owner = uint64(0xAAAA)
 	const target = uint64(0xBBBB)
+	ownerID := seedAccount(t, db, owner)
+	seedAccount(t, db, target)
 
 	for i := 0; i < 3; i++ {
 		if err := r.AddFriend(t.Context(), owner, target); err != nil {
@@ -448,8 +583,8 @@ func TestRepository_AddFriend_Idempotent_SQL(t *testing.T) {
 
 	var count int
 	if err := db.QueryRow(
-		`SELECT COUNT(*) FROM friendlist WHERE profile=? AND owner_username37=?`,
-		"test", int64(owner),
+		db.Rebind(`SELECT COUNT(*) FROM friendlist WHERE profile=? AND account_id=?`),
+		"test", ownerID,
 	).Scan(&count); err != nil {
 		t.Fatalf("count: %v", err)
 	}
@@ -460,6 +595,8 @@ func TestRepository_AddFriend_Idempotent_SQL(t *testing.T) {
 
 func TestRepository_AddFriend_RespectsProfileBoundary(t *testing.T) {
 	db := createTestDB(t)
+	seedAccount(t, db, 0xAAAA)
+	seedAccount(t, db, 0xBBBB)
 	rMain := NewRepository(db, "main")
 	rAlt := NewRepository(db, "alt")
 
@@ -488,9 +625,13 @@ func TestRepository_AddFriend_RespectsProfileBoundary(t *testing.T) {
 }
 
 func TestRepository_GetFollowers_FindsAllOwners(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	const target = uint64(0xBBBB)
 	owners := []uint64{0xA1, 0xA2, 0xA3, 0xA4}
+	seedAccount(t, db, target)
+	for _, o := range owners {
+		seedAccount(t, db, o)
+	}
 
 	for _, o := range owners {
 		if err := r.AddFriend(t.Context(), o, target); err != nil {
@@ -517,9 +658,13 @@ func TestRepository_GetFollowers_FindsAllOwners(t *testing.T) {
 }
 
 func TestRepository_GetFriends_OrderIsStable(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	const owner = uint64(0xAAAA)
 	targets := []uint64{0xB1, 0xB2, 0xB3}
+	seedAccount(t, db, owner)
+	for _, t37 := range targets {
+		seedAccount(t, db, t37)
+	}
 	for _, t37 := range targets {
 		if err := r.AddFriend(t.Context(), owner, t37); err != nil {
 			t.Fatalf("AddFriend %#x: %v", t37, err)
@@ -627,9 +772,12 @@ func TestIsVisibleToMany_ChatModeOffNoneVisible(t *testing.T) {
 }
 
 func TestIsVisibleToMany_ChatModeFriendsOnlyFriendsVisible(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	r.InitializeWorld(1, 100)
 	r.Register(1, 100, 1, 0) // privateChat FRIENDS
+	seedAccount(t, db, 100)
+	seedAccount(t, db, 2)
+	seedAccount(t, db, 3)
 	// 100 added 2 and 3 as friends; 1 is not a friend.
 	if err := r.AddFriend(t.Context(), 100, 2); err != nil {
 		t.Fatalf("AddFriend: %v", err)
@@ -653,9 +801,11 @@ func TestIsVisibleToMany_ChatModeFriendsOnlyFriendsVisible(t *testing.T) {
 }
 
 func TestIsVisibleToMany_MatchesScalarIsVisibleTo(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	r.InitializeWorld(1, 100)
 	r.Register(1, 100, 1, 0)
+	seedAccount(t, db, 100)
+	seedAccount(t, db, 2)
 	if err := r.AddFriend(t.Context(), 100, 2); err != nil {
 		t.Fatalf("AddFriend: %v", err)
 	}
@@ -676,45 +826,14 @@ func TestIsVisibleToMany_MatchesScalarIsVisibleTo(t *testing.T) {
 	}
 }
 
-func TestRepository_LogPrivateMessage_PersistsRow(t *testing.T) {
-	r, db := newTestRepo(t)
-	ctx := t.Context()
-	if err := r.LogPrivateMessage(ctx, 1111, 2222, 12345, "hi"); err != nil {
-		t.Fatalf("LogPrivateMessage: %v", err)
-	}
-	var n int
-	if err := db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM private_chat WHERE profile = 'test'`).Scan(&n); err != nil {
-		t.Fatalf("COUNT query: %v", err)
-	}
-	if n != 1 {
-		t.Fatalf("row count = %d, want 1", n)
-	}
-	var from, to int64
-	var coord int32
-	var msg string
-	if err := db.QueryRowContext(ctx,
-		`SELECT from_username37, to_username37, coord, message FROM private_chat`).
-		Scan(&from, &to, &coord, &msg); err != nil {
-		t.Fatalf("SELECT row: %v", err)
-	}
-	if from != 1111 {
-		t.Errorf("from_username37 = %d, want 1111", from)
-	}
-	if to != 2222 {
-		t.Errorf("to_username37 = %d, want 2222", to)
-	}
-	if coord != 12345 {
-		t.Errorf("coord = %d, want 12345", coord)
-	}
-	if msg != "hi" {
-		t.Errorf("message = %q, want %q", msg, "hi")
-	}
-}
-
+// TestRepository_LogPrivateMessage_AppendOnly pins append-only semantics
+// (no dedupe). Both endpoints must exist under the account-id-keyed
+// schema — LogPrivateMessage now resolves both accounts.
 func TestRepository_LogPrivateMessage_AppendOnly(t *testing.T) {
 	r, db := newTestRepo(t)
 	ctx := t.Context()
+	seedAccount(t, db, 1111)
+	seedAccount(t, db, 2222)
 	if err := r.LogPrivateMessage(ctx, 1111, 2222, 0, "first"); err != nil {
 		t.Fatalf("first: %v", err)
 	}
@@ -732,6 +851,8 @@ func TestRepository_LogPrivateMessage_AppendOnly(t *testing.T) {
 
 func TestRepository_LogPrivateMessage_RespectsProfile(t *testing.T) {
 	r, db := newTestRepo(t) // profile = "test"
+	seedAccount(t, db, 1)
+	seedAccount(t, db, 2)
 	r2 := NewRepository(db, "other")
 	ctx := t.Context()
 	if err := r.LogPrivateMessage(ctx, 1, 2, 0, "from default"); err != nil {
@@ -772,6 +893,8 @@ func TestRepository_LogPrivateMessage_RespectsProfile(t *testing.T) {
 func TestRepository_LogPrivateMessage_EmptyMessageAllowed(t *testing.T) {
 	r, db := newTestRepo(t)
 	ctx := t.Context()
+	seedAccount(t, db, 1)
+	seedAccount(t, db, 2)
 	if err := r.LogPrivateMessage(ctx, 1, 2, 0, ""); err != nil {
 		t.Fatalf("LogPrivateMessage(empty): %v", err)
 	}
@@ -795,21 +918,21 @@ func TestRepository_LogPublicMessage_PersistsRow(t *testing.T) {
 	}
 	var n int
 	if err := db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM public_chat WHERE profile = 'test'`).Scan(&n); err != nil {
+		`SELECT COUNT(*) FROM public_chat`).Scan(&n); err != nil {
 		t.Fatalf("COUNT query: %v", err)
 	}
 	if n != 1 {
 		t.Fatalf("row count = %d, want 1", n)
 	}
-	var sess, msg string
+	var sessionUUID, msg string
 	var coord int32
 	if err := db.QueryRowContext(ctx,
 		`SELECT session_uuid, coord, message FROM public_chat`).
-		Scan(&sess, &coord, &msg); err != nil {
+		Scan(&sessionUUID, &coord, &msg); err != nil {
 		t.Fatalf("SELECT row: %v", err)
 	}
-	if sess != "uuid-aaa" {
-		t.Errorf("session_uuid = %q, want %q", sess, "uuid-aaa")
+	if sessionUUID != "uuid-aaa" {
+		t.Errorf("session_uuid = %q, want %q", sessionUUID, "uuid-aaa")
 	}
 	if coord != 54321 {
 		t.Errorf("coord = %d, want 54321", coord)
@@ -837,45 +960,6 @@ func TestRepository_LogPublicMessage_AppendOnly(t *testing.T) {
 	}
 }
 
-func TestRepository_LogPublicMessage_RespectsProfile(t *testing.T) {
-	r, db := newTestRepo(t) // profile = "test"
-	r2 := NewRepository(db, "other")
-	ctx := t.Context()
-	if err := r.LogPublicMessage(ctx, "uuid-x", 0, "from default"); err != nil {
-		t.Fatalf("r: %v", err)
-	}
-	if err := r2.LogPublicMessage(ctx, "uuid-x", 0, "from other"); err != nil {
-		t.Fatalf("r2: %v", err)
-	}
-	rows, err := db.QueryContext(ctx,
-		`SELECT profile, message FROM public_chat ORDER BY id`)
-	if err != nil {
-		t.Fatalf("query: %v", err)
-	}
-	defer rows.Close()
-	type pair struct {
-		profile string
-		message string
-	}
-	var got []pair
-	for rows.Next() {
-		var p pair
-		if err := rows.Scan(&p.profile, &p.message); err != nil {
-			t.Fatalf("scan: %v", err)
-		}
-		got = append(got, p)
-	}
-	if len(got) != 2 {
-		t.Fatalf("len(got) = %d, want 2", len(got))
-	}
-	if got[0] != (pair{"test", "from default"}) {
-		t.Errorf("got[0] = %+v, want {test, from default}", got[0])
-	}
-	if got[1] != (pair{"other", "from other"}) {
-		t.Errorf("got[1] = %+v, want {other, from other}", got[1])
-	}
-}
-
 func TestRepository_LogPublicMessage_EmptyMessageAllowed(t *testing.T) {
 	r, db := newTestRepo(t)
 	ctx := t.Context()
@@ -892,17 +976,43 @@ func TestRepository_LogPublicMessage_EmptyMessageAllowed(t *testing.T) {
 	}
 }
 
-// TestRepository_AddFriend_EnforcesCap pins M29: the friend list is capped at
-// friendListLimit (100), matching TS FriendServerRepository.addFriend. Adds at
-// the cap are a silent no-op (no error), and existing entries are unaffected.
-func TestRepository_AddFriend_EnforcesCap(t *testing.T) {
-	r, _ := newTestRepo(t)
+// distinctUsername37s returns n values >= start, skipping any multiple of
+// 37. jstring.FromBase37 treats every multiple of 37 (37, 74, 111, ...) as
+// the single sentinel string "invalid_name" (JString.ts:42-44), so a naive
+// contiguous range used as a stand-in for n distinct usernames silently
+// collapses two or more loop iterations onto the same stored username —
+// exactly the kind of test-data footgun that must be avoided once
+// usernames round-trip through the real jstring codec (unlike the
+// pre-port schema, which stored raw username37 ints with no encoding).
+func distinctUsername37s(start uint64, n int) []uint64 {
+	out := make([]uint64, 0, n)
+	for v := start; len(out) < n; v++ {
+		if v%37 != 0 {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// TestRepository_AddFriend_EnforcesCap100 pins M29: the friend list is
+// capped at friendListLimit (100) for a non-member owner, matching TS
+// FriendServerRepository.addFriend @e1dea19f. Adds at the cap are a
+// silent no-op (no error), and existing entries are unaffected. See
+// TestAddFriend_MemberAccount_StillCapped100 for the dual pin that a
+// members account gets no cap boost at this pin.
+func TestRepository_AddFriend_EnforcesCap100(t *testing.T) {
+	r, db := newTestRepo(t)
 	ctx := t.Context()
 	const owner = uint64(0x1111)
+	seedAccount(t, db, owner)
 
-	for i := uint64(1); i <= friendListLimit; i++ {
-		if err := r.AddFriend(ctx, owner, i); err != nil {
-			t.Fatalf("AddFriend #%d: %v", i, err)
+	targets := distinctUsername37s(2, friendListLimit+1) // 100 friends + 1 over-cap probe
+	for _, target := range targets {
+		seedAccount(t, db, target)
+	}
+	for _, target := range targets[:friendListLimit] {
+		if err := r.AddFriend(ctx, owner, target); err != nil {
+			t.Fatalf("AddFriend #%d: %v", target, err)
 		}
 	}
 	friends, err := r.GetFriends(ctx, owner)
@@ -914,7 +1024,7 @@ func TestRepository_AddFriend_EnforcesCap(t *testing.T) {
 	}
 
 	// The 101st add is silently dropped (no error, list stays at the cap).
-	if err := r.AddFriend(ctx, owner, uint64(friendListLimit+1)); err != nil {
+	if err := r.AddFriend(ctx, owner, targets[friendListLimit]); err != nil {
 		t.Fatalf("AddFriend at cap: got error %v, want silent no-op", err)
 	}
 	friends, _ = r.GetFriends(ctx, owner)
@@ -923,7 +1033,7 @@ func TestRepository_AddFriend_EnforcesCap(t *testing.T) {
 	}
 
 	// A duplicate of an existing entry is still idempotent at the cap.
-	if err := r.AddFriend(ctx, owner, 1); err != nil {
+	if err := r.AddFriend(ctx, owner, targets[0]); err != nil {
 		t.Fatalf("AddFriend dup at cap: %v", err)
 	}
 	friends, _ = r.GetFriends(ctx, owner)
@@ -933,25 +1043,232 @@ func TestRepository_AddFriend_EnforcesCap(t *testing.T) {
 }
 
 // TestRepository_AddIgnore_EnforcesCap pins the same 100-entry cap on the
-// ignore list (TS addIgnore).
+// ignore list (TS addIgnore, FriendServerRepository.ts:266/:268 @e1dea19f),
+// counted across ALL profiles with no profile filter (TS quirk).
 func TestRepository_AddIgnore_EnforcesCap(t *testing.T) {
-	r, _ := newTestRepo(t)
+	r, db := newTestRepo(t)
 	ctx := t.Context()
 	const owner = uint64(0x2222)
+	seedAccount(t, db, owner)
 
-	for i := uint64(1); i <= friendListLimit; i++ {
-		if err := r.AddIgnore(ctx, owner, i); err != nil {
-			t.Fatalf("AddIgnore #%d: %v", i, err)
+	targets := distinctUsername37s(1, ignoreListLimit+1) // 100 + 1 over-cap probe
+	for _, target := range targets[:ignoreListLimit] {
+		if err := r.AddIgnore(ctx, owner, target); err != nil {
+			t.Fatalf("AddIgnore #%d: %v", target, err)
 		}
 	}
-	if err := r.AddIgnore(ctx, owner, uint64(friendListLimit+1)); err != nil {
+	if err := r.AddIgnore(ctx, owner, targets[ignoreListLimit]); err != nil {
 		t.Fatalf("AddIgnore at cap: %v", err)
 	}
 	ignores, err := r.GetIgnores(ctx, owner)
 	if err != nil {
 		t.Fatalf("GetIgnores: %v", err)
 	}
-	if len(ignores) != friendListLimit {
-		t.Errorf("over-cap ignore add: got %d, want %d", len(ignores), friendListLimit)
+	if len(ignores) != ignoreListLimit {
+		t.Errorf("over-cap ignore add: got %d, want %d", len(ignores), ignoreListLimit)
+	}
+}
+
+// --- account-id re-key: new-behavior tests (account resolution, flat cap,
+// TS-exact private/public chat row shapes) ---
+
+// seedAccount inserts an account whose username is the canonical
+// FromBase37 form of username37, mirroring how the login module and TS
+// both key accounts by username. Returns the account id.
+func seedAccount(t *testing.T, db *gamedb.DB, username37 uint64) int64 {
+	t.Helper()
+	var id int64
+	err := db.QueryRowContext(t.Context(),
+		db.Rebind(`INSERT INTO account (username, password) VALUES (?, '') RETURNING id`),
+		jstring.FromBase37(username37),
+	).Scan(&id)
+	if err != nil {
+		t.Fatalf("seedAccount(%d): %v", username37, err)
+	}
+	return id
+}
+
+// seedMemberAccount is seedAccount with members=1. Unlike rev-254/274's own
+// LATER TS pin (`account.members ? 200 : 100`, FriendServerRepository.ts:231),
+// e1dea19f has NOT landed the members-aware split — a member account gets
+// no cap boost. See TestAddFriend_MemberAccount_StillCapped100.
+func seedMemberAccount(t *testing.T, db *gamedb.DB, username37 uint64) int64 {
+	t.Helper()
+	var id int64
+	err := db.QueryRowContext(t.Context(),
+		db.Rebind(`INSERT INTO account (username, password, members) VALUES (?, '', 1) RETURNING id`),
+		jstring.FromBase37(username37),
+	).Scan(&id)
+	if err != nil {
+		t.Fatalf("seedMemberAccount(%d): %v", username37, err)
+	}
+	return id
+}
+
+func TestAddFriend_MissingTarget_NoInsert(t *testing.T) {
+	// TS FriendServerRepository.ts:225-228 @e1dea19f: `if (!account || !friendAccount) return`.
+	r, db := newTestRepo(t)
+	seedAccount(t, db, 1)
+	if err := r.AddFriend(t.Context(), 1, 2); err != nil { // 2 has no account
+		t.Fatalf("AddFriend: %v", err)
+	}
+	friends, err := r.GetFriends(t.Context(), 1)
+	if err != nil {
+		t.Fatalf("GetFriends: %v", err)
+	}
+	if len(friends) != 0 {
+		t.Errorf("friend of missing account persisted: %v", friends)
+	}
+}
+
+func TestAddFriend_MissingOwner_NoInsert(t *testing.T) {
+	r, db := newTestRepo(t)
+	seedAccount(t, db, 2)
+	if err := r.AddFriend(t.Context(), 1, 2); err != nil {
+		t.Fatalf("AddFriend: %v", err)
+	}
+	if friends, _ := r.GetFriends(t.Context(), 1); len(friends) != 0 {
+		t.Errorf("friend row for missing owner persisted: %v", friends)
+	}
+}
+
+func TestAddFriend_BothExist_Persists(t *testing.T) {
+	// Dual-pin: presence AND absence (ts_asymmetry posture).
+	r, db := newTestRepo(t)
+	seedAccount(t, db, 1)
+	seedAccount(t, db, 2)
+	if err := r.AddFriend(t.Context(), 1, 2); err != nil {
+		t.Fatalf("AddFriend: %v", err)
+	}
+	friends, err := r.GetFriends(t.Context(), 1)
+	if err != nil {
+		t.Fatalf("GetFriends: %v", err)
+	}
+	if len(friends) != 1 || friends[0] != 2 {
+		t.Errorf("GetFriends: got %v, want [2]", friends)
+	}
+}
+
+// TestAddFriend_MemberAccount_StillCapped100 is the members-no-boost dual
+// pin (template: rev-244/245.2's own version of this test — those pins
+// are also pre-members-split). Unlike rev-254/274's own LATER TS pin
+// (`account.members ? 200 : 100`, FriendServerRepository.ts:231 @2e3bcf43),
+// e1dea19f has NOT landed the members-aware split: the owner-resolution
+// query does select `members` alongside `id` (:222), but the value is
+// never read back (dead code) — a member account is capped at the same
+// flat 100 as a non-member.
+func TestAddFriend_MemberAccount_StillCapped100(t *testing.T) {
+	r, db := newTestRepo(t)
+	seedMemberAccount(t, db, 1)
+	targets := distinctUsername37s(2, friendListLimit+1) // 100 + 1 over-cap probe
+	for _, target := range targets {
+		seedAccount(t, db, target)
+	}
+	for _, target := range targets[:friendListLimit] {
+		if err := r.AddFriend(t.Context(), 1, target); err != nil {
+			t.Fatalf("AddFriend #%d: %v", target, err)
+		}
+	}
+	if err := r.AddFriend(t.Context(), 1, targets[friendListLimit]); err != nil {
+		t.Fatalf("AddFriend at cap: %v", err)
+	}
+	friends, _ := r.GetFriends(t.Context(), 1)
+	if len(friends) != friendListLimit {
+		t.Errorf("members account cap: got %d friends, want %d (NOT 200 — no members-aware split at e1dea19f)", len(friends), friendListLimit)
+	}
+}
+
+func TestAddIgnore_NonexistentTarget_Succeeds(t *testing.T) {
+	// TS never resolves the ignore target (FriendServerRepository.ts:249-294
+	// @e1dea19f): ignoring a player who doesn't exist works. 1000 (not 999 —
+	// a multiple of 37, which jstring.FromBase37 maps to the sentinel
+	// "invalid_name") is used so the round-trip through the ignorelist.value
+	// column is exact.
+	r, db := newTestRepo(t)
+	seedAccount(t, db, 1)
+	if err := r.AddIgnore(t.Context(), 1, 1000); err != nil {
+		t.Fatalf("AddIgnore(nonexistent target): %v", err)
+	}
+	ignores, err := r.GetIgnores(t.Context(), 1)
+	if err != nil {
+		t.Fatalf("GetIgnores: %v", err)
+	}
+	if len(ignores) != 1 || ignores[0] != 1000 {
+		t.Errorf("GetIgnores: got %v, want [1000]", ignores)
+	}
+}
+
+func TestAddIgnore_MissingOwner_NoOp(t *testing.T) {
+	// TS resolves the OWNER and returns on miss (FriendServerRepository.ts:258-262 @e1dea19f).
+	r, _ := newTestRepo(t)
+	if err := r.AddIgnore(t.Context(), 1, 2); err != nil {
+		t.Fatalf("AddIgnore: %v", err)
+	}
+	if ignores, _ := r.GetIgnores(t.Context(), 1); len(ignores) != 0 {
+		t.Errorf("ignore row for missing owner persisted: %v", ignores)
+	}
+}
+
+func TestLogPrivateMessage_MissingEndpoint_ErrAccountMissing(t *testing.T) {
+	// TS FriendServer.ts:270-271 @e1dea19f executeTakeFirstOrThrow → outer
+	// catch → PM dropped with no insert.
+	r, db := newTestRepo(t)
+	seedAccount(t, db, 1)
+	err := r.LogPrivateMessage(t.Context(), 1, 2, 0, "hello")
+	if !errors.Is(err, errAccountMissing) {
+		t.Fatalf("LogPrivateMessage(missing to): got %v, want errAccountMissing", err)
+	}
+	err = r.LogPrivateMessage(t.Context(), 3, 1, 0, "hello")
+	if !errors.Is(err, errAccountMissing) {
+		t.Fatalf("LogPrivateMessage(missing from): got %v, want errAccountMissing", err)
+	}
+	var n int
+	if err := db.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM private_chat`).Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("private_chat rows: got %d, want 0", n)
+	}
+}
+
+func TestLogPrivateMessage_BothExist_PersistsIDKeyedRow(t *testing.T) {
+	r, db := newTestRepo(t)
+	fromID := seedAccount(t, db, 1)
+	toID := seedAccount(t, db, 2)
+	if err := r.LogPrivateMessage(t.Context(), 1, 2, 12345, "hello"); err != nil {
+		t.Fatalf("LogPrivateMessage: %v", err)
+	}
+	var gotFrom, gotTo int64
+	var gotCoord int32
+	var gotMsg, gotProfile string
+	err := db.QueryRowContext(t.Context(),
+		`SELECT account_id, to_account_id, coord, message, profile FROM private_chat`,
+	).Scan(&gotFrom, &gotTo, &gotCoord, &gotMsg, &gotProfile)
+	if err != nil {
+		t.Fatalf("select: %v", err)
+	}
+	if gotFrom != fromID || gotTo != toID || gotCoord != 12345 || gotMsg != "hello" || gotProfile != "test" {
+		t.Errorf("row: got (%d,%d,%d,%q,%q), want (%d,%d,12345,\"hello\",\"test\")",
+			gotFrom, gotTo, gotCoord, gotMsg, gotProfile, fromID, toID)
+	}
+}
+
+func TestLogPublicMessage_TSRowShape(t *testing.T) {
+	// TS FriendServer.ts:286-297 @e1dea19f inserts {session_uuid, timestamp,
+	// coord, message} — no profile, no world, no account resolution.
+	r, db := newTestRepo(t)
+	if err := r.LogPublicMessage(t.Context(), "01234567-89ab-cdef-0123-456789abcdef", 99, "gday"); err != nil {
+		t.Fatalf("LogPublicMessage: %v", err)
+	}
+	var uuid, msg string
+	var coord int32
+	err := db.QueryRowContext(t.Context(),
+		`SELECT session_uuid, coord, message FROM public_chat`,
+	).Scan(&uuid, &coord, &msg)
+	if err != nil {
+		t.Fatalf("select: %v", err)
+	}
+	if uuid != "01234567-89ab-cdef-0123-456789abcdef" || coord != 99 || msg != "gday" {
+		t.Errorf("row: got (%q,%d,%q)", uuid, coord, msg)
 	}
 }
