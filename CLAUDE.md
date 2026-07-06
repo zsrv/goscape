@@ -77,8 +77,8 @@ common    invisible; no deps — exists only to anchor the graph
 database  invisible; central-DB migration anchor (pkg/gamedb)  → common
 friends   friends server                                       → common, database
 login     gRPC login service                                   → common, database
-world     TCP game server (world.Server)                        → common, login, friends
-ondemand  HTTP OnDemand server (dskit server + OnDemand)        → common, world
+world     TCP game server (world.Server)                       → common, login, friends
+ondemand  HTTP OnDemand server (dskit server + OnDemand)       → common, world
 all       composite "run everything" target                    → ondemand, friends, login, world
 ```
 
