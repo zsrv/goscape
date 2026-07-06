@@ -208,7 +208,7 @@ func TestPlayerLogin_AutoRegister_StoresLowercaseHash(t *testing.T) {
 func TestPlayerLogin_IPBanned(t *testing.T) {
 	h, _ := newTestHandler(t)
 	_, err := h.db.ExecContext(t.Context(),
-		`INSERT INTO ipban (ip, added_by, added_on) VALUES (?, ?, ?)`,
+		h.db.Rebind(`INSERT INTO ipban (ip, added_by, added_on) VALUES (?, ?, ?)`),
 		"10.0.0.7", "admin", "2026-01-01 00:00:00",
 	)
 	if err != nil {
@@ -236,9 +236,9 @@ func TestPlayerLogin_AccountDisabled(t *testing.T) {
 	h, _ := newTestHandler(t)
 	insertTestAccount(t, h.db, "banneduser", "pw")
 	// Set banned_until in the future
-	until := time.Now().Add(24 * time.Hour).UTC().Format(dbTimeFormat)
+	until := time.Now().Add(24 * time.Hour).UTC()
 	_, err := h.db.ExecContext(t.Context(),
-		`UPDATE account SET banned_until = ? WHERE username = ?`,
+		h.db.Rebind(`UPDATE account SET banned_until = ? WHERE username = ?`),
 		until, "banneduser",
 	)
 	if err != nil {
@@ -267,7 +267,7 @@ func TestPlayerLogin_AlreadyLoggedIn(t *testing.T) {
 	id := insertTestAccount(t, h.db, "loggeduser", "pw")
 	// Insert login row on a *different* node
 	_, err := h.db.ExecContext(t.Context(),
-		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		h.db.Rebind(`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`),
 		id, "main", 2, 1,
 	)
 	if err != nil {
@@ -321,7 +321,7 @@ func TestPlayerLogin_Reconnect(t *testing.T) {
 	id := insertTestAccount(t, h.db, "reconuser", "pw")
 	// Insert login row on the SAME node we'll log in from
 	_, err := h.db.ExecContext(t.Context(),
-		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		h.db.Rebind(`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`),
 		id, "main", 1, 1,
 	)
 	if err != nil {
@@ -360,7 +360,7 @@ func TestPlayerLogin_SameNodeNotReconnecting_AlreadyLoggedIn(t *testing.T) {
 	id := insertTestAccount(t, h.db, "samenodeuser", "pw")
 	// Insert login row on the SAME node we'll log in from.
 	_, err := h.db.ExecContext(t.Context(),
-		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		h.db.Rebind(`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`),
 		id, "main", 1, 1,
 	)
 	if err != nil {
@@ -490,7 +490,7 @@ func TestWorldStartup(t *testing.T) {
 
 	var loggedIn int
 	err = h.db.QueryRowContext(t.Context(),
-		`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`,
+		h.db.Rebind(`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`),
 		id, "main",
 	).Scan(&loggedIn)
 	if err != nil {
@@ -522,9 +522,8 @@ func TestPlayerBan(t *testing.T) {
 	if !acc.BannedUntil.Valid {
 		t.Fatal("BannedUntil should be set")
 	}
-	expected := until.Format(dbTimeFormat)
-	if acc.BannedUntil.String != expected {
-		t.Errorf("BannedUntil: got %q, want %q", acc.BannedUntil.String, expected)
+	if !acc.BannedUntil.Time.UTC().Equal(until) {
+		t.Errorf("BannedUntil: got %v, want %v", acc.BannedUntil.Time, until)
 	}
 }
 
@@ -549,9 +548,8 @@ func TestPlayerMute(t *testing.T) {
 	if !acc.MutedUntil.Valid {
 		t.Fatal("MutedUntil should be set")
 	}
-	expected := until.Format(dbTimeFormat)
-	if acc.MutedUntil.String != expected {
-		t.Errorf("MutedUntil: got %q, want %q", acc.MutedUntil.String, expected)
+	if !acc.MutedUntil.Time.UTC().Equal(until) {
+		t.Errorf("MutedUntil: got %v, want %v", acc.MutedUntil.Time, until)
 	}
 }
 
@@ -574,7 +572,7 @@ func TestPlayerForceLogout(t *testing.T) {
 
 	var loggedIn int
 	err = h.db.QueryRowContext(t.Context(),
-		`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`,
+		h.db.Rebind(`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`),
 		id, "main",
 	).Scan(&loggedIn)
 	if err != nil {
@@ -603,7 +601,7 @@ func TestPlayerForceLogout_DoesNotStampLogoutTime(t *testing.T) {
 		t.Fatalf("accountByUsername (pre): %v", err)
 	}
 	if pre.LogoutTime.Valid {
-		t.Fatalf("precondition: logout_time should be NULL before force-logout, got %q", pre.LogoutTime.String)
+		t.Fatalf("precondition: logout_time should be NULL before force-logout, got %v", pre.LogoutTime.Time)
 	}
 
 	if _, err := h.PlayerForceLogout(t.Context(), &loginpb.PlayerForceLogoutRequest{
@@ -617,7 +615,7 @@ func TestPlayerForceLogout_DoesNotStampLogoutTime(t *testing.T) {
 		t.Fatalf("accountByUsername (post): %v", err)
 	}
 	if post.LogoutTime.Valid {
-		t.Errorf("logout_time: got %q, want NULL — TS LoginServer.ts:477-487 force-logout does not stamp logout_time (login-server-2)", post.LogoutTime.String)
+		t.Errorf("logout_time: got %v, want NULL — TS LoginServer.ts:477-487 force-logout does not stamp logout_time (login-server-2)", post.LogoutTime.Time)
 	}
 }
 
@@ -698,7 +696,7 @@ func TestPlayerLogin_SessionUUID_PersistedInDB(t *testing.T) {
 
 	var stored string
 	if err := h.db.QueryRowContext(t.Context(),
-		`SELECT session_uuid FROM session WHERE account_id = ?`,
+		h.db.Rebind(`SELECT session_uuid FROM session WHERE account_id = ?`),
 		resp.AccountId,
 	).Scan(&stored); err != nil {
 		t.Fatalf("SELECT session_uuid: %v", err)
@@ -774,7 +772,7 @@ func TestPlayerLogin_SessionUUID_EmptyOnEarlyReject(t *testing.T) {
 	t.Run("IP_BANNED", func(t *testing.T) {
 		h, _ := newTestHandler(t)
 		_, err := h.db.ExecContext(t.Context(),
-			`INSERT INTO ipban (ip, added_by, added_on) VALUES (?, ?, ?)`,
+			h.db.Rebind(`INSERT INTO ipban (ip, added_by, added_on) VALUES (?, ?, ?)`),
 			"10.0.0.7", "admin", "2026-01-01 00:00:00",
 		)
 		if err != nil {
@@ -890,7 +888,7 @@ func TestPlayerLogin_ReconnectReservesLostSave(t *testing.T) {
 	h, savePath := newTestHandler(t)
 	id := insertTestAccount(t, h.db, "reconlost", "pw")
 	if _, err := h.db.ExecContext(t.Context(),
-		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		h.db.Rebind(`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`),
 		id, "main", 1, 1,
 	); err != nil {
 		t.Fatalf("insert account_login: %v", err)
@@ -927,7 +925,7 @@ func TestPlayerLogin_ReconnectRejectsUnreadableSave(t *testing.T) {
 	h, _ := newTestHandler(t)
 	id := insertTestAccount(t, h.db, "reconnosave", "pw")
 	if _, err := h.db.ExecContext(t.Context(),
-		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		h.db.Rebind(`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`),
 		id, "main", 1, 1,
 	); err != nil {
 		t.Fatalf("insert account_login: %v", err)
@@ -959,7 +957,7 @@ func TestSetLoggedOutStampsLogoutTime(t *testing.T) {
 		t.Fatalf("accountByUsername: %v", err)
 	}
 	if acc.LogoutTime.Valid {
-		t.Fatalf("precondition: logout_time should be NULL before logout, got %q", acc.LogoutTime.String)
+		t.Fatalf("precondition: logout_time should be NULL before logout, got %v", acc.LogoutTime.Time)
 	}
 
 	if _, err := h.PlayerLogout(t.Context(), &loginpb.PlayerLogoutRequest{
@@ -1098,12 +1096,12 @@ func hopTimerFixture(t *testing.T, loggedOut int, logoutAge time.Duration, staff
 	if err != nil || acc == nil {
 		t.Fatalf("hopTimerFixture account lookup: %v / %v", acc, err)
 	}
-	lt := time.Now().UTC().Add(-logoutAge).Format(dbTimeFormat)
-	if _, err := h.db.Exec(`UPDATE account_login SET logged_out = ?, logout_time = ?
-	                        WHERE account_id = ? AND profile = 'main'`, loggedOut, lt, acc.ID); err != nil {
+	lt := time.Now().UTC().Add(-logoutAge)
+	if _, err := h.db.Exec(h.db.Rebind(`UPDATE account_login SET logged_out = ?, logout_time = ?
+	                        WHERE account_id = ? AND profile = 'main'`), loggedOut, lt, acc.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := h.db.Exec(`UPDATE account SET staff_mod_level = ? WHERE id = ?`, staffLvl, acc.ID); err != nil {
+	if _, err := h.db.Exec(h.db.Rebind(`UPDATE account SET staff_mod_level = ? WHERE id = ?`), staffLvl, acc.ID); err != nil {
 		t.Fatal(err)
 	}
 	// A valid save must exist or the M25 missing-save reject fires first
@@ -1292,14 +1290,14 @@ func TestPlayerLogin_MessageCountWired_Reconnect(t *testing.T) {
 	id := insertTestAccount(t, h.db, "reconuser", "pw")
 	// Login row on the SAME node we'll reconnect from.
 	if _, err := h.db.ExecContext(t.Context(),
-		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		h.db.Rebind(`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`),
 		id, "main", 1, 1,
 	); err != nil {
 		t.Fatalf("insert account_login: %v", err)
 	}
 	// One unread thread to the account from account 99.
-	if _, err := h.db.Exec(`INSERT INTO message_thread (to_account_id, from_account_id, last_message_from, subject)
-	                        VALUES (?, 99, 99, 's')`, id); err != nil {
+	if _, err := h.db.Exec(h.db.Rebind(`INSERT INTO message_thread (to_account_id, from_account_id, last_message_from, subject)
+	                        VALUES (?, 99, 99, 's')`), id); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := h.db.Exec(`INSERT INTO message (thread_id, sender_id, sender_ip, content)

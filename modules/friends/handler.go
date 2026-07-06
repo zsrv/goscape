@@ -2,6 +2,7 @@ package friends
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"google.golang.org/grpc/codes"
@@ -188,40 +189,25 @@ func (h *handler) IgnorelistDel(ctx context.Context, req *friendspb.IgnorelistDe
 	return &emptypb.Empty{}, nil
 }
 
-// PrivateMessage persists the PM to private_chat under the request profile,
-// then routes a PrivateMessageDelivery to the target's open stream
-// (if any). Mirrors TS FriendServer.ts:266-285 — insert-then-send,
-// fail the RPC on insert error (matches the established
-// codes.Internal posture of FriendlistAdd/Del/IgnorelistAdd/Del).
+// PrivateMessage persists the PM to private_chat (account-id-keyed)
+// and routes a PrivateMessageDelivery to the target's open stream.
+// Mirrors TS FriendServer.ts:266-284: both endpoint accounts are
+// resolved against the central database first; if either is missing
+// the PM is dropped silently — no insert, no delivery, successful
+// result (TS throws inside the message handler and the outer catch
+// swallows it). Other insert failures keep the codes.Internal posture.
 //
 // req.Coord is server-side-persisted (and otherwise unused for
-// routing). req.WorldId is unused for routing because the registry
-// is keyed solely by (profile, username37); cross-world routing
-// therefore falls out for free.
-//
-// NAI-S4A-D-FED-NO-ACCOUNT-EXISTENCE-CHECK — CONFIRMED EXCEPTION
-// (closes friend-server-5 from the 2026-05-28 fresh audit). TS resolves
-// both endpoint accounts via executeTakeFirstOrThrow (FriendServer.ts
-// :270-285), which throws on a missing account and drops the PM. goscape
-// stores the raw username37 ints with no existence check, so a PM to a
-// non-existent account is logged and routed.
-//
-// This is structural, not a bug: per the DB-2 schema-decoupling rationale
-// at modules/friends/db.go:21-35, the friends server is intentionally
-// federated from the login/account store (separate SQLite DB, separate
-// gRPC service). There is no `account` table to JOIN against — the
-// equivalent existence check would require a cross-service RPC into
-// login, adding a latency-and-availability dependency to every PM RPC,
-// which contradicts the federation choice. Subscriber-routing already
-// degrades correctly: a PM to an account that no live world is hosting
-// silently no-ops at h.subs.send (no subscriber → drop). Orphan
-// private_chat rows from deleted accounts are accepted as the same
-// federation trade-off documented in db.go for friendlist / ignorelist /
-// public_chat rows.
+// routing). req.WorldId is unused for routing because the registry is
+// keyed solely by (profile, username37); cross-world routing therefore
+// falls out for free.
 func (h *handler) PrivateMessage(ctx context.Context, req *friendspb.PrivateMessageRequest) (*emptypb.Empty, error) {
 	repo := h.repo()
 	h.ensureWorld(req.WorldId)
 	if err := repo.LogPrivateMessage(ctx, req.Username37, req.TargetUsername37, req.Coord, req.Chat); err != nil {
+		if errors.Is(err, errAccountMissing) {
+			return &emptypb.Empty{}, nil
+		}
 		return nil, status.Errorf(codes.Internal, "LogPrivateMessage: %v", err)
 	}
 	h.subs.send(h.profile(), req.TargetUsername37, &friendspb.FriendsUpdate{
@@ -508,16 +494,19 @@ func (h *handler) RelayQueueScript(_ context.Context, req *friendspb.RelayQueueS
 // validation. Insert error → codes.Internal (matches slice 6
 // PrivateMessage posture and FRIENDLIST/IGNORELIST mutation handlers).
 //
-// rev-254 A3 re-key: rows are keyed by req.SessionUuid (TS 254 inserts
-// `session_uuid` directly with no account resolution). goscape keeps
-// the world column from 244 and the profile scoping — TS recovers them
-// via the login DB session table join, which the federated friends DB
-// lacks (DB-2, db.go:21-35).
+// TS 274 re-key: rows are keyed by req.SessionUuid alone — TS inserts
+// {session_uuid, timestamp, coord, message} directly with no account
+// resolution and no profile/world columns. The central database can
+// now recover profile/world by joining session_uuid against the
+// session table when needed; req.WorldId is no longer passed through
+// to the repository (Repository.LogPublicMessage's world parameter is
+// gone — the federation-era profile/world columns it used to carry are
+// gone from the schema).
 //
 // Retires NAI-S6-D-PUBLIC-CHAT-DEFERRED.
 func (h *handler) PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest) (*emptypb.Empty, error) {
 	repo := h.repo()
-	if err := repo.LogPublicMessage(ctx, req.WorldId, req.SessionUuid, req.Coord, req.Chat); err != nil {
+	if err := repo.LogPublicMessage(ctx, req.SessionUuid, req.Coord, req.Chat); err != nil {
 		return nil, status.Errorf(codes.Internal, "LogPublicMessage: %v", err)
 	}
 	return &emptypb.Empty{}, nil

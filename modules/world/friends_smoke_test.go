@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"net"
 	"path/filepath"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"github.com/zsrv/goscape/modules/friends"
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/pkg/friendspb"
+	"github.com/zsrv/goscape/pkg/gamedb"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/loginpb"
@@ -23,6 +25,42 @@ import (
 
 	_ "modernc.org/sqlite"
 )
+
+// newFriendsDBCfg pre-migrates a fresh central database (in an on-disk
+// file so a second *sql.DB can reopen it for persistence assertions)
+// and inserts one bare account row per username37 in seedUsernames37.
+// TS 274 re-key: friends.New now opens its OWN pool against the shared
+// database: config (independent-clients model, same as login.New) —
+// AddFriend/LogPrivateMessage resolve both endpoints against the
+// `account` table, so any smoke test that exercises those RPCs
+// meaningfully needs the accounts seeded first. Mirrors the
+// login.New pre-migrate pattern in TestLoginClient_E2E_PlayerSessionIsUUID.
+func newFriendsDBCfg(t *testing.T, log *slog.Logger, dbPath string, seedUsernames37 ...uint64) gamedb.Config {
+	t.Helper()
+	if dbPath == "" {
+		dbPath = filepath.Join(t.TempDir(), "friends.db")
+	}
+	dbCfg := gamedb.Config{Backend: gamedb.BackendSQLite, SQLite: gamedb.SQLiteConfig{DSN: dbPath}}
+	mdb, err := gamedb.Open(dbCfg, log)
+	if err != nil {
+		t.Fatalf("gamedb.Open (pre-migrate): %v", err)
+	}
+	if err := mdb.Migrate(t.Context()); err != nil {
+		t.Fatalf("gamedb.Migrate: %v", err)
+	}
+	for _, u := range seedUsernames37 {
+		if _, err := mdb.Exec(
+			mdb.Rebind(`INSERT INTO account (username, password) VALUES (?, '')`),
+			jstring.FromBase37(u),
+		); err != nil {
+			t.Fatalf("seed account %d: %v", u, err)
+		}
+	}
+	if err := mdb.Close(); err != nil {
+		t.Fatalf("gamedb.Close (pre-migrate): %v", err)
+	}
+	return dbCfg
+}
 
 // freePort opens an ephemeral listener, captures its port, and closes
 // the listener. The port is returned for immediate reuse. Race window
@@ -54,10 +92,10 @@ func TestFriendsClient_E2E_SmokeAgainstFriendsServer(t *testing.T) {
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
-		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
 	}
 	log := discardLogger()
-	svc, err := friends.New(cfg, log)
+	dbCfg := newFriendsDBCfg(t, log, "", 1234, 5678)
+	svc, err := friends.New(cfg, dbCfg, log)
 	if err != nil {
 		t.Fatalf("friends.New: %v", err)
 	}
@@ -150,10 +188,10 @@ func TestFriendsClient_E2E_SubscribeUpdatesStream(t *testing.T) {
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
-		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
 	}
 	log := discardLogger()
-	svc, err := friends.New(cfg, log)
+	dbCfg := newFriendsDBCfg(t, log, "", 1111, 2222)
+	svc, err := friends.New(cfg, dbCfg, log)
 	if err != nil {
 		t.Fatalf("friends.New: %v", err)
 	}
@@ -284,10 +322,10 @@ func TestFriendsClient_E2E_PrivateMessageDelivery(t *testing.T) {
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
-		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
 	}
 	log := discardLogger()
-	svc, err := friends.New(cfg, log)
+	dbCfg := newFriendsDBCfg(t, log, "", 1111, 2222)
+	svc, err := friends.New(cfg, dbCfg, log)
 	if err != nil {
 		t.Fatalf("friends.New: %v", err)
 	}
@@ -373,10 +411,10 @@ func TestFriendsClient_E2E_PrivateMessagePersistsRow(t *testing.T) {
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
-		SQLiteDSN:               dbPath,
 	}
 	log := discardLogger()
-	svc, err := friends.New(cfg, log)
+	dbCfg := newFriendsDBCfg(t, log, dbPath, 1111, 2222)
+	svc, err := friends.New(cfg, dbCfg, log)
 	if err != nil {
 		t.Fatalf("friends.New: %v", err)
 	}
@@ -429,15 +467,28 @@ func TestFriendsClient_E2E_PrivateMessagePersistsRow(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = rdb.Close() })
 
+	// TS 274 re-key: private_chat is keyed by resolved account ids
+	// (account_id, to_account_id), not raw username37s.
+	var fromID, toID int64
+	if err := rdb.QueryRowContext(t.Context(),
+		`SELECT id FROM account WHERE username = ?`, jstring.FromBase37(1111),
+	).Scan(&fromID); err != nil {
+		t.Fatalf("resolve sender account id: %v", err)
+	}
+	if err := rdb.QueryRowContext(t.Context(),
+		`SELECT id FROM account WHERE username = ?`, jstring.FromBase37(2222),
+	).Scan(&toID); err != nil {
+		t.Fatalf("resolve recipient account id: %v", err)
+	}
+
 	deadline := time.Now().Add(2 * time.Second)
 	var from, to int64
 	var coord int32
 	var msg string
 	for time.Now().Before(deadline) {
 		err := rdb.QueryRowContext(t.Context(),
-			`SELECT from_username37, to_username37, coord, message
+			`SELECT account_id, to_account_id, coord, message
 			 FROM private_chat
-			 WHERE profile = 'main'
 			 ORDER BY id DESC
 			 LIMIT 1`).Scan(&from, &to, &coord, &msg)
 		if err == nil {
@@ -449,9 +500,9 @@ func TestFriendsClient_E2E_PrivateMessagePersistsRow(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	if from != 1111 || to != 2222 || coord != 42 || msg != "persisted" {
-		t.Errorf("private_chat row = (%d, %d, %d, %q), want (1111, 2222, 42, %q)",
-			from, to, coord, msg, "persisted")
+	if from != fromID || to != toID || coord != 42 || msg != "persisted" {
+		t.Errorf("private_chat row = (%d, %d, %d, %q), want (%d, %d, 42, %q)",
+			from, to, coord, msg, fromID, toID, "persisted")
 	}
 }
 
@@ -469,10 +520,10 @@ func TestFriendsClient_E2E_PlayerLoginCapRejected(t *testing.T) {
 		WorldPlayerLimit:        1,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
-		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
 	}
 	log := discardLogger()
-	svc, err := friends.New(cfg, log)
+	dbCfg := newFriendsDBCfg(t, log, "")
+	svc, err := friends.New(cfg, dbCfg, log)
 	if err != nil {
 		t.Fatalf("friends.New: %v", err)
 	}
@@ -547,10 +598,10 @@ func TestFriendsClient_E2E_RelayWorldEventsRoundTrip(t *testing.T) {
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
-		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
 	}
 	log := discardLogger()
-	svc, err := friends.New(cfg, log)
+	dbCfg := newFriendsDBCfg(t, log, "")
+	svc, err := friends.New(cfg, dbCfg, log)
 	if err != nil {
 		t.Fatalf("friends.New: %v", err)
 	}
@@ -696,10 +747,10 @@ func TestFriendsClient_E2E_RelayShutdownAppliesAction(t *testing.T) {
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
-		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
 	}
 	log := discardLogger()
-	svc, err := friends.New(cfg, log)
+	dbCfg := newFriendsDBCfg(t, log, "")
+	svc, err := friends.New(cfg, dbCfg, log)
 	if err != nil {
 		t.Fatalf("friends.New: %v", err)
 	}
@@ -809,19 +860,33 @@ func TestLoginClient_E2E_PlayerSessionIsUUID(t *testing.T) {
 	port := freePort(t)
 	dbPath := filepath.Join(t.TempDir(), "login.db")
 	savePath := t.TempDir()
+	log := discardLogger()
+
+	// login.New's starting() only opens its own pool (independent-clients
+	// model) — it does not migrate. In production the database module
+	// migrates before login starts; here we pre-migrate directly.
+	dbCfg := gamedb.Config{Backend: gamedb.BackendSQLite, SQLite: gamedb.SQLiteConfig{DSN: dbPath}}
+	mdb, err := gamedb.Open(dbCfg, log)
+	if err != nil {
+		t.Fatalf("gamedb.Open (pre-migrate): %v", err)
+	}
+	if err := mdb.Migrate(t.Context()); err != nil {
+		t.Fatalf("gamedb.Migrate: %v", err)
+	}
+	if err := mdb.Close(); err != nil {
+		t.Fatalf("gamedb.Close (pre-migrate): %v", err)
+	}
 
 	cfg := login.Config{
 		GRPCListenAddress:    "127.0.0.1",
 		GRPCListenPort:       port,
-		SQLiteDSN:            dbPath,
 		SavePath:             savePath,
 		AutoRegister:         true,
 		AutoSubscribeMembers: true,
 		BCryptCost:           4,
 		Enable:               true,
 	}
-	log := discardLogger()
-	svc, err := login.New(cfg, log)
+	svc, err := login.New(cfg, dbCfg, log)
 	if err != nil {
 		t.Fatalf("login.New: %v", err)
 	}
@@ -904,10 +969,10 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
-		SQLiteDSN:               dbPath,
 	}
 	log := discardLogger()
-	svc, err := friends.New(cfg, log)
+	dbCfg := newFriendsDBCfg(t, log, dbPath)
+	svc, err := friends.New(cfg, dbCfg, log)
 	if err != nil {
 		t.Fatalf("friends.New: %v", err)
 	}
@@ -960,7 +1025,6 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 		err := rdb.QueryRowContext(t.Context(),
 			`SELECT session_uuid, coord, message
 			 FROM public_chat
-			 WHERE profile = 'main'
 			 ORDER BY id DESC
 			 LIMIT 1`).Scan(&sessionUUID, &coord, &msg)
 		if err == nil {
@@ -1003,10 +1067,10 @@ func TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket(t *testing.T) {
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
-		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
 	}
 	log := discardLogger()
-	svc, err := friends.New(cfg, log)
+	dbCfg := newFriendsDBCfg(t, log, "", 1111, 2222)
+	svc, err := friends.New(cfg, dbCfg, log)
 	if err != nil {
 		t.Fatalf("friends.New: %v", err)
 	}
@@ -1162,10 +1226,10 @@ func TestFriendsClient_E2E_RelayQueueScriptAppliesAction(t *testing.T) {
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
-		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
 	}
 	log := discardLogger()
-	svc, err := friends.New(cfg, log)
+	dbCfg := newFriendsDBCfg(t, log, "")
+	svc, err := friends.New(cfg, dbCfg, log)
 	if err != nil {
 		t.Fatalf("friends.New: %v", err)
 	}

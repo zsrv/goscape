@@ -13,7 +13,6 @@ import (
 type Config struct {
 	LogLevel             *log.Level `yaml:"log_level"` // optional per-module override; nil = inherit global
 	GRPCListenAddress    string     `yaml:"grpc_listen_address"`
-	SQLiteDSN            string     `yaml:"sqlite_dsn"`
 	SavePath             string     `yaml:"save_path"`
 	NodeProfile          string     `yaml:"node_profile"`
 	GRPCListenPort       int        `yaml:"grpc_listen_port"`
@@ -37,7 +36,6 @@ type Config struct {
 func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.StringVar(&c.GRPCListenAddress, "login.grpc-listen-address", "127.0.0.1", "Login server gRPC listen address.")
 	f.IntVar(&c.GRPCListenPort, "login.grpc-listen-port", 2004, "Login server gRPC listen port.")
-	f.StringVar(&c.SQLiteDSN, "login.sqlite-dsn", "data/login.db", "Login server SQLite DSN.")
 	f.StringVar(&c.SavePath, "login.save-path", "data/players", "Player save file root directory.")
 	f.IntVar(&c.BCryptCost, "login.bcrypt-cost", 10, "bcrypt work factor for password hashing.")
 	f.StringVar(&c.NodeProfile, "login.node-profile", "main", "Profile name for DB queries.")
@@ -59,9 +57,6 @@ func (c *Config) Validate() error {
 	}
 	if c.GRPCListenPort < 1 || c.GRPCListenPort > 65535 {
 		return fmt.Errorf("login: GRPCListenPort must be in [1, 65535], got %d", c.GRPCListenPort)
-	}
-	if c.SQLiteDSN == "" {
-		return fmt.Errorf("login: SQLiteDSN must be non-empty when login.enable=true")
 	}
 	if c.SavePath == "" {
 		return fmt.Errorf("login: SavePath must be non-empty when login.enable=true")

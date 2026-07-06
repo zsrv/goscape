@@ -133,7 +133,7 @@ goscape's current `public_chat.profile`/`world` extension columns are **dropped*
 
 Consolidation removes the structural rationale for every documented DB-2 exception; the fidelity gate therefore requires restoring TS behavior. Each item is pinned by tests referencing the TS source:
 
-1. **`addFriend`** resolves owner and target accounts; either missing → no insert (`FriendServerRepository.ts:204+`). Keeps the 100-cap and `ON CONFLICT DO NOTHING`.
+1. **`addFriend`** resolves owner and target accounts; either missing → no insert (`FriendServerRepository.ts:204+`). Cap is members-aware at 274: `account.members ? 200 : 100` (`FriendServerRepository.ts:229`), counted across ALL profiles (TS quirk). `ON CONFLICT DO NOTHING` applies to ignorelist only; friendlist keeps the tx recheck.
 2. **`addIgnore`** resolves the owner only (missing → no-op); target stored as raw username string, unchecked — per TS.
 3. **`loadFriends`/`loadIgnores`/`deleteFriend`/`deleteIgnore`** become the account-JOIN / subquery forms TS runs (`loadFriends`' double `INNER JOIN account`, `orderBy f.created asc`).
 4. **Private messages**: both endpoints resolved; either missing → message dropped, no insert, no delivery (`FriendServer.ts:270-285`). The `NAI-S4A-D-FED-NO-ACCOUNT-EXISTENCE-CHECK` exception blocks in `handler.go`/`repository.go` are removed.
@@ -157,7 +157,7 @@ database:
 - `login.sqlite_dsn` and `friends.sqlite_dsn` **removed**. Strict decoding makes any old config fail at boot with an unknown-key error naming the stale key — the clean break announcing itself.
 - `Validate`: `backend` ∈ {sqlite, postgres}; `postgres.dsn` required when backend is postgres; `sqlite.dsn` required when backend is sqlite.
 - `examples/bundled/goscape.yaml` and `examples/full-config-reference.yaml` updated (reference file documents every new key at its default).
-- **Helm** (`production/helm/goscape`): new `goscape.database.*` values — `backend` (default `sqlite`, preserving current behavior), and for postgres: `host`, `port`, `database`, `user`, `existingSecret`/`secretKey` for the password. The DSN is rendered with a `$GOSCAPE_DB_PASSWORD` env-var reference (from the secret) and `--config.expand-env=true` added to container args, so the secret never lands in the ConfigMap. `SingleBinary`/`Management` keep the StatefulSet either way (player saves still need the PVC). NetworkPolicy gains a postgres egress rule when enabled. `World` mode untouched. Chart tests updated.
+- **Helm** (`production/helm/goscape`): new `goscape.database.*` values — `backend` (default `sqlite`, preserving current behavior), and for postgres: `host`, `port`, `database`, `user`, `existingSecret`/`secretKey` for the password. The DSN is rendered with a `$GOSCAPE_DB_PASSWORD` env-var reference (from the secret) and `--config.expand-env=true` added to container args, so the secret never lands in the ConfigMap. `SingleBinary`/`Management` keep the StatefulSet either way (player saves still need the PVC). The chart's NetworkPolicy is ingress-only (`policyTypes: [Ingress]`), so postgres egress is already unrestricted — no NetworkPolicy change needed. `World` mode untouched. Chart tests updated.
 
 ### 7. Error handling
 

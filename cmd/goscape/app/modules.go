@@ -13,6 +13,7 @@ import (
 	"github.com/zsrv/goscape/pkg/dskit/modules"
 	"github.com/zsrv/goscape/pkg/dskit/server"
 	"github.com/zsrv/goscape/pkg/dskit/services"
+	"github.com/zsrv/goscape/pkg/gamedb"
 	"github.com/zsrv/goscape/pkg/tapper"
 	"github.com/zsrv/goscape/pkg/util/log"
 	"github.com/zsrv/goscape/pkg/world/connhandler"
@@ -27,6 +28,7 @@ const (
 	Friends  string = "friends"
 	Login    string = "login"
 	World    string = "world"
+	Database string = "database"
 
 	// Composite targets
 
@@ -149,7 +151,7 @@ func (g *App) initLogin() (services.Service, error) {
 	}
 	logger = logger.With("component", "login")
 
-	l, err := login.New(g.cfg.Login, logger)
+	l, err := login.New(g.cfg.Login, g.cfg.Database, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create login: %w", err)
 	}
@@ -175,13 +177,36 @@ func (g *App) initFriends() (services.Service, error) {
 	}
 	logger = logger.With("component", "friends")
 
-	f, err := friends.New(g.cfg.Friends, logger)
+	f, err := friends.New(g.cfg.Friends, g.cfg.Database, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create friends: %w", err)
 	}
 	g.friends = f
 
 	return g.friends, nil
+}
+
+// initDatabase is the migration anchor: it brings the central-database
+// schema up to date before any DB-using module starts (login and
+// friends both depend on it in the graph). It holds no runtime
+// connection — login and friends each open their own pool
+// (independent-clients model, pkg/gamedb doc).
+func (g *App) initDatabase() (services.Service, error) {
+	if !g.cfg.Login.Enable && !g.cfg.Friends.Enable {
+		// No DB consumer in this target — contribute no service
+		// (arch-29.8 posture: a disabled module must not masquerade
+		// as Running).
+		g.logger.Info("module disabled", "module", "database")
+		return nil, nil
+	}
+
+	logger, err := log.NewLogger(slog.Level(g.cfg.LogLevel), g.cfg.LogFormat, os.Stdout, log.WithSourceFormat(g.cfg.LogSource))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create database logger: %w", err)
+	}
+	logger = logger.With("component", "database")
+
+	return gamedb.NewMigratorService(g.cfg.Database, logger), nil
 }
 
 func (g *App) initWorld() (services.Service, error) {
@@ -227,15 +252,17 @@ func (g *App) setupModuleManager(logger *slog.Logger) error {
 	mm.RegisterModule(Friends, g.initFriends)
 	mm.RegisterModule(Login, g.initLogin)
 	mm.RegisterModule(World, g.initWorld)
+	mm.RegisterModule(Database, g.initDatabase, modules.UserInvisibleModule)
 
 	mm.RegisterModule(SingleBinary, nil)
 
 	deps := map[string][]string{
 		Common: {},
 
+		Database: {Common},
 		OnDemand: {Common, World},
-		Friends:  {Common},
-		Login:    {Common},
+		Friends:  {Common, Database},
+		Login:    {Common, Database},
 		World:    {Common, Login, Friends},
 
 		SingleBinary: {OnDemand, Friends, Login, World},
