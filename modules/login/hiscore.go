@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/zsrv/goscape/pkg/gamedb"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -21,7 +22,7 @@ import (
 // Best-effort: PlayerLogout logs any error and still reports success (TS sends
 // the logout response before awaiting this), so a hiscore failure never blocks
 // logout.
-func updateHiscores(ctx context.Context, db *sql.DB, account *accountRow, save []byte, profile string) error {
+func updateHiscores(ctx context.Context, db *gamedb.DB, account *accountRow, save []byte, profile string) error {
 	if account == nil {
 		return nil
 	}
@@ -49,7 +50,7 @@ func updateHiscores(ctx context.Context, db *sql.DB, account *accountRow, save [
 		totalLevel += objtype.GetLevelByExp(int(stats[i]))
 	}
 
-	date := now.Format(dbTimeFormat)
+	date := now
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -62,7 +63,7 @@ func updateHiscores(ctx context.Context, db *sql.DB, account *accountRow, save [
 		}
 	}()
 
-	if err := upsertHiscore(ctx, tx, "hiscore_large", account.ID, profile, 0, totalLevel, totalXp, date); err != nil {
+	if err := upsertHiscore(ctx, db, tx, "hiscore_large", account.ID, profile, 0, totalLevel, totalXp, date); err != nil {
 		return err
 	}
 
@@ -74,7 +75,7 @@ func updateHiscores(ctx context.Context, db *sql.DB, account *accountRow, save [
 		if baseLevel < 15 {
 			continue
 		}
-		if err := upsertHiscore(ctx, tx, "hiscore", account.ID, profile, stat+1, baseLevel, int64(stats[stat]), date); err != nil {
+		if err := upsertHiscore(ctx, db, tx, "hiscore", account.ID, profile, stat+1, baseLevel, int64(stats[stat]), date); err != nil {
 			return err
 		}
 	}
@@ -91,13 +92,13 @@ func updateHiscores(ctx context.Context, db *sql.DB, account *accountRow, save [
 // unchanged semantic in a single statement: `date` is bumped only when the
 // value actually changed. table is a trusted compile-time constant
 // ("hiscore" / "hiscore_large"), never user input.
-func upsertHiscore(ctx context.Context, tx *sql.Tx, table string, accountID int, profile string, typ, level int, value int64, date string) error {
+func upsertHiscore(ctx context.Context, db *gamedb.DB, tx *sql.Tx, table string, accountID int, profile string, typ, level int, value int64, date time.Time) error {
 	q := fmt.Sprintf(`INSERT INTO %s (account_id, profile, type, level, value, date)
 VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT(profile, type, account_id)
 DO UPDATE SET level = excluded.level, value = excluded.value, date = excluded.date
 WHERE %s.value <> excluded.value`, table, table)
-	if _, err := tx.ExecContext(ctx, q, accountID, profile, typ, level, value, date); err != nil {
+	if _, err := tx.ExecContext(ctx, db.Rebind(q), accountID, profile, typ, level, value, date); err != nil {
 		return fmt.Errorf("updateHiscores: upsert %s type %d: %w", table, typ, err)
 	}
 	return nil

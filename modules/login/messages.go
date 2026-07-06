@@ -2,8 +2,9 @@ package login
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	"github.com/zsrv/goscape/pkg/gamedb"
 )
 
 // getUnreadMessageCount is the SQL port of TS Messages.ts:3-37
@@ -13,7 +14,7 @@ import (
 // account itself sent the last message. Returns 0 on empty tables —
 // the same observable as the pre-B5 stub until message rows exist
 // (goscape has no website writer; the tables are schema parity).
-func getUnreadMessageCount(ctx context.Context, db *sql.DB, accountID int) (int, error) {
+func getUnreadMessageCount(ctx context.Context, db *gamedb.DB, accountID int) (int, error) {
 	const query = `
 SELECT COUNT(*)
 FROM message_thread thd
@@ -33,7 +34,7 @@ WHERE (thd.from_account_id = ? OR thd.to_account_id = ?)
 	// accountID binds 4×: status-JOIN scope, from/to participant filter,
 	// own-last-message exclusion — keep the arg count in lockstep with
 	// the query's `?` placeholders when editing.
-	if err := db.QueryRowContext(ctx, query, accountID, accountID, accountID, accountID).Scan(&n); err != nil {
+	if err := db.QueryRowContext(ctx, db.Rebind(query), accountID, accountID, accountID, accountID).Scan(&n); err != nil {
 		return 0, fmt.Errorf("getUnreadMessageCount: %w", err)
 	}
 	return n, nil

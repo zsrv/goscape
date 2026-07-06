@@ -136,7 +136,7 @@ func (g *App) initLogin() (services.Service, error) {
 	}
 	logger = logger.With("component", "login")
 
-	l, err := login.New(g.cfg.Login, logger)
+	l, err := login.New(g.cfg.Login, g.cfg.Database, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create login: %w", err)
 	}

@@ -74,11 +74,16 @@ ondemand:
   http_listen_address: 0.0.0.0
   http_listen_port: {{ $g.ports.ondemandHTTP }}
   cache_path: {{ $g.cachePath | quote }}
+{{- if or (eq $mode "SingleBinary") (eq $mode "Management") }}
+database:
+  backend: sqlite
+  sqlite:
+    dsn: {{ printf "%s/goscape.db" $g.dataPath | quote }}
+{{- end }}
 login:
   enable: {{ or (eq $mode "SingleBinary") (eq $mode "Management") }}
   grpc_listen_address: 0.0.0.0
   grpc_listen_port: {{ $g.ports.loginGRPC }}
-  sqlite_dsn: {{ printf "%s/login.db" $g.dataPath | quote }}
   save_path: {{ printf "%s/players" $g.dataPath | quote }}
   node_profile: {{ $g.node.profile | quote }}
 friends:
