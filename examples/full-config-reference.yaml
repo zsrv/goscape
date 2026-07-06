@@ -182,7 +182,8 @@ ondemand:
 # ----------------------------------------------------------------------------
 # Central database shared by the login and friends services. Both are
 # independent clients of it — with the sqlite backend they must share a
-# filesystem; postgres lifts that to a network database.
+# filesystem; postgres lifts that to a network database, letting login and
+# friends run on separate hosts against one database.
 database:
   # Backend: sqlite | postgres.
   backend: sqlite

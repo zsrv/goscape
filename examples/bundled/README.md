@@ -1,8 +1,9 @@
 # Bundled example config
 
 The goscape game server is self-contained: the `login` and `friends` modules
-persist to local SQLite, and the `ondemand` (HTTP) and `world` (TCP) modules are
-plain network listeners. **No external services are required to run it.**
+persist to one local SQLite central database, and the `ondemand` (HTTP) and
+`world` (TCP) modules are plain network listeners. **No external services are
+required to run it.**
 
 ## Quick start
 
