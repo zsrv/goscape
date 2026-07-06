@@ -434,6 +434,40 @@ func TestRepository_IsVisibleTo_StaffBypassesOff(t *testing.T) {
 	}
 }
 
+// TestIsVisibleTo_StaffGateThreshold dual-pins the staff-gate threshold
+// at rev-244's own TS pin: register() gates playerStaff membership with
+// `staffLvl > 1 && !this.playerStaff.has(username37)`
+// (FriendServerRepository.ts:83 @9aadcec4 — the audit's ONE in-memory
+// delta vs rev-245.2's `staffLvl > 0` @3c16994c). A viewer registered
+// with staffLvl 1 is NOT staff and must not bypass an OFF player;
+// staffLvl 2 IS staff and bypasses. Regressing the goscape threshold to
+// > 0 would flip the first assertion; regressing to > 2 would flip the
+// second — both sides of the boundary are pinned on the SAME viewer via
+// re-registration.
+func TestIsVisibleTo_StaffGateThreshold(t *testing.T) {
+	r, _ := newTestRepo(t)
+	r.InitializeWorld(1, 10)
+	r.Register(1, 0xAAAA, 2, 0) // other: privateChat OFF
+	r.Register(1, 0xBBBB, 0, 1) // viewer: staffLvl 1 — NOT staff at 9aadcec4
+	visible, err := r.IsVisibleTo(t.Context(), 0xBBBB, 0xAAAA)
+	if err != nil {
+		t.Fatalf("IsVisibleTo: %v", err)
+	}
+	if visible {
+		t.Error("staffLvl 1 viewer must NOT bypass OFF (TS gates playerStaff at staffLvl > 1)")
+	}
+
+	r.Unregister(0xBBBB)
+	r.Register(1, 0xBBBB, 0, 2) // re-register viewer: staffLvl 2 — staff
+	visible, err = r.IsVisibleTo(t.Context(), 0xBBBB, 0xAAAA)
+	if err != nil {
+		t.Fatalf("IsVisibleTo: %v", err)
+	}
+	if !visible {
+		t.Error("staffLvl 2 viewer must bypass OFF (TS gates playerStaff at staffLvl > 1)")
+	}
+}
+
 // TestRepository_IsVisibleTo_IgnoredViewerHidden pins H15: if other has
 // ignored viewer, other is hidden even with ON. TS FriendServerRepository.ts:340-342.
 func TestRepository_IsVisibleTo_IgnoredViewerHidden(t *testing.T) {
