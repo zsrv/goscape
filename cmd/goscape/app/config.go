@@ -8,6 +8,7 @@ import (
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
 	"github.com/zsrv/goscape/modules/world"
+	"github.com/zsrv/goscape/pkg/gamedb"
 	"github.com/zsrv/goscape/pkg/util/log"
 )
 
@@ -16,6 +17,8 @@ type Config struct {
 	LogFormat string           `yaml:"log_format,omitempty"`
 	LogLevel  log.Level        `yaml:"log_level,omitempty"`  // global log level, default for modules too
 	LogSource log.SourceFormat `yaml:"log_source,omitempty"` // how the `source` attribute is rendered
+
+	Database gamedb.Config `yaml:"database,omitempty"`
 
 	OnDemand ondemand.Config `yaml:"ondemand,omitempty"`
 	Friends  friends.Config  `yaml:"friends,omitempty"`
@@ -42,6 +45,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 
 	// Everything else
 
+	c.Database.RegisterFlagsAndApplyDefaults(f)
 	c.OnDemand.RegisterFlagsAndApplyDefaults(f)
 	c.Friends.RegisterFlagsAndApplyDefaults(f)
 	c.Login.RegisterFlagsAndApplyDefaults(f)
@@ -50,6 +54,13 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 
 // Validate fans out to each module's Validate, returning the first error.
 func (c *Config) Validate() error {
+	// database module (task 3): Database.Validate runs before the
+	// module fan-out below — unlike World/Login/Friends it has no
+	// .Enable of its own (login and friends opt into the shared
+	// database instead), so it always requires a valid backend.
+	if err := c.Database.Validate(); err != nil {
+		return err
+	}
 	// CFG-2 (Arc 18): fan out world.Validate so port-range, cache-path,
 	// and content-watch/content-path coupling are caught at startup.
 	if err := c.World.Validate(); err != nil {

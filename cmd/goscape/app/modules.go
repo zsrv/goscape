@@ -12,6 +12,7 @@ import (
 	"github.com/zsrv/goscape/pkg/dskit/modules"
 	"github.com/zsrv/goscape/pkg/dskit/server"
 	"github.com/zsrv/goscape/pkg/dskit/services"
+	"github.com/zsrv/goscape/pkg/gamedb"
 	"github.com/zsrv/goscape/pkg/tapper"
 	"github.com/zsrv/goscape/pkg/util/log"
 	"github.com/zsrv/goscape/pkg/world/connhandler"
@@ -26,6 +27,7 @@ const (
 	Friends  string = "friends"
 	Login    string = "login"
 	World    string = "world"
+	Database string = "database"
 
 	// Composite targets
 
@@ -169,6 +171,29 @@ func (g *App) initFriends() (services.Service, error) {
 	return g.friends, nil
 }
 
+// initDatabase is the migration anchor: it brings the central-database
+// schema up to date before any DB-using module starts (login and
+// friends both depend on it in the graph). It holds no runtime
+// connection — login and friends each open their own pool
+// (independent-clients model, pkg/gamedb doc).
+func (g *App) initDatabase() (services.Service, error) {
+	if !g.cfg.Login.Enable && !g.cfg.Friends.Enable {
+		// No DB consumer in this target — contribute no service.
+		g.logger.Info("module disabled", "module", "database")
+		return nil, nil
+	}
+
+	logLevel := slog.Level(g.cfg.LogLevel)
+	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout, log.WithSourceFormat(g.cfg.LogSource))
+	if err != nil {
+		g.logger.Error("failed to create logger", "module", "database", "err", err)
+		os.Exit(1)
+	}
+	logger = logger.With("component", "database")
+
+	return gamedb.NewMigratorService(g.cfg.Database, logger), nil
+}
+
 func (g *App) initWorld() (services.Service, error) {
 	if !g.cfg.World.Enable {
 		// TODO: still makes module appear to be running, move the check elsewhere?
@@ -212,15 +237,17 @@ func (g *App) setupModuleManager(logger *slog.Logger) error {
 	mm.RegisterModule(Friends, g.initFriends)
 	mm.RegisterModule(Login, g.initLogin)
 	mm.RegisterModule(World, g.initWorld)
+	mm.RegisterModule(Database, g.initDatabase, modules.UserInvisibleModule)
 
 	mm.RegisterModule(SingleBinary, nil)
 
 	deps := map[string][]string{
 		Common: {},
 
+		Database: {Common},
 		OnDemand: {Common, World},
-		Friends:  {Common},
-		Login:    {Common},
+		Friends:  {Common, Database},
+		Login:    {Common, Database},
 		World:    {Common, Login, Friends},
 
 		SingleBinary: {OnDemand, Friends, Login, World},
