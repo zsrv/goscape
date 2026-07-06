@@ -63,9 +63,11 @@ type FriendsServiceClient interface {
 	// Chat. Mirrors TS PRIVATE_MESSAGE. Server persists then delivers via
 	// SubscribeUpdates fan-out; insert error → codes.Internal.
 	PrivateMessage(ctx context.Context, in *PrivateMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// Public-chat audit log. Mirrors TS FriendServer.ts:291-307 — append-
-	// only persistence keyed by username + profile + world (rev-244 re-key:
-	// TS re-keyed from session_uuid to username at FriendServer.ts:292-293).
+	// Public-chat audit log. Mirrors TS FriendServer.ts:291-306 @3c16994c —
+	// append-only persistence keyed by account_id (resolved from username,
+	// see PublicMessageRequest) + profile + world; a missing account throws
+	// in TS and the row is silently dropped, matching goscape's
+	// account-lookup-or-drop behavior against the central database.
 	// No delivery half; the world handles in-world chat propagation itself.
 	// Insert error → codes.Internal.
 	PublicMessage(ctx context.Context, in *PublicMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -357,9 +359,11 @@ type FriendsServiceServer interface {
 	// Chat. Mirrors TS PRIVATE_MESSAGE. Server persists then delivers via
 	// SubscribeUpdates fan-out; insert error → codes.Internal.
 	PrivateMessage(context.Context, *PrivateMessageRequest) (*emptypb.Empty, error)
-	// Public-chat audit log. Mirrors TS FriendServer.ts:291-307 — append-
-	// only persistence keyed by username + profile + world (rev-244 re-key:
-	// TS re-keyed from session_uuid to username at FriendServer.ts:292-293).
+	// Public-chat audit log. Mirrors TS FriendServer.ts:291-306 @3c16994c —
+	// append-only persistence keyed by account_id (resolved from username,
+	// see PublicMessageRequest) + profile + world; a missing account throws
+	// in TS and the row is silently dropped, matching goscape's
+	// account-lookup-or-drop behavior against the central database.
 	// No delivery half; the world handles in-world chat propagation itself.
 	// Insert error → codes.Internal.
 	PublicMessage(context.Context, *PublicMessageRequest) (*emptypb.Empty, error)

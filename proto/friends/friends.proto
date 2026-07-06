@@ -26,9 +26,11 @@ service FriendsService {
   // SubscribeUpdates fan-out; insert error → codes.Internal.
   rpc PrivateMessage(PrivateMessageRequest) returns (google.protobuf.Empty);
 
-  // Public-chat audit log. Mirrors TS FriendServer.ts:291-307 — append-
-  // only persistence keyed by username + profile + world (rev-244 re-key:
-  // TS re-keyed from session_uuid to username at FriendServer.ts:292-293).
+  // Public-chat audit log. Mirrors TS FriendServer.ts:291-306 @3c16994c —
+  // append-only persistence keyed by account_id (resolved from username,
+  // see PublicMessageRequest) + profile + world; a missing account throws
+  // in TS and the row is silently dropped, matching goscape's
+  // account-lookup-or-drop behavior against the central database.
   // No delivery half; the world handles in-world chat propagation itself.
   // Insert error → codes.Internal.
   rpc PublicMessage(PublicMessageRequest) returns (google.protobuf.Empty);
@@ -148,12 +150,24 @@ message PrivateMessageRequest {
 
 message PublicMessageRequest {
   int32  world_id  = 1;
-  // rev-244: re-keyed from session_uuid to the player username
-  // (TS FriendServer.ts:287-305 / FriendClient.publicMessage :704-722).
+  // Player username. TS @3c16994c resolves this to an account_id via
+  // `db.selectFrom('account')...where('username','=',username)
+  // .executeTakeFirstOrThrow()` (FriendServer.ts:294) before persisting
+  // public_chat as {account_id, profile, world, timestamp, coord, message}
+  // (FriendServer.ts:296-305; prisma model schema.prisma:201-211). A
+  // missing account throws in TS, caught by the outer per-connection
+  // try/catch — the log entry is silently dropped, no row persisted, no
+  // error surfaced. Central-database consolidation: goscape performs the
+  // same username→account_id resolution against the central database's
+  // account table and drops the row the same way on a missing account.
   string username  = 2;
   int32  coord     = 3;
   string chat      = 4;
-  // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+  // Persisted as a column of the public_chat row (see `username` above);
+  // this branch's TS pin (@3c16994c) still writes profile and world_id
+  // into every public_chat row — unlike later TS pins (rev-254/274, which
+  // reduce the row to session_uuid + timestamp + coord + message), neither
+  // field is wire-only here: both are consumed at persistence time.
   string profile   = 5;
 }
 

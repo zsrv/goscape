@@ -707,12 +707,24 @@ func (x *PrivateMessageRequest) GetProfile() string {
 type PublicMessageRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	WorldId int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
-	// rev-244: re-keyed from session_uuid to the player username
-	// (TS FriendServer.ts:287-305 / FriendClient.publicMessage :704-722).
+	// Player username. TS @3c16994c resolves this to an account_id via
+	// `db.selectFrom('account')...where('username','=',username)
+	// .executeTakeFirstOrThrow()` (FriendServer.ts:294) before persisting
+	// public_chat as {account_id, profile, world, timestamp, coord, message}
+	// (FriendServer.ts:296-305; prisma model schema.prisma:201-211). A
+	// missing account throws in TS, caught by the outer per-connection
+	// try/catch — the log entry is silently dropped, no row persisted, no
+	// error surfaced. Central-database consolidation: goscape performs the
+	// same username→account_id resolution against the central database's
+	// account table and drops the row the same way on a missing account.
 	Username string `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
 	Coord    int32  `protobuf:"varint,3,opt,name=coord,proto3" json:"coord,omitempty"`
 	Chat     string `protobuf:"bytes,4,opt,name=chat,proto3" json:"chat,omitempty"`
-	// rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
+	// Persisted as a column of the public_chat row (see `username` above);
+	// this branch's TS pin (@3c16994c) still writes profile and world_id
+	// into every public_chat row — unlike later TS pins (rev-254/274, which
+	// reduce the row to session_uuid + timestamp + coord + message), neither
+	// field is wire-only here: both are consumed at persistence time.
 	Profile       string `protobuf:"bytes,5,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
