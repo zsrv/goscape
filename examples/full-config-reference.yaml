@@ -191,7 +191,7 @@ database:
     dsn: data/goscape.db
   postgres:
     # PostgreSQL DSN, e.g. postgres://user:pass@host:5432/goscape?sslmode=disable
-    # Required when backend=postgres. Not yet supported (Phase 2).
+    # Required when backend=postgres.
     dsn: ""
     # Max open connections per service pool.
     max_open_conns: 8

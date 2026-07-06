@@ -55,7 +55,7 @@ The `--target` flag (or `target:` in the config file) selects which modules to r
 
 Verify a config file without starting: `--config.verify=true`. Expand env vars in config: `--config.expand-env=true`. (Both are value flags and require the `=true`; the bare form errors with `flag needs an argument`.)
 
-The `database:` section selects the central database backend (`sqlite` default; both login and friends are independent clients of one DB).
+The `database:` section selects the central database backend (`sqlite` default or `postgres` via `database.backend`; postgres enables running login and friends on different hosts against one network central DB; both are independent clients of one DB).
 
 ## Architecture
 
