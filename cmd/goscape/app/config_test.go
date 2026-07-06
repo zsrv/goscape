@@ -22,12 +22,19 @@ func TestNewDefaultConfig(t *testing.T) {
 	}
 }
 
-// TestConfigValidate_ZeroValue confirms the zero-value Config is accepted —
-// it represents the fully-disabled state (all modules opt-in via .Enable),
-// which is the baseline for our App.Run-with-disabled-modules tests.
+// TestConfigValidate_ZeroValue confirms a config with just its registered
+// defaults applied (no CLI/env overrides) is accepted — it represents the
+// fully-disabled state (all modules opt-in via .Enable), which is the
+// baseline for our App.Run-with-disabled-modules tests. Unlike
+// World/Login/Friends, gamedb.Config has no .Enable of its own (login and
+// friends opt into the shared database instead), so its Validate always
+// requires a valid backend — a raw `&Config{}` literal (Database.Backend
+// == "") now fails; NewDefaultConfig applies RegisterFlagsAndApplyDefaults
+// first, which gives Database.Backend its "sqlite" default (database
+// module, task 3).
 // COV-1 (Arc 18).
 func TestConfigValidate_ZeroValue(t *testing.T) {
-	c := &Config{}
+	c := NewDefaultConfig()
 	if err := c.Validate(); err != nil {
 		t.Errorf("Validate() = %v, want nil", err)
 	}
