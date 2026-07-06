@@ -38,8 +38,16 @@ func TestConfig_Validate(t *testing.T) {
 		{"defaults valid", func(c *Config) {}, ""},
 		{"unknown backend", func(c *Config) { c.Backend = "mysql" }, "database: backend"},
 		{"empty sqlite dsn", func(c *Config) { c.SQLite.DSN = "" }, "database: sqlite.dsn"},
-		// Phase 1: postgres is declared but not yet implemented.
-		{"postgres not yet supported", func(c *Config) { c.Backend = BackendPostgres }, "not yet supported"},
+		{"postgres without dsn", func(c *Config) { c.Backend = BackendPostgres }, "postgres.dsn"},
+		{"postgres with dsn valid", func(c *Config) {
+			c.Backend = BackendPostgres
+			c.Postgres.DSN = "postgres://u:p@localhost:5432/goscape?sslmode=disable"
+		}, ""},
+		{"postgres bad pool size", func(c *Config) {
+			c.Backend = BackendPostgres
+			c.Postgres.DSN = "postgres://u:p@localhost:5432/goscape"
+			c.Postgres.MaxOpenConns = 0
+		}, "max_open_conns"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

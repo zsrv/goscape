@@ -93,8 +93,8 @@ func TestRebind_SQLiteIdentity(t *testing.T) {
 }
 
 func TestRebind_PostgresNumbersPlaceholders(t *testing.T) {
-	// Dialect is package-internal; construct directly (Open(postgres)
-	// lands in Phase 2).
+	// Dialect is package-internal; construct directly rather than
+	// through Open (Rebind needs no live connection).
 	d := &DB{dialect: dialectPostgres}
 	got := d.Rebind(`INSERT INTO t (a, b, c) VALUES (?, ?, ?)`)
 	want := `INSERT INTO t (a, b, c) VALUES ($1, $2, $3)`

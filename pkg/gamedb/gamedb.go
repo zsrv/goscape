@@ -2,6 +2,7 @@ package gamedb
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgconn"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 )
 
@@ -36,7 +39,7 @@ func Open(cfg Config, logger *slog.Logger) (*DB, error) {
 	case BackendSQLite:
 		return openSQLite(cfg.SQLite, logger)
 	case BackendPostgres:
-		return nil, fmt.Errorf("gamedb: backend %q is not yet supported (Phase 2)", cfg.Backend)
+		return openPostgres(cfg.Postgres, logger)
 	default:
 		return nil, fmt.Errorf("gamedb: unknown backend %q", cfg.Backend)
 	}
@@ -61,6 +64,20 @@ func openSQLite(cfg SQLiteConfig, logger *slog.Logger) (*DB, error) {
 	}
 	logger.Debug("opened central database", "backend", BackendSQLite, "dsn", cfg.DSN)
 	return &DB{DB: db, dialect: dialectSQLite}, nil
+}
+
+// openPostgres opens a pooled connection to a Postgres central database.
+// sql.Open never dials — connectivity errors (bad host, auth failure,
+// missing database) surface on first use (Migrate or the first query),
+// which the database module turns into a fail-fast boot error.
+func openPostgres(cfg PostgresConfig, logger *slog.Logger) (*DB, error) {
+	db, err := sql.Open("pgx", cfg.DSN)
+	if err != nil {
+		return nil, fmt.Errorf("gamedb: open postgres: %w", err)
+	}
+	db.SetMaxOpenConns(cfg.MaxOpenConns)
+	logger.Debug("opened central database", "backend", BackendPostgres)
+	return &DB{DB: db, dialect: dialectPostgres}, nil
 }
 
 // sqliteDSNWithPragmas appends the per-connection pragmas every pooled
@@ -101,11 +118,14 @@ func ensureDBParentDir(dsn string) error {
 // violation. Consumers (friends AddFriend/AddIgnore/LogPrivateMessage)
 // map it to the TS "account missing" drop path: an account deleted
 // between existence check and insert must not surface as an internal
-// error (spec §Error handling). Phase 2 extends this for pgx error
-// codes (23503).
+// error (spec §Error handling).
 func IsForeignKeyViolation(err error) bool {
 	if err == nil {
 		return false
+	}
+	// postgres: SQLSTATE 23503 foreign_key_violation.
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
+		return pgErr.Code == "23503"
 	}
 	// modernc.org/sqlite: SQLITE_CONSTRAINT_FOREIGNKEY surfaces as text.
 	return strings.Contains(err.Error(), "FOREIGN KEY constraint failed")

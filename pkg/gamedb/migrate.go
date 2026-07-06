@@ -8,6 +8,8 @@ import (
 	"io/fs"
 
 	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database"
+	pgxmigrate "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	sqlitedriver "github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
@@ -24,14 +26,11 @@ var migrationsFS embed.FS
 // golang-migrate version error → the caller (database module or test)
 // fails fast.
 func (d *DB) Migrate(_ context.Context) error {
-	// Guarded up front: migrations/postgres does not exist yet, and
-	// letting fs.Sub/iofs.New touch it first would surface a confusing
-	// "open .: file does not exist" instead of this message (Phase 2
-	// replaces this branch with the pgx driver).
+	subdir := "migrations/sqlite"
 	if d.dialect == dialectPostgres {
-		return errors.New("gamedb: postgres migrations not yet supported (Phase 2)")
+		subdir = "migrations/postgres"
 	}
-	sub, err := fs.Sub(migrationsFS, "migrations/sqlite")
+	sub, err := fs.Sub(migrationsFS, subdir)
 	if err != nil {
 		return fmt.Errorf("gamedb: migrations subdir: %w", err)
 	}
@@ -39,11 +38,21 @@ func (d *DB) Migrate(_ context.Context) error {
 	if err != nil {
 		return fmt.Errorf("gamedb: iofs source: %w", err)
 	}
-	drv, err := sqlitedriver.WithInstance(d.DB, &sqlitedriver.Config{})
-	if err != nil {
-		return fmt.Errorf("gamedb: sqlite driver: %w", err)
+	var (
+		drvName string
+		drv     database.Driver
+	)
+	if d.dialect == dialectPostgres {
+		drvName = "pgx5"
+		drv, err = pgxmigrate.WithInstance(d.DB, &pgxmigrate.Config{})
+	} else {
+		drvName = "sqlite"
+		drv, err = sqlitedriver.WithInstance(d.DB, &sqlitedriver.Config{})
 	}
-	m, err := migrate.NewWithInstance("iofs", src, "sqlite", drv)
+	if err != nil {
+		return fmt.Errorf("gamedb: %s driver: %w", drvName, err)
+	}
+	m, err := migrate.NewWithInstance("iofs", src, drvName, drv)
 	if err != nil {
 		return fmt.Errorf("gamedb: migrate instance: %w", err)
 	}

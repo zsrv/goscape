@@ -60,8 +60,12 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("database: sqlite.dsn must be non-empty when database.backend=sqlite")
 		}
 	case BackendPostgres:
-		// Phase 2 lifts this and validates Postgres.DSN instead.
-		return fmt.Errorf("database: backend %q is not yet supported (Phase 2)", c.Backend)
+		if c.Postgres.DSN == "" {
+			return fmt.Errorf("database: postgres.dsn must be non-empty when database.backend=postgres")
+		}
+		if c.Postgres.MaxOpenConns < 1 {
+			return fmt.Errorf("database: postgres.max_open_conns must be >= 1, got %d", c.Postgres.MaxOpenConns)
+		}
 	default:
 		return fmt.Errorf("database: backend must be one of [sqlite, postgres], got %q", c.Backend)
 	}
