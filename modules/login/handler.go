@@ -2,7 +2,6 @@ package login
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -20,6 +19,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/zsrv/goscape/pkg/gamedb"
 	"github.com/zsrv/goscape/pkg/loginpb"
 )
 
@@ -27,7 +27,7 @@ import (
 type handler struct {
 	loginpb.UnimplementedLoginServiceServer
 
-	db  *sql.DB
+	db  *gamedb.DB
 	cfg Config
 	log *slog.Logger
 
@@ -129,12 +129,8 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	}
 
 	// 5. Ban check (account-level).
-	if account.BannedUntil.Valid {
-		if t, err := time.Parse(dbTimeFormat, account.BannedUntil.String); err == nil {
-			if time.Now().Before(t) {
-				return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_ACCOUNT_DISABLED, account, nil, sessionUUID), nil
-			}
-		}
+	if account.BannedUntil.Valid && time.Now().Before(account.BannedUntil.Time) {
+		return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_ACCOUNT_DISABLED, account, nil, sessionUUID), nil
 	}
 
 	// 6. Members check.
@@ -211,7 +207,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		}
 	}()
 
-	if err := insertSessionTx(ctx, tx, sessionUUID, account.ID, req.Profile, int(req.NodeId), int(req.Uid), ip); err != nil {
+	if err := insertSessionTx(ctx, h.db, tx, sessionUUID, account.ID, req.Profile, int(req.NodeId), int(req.Uid), ip); err != nil {
 		return nil, status.Errorf(codes.Internal, "insertSession: %v", err)
 	}
 
@@ -244,7 +240,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	}
 
 	// 11. Upsert login row.
-	if err := upsertAccountLoginTx(ctx, tx, account.ID, req.Profile, int(req.NodeId)); err != nil {
+	if err := upsertAccountLoginTx(ctx, h.db, tx, account.ID, req.Profile, int(req.NodeId)); err != nil {
 		return nil, status.Errorf(codes.Internal, "upsertAccountLogin: %v", err)
 	}
 
@@ -421,12 +417,8 @@ func buildLoginResponse(result loginpb.LoginResult, account *accountRow, save []
 	if len(save) > 0 {
 		resp.Save = save
 	}
-	if account.MutedUntil.Valid {
-		if t, err := time.Parse(dbTimeFormat, account.MutedUntil.String); err == nil {
-			if time.Now().Before(t) {
-				resp.MutedUntil = timestamppb.New(t)
-			}
-		}
+	if account.MutedUntil.Valid && time.Now().Before(account.MutedUntil.Time) {
+		resp.MutedUntil = timestamppb.New(account.MutedUntil.Time)
 	}
 	return resp
 }

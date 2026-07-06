@@ -2,28 +2,43 @@ package login
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/url"
-	"path/filepath"
+	"os"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/golang-migrate/migrate/v4"
-	sqlitedriver "github.com/golang-migrate/migrate/v4/database/sqlite"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/zsrv/goscape/pkg/gamedb"
+	"github.com/zsrv/goscape/pkg/gamedb/gamedbtest"
 )
 
-func createTestDB(t *testing.T) *sql.DB {
+// createTestDB opens an isolated central test DB: in-memory sqlite by
+// default; the env-configured Postgres (unique schema per test, dropped
+// on cleanup) when GOSCAPE_TEST_POSTGRES_DSN is set — the whole module
+// suite then runs against the real backend.
+func createTestDB(t *testing.T) *gamedb.DB {
 	t.Helper()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", url.PathEscape(t.Name()))
-	db, err := openDB(dsn)
+	if dsn := os.Getenv("GOSCAPE_TEST_POSTGRES_DSN"); dsn != "" {
+		return gamedbtest.OpenTestSchema(t, dsn, t.Name(), noopLogger())
+	}
+
+	var cfg gamedb.Config
+	fs := flag.NewFlagSet("", flag.PanicOnError)
+	cfg.RegisterFlagsAndApplyDefaults(fs)
+	cfg.SQLite.DSN = fmt.Sprintf("file:%s?mode=memory&cache=shared", url.PathEscape(t.Name()))
+	db, err := gamedb.Open(cfg, noopLogger())
 	if err != nil {
-		t.Fatalf("createTestDB: %v", err)
+		t.Fatalf("createTestDB: open: %v", err)
+	}
+	if err := db.Migrate(t.Context()); err != nil {
+		db.Close()
+		t.Fatalf("createTestDB: migrate: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
 	return db
@@ -31,7 +46,7 @@ func createTestDB(t *testing.T) *sql.DB {
 
 // insertTestAccount inserts a test account with bcrypt-hashed password (cost 4 for speed).
 // Returns the inserted account ID.
-func insertTestAccount(t *testing.T, db *sql.DB, username, password string) int64 {
+func insertTestAccount(t *testing.T, db *gamedb.DB, username, password string) int64 {
 	t.Helper()
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), 4)
 	if err != nil {
@@ -47,133 +62,6 @@ func insertTestAccount(t *testing.T, db *sql.DB, username, password string) int6
 // noopLogger returns a *slog.Logger that discards all output.
 func noopLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
-
-func TestOpenDB_PragmasApplied(t *testing.T) {
-	dsn := filepath.Join(t.TempDir(), "login.db")
-	db, err := openDB(dsn)
-	if err != nil {
-		t.Fatalf("openDB: %v", err)
-	}
-	defer db.Close()
-
-	var busy int
-	if err := db.QueryRow(`PRAGMA busy_timeout`).Scan(&busy); err != nil {
-		t.Fatalf("query busy_timeout: %v", err)
-	}
-	if busy != 5000 {
-		t.Errorf("busy_timeout: got %d, want 5000", busy)
-	}
-	var fk int
-	if err := db.QueryRow(`PRAGMA foreign_keys`).Scan(&fk); err != nil {
-		t.Fatalf("query foreign_keys: %v", err)
-	}
-	if fk != 1 {
-		t.Errorf("foreign_keys: got %d, want 1", fk)
-	}
-}
-
-// TestOpenDB_ConcurrentWriteTxs pins the pool-serialization half of the
-// arch-28.1 fix contract: concurrent write transactions on ONE handle must
-// serialize at the database/sql pool layer (SetMaxOpenConns(1)) instead of
-// failing SQLITE_BUSY. Pre-fix this fails with "database is locked" almost
-// every run (the unbounded pool handed each tx its own connection). The
-// busy_timeout half — contention across SEPARATE handles, which the pool
-// cap cannot serialize — is pinned by TestOpenDB_BusyTimeoutCrossHandle.
-func TestOpenDB_ConcurrentWriteTxs(t *testing.T) {
-	dsn := filepath.Join(t.TempDir(), "login.db")
-	db, err := openDB(dsn)
-	if err != nil {
-		t.Fatalf("openDB: %v", err)
-	}
-	defer db.Close()
-
-	var wg sync.WaitGroup
-	errs := make(chan error, 20)
-	for i := range 20 {
-		wg.Go(func() {
-			tx, err := db.BeginTx(t.Context(), nil)
-			if err != nil {
-				errs <- err
-				return
-			}
-			_, err = tx.Exec(`INSERT INTO ipban (ip, added_by) VALUES (?, 'test')`,
-				fmt.Sprintf("10.0.0.%d", i))
-			if err != nil {
-				tx.Rollback()
-				errs <- err
-				return
-			}
-			time.Sleep(5 * time.Millisecond) // widen the write-lock hold
-			errs <- tx.Commit()
-		})
-	}
-	wg.Wait()
-	close(errs)
-	for err := range errs {
-		if err != nil {
-			t.Fatalf("concurrent write tx: %v", err)
-		}
-	}
-}
-
-// TestOpenDB_BusyTimeoutCrossHandle pins the busy_timeout half of the
-// arch-28.1 fix contract: contention across SEPARATE *sql.DB handles on the
-// same database file — which SetMaxOpenConns(1) cannot serialize, because
-// each handle owns its own single-connection pool (the real-world shape:
-// goscape-cli or an operator's sqlite3 shell alongside the server). Handle A
-// holds the write lock in an open transaction; handle B's INSERT must block
-// on busy_timeout(5000) until A commits, then succeed. Pre-fix
-// (busy_timeout=0) handle B fails immediately with SQLITE_BUSY
-// ("database is locked").
-func TestOpenDB_BusyTimeoutCrossHandle(t *testing.T) {
-	dsn := filepath.Join(t.TempDir(), "login.db")
-	dbA, err := openDB(dsn)
-	if err != nil {
-		t.Fatalf("openDB A: %v", err)
-	}
-	defer dbA.Close()
-	dbB, err := openDB(dsn)
-	if err != nil {
-		t.Fatalf("openDB B: %v", err)
-	}
-	defer dbB.Close()
-
-	// Handle A: take and hold the write lock.
-	tx, err := dbA.BeginTx(t.Context(), nil)
-	if err != nil {
-		t.Fatalf("begin tx A: %v", err)
-	}
-	if _, err := tx.Exec(`INSERT INTO ipban (ip, added_by) VALUES ('10.1.0.1', 'test')`); err != nil {
-		tx.Rollback()
-		t.Fatalf("insert A: %v", err)
-	}
-	commitErr := make(chan error, 1)
-	go func() {
-		time.Sleep(200 * time.Millisecond) // hold the lock while B contends
-		commitErr <- tx.Commit()
-	}()
-
-	// Handle B: must block on busy_timeout until A commits, then succeed.
-	if _, err := dbB.Exec(`INSERT INTO ipban (ip, added_by) VALUES ('10.1.0.2', 'test')`); err != nil {
-		t.Fatalf("cross-handle insert B: %v", err)
-	}
-	if err := <-commitErr; err != nil {
-		t.Fatalf("commit A: %v", err)
-	}
-}
-
-func TestDSNWithPragmas(t *testing.T) {
-	got := dsnWithPragmas("data/login.db")
-	want := "data/login.db?_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
-	if got != want {
-		t.Errorf("plain dsn: got %q, want %q", got, want)
-	}
-	got = dsnWithPragmas("file:x?mode=memory&cache=shared")
-	want = "file:x?mode=memory&cache=shared&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
-	if got != want {
-		t.Errorf("param dsn: got %q, want %q", got, want)
-	}
 }
 
 func TestAccountByUsername_NotFound(t *testing.T) {
@@ -218,7 +106,7 @@ func TestAccountByUsername_WithLoginRow(t *testing.T) {
 
 	// Insert an account_login row with logged_in=1
 	_, err := db.ExecContext(t.Context(),
-		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		db.Rebind(`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`),
 		id, "main", 3, 1,
 	)
 	if err != nil {
@@ -257,7 +145,7 @@ func TestIPBanned_NotBanned(t *testing.T) {
 func TestIPBanned_Banned(t *testing.T) {
 	db := createTestDB(t)
 	_, err := db.ExecContext(t.Context(),
-		`INSERT INTO ipban (ip, added_by, added_on) VALUES (?, ?, ?)`,
+		db.Rebind(`INSERT INTO ipban (ip, added_by, added_on) VALUES (?, ?, ?)`),
 		"10.0.0.1", "admin", "2026-01-01 00:00:00",
 	)
 	if err != nil {
@@ -311,7 +199,7 @@ func TestUpsertAccountLogin_Insert(t *testing.T) {
 
 	var loggedIn, nodeID int
 	err = db.QueryRowContext(t.Context(),
-		`SELECT logged_in, node_id FROM account_login WHERE account_id = ? AND profile = ?`,
+		db.Rebind(`SELECT logged_in, node_id FROM account_login WHERE account_id = ? AND profile = ?`),
 		id, "main",
 	).Scan(&loggedIn, &nodeID)
 	if err != nil {
@@ -331,7 +219,7 @@ func TestUpsertAccountLogin_Update(t *testing.T) {
 
 	// Pre-insert a row with logged_in=0
 	_, err := db.ExecContext(t.Context(),
-		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		db.Rebind(`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`),
 		id, "main", 0, 0,
 	)
 	if err != nil {
@@ -345,7 +233,7 @@ func TestUpsertAccountLogin_Update(t *testing.T) {
 
 	var loggedIn, nodeID int
 	err = db.QueryRowContext(t.Context(),
-		`SELECT logged_in, node_id FROM account_login WHERE account_id = ? AND profile = ?`,
+		db.Rebind(`SELECT logged_in, node_id FROM account_login WHERE account_id = ? AND profile = ?`),
 		id, "main",
 	).Scan(&loggedIn, &nodeID)
 	if err != nil {
@@ -371,7 +259,7 @@ func TestInsertSession(t *testing.T) {
 	var sessionUUID, profile, remoteAddr string
 	var world, uid int
 	err = db.QueryRowContext(t.Context(),
-		`SELECT session_uuid, profile, world, uid, remote_address FROM session WHERE account_id = ?`,
+		db.Rebind(`SELECT session_uuid, profile, world, uid, remote_address FROM session WHERE account_id = ?`),
 		id,
 	).Scan(&sessionUUID, &profile, &world, &uid, &remoteAddr)
 	if err != nil {
@@ -399,7 +287,7 @@ func TestClearWorldSessions(t *testing.T) {
 	id := insertTestAccount(t, db, "clearuser", "pass")
 
 	_, err := db.ExecContext(t.Context(),
-		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		db.Rebind(`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`),
 		id, "main", 4, 1,
 	)
 	if err != nil {
@@ -413,7 +301,7 @@ func TestClearWorldSessions(t *testing.T) {
 
 	var loggedIn int
 	err = db.QueryRowContext(t.Context(),
-		`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`,
+		db.Rebind(`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`),
 		id, "main",
 	).Scan(&loggedIn)
 	if err != nil {
@@ -441,7 +329,7 @@ func TestSetLoggedOut(t *testing.T) {
 
 	var loggedIn int
 	err = db.QueryRowContext(t.Context(),
-		`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`,
+		db.Rebind(`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`),
 		id, "main",
 	).Scan(&loggedIn)
 	if err != nil {
@@ -449,6 +337,18 @@ func TestSetLoggedOut(t *testing.T) {
 	}
 	if loggedIn != 0 {
 		t.Errorf("logged_in: got %d, want 0", loggedIn)
+	}
+
+	var logoutTime sql.NullTime
+	err = db.QueryRowContext(t.Context(),
+		db.Rebind(`SELECT logout_time FROM account WHERE id = ?`),
+		id,
+	).Scan(&logoutTime)
+	if err != nil {
+		t.Fatalf("query account: %v", err)
+	}
+	if !logoutTime.Valid {
+		t.Error("logout_time: expected non-NULL timestamp after setLoggedOut")
 	}
 }
 
@@ -479,7 +379,7 @@ func TestSetLoggedOut_ClearsRowRegardlessOfNodeId(t *testing.T) {
 
 	var loggedIn int
 	if err := db.QueryRowContext(t.Context(),
-		`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`,
+		db.Rebind(`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`),
 		id, "main",
 	).Scan(&loggedIn); err != nil {
 		t.Fatalf("query account_login: %v", err)
@@ -499,9 +399,9 @@ func TestSetAccountBanned(t *testing.T) {
 		t.Fatalf("setAccountBanned: %v", err)
 	}
 
-	var bannedUntil sql.NullString
+	var bannedUntil sql.NullTime
 	err = db.QueryRowContext(t.Context(),
-		`SELECT banned_until FROM account WHERE username = ?`,
+		db.Rebind(`SELECT banned_until FROM account WHERE username = ?`),
 		"banneduser",
 	).Scan(&bannedUntil)
 	if err != nil {
@@ -510,9 +410,8 @@ func TestSetAccountBanned(t *testing.T) {
 	if !bannedUntil.Valid {
 		t.Fatal("banned_until should be set")
 	}
-	expected := until.Format(dbTimeFormat)
-	if bannedUntil.String != expected {
-		t.Errorf("banned_until: got %q, want %q", bannedUntil.String, expected)
+	if !bannedUntil.Time.UTC().Equal(until) {
+		t.Errorf("banned_until: got %v, want %v", bannedUntil.Time, until)
 	}
 }
 
@@ -526,9 +425,9 @@ func TestSetAccountMuted(t *testing.T) {
 		t.Fatalf("setAccountMuted: %v", err)
 	}
 
-	var mutedUntil sql.NullString
+	var mutedUntil sql.NullTime
 	err = db.QueryRowContext(t.Context(),
-		`SELECT muted_until FROM account WHERE username = ?`,
+		db.Rebind(`SELECT muted_until FROM account WHERE username = ?`),
 		"muteduser",
 	).Scan(&mutedUntil)
 	if err != nil {
@@ -537,175 +436,27 @@ func TestSetAccountMuted(t *testing.T) {
 	if !mutedUntil.Valid {
 		t.Fatal("muted_until should be set")
 	}
-	expected := until.Format(dbTimeFormat)
-	if mutedUntil.String != expected {
-		t.Errorf("muted_until: got %q, want %q", mutedUntil.String, expected)
+	if !mutedUntil.Time.UTC().Equal(until) {
+		t.Errorf("muted_until: got %v, want %v", mutedUntil.Time, until)
 	}
 }
 
 // TestSessionUUIDCheckRejectsNonUUID pins the schema-level CHECK
-// constraint on session.session_uuid added by migration 000002.
-// Pre-migration, a raw INSERT with a non-UUID-shaped value succeeds
-// (no CHECK exists); post-migration, the same insert errors with a
-// CHECK constraint failure. Closes B3 from the post-friends-arc
-// cleanup batch.
+// constraint on session.session_uuid (pkg/gamedb's unified schema).
+// A raw INSERT with a non-UUID-shaped value must be rejected.
 func TestSessionUUIDCheckRejectsNonUUID(t *testing.T) {
 	db := createTestDB(t)
 	accountID := insertTestAccount(t, db, "checkrejecttest", "pass")
 
 	_, err := db.ExecContext(t.Context(),
-		`INSERT INTO session (session_uuid, account_id, profile, world, uid, login_time, remote_address)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"not-a-uuid", accountID, "main", 0, 0, "2026-05-19T00:00:00Z", "127.0.0.1:1234",
+		db.Rebind(`INSERT INTO session (session_uuid, account_id, profile, world, uid, login_time, remote_address)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`),
+		"not-a-uuid", accountID, "main", 0, 0, time.Now().UTC(), "127.0.0.1:1234",
 	)
 	if err == nil {
 		t.Fatalf("INSERT with non-UUID session_uuid succeeded; expected CHECK constraint failure")
 	}
 	if !strings.Contains(err.Error(), "CHECK") && !strings.Contains(err.Error(), "constraint") {
 		t.Errorf("error message did not mention CHECK or constraint: %v", err)
-	}
-}
-
-// TestSessionUUIDCheckAcceptsEmpty pins that the schema CHECK
-// constraint permits the empty string. This is the coercion target
-// used by migration 000002 for pre-slice-7 rows whose session_uuid
-// held RemoteAddr().String() instead of a UUID.
-func TestSessionUUIDCheckAcceptsEmpty(t *testing.T) {
-	db := createTestDB(t)
-	accountID := insertTestAccount(t, db, "checkemptytest", "pass")
-
-	_, err := db.ExecContext(t.Context(),
-		`INSERT INTO session (session_uuid, account_id, profile, world, uid, login_time, remote_address)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"", accountID, "main", 0, 0, "2026-05-19T00:00:00Z", "127.0.0.1:1234",
-	)
-	if err != nil {
-		t.Fatalf("INSERT with empty session_uuid failed: %v", err)
-	}
-}
-
-// TestMigration002CoercesLegacyRows exercises the legacy-data path
-// in migration 000002. Open a fresh DB at schema version 1 only
-// (so the session table has no CHECK), insert a pre-slice-7-style
-// row with session_uuid = RemoteAddr().String(), then advance to
-// version 2 and assert:
-//   - the legacy session_uuid is coerced to ""
-//   - other columns are preserved
-//   - the id is preserved (AUTOINCREMENT pass-through)
-//   - a fresh insertSession on the upgraded table yields a larger id
-//     (sqlite_sequence continuity)
-func TestMigration002CoercesLegacyRows(t *testing.T) {
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", url.PathEscape(t.Name()))
-	db, err := sql.Open("sqlite", dsn)
-	if err != nil {
-		t.Fatalf("sql.Open: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-
-	src, err := iofs.New(migrations, "migrations")
-	if err != nil {
-		t.Fatalf("iofs.New: %v", err)
-	}
-	drv, err := sqlitedriver.WithInstance(db, &sqlitedriver.Config{})
-	if err != nil {
-		t.Fatalf("driver: %v", err)
-	}
-	m, err := migrate.NewWithInstance("iofs", src, "sqlite", drv)
-	if err != nil {
-		t.Fatalf("migrate instance: %v", err)
-	}
-	// Advance exactly one step from the empty starting state — applies
-	// 000001_init only. The session table now exists with NO CHECK.
-	if err := m.Steps(1); err != nil {
-		t.Fatalf("migrate.Steps(1): %v", err)
-	}
-
-	// Set up the account row that the legacy session row's FK
-	// references.
-	hashed, err := bcrypt.GenerateFromPassword([]byte("pw"), 4)
-	if err != nil {
-		t.Fatalf("bcrypt: %v", err)
-	}
-	accountID, err := insertAccount(t.Context(), db, "legacyuser", string(hashed), "127.0.0.1")
-	if err != nil {
-		t.Fatalf("insertAccount: %v", err)
-	}
-
-	// Insert a pre-slice-7-style row directly: session_uuid holds an
-	// IP:port string (what RemoteAddr().String() produces).
-	legacyUUIDValue := "127.0.0.1:42193"
-	legacyRemoteAddr := "127.0.0.1:42193"
-	legacyLoginTime := "2024-12-01T00:00:00Z"
-	res, err := db.ExecContext(t.Context(),
-		`INSERT INTO session (session_uuid, account_id, profile, world, uid, login_time, remote_address)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		legacyUUIDValue, accountID, "main", 3, 99, legacyLoginTime, legacyRemoteAddr,
-	)
-	if err != nil {
-		t.Fatalf("legacy INSERT: %v", err)
-	}
-	legacyID, err := res.LastInsertId()
-	if err != nil {
-		t.Fatalf("LastInsertId: %v", err)
-	}
-
-	// Now advance to version 2 — applies 000002 which rebuilds the
-	// table with CHECK and coerces the legacy row.
-	if err := m.Up(); err != nil {
-		t.Fatalf("migrate.Up: %v", err)
-	}
-
-	// Read the legacy row back.
-	var (
-		gotUUID, gotProfile, gotRemoteAddr, gotLoginTime string
-		gotWorld, gotUID                                 int
-		gotAccountID                                     int64
-	)
-	err = db.QueryRowContext(t.Context(),
-		`SELECT session_uuid, account_id, profile, world, uid, login_time, remote_address
-		   FROM session WHERE id = ?`,
-		legacyID,
-	).Scan(&gotUUID, &gotAccountID, &gotProfile, &gotWorld, &gotUID, &gotLoginTime, &gotRemoteAddr)
-	if err != nil {
-		t.Fatalf("SELECT post-migration: %v", err)
-	}
-	if gotUUID != "" {
-		t.Errorf("legacy session_uuid: got %q, want \"\"", gotUUID)
-	}
-	if gotAccountID != accountID {
-		t.Errorf("account_id: got %d, want %d", gotAccountID, accountID)
-	}
-	if gotProfile != "main" {
-		t.Errorf("profile: got %q, want %q", gotProfile, "main")
-	}
-	if gotWorld != 3 {
-		t.Errorf("world: got %d, want 3", gotWorld)
-	}
-	if gotUID != 99 {
-		t.Errorf("uid: got %d, want 99", gotUID)
-	}
-	if gotLoginTime != legacyLoginTime {
-		t.Errorf("login_time: got %q, want %q", gotLoginTime, legacyLoginTime)
-	}
-	if gotRemoteAddr != legacyRemoteAddr {
-		t.Errorf("remote_address: got %q, want %q", gotRemoteAddr, legacyRemoteAddr)
-	}
-
-	// AUTOINCREMENT continuity: a fresh insertSession on the upgraded
-	// table must yield an id strictly greater than legacyID.
-	err = insertSession(t.Context(), db, "22222222-3333-4444-5555-666666666666", int(accountID), "main", 1, 1, "127.0.0.1:1")
-	if err != nil {
-		t.Fatalf("insertSession post-migration: %v", err)
-	}
-	var newID int64
-	err = db.QueryRowContext(t.Context(),
-		`SELECT id FROM session WHERE session_uuid = ?`,
-		"22222222-3333-4444-5555-666666666666",
-	).Scan(&newID)
-	if err != nil {
-		t.Fatalf("SELECT new row id: %v", err)
-	}
-	if newID <= legacyID {
-		t.Errorf("AUTOINCREMENT continuity broken: new id %d <= legacy id %d", newID, legacyID)
 	}
 }

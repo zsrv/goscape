@@ -27,7 +27,7 @@
 #                               environment before parsing
 #
 # Env-var expansion: with --config.expand-env=true, any ${VAR} in a value is
-# replaced by the environment. Example: sqlite_dsn: ${GOSCAPE_DB:-data/login.db}
+# replaced by the environment. Example: dsn: ${GOSCAPE_DB:-data/goscape.db}
 #
 # NOTE: every value below is the built-in DEFAULT, with one exception — the four
 # module `enable:` keys are set to `true` so this file is a coherent "run
@@ -158,6 +158,23 @@ ondemand:
   #http_path_prefix: ""
 
 
+# Central database. Currently only the login service is an independent
+# client of it (friends still persists to its own private SQLite file
+# below, via friends.sqlite_dsn, pending its own port to this section).
+database:
+  # Backend: sqlite | postgres.
+  backend: sqlite
+  sqlite:
+    # SQLite file path (parent directories are created automatically).
+    dsn: data/goscape.db
+  postgres:
+    # PostgreSQL DSN, e.g. postgres://user:pass@host:5432/goscape?sslmode=disable
+    # Required when backend=postgres.
+    dsn: ""
+    # Max open connections per service pool.
+    max_open_conns: 8
+
+
 # ----------------------------------------------------------------------------
 # friends — gRPC friends / private-message server (SQLite)
 # ----------------------------------------------------------------------------
@@ -182,7 +199,8 @@ friends:
 
 
 # ----------------------------------------------------------------------------
-# login — gRPC login service (SQLite account store + player saves)
+# login — gRPC login service (account store + player saves; central database,
+#         see database: above)
 # ----------------------------------------------------------------------------
 login:
   # Run the login module. CLI: --login.enable (code default: false)
@@ -191,8 +209,6 @@ login:
   grpc_listen_address: 127.0.0.1
   # CLI: --login.grpc-listen-port (default: 2004)
   grpc_listen_port: 2004
-  # CLI: --login.sqlite-dsn (default: data/login.db)
-  sqlite_dsn: data/login.db
   # Player save-file root directory. CLI: --login.save-path (default: data/players)
   save_path: data/players
   # bcrypt work factor for password hashing (valid 4..31).
