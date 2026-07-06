@@ -1,33 +1,60 @@
 // Package friends hosts the friends-server gRPC module. The Repository
 // keeps presence state (worlds, players, privateChat, staffLvl) in
-// memory and persists friend / ignore lists to SQLite via *sql.DB. The
-// schema lives at modules/friends/migrations/000001_init.up.sql.
+// memory and persists friend / ignore lists to the central database via
+// *gamedb.DB. The schema lives at pkg/gamedb/migrations/.
 package friends
 
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
+
+	"github.com/zsrv/goscape/pkg/gamedb"
+	jstring "github.com/zsrv/goscape/pkg/util/jstring"
+)
+
+// errAccountMissing is LogPrivateMessage/LogPublicMessage's sentinel for
+// "an endpoint account does not exist". Mirrors TS FriendServer.ts
+// @3c16994c, where executeTakeFirstOrThrow throws and the outer
+// per-connection catch (FriendServer.ts:88/419) drops the message. The
+// handler maps it to a silent drop (no delivery/persist, success RPC).
+var errAccountMissing = errors.New("account missing")
+
+// friendListLimit / ignoreListLimit cap the friend list and ignore list
+// per owner. TS FriendServerRepository @3c16994c has NOT YET landed the
+// members-aware 200/100 split that exists at later pins (rev-274's own
+// dee467c8 reference) — addFriend (FriendServerRepository.ts:222) selects
+// `.select('id')` only, no `members` column, and both addFriend (:233)
+// and addIgnore (:268) compare against the flat literal 100. See
+// docs/superpowers/sdd/audit-port2452.md sanity gate (a).
+const (
+	friendListLimit = 100
+	ignoreListLimit = 100
 )
 
 // repositories is the lazily-populated per-profile Repository registry.
-// Mirrors TS 244 FriendServer.repositories[profile]
-// (FriendServer.ts:64-67 declaration, :439-447 lazy creation in
-// initializeWorld). All Repositories share one *sql.DB; profile scoping
-// happens inside each Repository's SQL (r.profile) and in-memory maps.
+// Mirrors TS FriendServer.repositories[profile] @3c16994c
+// (FriendServer.ts declaration + lazy creation in initializeWorld — this
+// pin is still the multi-profile server; the later single-profile
+// this.profile = Environment.NODE_PROFILE collapse is a post-3c16994c TS
+// change, see the audit's Deltas row, and is intentionally NOT mirrored
+// here). All Repositories share one *gamedb.DB; profile scoping happens
+// inside each Repository's SQL (r.profile) and in-memory maps.
 type repositories struct {
 	mu sync.Mutex
-	db *sql.DB
+	db *gamedb.DB
 	by map[string]*Repository
 }
 
-func newRepositories(db *sql.DB) *repositories {
+func newRepositories(db *gamedb.DB) *repositories {
 	return &repositories{db: db, by: make(map[string]*Repository)}
 }
 
 // get returns the profile's Repository, creating it on first use
-// (TS FriendServer.ts:443-445 `if (!this.repositories[profile])`).
+// (TS FriendServer.ts `if (!this.repositories[profile])`).
 func (rs *repositories) get(profile string) *Repository {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
@@ -39,17 +66,14 @@ func (rs *repositories) get(profile string) *Repository {
 	return r
 }
 
-// friendListLimit caps both the friend list and the ignore list per owner,
-// matching the hardcoded 100 in TS FriendServerRepository (addFriend/addIgnore).
-const friendListLimit = 100
-
 // Repository is the friends/ignores/presence store. Presence (worlds,
 // players, privateChat, staffLvl) lives in-memory and is guarded by mu.
-// Friends and ignores persist to SQLite via db. profile scopes every
-// SQL operation, mirroring the TS FriendServerRepository(profile) ctor.
+// Friends and ignores persist to the central database via db. profile
+// scopes every SQL operation, mirroring the TS FriendServerRepository(profile)
+// ctor.
 type Repository struct {
 	mu      sync.RWMutex
-	db      *sql.DB
+	db      *gamedb.DB
 	profile string
 	worlds  map[int32]*worldState
 	players map[uint64]*playerState
@@ -69,7 +93,7 @@ type playerState struct {
 	staffLvl    int32
 }
 
-func NewRepository(db *sql.DB, profile string) *Repository {
+func NewRepository(db *gamedb.DB, profile string) *Repository {
 	return &Repository{
 		db:      db,
 		profile: profile,
@@ -95,9 +119,9 @@ func (r *Repository) GetWorld(username37 uint64) int32 {
 // (FriendServerRepository.ts:48-54), which early-returns
 // `if (this.playersByWorld[world]) return;` so a re-init never zeroes
 // the in-memory player table. (The surrounding wrapper
-// FriendServer.initializeWorld at FriendServer.ts:412-418 drops the
-// prior socket binding, which goscape models separately at
-// worldSubscriptions.register — see NAI-S4A-D-PERPLAYER-NOT-PERWORLD-STREAM.)
+// FriendServer.initializeWorld drops the prior socket binding, which
+// goscape models separately at worldSubscriptions.register — see
+// NAI-S4A-D-PERPLAYER-NOT-PERWORLD-STREAM.)
 func (r *Repository) InitializeWorld(worldId int32, limit int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -181,76 +205,51 @@ func (r *Repository) GetChatMode(username37 uint64) int32 {
 	return 0
 }
 
-// AddFriend adds target to owner's friend list. Idempotent: a duplicate
-// insert (same profile+owner+target PK) is silently ignored.
-//
-// docs/PORTING.md Arc 18 DB-2: the recheck-then-insert is wrapped in a
-// per-call BeginTx so the read-modify-write window cannot interleave
-// with a concurrent DeleteFriend.
+// accountID resolves username37 to its account row id via the central
+// database — the friend server verifying a username IS this query
+// (TS FriendServerRepository.ts:222/258 @3c16994c; FriendServer.ts:275-276).
+// ok=false with nil error when the account does not exist. Thin wrapper
+// over accountIDByUsername for the (common) case where the caller only
+// has the username37-encoded form.
+func (r *Repository) accountID(ctx context.Context, username37 uint64) (int64, bool, error) {
+	return r.accountIDByUsername(ctx, jstring.FromBase37(username37))
+}
+
+// accountIDByUsername resolves the raw account.username text to its
+// account row id. Split out from accountID for LogPublicMessage's
+// benefit: PublicMessageRequest.username (proto/friends/friends.proto:153)
+// carries the plain username string on THIS branch's wire — not a
+// username37-encoded uint64 like every other Repository method's
+// caller — so there is no round trip through jstring to perform.
+func (r *Repository) accountIDByUsername(ctx context.Context, username string) (int64, bool, error) {
+	var id int64
+	err := r.db.QueryRowContext(ctx,
+		r.db.Rebind(`SELECT id FROM account WHERE username = ? LIMIT 1`),
+		username,
+	).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, fmt.Errorf("accountIDByUsername: %w", err)
+	}
+	return id, true, nil
+}
+
+// AddFriend adds target to owner's friend list, resolving both accounts
+// against the central database like TS FriendServerRepository.addFriend
+// @3c16994c (FriendServerRepository.ts:210-247): either account missing
+// (:226-228) → silent no-op; duplicate → no-op; cap flat 100
+// (:233 — NOT members-aware at this pin, see the friendListLimit doc
+// comment above). Owner is resolved id-only (:222, no `members` column
+// — the members-aware split does not exist yet at this pin). TS counts
+// the cap across ALL profiles (no profile filter on the count query,
+// :231) — quirk mirrored. The whole read-modify-write runs in one tx so
+// a concurrent DeleteFriend cannot interleave.
 func (r *Repository) AddFriend(ctx context.Context, owner, target uint64) error {
-	return r.atomicUpsertList(ctx, "friendlist", owner, target, "AddFriend")
-}
-
-// DeleteFriend removes target from owner's friend list. No-op if the row
-// does not exist.
-func (r *Repository) DeleteFriend(ctx context.Context, owner, target uint64) error {
-	_, err := r.db.ExecContext(ctx,
-		`DELETE FROM friendlist
-		 WHERE profile = ? AND owner_username37 = ? AND target_username37 = ?`,
-		r.profile, int64(owner), int64(target),
-	)
-	if err != nil {
-		return fmt.Errorf("DeleteFriend: %w", err)
-	}
-	return nil
-}
-
-// GetFriends returns all target_username37 values in owner's friend list,
-// oldest entry first. The `ORDER BY created ASC` matches TS
-// FriendServerRepository.loadFriends (orderBy('f.created', 'asc')) so the
-// client renders the friend list in insertion order rather than an
-// undefined order. L44.
-func (r *Repository) GetFriends(ctx context.Context, owner uint64) ([]uint64, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT target_username37 FROM friendlist
-		 WHERE profile = ? AND owner_username37 = ?
-		 ORDER BY created ASC`,
-		r.profile, int64(owner),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("GetFriends: %w", err)
-	}
-	defer rows.Close()
-
-	var out []uint64
-	for rows.Next() {
-		var t int64
-		if err := rows.Scan(&t); err != nil {
-			return nil, fmt.Errorf("GetFriends scan: %w", err)
-		}
-		out = append(out, uint64(t))
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("GetFriends rows: %w", err)
-	}
-	return out, nil
-}
-
-// AddIgnore mirrors AddFriend but against ignorelist. Idempotent; same
-// DB-2 atomic-insert posture (see AddFriend).
-func (r *Repository) AddIgnore(ctx context.Context, owner, target uint64) error {
-	return r.atomicUpsertList(ctx, "ignorelist", owner, target, "AddIgnore")
-}
-
-// atomicUpsertList performs an idempotent insert into one of the
-// (friendlist | ignorelist) tables under a serializable tx so a
-// concurrent delete cannot interleave between the existence check
-// and the insert. table is a hardcoded literal at call sites (not
-// user input), so direct interpolation is safe.
-func (r *Repository) atomicUpsertList(ctx context.Context, table string, owner, target uint64, op string) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%s: begin tx: %w", op, err)
+		return fmt.Errorf("AddFriend: begin tx: %w", err)
 	}
 	committed := false
 	defer func() {
@@ -259,58 +258,197 @@ func (r *Repository) atomicUpsertList(ctx context.Context, table string, owner, 
 		}
 	}()
 
-	var count int
+	var ownerID int64
 	err = tx.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM `+table+`
-		 WHERE profile = ? AND owner_username37 = ? AND target_username37 = ?`,
-		r.profile, int64(owner), int64(target),
-	).Scan(&count)
-	if err != nil {
-		return fmt.Errorf("%s: existence check: %w", op, err)
+		r.db.Rebind(`SELECT id FROM account WHERE username = ? LIMIT 1`),
+		jstring.FromBase37(owner),
+	).Scan(&ownerID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil // TS :226-228 — missing owner, drop silently
 	}
-	if count == 0 {
-		// M29: enforce the 100-entry cap before inserting a NEW entry, matching
-		// TS FriendServerRepository.addFriend/addIgnore (count >= 100 → return).
-		// Like TS this is a silent no-op at the cap (not an error); the dup case
-		// above already short-circuits, so the cap only gates genuinely new rows.
+	if err != nil {
+		return fmt.Errorf("AddFriend: resolve owner: %w", err)
+	}
+
+	var targetID int64
+	err = tx.QueryRowContext(ctx,
+		r.db.Rebind(`SELECT id FROM account WHERE username = ? LIMIT 1`),
+		jstring.FromBase37(target),
+	).Scan(&targetID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil // TS :226-228 — missing target, drop silently
+	}
+	if err != nil {
+		return fmt.Errorf("AddFriend: resolve target: %w", err)
+	}
+
+	var dup int
+	err = tx.QueryRowContext(ctx,
+		r.db.Rebind(`SELECT COUNT(*) FROM friendlist WHERE profile = ? AND account_id = ? AND friend_account_id = ?`),
+		r.profile, ownerID, targetID,
+	).Scan(&dup)
+	if err != nil {
+		return fmt.Errorf("AddFriend: dup check: %w", err)
+	}
+	if dup == 0 {
 		var total int
 		err = tx.QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM `+table+`
-			 WHERE profile = ? AND owner_username37 = ?`,
-			r.profile, int64(owner),
+			r.db.Rebind(`SELECT COUNT(*) FROM friendlist WHERE account_id = ?`),
+			ownerID,
 		).Scan(&total)
 		if err != nil {
-			return fmt.Errorf("%s: cap check: %w", op, err)
+			return fmt.Errorf("AddFriend: cap check: %w", err)
 		}
 		if total >= friendListLimit {
 			if err := tx.Commit(); err != nil {
-				return fmt.Errorf("%s: commit: %w", op, err)
+				return fmt.Errorf("AddFriend: commit: %w", err)
 			}
 			committed = true
 			return nil
 		}
-
-		_, err = tx.ExecContext(ctx,
-			`INSERT INTO `+table+` (profile, owner_username37, target_username37)
-			 VALUES (?, ?, ?)`,
-			r.profile, int64(owner), int64(target),
-		)
-		if err != nil {
-			return fmt.Errorf("%s: %w", op, err)
+		if _, err = tx.ExecContext(ctx,
+			r.db.Rebind(`INSERT INTO friendlist (profile, account_id, friend_account_id) VALUES (?, ?, ?)`),
+			r.profile, ownerID, targetID,
+		); err != nil {
+			if gamedb.IsForeignKeyViolation(err) {
+				// Account deleted between resolve and insert (possible
+				// under Postgres read-committed) — same outcome as the
+				// TS missing-account path: drop silently. Deferred
+				// rollback cleans up.
+				return nil
+			}
+			return fmt.Errorf("AddFriend: %w", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%s: commit: %w", op, err)
+		return fmt.Errorf("AddFriend: commit: %w", err)
 	}
 	committed = true
 	return nil
 }
 
+// DeleteFriend removes target from owner's friend list via account
+// subqueries (TS FriendServerRepository.deleteFriend @3c16994c,
+// FriendServerRepository.ts:183-208, where-clause :197-207). No-op when
+// either username has no account or the row does not exist.
+func (r *Repository) DeleteFriend(ctx context.Context, owner, target uint64) error {
+	_, err := r.db.ExecContext(ctx,
+		r.db.Rebind(`DELETE FROM friendlist
+		 WHERE profile = ?
+		   AND account_id IN (SELECT id FROM account WHERE username = ?)
+		   AND friend_account_id IN (SELECT id FROM account WHERE username = ?)`),
+		r.profile, jstring.FromBase37(owner), jstring.FromBase37(target),
+	)
+	if err != nil {
+		return fmt.Errorf("DeleteFriend: %w", err)
+	}
+	return nil
+}
+
+// GetFriends returns owner's friend list as username37s, oldest entry
+// first. Mirrors TS loadFriends' double INNER JOIN + orderBy f.created
+// asc @3c16994c (FriendServerRepository.ts:357-371 — single-string-arg
+// orderBy form at this pin).
+func (r *Repository) GetFriends(ctx context.Context, owner uint64) ([]uint64, error) {
+	rows, err := r.db.QueryContext(ctx,
+		r.db.Rebind(`SELECT a.username FROM account AS a
+		 INNER JOIN friendlist AS f ON a.id = f.friend_account_id
+		 INNER JOIN account AS local ON local.id = f.account_id
+		 WHERE local.username = ? AND f.profile = ?
+		 ORDER BY f.created ASC`),
+		jstring.FromBase37(owner), r.profile,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("GetFriends: %w", err)
+	}
+	defer rows.Close()
+
+	var out []uint64
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, fmt.Errorf("GetFriends scan: %w", err)
+		}
+		out = append(out, jstring.ToBase37(u))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("GetFriends rows: %w", err)
+	}
+	return out, nil
+}
+
+// AddIgnore mirrors TS addIgnore @3c16994c (FriendServerRepository.ts:249-294):
+// resolves the OWNER only (:258, missing → no-op :260-262); the target
+// is stored as a raw username string with NO existence check — ignoring
+// a player who doesn't exist is allowed. Cap flat 100 (:266/:268),
+// counted across ALL profiles (TS quirk, same posture as addFriend).
+// ON CONFLICT DO NOTHING matches TS's sqlite branch (:280-293) and is
+// valid on both goscape backends.
+func (r *Repository) AddIgnore(ctx context.Context, owner, target uint64) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("AddIgnore: begin tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var ownerID int64
+	err = tx.QueryRowContext(ctx,
+		r.db.Rebind(`SELECT id FROM account WHERE username = ? LIMIT 1`),
+		jstring.FromBase37(owner),
+	).Scan(&ownerID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil // TS :260-262
+	}
+	if err != nil {
+		return fmt.Errorf("AddIgnore: resolve owner: %w", err)
+	}
+
+	var total int
+	err = tx.QueryRowContext(ctx,
+		r.db.Rebind(`SELECT COUNT(*) FROM ignorelist WHERE account_id = ?`),
+		ownerID,
+	).Scan(&total)
+	if err != nil {
+		return fmt.Errorf("AddIgnore: cap check: %w", err)
+	}
+	if total >= ignoreListLimit {
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("AddIgnore: commit: %w", err)
+		}
+		committed = true
+		return nil
+	}
+
+	if _, err = tx.ExecContext(ctx,
+		r.db.Rebind(`INSERT INTO ignorelist (profile, account_id, value) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`),
+		r.profile, ownerID, jstring.FromBase37(target),
+	); err != nil {
+		if gamedb.IsForeignKeyViolation(err) {
+			return nil // owner deleted mid-flight — TS missing-owner outcome
+		}
+		return fmt.Errorf("AddIgnore: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("AddIgnore: commit: %w", err)
+	}
+	committed = true
+	return nil
+}
+
+// DeleteIgnore removes value from owner's ignore list (TS
+// FriendServerRepository.deleteIgnore @3c16994c, FriendServerRepository.ts:296-317,
+// where-clause :305-312: profile, value, account-subquery).
 func (r *Repository) DeleteIgnore(ctx context.Context, owner, target uint64) error {
 	_, err := r.db.ExecContext(ctx,
-		`DELETE FROM ignorelist
-		 WHERE profile = ? AND owner_username37 = ? AND target_username37 = ?`,
-		r.profile, int64(owner), int64(target),
+		r.db.Rebind(`DELETE FROM ignorelist
+		 WHERE profile = ? AND value = ?
+		   AND account_id IN (SELECT id FROM account WHERE username = ?)`),
+		r.profile, jstring.FromBase37(target), jstring.FromBase37(owner),
 	)
 	if err != nil {
 		return fmt.Errorf("DeleteIgnore: %w", err)
@@ -318,15 +456,17 @@ func (r *Repository) DeleteIgnore(ctx context.Context, owner, target uint64) err
 	return nil
 }
 
-// GetIgnores returns all target_username37 values in owner's ignore list,
-// oldest entry first — matching TS FriendServerRepository.loadIgnores
-// (orderBy('i.created', 'asc')). See GetFriends. L44.
+// GetIgnores returns owner's ignore list as username37s, oldest first
+// (TS loadIgnores @3c16994c, FriendServerRepository.ts:373-386: join
+// owner account, select i.value, orderBy i.created asc; values
+// round-trip through toBase37).
 func (r *Repository) GetIgnores(ctx context.Context, owner uint64) ([]uint64, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT target_username37 FROM ignorelist
-		 WHERE profile = ? AND owner_username37 = ?
-		 ORDER BY created ASC`,
-		r.profile, int64(owner),
+		r.db.Rebind(`SELECT i.value FROM account AS local
+		 INNER JOIN ignorelist AS i ON local.id = i.account_id
+		 WHERE local.username = ? AND i.profile = ?
+		 ORDER BY i.created ASC`),
+		jstring.FromBase37(owner), r.profile,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("GetIgnores: %w", err)
@@ -335,11 +475,11 @@ func (r *Repository) GetIgnores(ctx context.Context, owner uint64) ([]uint64, er
 
 	var out []uint64
 	for rows.Next() {
-		var t int64
-		if err := rows.Scan(&t); err != nil {
+		var v string
+		if err := rows.Scan(&v); err != nil {
 			return nil, fmt.Errorf("GetIgnores scan: %w", err)
 		}
-		out = append(out, uint64(t))
+		out = append(out, jstring.ToBase37(v))
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("GetIgnores rows: %w", err)
@@ -347,15 +487,17 @@ func (r *Repository) GetIgnores(ctx context.Context, owner uint64) ([]uint64, er
 	return out, nil
 }
 
-// GetFollowers returns the username37s of all players who have target in their
-// friend list. Uses the idx_friendlist_target index for O(log n) lookup.
-//
-// Broadcast wiring lives in handler.broadcastWorldToFollowers (slice 4a).
+// GetFollowers returns the username37s of all players who have target
+// in their friend list. TS computes this from its in-memory cache
+// (FriendServerRepository.ts:176-180 @3c16994c); goscape keeps its
+// established SQL mechanism, now id-keyed, backed by idx_friendlist_friend.
 func (r *Repository) GetFollowers(ctx context.Context, target uint64) ([]uint64, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT owner_username37 FROM friendlist
-		 WHERE profile = ? AND target_username37 = ?`,
-		r.profile, int64(target),
+		r.db.Rebind(`SELECT local.username FROM friendlist AS f
+		 INNER JOIN account AS local ON local.id = f.account_id
+		 INNER JOIN account AS a ON a.id = f.friend_account_id
+		 WHERE f.profile = ? AND a.username = ?`),
+		r.profile, jstring.FromBase37(target),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("GetFollowers: %w", err)
@@ -364,11 +506,11 @@ func (r *Repository) GetFollowers(ctx context.Context, target uint64) ([]uint64,
 
 	var out []uint64
 	for rows.Next() {
-		var o int64
-		if err := rows.Scan(&o); err != nil {
+		var u string
+		if err := rows.Scan(&u); err != nil {
 			return nil, fmt.Errorf("GetFollowers scan: %w", err)
 		}
-		out = append(out, uint64(o))
+		out = append(out, jstring.ToBase37(u))
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("GetFollowers rows: %w", err)
@@ -376,8 +518,8 @@ func (r *Repository) GetFollowers(ctx context.Context, target uint64) ([]uint64,
 	return out, nil
 }
 
-// IsVisibleTo applies TS visibility rules (FriendServerRepository.isVisibleTo,
-// FriendServerRepository.ts:332-355), in order:
+// IsVisibleTo applies TS visibility rules (FriendServerRepository.isVisibleTo
+// @3c16994c, FriendServerRepository.ts:332-355), in order:
 //
 //  1. viewer is staff (staffLvl > 0)   -> always visible
 //  2. other has ignored viewer         -> never visible
@@ -420,9 +562,11 @@ func (r *Repository) IsVisibleTo(ctx context.Context, viewer, other uint64) (boo
 	case 1: // FRIENDS
 		var count int
 		err := r.db.QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM friendlist
-			 WHERE profile = ? AND owner_username37 = ? AND target_username37 = ?`,
-			r.profile, int64(other), int64(viewer),
+			r.db.Rebind(`SELECT COUNT(*) FROM friendlist AS f
+			 INNER JOIN account AS local ON local.id = f.account_id
+			 INNER JOIN account AS a ON a.id = f.friend_account_id
+			 WHERE f.profile = ? AND local.username = ? AND a.username = ?`),
+			r.profile, jstring.FromBase37(other), jstring.FromBase37(viewer),
 		).Scan(&count)
 		if err != nil {
 			return false, fmt.Errorf("IsVisibleTo: %w", err)
@@ -441,14 +585,15 @@ func (r *Repository) isStaffLocked(username37 uint64) bool {
 	return ok && ps.staffLvl > 0
 }
 
-// isIgnoredBy reports whether owner has target on its ignorelist. Mirrors TS
-// playerIgnores[other].includes(viewer) (FriendServerRepository.ts:340).
+// isIgnoredBy reports whether owner has target on its ignore list
+// (TS playerIgnores[other].includes(viewer), FriendServerRepository.ts:340 @3c16994c).
 func (r *Repository) isIgnoredBy(ctx context.Context, owner, target uint64) (bool, error) {
 	var count int
 	err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM ignorelist
-		 WHERE profile = ? AND owner_username37 = ? AND target_username37 = ?`,
-		r.profile, int64(owner), int64(target),
+		r.db.Rebind(`SELECT COUNT(*) FROM ignorelist AS i
+		 INNER JOIN account AS local ON local.id = i.account_id
+		 WHERE i.profile = ? AND local.username = ? AND i.value = ?`),
+		r.profile, jstring.FromBase37(owner), jstring.FromBase37(target),
 	).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("isIgnoredBy: %w", err)
@@ -499,7 +644,7 @@ func (r *Repository) IsVisibleToMany(ctx context.Context, viewers []uint64, othe
 	r.mu.RUnlock()
 
 	// Viewers that `other` has ignored — hidden regardless of chat mode.
-	ignored, err := r.targetsAmong(ctx, "ignorelist", other, viewers)
+	ignored, err := r.ignoreValuesAmong(ctx, other, viewers)
 	if err != nil {
 		return nil, fmt.Errorf("IsVisibleToMany: %w", err)
 	}
@@ -507,7 +652,7 @@ func (r *Repository) IsVisibleToMany(ctx context.Context, viewers []uint64, othe
 	// For FRIENDS mode, the set of viewers in other's friend list.
 	var friends map[uint64]bool
 	if mode == 1 {
-		friends, err = r.targetsAmong(ctx, "friendlist", other, viewers)
+		friends, err = r.friendTargetsAmong(ctx, other, viewers)
 		if err != nil {
 			return nil, fmt.Errorf("IsVisibleToMany: %w", err)
 		}
@@ -530,85 +675,165 @@ func (r *Repository) IsVisibleToMany(ctx context.Context, viewers []uint64, othe
 	return out, nil
 }
 
-// targetsAmong returns the subset of candidates present as target_username37
-// in the given list table (friendlist | ignorelist) for the given owner under
-// r.profile, via a single parameterized IN query. Used by IsVisibleToMany to
-// avoid N+1 round trips. table is a trusted internal constant, never user input.
-func (r *Repository) targetsAmong(ctx context.Context, table string, owner uint64, candidates []uint64) (map[uint64]bool, error) {
+// friendTargetsAmong returns the subset of candidates present in
+// owner's friend list, via one IN query over usernames (id-keyed
+// analogue of the old username37 IN probe; avoids N+1).
+func (r *Repository) friendTargetsAmong(ctx context.Context, owner uint64, candidates []uint64) (map[uint64]bool, error) {
 	found := make(map[uint64]bool, len(candidates))
 	if len(candidates) == 0 {
 		return found, nil
 	}
-	placeholders := make([]byte, 0, 2*len(candidates))
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(candidates)), ",")
 	args := make([]any, 0, 2+len(candidates))
-	args = append(args, r.profile, int64(owner))
-	for i, c := range candidates {
-		if i > 0 {
-			placeholders = append(placeholders, ',')
-		}
-		placeholders = append(placeholders, '?')
-		args = append(args, int64(c))
+	args = append(args, r.profile, jstring.FromBase37(owner))
+	for _, c := range candidates {
+		args = append(args, jstring.FromBase37(c))
 	}
-	query := `SELECT target_username37 FROM ` + table + `
-	          WHERE profile = ? AND owner_username37 = ?
-	            AND target_username37 IN (` + string(placeholders) + `)`
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.db.QueryContext(ctx,
+		r.db.Rebind(`SELECT a.username FROM friendlist AS f
+		 INNER JOIN account AS local ON local.id = f.account_id
+		 INNER JOIN account AS a ON a.id = f.friend_account_id
+		 WHERE f.profile = ? AND local.username = ? AND a.username IN (`+placeholders+`)`),
+		args...,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("targetsAmong(%s): %w", table, err)
+		return nil, fmt.Errorf("friendTargetsAmong: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var t int64
-		if err := rows.Scan(&t); err != nil {
-			return nil, fmt.Errorf("targetsAmong(%s) scan: %w", table, err)
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, fmt.Errorf("friendTargetsAmong scan: %w", err)
 		}
-		found[uint64(t)] = true
+		found[jstring.ToBase37(u)] = true
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("targetsAmong(%s) rows: %w", table, err)
+		return nil, fmt.Errorf("friendTargetsAmong rows: %w", err)
 	}
 	return found, nil
 }
 
-// LogPrivateMessage appends one row to private_chat under r.profile.
-// Mirrors TS FriendServer.ts:273-283 — append-only, no dedupe, no
-// validation. Insert is the synchronous gate for PrivateMessage
-// delivery: a failure here returns an error to the handler which
-// surfaces codes.Internal to the caller, matching the TS thrown-
-// await pattern.
-//
-// No account-existence check on from/to — see handler.PrivateMessage's
-// NAI-S4A-D-FED-NO-ACCOUNT-EXISTENCE-CHECK block; in TS the throw on a
-// missing account would drop the PM without persisting, but the
-// federation choice (DB-2, db.go:21-35) makes the equivalent
-// cross-service RPC undesirable and the persistence + delivery is
-// well-behaved without it (orphan rows are read-side-tolerated;
-// undeliverable PMs no-op at h.subs.send).
-func (r *Repository) LogPrivateMessage(ctx context.Context, from, to uint64, coord int32, message string) error {
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO private_chat (profile, from_username37, to_username37, coord, message)
-		 VALUES (?, ?, ?, ?, ?)`,
-		r.profile, int64(from), int64(to), coord, message,
+// ignoreValuesAmong is friendTargetsAmong against ignorelist.value
+// (raw username strings, no target join).
+func (r *Repository) ignoreValuesAmong(ctx context.Context, owner uint64, candidates []uint64) (map[uint64]bool, error) {
+	found := make(map[uint64]bool, len(candidates))
+	if len(candidates) == 0 {
+		return found, nil
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(candidates)), ",")
+	args := make([]any, 0, 2+len(candidates))
+	args = append(args, r.profile, jstring.FromBase37(owner))
+	for _, c := range candidates {
+		args = append(args, jstring.FromBase37(c))
+	}
+	rows, err := r.db.QueryContext(ctx,
+		r.db.Rebind(`SELECT i.value FROM ignorelist AS i
+		 INNER JOIN account AS local ON local.id = i.account_id
+		 WHERE i.profile = ? AND local.username = ? AND i.value IN (`+placeholders+`)`),
+		args...,
 	)
 	if err != nil {
+		return nil, fmt.Errorf("ignoreValuesAmong: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			return nil, fmt.Errorf("ignoreValuesAmong scan: %w", err)
+		}
+		found[jstring.ToBase37(v)] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("ignoreValuesAmong rows: %w", err)
+	}
+	return found, nil
+}
+
+// LogPrivateMessage persists a PM keyed by resolved account ids (TS
+// FriendServer.ts:260-290 @3c16994c: resolve from/to via
+// executeTakeFirstOrThrow (:275-276), insert {account_id, profile,
+// to_account_id, timestamp, coord, message} (:278-288)). Either endpoint
+// missing → errAccountMissing: the handler drops the PM silently,
+// matching the TS throw-and-catch. timestamp uses the column DEFAULT
+// (equivalent to TS's explicit toDbDate(Date.now())).
+//
+// Retires NAI-S4A-D-FED-NO-ACCOUNT-EXISTENCE-CHECK: the federated-DB
+// posture that made the existence check undesirable (no shared account
+// table to join against) no longer applies now that friends is a client
+// of the central database.
+func (r *Repository) LogPrivateMessage(ctx context.Context, from, to uint64, coord int32, message string) error {
+	fromID, ok, err := r.accountID(ctx, from)
+	if err != nil {
+		return fmt.Errorf("LogPrivateMessage: %w", err)
+	}
+	if !ok {
+		return fmt.Errorf("LogPrivateMessage from %d: %w", from, errAccountMissing)
+	}
+	toID, ok, err := r.accountID(ctx, to)
+	if err != nil {
+		return fmt.Errorf("LogPrivateMessage: %w", err)
+	}
+	if !ok {
+		return fmt.Errorf("LogPrivateMessage to %d: %w", to, errAccountMissing)
+	}
+	if _, err := r.db.ExecContext(ctx,
+		r.db.Rebind(`INSERT INTO private_chat (account_id, profile, coord, to_account_id, message)
+		 VALUES (?, ?, ?, ?, ?)`),
+		fromID, r.profile, coord, toID, message,
+	); err != nil {
+		if gamedb.IsForeignKeyViolation(err) {
+			// Endpoint deleted between resolve and insert — same
+			// outcome as the TS missing-account throw: drop.
+			return fmt.Errorf("LogPrivateMessage: %w", errAccountMissing)
+		}
 		return fmt.Errorf("LogPrivateMessage: %w", err)
 	}
 	return nil
 }
 
-// LogPublicMessage appends one row to public_chat under r.profile.
-// rev-244 re-key: rows are keyed (profile, world, username) — TS
-// FriendServer.ts:287-305 resolves username to account_id; goscape
-// stores the username directly (federated DB, no account table —
-// NO-LANDING-SITE row, docs/PORTING.md §B5). Append-only, no dedupe, no
-// validation; insert failure surfaces codes.Internal at the handler.
+// LogPublicMessage appends one row to public_chat, resolving the wire
+// username to its account id first — matching TS
+// FriendServer.ts:291-306 @3c16994c: `const from = await
+// db.selectFrom('account').selectAll().where('username','=',username)
+// .executeTakeFirstOrThrow()` (:294) throws on a missing account,
+// dropped silently by the outer per-connection try/catch
+// (FriendServer.ts:88/419); the handler maps errAccountMissing to a
+// silent success, mirroring that catch. Row shape (:296-305; prisma
+// schema.prisma:201-211): {account_id, profile, world, timestamp,
+// coord, message} — 6 persisted columns (timestamp via column DEFAULT;
+// TS writes toDbDate(nodeTime) explicitly — an accepted deviation, same
+// posture as LogPrivateMessage's timestamp default).
+//
+// Unlike rev-274 (whose own, LATER TS pin reduced public_chat to
+// {session_uuid, coord, message} with no account lookup at all — see
+// docs/superpowers/sdd/audit-port2452.md "Deltas vs rev-274" (2)),
+// rev-245.2's OWN pin (3c16994c) still carries this older
+// account_id/profile/world shape, which this branch's gamedb schema
+// (pkg/gamedb/migrations/*/000001_init.up.sql) already provisions.
+//
+// username is the raw account.username text carried on the wire
+// (PublicMessageRequest.username, proto/friends/friends.proto:153) —
+// NOT a username37-encoded uint64 like every other Repository method's
+// caller in this file — so resolution goes through accountIDByUsername
+// rather than accountID.
 func (r *Repository) LogPublicMessage(ctx context.Context, world int32, username string, coord int32, message string) error {
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO public_chat (profile, world, username, coord, message)
-		 VALUES (?, ?, ?, ?, ?)`,
-		r.profile, world, username, coord, message,
-	)
+	acctID, ok, err := r.accountIDByUsername(ctx, username)
 	if err != nil {
+		return fmt.Errorf("LogPublicMessage: %w", err)
+	}
+	if !ok {
+		return fmt.Errorf("LogPublicMessage %q: %w", username, errAccountMissing)
+	}
+	if _, err := r.db.ExecContext(ctx,
+		r.db.Rebind(`INSERT INTO public_chat (account_id, profile, world, coord, message)
+		 VALUES (?, ?, ?, ?, ?)`),
+		acctID, r.profile, world, coord, message,
+	); err != nil {
+		if gamedb.IsForeignKeyViolation(err) {
+			// Account deleted between resolve and insert — same
+			// outcome as the TS missing-account throw: drop.
+			return fmt.Errorf("LogPublicMessage: %w", errAccountMissing)
+		}
 		return fmt.Errorf("LogPublicMessage: %w", err)
 	}
 	return nil
