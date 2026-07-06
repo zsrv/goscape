@@ -410,14 +410,15 @@ func TestRepository_IsVisibleTo_ChatModeFriends_OnlyFriends(t *testing.T) {
 }
 
 // TestRepository_IsVisibleTo_StaffBypassesOff pins H14: a staff viewer sees
-// an OFF player. TS FriendServerRepository.ts:83 @3c16994c registers a player
-// into playerStaff when `!has && staffLvl > 0`; goscape models the playerStaff
-// set as the read-time isStaffLocked check (threshold staffLvl > 0).
+// an OFF player. TS FriendServerRepository.ts:82-83 @dee467c8 registers a
+// player into playerStaff when `!has && staffLvl > 1`; goscape models the
+// playerStaff set as the read-time isStaffLocked check (threshold
+// staffLvl > 1).
 func TestRepository_IsVisibleTo_StaffBypassesOff(t *testing.T) {
 	r, _ := newTestRepo(t)
 	r.InitializeWorld(1, 10)
 	r.Register(1, 0xAAAA, 2, 0) // other: privateChat OFF
-	r.Register(1, 0xBBBB, 0, 2) // viewer: staffLvl 2 (>0) — still staff
+	r.Register(1, 0xBBBB, 0, 2) // viewer: staffLvl 2 (>1) — still staff
 	visible, err := r.IsVisibleTo(t.Context(), 0xBBBB, 0xAAAA)
 	if err != nil {
 		t.Fatalf("IsVisibleTo: %v", err)
@@ -425,14 +426,14 @@ func TestRepository_IsVisibleTo_StaffBypassesOff(t *testing.T) {
 	if !visible {
 		t.Error("staffLvl 2 viewer must see an OFF player (H14)")
 	}
-	// staffLvl 1 IS staff under the new threshold (> 0).
+	// staffLvl 1 is NOT staff under the TS threshold (staffLvl > 1).
 	r.Register(1, 0xCCCC, 0, 1)
 	visible, err = r.IsVisibleTo(t.Context(), 0xCCCC, 0xAAAA)
 	if err != nil {
 		t.Fatalf("IsVisibleTo: %v", err)
 	}
-	if !visible {
-		t.Error("staffLvl 1 viewer must bypass OFF (TS staffLvl > 0 threshold)")
+	if visible {
+		t.Error("staffLvl 1 viewer must NOT bypass OFF (TS staffLvl > 1 threshold)")
 	}
 	// staffLvl 0 is NOT staff.
 	r.Register(1, 0xDDDD, 0, 0)
@@ -442,6 +443,35 @@ func TestRepository_IsVisibleTo_StaffBypassesOff(t *testing.T) {
 	}
 	if visible {
 		t.Error("staffLvl 0 viewer must not bypass OFF (not staff)")
+	}
+}
+
+// TestIsVisibleTo_StaffGateThreshold pins the fidelity fix: TS gates
+// playerStaff membership at staffLvl > 1, not > 0
+// (FriendServerRepository.ts:82-83 @dee467c8). A viewer registered with
+// staffLvl 1 is NOT staff and must not bypass an OFF player; staffLvl 2
+// IS staff and bypasses.
+func TestIsVisibleTo_StaffGateThreshold(t *testing.T) {
+	r, _ := newTestRepo(t)
+	r.InitializeWorld(1, 10)
+	r.Register(1, 0xAAAA, 2, 0) // other: privateChat OFF
+	r.Register(1, 0xBBBB, 0, 1) // viewer: staffLvl 1 — NOT staff at dee467c8
+	visible, err := r.IsVisibleTo(t.Context(), 0xBBBB, 0xAAAA)
+	if err != nil {
+		t.Fatalf("IsVisibleTo: %v", err)
+	}
+	if visible {
+		t.Error("staffLvl 1 viewer must NOT bypass OFF (TS gates playerStaff at staffLvl > 1)")
+	}
+
+	r.Unregister(0xBBBB)
+	r.Register(1, 0xBBBB, 0, 2) // re-register viewer: staffLvl 2 — staff
+	visible, err = r.IsVisibleTo(t.Context(), 0xBBBB, 0xAAAA)
+	if err != nil {
+		t.Fatalf("IsVisibleTo: %v", err)
+	}
+	if !visible {
+		t.Error("staffLvl 2 viewer must bypass OFF (TS gates playerStaff at staffLvl > 1)")
 	}
 }
 
