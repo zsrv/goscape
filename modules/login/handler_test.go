@@ -1137,7 +1137,8 @@ func TestPlayerLogin_RateLimit_WindowExpiry(t *testing.T) {
 		}
 	}
 	// Backdate all 3 rows past the window.
-	if _, err := h.db.Exec(`UPDATE login SET timestamp = '2000-01-01 00:00:00'`); err != nil {
+	if _, err := h.db.Exec(h.db.Rebind(`UPDATE login SET timestamp = ?`),
+		time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)); err != nil {
 		t.Fatal(err)
 	}
 	resp, err := h.PlayerLogin(t.Context(), seed)

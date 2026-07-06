@@ -9,15 +9,18 @@ import (
 )
 
 // mt inserts a message_thread row. from/to are account ids; lastFrom is
-// last_message_from. Returns the thread id.
+// last_message_from. Returns the thread id via INSERT ... RETURNING —
+// the dialect-uniform id-retrieval form (pgx/v5 stdlib's LastInsertId
+// always errors); same idiom as db.go's insertAccount.
 func mt(t *testing.T, db *gamedb.DB, from, to, lastFrom int) int64 {
 	t.Helper()
-	res, err := db.Exec(db.Rebind(`INSERT INTO message_thread (to_account_id, from_account_id, last_message_from, subject)
-	                     VALUES (?, ?, ?, 's')`), to, from, lastFrom)
-	if err != nil {
+	var id int64
+	if err := db.QueryRowContext(t.Context(),
+		db.Rebind(`INSERT INTO message_thread (to_account_id, from_account_id, last_message_from, subject)
+	               VALUES (?, ?, ?, 's') RETURNING id`), to, from, lastFrom,
+	).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
-	id, _ := res.LastInsertId()
 	return id
 }
 
