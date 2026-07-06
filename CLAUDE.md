@@ -55,6 +55,8 @@ The `--target` flag (or `target:` in the config file) selects which modules to r
 
 Verify a config file without starting: `--config.verify=true`. Expand env vars in config: `--config.expand-env=true`. (Both are value flags and require the `=true`; the bare form errors with `flag needs an argument`.)
 
+The `database:` section selects the central database backend (`sqlite` default or `postgres` via `database.backend`; postgres enables running login and friends on different hosts against one network central DB; both are independent clients of one DB).
+
 ## Architecture
 
 ### Service Lifecycle (dskit)
@@ -72,11 +74,12 @@ Everything in `pkg/dskit/` is a port of [Grafana's dskit](https://github.com/gra
 
 ```
 common    invisible; no deps — exists only to anchor the graph
-friends   friends server (SQLite)                         → common
-login     gRPC login service (SQLite)                     → common
-world     TCP game server (world.Server)                  → common, login, friends
-ondemand  HTTP OnDemand server (dskit server + OnDemand)  → common, world
-all       composite "run everything" target               → ondemand, friends, login, world
+database  invisible; central-DB migration anchor (pkg/gamedb)  → common
+friends   friends server                                       → common, database
+login     gRPC login service                                   → common, database
+world     TCP game server (world.Server)                        → common, login, friends
+ondemand  HTTP OnDemand server (dskit server + OnDemand)        → common, world
+all       composite "run everything" target                    → ondemand, friends, login, world
 ```
 
 Adding a new module: register it in `modules.go`, wire its dependencies, and add its config to `cmd/goscape/app/config.go`.

@@ -715,10 +715,13 @@ type PublicMessageRequest struct {
 	SessionUuid string `protobuf:"bytes,2,opt,name=session_uuid,json=sessionUuid,proto3" json:"session_uuid,omitempty"`
 	Coord       int32  `protobuf:"varint,3,opt,name=coord,proto3" json:"coord,omitempty"`
 	Chat        string `protobuf:"bytes,4,opt,name=chat,proto3" json:"chat,omitempty"`
-	// rev-244: per-message profile (multi-profile server). TS 254 drops
+	// rev-244: per-message profile (multi-profile server). TS 254+ drops
 	// profile/world from the public_chat row because session_uuid joins
-	// back to the login DB session table; goscape's federated friends DB
-	// has no session table, so the request keeps both for recoverability.
+	// back to the session table — a join the central database can do
+	// directly since the DB-2 federation was retired (spec
+	// 2026-07-05-central-db-consolidation-postgres-design.md). The server
+	// no longer consumes this field or world_id when persisting
+	// public_chat; both stay on the wire for compatibility.
 	Profile       string `protobuf:"bytes,5,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -1,8 +1,9 @@
 # Bundled example config
 
 The goscape game server is self-contained: the `login` and `friends` modules
-persist to local SQLite, and the `ondemand` (HTTP) and `world` (TCP) modules are
-plain network listeners. **No external services are required to run it.**
+persist to one local SQLite central database, and the `ondemand` (HTTP) and
+`world` (TCP) modules are plain network listeners. **No external services are
+required to run it.**
 
 ## Quick start
 
@@ -33,6 +34,5 @@ go run ./cmd/goscape --config.file examples/bundled/goscape.yaml --config.verify
 
 ## Data
 
-- `data/login.db` — login SQLite store (created on first run)
+- `data/goscape.db` — the central SQLite database (created on first run; login and friends are both clients of it)
 - `data/players/` — player save files
-- `data/friends.db` — friends SQLite store
