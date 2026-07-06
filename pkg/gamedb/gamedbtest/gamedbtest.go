@@ -56,17 +56,27 @@ func OpenTestSchema(t *testing.T, dsn, name string, logger *slog.Logger) *gamedb
 		t.Fatalf("gamedbtest.OpenTestSchema: create schema: %v", err)
 	}
 	t.Cleanup(func() {
-		// t.Context() is canceled BEFORE cleanup functions run, so the
-		// drop must use its own context or it silently no-ops and the
-		// schema leaks across runs (identically-named tests on sibling
-		// branches then collide on seed rows). Surface drop failures:
-		// a leaked schema is a real defect, not noise.
+		// Two traps meet here. (1) t.Context() is canceled BEFORE
+		// cleanup functions run, so the drop needs its own context or
+		// it silently no-ops and the schema leaks across runs
+		// (identically-named tests on sibling branches then collide on
+		// seed rows). (2) The drop must not ride the test's own pool:
+		// tests that force insert errors by closing the pool would make
+		// the drop fail and leak anyway. So: close the test pool, then
+		// drop through a dedicated short-lived connection, and surface
+		// failures — a leaked schema is a real defect, not noise.
+		db.Close()
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		if _, err := db.ExecContext(ctx, `DROP SCHEMA IF EXISTS `+schema+` CASCADE`); err != nil {
+		dropper, err := gamedb.Open(cfg, logger)
+		if err != nil {
+			t.Errorf("gamedbtest.OpenTestSchema: open dropper: %v", err)
+			return
+		}
+		defer dropper.Close()
+		if _, err := dropper.ExecContext(ctx, `DROP SCHEMA IF EXISTS `+schema+` CASCADE`); err != nil {
 			t.Errorf("gamedbtest.OpenTestSchema: drop schema %s: %v", schema, err)
 		}
-		db.Close()
 	})
 	if err := db.Migrate(t.Context()); err != nil {
 		t.Fatalf("gamedbtest.OpenTestSchema: migrate: %v", err)
