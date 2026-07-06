@@ -14,12 +14,14 @@
 package gamedbtest
 
 import (
+	"context"
 	"crypto/sha256"
 	"flag"
 	"fmt"
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zsrv/goscape/pkg/gamedb"
 )
@@ -54,7 +56,16 @@ func OpenTestSchema(t *testing.T, dsn, name string, logger *slog.Logger) *gamedb
 		t.Fatalf("gamedbtest.OpenTestSchema: create schema: %v", err)
 	}
 	t.Cleanup(func() {
-		_, _ = db.ExecContext(t.Context(), `DROP SCHEMA IF EXISTS `+schema+` CASCADE`)
+		// t.Context() is canceled BEFORE cleanup functions run, so the
+		// drop must use its own context or it silently no-ops and the
+		// schema leaks across runs (identically-named tests on sibling
+		// branches then collide on seed rows). Surface drop failures:
+		// a leaked schema is a real defect, not noise.
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if _, err := db.ExecContext(ctx, `DROP SCHEMA IF EXISTS `+schema+` CASCADE`); err != nil {
+			t.Errorf("gamedbtest.OpenTestSchema: drop schema %s: %v", schema, err)
+		}
 		db.Close()
 	})
 	if err := db.Migrate(t.Context()); err != nil {
