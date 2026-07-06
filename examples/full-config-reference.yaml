@@ -182,7 +182,7 @@ ondemand:
 # ----------------------------------------------------------------------------
 # Central database shared by the login and friends services. Both are
 # independent clients of it — with the sqlite backend they must share a
-# filesystem; postgres (Phase 2) lifts that to a network database.
+# filesystem; postgres lifts that to a network database.
 database:
   # Backend: sqlite | postgres.
   backend: sqlite
