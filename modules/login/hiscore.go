@@ -36,12 +36,8 @@ func updateHiscores(ctx context.Context, db *gamedb.DB, account *accountRow, sav
 	now := time.Now().UTC()
 	// TS LoginServer.ts:27-29 @2e3bcf43 — skip accounts whose ban is
 	// still active (banned_until >= now). Expired bans export normally.
-	// An unparseable banned_until exports normally too (TS `new
-	// Date(garbage) >= new Date()` is false for Invalid Date).
-	if account.BannedUntil.Valid {
-		if t, err := time.Parse(dbTimeFormat, account.BannedUntil.String); err == nil && !t.Before(now) {
-			return nil
-		}
+	if account.BannedUntil.Valid && !account.BannedUntil.Time.Before(now) {
+		return nil
 	}
 
 	stats, ok := saveStats(save)
@@ -63,7 +59,7 @@ func updateHiscores(ctx context.Context, db *gamedb.DB, account *accountRow, sav
 		totalLevel += objtype.GetLevelByExp(int(stats[i]))
 	}
 
-	date := now.Format(dbTimeFormat)
+	date := now
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -105,7 +101,7 @@ func updateHiscores(ctx context.Context, db *gamedb.DB, account *accountRow, sav
 // unchanged semantic in a single statement: `date` is bumped only when the
 // value actually changed. table is a trusted compile-time constant
 // ("hiscore" / "hiscore_large"), never user input.
-func upsertHiscore(ctx context.Context, db *gamedb.DB, tx *sql.Tx, table string, accountID int, profile string, typ, level int, value int64, date string) error {
+func upsertHiscore(ctx context.Context, db *gamedb.DB, tx *sql.Tx, table string, accountID int, profile string, typ, level int, value int64, date time.Time) error {
 	q := fmt.Sprintf(`INSERT INTO %s (account_id, profile, type, level, value, date)
 VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT(profile, type, account_id)

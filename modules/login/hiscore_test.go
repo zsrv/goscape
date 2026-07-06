@@ -35,14 +35,14 @@ func TestMigrationCreatesHiscoreTables(t *testing.T) {
 	}
 }
 
-func queryHiscoreRow(t *testing.T, db *gamedb.DB, table string, accountID, typ int) (level int, value int64, date string, found bool) {
+func queryHiscoreRow(t *testing.T, db *gamedb.DB, table string, accountID, typ int) (level int, value int64, date time.Time, found bool) {
 	t.Helper()
 	err := db.QueryRow(
 		`SELECT level, value, date FROM `+table+` WHERE account_id = ? AND type = ? AND profile = 'main'`,
 		accountID, typ,
 	).Scan(&level, &value, &date)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, 0, "", false
+		return 0, 0, time.Time{}, false
 	}
 	if err != nil {
 		t.Fatalf("queryHiscoreRow(%s, type=%d): %v", table, typ, err)
@@ -196,7 +196,7 @@ func TestUpdateHiscores_SkipWhenEqualPreservesDate(t *testing.T) {
 		t.Fatalf("updateHiscores #1: %v", err)
 	}
 	// Stamp a sentinel date onto the attack row.
-	const sentinel = "2000-01-01 00:00:00"
+	sentinel := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	if _, err := db.Exec(`UPDATE hiscore SET date = ? WHERE account_id = ? AND type = ?`, sentinel, id, objtype.PlayerStatAttack+1); err != nil {
 		t.Fatalf("stamp sentinel: %v", err)
 	}
@@ -206,8 +206,8 @@ func TestUpdateHiscores_SkipWhenEqualPreservesDate(t *testing.T) {
 	if err := updateHiscores(t.Context(), db, acct, makeSaveWithStats(0, xps), "main"); err != nil {
 		t.Fatalf("updateHiscores #2 (unchanged): %v", err)
 	}
-	if _, _, date, _ := queryHiscoreRow(t, db, "hiscore", id, objtype.PlayerStatAttack+1); date != sentinel {
-		t.Errorf("unchanged re-export bumped date: got %q, want sentinel %q", date, sentinel)
+	if _, _, date, _ := queryHiscoreRow(t, db, "hiscore", id, objtype.PlayerStatAttack+1); !date.UTC().Equal(sentinel) {
+		t.Errorf("unchanged re-export bumped date: got %v, want sentinel %v", date, sentinel)
 	}
 
 	// Re-export with a CHANGED attack XP → value differs → row updated.
@@ -215,7 +215,7 @@ func TestUpdateHiscores_SkipWhenEqualPreservesDate(t *testing.T) {
 	if err := updateHiscores(t.Context(), db, acct, makeSaveWithStats(0, statsForLevels(levels)), "main"); err != nil {
 		t.Fatalf("updateHiscores #3 (changed): %v", err)
 	}
-	if lvl, _, date, _ := queryHiscoreRow(t, db, "hiscore", id, objtype.PlayerStatAttack+1); lvl != 40 || date == sentinel {
-		t.Errorf("changed re-export did not update: level=%d date=%q", lvl, date)
+	if lvl, _, date, _ := queryHiscoreRow(t, db, "hiscore", id, objtype.PlayerStatAttack+1); lvl != 40 || date.UTC().Equal(sentinel) {
+		t.Errorf("changed re-export did not update: level=%d date=%v", lvl, date)
 	}
 }

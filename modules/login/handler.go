@@ -145,12 +145,8 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	}
 
 	// 5. Ban check (account-level).
-	if account.BannedUntil.Valid {
-		if t, err := time.Parse(dbTimeFormat, account.BannedUntil.String); err == nil {
-			if time.Now().Before(t) {
-				return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_ACCOUNT_DISABLED, account, nil, sessionUUID), nil
-			}
-		}
+	if account.BannedUntil.Valid && time.Now().Before(account.BannedUntil.Time) {
+		return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_ACCOUNT_DISABLED, account, nil, sessionUUID), nil
 	}
 
 	// 6. Members check.
@@ -203,13 +199,11 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		// columns from migration 000005 (login-server-7 closure). TS's
 		// `logged_out !== null` collapses into != 0 (the column is
 		// NOT NULL DEFAULT 0).
-		if hopT, err := time.Parse(dbTimeFormat, account.LogoutTime.String); err == nil {
-			if remaining := time.Until(hopT.Add(h.cfg.NodeHopTime)); remaining > 0 {
-				return &loginpb.PlayerLoginResponse{
-					Result:      loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER,
-					RemainingMs: remaining.Milliseconds(),
-				}, nil
-			}
+		if remaining := time.Until(account.LogoutTime.Time.Add(h.cfg.NodeHopTime)); remaining > 0 {
+			return &loginpb.PlayerLoginResponse{
+				Result:      loginpb.LoginResult_LOGIN_RESULT_HOP_TIMER,
+				RemainingMs: remaining.Milliseconds(),
+			}, nil
 		}
 	}
 
@@ -481,12 +475,8 @@ func buildLoginResponse(result loginpb.LoginResult, account *accountRow, save []
 	if len(save) > 0 {
 		resp.Save = save
 	}
-	if account.MutedUntil.Valid {
-		if t, err := time.Parse(dbTimeFormat, account.MutedUntil.String); err == nil {
-			if time.Now().Before(t) {
-				resp.MutedUntil = timestamppb.New(t)
-			}
-		}
+	if account.MutedUntil.Valid && time.Now().Before(account.MutedUntil.Time) {
+		resp.MutedUntil = timestamppb.New(account.MutedUntil.Time)
 	}
 	return resp
 }

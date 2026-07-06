@@ -13,6 +13,12 @@
 --     with no session row (world sends p.sessionOrHeadless()).
 --   * message_* / account_session / wealth_event — dormant landing
 --     tables, NO FKs, mirroring their prisma-generated DDL.
+--
+-- DATETIME decltype is load-bearing: modernc.org/sqlite only maps
+-- driver values to time.Time when sqlite3_column_decltype is
+-- DATE/DATETIME/TIMESTAMP; TEXT columns scan as strings (pinned by
+-- TestSQLite_TimeRoundTrip*). Principle: timestamptz in the postgres
+-- file ⇔ DATETIME here.
 
 CREATE TABLE account (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,8 +27,8 @@ CREATE TABLE account (
     registration_ip TEXT NOT NULL DEFAULT '',
     staff_mod_level INTEGER NOT NULL DEFAULT 0,
     members INTEGER NOT NULL DEFAULT 0,
-    banned_until TEXT,
-    muted_until TEXT
+    banned_until DATETIME,
+    muted_until DATETIME
 );
 
 CREATE TABLE account_login (
@@ -31,7 +37,7 @@ CREATE TABLE account_login (
     node_id     INTEGER NOT NULL DEFAULT 0,
     logged_in   INTEGER NOT NULL DEFAULT 0,
     logged_out  INTEGER NOT NULL DEFAULT 0,
-    logout_time TEXT,
+    logout_time DATETIME,
     PRIMARY KEY (account_id, profile)
 );
 
@@ -44,7 +50,7 @@ CREATE TABLE session (
     profile TEXT NOT NULL,
     world INTEGER NOT NULL DEFAULT 0,
     uid INTEGER NOT NULL DEFAULT 0,
-    login_time TEXT NOT NULL,
+    login_time DATETIME NOT NULL,
     remote_address TEXT NOT NULL DEFAULT ''
 );
 
@@ -62,7 +68,7 @@ CREATE TABLE hiscore (
     type       INTEGER NOT NULL,
     level      INTEGER NOT NULL,
     value      INTEGER NOT NULL,
-    date       TEXT    NOT NULL,
+    date       DATETIME NOT NULL,
     PRIMARY KEY (profile, type, account_id)
 );
 
@@ -72,7 +78,7 @@ CREATE TABLE hiscore_large (
     type       INTEGER NOT NULL,
     level      INTEGER NOT NULL,
     value      INTEGER NOT NULL,
-    date       TEXT    NOT NULL,
+    date       DATETIME NOT NULL,
     PRIMARY KEY (profile, type, account_id)
 );
 
@@ -80,7 +86,7 @@ CREATE TABLE login (
     uuid       TEXT    NOT NULL PRIMARY KEY,
     account_id INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
     world      INTEGER NOT NULL,
-    timestamp  TEXT    NOT NULL,
+    timestamp  DATETIME NOT NULL,
     uid        INTEGER NOT NULL DEFAULT 0,
     ip         TEXT
 );
@@ -93,12 +99,12 @@ CREATE TABLE message_thread (
     from_account_id   INTEGER NOT NULL,
     last_message_from INTEGER NOT NULL,
     subject           TEXT    NOT NULL,
-    created           TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated           TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     messages          INTEGER NOT NULL DEFAULT 1,
-    closed            TEXT,
+    closed            DATETIME,
     closed_by         INTEGER,
-    marked_spam       TEXT,
+    marked_spam       DATETIME,
     marked_spam_by    INTEGER
 );
 
@@ -108,10 +114,10 @@ CREATE TABLE message (
     sender_id  INTEGER NOT NULL,
     sender_ip  TEXT    NOT NULL,
     content    TEXT    NOT NULL,
-    created    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    edited     TEXT,
+    created    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    edited     DATETIME,
     edited_by  INTEGER,
-    deleted    TEXT,
+    deleted    DATETIME,
     deleted_by INTEGER
 );
 
@@ -119,8 +125,8 @@ CREATE TABLE message_status (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     thread_id  INTEGER NOT NULL,
     account_id INTEGER NOT NULL,
-    "read"     TEXT,
-    deleted    TEXT
+    "read"     DATETIME,
+    deleted    DATETIME
 );
 
 CREATE TABLE account_session (
@@ -129,7 +135,7 @@ CREATE TABLE account_session (
     world        INTEGER NOT NULL DEFAULT 0,
     profile      TEXT    NOT NULL DEFAULT 'main',
     session_uuid TEXT    NOT NULL,
-    timestamp    TEXT    NOT NULL,
+    timestamp    DATETIME NOT NULL,
     coord        INTEGER NOT NULL,
     event        TEXT    NOT NULL,
     event_type   INTEGER NOT NULL DEFAULT -1
@@ -137,7 +143,7 @@ CREATE TABLE account_session (
 
 CREATE TABLE wealth_event (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp         TEXT    NOT NULL,
+    timestamp         DATETIME NOT NULL,
     coord             INTEGER NOT NULL,
     world             INTEGER NOT NULL DEFAULT 0,
     profile           TEXT    NOT NULL DEFAULT 'main',
@@ -160,7 +166,7 @@ CREATE TABLE friendlist (
     profile           TEXT    NOT NULL,
     account_id        INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
     friend_account_id INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
-    created           TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (profile, account_id, friend_account_id)
 );
 
@@ -171,7 +177,7 @@ CREATE TABLE ignorelist (
     profile    TEXT    NOT NULL,
     account_id INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
     value      TEXT    NOT NULL,
-    created    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (profile, account_id, value)
 );
 
@@ -179,7 +185,7 @@ CREATE TABLE private_chat (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id    INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
     profile       TEXT    NOT NULL,
-    timestamp     TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    timestamp     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     coord         INTEGER NOT NULL,
     to_account_id INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
     message       TEXT    NOT NULL
@@ -191,7 +197,7 @@ CREATE INDEX idx_private_chat_from ON private_chat (profile, account_id, timesta
 CREATE TABLE public_chat (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     session_uuid TEXT    NOT NULL,
-    timestamp    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    timestamp    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     coord        INTEGER NOT NULL,
     message      TEXT    NOT NULL
 );

@@ -236,7 +236,7 @@ func TestPlayerLogin_AccountDisabled(t *testing.T) {
 	h, _ := newTestHandler(t)
 	insertTestAccount(t, h.db, "banneduser", "pw")
 	// Set banned_until in the future
-	until := time.Now().Add(24 * time.Hour).UTC().Format(dbTimeFormat)
+	until := time.Now().Add(24 * time.Hour).UTC()
 	_, err := h.db.ExecContext(t.Context(),
 		`UPDATE account SET banned_until = ? WHERE username = ?`,
 		until, "banneduser",
@@ -522,9 +522,8 @@ func TestPlayerBan(t *testing.T) {
 	if !acc.BannedUntil.Valid {
 		t.Fatal("BannedUntil should be set")
 	}
-	expected := until.Format(dbTimeFormat)
-	if acc.BannedUntil.String != expected {
-		t.Errorf("BannedUntil: got %q, want %q", acc.BannedUntil.String, expected)
+	if !acc.BannedUntil.Time.UTC().Equal(until) {
+		t.Errorf("BannedUntil: got %v, want %v", acc.BannedUntil.Time, until)
 	}
 }
 
@@ -549,9 +548,8 @@ func TestPlayerMute(t *testing.T) {
 	if !acc.MutedUntil.Valid {
 		t.Fatal("MutedUntil should be set")
 	}
-	expected := until.Format(dbTimeFormat)
-	if acc.MutedUntil.String != expected {
-		t.Errorf("MutedUntil: got %q, want %q", acc.MutedUntil.String, expected)
+	if !acc.MutedUntil.Time.UTC().Equal(until) {
+		t.Errorf("MutedUntil: got %v, want %v", acc.MutedUntil.Time, until)
 	}
 }
 
@@ -603,7 +601,7 @@ func TestPlayerForceLogout_DoesNotStampLogoutTime(t *testing.T) {
 		t.Fatalf("accountByUsername (pre): %v", err)
 	}
 	if pre.LogoutTime.Valid {
-		t.Fatalf("precondition: logout_time should be NULL before force-logout, got %q", pre.LogoutTime.String)
+		t.Fatalf("precondition: logout_time should be NULL before force-logout, got %v", pre.LogoutTime.Time)
 	}
 
 	if _, err := h.PlayerForceLogout(t.Context(), &loginpb.PlayerForceLogoutRequest{
@@ -617,7 +615,7 @@ func TestPlayerForceLogout_DoesNotStampLogoutTime(t *testing.T) {
 		t.Fatalf("accountByUsername (post): %v", err)
 	}
 	if post.LogoutTime.Valid {
-		t.Errorf("logout_time: got %q, want NULL — TS LoginServer.ts:477-487 force-logout does not stamp logout_time (login-server-2)", post.LogoutTime.String)
+		t.Errorf("logout_time: got %v, want NULL — TS LoginServer.ts:477-487 force-logout does not stamp logout_time (login-server-2)", post.LogoutTime.Time)
 	}
 }
 
@@ -959,7 +957,7 @@ func TestSetLoggedOutStampsLogoutTime(t *testing.T) {
 		t.Fatalf("accountByUsername: %v", err)
 	}
 	if acc.LogoutTime.Valid {
-		t.Fatalf("precondition: logout_time should be NULL before logout, got %q", acc.LogoutTime.String)
+		t.Fatalf("precondition: logout_time should be NULL before logout, got %v", acc.LogoutTime.Time)
 	}
 
 	if _, err := h.PlayerLogout(t.Context(), &loginpb.PlayerLogoutRequest{
@@ -1098,7 +1096,7 @@ func hopTimerFixture(t *testing.T, loggedOut int, logoutAge time.Duration, staff
 	if err != nil || acc == nil {
 		t.Fatalf("hopTimerFixture account lookup: %v / %v", acc, err)
 	}
-	lt := time.Now().UTC().Add(-logoutAge).Format(dbTimeFormat)
+	lt := time.Now().UTC().Add(-logoutAge)
 	if _, err := h.db.Exec(`UPDATE account_login SET logged_out = ?, logout_time = ?
 	                        WHERE account_id = ? AND profile = 'main'`, loggedOut, lt, acc.ID); err != nil {
 		t.Fatal(err)

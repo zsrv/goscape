@@ -10,8 +10,6 @@ import (
 	"github.com/zsrv/goscape/pkg/gamedb"
 )
 
-const dbTimeFormat = "2006-01-02 15:04:05"
-
 type accountRow struct {
 	ID            int
 	Username      string
@@ -21,9 +19,9 @@ type accountRow struct {
 	LoggedIn      int
 	NodeID        int
 	LoggedOut     int
-	BannedUntil   sql.NullString
-	MutedUntil    sql.NullString
-	LogoutTime    sql.NullString
+	BannedUntil   sql.NullTime
+	MutedUntil    sql.NullTime
+	LogoutTime    sql.NullTime
 	HasLoginRow   bool
 }
 
@@ -76,16 +74,16 @@ func ipBanned(ctx context.Context, db *gamedb.DB, ip string) (bool, error) {
 }
 
 func insertAccount(ctx context.Context, db *gamedb.DB, username, hashedPassword, registrationIP string) (int64, error) {
-	result, err := db.ExecContext(ctx,
-		db.Rebind(`INSERT INTO account (username, password, registration_ip) VALUES (?, ?, ?)`),
+	// INSERT ... RETURNING is the dialect-uniform id-retrieval form
+	// (SQLite >= 3.35 and Postgres both support it; LastInsertId is
+	// sqlite-only).
+	var id int64
+	err := db.QueryRowContext(ctx,
+		db.Rebind(`INSERT INTO account (username, password, registration_ip) VALUES (?, ?, ?) RETURNING id`),
 		username, hashedPassword, registrationIP,
-	)
+	).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("insertAccount: %w", err)
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("insertAccount: last insert id: %w", err)
 	}
 	return id, nil
 }
@@ -132,7 +130,7 @@ func insertSession(ctx context.Context, db *gamedb.DB, sessionUUID string, accou
 }
 
 func insertSessionTx(ctx context.Context, db *gamedb.DB, ex execer, sessionUUID string, accountID int, profile string, world, uid int, remoteAddr string) error {
-	loginTime := time.Now().UTC().Format(dbTimeFormat)
+	loginTime := time.Now().UTC()
 	_, err := ex.ExecContext(ctx,
 		db.Rebind(`INSERT INTO session (session_uuid, account_id, profile, world, uid, login_time, remote_address) VALUES (?, ?, ?, ?, ?, ?, ?)`),
 		sessionUUID, accountID, profile, world, uid, loginTime, remoteAddr,
@@ -173,7 +171,7 @@ func clearWorldSessions(ctx context.Context, db *gamedb.DB, nodeID int, profile 
 // the legacy column), eliminating the multi-profile spurious-M25-reject
 // failure mode documented by the former PORTING-EXCEPTION here.
 func setLoggedOut(ctx context.Context, db *gamedb.DB, accountID int, profile string, nodeID int) error {
-	logoutTime := time.Now().UTC().Format(dbTimeFormat)
+	logoutTime := time.Now().UTC()
 	if _, err := db.ExecContext(ctx,
 		db.Rebind(`UPDATE account_login
 		 SET logged_in = 0, logged_out = ?, logout_time = ?
@@ -215,7 +213,7 @@ func clearLoggedInFlag(ctx context.Context, db *gamedb.DB, accountID int, profil
 func setAccountBanned(ctx context.Context, db *gamedb.DB, username string, until time.Time) error {
 	_, err := db.ExecContext(ctx,
 		db.Rebind(`UPDATE account SET banned_until = ? WHERE username = ?`),
-		until.Format(dbTimeFormat), username,
+		until, username,
 	)
 	if err != nil {
 		return fmt.Errorf("setAccountBanned: %w", err)
@@ -226,7 +224,7 @@ func setAccountBanned(ctx context.Context, db *gamedb.DB, username string, until
 func setAccountMuted(ctx context.Context, db *gamedb.DB, username string, until time.Time) error {
 	_, err := db.ExecContext(ctx,
 		db.Rebind(`UPDATE account SET muted_until = ? WHERE username = ?`),
-		until.Format(dbTimeFormat), username,
+		until, username,
 	)
 	if err != nil {
 		return fmt.Errorf("setAccountMuted: %w", err)

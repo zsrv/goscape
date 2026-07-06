@@ -257,7 +257,7 @@ func TestUpsertAccountLogin_PreservesLogoutState(t *testing.T) {
 		t.Fatalf("upsertAccountLogin: %v", err)
 	}
 	var loggedIn, nodeID, loggedOut int
-	var logoutTime sql.NullString
+	var logoutTime sql.NullTime
 	if err := db.QueryRow(`SELECT logged_in, node_id, logged_out, logout_time FROM account_login
 	                       WHERE account_id = 1 AND profile = 'main'`).
 		Scan(&loggedIn, &nodeID, &loggedOut, &logoutTime); err != nil {
@@ -266,8 +266,9 @@ func TestUpsertAccountLogin_PreservesLogoutState(t *testing.T) {
 	if loggedIn != 1 || nodeID != 10 {
 		t.Errorf("upsert: logged_in=%d node_id=%d; want 1, 10", loggedIn, nodeID)
 	}
-	if loggedOut != 11 || !logoutTime.Valid || logoutTime.String != "2026-06-01 12:00:00" {
-		t.Errorf("logout state clobbered: logged_out=%d logout_time=%v; want 11, 2026-06-01 12:00:00", loggedOut, logoutTime)
+	seeded := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	if loggedOut != 11 || !logoutTime.Valid || !logoutTime.Time.UTC().Equal(seeded) {
+		t.Errorf("logout state clobbered: logged_out=%d logout_time=%v; want 11, %v", loggedOut, logoutTime, seeded)
 	}
 }
 
@@ -352,7 +353,7 @@ func TestSetLoggedOut(t *testing.T) {
 	}
 
 	var loggedIn, loggedOut int
-	var logoutTime sql.NullString
+	var logoutTime sql.NullTime
 	err = db.QueryRowContext(t.Context(),
 		`SELECT logged_in, logged_out, logout_time FROM account_login WHERE account_id = ? AND profile = ?`,
 		id, "main",
@@ -425,7 +426,7 @@ func TestSetLoggedOut_StampsPerProfile(t *testing.T) {
 		t.Fatalf("setLoggedOut: %v", err)
 	}
 	var loggedIn, loggedOut int
-	var logoutTime sql.NullString
+	var logoutTime sql.NullTime
 	if err := db.QueryRow(`SELECT logged_in, logged_out, logout_time FROM account_login
 	                       WHERE account_id = 1 AND profile = 'main'`).
 		Scan(&loggedIn, &loggedOut, &logoutTime); err != nil {
@@ -456,7 +457,7 @@ func TestSetAccountBanned(t *testing.T) {
 		t.Fatalf("setAccountBanned: %v", err)
 	}
 
-	var bannedUntil sql.NullString
+	var bannedUntil sql.NullTime
 	err = db.QueryRowContext(t.Context(),
 		`SELECT banned_until FROM account WHERE username = ?`,
 		"banneduser",
@@ -467,9 +468,8 @@ func TestSetAccountBanned(t *testing.T) {
 	if !bannedUntil.Valid {
 		t.Fatal("banned_until should be set")
 	}
-	expected := until.Format(dbTimeFormat)
-	if bannedUntil.String != expected {
-		t.Errorf("banned_until: got %q, want %q", bannedUntil.String, expected)
+	if !bannedUntil.Time.UTC().Equal(until) {
+		t.Errorf("banned_until: got %v, want %v", bannedUntil.Time, until)
 	}
 }
 
@@ -483,7 +483,7 @@ func TestSetAccountMuted(t *testing.T) {
 		t.Fatalf("setAccountMuted: %v", err)
 	}
 
-	var mutedUntil sql.NullString
+	var mutedUntil sql.NullTime
 	err = db.QueryRowContext(t.Context(),
 		`SELECT muted_until FROM account WHERE username = ?`,
 		"muteduser",
@@ -494,9 +494,8 @@ func TestSetAccountMuted(t *testing.T) {
 	if !mutedUntil.Valid {
 		t.Fatal("muted_until should be set")
 	}
-	expected := until.Format(dbTimeFormat)
-	if mutedUntil.String != expected {
-		t.Errorf("muted_until: got %q, want %q", mutedUntil.String, expected)
+	if !mutedUntil.Time.UTC().Equal(until) {
+		t.Errorf("muted_until: got %v, want %v", mutedUntil.Time, until)
 	}
 }
 

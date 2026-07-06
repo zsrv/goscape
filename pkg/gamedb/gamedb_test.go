@@ -95,15 +95,13 @@ func TestRebind_SQLiteIdentity(t *testing.T) {
 	}
 }
 
-// TestSQLite_TimeRoundTrip is Task 11's Step-1 discovery gate (see
-// docs/superpowers/sdd/task-11-brief.md). It was originally written to
-// assert a clean round trip (write time.Time, scan sql.NullTime) against a
-// TEXT column, matching the login module's current schema
-// (migrations/sqlite/000001_init.up.sql declares banned_until, muted_until,
-// account_login.logout_time, session.login_time, hiscore(_large).date all
-// as TEXT).
+// TestSQLite_TimeRoundTrip pins WHY the sqlite DDL's DATETIME decltype is
+// load-bearing (Task 11's Step-1 discovery: migrations/sqlite/
+// 000001_init.up.sql originally declared its time-bearing columns TEXT,
+// and was changed to DATETIME because of the failure pinned here).
 //
-// RESULT: it does NOT round-trip on a TEXT column, in EITHER direction.
+// Writing a time.Time param and scanning sql.NullTime does NOT round-trip
+// on a TEXT-declared column, in EITHER direction.
 // database/sql's convertAssign only accepts a src of time.Time (or nil) for
 // a *time.Time/*sql.NullTime destination — see database/sql/convert.go. The
 // modernc.org/sqlite driver only produces a time.Time driver.Value for a
@@ -124,13 +122,8 @@ func TestRebind_SQLiteIdentity(t *testing.T) {
 // behavior change. See TestSQLite_TimeRoundTrip_DeclaredTypeMatters below
 // for the confirming positive case: the identical scan succeeds when the
 // column is declared DATETIME instead of TEXT — decltype, not storage
-// class, gates the driver's time auto-parsing.
-//
-// Per the Task 11 brief, this negative result STOPS the planned sweep
-// (login module time.Time param write / sql.NullTime scan against the
-// existing TEXT schema, unmodified). See task-11-report.md for the full
-// decision record; the workaround shape (migrate columns to DATETIME vs.
-// a manual-parse scan shim) is for the controller to choose.
+// class, gates the driver's time auto-parsing. Schema principle:
+// timestamptz in migrations/postgres ⇔ DATETIME in migrations/sqlite.
 func TestSQLite_TimeRoundTrip(t *testing.T) {
 	db := openTestDB(t)
 	if _, err := db.Exec(`CREATE TABLE tt (id INTEGER PRIMARY KEY, at TEXT)`); err != nil {
@@ -164,8 +157,10 @@ func TestSQLite_TimeRoundTrip(t *testing.T) {
 // what gates modernc.org/sqlite's time auto-parsing on read (rows.go
 // Next()). Both a time.Time-written row and a legacy
 // "2006-01-02 15:04:05" text row scan correctly into sql.NullTime under a
-// DATETIME column. This is diagnostic evidence for Task 11's Step-1
-// decision record, not an endorsement of a particular fix.
+// DATETIME column. The legacy-text leg doubles as the compatibility pin
+// for rows written by Phase 1 binaries via the old
+// dbTimeFormat = "2006-01-02 15:04:05" string writes: they remain
+// readable after the login module's switch to time.Time params.
 func TestSQLite_TimeRoundTrip_DeclaredTypeMatters(t *testing.T) {
 	db := openTestDB(t)
 	if _, err := db.Exec(`CREATE TABLE tt_dt (id INTEGER PRIMARY KEY, at DATETIME)`); err != nil {
@@ -186,6 +181,32 @@ func TestSQLite_TimeRoundTrip_DeclaredTypeMatters(t *testing.T) {
 		if !got.Valid || !got.Time.UTC().Equal(want) {
 			t.Errorf("id=%d: got %v, want %v", id, got.Time, want)
 		}
+	}
+}
+
+// TestSQLite_TimestampDefaultScansAsTime is the sqlite twin of
+// TestPostgres_TimestampDefaultScansAsTime: a DATETIME column filled by
+// its DEFAULT CURRENT_TIMESTAMP (sqlite emits 'YYYY-MM-DD HH:MM:SS' UTC
+// text) must scan into sql.NullTime — i.e. modernc's decltype-gated
+// parser must handle sqlite's own default-value format, not just values
+// the driver wrote itself. Exercises the real migrated schema
+// (friendlist.created) rather than a synthetic table.
+func TestSQLite_TimestampDefaultScansAsTime(t *testing.T) {
+	db := migratedTestDB(t)
+	owner := seedAccount(t, db, "owner")
+	friend := seedAccount(t, db, "friend")
+	if _, err := db.ExecContext(t.Context(),
+		db.Rebind(`INSERT INTO friendlist (profile, account_id, friend_account_id) VALUES ('main', ?, ?)`),
+		owner, friend); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	var created sql.NullTime
+	if err := db.QueryRowContext(t.Context(),
+		db.Rebind(`SELECT created FROM friendlist WHERE account_id = ?`), owner).Scan(&created); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if !created.Valid || created.Time.IsZero() {
+		t.Errorf("created: got %+v, want valid non-zero time", created)
 	}
 }
 
