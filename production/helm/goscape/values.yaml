@@ -74,6 +74,25 @@ goscape:
     existingSecret: ""
     # -- Key within existingSecret holding the PEM.
     key: private.pem
+  # -- Central database (Management / SingleBinary modes; sets database.*)
+  database:
+    # -- Central database backend: sqlite | postgres
+    backend: sqlite
+    postgres:
+      # -- PostgreSQL host (required when backend=postgres)
+      host: ""
+      # -- PostgreSQL port
+      port: 5432
+      # -- Database name
+      database: goscape
+      # -- Database user
+      user: goscape
+      # -- Existing Secret holding the database password (required when backend=postgres)
+      existingSecret: ""
+      # -- Key in existingSecret containing the password
+      secretKey: password
+      # -- sslmode for the DSN
+      sslmode: disable
 
 # Workload knobs for SingleBinary mode
 singleBinary:

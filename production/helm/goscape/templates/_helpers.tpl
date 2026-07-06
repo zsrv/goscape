@@ -70,9 +70,15 @@ log_level: {{ $g.logLevel | quote }}
 log_format: {{ $g.logFormat | quote }}
 {{- if or (eq $mode "SingleBinary") (eq $mode "Management") }}
 database:
+{{- if eq $g.database.backend "postgres" }}
+  backend: postgres
+  postgres:
+    dsn: {{ printf "postgres://%s:${GOSCAPE_DB_PASSWORD}@%s:%d/%s?sslmode=%s" $g.database.postgres.user (required "goscape.database.postgres.host is required when backend=postgres" $g.database.postgres.host) (int $g.database.postgres.port) $g.database.postgres.database $g.database.postgres.sslmode | quote }}
+{{- else }}
   backend: sqlite
   sqlite:
     dsn: {{ printf "%s/goscape.db" $g.dataPath | quote }}
+{{- end }}
 {{- end }}
 ondemand:
   enable: {{ or (eq $mode "SingleBinary") (eq $mode "World") }}
@@ -129,6 +135,8 @@ world:
 {{- $ctx := .ctx -}}
 {{- $w := .workload -}}
 {{- $mode := $ctx.Values.deploymentMode -}}
+{{- $g := $ctx.Values.goscape -}}
+{{- $pgActive := and (eq $g.database.backend "postgres") (or (eq $mode "SingleBinary") (eq $mode "Management")) -}}
 metadata:
   annotations:
     checksum/config: {{ include "goscape.config" $ctx | sha256sum }}
@@ -156,12 +164,24 @@ spec:
       imagePullPolicy: {{ $ctx.Values.image.pullPolicy }}
       args:
         - "--config.file=/etc/goscape/config.yaml"
+        {{- if $pgActive }}
+        - "--config.expand-env=true"
+        {{- end }}
         {{- with $w.extraArgs }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- with $w.extraEnv }}
+      {{- if or $pgActive $w.extraEnv }}
       env:
+        {{- if $pgActive }}
+        - name: GOSCAPE_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ required "goscape.database.postgres.existingSecret is required when backend=postgres" $g.database.postgres.existingSecret }}
+              key: {{ $g.database.postgres.secretKey }}
+        {{- end }}
+        {{- with $w.extraEnv }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
       ports:
         {{- if or (eq $mode "SingleBinary") (eq $mode "World") }}
