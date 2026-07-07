@@ -31,7 +31,7 @@ TS meta-repo packs.
 `PORTING.md` (active backlog) + `docs/PORTING-CLOSED.md` (closed rows, parity
 tables, audit history). Accepted in-code divergences carry a
 `PORTING-EXCEPTION (<row-id>, <short>)` marker — `grep -rn "PORTING-EXCEPTION"
-modules pkg cmd internal` lists every accepted exception (10 at the time of
+modules pkg cmd` lists every accepted exception (10 at the time of
 the multi-revision conversion).
 
 ---
