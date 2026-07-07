@@ -3006,17 +3006,24 @@ operator path for stopping the server is the OS signal above.</p>
 ticks (~30 seconds) new logins are rejected so nobody is admitted only to be evicted;
 at the shutdown tick every player is logged out (with a save); any player still stuck
 after ~1024 ticks (~10 minutes) is force-removed; and once the world is empty, the
-<strong>world module</strong> exits cleanly.</p>
-<div class="admonition warning">
-<p class="admonition-title">A reboot stops the world module, not the process</p>
-<p>The world module's graceful exit does not stop anything else. In an <code>all</code>
-deployment, the OnDemand, login, and friends modules keep running and the process
-stays up — only a module <em>failure</em> stops the whole group, and a scheduled reboot
-is a clean termination, not a failure. <code>/healthz</code> eventually starts returning
-<code>503</code> as the tick signal goes stale, but nothing restarts or terminates the
-process (the Helm chart configures no liveness probe). Do not rely on <code>::reboot</code>
-or <code>::slowreboot</code> alone to bring an <code>all</code> process down for an upgrade: after the
-countdown has drained the players, send <code>SIGTERM</code> to stop the process itself.</p>
+world's run loop returns <code>modules.ErrStopProcess</code>, which tells the module manager to
+stop <strong>every</strong> module and bring the whole process down cleanly (exit status <code>0</code>, which
+<code>app.go</code> logs at info as a requested stop).</p>
+<div class="admonition note">
+<p class="admonition-title">A completed reboot exits the whole process — run under a supervisor</p>
+<p>A finished <code>::reboot</code> / <code>::slowreboot</code> stops the entire process, not just the
+world module: once the countdown has drained the players, the world signals a
+process stop and the module manager brings OnDemand, login, and friends down
+alongside it, exiting cleanly with status <code>0</code>. This matches upstream Engine-TS,
+whose <code>World.ts</code> <code>processShutdown</code> calls <code>process.exit(0)</code>. Because the process
+exits rather than lingering, run goscape under a process supervisor — a systemd
+unit with a restart policy, or a Docker / Kubernetes restart policy — so it
+relaunches (on the new binary, for an upgrade) after a reboot completes; this is
+the same operational model as upstream. A completed reboot no longer leaves the
+process half-alive, so the stale-tick <code>/healthz</code> <code>503</code> above does not arise from
+it. To stop the process <strong>without</strong> the reboot semantic — a routine restart that
+is not operator-scheduled from in-game — send <code>SIGTERM</code>; that path is also clean
+and saves every online player.</p>
 </div>
 <h3 id="upgrading-the-binary">Upgrading the binary<a class="headerlink" href="#upgrading-the-binary" title="Permanent link">&para;</a></h3>
 <p>An upgrade is, in the normal case, <strong>replace the binary and restart</strong> against the
