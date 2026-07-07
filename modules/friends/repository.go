@@ -16,10 +16,10 @@ import (
 	jstring "github.com/zsrv/goscape/pkg/util/jstring"
 )
 
-// errAccountMissing is LogPrivateMessage's sentinel for "an endpoint
-// account does not exist". Mirrors TS FriendServer.ts:270-271, where
-// executeTakeFirstOrThrow throws and the outer catch drops the PM.
-// The handler maps it to a silent drop (no delivery, success RPC).
+// errAccountMissing is ResolvePrivateMessageEndpoints' sentinel for "an
+// endpoint account does not exist". Mirrors TS FriendServer.ts:270-271,
+// where executeTakeFirstOrThrow throws and the outer catch drops the
+// PM. The handler maps it to a silent drop (no delivery, success RPC).
 var errAccountMissing = errors.New("account missing")
 
 // friendListLimit / membersFriendListLimit cap the friend list per
@@ -731,39 +731,28 @@ func (r *Repository) ignoreValuesAmong(ctx context.Context, owner uint64, candid
 	return found, nil
 }
 
-// LogPrivateMessage persists a PM keyed by resolved account ids
-// (TS FriendServer.ts:266-284: resolve from + to via
-// executeTakeFirstOrThrow, insert {account_id, profile, to_account_id,
-// timestamp, coord, message}). Either endpoint missing →
+// ResolvePrivateMessageEndpoints resolves both PM endpoints to account
+// ids — the resolve step of TS FriendServer.ts:266-284
+// (executeTakeFirstOrThrow on from and to). Either endpoint missing →
 // errAccountMissing: the handler drops the PM silently, matching the
-// TS throw-and-catch. timestamp uses the column DEFAULT (equivalent to
-// TS's explicit toDbDate(Date.now())).
-func (r *Repository) LogPrivateMessage(ctx context.Context, from, to uint64, coord int32, message string) error {
+// TS throw-and-catch. The TS insert into private_chat is retired —
+// chat is Kafka-only (documented divergence, spec
+// docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md); the
+// caller emits a PrivateChatEvent with the resolved ids instead.
+func (r *Repository) ResolvePrivateMessageEndpoints(ctx context.Context, from, to uint64) (int64, int64, error) {
 	fromID, ok, err := r.accountID(ctx, from)
 	if err != nil {
-		return fmt.Errorf("LogPrivateMessage: %w", err)
+		return 0, 0, fmt.Errorf("ResolvePrivateMessageEndpoints: %w", err)
 	}
 	if !ok {
-		return fmt.Errorf("LogPrivateMessage from %d: %w", from, errAccountMissing)
+		return 0, 0, fmt.Errorf("ResolvePrivateMessageEndpoints from %d: %w", from, errAccountMissing)
 	}
 	toID, ok, err := r.accountID(ctx, to)
 	if err != nil {
-		return fmt.Errorf("LogPrivateMessage: %w", err)
+		return 0, 0, fmt.Errorf("ResolvePrivateMessageEndpoints: %w", err)
 	}
 	if !ok {
-		return fmt.Errorf("LogPrivateMessage to %d: %w", to, errAccountMissing)
+		return 0, 0, fmt.Errorf("ResolvePrivateMessageEndpoints to %d: %w", to, errAccountMissing)
 	}
-	if _, err := r.db.ExecContext(ctx,
-		r.db.Rebind(`INSERT INTO private_chat (account_id, profile, coord, to_account_id, message)
-		 VALUES (?, ?, ?, ?, ?)`),
-		fromID, r.profile, coord, toID, message,
-	); err != nil {
-		if gamedb.IsForeignKeyViolation(err) {
-			// Endpoint deleted between resolve and insert — same
-			// outcome as the TS missing-account throw: drop.
-			return fmt.Errorf("LogPrivateMessage: %w", errAccountMissing)
-		}
-		return fmt.Errorf("LogPrivateMessage: %w", err)
-	}
-	return nil
+	return fromID, toID, nil
 }

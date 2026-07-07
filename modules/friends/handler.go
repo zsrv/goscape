@@ -5,11 +5,15 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/friendspb"
+	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
 // handler implements friendspb.FriendsServiceServer.
@@ -189,27 +193,43 @@ func (h *handler) IgnorelistDel(ctx context.Context, req *friendspb.IgnorelistDe
 	return &emptypb.Empty{}, nil
 }
 
-// PrivateMessage persists the PM to private_chat (account-id-keyed)
+// PrivateMessage resolves both endpoint accounts, emits the PM's
+// PrivateChatEvent (chat is Kafka-only — documented TS divergence,
+// spec docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md;
+// TS FriendServer.ts:266-284 inserts a private_chat row here instead),
 // and routes a PrivateMessageDelivery to the target's open stream.
-// Mirrors TS FriendServer.ts:266-284: both endpoint accounts are
-// resolved against the central database first; if either is missing
-// the PM is dropped silently — no insert, no delivery, successful
-// result (TS throws inside the message handler and the outer catch
-// swallows it). Other insert failures keep the codes.Internal posture.
+// Either endpoint missing → the PM is dropped silently — no event, no
+// delivery, successful result (TS throws inside the message handler
+// and the outer catch swallows it). Other resolve failures keep the
+// codes.Internal posture.
 //
-// req.Coord is server-side-persisted (and otherwise unused for
-// routing). req.WorldId is unused for routing because the registry is
-// keyed solely by (profile, username37); cross-world routing therefore
-// falls out for free.
+// req.Coord rides the event (otherwise unused for routing). req.WorldId
+// is unused for routing because the registry is keyed solely by
+// (profile, username37); cross-world routing therefore falls out for free.
 func (h *handler) PrivateMessage(ctx context.Context, req *friendspb.PrivateMessageRequest) (*emptypb.Empty, error) {
 	repo := h.repo()
 	h.ensureWorld(req.WorldId)
-	if err := repo.LogPrivateMessage(ctx, req.Username37, req.TargetUsername37, req.Coord, req.Chat); err != nil {
+	fromID, toID, err := repo.ResolvePrivateMessageEndpoints(ctx, req.Username37, req.TargetUsername37)
+	if err != nil {
 		if errors.Is(err, errAccountMissing) {
 			return &emptypb.Empty{}, nil
 		}
-		return nil, status.Errorf(codes.Internal, "LogPrivateMessage: %v", err)
+		return nil, status.Errorf(codes.Internal, "ResolvePrivateMessageEndpoints: %v", err)
 	}
+	telemetry.Get().EmitPlayerInput(&eventspb.PlayerInputEnvelope{
+		SchemaVersion: 1,
+		EventId:       uuid.NewString(),
+		Ts:            timestamppb.Now(),
+		AccountId:     fromID,
+		WorldId:       req.WorldId,
+		Payload: &eventspb.PlayerInputEnvelope_PrivateChat{
+			PrivateChat: &eventspb.PrivateChatEvent{
+				RecipientAccountId: toID,
+				Text:               req.Chat,
+				Coord:              req.Coord,
+			},
+		},
+	})
 	h.subs.send(h.profile(), req.TargetUsername37, &friendspb.FriendsUpdate{
 		Update: &friendspb.FriendsUpdate_PrivateMessage{
 			PrivateMessage: &friendspb.PrivateMessageDelivery{

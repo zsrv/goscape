@@ -53,7 +53,14 @@ message KeystrokeEvent {
   uint32 modifiers = 2;
 }
 
+// PrivateChatEvent is the only record of a PM — chat is Kafka-only
+// (documented TS divergence: TS persists a private_chat DB row instead;
+// spec docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md).
+// Envelope account_id = resolved sender account id.
 message PrivateChatEvent {
   int64 recipient_account_id = 1;
   string text = 2;
+  // coordgrid packed coord of the sender at send time (wire field
+  // PrivateMessageRequest.coord; TS persisted it in the private_chat row).
+  int32 coord = 3;
 }
