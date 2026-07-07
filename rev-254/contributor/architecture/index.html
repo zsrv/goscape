@@ -2071,6 +2071,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -2086,6 +2103,98 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#service-lifecycle-dskit" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Service lifecycle (dskit)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-system-and-the-registration-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Module system and the registration pattern
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Module system and the registration pattern">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-module-file-convention" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Per-module file convention
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#packet-buffer-conventions-pkgiopacket" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Packet buffer conventions (<code>pkg/io/packet</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connection-lifecycle-and-isaac-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Connection lifecycle and ISAAC placement
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#signal-handling-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Signal-handling ownership
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2331,6 +2440,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2342,6 +2456,86 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#service-lifecycle-dskit" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Service lifecycle (dskit)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-system-and-the-registration-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Module system and the registration pattern
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Module system and the registration pattern">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-module-file-convention" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Per-module file convention
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#packet-buffer-conventions-pkgiopacket" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Packet buffer conventions (<code>pkg/io/packet</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connection-lifecycle-and-isaac-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Connection lifecycle and ISAAC placement
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#signal-handling-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Signal-handling ownership
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2357,10 +2551,143 @@
                   
 
 <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
-</div>
+<p>This page is for someone about to <strong>modify engine code</strong>. It goes a level deeper
+than the operator-facing tour in the <a href="../../admin/">Administrator's Guide</a>,
+which already covers the module set, the <code>--target</code> flag, the dependency graph,
+network surfaces, and data layout — read that first for the runtime picture; this
+page does not repeat it. Everything below describes the <code>rev-274</code> layout; the
+same patterns hold across revision branches even where individual packages
+differ.</p>
+<h2 id="service-lifecycle-dskit">Service lifecycle (dskit)<a class="headerlink" href="#service-lifecycle-dskit" title="Permanent link">&para;</a></h2>
+<p>Every long-running component is a <strong>service</strong>, using a port of
+<a href="https://github.com/grafana/dskit">Grafana's dskit</a> under <code>pkg/dskit/</code>. Services
+follow a strict state machine:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>New → Starting → Running → Stopping → Terminated
+</span></code></pre></div>
+<p>A failure in any of <code>Starting</code>, <code>Running</code>, or <code>Stopping</code> sends the service to a
+terminal <code>Failed</code> state instead of <code>Terminated</code>. The key types live in
+<code>pkg/dskit/services/</code>:</p>
+<ul>
+<li><strong><code>services.Service</code></strong> — the interface every component implements.</li>
+<li><strong><code>services.BasicService</code></strong> — the standard concrete implementation, built with
+  <code>NewBasicService(startingFn, runningFn, stoppingFn)</code>. Each module's
+  <code>NewXxxService(...)</code> factory wraps its server in one of these: the <code>startingFn</code>
+  binds listeners and dependencies, the <code>runningFn</code> blocks until shutdown, and
+  the <code>stoppingFn</code> tears down. (<code>NewIdleService</code> is the degenerate form with no
+  running phase.)</li>
+<li><strong><code>services.Manager</code></strong> — starts and stops a group of services and reports group
+  state transitions to registered listeners. A listener implements
+  <code>ManagerListener</code> (constructible via <code>NewManagerListener(healthy, stopped,
+  failure)</code>), whose <code>failure</code> callback fires when any managed service fails.</li>
+<li><strong><code>services.FailureWatcher</code></strong> — the failure-surfacing helper. <code>WatchManager</code>
+  (or <code>WatchService</code>) registers a listener whose failure callback pushes a
+  descriptive error onto a channel exposed by <code>Chan()</code>; the App root selects on
+  that channel so that <strong>one service failure brings the whole process down</strong>
+  rather than leaving a half-running server. This is the mechanism behind the
+  "one failure stops everything" behaviour described in the admin guide.</li>
+</ul>
+<h2 id="module-system-and-the-registration-pattern">Module system and the registration pattern<a class="headerlink" href="#module-system-and-the-registration-pattern" title="Permanent link">&para;</a></h2>
+<p>The named modules (<code>ondemand</code>, <code>world</code>, <code>login</code>, <code>friends</code>, plus the invisible
+<code>common</code> and <code>database</code>) are wired by <code>pkg/dskit/modules.Manager</code>, which resolves
+the dependency graph and initialises modules in topological order. The wiring
+lives in <code>cmd/goscape/app/modules.go</code>:</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nx">mm</span><span class="p">.</span><span class="nx">RegisterModule</span><span class="p">(</span><span class="nx">Common</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">modules</span><span class="p">.</span><span class="nx">UserInvisibleModule</span><span class="p">)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nx">mm</span><span class="p">.</span><span class="nx">RegisterModule</span><span class="p">(</span><span class="nx">OnDemand</span><span class="p">,</span><span class="w"> </span><span class="nx">g</span><span class="p">.</span><span class="nx">initOnDemand</span><span class="p">)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nx">mm</span><span class="p">.</span><span class="nx">RegisterModule</span><span class="p">(</span><span class="nx">Database</span><span class="p">,</span><span class="w"> </span><span class="nx">g</span><span class="p">.</span><span class="nx">initDatabase</span><span class="p">,</span><span class="w"> </span><span class="nx">modules</span><span class="p">.</span><span class="nx">UserInvisibleModule</span><span class="p">)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1">// …</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nx">mm</span><span class="p">.</span><span class="nx">AddDependency</span><span class="p">(</span><span class="nx">World</span><span class="p">,</span><span class="w"> </span><span class="nx">Common</span><span class="p">,</span><span class="w"> </span><span class="nx">Login</span><span class="p">,</span><span class="w"> </span><span class="nx">Friends</span><span class="p">)</span><span class="w">   </span><span class="c1">// World needs these first</span>
+</span></code></pre></div>
+<p>Each <code>RegisterModule</code> binds a module name to an <code>init</code> function returning a
+<code>services.Service</code> (or <code>nil</code> for a pure graph anchor / a disabled module).
+<code>UserInvisibleModule</code> marks the internal <code>common</code> and <code>database</code> modules so they
+cannot be chosen directly as a <code>--target</code>. <code>AddDependency</code> declares the edges; a
+module's init function can rely on every dependency having been initialised
+before it runs (for example, <code>initOnDemand</code> reads the already-built
+<code>g.world.Server</code> because <code>OnDemand</code> depends on <code>World</code>).</p>
+<p>A disabled module returns <code>nil</code> rather than an idle placeholder service — an
+idle stand-in would falsely report <code>Running</code> and vacuously satisfy a dependent's
+readiness wait.</p>
+<h3 id="per-module-file-convention">Per-module file convention<a class="headerlink" href="#per-module-file-convention" title="Permanent link">&para;</a></h3>
+<p>Each feature module under <code>modules/&lt;name&gt;/</code> follows the same three-file shape:</p>
+<ul>
+<li><strong><code>config.go</code></strong> — a <code>Config</code> struct with <code>RegisterFlagsAndApplyDefaults(f
+  *flag.FlagSet)</code> (defaults + flag registration) and <code>Validate()</code> (fail-fast
+  config checks).</li>
+<li><strong><code>&lt;name&gt;.go</code></strong> — the top-level struct, its <code>New(cfg, logger, …)</code> constructor,
+  and the <code>NewXxxService(...)</code> factory that wraps the server in a
+  <code>services.BasicService</code>. For example <code>modules/world/world.go</code> defines
+  <code>world.New(...)</code> and <code>world.NewWorldService(...)</code>.</li>
+<li><strong><code>server.go</code></strong> — the network listener itself (a raw TCP accept loop for
+  <code>world</code>; the OnDemand handlers are registered on a <code>pkg/dskit/server</code> HTTP
+  mux). Some modules split additional concerns into further files
+  (<code>handler.go</code>, <code>health.go</code>, and so on) but the config/top-level/server split
+  is the backbone.</li>
+</ul>
+<p>Adding a module means registering it in <code>modules.go</code>, wiring its dependencies,
+and adding its <code>Config</code> to the app config struct.</p>
+<h2 id="packet-buffer-conventions-pkgiopacket">Packet buffer conventions (<code>pkg/io/packet</code>)<a class="headerlink" href="#packet-buffer-conventions-pkgiopacket" title="Permanent link">&para;</a></h2>
+<p>The RS2 wire format is read and written through <code>packet.Packet</code>, which wraps a
+<code>bytes.Buffer</code> with RS2-specific accessors. The naming is terse and consistent,
+and learning it makes the protocol code readable at a glance:</p>
+<ul>
+<li><strong><code>G</code> = get (read), <code>P</code> = put (write).</strong> The digit is the width in bytes:
+  <code>G1</code>/<code>P1</code> read/write one unsigned byte, <code>G2</code>/<code>P2</code> two, <code>G4</code>/<code>P4</code> four,
+  <code>G8</code>/<code>P8</code> eight. So <code>G4</code> gets four unsigned bytes as a <code>uint32</code> and <code>P1(v)</code>
+  puts one unsigned byte.</li>
+<li><strong>Suffixed variants</strong> cover the format's special encodings: <code>GSmart</code>/<code>PSmart</code>
+  (1-or-2-byte "smart" ints), <code>GVarInt</code>/<code>PVarInt</code>, <code>GBool</code>/<code>PBool</code>, and the
+  ordering/transform variants in <code>alt.go</code> (<code>P1Alt1</code>, <code>P4Alt2</code>, …) that mirror
+  the client's obfuscated byte orders.</li>
+<li><strong>Strings</strong> carry their terminator in the name: <code>GJStr</code>/<code>PJStr</code> (JagString),
+  <code>GJStrLF</code>/<code>PJStrLF</code> (newline-terminated), and <code>GJStrNUL</code>/<code>PJStrNUL</code>
+  (null-terminated). <code>GJStrLF</code> reads a newline-terminated JagString.</li>
+<li><strong><code>RSAEnc</code> / <code>RSADec</code></strong> encrypt/decrypt the buffer's contents with the login
+  RSA key; <code>GData</code>/<code>PData</code> move raw byte runs.</li>
+<li><strong>Bit-level I/O happens on the same <code>Packet</code></strong>, not on a separate type. The
+  struct carries a bit cursor (<code>BitPos</code>) alongside the byte cursor (<code>Pos</code>);
+  calling <code>AccessBits()</code> switches the stream position to bit access, after
+  which <code>GBit(n)</code> / <code>PBit(n, value)</code> read/write <em>n</em> bits at a time, and
+  <code>AccessBytes()</code> rounds the bit cursor back up to a byte boundary before any
+  byte accessor is used again. This mode switch is how the protocol packs
+  sub-byte fields — the player-info/NPC-info bitmasks in movement and
+  appearance updates are built this way.</li>
+</ul>
+<p>Because these accessors are the byte boundary, they are pinned by tests and must
+stay byte-faithful — see the <a href="../porting-lessons/">Porting lessons</a> on
+byte-parity. The <a href="../../protocol/">Protocol</a> guide documents the wire
+formats these methods implement.</p>
+<h2 id="connection-lifecycle-and-isaac-placement">Connection lifecycle and ISAAC placement<a class="headerlink" href="#connection-lifecycle-and-isaac-placement" title="Permanent link">&para;</a></h2>
+<p>The <code>world</code> module is a raw TCP server: <code>server.go</code> runs <code>net.Listen</code>, an
+<code>Accept</code> loop, and a goroutine per connection. Each connection is driven by a
+<code>client</code> state machine (<code>modules/world/client.go</code>) that starts at
+<code>ClientStateLogin</code> (<code>0</code>) and advances to <code>ClientStateGame</code> (<code>1</code>) once login
+completes (<code>ClientStateOndemand</code> and <code>ClientStateClosed</code> are the other states).</p>
+<p><strong>ISAAC ciphers are armed during the login handshake, not before it.</strong> The login
+request carries the client's ISAAC seed array inside the RSA-encrypted block. In
+<code>server_login.go</code>, after the RSA block is decrypted, the server seeds its
+<strong>decryptor</strong> stream directly from that seed array, then adds <code>50</code> to each seed
+element and seeds the <strong>encryptor</strong> stream from the adjusted array — matching the
+client, which does the mirror-image thing. From that point on every game packet
+is ISAAC-enciphered: <code>player.go</code>'s write path enciphers the opcode before the
+payload, and its read path deciphers the opcode before dispatch. Only after this
+handshake does the connection move to <code>ClientStateGame</code>. The step-by-step wire
+view is in the <a href="../../protocol/login/">login handshake</a> and
+<a href="../../protocol/isaac/">ISAAC</a> protocol pages.</p>
+<h2 id="signal-handling-ownership">Signal-handling ownership<a class="headerlink" href="#signal-handling-ownership" title="Permanent link">&para;</a></h2>
+<p>There is exactly <strong>one real OS signal handler in the process, and the App root
+owns it.</strong> At startup the App installs <code>signals.NewHandler(...)</code>
+(<code>pkg/dskit/signals</code>); when it receives a stop signal it calls <code>StopAsync()</code> on
+the services <code>Manager</code>, which cascades shutdown through every service's
+<code>Stopping</code> state in dependency order.</p>
+<p>The catch is that <code>pkg/dskit/server</code> (the HTTP server the OnDemand module uses)
+would install its <em>own</em> signal handler by default, and so would an embedded
+world server. To keep ownership at the root, the App calls
+<code>DisableSignalHandling</code> on those configs before constructing them —
+<code>server.DisableSignalHandling(&amp;g.cfg.OnDemand.Server)</code> and
+<code>world.DisableSignalHandling(&amp;g.cfg.World)</code> in <code>modules.go</code> — which swaps the
+module's handler for a no-op channel. If you add a module that embeds a
+signal-capable server, disable its handler the same way: the App root is the
+single owner of process shutdown.</p>
 
 
 

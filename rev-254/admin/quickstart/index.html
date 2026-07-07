@@ -536,6 +536,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Quick start
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -551,6 +568,92 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#before-you-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Before you start
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#start-the-bundled-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Start the bundled server
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-bundled-preset-starts" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What the bundled preset starts
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-a-config-before-booting" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Verify a config before booting
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connecting-a-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Connecting a client
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stopping-the-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Stopping the server
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2331,6 +2434,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2342,6 +2450,80 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#before-you-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Before you start
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#start-the-bundled-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Start the bundled server
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-bundled-preset-starts" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What the bundled preset starts
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-a-config-before-booting" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Verify a config before booting
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connecting-a-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Connecting a client
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stopping-the-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Stopping the server
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2357,10 +2539,128 @@
                   
 
 <h1 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
+<p>This page gets a single-process goscape server running on your own machine in a
+few minutes, using the bundled example configuration. If you have not yet read
+what the server is and how its parts fit together, start with the
+<a href="../">Administrator's Guide overview</a>; for production layouts see
+<a href="../deployment/">Deployment scenarios</a>, and for how configuration itself works see
+<a href="../configuration/">Configuration</a>.</p>
+<h2 id="before-you-start">Before you start<a class="headerlink" href="#before-you-start" title="Permanent link">&para;</a></h2>
+<p>You need three things:</p>
+<ul>
+<li><strong>Go 1.26 or newer.</strong> goscape is compiled from source with the Go toolchain.
+  The minimum version is the one named in the project's <code>go.mod</code> (<code>go 1.26</code>); an
+  older toolchain refuses to build the module.</li>
+<li><strong>A packed game cache.</strong> The <code>ondemand</code> module serves the game cache to
+  connecting clients, and the <code>world</code> module reads map data from it. Both read
+  it from <code>./data/pack</code> by default. Produce it with the cache-packing tooling
+  (<code>make pack</code>) before players connect — the <a href="../operations/">Operations runbook</a>
+  covers packing in detail.</li>
+<li><strong>(Optional) <code>grpcurl</code>.</strong> The login smoke-test script below uses it to trigger
+  a single login without a game client.</li>
+</ul>
+<h2 id="start-the-bundled-server">Start the bundled server<a class="headerlink" href="#start-the-bundled-server" title="Permanent link">&para;</a></h2>
+<p>The repository ships a minimal "run everything" preset at
+<code>examples/bundled/goscape.yaml</code>. From the repository root, run:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">CGO_ENABLED</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>go<span class="w"> </span>run<span class="w"> </span>-trimpath<span class="w"> </span>./cmd/goscape<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--config.file<span class="w"> </span>examples/bundled/goscape.yaml
+</span></code></pre></div>
+<p>A few notes on that command:</p>
+<ul>
+<li><code>--config.file</code> names the configuration file to load. <strong>There is no default
+  config path — this flag is always required.</strong></li>
+<li><code>CGO_ENABLED=0</code> produces a pure-Go build with no C dependencies, and
+  <code>-trimpath</code> removes local filesystem paths from the binary. Both are optional
+  for a quick local run but match how release binaries are built.</li>
+</ul>
+<p>The bundled preset is self-contained: the <code>login</code> and <code>friends</code> modules persist
+to a local SQLite database file, so <strong>no external services (no separate database
+server) are required</strong> to run it.</p>
+<h2 id="what-the-bundled-preset-starts">What the bundled preset starts<a class="headerlink" href="#what-the-bundled-preset-starts" title="Permanent link">&para;</a></h2>
+<p>The bundled file sets <code>target: all</code>, so a single process runs every module.
+It opens the following network listeners:</p>
+<table>
+<thead>
+<tr>
+<th>Port</th>
+<th>Module</th>
+<th>Protocol</th>
+<th>What it is for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>8080</td>
+<td><code>ondemand</code></td>
+<td>HTTP</td>
+<td>Serves the game cache to connecting clients.</td>
+</tr>
+<tr>
+<td>43594</td>
+<td><code>world</code></td>
+<td>TCP</td>
+<td>Carries live gameplay; this is the port a game client connects to.</td>
+</tr>
+<tr>
+<td>2004</td>
+<td><code>login</code></td>
+<td>gRPC</td>
+<td>Authenticates players; consumed by the <code>world</code> module.</td>
+</tr>
+<tr>
+<td>2005</td>
+<td><code>friends</code></td>
+<td>gRPC</td>
+<td>Friends list and private messaging; consumed by the <code>world</code> module.</td>
+</tr>
+</tbody>
+</table>
+<p>Only the OnDemand port (8080) and the login port (2004) are set explicitly in the
+bundled file; the world port (43594, the classic RuneScape game port) and the
+friends port (2005) come from built-in defaults because the bundled file does not
+override them. Every port and bind address is configurable — see
+<a href="../configuration/">Configuration</a> and the <a href="../config-reference/">Config reference</a>.</p>
+<p>On first run the server creates its state under a local <code>data</code> directory:
+<code>data/goscape.db</code> (the SQLite database) and <code>data/players/</code> (player save files).
+The overview page describes the <a href="../#data-layout">data layout</a> in full.</p>
+<h2 id="verify-a-config-before-booting">Verify a config before booting<a class="headerlink" href="#verify-a-config-before-booting" title="Permanent link">&para;</a></h2>
+<p>You can validate a configuration file — check that every key is understood and
+every value is legal — without starting the server:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>go<span class="w"> </span>run<span class="w"> </span>./cmd/goscape<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--config.file<span class="w"> </span>examples/bundled/goscape.yaml<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--config.verify<span class="o">=</span><span class="nb">true</span>
+</span></code></pre></div>
+<p>The process loads and validates the config, prints any problems, and exits: <code>0</code>
+if the config is valid, non-zero if it is not. Nothing binds a port.</p>
+<div class="admonition warning">
+<p class="admonition-title"><code>--config.verify</code> is a value flag: the <code>=true</code> is required</p>
+<p>Write <code>--config.verify=true</code>, not a bare <code>--config.verify</code>. The bare form is
+rejected before the server starts with:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>flag needs an argument: -config.verify
+</span></code></pre></div>
+<p>The same rule applies to <code>--config.expand-env=true</code>. See
+<a href="../configuration/#meta-flags-are-value-flags">Configuration</a> for the full set
+of meta-flags.</p>
 </div>
+<h2 id="connecting-a-client">Connecting a client<a class="headerlink" href="#connecting-a-client" title="Permanent link">&para;</a></h2>
+<p>The Java game client reaches a running server through two of the
+listeners above: it fetches the game cache and the world bootstrap from the
+OnDemand HTTP server (port 8080), then connects to the world's TCP port (43594)
+for gameplay. Point the client's host at the machine running goscape. With the
+bundled preset every listener binds to <code>127.0.0.1</code>, so the client must run on the
+same machine; change the listen addresses (see the
+<a href="../config-reference/">Config reference</a>) to accept connections from elsewhere.</p>
+<p>To confirm the login service is answering without a full client, run the bundled
+smoke-test script, which sends one login request through <code>grpcurl</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>bash<span class="w"> </span>examples/bundled/scripts/fake-login.sh
+</span></code></pre></div>
+<p>It targets <code>localhost:2004</code> (the login gRPC port) by default and, with the
+bundled <code>auto_register: true</code> setting, creates the demo account on first use.</p>
+<h2 id="stopping-the-server">Stopping the server<a class="headerlink" href="#stopping-the-server" title="Permanent link">&para;</a></h2>
+<p>Press <code>Ctrl-C</code> (or send <code>SIGTERM</code>). A single signal handler at the top of the
+process asks every module to shut down in dependency order; there is no partial,
+half-running state left behind. The <a href="../#service-lifecycle">service lifecycle</a>
+section of the overview explains what happens during shutdown.</p>
 
 
 

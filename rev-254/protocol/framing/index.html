@@ -2232,6 +2232,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Packet framing
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -2247,6 +2264,93 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-operation-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The <code>Operation</code> model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#partial-reads-checkpacketlength" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Partial reads: <code>CheckPacketLength</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Partial reads: CheckPacketLength">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#framing-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Framing errors
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#byte-order-and-accessor-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Byte-order and accessor conventions
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Byte-order and accessor conventions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Strings
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2331,6 +2435,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2342,6 +2451,81 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-operation-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The <code>Operation</code> model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#partial-reads-checkpacketlength" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Partial reads: <code>CheckPacketLength</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Partial reads: CheckPacketLength">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#framing-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Framing errors
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#byte-order-and-accessor-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Byte-order and accessor conventions
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Byte-order and accessor conventions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Strings
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2357,9 +2541,218 @@
                   
 
 <h1 id="packet-framing">Packet framing<a class="headerlink" href="#packet-framing" title="Permanent link">&para;</a></h1>
+<p>This page describes how a goscape packet is delimited on the wire: the opcode +
+size model, how a reader knows when a whole packet has arrived, and the
+byte-order / string conventions the accessors use. It documents wire revision
+254 as implemented in <code>pkg/io/protocol</code> and <code>pkg/io/packet</code>.</p>
+<p>The server-side accessor naming (<code>G</code> = get/read, <code>P</code> = put/write, the digit is
+the byte width, bit-level access via <code>AccessBits</code>/<code>AccessBytes</code>) is covered in
+the <a href="../../contributor/architecture/#packet-buffer-conventions-pkgiopacket">contributor architecture guide</a>
+— this page only states the wire-level facts those methods produce.</p>
+<h2 id="the-operation-model">The <code>Operation</code> model<a class="headerlink" href="#the-operation-model" title="Permanent link">&para;</a></h2>
+<p>Every packet type is described by an <code>Operation</code>
+(<code>pkg/io/protocol/protocol.go</code>):</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">Operation</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nx">Name</span><span class="w">        </span><span class="kt">string</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nx">PayloadSize</span><span class="w"> </span><span class="kt">int</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nx">Opcode</span><span class="w">      </span><span class="kt">uint8</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li><strong><code>Opcode</code></strong> — the single unsigned byte that identifies the packet. For game
+  packets this byte is ISAAC-enciphered (see <a href="../isaac/">ISAAC</a>); during the
+  login handshake it is plaintext.</li>
+<li><strong><code>PayloadSize</code></strong> — the shape of the payload that follows the opcode:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th><code>PayloadSize</code></th>
+<th>Meaning</th>
+<th>On the wire after the opcode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>≥ 0</code></td>
+<td>Fixed-length payload of exactly that many bytes</td>
+<td><em>N</em> payload bytes</td>
+</tr>
+<tr>
+<td><code>-1</code></td>
+<td>Dynamic, <strong>1-byte</strong> length prefix</td>
+<td>1 length byte, then that many payload bytes</td>
+</tr>
+<tr>
+<td><code>-2</code></td>
+<td>Dynamic, <strong>2-byte</strong> length prefix (big-endian)</td>
+<td>2 length bytes, then that many payload bytes</td>
+</tr>
+</tbody>
+</table>
+<p>So a <code>-1</code> packet frames as <code>[opcode][len:1][payload…]</code> and a <code>-2</code> packet as
+<code>[opcode][len:2 BE][payload…]</code>. A fixed packet is just <code>[opcode][payload…]</code> with
+the length known from the <code>Operation</code>.</p>
+<p>The write side mirrors this exactly: when a game frame is emitted, the opcode is
+written first, then for <code>PayloadSize == -1</code> a single length byte, for
+<code>PayloadSize == -2</code> a two-byte big-endian length, then the payload
+(<code>modules/world/player.go</code>, <code>writeOut</code>).</p>
+<h2 id="partial-reads-checkpacketlength">Partial reads: <code>CheckPacketLength</code><a class="headerlink" href="#partial-reads-checkpacketlength" title="Permanent link">&para;</a></h2>
+<p>TCP delivers a byte stream, not framed messages, so a reader may hold only part
+of a packet. <code>CheckPacketLength(p, o)</code> (<code>protocol.go</code>) reports whether the
+buffer <code>p</code> already holds a complete packet for operation <code>o</code>, returning
+<code>(size, complete)</code>:</p>
+<ol>
+<li><strong>Header not yet buffered.</strong> For a <code>-2</code> packet with fewer than 3 bytes
+   buffered (opcode + 2 length bytes), or a <code>-1</code> packet with fewer than 2 bytes
+   (opcode + 1 length byte), it returns <code>(p.Len(), false)</code> — the declared size
+   cannot be computed until the length-prefix bytes themselves arrive, so the
+   first value is "bytes available", not "bytes needed".</li>
+<li><strong>Size known but payload incomplete.</strong> Once the length prefix is readable
+   (or the size is static), it computes <code>packetSize = headerSize + payloadSize</code>
+   and returns <code>(packetSize, false)</code> if fewer than <code>packetSize</code> bytes are
+   buffered.</li>
+<li><strong>Complete.</strong> When at least <code>packetSize</code> bytes are buffered it returns
+   <code>(packetSize, true)</code>.</li>
+</ol>
+<div class="admonition warning">
+<p class="admonition-title">The int is only meaningful when the bool is true</p>
+<p>The first return value does <strong>not</strong> carry one uniform meaning across the
+<code>false</code> paths (available-bytes on the "no header yet" path, needed-bytes
+otherwise). Callers branch on the bool; only when it is <code>true</code> is the int
+guaranteed to equal the packet's full header+payload size. This is spelled
+out in the function's own doc comment.</p>
+</div>
+<p>The length prefix is read big-endian: for <code>-2</code>, <code>payloadSize =
+tl[1]&lt;&lt;8 | tl[2]</code> (skipping the opcode at <code>tl[0]</code>); for <code>-1</code>, <code>payloadSize =
+tl[1]</code>.</p>
+<h3 id="framing-errors">Framing errors<a class="headerlink" href="#framing-errors" title="Permanent link">&para;</a></h3>
+<p><code>protocol.go</code> defines four sentinel errors. <code>CheckPacketLength</code> itself never
+returns an error — it only reports <code>(int, bool)</code> — the sentinels are raised by
+the decoders that consume framed data, chiefly the login header decoder
+<code>GameLogin.UnmarshalHeader</code> (<code>pkg/io/protocol/login/req/req.go</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>Raised when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ErrIncorrectOpcode</code></td>
+<td>The opcode byte is not one the handler expects.</td>
+</tr>
+<tr>
+<td><code>ErrIncorrectDataLength</code></td>
+<td>Too few bytes are present to even read the header.</td>
+</tr>
+<tr>
+<td><code>ErrPayloadTooSmall</code></td>
+<td>The buffered payload is shorter than the declared size.</td>
+</tr>
+<tr>
+<td><code>ErrPayloadTooLarge</code></td>
+<td>The buffered payload is longer than the declared size.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="byte-order-and-accessor-conventions">Byte-order and accessor conventions<a class="headerlink" href="#byte-order-and-accessor-conventions" title="Permanent link">&para;</a></h2>
+<p>The RS2 accessors in <code>pkg/io/packet/packet.go</code> fix the wire encoding of each
+scalar. The ones that appear in the protocol pages:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Reads/writes</th>
+<th>Encoding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>G1</code> / <code>P1</code></td>
+<td>1 byte, unsigned</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>G2</code> / <code>P2</code></td>
+<td>2 bytes, unsigned</td>
+<td><strong>big-endian</strong> (<code>data[0]&lt;&lt;8 \| data[1]</code>)</td>
+</tr>
+<tr>
+<td><code>IG2</code> / <code>IP2</code></td>
+<td>2 bytes, unsigned</td>
+<td>little-endian</td>
+</tr>
+<tr>
+<td><code>G3</code> / <code>P3</code></td>
+<td>3 bytes, unsigned</td>
+<td>big-endian</td>
+</tr>
+<tr>
+<td><code>G4</code> / <code>P4</code></td>
+<td>4 bytes, unsigned</td>
+<td><strong>big-endian</strong></td>
+</tr>
+<tr>
+<td><code>IG4</code> / <code>IP4</code></td>
+<td>4 bytes, unsigned</td>
+<td>little-endian</td>
+</tr>
+<tr>
+<td><code>G8</code> / <code>P8</code></td>
+<td>8 bytes, unsigned</td>
+<td>big-endian (two big-endian <code>G4</code>s, high word first)</td>
+</tr>
+<tr>
+<td><code>GBool</code> / <code>PBool</code></td>
+<td>1 byte</td>
+<td><code>true</code> ⇔ byte <code>1</code>; write emits <code>1</code>/<code>0</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>GSmart</code>/<code>PSmart</code> (1-or-2-byte "smart" ints) and <code>GVarInt</code>/<code>PVarInt</code>
+(base-128 varints) exist for game-body fields but do not appear in the login
+handshake; their ranges are documented in the accessor source.</p>
+<h3 id="strings">Strings<a class="headerlink" href="#strings" title="Permanent link">&para;</a></h3>
+<p>Strings on the RS2 wire are <strong>byte-per-character, terminator-delimited</strong> — there
+is no length prefix. The terminator is baked into the method name:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Terminator byte</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GJStrLF</code> / <code>PJStrLF</code></td>
+<td><code>0x0A</code> (newline, <code>\n</code>)</td>
+</tr>
+<tr>
+<td><code>GJStrNUL</code> / <code>PJStrNUL</code></td>
+<td><code>0x00</code> (NUL)</td>
+</tr>
+<tr>
+<td><code>GJStr(t)</code> / <code>PJStr(s, t)</code></td>
+<td>caller-supplied byte <code>t</code></td>
+</tr>
+</tbody>
+</table>
+<p>The login username and password use <code>GJStrLF</code> / <code>PJStrLF</code>, so they are
+<strong>newline-terminated</strong> on the wire — the reader consumes bytes up to and
+including the <code>0x0A</code>, and the writer appends <code>0x0A</code> after the characters
+(<code>packet.go</code>, <code>PJStr</code>/<code>GJStr</code>). Each character is written as one byte per
+UTF-16 code unit — <code>rune &amp; 0xff</code> for code points up to <code>0xFFFF</code>; a
+supplementary code point above <code>0xFFFF</code> emits <strong>two</strong> bytes (the low byte of
+each half of its surrogate pair) — matching the client's encoding rather than
+Go's multi-byte UTF-8.</p>
 <div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
+<p class="admonition-title">Missing-terminator edge case</p>
+<p><code>GJStr</code> mirrors a TS quirk: if the terminator is never found before the
+buffer ends, the final byte is consumed but dropped from the returned
+string. This is a faithful port, not a goscape bug — see the <code>GJStr</code> doc
+comment in <code>packet.go</code>.</p>
 </div>
 
 

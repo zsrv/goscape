@@ -2321,6 +2321,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2332,6 +2337,69 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#modules-and-the-target-flag" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Modules and the <code>--target</code> flag
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-dependency-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Module dependency graph
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#service-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Service lifecycle
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#network-surfaces-and-ports" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Network surfaces and ports
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Data layout
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2347,10 +2415,203 @@
                   
 
 <h1 id="administrators-guide">Administrator's Guide<a class="headerlink" href="#administrators-guide" title="Permanent link">&para;</a></h1>
+<p>goscape is a RuneScape server engine that ships as a <strong>single binary</strong>. That one
+process can run every part of the server, or just one part, depending on how you
+configure it. This page explains what those parts are, how they depend on one
+another, how the process starts and stops, and where it listens and stores data.
+The remaining pages in this guide cover the practical details:
+<a href="quickstart/">Quick start</a>, <a href="configuration/">Configuration</a>,
+<a href="deployment/">Deployment scenarios</a>, and the <a href="operations/">Operations runbook</a>.</p>
+<h2 id="modules-and-the-target-flag">Modules and the <code>--target</code> flag<a class="headerlink" href="#modules-and-the-target-flag" title="Permanent link">&para;</a></h2>
+<p>Inside the binary, functionality is split into named <strong>modules</strong>. You choose which
+modules run with the <code>--target</code> flag (or the equivalent <code>target:</code> key in the config
+file). The selectable targets are:</p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>What it runs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ondemand</code></td>
+<td>HTTP OnDemand server only (serves the game cache to clients)</td>
+</tr>
+<tr>
+<td><code>world</code></td>
+<td>TCP game server only</td>
+</tr>
+<tr>
+<td><code>login</code></td>
+<td>gRPC login service only</td>
+</tr>
+<tr>
+<td><code>friends</code></td>
+<td>Friends server only</td>
+</tr>
+<tr>
+<td><code>all</code></td>
+<td>All of the above (this is the default)</td>
+</tr>
+</tbody>
+</table>
+<p>Running <code>all</code> in one process gives you a self-contained server that needs no
+external services. Selecting a single target lets you split the server across
+several processes or hosts — for example, running the <code>login</code> service on its own
+machine. Two of the modules, <code>common</code> and <code>database</code>, are internal: they exist to
+wire the others together and are not meant to be chosen as a target directly.</p>
+<h2 id="module-dependency-graph">Module dependency graph<a class="headerlink" href="#module-dependency-graph" title="Permanent link">&para;</a></h2>
+<p>Modules declare dependencies on one another. When a module is selected, every module
+it depends on is started first, in the correct order. The graph below shows those
+dependencies exactly as they are declared in the source. <strong>An arrow from A to B means
+"A depends on B", so B starts before A.</strong></p>
+<pre class="mermaid"><code>graph TD
+    all[all] --&gt; ondemand
+    all --&gt; friends
+    all --&gt; login
+    all --&gt; world
+
+    ondemand[ondemand] --&gt; world
+    ondemand --&gt; common
+
+    world[world] --&gt; login
+    world --&gt; friends
+    world --&gt; common
+
+    login[login] --&gt; database
+    login --&gt; common
+
+    friends[friends] --&gt; database
+    friends --&gt; common
+
+    database[database] --&gt; common
+
+    common[common]</code></pre>
+<p>Reading the graph:</p>
+<ul>
+<li><strong><code>common</code></strong> has no dependencies. It is an internal, invisible module that exists
+  only to anchor the graph — a common root that everything else can depend on.</li>
+<li><strong><code>database</code></strong> depends on <code>common</code>. It is also internal: it brings the central
+  database schema up to date (runs migrations) before any database-using module
+  starts. It holds no long-lived connection of its own.</li>
+<li><strong><code>login</code></strong> and <strong><code>friends</code></strong> each depend on <code>common</code> and <code>database</code>. They are the
+  two modules that read and write the central database, and each opens its own
+  connection pool.</li>
+<li><strong><code>world</code></strong> depends on <code>common</code>, <code>login</code>, and <code>friends</code> — the game server needs the
+  login and friends services available before it accepts players.</li>
+<li><strong><code>ondemand</code></strong> depends on <code>common</code> and <code>world</code>.</li>
+<li><strong><code>all</code></strong> is a composite target that depends on <code>ondemand</code>, <code>friends</code>, <code>login</code>, and
+  <code>world</code>; pulling those in transitively pulls in <code>common</code> and <code>database</code> as well.</li>
+</ul>
+<h2 id="service-lifecycle">Service lifecycle<a class="headerlink" href="#service-lifecycle" title="Permanent link">&para;</a></h2>
+<p>Every long-running module is wrapped as a <strong>service</strong>. Services follow a strict state
+machine borrowed from Grafana's dskit library:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>New → Starting → Running → Stopping → Terminated
+</span></code></pre></div>
+<p>A service that hits a problem in any of the <code>Starting</code>, <code>Running</code>, or <code>Stopping</code>
+states instead moves to a terminal <strong><code>Failed</code></strong> state. So the full set of end states
+is <code>Terminated</code> (stopped cleanly) or <code>Failed</code> (stopped because of an error).</p>
+<p>Two behaviours are important to operators:</p>
+<ul>
+<li><strong>One failure stops the whole process.</strong> The App root watches every service. If any
+  single service enters the <code>Failed</code> state, the App stops the entire group of
+  services, which cascades a shutdown to the rest and brings the process down. There
+  is no partial, half-running state left behind.</li>
+<li><strong>One signal handler drives shutdown.</strong> A single operating-system signal handler
+  lives at the top level of the App. When it receives a stop signal (for example
+  <code>SIGINT</code>/<code>Ctrl-C</code> or <code>SIGTERM</code>), it asks the service group to stop, and every
+  service shuts down through its <code>Stopping</code> state in dependency order. Individual
+  modules do not install their own signal handlers.</li>
+</ul>
 <div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
+<p class="admonition-title">What this means in practice</p>
+<p>A misconfiguration that prevents one module from starting — a bad cache path, an
+unreachable database — will fail that module and take the whole process down at
+startup, rather than leaving a degraded server running. Check the logs of the
+module named in the failure message.</p>
 </div>
+<h2 id="network-surfaces-and-ports">Network surfaces and ports<a class="headerlink" href="#network-surfaces-and-ports" title="Permanent link">&para;</a></h2>
+<p>A full <code>all</code> deployment exposes four network listeners. The ports below are the ones
+the bundled example config ends up with — the OnDemand and login ports are set
+explicitly in it, while the world and friends ports come from built-in defaults.
+Every port and bind address is configurable.</p>
+<table>
+<thead>
+<tr>
+<th>Listener</th>
+<th>Module</th>
+<th>Protocol</th>
+<th>Default port</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OnDemand</td>
+<td><code>ondemand</code></td>
+<td>HTTP</td>
+<td>8080</td>
+</tr>
+<tr>
+<td>Login</td>
+<td><code>login</code></td>
+<td>gRPC</td>
+<td>2004</td>
+</tr>
+<tr>
+<td>Friends</td>
+<td><code>friends</code></td>
+<td>gRPC</td>
+<td>2005</td>
+</tr>
+<tr>
+<td>Game world</td>
+<td><code>world</code></td>
+<td>TCP</td>
+<td>43594</td>
+</tr>
+</tbody>
+</table>
+<p>The OnDemand HTTP server delivers the game cache to connecting clients. The login
+service is a gRPC endpoint that authenticates players. The friends service is a
+second gRPC endpoint serving friends and ignore lists; the world module consults it —
+game clients never talk to it directly. The world server is a raw TCP listener that
+carries live gameplay; its port is the one a game client connects to.</p>
+<p>Behind these listeners is the <strong>central database</strong>, shared by the <code>login</code> and
+<code>friends</code> modules. By default this is a local SQLite database file, which is why the
+bundled configuration needs no external services. The backend can instead be set to
+PostgreSQL, which allows <code>login</code> and <code>friends</code> to run on different hosts against one
+shared network database. See <a href="configuration/">Configuration</a> for the <code>database:</code>
+section.</p>
+<h2 id="data-layout">Data layout<a class="headerlink" href="#data-layout" title="Permanent link">&para;</a></h2>
+<p>With the bundled configuration, a running server keeps its state under a local <code>data</code>
+directory:</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>./data/pack</code></td>
+<td>The packed game cache (the <code>main_file_cache.dat</code> and <code>idx</code> files). The OnDemand server serves cache archives from here, and the world server reads map data from it. This is the default cache location.</td>
+</tr>
+<tr>
+<td><code>data/goscape.db</code></td>
+<td>The central SQLite database, created on first run. Both <code>login</code> and <code>friends</code> are clients of it.</td>
+</tr>
+<tr>
+<td><code>data/players/</code></td>
+<td>Player save files, one per account.</td>
+</tr>
+</tbody>
+</table>
+<p>These locations are all configurable; the paths above are the defaults used by the
+bundled preset. For the full set of options — every key at its default — see the
+<a href="config-reference/">Config reference</a>, and for host-level packaging see
+<a href="deployment/">Deployment scenarios</a>.</p>
 
 
 

@@ -2321,6 +2321,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2332,6 +2337,58 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-on-these-pages" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What is on these pages
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#audience-and-altitude" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Audience and altitude
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-field-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reading the field tables
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-note-on-cross-revision-differences" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A note on cross-revision differences
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2347,10 +2404,75 @@
                   
 
 <h1 id="protocol">Protocol<a class="headerlink" href="#protocol" title="Permanent link">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
+<p>These pages document the <strong>RS2 wire protocol as goscape actually implements
+it</strong> — the byte layouts, opcodes, and constants a client developer or a
+protocol debugger needs to talk to (or trace) a goscape world. Every fact here
+was read out of the Go marshal/unmarshal code, not from RS2 community lore: if
+a field is documented, it is because the code reads or writes it in that order,
+at that size.</p>
+<div class="admonition info">
+<p class="admonition-title">Revision scope</p>
+<p>This build documents wire revision <strong>254</strong>. Each goscape branch
+implements exactly one revision (<code>pkg/io/protocol/revision</code>), and the world
+server rejects any client whose revision byte does not match with login
+reply <code>6</code> ("RuneScape has been updated!"). Where a field's shape is known to
+differ on another revision, that is called out inline.</p>
 </div>
+<h2 id="what-is-on-these-pages">What is on these pages<a class="headerlink" href="#what-is-on-these-pages" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="framing/">Packet framing</a></td>
+<td>The opcode + size model (<code>Operation</code>), fixed vs. length-prefixed packets, partial-read handling, and the byte-order / string conventions of the RS2 accessors.</td>
+</tr>
+<tr>
+<td><a href="login/">Login handshake</a></td>
+<td>The full connect → session-key → RSA login-block → response-code sequence, field-by-field, plus how the ISAAC ciphers are armed.</td>
+</tr>
+<tr>
+<td><a href="isaac/">ISAAC</a></td>
+<td>The stream cipher that enciphers game opcodes after login: seeding, the encryptor/decryptor offset, and mechanics.</td>
+</tr>
+<tr>
+<td><a href="ondemand/">OnDemand</a></td>
+<td>The HTTP cache surface (archive routes, <code>/crc</code>, <code>/rs2.cgi</code>) and the TCP OnDemand request channel, plus the on-disk cache layout they serve.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="audience-and-altitude">Audience and altitude<a class="headerlink" href="#audience-and-altitude" title="Permanent link">&para;</a></h2>
+<p>The audience is someone implementing or debugging a client, a proxy, or a
+packet capture — not someone modifying engine internals. For the server-side
+picture (how packets are read/written through <code>packet.Packet</code>, the
+<code>G</code>/<code>P</code> accessor naming, bit-level access, the connection state machine, and
+where the ISAAC ciphers sit in the connection lifecycle), read the
+<a href="../contributor/architecture/">contributor architecture guide</a>; these pages
+link to it rather than repeat the buffer internals.</p>
+<h2 id="reading-the-field-tables">Reading the field tables<a class="headerlink" href="#reading-the-field-tables" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Endianness is big-endian unless a field says otherwise.</strong> <code>G2</code>/<code>G4</code> read
+  most-significant byte first; the little-endian variants (<code>IG2</code>/<code>IG4</code>) are
+  named explicitly where used.</li>
+<li><strong>Strings are newline-terminated</strong> in the login protocol (<code>GJStrLF</code>), i.e.
+  the terminator byte is <code>0x0A</code> — see <a href="framing/#strings">framing</a>.</li>
+<li><strong>Opcodes and sizes are <code>Operation</code> constants.</strong> A <code>PayloadSize</code> of <code>-1</code> or
+  <code>-2</code> means the packet carries a 1- or 2-byte length prefix; a non-negative
+  value is a fixed payload length. See <a href="framing/#the-operation-model">framing</a>.</li>
+</ul>
+<h2 id="a-note-on-cross-revision-differences">A note on cross-revision differences<a class="headerlink" href="#a-note-on-cross-revision-differences" title="Permanent link">&para;</a></h2>
+<p>The wire format is stable within a revision but shifts between them. One
+concrete example, recorded in the rev-254 notes of the
+<a href="../contributor/references-pins/">References &amp; pins</a> page: <strong>NPC ids
+widen to 14 bits at rev-254</strong> (the info-block terminator moves <code>8191 → 16383</code>
+and NPC capacity <code>8192 → 16384</code>) as a consequence of the <code>@2004scape/rsbuf</code>
+<code>254.1.0</code> bump. This build is rev-254; treat any width or opcode you
+read here as revision-specific and re-verify against the code for the revision
+you are targeting.</p>
 
 
 
