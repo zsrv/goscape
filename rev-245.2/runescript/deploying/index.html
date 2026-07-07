@@ -2595,13 +2595,16 @@ repacking, verifying, and restarting:</p>
    cross-revision upgrade.</li>
 </ol>
 <div class="admonition note">
-<p class="admonition-title"><code>::reboot</code> stops the world module, not the process</p>
+<p class="admonition-title"><code>::reboot</code> stops the whole process</p>
 <p>The in-game <code>::reboot</code> / <code>::slowreboot</code> commands (staff level 3+, and only
 when <code>node_production</code> is <code>true</code>) schedule a graceful world shutdown that
-drains players with a save. But in an <code>all</code> deployment that graceful exit
-stops <strong>only the world module</strong> — the OnDemand, login, and friends modules
-keep running and the process stays up. To bring the whole process down for a
-binary swap, send <code>SIGTERM</code> after the countdown has drained the players. The
+drains players with a save. When the world empties, that shutdown brings the
+<strong>entire process</strong> down cleanly — OnDemand, login, and friends stop alongside
+the world (exit status <code>0</code>), matching upstream Engine-TS. So <code>::reboot</code> is a
+valid way to trigger a binary swap: run the server under a process supervisor
+and it relaunches on the new binary once the reboot completes. A plain
+<code>SIGTERM</code> (also a clean save-all stop) remains the way to restart without the
+reboot semantic. The
 <a href="../../admin/operations/#in-game-reboot-commands">In-game reboot commands</a>
 section of the Operations runbook covers this in full.</p>
 </div>
