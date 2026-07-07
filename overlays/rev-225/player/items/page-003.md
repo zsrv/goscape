@@ -4,503 +4,503 @@
 
 | Icon | Name | Description | Cost | Members | Stackable | Options |
 |---|---|---|---|---|---|---|
-|  | Rune warhammer | I don't think it's intended for joinery. | 41500 |  |  | Wield |
-|  | Bronze arrow | Arrows with bronze heads. | 1 |  | yes | Wield |
-|  | Bronze arrow(p) | Venomous looking arrows. | 1 | yes | yes | Wield |
-|  | Iron arrow | Arrows with iron heads. | 3 |  | yes | Wield |
-|  | Iron arrow(p) | Venomous looking arrows. | 3 | yes | yes | Wield |
-|  | Steel arrow | Arrows with steel heads. | 12 |  | yes | Wield |
-|  | Steel arrow(p) | Venomous looking arrows. | 12 | yes | yes | Wield |
-|  | Mithril arrow | Arrows with mithril heads. | 32 | yes | yes | Wield |
-|  | Mithril arrow(p) | Venomous looking arrows. | 32 | yes | yes | Wield |
-|  | Adamant arrow | Arrows with Adamantite heads. | 80 | yes | yes | Wield |
-|  | Adamant arrow(p) | Venomous looking arrows. | 80 | yes | yes | Wield |
-|  | Rune arrow | Arrows with Rune heads. | 400 | yes | yes | Wield |
-|  | Rune arrow(p) | Venomous looking arrows. | 400 | yes | yes | Wield |
-|  | bronze_arrow_4 |  | 0 |  | yes |  |
-|  | bronze_arrow_3 |  | 0 |  | yes |  |
-|  | bronze_arrow_2 |  | 0 |  | yes |  |
-|  | bronze_arrow_5 |  | 0 |  | yes |  |
-|  | bronze_arrow_p_4 |  | 0 |  | yes |  |
-|  | bronze_arrow_p_3 |  | 0 |  | yes |  |
-|  | bronze_arrow_p_2 |  | 0 |  | yes |  |
-|  | bronze_arrow_p_5 |  | 0 |  | yes |  |
-|  | iron_arrow_4 |  | 0 |  | yes |  |
-|  | iron_arrow_3 |  | 0 |  | yes |  |
-|  | iron_arrow_2 |  | 0 |  | yes |  |
-|  | iron_arrow_5 |  | 0 |  | yes |  |
-|  | iron_arrow_p_4 |  | 0 |  | yes |  |
-|  | iron_arrow_p_3 |  | 0 |  | yes |  |
-|  | iron_arrow_p_2 |  | 0 |  | yes |  |
-|  | iron_arrow_p_5 |  | 0 |  | yes |  |
-|  | steel_arrow_4 |  | 0 |  | yes |  |
-|  | steel_arrow_3 |  | 0 |  | yes |  |
-|  | steel_arrow_2 |  | 0 |  | yes |  |
-|  | steel_arrow_5 |  | 0 |  | yes |  |
-|  | steel_arrow_p_4 |  | 0 |  | yes |  |
-|  | steel_arrow_p_3 |  | 0 |  | yes |  |
-|  | steel_arrow_p_2 |  | 0 |  | yes |  |
-|  | steel_arrow_p_5 |  | 0 |  | yes |  |
-|  | mithril_arrow_4 |  | 0 |  | yes |  |
-|  | mithril_arrow_3 |  | 0 |  | yes |  |
-|  | mithril_arrow_2 |  | 0 |  | yes |  |
-|  | mithril_arrow_5 |  | 0 |  | yes |  |
-|  | mithril_arrow_p_4 |  | 0 |  | yes |  |
-|  | mithril_arrow_p_3 |  | 0 |  | yes |  |
-|  | mithril_arrow_p_2 |  | 0 |  | yes |  |
-|  | mithril_arrow_p_5 |  | 0 |  | yes |  |
-|  | adamant_arrow_4 |  | 0 |  | yes |  |
-|  | adamant_arrow_3 |  | 0 |  | yes |  |
-|  | adamant_arrow_2 |  | 0 |  | yes |  |
-|  | adamant_arrow_5 |  | 0 |  | yes |  |
-|  | adamant_arrow_p_4 |  | 0 |  | yes |  |
-|  | adamant_arrow_p_3 |  | 0 |  | yes |  |
-|  | adamant_arrow_p_2 |  | 0 |  | yes |  |
-|  | adamant_arrow_p_5 |  | 0 |  | yes |  |
-|  | rune_arrow_4 |  | 0 |  | yes |  |
-|  | rune_arrow_3 |  | 0 |  | yes |  |
-|  | rune_arrow_2 |  | 0 |  | yes |  |
-|  | rune_arrow_5 |  | 0 |  | yes |  |
-|  | rune_arrow_p_4 |  | 0 |  | yes |  |
-|  | rune_arrow_p_3 |  | 0 |  | yes |  |
-|  | rune_arrow_p_2 |  | 0 |  | yes |  |
-|  | rune_arrow_p_5 |  | 0 |  | yes |  |
-|  | Lit arrows | These arrows are ablaze with fire. | 10 | yes | yes | Wield |
-|  | Iron fire arrows | Arrows with iron heads and oil soaked cloth. | 3 | yes | yes | Wield |
-|  | Iron fire arrows | These iron headed arrows are ablaze with fire. | 10 | yes | yes | Wield |
-|  | Steel fire arrows | Arrows with steel heads and oil soaked cloth. | 3 | yes | yes | Wield |
-|  | Steel fire arrows | These steel headed arrows are ablaze with fire. | 10 | yes | yes | Wield |
-|  | Mithril fire arrows | Arrows with mithril heads and oil soaked cloth. | 3 | yes | yes | Wield |
-|  | Mithril fire arrows | These mithril headed arrows are ablaze with fire. | 10 | yes | yes | Wield |
-|  | Adamnt fire arrows | Arrows with adamant heads and oil soaked cloth. | 3 | yes | yes | Wield |
-|  | Adamnt fire arrows | These adamant headed arrows are ablaze with fire. | 10 | yes | yes | Wield |
-|  | Rune fire arrows | Arrows with rune heads and oil soaked cloth. | 3 | yes | yes | Wield |
-|  | Rune fire arrows | These rune headed arrows are ablaze with fire. | 10 | yes | yes | Wield |
-|  | unlitarrow_2 |  | 0 |  | yes |  |
-|  | unlitarrow_3 |  | 0 |  | yes |  |
-|  | unlitarrow_4 |  | 0 |  | yes |  |
-|  | unlitarrow_5 |  | 0 |  | yes |  |
-|  | litarrow_2 |  | 0 |  | yes |  |
-|  | litarrow_3 |  | 0 |  | yes |  |
-|  | litarrow_4 |  | 0 |  | yes |  |
-|  | litarrow_5 |  | 0 |  | yes |  |
-|  | Bolt | Good if you have a crossbow! | 3 |  | yes | Wield |
-|  | Bolt(p) | Vicious poisoned bolts. | 3 | yes | yes | Wield |
-|  | Opal bolt | Great if you have a crossbow! | 60 | yes | yes | Wield |
-|  | Pearl bolt | Great if you have a crossbow! | 110 | yes | yes | Wield |
-|  | Barbed bolt | Great if you have a crossbow! | 200 | yes | yes | Wield |
-|  | Longbow | A nice sturdy bow. | 80 |  |  | Wield |
-|  | Shortbow | Short but effective. | 50 |  |  | Wield |
-|  | Oak shortbow | A shortbow made out of oak, still effective. | 100 |  |  | Wield |
-|  | Oak longbow | A nice sturdy bow made out of oak. | 160 |  |  | Wield |
-|  | Willow longbow | A nice sturdy bow made out of willow. | 320 | yes |  | Wield |
-|  | Willow shortbow | A shortbow made out of willow, still effective. | 200 | yes |  | Wield |
-|  | Maple longbow | A nice sturdy bow made out of Maple. | 640 | yes |  | Wield |
-|  | Maple shortbow | A shortbow made out of Maple, still effective. | 400 | yes |  | Wield |
-|  | Yew longbow | A nice sturdy bow made out of yew. | 1280 | yes |  | Wield |
-|  | Yew shortbow | A shortbow made out of yew, still effective. | 800 | yes |  | Wield |
-|  | Magic longbow | A nice sturdy magical bow. | 2560 | yes |  | Wield |
-|  | Magic shortbow | Short and magical, but still effective. | 1600 | yes |  | Wield |
-|  | Ogre bow | More powerful than a normal bow, useful against large game birds. | 500 | yes |  | Wield, Check kills |
-|  | Crossbow | This fires crossbow bolts. | 70 |  |  | Wield |
-|  | Bronze dart | A deadly throwing dart with a bronze tip. | 1 | yes | yes | Wield |
-|  | Iron dart | A deadly throwing dart with an iron tip. | 2 | yes | yes | Wield |
-|  | Steel dart | A deadly throwing dart with a steel tip. | 10 | yes | yes | Wield |
-|  | Mithril dart | A deadly throwing dart with a mithril tip. | 25 | yes | yes | Wield |
-|  | Adamant dart | A deadly throwing dart with an adamantite tip. | 65 | yes | yes | Wield |
-|  | Rune dart | A deadly throwing dart with a rune tip. | 350 | yes | yes | Wield |
-|  | Bronze dart(p) | A deadly poisoned dart with a bronze tip. | 1 | yes | yes | Wield |
-|  | Iron dart(p) | A deadly poisoned dart with an iron tip. | 2 | yes | yes | Wield |
-|  | Steel dart(p) | A deadly poisoned dart with a steel tip. | 10 | yes | yes | Wield |
-|  | Mithril dart(p) | A deadly poisoned dart with a mithril tip. | 25 | yes | yes | Wield |
-|  | Adamant dart(p) | A deadly poisoned dart with an adamantite tip. | 65 | yes | yes | Wield |
-|  | Rune dart(p) | A deadly poisoned dart with a rune tip. | 350 | yes | yes | Wield |
-|  | Poisoned dart(p) | A deadly throwing dart with a poisoned tip. | 0 | yes | yes | Wield |
-|  | Bronze javelin | A bronze tipped javelin. | 4 | yes | yes | Wield |
-|  | Iron javelin | An iron tipped javelin. | 6 | yes | yes | Wield |
-|  | Steel javelin | A steel tipped javelin. | 24 | yes | yes | Wield |
-|  | Mithril javelin | A mithril tipped javelin. | 64 | yes | yes | Wield |
-|  | Adamant javelin | An adamantite tipped javelin. | 160 | yes | yes | Wield |
-|  | Rune javelin | A rune tipped javelin. | 400 | yes | yes | Wield |
-|  | Bronze javelin(p) | A bronze tipped javelin. | 4 | yes | yes | Wield |
-|  | Iron javelin(p) | An iron tipped javelin. | 6 | yes | yes | Wield |
-|  | Steel javelin(p) | A steel tipped javelin. | 24 | yes | yes | Wield |
-|  | Mithril javelin(p) | A mithril tipped javelin. | 64 | yes | yes | Wield |
-|  | Adamant javelin(p) | An adamantite tipped javelin. | 160 | yes | yes | Wield |
-|  | Rune javelin(p) | A rune tipped javelin. | 400 | yes | yes | Wield |
-|  | Iron knife | A finely balanced throwing knife. | 3 | yes | yes | Wield |
-|  | Bronze knife | A finely balanced throwing knife. | 1 | yes | yes | Wield |
-|  | Steel knife | A finely balanced throwing knife. | 11 | yes | yes | Wield |
-|  | Mithril knife | A finely balanced throwing knife. | 27 | yes | yes | Wield |
-|  | Adamant knife | A finely balanced throwing knife. | 66 | yes | yes | Wield |
-|  | Rune knife | A finely balanced throwing knife. | 167 | yes | yes | Wield |
-|  | Black knife | A finely balanced throwing knife. | 19 | yes | yes | Wield |
-|  | Bronze knife(p) | A finely balanced throwing knife. | 1 | yes | yes | Wield |
-|  | Iron knife(p) | A finely balanced throwing knife. | 3 | yes | yes | Wield |
-|  | Steel knife(p) | A finely balanced throwing knife. | 10 | yes | yes | Wield |
-|  | Mithril knife(p) | A finely balanced throwing knife. | 27 | yes | yes | Wield |
-|  | Black knife(p) | A finely balanced throwing knife. | 18 | yes | yes | Wield |
-|  | Adamant knife(p) | A finely balanced throwing knife. | 66 | yes | yes | Wield |
-|  | Rune knife(p) | A finely balanced throwing knife. | 166 | yes | yes | Wield |
-|  | Bronze thrownaxe | A finely balanced throwing axe. | 3 | yes | yes | Wield |
-|  | Iron thrownaxe | A finely balanced throwing axe. | 7 | yes | yes | Wield |
-|  | Steel thrownaxe | A finely balanced throwing axe. | 26 | yes | yes | Wield |
-|  | Mithril thrownaxe | A finely balanced throwing axe. | 70 | yes | yes | Wield |
-|  | Adamnt thrownaxe | A finely balanced throwing axe. | 176 | yes | yes | Wield |
-|  | Rune thrownaxe | A finely balanced throwing axe. | 440 | yes | yes | Wield |
-|  | Asgarnian ale | Probably the finest ale in Asgarnia. | 2 |  |  | Drink |
-|  | Wizard's mind bomb | It's got strange bubbles in it. | 2 |  |  | Drink |
-|  | Greenman's ale | A glass of frothy ale. | 2 | yes |  | Drink |
-|  | Dragon bitter | A glass of bitter. | 2 | yes |  | Drink |
-|  | Dwarven stout | A pint of thick dark beer. | 2 |  |  | Drink |
-|  | Grog | A murky glass of some sort of drink. | 3 | yes |  | Drink |
-|  | Beer | A glass of frothy ale. | 2 |  |  | Drink |
-|  | Beer glass | I need to fill this with beer. | 2 |  |  |  |
-|  | Swamp tar | A foul smelling thick tar like substance. | 1 | yes | yes |  |
-|  | Raw swamp paste | A thick tar like substance mixed with flour. | 1 | yes | yes |  |
-|  | Swamp paste | A tar like substance mixed with flour and warmed. | 30 | yes | yes |  |
-|  | Chef's hat | What a silly hat. | 2 |  |  | Wear |
-|  | Pumpkin | Happy Halloween. | 30 |  |  | Eat |
-|  | Easter egg | Happy Easter. | 10 |  |  | Eat |
-|  | Banana | Mmm this looks tasty. | 2 |  |  | Eat |
-|  | Cabbage | Yuck I don't like cabbage. | 1 |  |  | Eat |
-|  | Cabbage | Yuck I don't like cabbage. | 1 |  |  | Eat |
-|  | Spinach roll | A home made spinach thing. | 1 |  |  | Eat |
-|  | Kebab | A meaty kebab. | 3 |  |  | Eat |
-|  | Chocolaty milk | Milk with chocolate in it. | 2 | yes |  | Drink |
-|  | Cup of tea | A nice cup of tea. | 10 | yes |  | Drink |
-|  | Empty cup | An empty cup. | 2 | yes |  |  |
-|  | Rotten apples | Rotten! | 1 | yes |  | Eat |
-|  | Onion | A strong smelling onion. | 3 |  |  |  |
-|  | Chocolate dust | It's ground up chocolate. | 2 | yes |  |  |
-|  | Pot | This pot is empty. | 1 |  |  |  |
-|  | Flour | A little heap of flour. | 2 |  |  |  |
-|  | Grain | Some wheat heads. | 2 |  |  |  |
-|  | Burnt chicken | Oh dear, it's totally burnt! | 1 |  |  |  |
-|  | Burnt meat | Oh dear, it's totally burnt! | 1 |  |  |  |
-|  | Ugthanki meat | Freshly cooked ugthanki meat. | 5 | yes |  | Eat |
-|  | Cooked chicken | Mmm this looks tasty. | 4 |  |  | Eat |
-|  | Cooked meat | Mmm this looks tasty. | 4 |  |  | Eat |
-|  | Lava eel | Strange, it looks cooler now it's been cooked. | 150 | yes |  | Eat |
-|  | Raw ugthanki meat | I need to cook this first. | 2 | yes |  |  |
-|  | Raw beef | I need to cook this first. | 1 |  |  |  |
-|  | Raw rat meat | I need to cook this first. | 1 |  |  |  |
-|  | Raw bear meat | I need to cook this first. | 1 |  |  |  |
-|  | Raw chicken | I need to cook this first. | 1 |  |  |  |
-|  | Raw lava eel | A very strange eel. | 150 | yes |  |  |
-|  | Cake | A plain sponge cake. | 50 |  |  | Eat |
-|  | 2/3 cake | Someone has eaten a big chunk of this cake. | 30 |  |  | Eat |
-|  | Slice of cake | I'd rather have a whole cake. | 10 |  |  | Eat |
-|  | Chocolate cake | This looks very tasty. | 70 |  |  | Eat |
-|  | 2/3 chocolate cake | Someone has eaten a big chunk of this cake. | 50 |  |  | Eat |
-|  | Chocolate slice | I'd rather have a whole cake. | 30 |  |  | Eat |
-|  | Burnt cake | Argh what a mess! | 1 |  |  |  |
-|  | Pot of flour | There is flour in this pot. | 10 |  |  |  |
-|  | Bucket of milk | It's a bucket of milk. | 6 |  |  |  |
-|  | Egg | A nice fresh egg. | 4 |  |  |  |
-|  | Chocolate bar | Mmmmmmm chocolate. | 10 |  |  | Eat |
-|  | Pastry dough | Potentially pastry. | 1 |  |  |  |
-|  | Cake tin | Useful for baking cakes. | 10 |  |  |  |
-|  | Uncooked cake | Now all I need to do is cook it. | 20 |  |  |  |
-|  | Pitta dough | I need to cook this. | 4 | yes |  |  |
-|  | Bread dough | Some uncooked dough. | 4 |  |  |  |
-|  | Pitta bread | Mmmm, I need to add some other ingredients yet. | 10 | yes |  |  |
-|  | Bread | Nice crispy bread. | 12 |  |  | Eat |
-|  | Burnt pitta bread | It's all burnt. | 1 | yes |  |  |
-|  | Burnt bread | Nice crispy bread.  Possibly too crispy. | 1 |  |  |  |
-|  | Raw oomlie | Raw meat from the oomlie bird. | 10 | yes |  |  |
-|  | Palm leaf | A thick green palm leaf used by natives to cook meat in. | 5 | yes |  |  |
-|  | Burnt oomlie wrap | Burnt oomlie meat in a palm leaf pouch. | 1 | yes |  |  |
-|  | Burnt oomlie | Oh dear, it's totally burnt! | 1 | yes |  |  |
-|  | Cooked oomlie wrap | Deliciously cooked oomlie meat in a palm leaf pouch. | 35 | yes |  | Eat |
-|  | Wrapped oomlie | Oomlie meat in a palm leaf pouch.  It just needs to be cooked. | 16 | yes |  |  |
-|  | Apple pie | Mmm Apple pie. | 30 |  |  | Eat |
-|  | Redberry pie | Looks tasty. | 12 |  |  | Eat |
-|  | Meat pie | Not for vegetarians. | 15 |  |  | Eat |
-|  | Half a meat pie | Half of it is suitable for vegetarians. | 8 |  |  | Eat |
-|  | Half a redberry pie | So tasty I kept some for later. | 6 |  |  | Eat |
-|  | Half an apple pie | Mmm half an apple pie. | 15 |  |  | Eat |
-|  | Burnt pie | I think I left it on the stove too long. | 1 |  |  | Empty Dish |
-|  | Redberries | Very bright red berries. | 3 |  |  |  |
-|  | Pie shell | I need to find a filling for this pie. | 4 |  |  |  |
-|  | Cooking apple | Keeps the doctor away. | 1 |  |  |  |
-|  | Pie dish | Deceptively pie shaped. | 3 |  |  |  |
-|  | Uncooked apple pie | This would be much tastier cooked. | 16 |  |  |  |
-|  | Uncooked meat pie | This would be much healthier cooked. | 8 |  |  |  |
-|  | Uncooked berry pie | This would be much more appetising cooked. | 6 |  |  |  |
-|  | 1/2 plain pizza | Half of this pizza has been eaten. | 20 |  |  | Eat |
-|  | Meat pizza | A pizza with bits of meat on it. | 50 |  |  | Eat |
-|  | 1/2 meat pizza | Half of this pizza has been eaten. | 25 |  |  | Eat |
-|  | Anchovy pizza | A pizza with anchovies. | 60 |  |  | Eat |
-|  | 1/2 anchovy pizza | Half of this pizza has been eaten. | 30 |  |  | Eat |
-|  | Pineapple pizza | A tropicana pizza. | 100 | yes |  | Eat |
-|  | 1/2pineapple pizza | Half of this pizza has been eaten. | 50 | yes |  | Eat |
-|  | Plain pizza | A cheese and tomato pizza. | 40 |  |  | Eat |
-|  | Burnt pizza | Oh dear! | 1 |  |  |  |
-|  | Tomato | This would make good ketchup. | 4 |  |  | Eat |
-|  | Cheese | It's got holes in it. | 4 |  |  | Eat |
-|  | Pizza base | I need to add some tomato next. | 4 |  |  |  |
-|  | Incomplete pizza | I need to add some cheese next. | 10 |  |  |  |
-|  | Uncooked pizza | This needs cooking. | 25 |  |  |  |
-|  | Incomplete stew | I need to add some meat too. | 4 |  |  |  |
-|  | Incomplete stew | I need to add some potato too. | 4 |  |  |  |
-|  | Burnt stew | Eew, it's horribly burnt. | 1 |  |  | Empty Bowl |
-|  | Burnt curry | Eew, it's horribly burnt. | 1 | yes |  | Empty Bowl |
-|  | Potato | This could be used to make a good stew. | 1 |  |  |  |
-|  | Stew | It's a meat and potato stew. | 20 |  |  | Eat |
-|  | Curry | It's a spicy hot curry. | 20 | yes |  | Eat |
-|  | Uncooked stew | I need to cook this. | 10 |  |  |  |
-|  | Uncooked curry | I need to cook this. | 10 | yes |  |  |
-|  | Chopped tomato | A mixture of tomatoes in a bowl. | 3 | yes |  |  |
-|  | Chopped onion | A mixture of onions in a bowl. | 3 | yes |  |  |
-|  | Chopped ugthanki | Strips of ugthanki meat in a bowl. | 5 | yes |  |  |
-|  | Onion & tomato | A mixture of chopped onions and tomatoes in a bowl. | 5 | yes |  |  |
-|  | Ugthanki & onion | A mixture of chopped onions and ugthanki meat in a bowl. | 7 | yes |  |  |
-|  | Ugthanki & tomato | A mixture of chopped tomatoes and ugthanki meat in a bowl. | 7 | yes |  |  |
-|  | Kebab mix | A mixture of chopped tomatoes, onions and ugthanki meat in a bowl. | 9 | yes |  |  |
-|  | Ugthanki kebab | A strange smelling kebab made from ugthanki meat. | 20 | yes |  | Eat |
-|  | Ugthanki kebab | A fresh kebab made from ugthanki meat. | 20 | yes |  | Eat |
-|  | Jug of bad wine | Oh dear, this wine is terrible! | 1 |  |  | Drink |
-|  | Grapes | Good grapes for wine making. | 1 |  |  |  |
-|  | Jug of wine | It's full of wine. | 1 |  |  | Drink |
-|  | Half full wine jug | An optimist would say it's half full. | 1 |  |  | Drink |
-|  | Unfermented wine | This wine needs to ferment before it can be drunk. | 10 |  |  |  |
-|  | Worm batta | It actually smells quite good. | 120 | yes |  | Eat |
-|  | Toad batta | It actually smells quite good. | 120 | yes |  | Eat |
-|  | Cheese+tom batta | This smells really good. | 120 | yes |  | Eat |
-|  | Fruit batta | It actually smells quite good. | 120 | yes |  | Eat |
-|  | Vegetable batta | Well... it looks healthy. | 120 | yes |  | Eat |
-|  | Odd batta | This batta doesn't look very appetising. | 2 | yes |  | Eat |
-|  | Burnt batta | This batta has been burnt to a cinder. | 1 | yes |  |  |
-|  | Half baked batta | This gnome batta is in the early stages of preparation. | 2 | yes |  | Inspect |
-|  | Raw batta | This gnome batta needs cooking. | 2 | yes |  |  |
-|  | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Worm batta | It actually smells quite good. | 0 | yes |  | Eat |
-|  | Toad batta | It actually smells quite good. | 2 | yes |  | Eat |
-|  | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Cheese+tom batta | This smells really good. | 2 | yes |  | Eat |
-|  | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Fruit batta | It actually smells quite good. | 2 | yes |  | Eat |
-|  | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Vegetable batta | Well... it looks healthy. | 2 | yes |  | Eat |
-|  | Vodka | A strong spirit. | 5 | yes |  | Drink |
-|  | Whisky | A bottle of Draynor Malt. | 5 | yes |  | Drink |
-|  | Gin | A strong spirit. | 5 | yes |  | Drink |
-|  | Brandy | A strong spirit. | 5 | yes |  | Drink |
-|  | Cocktail guide | A book on tree gnome cocktails. | 2 | yes |  | Read |
-|  | Cocktail shaker | Used for mixing cocktails. | 2 | yes |  | Inspect |
-|  | Cocktail glass | For sipping cocktails. | 1 | yes |  |  |
-|  | Blurberry special | Looks good... smells strong. | 30 | yes |  | Drink |
-|  | Choc saturday | A warm creamy alcoholic beverage. | 30 | yes |  | Drink |
-|  | Drunk dragon | A warm creamy alcoholic beverage. | 30 | yes |  | Drink |
-|  | Fruit blast | A cool refreshing fruit mix. | 30 | yes |  | Drink |
-|  | Pineapple punch | A fresh healthy fruit mix. | 30 | yes |  | Drink |
-|  | Sgg | A Short Green Guy... looks good. | 30 | yes |  | Drink |
-|  | Wizard blizzard | This looks like a strange mix. | 30 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Pineapple punch | A fresh healthy fruit mix. | 30 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Wizard blizzard | This looks like a strange mix. | 30 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Blurberry special | Looks good... smells strong. | 30 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Choc saturday | A warm creamy alcoholic beverage. | 30 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Sgg | A Short Green Guy... looks good. | 30 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Fruit blast | A cool refreshing fruit mix. | 30 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
-|  | Drunk dragon | A warm creamy alcoholic beverage. | 30 | yes |  | Drink |
-|  | Odd cocktail | I'm not completely sure what this contains. | 2 | yes |  | Empty, Drink |
-|  | Odd cocktail | I'm not completely sure what this contains. | 2 | yes |  | Empty, Drink |
-|  | Odd cocktail | I'm not completely sure what this contains. | 2 | yes |  | Empty, Drink |
-|  | Odd cocktail | I'm not completely sure what this contains. | 2 | yes |  | Empty, Drink |
-|  | Lemon | A fresh lemon. | 2 | yes |  | Eat |
-|  | Lemon chunks | Fresh chunks of lemon. | 2 | yes |  | Eat |
-|  | Lemon slices | Fresh lemon slices. | 2 | yes |  | Eat |
-|  | Orange | A fresh orange. | 2 | yes |  | Eat |
-|  | Orange chunks | Fresh chunks of orange. | 2 | yes |  | Eat |
-|  | Orange slices | Fresh orange slices. | 2 | yes |  | Eat |
-|  | Pineapple | It can be cut up into something more manageable with a knife. | 1 | yes |  | Eat |
-|  | Pineapple chunks | Fresh chunks of pineapple. | 1 | yes |  | Eat |
-|  | Pineapple ring | Exotic fruit. | 1 | yes |  | Eat |
-|  | Lime | A fresh lime. | 2 | yes |  | Eat |
-|  | Lime chunks | Fresh chunks of lime. | 1 | yes |  | Eat |
-|  | Lime slices | Fresh lime slices. | 2 | yes |  | Eat |
-|  | Worm crunchies | It actually smells quite good. | 85 | yes |  | Eat |
-|  | Chocchip crunchies | Yum... smells good. | 85 | yes |  | Eat |
-|  | Spicy crunchies | Yum... smells good. | 85 | yes |  | Eat |
-|  | Toad crunchies | It actually smells quite good. | 85 | yes |  | Eat |
-|  | Odd crunchies | These crunchies don't look very appetising. | 2 | yes |  | Eat |
-|  | Burnt crunchies | These crunchies have been burnt to a cinder. | 1 | yes |  |  |
-|  | Half baked crunchy | This crunchy is in the early stages of preparation. | 2 | yes |  | Inspect |
-|  | Raw crunchies | These crunchies need cooking. | 2 | yes |  |  |
-|  | Unfinished crunchy | These crunchies are just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Worm crunchies | It actually smells quite good. | 2 | yes |  | Eat |
-|  | Unfinished crunchy | These crunchies are just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Chocchip crunchies | Yum... smells good. | 2 | yes |  | Eat |
-|  | Unfinished crunchy | These crunchies are just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Spicy crunchies | Yum... smells good. | 2 | yes |  | Eat |
-|  | Unfinished crunchy | These crunchies are just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Toad crunchies | It actually smells quite good. | 2 | yes |  | Eat |
-|  | Spice | This could liven up an otherwise bland stew. | 230 | yes |  |  |
-|  | Dwellberries | Some rather pretty blue berries. | 4 | yes |  | Eat |
-|  | Equa leaves | Small sweet smelling leaves. | 2 | yes |  | Eat |
-|  | Pot of cream | Fresh cream. | 2 | yes |  | Eat |
-|  | Swamp toad | A slippery little blighter. | 2 | yes |  | Remove-legs |
-|  | Toad's legs | They're a gnome delicacy apparently. | 2 | yes |  | Eat |
-|  | Equa toad's legs | They're a gnome delicacy apparently. | 2 | yes |  | Eat |
-|  | Spicy toad's legs | They're a gnome delicacy apparently. | 2 | yes |  | Eat |
-|  | Seasoned legs | They're a gnome delicacy apparently. | 2 | yes |  | Eat |
-|  | Spicy worm | They're a gnome delicacy apparently. | 2 | yes |  | Eat |
-|  | King worm | They're a gnome delicacy apparently. | 2 | yes |  | Eat |
-|  | Batta tin | A deep tin used for baking gnome battas in. | 0 | yes |  |  |
-|  | Crunchy tray | A shallow tray used for baking crunchies in. | 0 | yes |  |  |
-|  | Gnomebowl mould | A large ovenproof bowl. | 0 | yes |  |  |
-|  | Gianne's cook book | Aluft Gianne's favorite dishes. | 2 | yes |  | Read |
-|  | Gnome spice | It's Aluft Gianne's secret mix of spices. | 2 | yes |  |  |
-|  | Gianne dough | It's made from a secret recipe. | 2 | yes |  |  |
-|  | Chocolate bomb | Looks great! | 2 | yes |  | Eat |
-|  | Tangled toad's legs | It actually smells quite good. | 2 | yes |  | Eat |
-|  | Worm hole | It actually smells quite good. | 2 | yes |  | Eat |
-|  | Veg ball | This looks pretty healthy. | 2 | yes |  | Eat |
-|  | Chocolate bomb | Looks great! | 160 | yes |  | Eat |
-|  | Tangled toad's legs | It actually smells quite good. | 160 | yes |  | Eat |
-|  | Worm hole | It actually smells quite good. | 150 | yes |  | Eat |
-|  | Veg ball | This looks pretty healthy. | 150 | yes |  | Eat |
-|  | Odd gnomebowl | This gnome bowl doesn't look very appetising. | 2 | yes |  | Eat |
-|  | Burnt gnomebowl | This gnome bowl has been burnt to a cinder. | 1 | yes |  |  |
-|  | Half baked bowl | This gnome bowl is in the early stages of preparation. | 2 | yes |  | Inspect |
-|  | Raw gnomebowl | This gnome bowl needs cooking. | 2 | yes |  |  |
-|  | Unfinished bowl | This dish is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Unfinished bowl | This dish is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Unfinished bowl | This dish is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Unfinished bowl | This dish is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Unfinished bowl | This dish is just missing those little finishing touches. | 0 | yes |  | Eat |
-|  | Unblessed symbol | A symbol of Saradomin. | 200 |  |  | Wear |
-|  | Holy symbol | A blessed holy symbol of Saradomin. | 300 |  |  | Wear |
-|  | Unpowered symbol | An unholy symbol of Zamorak. | 200 | yes |  | Wear |
-|  | Unholy symbol | An unholy symbol of Zamorak. | 200 | yes |  | Wear |
-|  | Needle | Used with a thread to make clothes. | 0 |  | yes |  |
-|  | Thread | Used with a needle to make clothes. | 0 |  | yes |  |
-|  | Shears | For shearing sheep. | 0 |  |  |  |
-|  | Cow hide | I should take this to the tannery. | 0 |  |  |  |
-|  | Chisel | Good for detailed crafting. | 0 |  |  |  |
-|  | Brown apron | A mostly clean apron. | 2 |  |  | Wear |
-|  | Ball of wool | Spun from sheeps wool. | 2 |  |  |  |
-|  | Bow string | I need a bow stave to attach this to. | 10 | yes |  |  |
-|  | Woad leaf | A slightly bluish leaf. | 1 |  | yes |  |
-|  | Bronze wire | Useful for crafting items. | 20 | yes |  |  |
-|  | Dragonhide | The scaly rough hide from a Dragon | 0 | yes |  |  |
-|  | Dragonhide | The scaly rough hide from a Dragon | 0 | yes |  |  |
-|  | Dragonhide | The scaly rough hide from a Dragon | 0 | yes |  |  |
-|  | Dragonhide | The scaly rough hide from a Dragon | 0 | yes |  |  |
-|  | Cape | A bright red cape. | 2 |  |  | Wear |
-|  | Cape | A warm black cape. | 7 |  |  | Wear |
-|  | Cape | A thick blue cape. | 32 |  |  | Wear |
-|  | Cape | A thick yellow cape. | 32 |  |  | Wear |
-|  | Cape | A thick green cape. | 32 |  |  | Wear |
-|  | Cape | A thick purple cape. | 32 |  |  | Wear |
-|  | Cape | A thick orange cape. | 32 |  |  | Wear |
-|  | Red dye | A little bottle of red dye. | 5 |  |  |  |
-|  | Yellow dye | A little bottle of yellow dye. | 5 |  |  |  |
-|  | Blue dye | A little bottle of blue dye. | 5 |  |  |  |
-|  | Orange dye | A little bottle of orange dye. | 5 |  |  |  |
-|  | Green dye | A little bottle of green dye. | 5 |  |  |  |
-|  | Purple dye | A little bottle of purple dye. | 5 |  |  |  |
-|  | Uncut diamond | This would be worth more cut. | 200 |  |  |  |
-|  | Uncut ruby | This would be worth more cut. | 100 |  |  |  |
-|  | Uncut emerald | This would be worth more cut. | 50 |  |  |  |
-|  | Uncut sapphire | This would be worth more cut. | 25 |  |  |  |
-|  | Uncut opal | This would be worth more cut. | 20 | yes |  |  |
-|  | Uncut jade | This would be worth more cut. | 30 | yes |  |  |
-|  | Uncut red topaz | This would be worth more cut. | 40 | yes |  |  |
-|  | Uncut dragonstone | This would be worth more cut. | 1000 | yes |  |  |
-|  | Molten glass | Hot glass ready to be blown into useful objects. | 2 | yes |  |  |
-|  | Soda ash | One of the ingredients for making glass. | 2 | yes |  |  |
-|  | Bucket of sand | One of the ingredients for making glass. | 2 | yes |  |  |
-|  | Glassblowing pipe |  | 2 | yes |  |  |
-|  | Gold amulet | It needs a string so I can wear it. | 350 |  |  |  |
-|  | Sapphire amulet | It needs a string so I can wear it. | 900 |  |  |  |
-|  | Emerald amulet | It needs a string so I can wear it. | 1275 |  |  |  |
-|  | Ruby amulet | It needs a string so I can wear it. | 2025 |  |  |  |
-|  | Diamond amulet | It needs a string so I can wear it. | 3525 |  |  |  |
-|  | Dragonstoneamulet | It needs a string so I can wear it. | 17625 | yes |  |  |
-|  | black_amulet |  | 0 |  |  |  |
-|  | Sapphire amulet |  | 0 |  |  |  |
-|  | Emerald amulet |  | 0 |  |  |  |
-|  | Ruby amulet |  | 0 |  |  |  |
-|  | Diamond amulet |  | 0 |  |  |  |
-|  | Dragonstoneamulet |  | 0 |  |  |  |
-|  | Gold amulet | I wonder if I can get this enchanted. | 350 |  |  | Wear |
-|  | Sapphire amulet | I wonder if I can get this enchanted. | 900 |  |  | Wear |
-|  | Emerald amulet | I wonder if I can get this enchanted. | 1275 |  |  | Wear |
-|  | Ruby amulet | I wonder if I can get this enchanted. | 2025 |  |  | Wear |
-|  | Diamond amulet | I wonder if I can get this enchanted. | 3525 |  |  | Wear |
-|  | Dragonstoneamulet | I wonder if I can get this enchanted. | 17625 | yes |  | Wear |
-|  | Diamond | This looks valuable. | 2000 |  |  |  |
-|  | Ruby | This looks valuable. | 1000 |  |  |  |
-|  | Emerald | This looks valuable. | 500 |  |  |  |
-|  | Sapphire | This looks valuable. | 250 |  |  |  |
-|  | Opal | A semi precious stone. | 100 | yes |  |  |
-|  | Jade | A semi precious stone. | 150 | yes |  |  |
-|  | Red topaz | A semi precious stone. | 200 | yes |  |  |
-|  | Dragonstone | This looks valuable. | 10000 | yes |  |  |
-|  | Crushed gemstone | A gemstone that has been smashed. | 2 | yes |  |  |
-|  | Ring mould | Used to make gold rings. | 5 |  |  |  |
-|  | Unholy mould | Used to make unholy symbols. | 200 | yes |  |  |
-|  | Amulet mould | Used to make gold amulets | 5 |  |  |  |
-|  | Necklace mould | Used to make gold necklaces. | 5 |  |  |  |
-|  | Holy mould | Used to make Holy Symbols of Saradomin. | 5 |  |  |  |
-|  | Gold necklace | I wonder if this is valuable. | 450 |  |  | Wear |
-|  | Sapphire necklace | I wonder if this is valuable. | 1050 |  |  | Wear |
-|  | Emerald necklace | I wonder if this is valuable. | 1425 |  |  | Wear |
-|  | Ruby necklace | I wonder if this is valuable. | 2175 |  |  | Wear |
-|  | Diamond necklace | I wonder if this is valuable. | 3675 |  |  | Wear |
-|  | Dragon necklace | I wonder if this is valuable. | 18375 | yes |  | Wear |
-|  | black_necklace |  | 0 |  |  |  |
-|  | Sapphire necklace |  | 0 |  |  |  |
-|  | Emerald necklace |  | 0 |  |  |  |
-|  | Ruby necklace |  | 0 |  |  |  |
-|  | Diamond necklace |  | 0 |  |  |  |
-|  | Dragon necklace |  | 0 |  |  |  |
-|  | Gold ring | A valuable ring. | 350 |  |  | Wear |
-|  | Sapphire ring | A valuable ring. | 900 |  |  | Wear |
-|  | Emerald ring | A valuable ring. | 1275 |  |  | Wear |
-|  | Ruby ring | A valuable ring. | 2025 |  |  | Wear |
-|  | Diamond ring | A valuable ring. | 3525 |  |  | Wear |
-|  | Dragonstone ring | A valuable ring. | 17625 | yes |  | Wear |
-|  | black_ring |  | 0 |  |  |  |
-|  | Sapphire ring |  | 0 |  |  |  |
-|  | Emerald ring |  | 0 |  |  |  |
-|  | Ruby ring |  | 0 |  |  |  |
-|  | Diamond ring |  | 0 |  |  |  |
-|  | Dragonstone ring |  | 0 |  |  |  |
-|  | Unstrung symbol | It needs a string so I can wear it. | 200 |  |  |  |
-|  | Unstrung emblem | It needs a string so I can wear it. | 200 | yes |  |  |
-|  | Leather | It's a piece of leather. | 0 |  |  |  |
-|  | Hard leather | It's a piece of hard leather. | 0 |  |  |  |
-|  | Dragon leather | It's a piece of prepared dragonhide. | 0 | yes |  |  |
-|  | Dragon leather | It's a piece of prepared dragonhide. | 0 | yes |  |  |
-|  | Dragon leather | It's a piece of prepared dragonhide. | 0 | yes |  |  |
-|  | Dragon leather | It's a piece of prepared dragonhide. | 0 | yes |  |  |
-|  | Leather gloves | These will keep my hands warm! | 6 |  |  | Wear |
+| ![Rune warhammer](icons/rune_warhammer.png) | Rune warhammer | I don't think it's intended for joinery. | 41500 |  |  | Wield |
+| ![Bronze arrow](icons/bronze_arrow.png) | Bronze arrow | Arrows with bronze heads. | 1 |  | yes | Wield |
+| ![Bronze arrow(p)](icons/bronze_arrow_p.png) | Bronze arrow(p) | Venomous looking arrows. | 1 | yes | yes | Wield |
+| ![Iron arrow](icons/iron_arrow.png) | Iron arrow | Arrows with iron heads. | 3 |  | yes | Wield |
+| ![Iron arrow(p)](icons/iron_arrow_p.png) | Iron arrow(p) | Venomous looking arrows. | 3 | yes | yes | Wield |
+| ![Steel arrow](icons/steel_arrow.png) | Steel arrow | Arrows with steel heads. | 12 |  | yes | Wield |
+| ![Steel arrow(p)](icons/steel_arrow_p.png) | Steel arrow(p) | Venomous looking arrows. | 12 | yes | yes | Wield |
+| ![Mithril arrow](icons/mithril_arrow.png) | Mithril arrow | Arrows with mithril heads. | 32 | yes | yes | Wield |
+| ![Mithril arrow(p)](icons/mithril_arrow_p.png) | Mithril arrow(p) | Venomous looking arrows. | 32 | yes | yes | Wield |
+| ![Adamant arrow](icons/adamant_arrow.png) | Adamant arrow | Arrows with Adamantite heads. | 80 | yes | yes | Wield |
+| ![Adamant arrow(p)](icons/adamant_arrow_p.png) | Adamant arrow(p) | Venomous looking arrows. | 80 | yes | yes | Wield |
+| ![Rune arrow](icons/rune_arrow.png) | Rune arrow | Arrows with Rune heads. | 400 | yes | yes | Wield |
+| ![Rune arrow(p)](icons/rune_arrow_p.png) | Rune arrow(p) | Venomous looking arrows. | 400 | yes | yes | Wield |
+| ![bronze_arrow_4](icons/bronze_arrow_4.png) | bronze_arrow_4 |  | 0 |  | yes |  |
+| ![bronze_arrow_3](icons/bronze_arrow_3.png) | bronze_arrow_3 |  | 0 |  | yes |  |
+| ![bronze_arrow_2](icons/bronze_arrow_2.png) | bronze_arrow_2 |  | 0 |  | yes |  |
+| ![bronze_arrow_5](icons/bronze_arrow_5.png) | bronze_arrow_5 |  | 0 |  | yes |  |
+| ![bronze_arrow_p_4](icons/bronze_arrow_p_4.png) | bronze_arrow_p_4 |  | 0 |  | yes |  |
+| ![bronze_arrow_p_3](icons/bronze_arrow_p_3.png) | bronze_arrow_p_3 |  | 0 |  | yes |  |
+| ![bronze_arrow_p_2](icons/bronze_arrow_p_2.png) | bronze_arrow_p_2 |  | 0 |  | yes |  |
+| ![bronze_arrow_p_5](icons/bronze_arrow_p_5.png) | bronze_arrow_p_5 |  | 0 |  | yes |  |
+| ![iron_arrow_4](icons/iron_arrow_4.png) | iron_arrow_4 |  | 0 |  | yes |  |
+| ![iron_arrow_3](icons/iron_arrow_3.png) | iron_arrow_3 |  | 0 |  | yes |  |
+| ![iron_arrow_2](icons/iron_arrow_2.png) | iron_arrow_2 |  | 0 |  | yes |  |
+| ![iron_arrow_5](icons/iron_arrow_5.png) | iron_arrow_5 |  | 0 |  | yes |  |
+| ![iron_arrow_p_4](icons/iron_arrow_p_4.png) | iron_arrow_p_4 |  | 0 |  | yes |  |
+| ![iron_arrow_p_3](icons/iron_arrow_p_3.png) | iron_arrow_p_3 |  | 0 |  | yes |  |
+| ![iron_arrow_p_2](icons/iron_arrow_p_2.png) | iron_arrow_p_2 |  | 0 |  | yes |  |
+| ![iron_arrow_p_5](icons/iron_arrow_p_5.png) | iron_arrow_p_5 |  | 0 |  | yes |  |
+| ![steel_arrow_4](icons/steel_arrow_4.png) | steel_arrow_4 |  | 0 |  | yes |  |
+| ![steel_arrow_3](icons/steel_arrow_3.png) | steel_arrow_3 |  | 0 |  | yes |  |
+| ![steel_arrow_2](icons/steel_arrow_2.png) | steel_arrow_2 |  | 0 |  | yes |  |
+| ![steel_arrow_5](icons/steel_arrow_5.png) | steel_arrow_5 |  | 0 |  | yes |  |
+| ![steel_arrow_p_4](icons/steel_arrow_p_4.png) | steel_arrow_p_4 |  | 0 |  | yes |  |
+| ![steel_arrow_p_3](icons/steel_arrow_p_3.png) | steel_arrow_p_3 |  | 0 |  | yes |  |
+| ![steel_arrow_p_2](icons/steel_arrow_p_2.png) | steel_arrow_p_2 |  | 0 |  | yes |  |
+| ![steel_arrow_p_5](icons/steel_arrow_p_5.png) | steel_arrow_p_5 |  | 0 |  | yes |  |
+| ![mithril_arrow_4](icons/mithril_arrow_4.png) | mithril_arrow_4 |  | 0 |  | yes |  |
+| ![mithril_arrow_3](icons/mithril_arrow_3.png) | mithril_arrow_3 |  | 0 |  | yes |  |
+| ![mithril_arrow_2](icons/mithril_arrow_2.png) | mithril_arrow_2 |  | 0 |  | yes |  |
+| ![mithril_arrow_5](icons/mithril_arrow_5.png) | mithril_arrow_5 |  | 0 |  | yes |  |
+| ![mithril_arrow_p_4](icons/mithril_arrow_p_4.png) | mithril_arrow_p_4 |  | 0 |  | yes |  |
+| ![mithril_arrow_p_3](icons/mithril_arrow_p_3.png) | mithril_arrow_p_3 |  | 0 |  | yes |  |
+| ![mithril_arrow_p_2](icons/mithril_arrow_p_2.png) | mithril_arrow_p_2 |  | 0 |  | yes |  |
+| ![mithril_arrow_p_5](icons/mithril_arrow_p_5.png) | mithril_arrow_p_5 |  | 0 |  | yes |  |
+| ![adamant_arrow_4](icons/adamant_arrow_4.png) | adamant_arrow_4 |  | 0 |  | yes |  |
+| ![adamant_arrow_3](icons/adamant_arrow_3.png) | adamant_arrow_3 |  | 0 |  | yes |  |
+| ![adamant_arrow_2](icons/adamant_arrow_2.png) | adamant_arrow_2 |  | 0 |  | yes |  |
+| ![adamant_arrow_5](icons/adamant_arrow_5.png) | adamant_arrow_5 |  | 0 |  | yes |  |
+| ![adamant_arrow_p_4](icons/adamant_arrow_p_4.png) | adamant_arrow_p_4 |  | 0 |  | yes |  |
+| ![adamant_arrow_p_3](icons/adamant_arrow_p_3.png) | adamant_arrow_p_3 |  | 0 |  | yes |  |
+| ![adamant_arrow_p_2](icons/adamant_arrow_p_2.png) | adamant_arrow_p_2 |  | 0 |  | yes |  |
+| ![adamant_arrow_p_5](icons/adamant_arrow_p_5.png) | adamant_arrow_p_5 |  | 0 |  | yes |  |
+| ![rune_arrow_4](icons/rune_arrow_4.png) | rune_arrow_4 |  | 0 |  | yes |  |
+| ![rune_arrow_3](icons/rune_arrow_3.png) | rune_arrow_3 |  | 0 |  | yes |  |
+| ![rune_arrow_2](icons/rune_arrow_2.png) | rune_arrow_2 |  | 0 |  | yes |  |
+| ![rune_arrow_5](icons/rune_arrow_5.png) | rune_arrow_5 |  | 0 |  | yes |  |
+| ![rune_arrow_p_4](icons/rune_arrow_p_4.png) | rune_arrow_p_4 |  | 0 |  | yes |  |
+| ![rune_arrow_p_3](icons/rune_arrow_p_3.png) | rune_arrow_p_3 |  | 0 |  | yes |  |
+| ![rune_arrow_p_2](icons/rune_arrow_p_2.png) | rune_arrow_p_2 |  | 0 |  | yes |  |
+| ![rune_arrow_p_5](icons/rune_arrow_p_5.png) | rune_arrow_p_5 |  | 0 |  | yes |  |
+| ![Lit arrows](icons/litarrow.png) | Lit arrows | These arrows are ablaze with fire. | 10 | yes | yes | Wield |
+| ![Iron fire arrows](icons/iron_unlitarrow.png) | Iron fire arrows | Arrows with iron heads and oil soaked cloth. | 3 | yes | yes | Wield |
+| ![Iron fire arrows](icons/iron_litarrow.png) | Iron fire arrows | These iron headed arrows are ablaze with fire. | 10 | yes | yes | Wield |
+| ![Steel fire arrows](icons/steel_unlitarrow.png) | Steel fire arrows | Arrows with steel heads and oil soaked cloth. | 3 | yes | yes | Wield |
+| ![Steel fire arrows](icons/steel_litarrow.png) | Steel fire arrows | These steel headed arrows are ablaze with fire. | 10 | yes | yes | Wield |
+| ![Mithril fire arrows](icons/mithril_unlitarrow.png) | Mithril fire arrows | Arrows with mithril heads and oil soaked cloth. | 3 | yes | yes | Wield |
+| ![Mithril fire arrows](icons/mithril_litarrow.png) | Mithril fire arrows | These mithril headed arrows are ablaze with fire. | 10 | yes | yes | Wield |
+| ![Adamnt fire arrows](icons/adamant_unlitarrow.png) | Adamnt fire arrows | Arrows with adamant heads and oil soaked cloth. | 3 | yes | yes | Wield |
+| ![Adamnt fire arrows](icons/adamant_litarrow.png) | Adamnt fire arrows | These adamant headed arrows are ablaze with fire. | 10 | yes | yes | Wield |
+| ![Rune fire arrows](icons/rune_unlitarrow.png) | Rune fire arrows | Arrows with rune heads and oil soaked cloth. | 3 | yes | yes | Wield |
+| ![Rune fire arrows](icons/rune_litarrow.png) | Rune fire arrows | These rune headed arrows are ablaze with fire. | 10 | yes | yes | Wield |
+| ![unlitarrow_2](icons/unlitarrow_2.png) | unlitarrow_2 |  | 0 |  | yes |  |
+| ![unlitarrow_3](icons/unlitarrow_3.png) | unlitarrow_3 |  | 0 |  | yes |  |
+| ![unlitarrow_4](icons/unlitarrow_4.png) | unlitarrow_4 |  | 0 |  | yes |  |
+| ![unlitarrow_5](icons/unlitarrow_5.png) | unlitarrow_5 |  | 0 |  | yes |  |
+| ![litarrow_2](icons/litarrow_2.png) | litarrow_2 |  | 0 |  | yes |  |
+| ![litarrow_3](icons/litarrow_3.png) | litarrow_3 |  | 0 |  | yes |  |
+| ![litarrow_4](icons/litarrow_4.png) | litarrow_4 |  | 0 |  | yes |  |
+| ![litarrow_5](icons/litarrow_5.png) | litarrow_5 |  | 0 |  | yes |  |
+| ![Bolt](icons/bolt.png) | Bolt | Good if you have a crossbow! | 3 |  | yes | Wield |
+| ![Bolt(p)](icons/poison_bolt.png) | Bolt(p) | Vicious poisoned bolts. | 3 | yes | yes | Wield |
+| ![Opal bolt](icons/opal_bolt.png) | Opal bolt | Great if you have a crossbow! | 60 | yes | yes | Wield |
+| ![Pearl bolt](icons/pearl_bolt.png) | Pearl bolt | Great if you have a crossbow! | 110 | yes | yes | Wield |
+| ![Barbed bolt](icons/barbed_bolt.png) | Barbed bolt | Great if you have a crossbow! | 200 | yes | yes | Wield |
+| ![Longbow](icons/longbow.png) | Longbow | A nice sturdy bow. | 80 |  |  | Wield |
+| ![Shortbow](icons/shortbow.png) | Shortbow | Short but effective. | 50 |  |  | Wield |
+| ![Oak shortbow](icons/oak_shortbow.png) | Oak shortbow | A shortbow made out of oak, still effective. | 100 |  |  | Wield |
+| ![Oak longbow](icons/oak_longbow.png) | Oak longbow | A nice sturdy bow made out of oak. | 160 |  |  | Wield |
+| ![Willow longbow](icons/willow_longbow.png) | Willow longbow | A nice sturdy bow made out of willow. | 320 | yes |  | Wield |
+| ![Willow shortbow](icons/willow_shortbow.png) | Willow shortbow | A shortbow made out of willow, still effective. | 200 | yes |  | Wield |
+| ![Maple longbow](icons/maple_longbow.png) | Maple longbow | A nice sturdy bow made out of Maple. | 640 | yes |  | Wield |
+| ![Maple shortbow](icons/maple_shortbow.png) | Maple shortbow | A shortbow made out of Maple, still effective. | 400 | yes |  | Wield |
+| ![Yew longbow](icons/yew_longbow.png) | Yew longbow | A nice sturdy bow made out of yew. | 1280 | yes |  | Wield |
+| ![Yew shortbow](icons/yew_shortbow.png) | Yew shortbow | A shortbow made out of yew, still effective. | 800 | yes |  | Wield |
+| ![Magic longbow](icons/magic_longbow.png) | Magic longbow | A nice sturdy magical bow. | 2560 | yes |  | Wield |
+| ![Magic shortbow](icons/magic_shortbow.png) | Magic shortbow | Short and magical, but still effective. | 1600 | yes |  | Wield |
+| ![Ogre bow](icons/ogre_bow.png) | Ogre bow | More powerful than a normal bow, useful against large game birds. | 500 | yes |  | Wield, Check kills |
+| ![Crossbow](icons/crossbow.png) | Crossbow | This fires crossbow bolts. | 70 |  |  | Wield |
+| ![Bronze dart](icons/bronze_dart.png) | Bronze dart | A deadly throwing dart with a bronze tip. | 1 | yes | yes | Wield |
+| ![Iron dart](icons/iron_dart.png) | Iron dart | A deadly throwing dart with an iron tip. | 2 | yes | yes | Wield |
+| ![Steel dart](icons/steel_dart.png) | Steel dart | A deadly throwing dart with a steel tip. | 10 | yes | yes | Wield |
+| ![Mithril dart](icons/mithril_dart.png) | Mithril dart | A deadly throwing dart with a mithril tip. | 25 | yes | yes | Wield |
+| ![Adamant dart](icons/adamant_dart.png) | Adamant dart | A deadly throwing dart with an adamantite tip. | 65 | yes | yes | Wield |
+| ![Rune dart](icons/rune_dart.png) | Rune dart | A deadly throwing dart with a rune tip. | 350 | yes | yes | Wield |
+| ![Bronze dart(p)](icons/bronze_dart_p.png) | Bronze dart(p) | A deadly poisoned dart with a bronze tip. | 1 | yes | yes | Wield |
+| ![Iron dart(p)](icons/iron_dart_p.png) | Iron dart(p) | A deadly poisoned dart with an iron tip. | 2 | yes | yes | Wield |
+| ![Steel dart(p)](icons/steel_dart_p.png) | Steel dart(p) | A deadly poisoned dart with a steel tip. | 10 | yes | yes | Wield |
+| ![Mithril dart(p)](icons/mithril_dart_p.png) | Mithril dart(p) | A deadly poisoned dart with a mithril tip. | 25 | yes | yes | Wield |
+| ![Adamant dart(p)](icons/adamant_dart_p.png) | Adamant dart(p) | A deadly poisoned dart with an adamantite tip. | 65 | yes | yes | Wield |
+| ![Rune dart(p)](icons/rune_dart_p.png) | Rune dart(p) | A deadly poisoned dart with a rune tip. | 350 | yes | yes | Wield |
+| ![Poisoned dart(p)](icons/dart_poisoned_p.png) | Poisoned dart(p) | A deadly throwing dart with a poisoned tip. | 0 | yes | yes | Wield |
+| ![Bronze javelin](icons/bronze_javelin.png) | Bronze javelin | A bronze tipped javelin. | 4 | yes | yes | Wield |
+| ![Iron javelin](icons/iron_javelin.png) | Iron javelin | An iron tipped javelin. | 6 | yes | yes | Wield |
+| ![Steel javelin](icons/steel_javelin.png) | Steel javelin | A steel tipped javelin. | 24 | yes | yes | Wield |
+| ![Mithril javelin](icons/mithril_javelin.png) | Mithril javelin | A mithril tipped javelin. | 64 | yes | yes | Wield |
+| ![Adamant javelin](icons/adamant_javelin.png) | Adamant javelin | An adamantite tipped javelin. | 160 | yes | yes | Wield |
+| ![Rune javelin](icons/rune_javelin.png) | Rune javelin | A rune tipped javelin. | 400 | yes | yes | Wield |
+| ![Bronze javelin(p)](icons/bronze_javelin_p.png) | Bronze javelin(p) | A bronze tipped javelin. | 4 | yes | yes | Wield |
+| ![Iron javelin(p)](icons/iron_javelin_p.png) | Iron javelin(p) | An iron tipped javelin. | 6 | yes | yes | Wield |
+| ![Steel javelin(p)](icons/steel_javelin_p.png) | Steel javelin(p) | A steel tipped javelin. | 24 | yes | yes | Wield |
+| ![Mithril javelin(p)](icons/mithril_javelin_p.png) | Mithril javelin(p) | A mithril tipped javelin. | 64 | yes | yes | Wield |
+| ![Adamant javelin(p)](icons/adamant_javelin_p.png) | Adamant javelin(p) | An adamantite tipped javelin. | 160 | yes | yes | Wield |
+| ![Rune javelin(p)](icons/rune_javelin_p.png) | Rune javelin(p) | A rune tipped javelin. | 400 | yes | yes | Wield |
+| ![Iron knife](icons/iron_knife.png) | Iron knife | A finely balanced throwing knife. | 3 | yes | yes | Wield |
+| ![Bronze knife](icons/bronze_knife.png) | Bronze knife | A finely balanced throwing knife. | 1 | yes | yes | Wield |
+| ![Steel knife](icons/steel_knife.png) | Steel knife | A finely balanced throwing knife. | 11 | yes | yes | Wield |
+| ![Mithril knife](icons/mithril_knife.png) | Mithril knife | A finely balanced throwing knife. | 27 | yes | yes | Wield |
+| ![Adamant knife](icons/adamant_knife.png) | Adamant knife | A finely balanced throwing knife. | 66 | yes | yes | Wield |
+| ![Rune knife](icons/rune_knife.png) | Rune knife | A finely balanced throwing knife. | 167 | yes | yes | Wield |
+| ![Black knife](icons/black_knife.png) | Black knife | A finely balanced throwing knife. | 19 | yes | yes | Wield |
+| ![Bronze knife(p)](icons/bronze_knife_p.png) | Bronze knife(p) | A finely balanced throwing knife. | 1 | yes | yes | Wield |
+| ![Iron knife(p)](icons/iron_knife_p.png) | Iron knife(p) | A finely balanced throwing knife. | 3 | yes | yes | Wield |
+| ![Steel knife(p)](icons/steel_knife_p.png) | Steel knife(p) | A finely balanced throwing knife. | 10 | yes | yes | Wield |
+| ![Mithril knife(p)](icons/mithril_knife_p.png) | Mithril knife(p) | A finely balanced throwing knife. | 27 | yes | yes | Wield |
+| ![Black knife(p)](icons/black_knife_p.png) | Black knife(p) | A finely balanced throwing knife. | 18 | yes | yes | Wield |
+| ![Adamant knife(p)](icons/adamant_knife_p.png) | Adamant knife(p) | A finely balanced throwing knife. | 66 | yes | yes | Wield |
+| ![Rune knife(p)](icons/rune_knife_p.png) | Rune knife(p) | A finely balanced throwing knife. | 166 | yes | yes | Wield |
+| ![Bronze thrownaxe](icons/bronze_thrownaxe.png) | Bronze thrownaxe | A finely balanced throwing axe. | 3 | yes | yes | Wield |
+| ![Iron thrownaxe](icons/iron_thrownaxe.png) | Iron thrownaxe | A finely balanced throwing axe. | 7 | yes | yes | Wield |
+| ![Steel thrownaxe](icons/steel_thrownaxe.png) | Steel thrownaxe | A finely balanced throwing axe. | 26 | yes | yes | Wield |
+| ![Mithril thrownaxe](icons/mithril_thrownaxe.png) | Mithril thrownaxe | A finely balanced throwing axe. | 70 | yes | yes | Wield |
+| ![Adamnt thrownaxe](icons/adamnt_thrownaxe.png) | Adamnt thrownaxe | A finely balanced throwing axe. | 176 | yes | yes | Wield |
+| ![Rune thrownaxe](icons/rune_thrownaxe.png) | Rune thrownaxe | A finely balanced throwing axe. | 440 | yes | yes | Wield |
+| ![Asgarnian ale](icons/asgarnian_ale.png) | Asgarnian ale | Probably the finest ale in Asgarnia. | 2 |  |  | Drink |
+| ![Wizard's mind bomb](icons/wizards_mind_bomb.png) | Wizard's mind bomb | It's got strange bubbles in it. | 2 |  |  | Drink |
+| ![Greenman's ale](icons/greenmans_ale.png) | Greenman's ale | A glass of frothy ale. | 2 | yes |  | Drink |
+| ![Dragon bitter](icons/dragon_bitter.png) | Dragon bitter | A glass of bitter. | 2 | yes |  | Drink |
+| ![Dwarven stout](icons/dwarven_stout.png) | Dwarven stout | A pint of thick dark beer. | 2 |  |  | Drink |
+| ![Grog](icons/grog.png) | Grog | A murky glass of some sort of drink. | 3 | yes |  | Drink |
+| ![Beer](icons/beer.png) | Beer | A glass of frothy ale. | 2 |  |  | Drink |
+| ![Beer glass](icons/beer_glass.png) | Beer glass | I need to fill this with beer. | 2 |  |  |  |
+| ![Swamp tar](icons/swamp_tar.png) | Swamp tar | A foul smelling thick tar like substance. | 1 | yes | yes |  |
+| ![Raw swamp paste](icons/rawswamppaste.png) | Raw swamp paste | A thick tar like substance mixed with flour. | 1 | yes | yes |  |
+| ![Swamp paste](icons/swamppaste.png) | Swamp paste | A tar like substance mixed with flour and warmed. | 30 | yes | yes |  |
+| ![Chef's hat](icons/chefs_hat.png) | Chef's hat | What a silly hat. | 2 |  |  | Wear |
+| ![Pumpkin](icons/pumpkin.png) | Pumpkin | Happy Halloween. | 30 |  |  | Eat |
+| ![Easter egg](icons/easter_egg.png) | Easter egg | Happy Easter. | 10 |  |  | Eat |
+| ![Banana](icons/banana.png) | Banana | Mmm this looks tasty. | 2 |  |  | Eat |
+| ![Cabbage](icons/cabbage.png) | Cabbage | Yuck I don't like cabbage. | 1 |  |  | Eat |
+| ![Cabbage](icons/magic_cabbage.png) | Cabbage | Yuck I don't like cabbage. | 1 |  |  | Eat |
+| ![Spinach roll](icons/spinach_roll.png) | Spinach roll | A home made spinach thing. | 1 |  |  | Eat |
+| ![Kebab](icons/kebab.png) | Kebab | A meaty kebab. | 3 |  |  | Eat |
+| ![Chocolaty milk](icons/chocolaty_milk.png) | Chocolaty milk | Milk with chocolate in it. | 2 | yes |  | Drink |
+| ![Cup of tea](icons/cup_of_tea.png) | Cup of tea | A nice cup of tea. | 10 | yes |  | Drink |
+| ![Empty cup](icons/cup_empty.png) | Empty cup | An empty cup. | 2 | yes |  |  |
+| ![Rotten apples](icons/rottenapples.png) | Rotten apples | Rotten! | 1 | yes |  | Eat |
+| ![Onion](icons/onion.png) | Onion | A strong smelling onion. | 3 |  |  |  |
+| ![Chocolate dust](icons/chocolate_dust.png) | Chocolate dust | It's ground up chocolate. | 2 | yes |  |  |
+| ![Pot](icons/pot_empty.png) | Pot | This pot is empty. | 1 |  |  |  |
+| ![Flour](icons/flour.png) | Flour | A little heap of flour. | 2 |  |  |  |
+| ![Grain](icons/grain.png) | Grain | Some wheat heads. | 2 |  |  |  |
+| ![Burnt chicken](icons/burnt_chicken.png) | Burnt chicken | Oh dear, it's totally burnt! | 1 |  |  |  |
+| ![Burnt meat](icons/burnt_meat.png) | Burnt meat | Oh dear, it's totally burnt! | 1 |  |  |  |
+| ![Ugthanki meat](icons/cooked_ugthanki_meat.png) | Ugthanki meat | Freshly cooked ugthanki meat. | 5 | yes |  | Eat |
+| ![Cooked chicken](icons/cooked_chicken.png) | Cooked chicken | Mmm this looks tasty. | 4 |  |  | Eat |
+| ![Cooked meat](icons/cooked_meat.png) | Cooked meat | Mmm this looks tasty. | 4 |  |  | Eat |
+| ![Lava eel](icons/lava_eel.png) | Lava eel | Strange, it looks cooler now it's been cooked. | 150 | yes |  | Eat |
+| ![Raw ugthanki meat](icons/raw_ugthanki_meat.png) | Raw ugthanki meat | I need to cook this first. | 2 | yes |  |  |
+| ![Raw beef](icons/raw_beef.png) | Raw beef | I need to cook this first. | 1 |  |  |  |
+| ![Raw rat meat](icons/raw_rat_meat.png) | Raw rat meat | I need to cook this first. | 1 |  |  |  |
+| ![Raw bear meat](icons/raw_bear_meat.png) | Raw bear meat | I need to cook this first. | 1 |  |  |  |
+| ![Raw chicken](icons/raw_chicken.png) | Raw chicken | I need to cook this first. | 1 |  |  |  |
+| ![Raw lava eel](icons/raw_lava_eel.png) | Raw lava eel | A very strange eel. | 150 | yes |  |  |
+| ![Cake](icons/cake.png) | Cake | A plain sponge cake. | 50 |  |  | Eat |
+| ![2/3 cake](icons/partial_cake.png) | 2/3 cake | Someone has eaten a big chunk of this cake. | 30 |  |  | Eat |
+| ![Slice of cake](icons/cake_slice.png) | Slice of cake | I'd rather have a whole cake. | 10 |  |  | Eat |
+| ![Chocolate cake](icons/chocolate_cake.png) | Chocolate cake | This looks very tasty. | 70 |  |  | Eat |
+| ![2/3 chocolate cake](icons/partial_chocolate_cake.png) | 2/3 chocolate cake | Someone has eaten a big chunk of this cake. | 50 |  |  | Eat |
+| ![Chocolate slice](icons/chocolate_slice.png) | Chocolate slice | I'd rather have a whole cake. | 30 |  |  | Eat |
+| ![Burnt cake](icons/burnt_cake.png) | Burnt cake | Argh what a mess! | 1 |  |  |  |
+| ![Pot of flour](icons/pot_flour.png) | Pot of flour | There is flour in this pot. | 10 |  |  |  |
+| ![Bucket of milk](icons/bucket_milk.png) | Bucket of milk | It's a bucket of milk. | 6 |  |  |  |
+| ![Egg](icons/egg.png) | Egg | A nice fresh egg. | 4 |  |  |  |
+| ![Chocolate bar](icons/chocolate_bar.png) | Chocolate bar | Mmmmmmm chocolate. | 10 |  |  | Eat |
+| ![Pastry dough](icons/pastry_dough.png) | Pastry dough | Potentially pastry. | 1 |  |  |  |
+| ![Cake tin](icons/cake_tin.png) | Cake tin | Useful for baking cakes. | 10 |  |  |  |
+| ![Uncooked cake](icons/uncooked_cake.png) | Uncooked cake | Now all I need to do is cook it. | 20 |  |  |  |
+| ![Pitta dough](icons/uncooked_pitta_bread.png) | Pitta dough | I need to cook this. | 4 | yes |  |  |
+| ![Bread dough](icons/bread_dough.png) | Bread dough | Some uncooked dough. | 4 |  |  |  |
+| ![Pitta bread](icons/pitta_bread.png) | Pitta bread | Mmmm, I need to add some other ingredients yet. | 10 | yes |  |  |
+| ![Bread](icons/bread.png) | Bread | Nice crispy bread. | 12 |  |  | Eat |
+| ![Burnt pitta bread](icons/burnt_pitta_bread.png) | Burnt pitta bread | It's all burnt. | 1 | yes |  |  |
+| ![Burnt bread](icons/burnt_bread.png) | Burnt bread | Nice crispy bread.  Possibly too crispy. | 1 |  |  |  |
+| ![Raw oomlie](icons/raw_oomlie.png) | Raw oomlie | Raw meat from the oomlie bird. | 10 | yes |  |  |
+| ![Palm leaf](icons/palm_leaf.png) | Palm leaf | A thick green palm leaf used by natives to cook meat in. | 5 | yes |  |  |
+| ![Burnt oomlie wrap](icons/burnt_oomlie.png) | Burnt oomlie wrap | Burnt oomlie meat in a palm leaf pouch. | 1 | yes |  |  |
+| ![Burnt oomlie](icons/burnt_uw_oomlie.png) | Burnt oomlie | Oh dear, it's totally burnt! | 1 | yes |  |  |
+| ![Cooked oomlie wrap](icons/cooked_oomlie.png) | Cooked oomlie wrap | Deliciously cooked oomlie meat in a palm leaf pouch. | 35 | yes |  | Eat |
+| ![Wrapped oomlie](icons/wrapped_oomlie.png) | Wrapped oomlie | Oomlie meat in a palm leaf pouch.  It just needs to be cooked. | 16 | yes |  |  |
+| ![Apple pie](icons/apple_pie.png) | Apple pie | Mmm Apple pie. | 30 |  |  | Eat |
+| ![Redberry pie](icons/redberry_pie.png) | Redberry pie | Looks tasty. | 12 |  |  | Eat |
+| ![Meat pie](icons/meat_pie.png) | Meat pie | Not for vegetarians. | 15 |  |  | Eat |
+| ![Half a meat pie](icons/half_a_meat_pie.png) | Half a meat pie | Half of it is suitable for vegetarians. | 8 |  |  | Eat |
+| ![Half a redberry pie](icons/half_a_redberry_pie.png) | Half a redberry pie | So tasty I kept some for later. | 6 |  |  | Eat |
+| ![Half an apple pie](icons/half_an_apple_pie.png) | Half an apple pie | Mmm half an apple pie. | 15 |  |  | Eat |
+| ![Burnt pie](icons/burnt_pie.png) | Burnt pie | I think I left it on the stove too long. | 1 |  |  | Empty Dish |
+| ![Redberries](icons/redberries.png) | Redberries | Very bright red berries. | 3 |  |  |  |
+| ![Pie shell](icons/pie_shell.png) | Pie shell | I need to find a filling for this pie. | 4 |  |  |  |
+| ![Cooking apple](icons/cooking_apple.png) | Cooking apple | Keeps the doctor away. | 1 |  |  |  |
+| ![Pie dish](icons/piedish.png) | Pie dish | Deceptively pie shaped. | 3 |  |  |  |
+| ![Uncooked apple pie](icons/uncooked_apple_pie.png) | Uncooked apple pie | This would be much tastier cooked. | 16 |  |  |  |
+| ![Uncooked meat pie](icons/uncooked_meat_pie.png) | Uncooked meat pie | This would be much healthier cooked. | 8 |  |  |  |
+| ![Uncooked berry pie](icons/uncooked_redberry_pie.png) | Uncooked berry pie | This would be much more appetising cooked. | 6 |  |  |  |
+| ![1/2 plain pizza](icons/half_plain_pizza.png) | 1/2 plain pizza | Half of this pizza has been eaten. | 20 |  |  | Eat |
+| ![Meat pizza](icons/meat_pizza.png) | Meat pizza | A pizza with bits of meat on it. | 50 |  |  | Eat |
+| ![1/2 meat pizza](icons/half_meat_pizza.png) | 1/2 meat pizza | Half of this pizza has been eaten. | 25 |  |  | Eat |
+| ![Anchovy pizza](icons/anchovie_pizza.png) | Anchovy pizza | A pizza with anchovies. | 60 |  |  | Eat |
+| ![1/2 anchovy pizza](icons/half_anchovie_pizza.png) | 1/2 anchovy pizza | Half of this pizza has been eaten. | 30 |  |  | Eat |
+| ![Pineapple pizza](icons/pineapple_pizza.png) | Pineapple pizza | A tropicana pizza. | 100 | yes |  | Eat |
+| ![1/2pineapple pizza](icons/half_pineapple_pizza.png) | 1/2pineapple pizza | Half of this pizza has been eaten. | 50 | yes |  | Eat |
+| ![Plain pizza](icons/plain_pizza.png) | Plain pizza | A cheese and tomato pizza. | 40 |  |  | Eat |
+| ![Burnt pizza](icons/burnt_pizza.png) | Burnt pizza | Oh dear! | 1 |  |  |  |
+| ![Tomato](icons/tomato.png) | Tomato | This would make good ketchup. | 4 |  |  | Eat |
+| ![Cheese](icons/cheese.png) | Cheese | It's got holes in it. | 4 |  |  | Eat |
+| ![Pizza base](icons/pizza_base.png) | Pizza base | I need to add some tomato next. | 4 |  |  |  |
+| ![Incomplete pizza](icons/incomplete_pizza.png) | Incomplete pizza | I need to add some cheese next. | 10 |  |  |  |
+| ![Uncooked pizza](icons/uncooked_pizza.png) | Uncooked pizza | This needs cooking. | 25 |  |  |  |
+| ![Incomplete stew](icons/stew1.png) | Incomplete stew | I need to add some meat too. | 4 |  |  |  |
+| ![Incomplete stew](icons/stew2.png) | Incomplete stew | I need to add some potato too. | 4 |  |  |  |
+| ![Burnt stew](icons/burnt_stew.png) | Burnt stew | Eew, it's horribly burnt. | 1 |  |  | Empty Bowl |
+| ![Burnt curry](icons/burnt_curry.png) | Burnt curry | Eew, it's horribly burnt. | 1 | yes |  | Empty Bowl |
+| ![Potato](icons/potato.png) | Potato | This could be used to make a good stew. | 1 |  |  |  |
+| ![Stew](icons/stew.png) | Stew | It's a meat and potato stew. | 20 |  |  | Eat |
+| ![Curry](icons/curry.png) | Curry | It's a spicy hot curry. | 20 | yes |  | Eat |
+| ![Uncooked stew](icons/uncooked_stew.png) | Uncooked stew | I need to cook this. | 10 |  |  |  |
+| ![Uncooked curry](icons/uncooked_curry.png) | Uncooked curry | I need to cook this. | 10 | yes |  |  |
+| ![Chopped tomato](icons/bowl_tomato.png) | Chopped tomato | A mixture of tomatoes in a bowl. | 3 | yes |  |  |
+| ![Chopped onion](icons/bowl_onion.png) | Chopped onion | A mixture of onions in a bowl. | 3 | yes |  |  |
+| ![Chopped ugthanki](icons/bowl_ugthanki.png) | Chopped ugthanki | Strips of ugthanki meat in a bowl. | 5 | yes |  |  |
+| ![Onion & tomato](icons/bowl_oniontomato.png) | Onion & tomato | A mixture of chopped onions and tomatoes in a bowl. | 5 | yes |  |  |
+| ![Ugthanki & onion](icons/bowl_ugthankionion.png) | Ugthanki & onion | A mixture of chopped onions and ugthanki meat in a bowl. | 7 | yes |  |  |
+| ![Ugthanki & tomato](icons/bowl_ugthankitomato.png) | Ugthanki & tomato | A mixture of chopped tomatoes and ugthanki meat in a bowl. | 7 | yes |  |  |
+| ![Kebab mix](icons/bowl_oniontomugthanki.png) | Kebab mix | A mixture of chopped tomatoes, onions and ugthanki meat in a bowl. | 9 | yes |  |  |
+| ![Ugthanki kebab](icons/ugthanki_kebab_bad.png) | Ugthanki kebab | A strange smelling kebab made from ugthanki meat. | 20 | yes |  | Eat |
+| ![Ugthanki kebab](icons/ugthanki_kebab.png) | Ugthanki kebab | A fresh kebab made from ugthanki meat. | 20 | yes |  | Eat |
+| ![Jug of bad wine](icons/jug_bad_wine.png) | Jug of bad wine | Oh dear, this wine is terrible! | 1 |  |  | Drink |
+| ![Grapes](icons/grapes.png) | Grapes | Good grapes for wine making. | 1 |  |  |  |
+| ![Jug of wine](icons/jug_wine.png) | Jug of wine | It's full of wine. | 1 |  |  | Drink |
+| ![Half full wine jug](icons/half_full_wine_jug.png) | Half full wine jug | An optimist would say it's half full. | 1 |  |  | Drink |
+| ![Unfermented wine](icons/jug_unfermented_wine.png) | Unfermented wine | This wine needs to ferment before it can be drunk. | 10 |  |  |  |
+| ![Worm batta](icons/premade_worm_batta.png) | Worm batta | It actually smells quite good. | 120 | yes |  | Eat |
+| ![Toad batta](icons/premade_toad_batta.png) | Toad batta | It actually smells quite good. | 120 | yes |  | Eat |
+| ![Cheese+tom batta](icons/premade_cheese+tom_batta.png) | Cheese+tom batta | This smells really good. | 120 | yes |  | Eat |
+| ![Fruit batta](icons/premade_fruit_batta.png) | Fruit batta | It actually smells quite good. | 120 | yes |  | Eat |
+| ![Vegetable batta](icons/premade_vegetable_batta.png) | Vegetable batta | Well... it looks healthy. | 120 | yes |  | Eat |
+| ![Odd batta](icons/spoilt_batta.png) | Odd batta | This batta doesn't look very appetising. | 2 | yes |  | Eat |
+| ![Burnt batta](icons/burnt_batta.png) | Burnt batta | This batta has been burnt to a cinder. | 1 | yes |  |  |
+| ![Half baked batta](icons/half_baked_batta.png) | Half baked batta | This gnome batta is in the early stages of preparation. | 2 | yes |  | Inspect |
+| ![Raw batta](icons/raw_batta.png) | Raw batta | This gnome batta needs cooking. | 2 | yes |  |  |
+| ![Unfinished batta](icons/unfinished_worm_batta.png) | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Worm batta](icons/worm_batta.png) | Worm batta | It actually smells quite good. | 0 | yes |  | Eat |
+| ![Toad batta](icons/toad_batta.png) | Toad batta | It actually smells quite good. | 2 | yes |  | Eat |
+| ![Unfinished batta](icons/unfinished_cheese+tom_batta.png) | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Cheese+tom batta](icons/cheese+tom_batta.png) | Cheese+tom batta | This smells really good. | 2 | yes |  | Eat |
+| ![Unfinished batta](icons/fruitless_batta.png) | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Unfinished batta](icons/fruit_batta_lime.png) | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Unfinished batta](icons/fruit_batta_orange.png) | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Unfinished batta](icons/fruit_batta_pineapple.png) | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Unfinished batta](icons/fruit_batta_limeorange.png) | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Unfinished batta](icons/fruit_batta_limepineapple.png) | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Unfinished batta](icons/fruit_batta_orangepineapple.png) | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Unfinished batta](icons/unfinished_fruit_batta.png) | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Fruit batta](icons/fruit_batta.png) | Fruit batta | It actually smells quite good. | 2 | yes |  | Eat |
+| ![Unfinished batta](icons/unfinished_vegetable_batta.png) | Unfinished batta | This batta is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Vegetable batta](icons/vegetable_batta.png) | Vegetable batta | Well... it looks healthy. | 2 | yes |  | Eat |
+| ![Vodka](icons/vodka.png) | Vodka | A strong spirit. | 5 | yes |  | Drink |
+| ![Whisky](icons/whisky.png) | Whisky | A bottle of Draynor Malt. | 5 | yes |  | Drink |
+| ![Gin](icons/gin.png) | Gin | A strong spirit. | 5 | yes |  | Drink |
+| ![Brandy](icons/brandy.png) | Brandy | A strong spirit. | 5 | yes |  | Drink |
+| ![Cocktail guide](icons/cocktail_guide.png) | Cocktail guide | A book on tree gnome cocktails. | 2 | yes |  | Read |
+| ![Cocktail shaker](icons/cocktail_shaker.png) | Cocktail shaker | Used for mixing cocktails. | 2 | yes |  | Inspect |
+| ![Cocktail glass](icons/cocktail_glass_empty.png) | Cocktail glass | For sipping cocktails. | 1 | yes |  |  |
+| ![Blurberry special](icons/premade_blurberry_special.png) | Blurberry special | Looks good... smells strong. | 30 | yes |  | Drink |
+| ![Choc saturday](icons/premade_choc_saturday.png) | Choc saturday | A warm creamy alcoholic beverage. | 30 | yes |  | Drink |
+| ![Drunk dragon](icons/premade_drunk_dragon.png) | Drunk dragon | A warm creamy alcoholic beverage. | 30 | yes |  | Drink |
+| ![Fruit blast](icons/premade_fruit_blast.png) | Fruit blast | A cool refreshing fruit mix. | 30 | yes |  | Drink |
+| ![Pineapple punch](icons/premade_pineapple_punch.png) | Pineapple punch | A fresh healthy fruit mix. | 30 | yes |  | Drink |
+| ![Sgg](icons/premade_sgg.png) | Sgg | A Short Green Guy... looks good. | 30 | yes |  | Drink |
+| ![Wizard blizzard](icons/premade_wizard_blizzard.png) | Wizard blizzard | This looks like a strange mix. | 30 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_pineapple_punch1.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_pineapple_punch2.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_pineapple_punch3.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Pineapple punch](icons/pineapple_punch.png) | Pineapple punch | A fresh healthy fruit mix. | 30 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_wizard_blizzard1.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_wizard_blizzard2.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Wizard blizzard](icons/wizard_blizzard.png) | Wizard blizzard | This looks like a strange mix. | 30 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_blurberry_special1.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_blurberry_special2.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_blurberry_special3.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_blurberry_special4.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Blurberry special](icons/blurberry_special.png) | Blurberry special | Looks good... smells strong. | 30 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_chocolate_saturday1.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_chocolate_saturday2.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_chocolate_saturday3.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_chocolate_saturday4.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Choc saturday](icons/chocolate_saturday.png) | Choc saturday | A warm creamy alcoholic beverage. | 30 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_sgg1.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_sgg2.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Sgg](icons/sgg.png) | Sgg | A Short Green Guy... looks good. | 30 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_fruit_blast1.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Fruit blast](icons/fruit_blast.png) | Fruit blast | A cool refreshing fruit mix. | 30 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_drunk_dragon1.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_drunk_dragon2.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Unfinished cocktail](icons/unfinished_drunk_dragon3.png) | Unfinished cocktail | This cocktail is just missing those little finishing touches. | 2 | yes |  | Drink |
+| ![Drunk dragon](icons/drunk_dragon.png) | Drunk dragon | A warm creamy alcoholic beverage. | 30 | yes |  | Drink |
+| ![Odd cocktail](icons/spoilt_cocktail.png) | Odd cocktail | I'm not completely sure what this contains. | 2 | yes |  | Empty, Drink |
+| ![Odd cocktail](icons/spoilt_cocktail_fruity.png) | Odd cocktail | I'm not completely sure what this contains. | 2 | yes |  | Empty, Drink |
+| ![Odd cocktail](icons/spoilt_cocktail_creamy.png) | Odd cocktail | I'm not completely sure what this contains. | 2 | yes |  | Empty, Drink |
+| ![Odd cocktail](icons/spoilt_cocktail_slice.png) | Odd cocktail | I'm not completely sure what this contains. | 2 | yes |  | Empty, Drink |
+| ![Lemon](icons/lemon.png) | Lemon | A fresh lemon. | 2 | yes |  | Eat |
+| ![Lemon chunks](icons/lemon_chunks.png) | Lemon chunks | Fresh chunks of lemon. | 2 | yes |  | Eat |
+| ![Lemon slices](icons/lemon_slices.png) | Lemon slices | Fresh lemon slices. | 2 | yes |  | Eat |
+| ![Orange](icons/orange.png) | Orange | A fresh orange. | 2 | yes |  | Eat |
+| ![Orange chunks](icons/orange_chunks.png) | Orange chunks | Fresh chunks of orange. | 2 | yes |  | Eat |
+| ![Orange slices](icons/orange_slices.png) | Orange slices | Fresh orange slices. | 2 | yes |  | Eat |
+| ![Pineapple](icons/pineapple.png) | Pineapple | It can be cut up into something more manageable with a knife. | 1 | yes |  | Eat |
+| ![Pineapple chunks](icons/pineapple_chunks.png) | Pineapple chunks | Fresh chunks of pineapple. | 1 | yes |  | Eat |
+| ![Pineapple ring](icons/pineapple_ring.png) | Pineapple ring | Exotic fruit. | 1 | yes |  | Eat |
+| ![Lime](icons/lime.png) | Lime | A fresh lime. | 2 | yes |  | Eat |
+| ![Lime chunks](icons/lime_chunks.png) | Lime chunks | Fresh chunks of lime. | 1 | yes |  | Eat |
+| ![Lime slices](icons/lime_slices.png) | Lime slices | Fresh lime slices. | 2 | yes |  | Eat |
+| ![Worm crunchies](icons/premade_worm_crunchies.png) | Worm crunchies | It actually smells quite good. | 85 | yes |  | Eat |
+| ![Chocchip crunchies](icons/premade_chocchip_crunchies.png) | Chocchip crunchies | Yum... smells good. | 85 | yes |  | Eat |
+| ![Spicy crunchies](icons/premade_spicy_crunchies.png) | Spicy crunchies | Yum... smells good. | 85 | yes |  | Eat |
+| ![Toad crunchies](icons/premade_toad_crunchies.png) | Toad crunchies | It actually smells quite good. | 85 | yes |  | Eat |
+| ![Odd crunchies](icons/spoilt_crunchies.png) | Odd crunchies | These crunchies don't look very appetising. | 2 | yes |  | Eat |
+| ![Burnt crunchies](icons/burnt_crunchies.png) | Burnt crunchies | These crunchies have been burnt to a cinder. | 1 | yes |  |  |
+| ![Half baked crunchy](icons/half_baked_crunchy.png) | Half baked crunchy | This crunchy is in the early stages of preparation. | 2 | yes |  | Inspect |
+| ![Raw crunchies](icons/raw_crunchies.png) | Raw crunchies | These crunchies need cooking. | 2 | yes |  |  |
+| ![Unfinished crunchy](icons/unfinished_worm_crunchies.png) | Unfinished crunchy | These crunchies are just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Worm crunchies](icons/worm_crunchies.png) | Worm crunchies | It actually smells quite good. | 2 | yes |  | Eat |
+| ![Unfinished crunchy](icons/unfinished_chocchip_crunchies.png) | Unfinished crunchy | These crunchies are just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Chocchip crunchies](icons/chocchip_crunchies.png) | Chocchip crunchies | Yum... smells good. | 2 | yes |  | Eat |
+| ![Unfinished crunchy](icons/unfinished_spicy_crunchies.png) | Unfinished crunchy | These crunchies are just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Spicy crunchies](icons/spicy_crunchies.png) | Spicy crunchies | Yum... smells good. | 2 | yes |  | Eat |
+| ![Unfinished crunchy](icons/unfinished_toad_crunchies.png) | Unfinished crunchy | These crunchies are just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Toad crunchies](icons/toad_crunchies.png) | Toad crunchies | It actually smells quite good. | 2 | yes |  | Eat |
+| ![Spice](icons/spicespot.png) | Spice | This could liven up an otherwise bland stew. | 230 | yes |  |  |
+| ![Dwellberries](icons/dwellberries.png) | Dwellberries | Some rather pretty blue berries. | 4 | yes |  | Eat |
+| ![Equa leaves](icons/equa_leaves.png) | Equa leaves | Small sweet smelling leaves. | 2 | yes |  | Eat |
+| ![Pot of cream](icons/pot_of_cream.png) | Pot of cream | Fresh cream. | 2 | yes |  | Eat |
+| ![Swamp toad](icons/swamp_toad.png) | Swamp toad | A slippery little blighter. | 2 | yes |  | Remove-legs |
+| ![Toad's legs](icons/toads_legs.png) | Toad's legs | They're a gnome delicacy apparently. | 2 | yes |  | Eat |
+| ![Equa toad's legs](icons/equa_toads_legs.png) | Equa toad's legs | They're a gnome delicacy apparently. | 2 | yes |  | Eat |
+| ![Spicy toad's legs](icons/spicy_toads_legs.png) | Spicy toad's legs | They're a gnome delicacy apparently. | 2 | yes |  | Eat |
+| ![Seasoned legs](icons/seasoned_toads_legs.png) | Seasoned legs | They're a gnome delicacy apparently. | 2 | yes |  | Eat |
+| ![Spicy worm](icons/spicy_worm.png) | Spicy worm | They're a gnome delicacy apparently. | 2 | yes |  | Eat |
+| ![King worm](icons/king_worm.png) | King worm | They're a gnome delicacy apparently. | 2 | yes |  | Eat |
+| ![Batta tin](icons/batta_tin.png) | Batta tin | A deep tin used for baking gnome battas in. | 0 | yes |  |  |
+| ![Crunchy tray](icons/crunchy_tray.png) | Crunchy tray | A shallow tray used for baking crunchies in. | 0 | yes |  |  |
+| ![Gnomebowl mould](icons/gnomebowl_mould.png) | Gnomebowl mould | A large ovenproof bowl. | 0 | yes |  |  |
+| ![Gianne's cook book](icons/giannes_cook_book.png) | Gianne's cook book | Aluft Gianne's favorite dishes. | 2 | yes |  | Read |
+| ![Gnome spice](icons/gnome_spice.png) | Gnome spice | It's Aluft Gianne's secret mix of spices. | 2 | yes |  |  |
+| ![Gianne dough](icons/gianne_dough.png) | Gianne dough | It's made from a secret recipe. | 2 | yes |  |  |
+| ![Chocolate bomb](icons/chocolate_bomb.png) | Chocolate bomb | Looks great! | 2 | yes |  | Eat |
+| ![Tangled toad's legs](icons/tangled_toads_legs.png) | Tangled toad's legs | It actually smells quite good. | 2 | yes |  | Eat |
+| ![Worm hole](icons/worm_hole.png) | Worm hole | It actually smells quite good. | 2 | yes |  | Eat |
+| ![Veg ball](icons/veg_ball.png) | Veg ball | This looks pretty healthy. | 2 | yes |  | Eat |
+| ![Chocolate bomb](icons/premade_chocolate_bomb.png) | Chocolate bomb | Looks great! | 160 | yes |  | Eat |
+| ![Tangled toad's legs](icons/premade_tangled_toads_legs.png) | Tangled toad's legs | It actually smells quite good. | 160 | yes |  | Eat |
+| ![Worm hole](icons/premade_worm_hole.png) | Worm hole | It actually smells quite good. | 150 | yes |  | Eat |
+| ![Veg ball](icons/premade_veg_ball.png) | Veg ball | This looks pretty healthy. | 150 | yes |  | Eat |
+| ![Odd gnomebowl](icons/spoilt_gnomebowl.png) | Odd gnomebowl | This gnome bowl doesn't look very appetising. | 2 | yes |  | Eat |
+| ![Burnt gnomebowl](icons/burnt_gnomebowl.png) | Burnt gnomebowl | This gnome bowl has been burnt to a cinder. | 1 | yes |  |  |
+| ![Half baked bowl](icons/half_baked_bowl.png) | Half baked bowl | This gnome bowl is in the early stages of preparation. | 2 | yes |  | Inspect |
+| ![Raw gnomebowl](icons/raw_gnomebowl.png) | Raw gnomebowl | This gnome bowl needs cooking. | 2 | yes |  |  |
+| ![Unfinished bowl](icons/unfinished_chocolate_bomb1.png) | Unfinished bowl | This dish is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Unfinished bowl](icons/unfinished_chocolate_bomb2.png) | Unfinished bowl | This dish is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Unfinished bowl](icons/unfinished_chocolate_bomb3.png) | Unfinished bowl | This dish is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Unfinished bowl](icons/unfinished_worm_hole.png) | Unfinished bowl | This dish is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Unfinished bowl](icons/unfinished_veg_ball.png) | Unfinished bowl | This dish is just missing those little finishing touches. | 0 | yes |  | Eat |
+| ![Unblessed symbol](icons/stringstar.png) | Unblessed symbol | A symbol of Saradomin. | 200 |  |  | Wear |
+| ![Holy symbol](icons/blessedstar.png) | Holy symbol | A blessed holy symbol of Saradomin. | 300 |  |  | Wear |
+| ![Unpowered symbol](icons/stringsnake.png) | Unpowered symbol | An unholy symbol of Zamorak. | 200 | yes |  | Wear |
+| ![Unholy symbol](icons/blessedsnake.png) | Unholy symbol | An unholy symbol of Zamorak. | 200 | yes |  | Wear |
+| ![Needle](icons/needle.png) | Needle | Used with a thread to make clothes. | 0 |  | yes |  |
+| ![Thread](icons/thread.png) | Thread | Used with a needle to make clothes. | 0 |  | yes |  |
+| ![Shears](icons/shears.png) | Shears | For shearing sheep. | 0 |  |  |  |
+| ![Cow hide](icons/cow_hide.png) | Cow hide | I should take this to the tannery. | 0 |  |  |  |
+| ![Chisel](icons/chisel.png) | Chisel | Good for detailed crafting. | 0 |  |  |  |
+| ![Brown apron](icons/brown_apron.png) | Brown apron | A mostly clean apron. | 2 |  |  | Wear |
+| ![Ball of wool](icons/ball_of_wool.png) | Ball of wool | Spun from sheeps wool. | 2 |  |  |  |
+| ![Bow string](icons/bow_string.png) | Bow string | I need a bow stave to attach this to. | 10 | yes |  |  |
+| ![Woad leaf](icons/woadleaf.png) | Woad leaf | A slightly bluish leaf. | 1 |  | yes |  |
+| ![Bronze wire](icons/bronzecraftwire.png) | Bronze wire | Useful for crafting items. | 20 | yes |  |  |
+| ![Dragonhide](icons/dragonhide_black.png) | Dragonhide | The scaly rough hide from a Dragon | 0 | yes |  |  |
+| ![Dragonhide](icons/dragonhide_red.png) | Dragonhide | The scaly rough hide from a Dragon | 0 | yes |  |  |
+| ![Dragonhide](icons/dragonhide_blue.png) | Dragonhide | The scaly rough hide from a Dragon | 0 | yes |  |  |
+| ![Dragonhide](icons/dragonhide_green.png) | Dragonhide | The scaly rough hide from a Dragon | 0 | yes |  |  |
+| ![Cape](icons/red_cape.png) | Cape | A bright red cape. | 2 |  |  | Wear |
+| ![Cape](icons/black_cape.png) | Cape | A warm black cape. | 7 |  |  | Wear |
+| ![Cape](icons/blue_cape.png) | Cape | A thick blue cape. | 32 |  |  | Wear |
+| ![Cape](icons/yellow_cape.png) | Cape | A thick yellow cape. | 32 |  |  | Wear |
+| ![Cape](icons/green_cape.png) | Cape | A thick green cape. | 32 |  |  | Wear |
+| ![Cape](icons/purple_cape.png) | Cape | A thick purple cape. | 32 |  |  | Wear |
+| ![Cape](icons/orange_cape.png) | Cape | A thick orange cape. | 32 |  |  | Wear |
+| ![Red dye](icons/reddye.png) | Red dye | A little bottle of red dye. | 5 |  |  |  |
+| ![Yellow dye](icons/yellowdye.png) | Yellow dye | A little bottle of yellow dye. | 5 |  |  |  |
+| ![Blue dye](icons/bluedye.png) | Blue dye | A little bottle of blue dye. | 5 |  |  |  |
+| ![Orange dye](icons/orangedye.png) | Orange dye | A little bottle of orange dye. | 5 |  |  |  |
+| ![Green dye](icons/greendye.png) | Green dye | A little bottle of green dye. | 5 |  |  |  |
+| ![Purple dye](icons/purpledye.png) | Purple dye | A little bottle of purple dye. | 5 |  |  |  |
+| ![Uncut diamond](icons/uncut_diamond.png) | Uncut diamond | This would be worth more cut. | 200 |  |  |  |
+| ![Uncut ruby](icons/uncut_ruby.png) | Uncut ruby | This would be worth more cut. | 100 |  |  |  |
+| ![Uncut emerald](icons/uncut_emerald.png) | Uncut emerald | This would be worth more cut. | 50 |  |  |  |
+| ![Uncut sapphire](icons/uncut_sapphire.png) | Uncut sapphire | This would be worth more cut. | 25 |  |  |  |
+| ![Uncut opal](icons/uncut_opal.png) | Uncut opal | This would be worth more cut. | 20 | yes |  |  |
+| ![Uncut jade](icons/uncut_jade.png) | Uncut jade | This would be worth more cut. | 30 | yes |  |  |
+| ![Uncut red topaz](icons/uncut_red_topaz.png) | Uncut red topaz | This would be worth more cut. | 40 | yes |  |  |
+| ![Uncut dragonstone](icons/uncut_dragonstone.png) | Uncut dragonstone | This would be worth more cut. | 1000 | yes |  |  |
+| ![Molten glass](icons/molten_glass.png) | Molten glass | Hot glass ready to be blown into useful objects. | 2 | yes |  |  |
+| ![Soda ash](icons/soda_ash.png) | Soda ash | One of the ingredients for making glass. | 2 | yes |  |  |
+| ![Bucket of sand](icons/bucket_sand.png) | Bucket of sand | One of the ingredients for making glass. | 2 | yes |  |  |
+| ![Glassblowing pipe](icons/glassblowingpipe.png) | Glassblowing pipe |  | 2 | yes |  |  |
+| ![Gold amulet](icons/unstrung_gold_amulet.png) | Gold amulet | It needs a string so I can wear it. | 350 |  |  |  |
+| ![Sapphire amulet](icons/unstrung_sapphire_amulet.png) | Sapphire amulet | It needs a string so I can wear it. | 900 |  |  |  |
+| ![Emerald amulet](icons/unstrung_emerald_amulet.png) | Emerald amulet | It needs a string so I can wear it. | 1275 |  |  |  |
+| ![Ruby amulet](icons/unstrung_ruby_amulet.png) | Ruby amulet | It needs a string so I can wear it. | 2025 |  |  |  |
+| ![Diamond amulet](icons/unstrung_diamond_amulet.png) | Diamond amulet | It needs a string so I can wear it. | 3525 |  |  |  |
+| ![Dragonstoneamulet](icons/unstrung_dragonstone_amulet.png) | Dragonstoneamulet | It needs a string so I can wear it. | 17625 | yes |  |  |
+| ![black_amulet](icons/black_amulet.png) | black_amulet |  | 0 |  |  |  |
+| ![Sapphire amulet](icons/invis_amulet1.png) | Sapphire amulet |  | 0 |  |  |  |
+| ![Emerald amulet](icons/invis_amulet2.png) | Emerald amulet |  | 0 |  |  |  |
+| ![Ruby amulet](icons/invis_amulet3.png) | Ruby amulet |  | 0 |  |  |  |
+| ![Diamond amulet](icons/invis_amulet4.png) | Diamond amulet |  | 0 |  |  |  |
+| ![Dragonstoneamulet](icons/invis_amulet5.png) | Dragonstoneamulet |  | 0 |  |  |  |
+| ![Gold amulet](icons/strung_gold_amulet.png) | Gold amulet | I wonder if I can get this enchanted. | 350 |  |  | Wear |
+| ![Sapphire amulet](icons/strung_sapphire_amulet.png) | Sapphire amulet | I wonder if I can get this enchanted. | 900 |  |  | Wear |
+| ![Emerald amulet](icons/strung_emerald_amulet.png) | Emerald amulet | I wonder if I can get this enchanted. | 1275 |  |  | Wear |
+| ![Ruby amulet](icons/strung_ruby_amulet.png) | Ruby amulet | I wonder if I can get this enchanted. | 2025 |  |  | Wear |
+| ![Diamond amulet](icons/strung_diamond_amulet.png) | Diamond amulet | I wonder if I can get this enchanted. | 3525 |  |  | Wear |
+| ![Dragonstoneamulet](icons/strung_dragonstone_amulet.png) | Dragonstoneamulet | I wonder if I can get this enchanted. | 17625 | yes |  | Wear |
+| ![Diamond](icons/diamond.png) | Diamond | This looks valuable. | 2000 |  |  |  |
+| ![Ruby](icons/ruby.png) | Ruby | This looks valuable. | 1000 |  |  |  |
+| ![Emerald](icons/emerald.png) | Emerald | This looks valuable. | 500 |  |  |  |
+| ![Sapphire](icons/sapphire.png) | Sapphire | This looks valuable. | 250 |  |  |  |
+| ![Opal](icons/opal.png) | Opal | A semi precious stone. | 100 | yes |  |  |
+| ![Jade](icons/jade.png) | Jade | A semi precious stone. | 150 | yes |  |  |
+| ![Red topaz](icons/red_topaz.png) | Red topaz | A semi precious stone. | 200 | yes |  |  |
+| ![Dragonstone](icons/dragonstone.png) | Dragonstone | This looks valuable. | 10000 | yes |  |  |
+| ![Crushed gemstone](icons/crushed_gemstone.png) | Crushed gemstone | A gemstone that has been smashed. | 2 | yes |  |  |
+| ![Ring mould](icons/ring_mould.png) | Ring mould | Used to make gold rings. | 5 |  |  |  |
+| ![Unholy mould](icons/unholy_symbol_mould.png) | Unholy mould | Used to make unholy symbols. | 200 | yes |  |  |
+| ![Amulet mould](icons/amulet_mould.png) | Amulet mould | Used to make gold amulets | 5 |  |  |  |
+| ![Necklace mould](icons/necklace_mould.png) | Necklace mould | Used to make gold necklaces. | 5 |  |  |  |
+| ![Holy mould](icons/holy_symbol_mould.png) | Holy mould | Used to make Holy Symbols of Saradomin. | 5 |  |  |  |
+| ![Gold necklace](icons/gold_necklace.png) | Gold necklace | I wonder if this is valuable. | 450 |  |  | Wear |
+| ![Sapphire necklace](icons/sapphire_necklace.png) | Sapphire necklace | I wonder if this is valuable. | 1050 |  |  | Wear |
+| ![Emerald necklace](icons/emerald_necklace.png) | Emerald necklace | I wonder if this is valuable. | 1425 |  |  | Wear |
+| ![Ruby necklace](icons/ruby_necklace.png) | Ruby necklace | I wonder if this is valuable. | 2175 |  |  | Wear |
+| ![Diamond necklace](icons/diamond_necklace.png) | Diamond necklace | I wonder if this is valuable. | 3675 |  |  | Wear |
+| ![Dragon necklace](icons/dragonstone_necklace.png) | Dragon necklace | I wonder if this is valuable. | 18375 | yes |  | Wear |
+| ![black_necklace](icons/black_necklace.png) | black_necklace |  | 0 |  |  |  |
+| ![Sapphire necklace](icons/invis_necklace1.png) | Sapphire necklace |  | 0 |  |  |  |
+| ![Emerald necklace](icons/invis_necklace2.png) | Emerald necklace |  | 0 |  |  |  |
+| ![Ruby necklace](icons/invis_necklace3.png) | Ruby necklace |  | 0 |  |  |  |
+| ![Diamond necklace](icons/invis_necklace4.png) | Diamond necklace |  | 0 |  |  |  |
+| ![Dragon necklace](icons/invis_necklace5.png) | Dragon necklace |  | 0 |  |  |  |
+| ![Gold ring](icons/gold_ring.png) | Gold ring | A valuable ring. | 350 |  |  | Wear |
+| ![Sapphire ring](icons/sapphire_ring.png) | Sapphire ring | A valuable ring. | 900 |  |  | Wear |
+| ![Emerald ring](icons/emerald_ring.png) | Emerald ring | A valuable ring. | 1275 |  |  | Wear |
+| ![Ruby ring](icons/ruby_ring.png) | Ruby ring | A valuable ring. | 2025 |  |  | Wear |
+| ![Diamond ring](icons/diamond_ring.png) | Diamond ring | A valuable ring. | 3525 |  |  | Wear |
+| ![Dragonstone ring](icons/dragonstone_ring.png) | Dragonstone ring | A valuable ring. | 17625 | yes |  | Wear |
+| ![black_ring](icons/black_ring.png) | black_ring |  | 0 |  |  |  |
+| ![Sapphire ring](icons/invis_ring1.png) | Sapphire ring |  | 0 |  |  |  |
+| ![Emerald ring](icons/invis_ring2.png) | Emerald ring |  | 0 |  |  |  |
+| ![Ruby ring](icons/invis_ring3.png) | Ruby ring |  | 0 |  |  |  |
+| ![Diamond ring](icons/invis_ring4.png) | Diamond ring |  | 0 |  |  |  |
+| ![Dragonstone ring](icons/invis_ring5.png) | Dragonstone ring |  | 0 |  |  |  |
+| ![Unstrung symbol](icons/nostringstar.png) | Unstrung symbol | It needs a string so I can wear it. | 200 |  |  |  |
+| ![Unstrung emblem](icons/nostringsnake.png) | Unstrung emblem | It needs a string so I can wear it. | 200 | yes |  |  |
+| ![Leather](icons/leather.png) | Leather | It's a piece of leather. | 0 |  |  |  |
+| ![Hard leather](icons/hard_leather.png) | Hard leather | It's a piece of hard leather. | 0 |  |  |  |
+| ![Dragon leather](icons/dragon_leather.png) | Dragon leather | It's a piece of prepared dragonhide. | 0 | yes |  |  |
+| ![Dragon leather](icons/dragon_leather_blue.png) | Dragon leather | It's a piece of prepared dragonhide. | 0 | yes |  |  |
+| ![Dragon leather](icons/dragon_leather_red.png) | Dragon leather | It's a piece of prepared dragonhide. | 0 | yes |  |  |
+| ![Dragon leather](icons/dragon_leather_black.png) | Dragon leather | It's a piece of prepared dragonhide. | 0 | yes |  |  |
+| ![Leather gloves](icons/leather_gloves.png) | Leather gloves | These will keep my hands warm! | 6 |  |  | Wear |

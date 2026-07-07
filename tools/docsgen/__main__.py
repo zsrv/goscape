@@ -16,9 +16,28 @@ WORKTREE_STEPS = {"icons", "unpack", "configs", "commands"}
 FLOOR_ITEMS = 1000
 FLOOR_COMMANDS = 20
 
-# rev-274 golden facts (see cmd/icondump/testdata/icons274/sample.json in the
-# goscape-client worktree) — gates the icons step's id-density mapping.
-ICON_SPOT_CHECKS = {1205: "bronze_dagger", 946: "knife"}
+# Golden facts (id: debugname) per revision, gating icons.map_records's
+# id-density mapping for the four cache-backed revisions (see each rev's
+# goscape-client cmd/icondump/testdata/icons<rev>/sample.json). Verified
+# directly against each revision's content tree pack/obj.pack: knife and
+# bronze_dagger happen to hold the SAME ids (946/1205) on every revision
+# 244-274 — pinned per revision anyway, not shared, since a future revision
+# could renumber either.
+ICON_SPOT_CHECKS = {
+    "244": {1205: "bronze_dagger", 946: "knife"},
+    "245.2": {1205: "bronze_dagger", 946: "knife"},
+    "254": {1205: "bronze_dagger", 946: "knife"},
+    "274": {1205: "bronze_dagger", 946: "knife"},
+}
+
+# rev-225 (config_source = content-tree): records have no obj id, so the
+# equivalent golden fact is checked the other way around — debugname ->
+# expected id, against the inverted pack/obj.pack (icons.map_records_by_debugname).
+# Same ids as every other revision (verified against
+# Server225_2/content/pack/obj.pack directly).
+ICON_SPOT_CHECKS_BY_NAME = {
+    "225": {"bronze_dagger": 1205, "knife": 946},
+}
 
 
 def load() -> dict:
@@ -63,10 +82,15 @@ def run_revision(rev: str, cfg: dict, steps: list[str]) -> dict[str, int]:
                     client_wt, workdir / "icondump", td,
                 )
                 icons_out = workdir / "icons_rendered"
-                rendered, _skipped, total = icons.render_icons(
-                    icondump, icons_cfg["cache_dir"], icons_out,
+                # rev-225 has no client cache (jag-era pack pipeline) and
+                # takes -jag-dir instead of -cache; every other revision's
+                # icons config sets cache_dir. icons.render_icons requires
+                # exactly one of the two.
+                _rendered, _skipped, total = icons.render_icons(
+                    icondump, icons_out,
+                    cache_dir=icons_cfg.get("cache_dir"),
+                    jag_dir=icons_cfg.get("jag_dir"),
                 )
-                counts["icons"] = rendered
                 icon_render = (icons_out, total)
 
             if "unpack" in steps or "configs" in steps:
@@ -80,24 +104,51 @@ def run_revision(rev: str, cfg: dict, steps: list[str]) -> dict[str, int]:
                 icons_set = None
                 if icon_render is not None:
                     icons_out, total = icon_render
-                    # Real debugnames: goscape-cli unpack config (above) only
-                    # ever synthesizes `[obj_N]` placeholder headers (binary
-                    # configs carry no debug name). The content tree's
-                    # git-tracked pack/obj.pack is the id=debugname source
-                    # of truth (see icons.load_obj_pack), so patch those
-                    # names into all.obj before parsing.
                     names = icons.load_obj_pack(
                         Path(cfg["content_dir"]) / "pack" / "obj.pack"
                     )
-                    icons.patch_debugnames(all_dir / "all.obj", names)
-                    records = configtext.parse_config_text(
-                        (all_dir / "all.obj").read_text(errors="replace")
-                    )
-                    icons_set = icons.map_records(
-                        records, total, icons_out,
-                        overlay / "player" / "items" / "icons",
-                        spot_checks=ICON_SPOT_CHECKS,
-                    )
+                    if content_tree:
+                        # rev-225: content-tree records already carry real
+                        # debugnames as their header (no [obj_N] placeholder
+                        # to patch), but no obj id — record order isn't id
+                        # order, so the id-density mapping below doesn't
+                        # apply. Resolve id via the inverted obj.pack instead
+                        # (icons.map_records_by_debugname).
+                        records = configtext.parse_config_text(
+                            (all_dir / "all.obj").read_text(errors="replace")
+                        )
+                        icons_set, matched, total_records = icons.map_records_by_debugname(
+                            records, names, icons_out,
+                            overlay / "player" / "items" / "icons",
+                            spot_checks=ICON_SPOT_CHECKS_BY_NAME.get(rev),
+                        )
+                        print(
+                            f"rev-{rev}: icons matched {matched}/{total_records} "
+                            f"content-tree records ({matched / total_records:.1%})",
+                            file=sys.stderr,
+                        )
+                    else:
+                        # Real debugnames: goscape-cli unpack config (above)
+                        # only ever synthesizes `[obj_N]` placeholder headers
+                        # (binary configs carry no debug name). The content
+                        # tree's git-tracked pack/obj.pack is the
+                        # id=debugname source of truth (see
+                        # icons.load_obj_pack), so patch those names into
+                        # all.obj before parsing.
+                        icons.patch_debugnames(all_dir / "all.obj", names)
+                        records = configtext.parse_config_text(
+                            (all_dir / "all.obj").read_text(errors="replace")
+                        )
+                        icons_set = icons.map_records(
+                            records, total, icons_out,
+                            overlay / "player" / "items" / "icons",
+                            spot_checks=ICON_SPOT_CHECKS.get(rev),
+                        )
+                    # "Files copied" — may be < icondump's own rendered count
+                    # for content-tree revisions (unmatched records get no
+                    # icon); equal to it for cache-backed revisions (density
+                    # check above already enforces 1:1 record<->id coverage).
+                    counts["icons"] = len(icons_set)
 
                 counts |= families.generate_config_families(all_dir, overlay, icons_set)
                 if counts["items"] < FLOOR_ITEMS:
@@ -139,13 +190,13 @@ def comparison_lines(summary: dict, notes: dict[str, str]) -> list[str]:
     lines = [
         GENERATED,
         "", "# Revision comparison", "",
-        "| Revision | Items | NPCs | Locations | Varps | Commands | Music | Places |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Revision | Items | Icons | NPCs | Locations | Varps | Commands | Music | Places |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for rev, c in summary.items():
         lines.append(
-            f"| rev-{rev} | {c.get('items', '')} | {c.get('npcs', '')} "
-            f"| {c.get('locs', '')} | {c.get('varps', '')} "
+            f"| rev-{rev} | {c.get('items', '')} | {c.get('icons', '')} "
+            f"| {c.get('npcs', '')} | {c.get('locs', '')} | {c.get('varps', '')} "
             f"| {c.get('commands', '')} | {c.get('music', '')} "
             f"| {c.get('places', '')} |"
         )

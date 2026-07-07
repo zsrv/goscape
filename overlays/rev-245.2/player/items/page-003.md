@@ -4,503 +4,503 @@
 
 | Icon | Name | Description | Cost | Members | Stackable | Options |
 |---|---|---|---|---|---|---|
-|  | Coins 25 |  | 0 |  | yes |  |
-|  | Coins 100 |  | 0 |  | yes |  |
-|  | Coins 250 |  | 0 |  | yes |  |
-|  | Coins 1000 |  | 0 |  | yes |  |
-|  | Coins 10000 |  | 0 |  | yes |  |
-|  | White apron | A mostly clean apron. | 2 |  |  | Wear |
-|  | obj_1006 |  | 0 |  |  |  |
-|  | Cape | A bright red cape. | 2 |  |  | Wear |
-|  | obj_1008 |  | 0 |  |  |  |
-|  | Brass necklace | I'd prefer a gold one. | 30 |  |  | Wear |
-|  | obj_1010 |  | 0 |  |  |  |
-|  | Blue skirt | Leg covering favoured by women and wizards. | 2 |  |  | Wear |
-|  | obj_1012 |  | 0 |  |  |  |
-|  | Pink skirt | A ladies skirt. | 2 |  |  | Wear |
-|  | obj_1014 |  | 0 |  |  |  |
-|  | Black skirt | Clothing favoured by women and dark wizards. | 2 |  |  | Wear |
-|  | obj_1016 |  | 0 |  |  |  |
-|  | Wizards hat | A silly pointed hat. | 2 |  |  | Wear |
-|  | obj_1018 |  | 0 |  |  |  |
-|  | Cape | A warm black cape. | 7 |  |  | Wear |
-|  | obj_1020 |  | 0 |  |  |  |
-|  | Cape | A thick blue cape. | 32 |  |  | Wear |
-|  | obj_1022 |  | 0 |  |  |  |
-|  | Cape | A thick yellow cape. | 32 |  |  | Wear |
-|  | obj_1024 |  | 0 |  |  |  |
-|  | Eye patch | A black piece of cloth on a string. | 2 | yes |  | Wear |
-|  | obj_1026 |  | 0 |  |  |  |
-|  | Cape | A thick green cape. | 32 |  |  | Wear |
-|  | obj_1028 |  | 0 |  |  |  |
-|  | Cape | A thick purple cape. | 32 |  |  | Wear |
-|  | obj_1030 |  | 0 |  |  |  |
-|  | Cape | A thick orange cape. | 32 |  |  | Wear |
-|  | obj_1032 |  | 0 |  |  |  |
-|  | Robe of zamorak | A robe worn by worshippers of Zamorak. | 30 | yes |  | Wear |
-|  | obj_1034 |  | 0 |  |  |  |
-|  | Robe of zamorak | A robe worn by worshippers of Zamorak. | 40 | yes |  | Wear |
-|  | obj_1036 |  | 0 |  |  |  |
-|  | Bunny ears | A rabbit-like adornment. | 0 |  |  | Wear |
-|  | Red partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
-|  | obj_1039 |  | 0 |  |  |  |
-|  | Yellow partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
-|  | obj_1041 |  | 0 |  |  |  |
-|  | Blue partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
-|  | obj_1043 |  | 0 |  |  |  |
-|  | Green partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
-|  | obj_1045 |  | 0 |  |  |  |
-|  | Purple partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
-|  | obj_1047 |  | 0 |  |  |  |
-|  | White partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
-|  | obj_1049 |  | 0 |  |  |  |
-|  | Santa hat |  | 160 |  |  | Wear, Wear |
-|  | obj_1051 |  | 0 |  |  |  |
-|  | Cape of legends | The cape worn by members of the Legends Guild. | 450 | yes |  | Wear |
-|  | Halloween mask | Aaaarrrghhh ... i'm a monster. | 15 |  |  | Wear |
-|  | obj_1054 |  | 0 |  |  |  |
-|  | Halloween mask | Aaaarrrghhh ... i'm a monster. | 15 |  |  | Wear |
-|  | obj_1056 |  | 0 |  |  |  |
-|  | Halloween mask | Aaaarrrghhh ... i'm a monster. | 15 |  |  | Wear |
-|  | obj_1058 |  | 0 |  |  |  |
-|  | Leather gloves | These will keep my hands warm! | 6 |  |  | Wear |
-|  | obj_1060 |  | 0 |  |  |  |
-|  | Leather boots | Comfortable leather boots. | 6 |  |  | Wear |
-|  | obj_1062 |  | 0 |  |  |  |
-|  | Leather vambraces | Better than no armour! | 18 |  |  | Wear |
-|  | obj_1064 |  | 0 |  |  |  |
-|  | Dragon vambraces | Made from 100% real dragon hide. | 2500 |  |  | Wear |
-|  | obj_1066 |  | 0 |  |  |  |
-|  | Iron platelegs | These look pretty heavy. | 280 |  |  | Wear |
-|  | obj_1068 |  | 0 |  |  |  |
-|  | Steel platelegs | These look pretty heavy. | 1000 |  |  | Wear |
-|  | obj_1070 |  | 0 |  |  |  |
-|  | Mithril platelegs | These look pretty heavy. | 2600 |  |  | Wear |
-|  | obj_1072 |  | 0 |  |  |  |
-|  | Adamant platelegs | These look pretty heavy. | 6400 |  |  | Wear |
-|  | obj_1074 |  | 0 |  |  |  |
-|  | Bronze platelegs | These look pretty heavy. | 80 |  |  | Wear |
-|  | obj_1076 |  | 0 |  |  |  |
-|  | Black platelegs | Big, black and heavy looking. | 1920 |  |  | Wear |
-|  | obj_1078 |  | 0 |  |  |  |
-|  | Rune platelegs | These look pretty heavy. | 64000 |  |  | Wear |
-|  | obj_1080 |  | 0 |  |  |  |
-|  | Iron plateskirt | Designer leg protection. | 280 |  |  | Wear |
-|  | obj_1082 |  | 0 |  |  |  |
-|  | Steel plateskirt | Designer leg protection. | 1000 |  |  | Wear |
-|  | obj_1084 |  | 0 |  |  |  |
-|  | Mithril plateskirt | Designer leg protection. | 2600 |  |  | Wear |
-|  | obj_1086 |  | 0 |  |  |  |
-|  | Bronze plateskirt | Designer leg protection. | 80 |  |  | Wear |
-|  | obj_1088 |  | 0 |  |  |  |
-|  | Black plateskirt | Big, black and heavy looking. | 1920 |  |  | Wear |
-|  | obj_1090 |  | 0 |  |  |  |
-|  | Adamant plateskirt | Designer leg protection. | 6400 |  |  | Wear |
-|  | obj_1092 |  | 0 |  |  |  |
-|  | Rune plateskirt | Designer leg protection. | 64000 |  |  | Wear |
-|  | obj_1094 |  | 0 |  |  |  |
-|  | Leather chaps | Better than no armour! | 20 |  |  | Wear |
-|  | obj_1096 |  | 0 |  |  |  |
-|  | Studded chaps | Those studs should provide a bit more protection. | 750 |  |  | Wear |
-|  | obj_1098 |  | 0 |  |  |  |
-|  | Dragonhide chaps | Made from 100% real dragon hide. | 3900 |  |  | Wear |
-|  | obj_1100 |  | 0 |  |  |  |
-|  | Iron chainbody | A series of connected metal rings. | 210 |  |  | Wear |
-|  | obj_1102 |  | 0 |  |  |  |
-|  | Bronze chainbody | A series of connected metal rings. | 60 |  |  | Wear |
-|  | obj_1104 |  | 0 |  |  |  |
-|  | Steel chainbody | A series of connected metal rings. | 750 |  |  | Wear |
-|  | obj_1106 |  | 0 |  |  |  |
-|  | Black chainbody | A series of connected metal rings. | 1440 |  |  | Wear |
-|  | obj_1108 |  | 0 |  |  |  |
-|  | Mithril chainbody | A series of connected metal rings. | 1950 |  |  | Wear |
-|  | obj_1110 |  | 0 |  |  |  |
-|  | Adamant chainbody | A series of connected metal rings. | 4800 |  |  | Wear |
-|  | obj_1112 |  | 0 |  |  |  |
-|  | Rune chainbody | A series of connected metal rings. | 50000 |  |  | Wear |
-|  | obj_1114 |  | 0 |  |  |  |
-|  | Iron platebody | Provides excellent protection. | 560 |  |  | Wear |
-|  | obj_1116 |  | 0 |  |  |  |
-|  | Bronze platebody | Provides excellent protection. | 160 |  |  | Wear |
-|  | obj_1118 |  | 0 |  |  |  |
-|  | Steel platebody | Provides excellent protection. | 2000 |  |  | Wear |
-|  | obj_1120 |  | 0 |  |  |  |
-|  | Mithril platebody | Provides excellent protection. | 5200 |  |  | Wear |
-|  | obj_1122 |  | 0 |  |  |  |
-|  | Adamant platebody | Provides excellent protection. | 12800 |  |  | Wear |
-|  | obj_1124 |  | 0 |  |  |  |
-|  | Black platebody | Provides excellent protection. | 3840 |  |  | Wear |
-|  | obj_1126 |  | 0 |  |  |  |
-|  | Rune platebody |  | 65000 |  |  | Wear |
-|  | obj_1128 |  | 0 |  |  |  |
-|  | Leather body | Better than no armour! | 21 |  |  | Wear |
-|  | obj_1130 |  | 0 |  |  |  |
-|  | Hardleather body | Harder than normal leather. | 170 |  |  | Wear |
-|  | obj_1132 |  | 0 |  |  |  |
-|  | Studded body | Those studs should provide a bit more protection. | 850 |  |  | Wear |
-|  | obj_1134 |  | 0 |  |  |  |
-|  | Dragonhide body | Made from 100% real dragon hide. | 7800 |  |  | Wear |
-|  | obj_1136 |  | 0 |  |  |  |
-|  | Iron med helm | A medium sized helmet. | 84 |  |  | Wear |
-|  | obj_1138 |  | 0 |  |  |  |
-|  | Bronze med helm | A medium sized helmet. | 24 |  |  | Wear |
-|  | obj_1140 |  | 0 |  |  |  |
-|  | Steel med helm | A medium sized helmet. | 300 |  |  | Wear |
-|  | obj_1142 |  | 0 |  |  |  |
-|  | Mithril med helm | A medium sized helmet. | 780 |  |  | Wear |
-|  | obj_1144 |  | 0 |  |  |  |
-|  | Adamant med helm | A medium sized helmet. | 1920 |  |  | Wear |
-|  | obj_1146 |  | 0 |  |  |  |
-|  | Rune med helm | A medium sized helmet. | 19200 |  |  | Wear |
-|  | obj_1148 |  | 0 |  |  |  |
-|  | Dragon med helm | Makes the wearer pretty intimidating. | 100000 | yes |  | Wear |
-|  | obj_1150 |  | 0 |  |  |  |
-|  | Black med helm | A medium sized helmet. | 576 |  |  | Wear |
-|  | obj_1152 |  | 0 |  |  |  |
-|  | Iron full helm | A full face helmet. | 154 |  |  | Wear |
-|  | obj_1154 |  | 0 |  |  |  |
-|  | Bronze full helm | A full face helmet. | 44 |  |  | Wear |
-|  | obj_1156 |  | 0 |  |  |  |
-|  | Steel full helm | A full face helmet. | 550 |  |  | Wear |
-|  | obj_1158 |  | 0 |  |  |  |
-|  | Mithril full helm | A full face helmet. | 1430 |  |  | Wear |
-|  | obj_1160 |  | 0 |  |  |  |
-|  | Adamant full helm | A full face helmet. | 3520 |  |  | Wear |
-|  | obj_1162 |  | 0 |  |  |  |
-|  | Rune full helm | A full face helmet. | 35200 |  |  | Wear |
-|  | obj_1164 |  | 0 |  |  |  |
-|  | Black full helm | A full face helmet. | 1056 |  |  | Wear |
-|  | obj_1166 |  | 0 |  |  |  |
-|  | Leather cowl | Better than no armour! | 24 |  |  | Wear |
-|  | obj_1168 |  | 0 |  |  |  |
-|  | Coif | Light weight head protection. | 200 |  |  | Wear |
-|  | obj_1170 |  | 0 |  |  |  |
-|  | Wooden shield | A solid wooden shield. | 20 |  |  | Wield |
-|  | obj_1172 |  | 0 |  |  |  |
-|  | Bronze sq shield | A medium square shield. | 48 |  |  | Wield |
-|  | obj_1174 |  | 0 |  |  |  |
-|  | Iron sq shield | A medium square shield. | 168 |  |  | Wield |
-|  | obj_1176 |  | 0 |  |  |  |
-|  | Steel sq shield | A medium square shield. | 600 |  |  | Wield |
-|  | obj_1178 |  | 0 |  |  |  |
-|  | Black sq shield | A medium square shield. | 1152 |  |  | Wield |
-|  | obj_1180 |  | 0 |  |  |  |
-|  | Mithril sq shield | A medium square shield. | 1560 |  |  | Wield |
-|  | obj_1182 |  | 0 |  |  |  |
-|  | Adamant sq shield | A medium square shield. | 3840 |  |  | Wield |
-|  | obj_1184 |  | 0 |  |  |  |
-|  | Rune sq shield | A medium square shield. | 38400 |  |  | Wield |
-|  | obj_1186 |  | 0 |  |  |  |
-|  | Dragon sq shield | An ancient and powerful looking Dragon Square shield. | 500000 | yes |  | Wield |
-|  | obj_1188 |  | 0 |  |  |  |
-|  | Bronze kiteshield | A large metal shield. | 68 |  |  | Wear |
-|  | obj_1190 |  | 0 |  |  |  |
-|  | Iron kiteshield | A large metal shield. | 238 |  |  | Wear |
-|  | obj_1192 |  | 0 |  |  |  |
-|  | Steel kiteshield | A large metal shield. | 850 |  |  | Wear |
-|  | obj_1194 |  | 0 |  |  |  |
-|  | Black kiteshield | A large metal shield. | 1632 |  |  | Wear |
-|  | obj_1196 |  | 0 |  |  |  |
-|  | Mithril kiteshield | A large metal shield. | 2210 |  |  | Wear |
-|  | obj_1198 |  | 0 |  |  |  |
-|  | Adamant kiteshield | A large metal shield. | 5440 |  |  | Wear |
-|  | obj_1200 |  | 0 |  |  |  |
-|  | Rune kiteshield | A large metal shield. | 54400 |  |  | Wear |
-|  | obj_1202 |  | 0 |  |  |  |
-|  | Iron dagger | Short but pointy. | 35 |  |  | Wield |
-|  | obj_1204 |  | 0 |  |  |  |
-|  | Bronze dagger | Short but pointy. | 10 |  |  | Wield |
-|  | obj_1206 |  | 0 |  |  |  |
-|  | Steel dagger | Short but pointy. | 125 |  |  | Wield |
-|  | obj_1208 |  | 0 |  |  |  |
-|  | Mithril dagger | A dangerous dagger. | 325 |  |  | Wield |
-|  | obj_1210 |  | 0 |  |  |  |
-|  | Adamant dagger | Short and deadly. | 800 |  |  | Wield |
-|  | obj_1212 |  | 0 |  |  |  |
-|  | Rune dagger | A powerful dagger. | 8000 |  |  | Wield |
-|  | obj_1214 |  | 0 |  |  |  |
-|  | Dragon dagger | A powerful dagger. | 30000 | yes |  | Wield |
-|  | obj_1216 |  | 0 |  |  |  |
-|  | Black dagger | A vicious black dagger. | 240 |  |  | Wield |
-|  | obj_1218 |  | 0 |  |  |  |
-|  | Iron dagger(p) | The blade is covered with poison. | 35 | yes |  | Wield |
-|  | obj_1220 |  | 0 |  |  |  |
-|  | Bronze dagger(p) | This dagger is poisoned. | 10 | yes |  | Wield |
-|  | obj_1222 |  | 0 |  |  |  |
-|  | Steel dagger(p) | The blade has been poisoned. | 125 | yes |  | Wield |
-|  | obj_1224 |  | 0 |  |  |  |
-|  | Mithril dagger(p) | A poisoned Mithril dagger. | 325 | yes |  | Wield |
-|  | obj_1226 |  | 0 |  |  |  |
-|  | Adamant dagger(p) | A very dangerous poisoned dagger. | 800 | yes |  | Wield |
-|  | obj_1228 |  | 0 |  |  |  |
-|  | Rune dagger(p) | The blade is covered with a nasty poison. | 8000 | yes |  | Wield |
-|  | obj_1230 |  | 0 |  |  |  |
-|  | Dragon dagger(p) | A powerful dagger. | 24000 | yes |  | Wield |
-|  | obj_1232 |  | 0 |  |  |  |
-|  | Black dagger(p) | This dagger is poisoned. | 240 | yes |  | Wield |
-|  | obj_1234 |  | 0 |  |  |  |
-|  | Poisoned dagger(p) | The blade is covered with poison. | 565 | yes |  | Wield |
-|  | obj_1236 |  | 0 |  |  |  |
-|  | Bronze spear | A bronze tipped spear. | 26 | yes |  | Wield |
-|  | obj_1238 |  | 0 |  |  |  |
-|  | Iron spear | An iron tipped spear. | 91 | yes |  | Wield |
-|  | obj_1240 |  | 0 |  |  |  |
-|  | Steel spear | A steel tipped spear. | 325 | yes |  | Wield |
-|  | obj_1242 |  | 0 |  |  |  |
-|  | Mithril spear | A mithril tipped spear. | 845 | yes |  | Wield |
-|  | obj_1244 |  | 0 |  |  |  |
-|  | Adamant spear | An adamantite tipped spear. | 2080 | yes |  | Wield |
-|  | obj_1246 |  | 0 |  |  |  |
-|  | Rune spear | A rune tipped spear. | 20800 | yes |  | Wield |
-|  | obj_1248 |  | 0 |  |  |  |
-|  | Dragon spear | A dragon tipped spear. | 62400 | yes |  | Wield |
-|  | obj_1250 |  | 0 |  |  |  |
-|  | Bronze spear(p) | A bronze tipped spear. | 26 | yes |  | Wield |
-|  | obj_1252 |  | 0 |  |  |  |
-|  | Iron spear(p) | An iron tipped spear. | 91 | yes |  | Wield |
-|  | obj_1254 |  | 0 |  |  |  |
-|  | Steel spear(p) | A steel tipped spear. | 325 | yes |  | Wield |
-|  | obj_1256 |  | 0 |  |  |  |
-|  | Mithril spear(p) | A mithril tipped spear. | 845 | yes |  | Wield |
-|  | obj_1258 |  | 0 |  |  |  |
-|  | Adamant spear(p) | An adamantite tipped spear. | 2080 | yes |  | Wield |
-|  | obj_1260 |  | 0 |  |  |  |
-|  | Rune spear(p) | A rune tipped spear. | 20800 | yes |  | Wield |
-|  | obj_1262 |  | 0 |  |  |  |
-|  | Dragon spear(p) | A dragon tipped spear. | 62400 | yes |  | Wield |
-|  | obj_1264 |  | 0 |  |  |  |
-|  | Bronze pickaxe | Used for mining. | 1 |  |  | Wield |
-|  | obj_1266 |  | 0 |  |  |  |
-|  | Iron pickaxe | Used for mining. | 140 |  |  | Wield |
-|  | obj_1268 |  | 0 |  |  |  |
-|  | Steel pickaxe | Used for mining. | 500 |  |  | Wield |
-|  | obj_1270 |  | 0 |  |  |  |
-|  | Adamant pickaxe | Used for mining. | 3200 |  |  | Wield |
-|  | obj_1272 |  | 0 |  |  |  |
-|  | Mithril pickaxe | Used for mining. | 1300 |  |  | Wield |
-|  | obj_1274 |  | 0 |  |  |  |
-|  | Rune pickaxe | Used for mining. | 32000 |  |  | Wield |
-|  | obj_1276 |  | 0 |  |  |  |
-|  | Bronze sword | A razor sharp sword. | 26 |  |  | Wield |
-|  | obj_1278 |  | 0 |  |  |  |
-|  | Iron sword | A razor sharp sword. | 91 |  |  | Wield |
-|  | obj_1280 |  | 0 |  |  |  |
-|  | Steel sword | A razor sharp sword. | 325 |  |  | Wield |
-|  | obj_1282 |  | 0 |  |  |  |
-|  | Black sword | A razor sharp sword. | 624 |  |  | Wield |
-|  | obj_1284 |  | 0 |  |  |  |
-|  | Mithril sword | A razor sharp sword. | 845 |  |  | Wield |
-|  | obj_1286 |  | 0 |  |  |  |
-|  | Adamant sword | A razor sharp sword. | 2080 |  |  | Wield |
-|  | obj_1288 |  | 0 |  |  |  |
-|  | Rune sword | A razor sharp sword. | 20800 |  |  | Wield |
-|  | obj_1290 |  | 0 |  |  |  |
-|  | Bronze longsword | A razor sharp longsword. | 40 |  |  | Wield |
-|  | obj_1292 |  | 0 |  |  |  |
-|  | Iron longsword | A razor sharp longsword. | 140 |  |  | Wield |
-|  | obj_1294 |  | 0 |  |  |  |
-|  | Steel longsword | A razor sharp longsword. | 500 |  |  | Wield |
-|  | obj_1296 |  | 0 |  |  |  |
-|  | Black longsword | A razor sharp longsword. | 960 |  |  | Wield |
-|  | obj_1298 |  | 0 |  |  |  |
-|  | Mithril longsword | A razor sharp longsword. | 1300 |  |  | Wield |
-|  | obj_1300 |  | 0 |  |  |  |
-|  | Adamant longsword | A razor sharp longsword. | 3200 |  |  | Wield |
-|  | obj_1302 |  | 0 |  |  |  |
-|  | Rune longsword | A razor sharp longsword. | 32000 |  |  | Wield |
-|  | obj_1304 |  | 0 |  |  |  |
-|  | Dragon longsword | A very powerful sword. | 100000 | yes |  | Wield |
-|  | obj_1306 |  | 0 |  |  |  |
-|  | Bronze 2h sword | A two handed sword. | 80 |  |  | Wield |
-|  | obj_1308 |  | 0 |  |  |  |
-|  | Iron 2h sword | A two handed sword. | 280 |  |  | Wield |
-|  | obj_1310 |  | 0 |  |  |  |
-|  | Steel 2h sword | A two handed sword. | 1000 |  |  | Wield |
-|  | obj_1312 |  | 0 |  |  |  |
-|  | Black 2h sword | A two handed sword. | 1920 |  |  | Wield |
-|  | obj_1314 |  | 0 |  |  |  |
-|  | Mithril 2h sword | A two handed sword. | 2600 |  |  | Wield |
-|  | obj_1316 |  | 0 |  |  |  |
-|  | Adamant 2h sword | A two handed sword. | 6400 |  |  | Wield |
-|  | obj_1318 |  | 0 |  |  |  |
-|  | Rune 2h sword | A two handed sword. | 64000 |  |  | Wield |
-|  | obj_1320 |  | 0 |  |  |  |
-|  | Bronze scimitar | A vicious curved sword. | 32 |  |  | Wield |
-|  | obj_1322 |  | 0 |  |  |  |
-|  | Iron scimitar | A vicious curved sword. | 112 |  |  | Wield |
-|  | obj_1324 |  | 0 |  |  |  |
-|  | Steel scimitar | A vicious curved sword. | 400 |  |  | Wield |
-|  | obj_1326 |  | 0 |  |  |  |
-|  | Black scimitar | A vicious curved sword. | 768 |  |  | Wield |
-|  | obj_1328 |  | 0 |  |  |  |
-|  | Mithril scimitar | A vicious curved sword. | 1040 |  |  | Wield |
-|  | obj_1330 |  | 0 |  |  |  |
-|  | Adamant scimitar | A vicious curved sword. | 2560 |  |  | Wield |
-|  | obj_1332 |  | 0 |  |  |  |
-|  | Rune scimitar | A vicious curved sword. | 25600 |  |  | Wield |
-|  | obj_1334 |  | 0 |  |  |  |
-|  | Iron warhammer | I don't think it's intended for joinery. | 173 |  |  | Wield |
-|  | obj_1336 |  | 0 |  |  |  |
-|  | Bronze warhammer | I don't think it's intended for joinery. | 47 |  |  | Wield |
-|  | obj_1338 |  | 0 |  |  |  |
-|  | Steel warhammer | I don't think it's intended for joinery. | 640 |  |  | Wield |
-|  | obj_1340 |  | 0 |  |  |  |
-|  | Black warhammer | I don't think it's intended for joinery. | 640 |  |  | Wield |
-|  | obj_1342 |  | 0 |  |  |  |
-|  | Mithril warhammer | I don't think it's intended for joinery. | 1660 |  |  | Wield |
-|  | obj_1344 |  | 0 |  |  |  |
-|  | Adamnt warhammer | I don't think it's intended for joinery. | 4120 |  |  | Wield |
-|  | obj_1346 |  | 0 |  |  |  |
-|  | Rune warhammer | I don't think it's intended for joinery. | 41500 |  |  | Wield |
-|  | obj_1348 |  | 0 |  |  |  |
-|  | Iron axe | A woodcutters axe. | 56 |  |  | Wield |
-|  | obj_1350 |  | 0 |  |  |  |
-|  | Bronze axe | A woodcutters axe. | 16 |  |  | Wield |
-|  | obj_1352 |  | 0 |  |  |  |
-|  | Steel axe | A woodcutters axe. | 200 |  |  | Wield |
-|  | obj_1354 |  | 0 |  |  |  |
-|  | Mithril axe | A powerful axe. | 520 |  |  | Wield |
-|  | obj_1356 |  | 0 |  |  |  |
-|  | Adamant axe | A powerful axe. | 1280 |  |  | Wield |
-|  | obj_1358 |  | 0 |  |  |  |
-|  | Rune axe | A powerful axe. | 12800 |  |  | Wield |
-|  | obj_1360 |  | 0 |  |  |  |
-|  | Black axe | A sinister looking axe. | 384 |  |  | Wield |
-|  | obj_1362 |  | 0 |  |  |  |
-|  | Iron battleaxe | A vicious looking axe. | 182 |  |  | Wield |
-|  | obj_1364 |  | 0 |  |  |  |
-|  | Steel battleaxe | A vicious looking axe. | 650 |  |  | Wield |
-|  | obj_1366 |  | 0 |  |  |  |
-|  | Black battleaxe | A vicious looking axe. | 1248 |  |  | Wield |
-|  | obj_1368 |  | 0 |  |  |  |
-|  | Mithril battleaxe | A vicious looking axe. | 1690 |  |  | Wield |
-|  | obj_1370 |  | 0 |  |  |  |
-|  | Adamant battleaxe | A vicious looking axe. | 4160 |  |  | Wield |
-|  | obj_1372 |  | 0 |  |  |  |
-|  | Rune battleaxe | A vicious looking axe. | 41600 |  |  | Wield |
-|  | obj_1374 |  | 0 |  |  |  |
-|  | Bronze battleaxe | A vicious looking axe. | 52 |  |  | Wield |
-|  | obj_1376 |  | 0 |  |  |  |
-|  | Dragon battleaxe | A vicious looking axe. | 200000 | yes |  | Wield |
-|  | obj_1378 |  | 0 |  |  |  |
-|  | Staff | It's a slightly magical stick. | 15 |  |  | Wield |
-|  | obj_1380 |  | 0 |  |  |  |
-|  | Staff of air | A Magical staff. | 1500 |  |  | Wield |
-|  | obj_1382 |  | 0 |  |  |  |
-|  | Staff of water | A Magical staff. | 1500 |  |  | Wield |
-|  | obj_1384 |  | 0 |  |  |  |
-|  | Staff of earth | A Magical staff. | 1500 |  |  | Wield |
-|  | obj_1386 |  | 0 |  |  |  |
-|  | Staff of fire | A Magical staff. | 1500 |  |  | Wield |
-|  | obj_1388 |  | 0 |  |  |  |
-|  | Magic staff | A Magical staff. | 200 |  |  | Wield |
-|  | obj_1390 |  | 0 |  |  |  |
-|  | Battlestaff | It's a slightly magical stick. | 7000 | yes |  | Wield |
-|  | obj_1392 |  | 0 |  |  |  |
-|  | Fire battlestaff | It's a slightly magical stick. | 15500 | yes |  | Wield |
-|  | obj_1394 |  | 0 |  |  |  |
-|  | Water battlestaff | It's a slightly magical stick. | 15500 | yes |  | Wield |
-|  | obj_1396 |  | 0 |  |  |  |
-|  | Air battlestaff | It's a slightly magical stick. | 15500 | yes |  | Wield |
-|  | obj_1398 |  | 0 |  |  |  |
-|  | Earth battlestaff | It's a slightly magical stick. | 15500 | yes |  | Wield |
-|  | obj_1400 |  | 0 |  |  |  |
-|  | Mystic fire staff | It's a slightly magical stick. | 42500 | yes |  | Wield |
-|  | obj_1402 |  | 0 |  |  |  |
-|  | Mystic water staff | It's a slightly magical stick. | 42500 | yes |  | Wield |
-|  | obj_1404 |  | 0 |  |  |  |
-|  | Mystic air staff | It's a slightly magical stick. | 42500 | yes |  | Wield |
-|  | obj_1406 |  | 0 |  |  |  |
-|  | Mystic earth staff | It's a slightly magical stick. | 42500 | yes |  | Wield |
-|  | obj_1408 |  | 0 |  |  |  |
-|  | Staff of iban | A Magical staff., A highly magical staff. | 42500 | yes |  | Wield |
-|  | Broken iban staff | The staff is unusable in this state. | 20 | yes |  |  |
-|  | Farmers fork |  | 0 |  |  |  |
-|  | obj_1412 |  | 0 |  |  |  |
-|  | Halberd |  | 0 |  |  |  |
-|  | obj_1414 |  | 0 |  |  |  |
-|  | Warhammer |  | 0 |  |  |  |
-|  | obj_1416 |  | 0 |  |  |  |
-|  | Javelin |  | 0 |  |  |  |
-|  | obj_1418 |  | 0 |  |  |  |
-|  | Scythe |  | 0 |  |  | Wield |
-|  | Iron mace | A spiky mace. | 63 |  |  | Wield |
-|  | obj_1421 |  | 0 |  |  |  |
-|  | Bronze mace | A spiky mace. | 18 |  |  | Wield |
-|  | obj_1423 |  | 0 |  |  |  |
-|  | Steel mace | A spiky mace. | 225 |  |  | Wield |
-|  | obj_1425 |  | 0 |  |  |  |
-|  | Black mace | A spiky mace. | 432 |  |  | Wield |
-|  | obj_1427 |  | 0 |  |  |  |
-|  | Mithril mace | A spiky mace. | 585 |  |  | Wield |
-|  | obj_1429 |  | 0 |  |  |  |
-|  | Adamant mace | A spiky mace. | 1440 |  |  | Wield |
-|  | obj_1431 |  | 0 |  |  |  |
-|  | Rune mace | A spiky mace. | 14400 |  |  | Wield |
-|  | obj_1433 |  | 0 |  |  |  |
-|  | Dragon mace | A spiky mace. | 50000 | yes |  | Wield |
-|  | obj_1435 |  | 0 |  |  |  |
-|  | Rune essence | An uncharged Rune Stone. | 4 |  |  |  |
-|  | obj_1437 |  | 0 |  |  |  |
-|  | Air talisman | A mysterious power emanates from the talisman... | 4 |  |  | Locate |
-|  | obj_1439 |  | 0 |  |  |  |
-|  | Earth talisman | A mysterious power emanates from the talisman... | 4 |  |  | Locate |
-|  | obj_1441 |  | 0 |  |  |  |
-|  | Fire talisman | A mysterious power emanates from the talisman... | 4 |  |  | Locate |
-|  | obj_1443 |  | 0 |  |  |  |
-|  | Water talisman | A mysterious power emanates from the talisman... | 4 |  |  | Locate |
-|  | obj_1445 |  | 0 |  |  |  |
-|  | Body talisman | A mysterious power emanates from the talisman... | 4 |  |  | Locate |
-|  | obj_1447 |  | 0 |  |  |  |
-|  | Mind talisman | A mysterious power emanates from the talisman... | 4 |  |  | Locate |
-|  | obj_1449 |  | 0 |  |  |  |
-|  | Blood talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
-|  | obj_1451 |  | 0 |  |  |  |
-|  | Chaos talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
-|  | obj_1453 |  | 0 |  |  |  |
-|  | Cosmic talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
-|  | obj_1455 |  | 0 |  |  |  |
-|  | Death talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
-|  | obj_1457 |  | 0 |  |  |  |
-|  | Law talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
-|  | obj_1459 |  | 0 |  |  |  |
-|  | Soul talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
-|  | obj_1461 |  | 0 |  |  |  |
-|  | Nature talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
-|  | obj_1463 |  | 0 |  |  |  |
-|  | Archery ticket | I can exchange this for equipment. | 25 | yes | yes |  |
-|  | Weapon poison | For use on daggers and projectiles. | 11 | yes |  |  |
-|  | Sea slug | A rather nasty looking crustacean. | 4 | yes |  |  |
-|  | Damp sticks | Some damp wooden sticks. | 0 | yes |  |  |
-|  | Dry sticks | Some dry wooden sticks. | 0 | yes |  | Rub-together |
-|  | Broken glass | Smashed glass. | 0 | yes |  |  |
-|  | Red bead | A small round red bead. | 4 |  |  |  |
-|  | obj_1471 |  | 0 |  |  |  |
-|  | Yellow bead | A small round yellow bead. | 4 |  |  |  |
-|  | obj_1473 |  | 0 |  |  |  |
-|  | Black bead | A small round black bead. | 4 |  |  |  |
-|  | obj_1475 |  | 0 |  |  |  |
-|  | White bead | A small round white bead. | 4 |  |  |  |
-|  | obj_1477 |  | 0 |  |  |  |
-|  | Amulet of accuracy | It increases my aim. | 100 |  |  | Wear |
-|  | obj_1479 |  | 0 |  |  |  |
-|  | Rocks | Some rocks. | 0 | yes |  |  |
-|  | Orb of light | A magical sphere that glimmers within. | 10 | yes |  |  |
-|  | Orb of light | A magical sphere that glimmers within. | 10 | yes |  |  |
-|  | Orb of light | A magical sphere that glimmers within. | 10 | yes |  |  |
-|  | Orb of light | A magical sphere that glimmers within. | 20 | yes |  |  |
-|  | Damp cloth | A damp, wet cloth. | 10 | yes |  |  |
-|  | Piece of railing | A broken piece of railing. | 10 | yes |  |  |
-|  | Unicorn horn | A withered unicorn horn. | 20 | yes |  |  |
-|  | Paladin's badge | A coat of arms of the Ardougne Paladins. | 10 | yes |  |  |
-|  | Paladin's badge | A coat of arms of the Ardougne Paladins. | 10 | yes |  |  |
-|  | Paladin's badge | A coat of arms of the Ardougne Paladins. | 10 | yes |  |  |
-|  | Witches cat | A cat. | 0 | yes |  |  |
-|  | Doll of iban | A simple doll with Iban's likeness. | 2 | yes |  | Search |
-|  | Old journal | An account of the last times of someone. | 1 | yes |  | Read |
-|  | History of iban | The tale of Iban. | 1 | yes |  | Read |
-|  | Klank's gauntlets | Strong dwarvish gloves. | 6 | yes |  | Wear |
-|  | Iban's dove | I thought you only saw these in pairs? | 1 | yes |  |  |
-|  | Amulet of othanian | A mystical demonic amulet. | 0 | yes |  |  |
-|  | Amulet of doomion | A mystical demonic amulet. | 0 | yes |  |  |
-|  | Amulet of holthion | A mystical demonic amulet. | 0 | yes |  |  |
+| ![Coins 25](icons/coins_25.png) | Coins 25 |  | 0 |  | yes |  |
+| ![Coins 100](icons/coins_100.png) | Coins 100 |  | 0 |  | yes |  |
+| ![Coins 250](icons/coins_250.png) | Coins 250 |  | 0 |  | yes |  |
+| ![Coins 1000](icons/coins_1000.png) | Coins 1000 |  | 0 |  | yes |  |
+| ![Coins 10000](icons/coins_10000.png) | Coins 10000 |  | 0 |  | yes |  |
+| ![White apron](icons/white_apron.png) | White apron | A mostly clean apron. | 2 |  |  | Wear |
+| ![cert_white_apron](icons/cert_white_apron.png) | cert_white_apron |  | 0 |  |  |  |
+| ![Cape](icons/red_cape.png) | Cape | A bright red cape. | 2 |  |  | Wear |
+| ![cert_red_cape](icons/cert_red_cape.png) | cert_red_cape |  | 0 |  |  |  |
+| ![Brass necklace](icons/brass_necklace.png) | Brass necklace | I'd prefer a gold one. | 30 |  |  | Wear |
+| ![cert_brass_necklace](icons/cert_brass_necklace.png) | cert_brass_necklace |  | 0 |  |  |  |
+| ![Blue skirt](icons/blue_skirt.png) | Blue skirt | Leg covering favoured by women and wizards. | 2 |  |  | Wear |
+| ![cert_blue_skirt](icons/cert_blue_skirt.png) | cert_blue_skirt |  | 0 |  |  |  |
+| ![Pink skirt](icons/pink_skirt.png) | Pink skirt | A ladies skirt. | 2 |  |  | Wear |
+| ![cert_pink_skirt](icons/cert_pink_skirt.png) | cert_pink_skirt |  | 0 |  |  |  |
+| ![Black skirt](icons/black_skirt.png) | Black skirt | Clothing favoured by women and dark wizards. | 2 |  |  | Wear |
+| ![cert_black_skirt](icons/cert_black_skirt.png) | cert_black_skirt |  | 0 |  |  |  |
+| ![Wizards hat](icons/blackwizhat.png) | Wizards hat | A silly pointed hat. | 2 |  |  | Wear |
+| ![cert_blackwizhat](icons/cert_blackwizhat.png) | cert_blackwizhat |  | 0 |  |  |  |
+| ![Cape](icons/black_cape.png) | Cape | A warm black cape. | 7 |  |  | Wear |
+| ![cert_black_cape](icons/cert_black_cape.png) | cert_black_cape |  | 0 |  |  |  |
+| ![Cape](icons/blue_cape.png) | Cape | A thick blue cape. | 32 |  |  | Wear |
+| ![cert_blue_cape](icons/cert_blue_cape.png) | cert_blue_cape |  | 0 |  |  |  |
+| ![Cape](icons/yellow_cape.png) | Cape | A thick yellow cape. | 32 |  |  | Wear |
+| ![cert_yellow_cape](icons/cert_yellow_cape.png) | cert_yellow_cape |  | 0 |  |  |  |
+| ![Eye patch](icons/eye_patch.png) | Eye patch | A black piece of cloth on a string. | 2 | yes |  | Wear |
+| ![cert_eye_patch](icons/cert_eye_patch.png) | cert_eye_patch |  | 0 |  |  |  |
+| ![Cape](icons/green_cape.png) | Cape | A thick green cape. | 32 |  |  | Wear |
+| ![cert_green_cape](icons/cert_green_cape.png) | cert_green_cape |  | 0 |  |  |  |
+| ![Cape](icons/purple_cape.png) | Cape | A thick purple cape. | 32 |  |  | Wear |
+| ![cert_purple_cape](icons/cert_purple_cape.png) | cert_purple_cape |  | 0 |  |  |  |
+| ![Cape](icons/orange_cape.png) | Cape | A thick orange cape. | 32 |  |  | Wear |
+| ![cert_orange_cape](icons/cert_orange_cape.png) | cert_orange_cape |  | 0 |  |  |  |
+| ![Robe of zamorak](icons/zamrobebottom.png) | Robe of zamorak | A robe worn by worshippers of Zamorak. | 30 | yes |  | Wear |
+| ![cert_zamrobebottom](icons/cert_zamrobebottom.png) | cert_zamrobebottom |  | 0 |  |  |  |
+| ![Robe of zamorak](icons/zamrobetop.png) | Robe of zamorak | A robe worn by worshippers of Zamorak. | 40 | yes |  | Wear |
+| ![cert_zamrobetop](icons/cert_zamrobetop.png) | cert_zamrobetop |  | 0 |  |  |  |
+| ![Bunny ears](icons/bunnyears.png) | Bunny ears | A rabbit-like adornment. | 0 |  |  | Wear |
+| ![Red partyhat](icons/red_partyhat.png) | Red partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
+| ![cert_red_partyhat](icons/cert_red_partyhat.png) | cert_red_partyhat |  | 0 |  |  |  |
+| ![Yellow partyhat](icons/yellow_partyhat.png) | Yellow partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
+| ![cert_yellow_partyhat](icons/cert_yellow_partyhat.png) | cert_yellow_partyhat |  | 0 |  |  |  |
+| ![Blue partyhat](icons/blue_partyhat.png) | Blue partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
+| ![cert_blue_partyhat](icons/cert_blue_partyhat.png) | cert_blue_partyhat |  | 0 |  |  |  |
+| ![Green partyhat](icons/green_partyhat.png) | Green partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
+| ![cert_green_partyhat](icons/cert_green_partyhat.png) | cert_green_partyhat |  | 0 |  |  |  |
+| ![Purple partyhat](icons/purple_partyhat.png) | Purple partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
+| ![cert_purple_partyhat](icons/cert_purple_partyhat.png) | cert_purple_partyhat |  | 0 |  |  |  |
+| ![White partyhat](icons/white_partyhat.png) | White partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
+| ![cert_white_partyhat](icons/cert_white_partyhat.png) | cert_white_partyhat |  | 0 |  |  |  |
+| ![Santa hat](icons/santa_hat.png) | Santa hat |  | 160 |  |  | Wear, Wear |
+| ![cert_santa_hat](icons/cert_santa_hat.png) | cert_santa_hat |  | 0 |  |  |  |
+| ![Cape of legends](icons/cape_of_legends.png) | Cape of legends | The cape worn by members of the Legends Guild. | 450 | yes |  | Wear |
+| ![Halloween mask](icons/halloweenmask_green.png) | Halloween mask | Aaaarrrghhh ... i'm a monster. | 15 |  |  | Wear |
+| ![cert_halloweenmask_green](icons/cert_halloweenmask_green.png) | cert_halloweenmask_green |  | 0 |  |  |  |
+| ![Halloween mask](icons/halloweenmask_blue.png) | Halloween mask | Aaaarrrghhh ... i'm a monster. | 15 |  |  | Wear |
+| ![cert_halloweenmask_blue](icons/cert_halloweenmask_blue.png) | cert_halloweenmask_blue |  | 0 |  |  |  |
+| ![Halloween mask](icons/halloweenmask_red.png) | Halloween mask | Aaaarrrghhh ... i'm a monster. | 15 |  |  | Wear |
+| ![cert_halloweenmask_red](icons/cert_halloweenmask_red.png) | cert_halloweenmask_red |  | 0 |  |  |  |
+| ![Leather gloves](icons/leather_gloves.png) | Leather gloves | These will keep my hands warm! | 6 |  |  | Wear |
+| ![cert_leather_gloves](icons/cert_leather_gloves.png) | cert_leather_gloves |  | 0 |  |  |  |
+| ![Leather boots](icons/leather_boots.png) | Leather boots | Comfortable leather boots. | 6 |  |  | Wear |
+| ![cert_leather_boots](icons/cert_leather_boots.png) | cert_leather_boots |  | 0 |  |  |  |
+| ![Leather vambraces](icons/leather_vambraces.png) | Leather vambraces | Better than no armour! | 18 |  |  | Wear |
+| ![cert_leather_vambraces](icons/cert_leather_vambraces.png) | cert_leather_vambraces |  | 0 |  |  |  |
+| ![Dragon vambraces](icons/dragon_vambraces.png) | Dragon vambraces | Made from 100% real dragon hide. | 2500 |  |  | Wear |
+| ![cert_dragon_vambraces](icons/cert_dragon_vambraces.png) | cert_dragon_vambraces |  | 0 |  |  |  |
+| ![Iron platelegs](icons/iron_platelegs.png) | Iron platelegs | These look pretty heavy. | 280 |  |  | Wear |
+| ![cert_iron_platelegs](icons/cert_iron_platelegs.png) | cert_iron_platelegs |  | 0 |  |  |  |
+| ![Steel platelegs](icons/steel_platelegs.png) | Steel platelegs | These look pretty heavy. | 1000 |  |  | Wear |
+| ![cert_steel_platelegs](icons/cert_steel_platelegs.png) | cert_steel_platelegs |  | 0 |  |  |  |
+| ![Mithril platelegs](icons/mithril_platelegs.png) | Mithril platelegs | These look pretty heavy. | 2600 |  |  | Wear |
+| ![cert_mithril_platelegs](icons/cert_mithril_platelegs.png) | cert_mithril_platelegs |  | 0 |  |  |  |
+| ![Adamant platelegs](icons/adamant_platelegs.png) | Adamant platelegs | These look pretty heavy. | 6400 |  |  | Wear |
+| ![cert_adamant_platelegs](icons/cert_adamant_platelegs.png) | cert_adamant_platelegs |  | 0 |  |  |  |
+| ![Bronze platelegs](icons/bronze_platelegs.png) | Bronze platelegs | These look pretty heavy. | 80 |  |  | Wear |
+| ![cert_bronze_platelegs](icons/cert_bronze_platelegs.png) | cert_bronze_platelegs |  | 0 |  |  |  |
+| ![Black platelegs](icons/black_platelegs.png) | Black platelegs | Big, black and heavy looking. | 1920 |  |  | Wear |
+| ![cert_black_platelegs](icons/cert_black_platelegs.png) | cert_black_platelegs |  | 0 |  |  |  |
+| ![Rune platelegs](icons/rune_platelegs.png) | Rune platelegs | These look pretty heavy. | 64000 |  |  | Wear |
+| ![cert_rune_platelegs](icons/cert_rune_platelegs.png) | cert_rune_platelegs |  | 0 |  |  |  |
+| ![Iron plateskirt](icons/iron_plateskirt.png) | Iron plateskirt | Designer leg protection. | 280 |  |  | Wear |
+| ![cert_iron_plateskirt](icons/cert_iron_plateskirt.png) | cert_iron_plateskirt |  | 0 |  |  |  |
+| ![Steel plateskirt](icons/steel_plateskirt.png) | Steel plateskirt | Designer leg protection. | 1000 |  |  | Wear |
+| ![cert_steel_plateskirt](icons/cert_steel_plateskirt.png) | cert_steel_plateskirt |  | 0 |  |  |  |
+| ![Mithril plateskirt](icons/mithril_plateskirt.png) | Mithril plateskirt | Designer leg protection. | 2600 |  |  | Wear |
+| ![cert_mithril_plateskirt](icons/cert_mithril_plateskirt.png) | cert_mithril_plateskirt |  | 0 |  |  |  |
+| ![Bronze plateskirt](icons/bronze_plateskirt.png) | Bronze plateskirt | Designer leg protection. | 80 |  |  | Wear |
+| ![cert_bronze_plateskirt](icons/cert_bronze_plateskirt.png) | cert_bronze_plateskirt |  | 0 |  |  |  |
+| ![Black plateskirt](icons/black_plateskirt.png) | Black plateskirt | Big, black and heavy looking. | 1920 |  |  | Wear |
+| ![cert_black_plateskirt](icons/cert_black_plateskirt.png) | cert_black_plateskirt |  | 0 |  |  |  |
+| ![Adamant plateskirt](icons/adamant_plateskirt.png) | Adamant plateskirt | Designer leg protection. | 6400 |  |  | Wear |
+| ![cert_adamant_plateskirt](icons/cert_adamant_plateskirt.png) | cert_adamant_plateskirt |  | 0 |  |  |  |
+| ![Rune plateskirt](icons/rune_plateskirt.png) | Rune plateskirt | Designer leg protection. | 64000 |  |  | Wear |
+| ![cert_rune_plateskirt](icons/cert_rune_plateskirt.png) | cert_rune_plateskirt |  | 0 |  |  |  |
+| ![Leather chaps](icons/leather_chaps.png) | Leather chaps | Better than no armour! | 20 |  |  | Wear |
+| ![cert_leather_chaps](icons/cert_leather_chaps.png) | cert_leather_chaps |  | 0 |  |  |  |
+| ![Studded chaps](icons/studded_chaps.png) | Studded chaps | Those studs should provide a bit more protection. | 750 |  |  | Wear |
+| ![cert_studded_chaps](icons/cert_studded_chaps.png) | cert_studded_chaps |  | 0 |  |  |  |
+| ![Dragonhide chaps](icons/dragonhide_chaps.png) | Dragonhide chaps | Made from 100% real dragon hide. | 3900 |  |  | Wear |
+| ![cert_dragonhide_chaps](icons/cert_dragonhide_chaps.png) | cert_dragonhide_chaps |  | 0 |  |  |  |
+| ![Iron chainbody](icons/iron_chainbody.png) | Iron chainbody | A series of connected metal rings. | 210 |  |  | Wear |
+| ![cert_iron_chainbody](icons/cert_iron_chainbody.png) | cert_iron_chainbody |  | 0 |  |  |  |
+| ![Bronze chainbody](icons/bronze_chainbody.png) | Bronze chainbody | A series of connected metal rings. | 60 |  |  | Wear |
+| ![cert_bronze_chainbody](icons/cert_bronze_chainbody.png) | cert_bronze_chainbody |  | 0 |  |  |  |
+| ![Steel chainbody](icons/steel_chainbody.png) | Steel chainbody | A series of connected metal rings. | 750 |  |  | Wear |
+| ![cert_steel_chainbody](icons/cert_steel_chainbody.png) | cert_steel_chainbody |  | 0 |  |  |  |
+| ![Black chainbody](icons/black_chainbody.png) | Black chainbody | A series of connected metal rings. | 1440 |  |  | Wear |
+| ![cert_black_chainbody](icons/cert_black_chainbody.png) | cert_black_chainbody |  | 0 |  |  |  |
+| ![Mithril chainbody](icons/mithril_chainbody.png) | Mithril chainbody | A series of connected metal rings. | 1950 |  |  | Wear |
+| ![cert_mithril_chainbody](icons/cert_mithril_chainbody.png) | cert_mithril_chainbody |  | 0 |  |  |  |
+| ![Adamant chainbody](icons/adamant_chainbody.png) | Adamant chainbody | A series of connected metal rings. | 4800 |  |  | Wear |
+| ![cert_adamant_chainbody](icons/cert_adamant_chainbody.png) | cert_adamant_chainbody |  | 0 |  |  |  |
+| ![Rune chainbody](icons/rune_chainbody.png) | Rune chainbody | A series of connected metal rings. | 50000 |  |  | Wear |
+| ![cert_rune_chainbody](icons/cert_rune_chainbody.png) | cert_rune_chainbody |  | 0 |  |  |  |
+| ![Iron platebody](icons/iron_platebody.png) | Iron platebody | Provides excellent protection. | 560 |  |  | Wear |
+| ![cert_iron_platebody](icons/cert_iron_platebody.png) | cert_iron_platebody |  | 0 |  |  |  |
+| ![Bronze platebody](icons/bronze_platebody.png) | Bronze platebody | Provides excellent protection. | 160 |  |  | Wear |
+| ![cert_bronze_platebody](icons/cert_bronze_platebody.png) | cert_bronze_platebody |  | 0 |  |  |  |
+| ![Steel platebody](icons/steel_platebody.png) | Steel platebody | Provides excellent protection. | 2000 |  |  | Wear |
+| ![cert_steel_platebody](icons/cert_steel_platebody.png) | cert_steel_platebody |  | 0 |  |  |  |
+| ![Mithril platebody](icons/mithril_platebody.png) | Mithril platebody | Provides excellent protection. | 5200 |  |  | Wear |
+| ![cert_mithril_platebody](icons/cert_mithril_platebody.png) | cert_mithril_platebody |  | 0 |  |  |  |
+| ![Adamant platebody](icons/adamant_platebody.png) | Adamant platebody | Provides excellent protection. | 12800 |  |  | Wear |
+| ![cert_adamant_platebody](icons/cert_adamant_platebody.png) | cert_adamant_platebody |  | 0 |  |  |  |
+| ![Black platebody](icons/black_platebody.png) | Black platebody | Provides excellent protection. | 3840 |  |  | Wear |
+| ![cert_black_platebody](icons/cert_black_platebody.png) | cert_black_platebody |  | 0 |  |  |  |
+| ![Rune platebody](icons/rune_platebody.png) | Rune platebody |  | 65000 |  |  | Wear |
+| ![cert_rune_platebody](icons/cert_rune_platebody.png) | cert_rune_platebody |  | 0 |  |  |  |
+| ![Leather body](icons/leather_armour.png) | Leather body | Better than no armour! | 21 |  |  | Wear |
+| ![cert_leather_armour](icons/cert_leather_armour.png) | cert_leather_armour |  | 0 |  |  |  |
+| ![Hardleather body](icons/hardleather_body.png) | Hardleather body | Harder than normal leather. | 170 |  |  | Wear |
+| ![cert_hardleather_body](icons/cert_hardleather_body.png) | cert_hardleather_body |  | 0 |  |  |  |
+| ![Studded body](icons/studded_body.png) | Studded body | Those studs should provide a bit more protection. | 850 |  |  | Wear |
+| ![cert_studded_body](icons/cert_studded_body.png) | cert_studded_body |  | 0 |  |  |  |
+| ![Dragonhide body](icons/dragonhide_body.png) | Dragonhide body | Made from 100% real dragon hide. | 7800 |  |  | Wear |
+| ![cert_dragonhide_body](icons/cert_dragonhide_body.png) | cert_dragonhide_body |  | 0 |  |  |  |
+| ![Iron med helm](icons/iron_med_helm.png) | Iron med helm | A medium sized helmet. | 84 |  |  | Wear |
+| ![cert_iron_med_helm](icons/cert_iron_med_helm.png) | cert_iron_med_helm |  | 0 |  |  |  |
+| ![Bronze med helm](icons/bronze_med_helm.png) | Bronze med helm | A medium sized helmet. | 24 |  |  | Wear |
+| ![cert_bronze_med_helm](icons/cert_bronze_med_helm.png) | cert_bronze_med_helm |  | 0 |  |  |  |
+| ![Steel med helm](icons/steel_med_helm.png) | Steel med helm | A medium sized helmet. | 300 |  |  | Wear |
+| ![cert_steel_med_helm](icons/cert_steel_med_helm.png) | cert_steel_med_helm |  | 0 |  |  |  |
+| ![Mithril med helm](icons/mithril_med_helm.png) | Mithril med helm | A medium sized helmet. | 780 |  |  | Wear |
+| ![cert_mithril_med_helm](icons/cert_mithril_med_helm.png) | cert_mithril_med_helm |  | 0 |  |  |  |
+| ![Adamant med helm](icons/adamant_med_helm.png) | Adamant med helm | A medium sized helmet. | 1920 |  |  | Wear |
+| ![cert_adamant_med_helm](icons/cert_adamant_med_helm.png) | cert_adamant_med_helm |  | 0 |  |  |  |
+| ![Rune med helm](icons/rune_med_helm.png) | Rune med helm | A medium sized helmet. | 19200 |  |  | Wear |
+| ![cert_rune_med_helm](icons/cert_rune_med_helm.png) | cert_rune_med_helm |  | 0 |  |  |  |
+| ![Dragon med helm](icons/dragon_med_helm.png) | Dragon med helm | Makes the wearer pretty intimidating. | 100000 | yes |  | Wear |
+| ![cert_dragon_med_helm](icons/cert_dragon_med_helm.png) | cert_dragon_med_helm |  | 0 |  |  |  |
+| ![Black med helm](icons/black_med_helm.png) | Black med helm | A medium sized helmet. | 576 |  |  | Wear |
+| ![cert_black_med_helm](icons/cert_black_med_helm.png) | cert_black_med_helm |  | 0 |  |  |  |
+| ![Iron full helm](icons/iron_full_helm.png) | Iron full helm | A full face helmet. | 154 |  |  | Wear |
+| ![cert_iron_full_helm](icons/cert_iron_full_helm.png) | cert_iron_full_helm |  | 0 |  |  |  |
+| ![Bronze full helm](icons/bronze_full_helm.png) | Bronze full helm | A full face helmet. | 44 |  |  | Wear |
+| ![cert_bronze_full_helm](icons/cert_bronze_full_helm.png) | cert_bronze_full_helm |  | 0 |  |  |  |
+| ![Steel full helm](icons/steel_full_helm.png) | Steel full helm | A full face helmet. | 550 |  |  | Wear |
+| ![cert_steel_full_helm](icons/cert_steel_full_helm.png) | cert_steel_full_helm |  | 0 |  |  |  |
+| ![Mithril full helm](icons/mithril_full_helm.png) | Mithril full helm | A full face helmet. | 1430 |  |  | Wear |
+| ![cert_mithril_full_helm](icons/cert_mithril_full_helm.png) | cert_mithril_full_helm |  | 0 |  |  |  |
+| ![Adamant full helm](icons/adamant_full_helm.png) | Adamant full helm | A full face helmet. | 3520 |  |  | Wear |
+| ![cert_adamant_full_helm](icons/cert_adamant_full_helm.png) | cert_adamant_full_helm |  | 0 |  |  |  |
+| ![Rune full helm](icons/rune_full_helm.png) | Rune full helm | A full face helmet. | 35200 |  |  | Wear |
+| ![cert_rune_full_helm](icons/cert_rune_full_helm.png) | cert_rune_full_helm |  | 0 |  |  |  |
+| ![Black full helm](icons/black_full_helm.png) | Black full helm | A full face helmet. | 1056 |  |  | Wear |
+| ![cert_black_full_helm](icons/cert_black_full_helm.png) | cert_black_full_helm |  | 0 |  |  |  |
+| ![Leather cowl](icons/leather_cowl.png) | Leather cowl | Better than no armour! | 24 |  |  | Wear |
+| ![cert_leather_cowl](icons/cert_leather_cowl.png) | cert_leather_cowl |  | 0 |  |  |  |
+| ![Coif](icons/coif.png) | Coif | Light weight head protection. | 200 |  |  | Wear |
+| ![cert_coif](icons/cert_coif.png) | cert_coif |  | 0 |  |  |  |
+| ![Wooden shield](icons/wooden_shield.png) | Wooden shield | A solid wooden shield. | 20 |  |  | Wield |
+| ![cert_wooden_shield](icons/cert_wooden_shield.png) | cert_wooden_shield |  | 0 |  |  |  |
+| ![Bronze sq shield](icons/bronze_sq_shield.png) | Bronze sq shield | A medium square shield. | 48 |  |  | Wield |
+| ![cert_bronze_sq_shield](icons/cert_bronze_sq_shield.png) | cert_bronze_sq_shield |  | 0 |  |  |  |
+| ![Iron sq shield](icons/iron_sq_shield.png) | Iron sq shield | A medium square shield. | 168 |  |  | Wield |
+| ![cert_iron_sq_shield](icons/cert_iron_sq_shield.png) | cert_iron_sq_shield |  | 0 |  |  |  |
+| ![Steel sq shield](icons/steel_sq_shield.png) | Steel sq shield | A medium square shield. | 600 |  |  | Wield |
+| ![cert_steel_sq_shield](icons/cert_steel_sq_shield.png) | cert_steel_sq_shield |  | 0 |  |  |  |
+| ![Black sq shield](icons/black_sq_shield.png) | Black sq shield | A medium square shield. | 1152 |  |  | Wield |
+| ![cert_black_sq_shield](icons/cert_black_sq_shield.png) | cert_black_sq_shield |  | 0 |  |  |  |
+| ![Mithril sq shield](icons/mithril_sq_shield.png) | Mithril sq shield | A medium square shield. | 1560 |  |  | Wield |
+| ![cert_mithril_sq_shield](icons/cert_mithril_sq_shield.png) | cert_mithril_sq_shield |  | 0 |  |  |  |
+| ![Adamant sq shield](icons/adamant_sq_shield.png) | Adamant sq shield | A medium square shield. | 3840 |  |  | Wield |
+| ![cert_adamant_sq_shield](icons/cert_adamant_sq_shield.png) | cert_adamant_sq_shield |  | 0 |  |  |  |
+| ![Rune sq shield](icons/rune_sq_shield.png) | Rune sq shield | A medium square shield. | 38400 |  |  | Wield |
+| ![cert_rune_sq_shield](icons/cert_rune_sq_shield.png) | cert_rune_sq_shield |  | 0 |  |  |  |
+| ![Dragon sq shield](icons/dragon_sq_shield.png) | Dragon sq shield | An ancient and powerful looking Dragon Square shield. | 500000 | yes |  | Wield |
+| ![cert_dragon_sq_shield](icons/cert_dragon_sq_shield.png) | cert_dragon_sq_shield |  | 0 |  |  |  |
+| ![Bronze kiteshield](icons/bronze_kiteshield.png) | Bronze kiteshield | A large metal shield. | 68 |  |  | Wear |
+| ![cert_bronze_kiteshield](icons/cert_bronze_kiteshield.png) | cert_bronze_kiteshield |  | 0 |  |  |  |
+| ![Iron kiteshield](icons/iron_kiteshield.png) | Iron kiteshield | A large metal shield. | 238 |  |  | Wear |
+| ![cert_iron_kiteshield](icons/cert_iron_kiteshield.png) | cert_iron_kiteshield |  | 0 |  |  |  |
+| ![Steel kiteshield](icons/steel_kiteshield.png) | Steel kiteshield | A large metal shield. | 850 |  |  | Wear |
+| ![cert_steel_kiteshield](icons/cert_steel_kiteshield.png) | cert_steel_kiteshield |  | 0 |  |  |  |
+| ![Black kiteshield](icons/black_kiteshield.png) | Black kiteshield | A large metal shield. | 1632 |  |  | Wear |
+| ![cert_black_kiteshield](icons/cert_black_kiteshield.png) | cert_black_kiteshield |  | 0 |  |  |  |
+| ![Mithril kiteshield](icons/mithril_kiteshield.png) | Mithril kiteshield | A large metal shield. | 2210 |  |  | Wear |
+| ![cert_mithril_kiteshield](icons/cert_mithril_kiteshield.png) | cert_mithril_kiteshield |  | 0 |  |  |  |
+| ![Adamant kiteshield](icons/adamant_kiteshield.png) | Adamant kiteshield | A large metal shield. | 5440 |  |  | Wear |
+| ![cert_adamant_kiteshield](icons/cert_adamant_kiteshield.png) | cert_adamant_kiteshield |  | 0 |  |  |  |
+| ![Rune kiteshield](icons/rune_kiteshield.png) | Rune kiteshield | A large metal shield. | 54400 |  |  | Wear |
+| ![cert_rune_kiteshield](icons/cert_rune_kiteshield.png) | cert_rune_kiteshield |  | 0 |  |  |  |
+| ![Iron dagger](icons/iron_dagger.png) | Iron dagger | Short but pointy. | 35 |  |  | Wield |
+| ![cert_iron_dagger](icons/cert_iron_dagger.png) | cert_iron_dagger |  | 0 |  |  |  |
+| ![Bronze dagger](icons/bronze_dagger.png) | Bronze dagger | Short but pointy. | 10 |  |  | Wield |
+| ![cert_bronze_dagger](icons/cert_bronze_dagger.png) | cert_bronze_dagger |  | 0 |  |  |  |
+| ![Steel dagger](icons/steel_dagger.png) | Steel dagger | Short but pointy. | 125 |  |  | Wield |
+| ![cert_steel_dagger](icons/cert_steel_dagger.png) | cert_steel_dagger |  | 0 |  |  |  |
+| ![Mithril dagger](icons/mithril_dagger.png) | Mithril dagger | A dangerous dagger. | 325 |  |  | Wield |
+| ![cert_mithril_dagger](icons/cert_mithril_dagger.png) | cert_mithril_dagger |  | 0 |  |  |  |
+| ![Adamant dagger](icons/adamant_dagger.png) | Adamant dagger | Short and deadly. | 800 |  |  | Wield |
+| ![cert_adamant_dagger](icons/cert_adamant_dagger.png) | cert_adamant_dagger |  | 0 |  |  |  |
+| ![Rune dagger](icons/rune_dagger.png) | Rune dagger | A powerful dagger. | 8000 |  |  | Wield |
+| ![cert_rune_dagger](icons/cert_rune_dagger.png) | cert_rune_dagger |  | 0 |  |  |  |
+| ![Dragon dagger](icons/dragon_dagger.png) | Dragon dagger | A powerful dagger. | 30000 | yes |  | Wield |
+| ![cert_dragon_dagger](icons/cert_dragon_dagger.png) | cert_dragon_dagger |  | 0 |  |  |  |
+| ![Black dagger](icons/black_dagger.png) | Black dagger | A vicious black dagger. | 240 |  |  | Wield |
+| ![cert_black_dagger](icons/cert_black_dagger.png) | cert_black_dagger |  | 0 |  |  |  |
+| ![Iron dagger(p)](icons/iron_dagger_p.png) | Iron dagger(p) | The blade is covered with poison. | 35 | yes |  | Wield |
+| ![cert_iron_dagger_p](icons/cert_iron_dagger_p.png) | cert_iron_dagger_p |  | 0 |  |  |  |
+| ![Bronze dagger(p)](icons/bronze_dagger_p.png) | Bronze dagger(p) | This dagger is poisoned. | 10 | yes |  | Wield |
+| ![cert_bronze_dagger_p](icons/cert_bronze_dagger_p.png) | cert_bronze_dagger_p |  | 0 |  |  |  |
+| ![Steel dagger(p)](icons/steel_dagger_p.png) | Steel dagger(p) | The blade has been poisoned. | 125 | yes |  | Wield |
+| ![cert_steel_dagger_p](icons/cert_steel_dagger_p.png) | cert_steel_dagger_p |  | 0 |  |  |  |
+| ![Mithril dagger(p)](icons/mithril_dagger_p.png) | Mithril dagger(p) | A poisoned Mithril dagger. | 325 | yes |  | Wield |
+| ![cert_mithril_dagger_p](icons/cert_mithril_dagger_p.png) | cert_mithril_dagger_p |  | 0 |  |  |  |
+| ![Adamant dagger(p)](icons/adamant_dagger_p.png) | Adamant dagger(p) | A very dangerous poisoned dagger. | 800 | yes |  | Wield |
+| ![cert_adamant_dagger_p](icons/cert_adamant_dagger_p.png) | cert_adamant_dagger_p |  | 0 |  |  |  |
+| ![Rune dagger(p)](icons/rune_dagger_p.png) | Rune dagger(p) | The blade is covered with a nasty poison. | 8000 | yes |  | Wield |
+| ![cert_rune_dagger_p](icons/cert_rune_dagger_p.png) | cert_rune_dagger_p |  | 0 |  |  |  |
+| ![Dragon dagger(p)](icons/dragon_dagger_p.png) | Dragon dagger(p) | A powerful dagger. | 24000 | yes |  | Wield |
+| ![cert_dragon_dagger_p](icons/cert_dragon_dagger_p.png) | cert_dragon_dagger_p |  | 0 |  |  |  |
+| ![Black dagger(p)](icons/black_dagger_p.png) | Black dagger(p) | This dagger is poisoned. | 240 | yes |  | Wield |
+| ![cert_black_dagger_p](icons/cert_black_dagger_p.png) | cert_black_dagger_p |  | 0 |  |  |  |
+| ![Poisoned dagger(p)](icons/poisoned_dagger_p.png) | Poisoned dagger(p) | The blade is covered with poison. | 565 | yes |  | Wield |
+| ![cert_poisoned_dagger_p](icons/cert_poisoned_dagger_p.png) | cert_poisoned_dagger_p |  | 0 |  |  |  |
+| ![Bronze spear](icons/bronze_spear.png) | Bronze spear | A bronze tipped spear. | 26 | yes |  | Wield |
+| ![cert_bronze_spear](icons/cert_bronze_spear.png) | cert_bronze_spear |  | 0 |  |  |  |
+| ![Iron spear](icons/iron_spear.png) | Iron spear | An iron tipped spear. | 91 | yes |  | Wield |
+| ![cert_iron_spear](icons/cert_iron_spear.png) | cert_iron_spear |  | 0 |  |  |  |
+| ![Steel spear](icons/steel_spear.png) | Steel spear | A steel tipped spear. | 325 | yes |  | Wield |
+| ![cert_steel_spear](icons/cert_steel_spear.png) | cert_steel_spear |  | 0 |  |  |  |
+| ![Mithril spear](icons/mithril_spear.png) | Mithril spear | A mithril tipped spear. | 845 | yes |  | Wield |
+| ![cert_mithril_spear](icons/cert_mithril_spear.png) | cert_mithril_spear |  | 0 |  |  |  |
+| ![Adamant spear](icons/adamant_spear.png) | Adamant spear | An adamantite tipped spear. | 2080 | yes |  | Wield |
+| ![cert_adamant_spear](icons/cert_adamant_spear.png) | cert_adamant_spear |  | 0 |  |  |  |
+| ![Rune spear](icons/rune_spear.png) | Rune spear | A rune tipped spear. | 20800 | yes |  | Wield |
+| ![cert_rune_spear](icons/cert_rune_spear.png) | cert_rune_spear |  | 0 |  |  |  |
+| ![Dragon spear](icons/dragon_spear.png) | Dragon spear | A dragon tipped spear. | 62400 | yes |  | Wield |
+| ![cert_dragon_spear](icons/cert_dragon_spear.png) | cert_dragon_spear |  | 0 |  |  |  |
+| ![Bronze spear(p)](icons/bronze_spear_p.png) | Bronze spear(p) | A bronze tipped spear. | 26 | yes |  | Wield |
+| ![cert_bronze_spear_p](icons/cert_bronze_spear_p.png) | cert_bronze_spear_p |  | 0 |  |  |  |
+| ![Iron spear(p)](icons/iron_spear_p.png) | Iron spear(p) | An iron tipped spear. | 91 | yes |  | Wield |
+| ![cert_iron_spear_p](icons/cert_iron_spear_p.png) | cert_iron_spear_p |  | 0 |  |  |  |
+| ![Steel spear(p)](icons/steel_spear_p.png) | Steel spear(p) | A steel tipped spear. | 325 | yes |  | Wield |
+| ![cert_steel_spear_p](icons/cert_steel_spear_p.png) | cert_steel_spear_p |  | 0 |  |  |  |
+| ![Mithril spear(p)](icons/mithril_spear_p.png) | Mithril spear(p) | A mithril tipped spear. | 845 | yes |  | Wield |
+| ![cert_mithril_spear_p](icons/cert_mithril_spear_p.png) | cert_mithril_spear_p |  | 0 |  |  |  |
+| ![Adamant spear(p)](icons/adamant_spear_p.png) | Adamant spear(p) | An adamantite tipped spear. | 2080 | yes |  | Wield |
+| ![cert_adamant_spear_p](icons/cert_adamant_spear_p.png) | cert_adamant_spear_p |  | 0 |  |  |  |
+| ![Rune spear(p)](icons/rune_spear_p.png) | Rune spear(p) | A rune tipped spear. | 20800 | yes |  | Wield |
+| ![cert_rune_spear_p](icons/cert_rune_spear_p.png) | cert_rune_spear_p |  | 0 |  |  |  |
+| ![Dragon spear(p)](icons/dragon_spear_p.png) | Dragon spear(p) | A dragon tipped spear. | 62400 | yes |  | Wield |
+| ![cert_dragon_spear_p](icons/cert_dragon_spear_p.png) | cert_dragon_spear_p |  | 0 |  |  |  |
+| ![Bronze pickaxe](icons/bronze_pickaxe.png) | Bronze pickaxe | Used for mining. | 1 |  |  | Wield |
+| ![cert_bronze_pickaxe](icons/cert_bronze_pickaxe.png) | cert_bronze_pickaxe |  | 0 |  |  |  |
+| ![Iron pickaxe](icons/iron_pickaxe.png) | Iron pickaxe | Used for mining. | 140 |  |  | Wield |
+| ![cert_iron_pickaxe](icons/cert_iron_pickaxe.png) | cert_iron_pickaxe |  | 0 |  |  |  |
+| ![Steel pickaxe](icons/steel_pickaxe.png) | Steel pickaxe | Used for mining. | 500 |  |  | Wield |
+| ![cert_steel_pickaxe](icons/cert_steel_pickaxe.png) | cert_steel_pickaxe |  | 0 |  |  |  |
+| ![Adamant pickaxe](icons/adamant_pickaxe.png) | Adamant pickaxe | Used for mining. | 3200 |  |  | Wield |
+| ![cert_adamant_pickaxe](icons/cert_adamant_pickaxe.png) | cert_adamant_pickaxe |  | 0 |  |  |  |
+| ![Mithril pickaxe](icons/mithril_pickaxe.png) | Mithril pickaxe | Used for mining. | 1300 |  |  | Wield |
+| ![cert_mithril_pickaxe](icons/cert_mithril_pickaxe.png) | cert_mithril_pickaxe |  | 0 |  |  |  |
+| ![Rune pickaxe](icons/rune_pickaxe.png) | Rune pickaxe | Used for mining. | 32000 |  |  | Wield |
+| ![cert_rune_pickaxe](icons/cert_rune_pickaxe.png) | cert_rune_pickaxe |  | 0 |  |  |  |
+| ![Bronze sword](icons/bronze_sword.png) | Bronze sword | A razor sharp sword. | 26 |  |  | Wield |
+| ![cert_bronze_sword](icons/cert_bronze_sword.png) | cert_bronze_sword |  | 0 |  |  |  |
+| ![Iron sword](icons/iron_sword.png) | Iron sword | A razor sharp sword. | 91 |  |  | Wield |
+| ![cert_iron_sword](icons/cert_iron_sword.png) | cert_iron_sword |  | 0 |  |  |  |
+| ![Steel sword](icons/steel_sword.png) | Steel sword | A razor sharp sword. | 325 |  |  | Wield |
+| ![cert_steel_sword](icons/cert_steel_sword.png) | cert_steel_sword |  | 0 |  |  |  |
+| ![Black sword](icons/black_sword.png) | Black sword | A razor sharp sword. | 624 |  |  | Wield |
+| ![cert_black_sword](icons/cert_black_sword.png) | cert_black_sword |  | 0 |  |  |  |
+| ![Mithril sword](icons/mithril_sword.png) | Mithril sword | A razor sharp sword. | 845 |  |  | Wield |
+| ![cert_mithril_sword](icons/cert_mithril_sword.png) | cert_mithril_sword |  | 0 |  |  |  |
+| ![Adamant sword](icons/adamant_sword.png) | Adamant sword | A razor sharp sword. | 2080 |  |  | Wield |
+| ![cert_adamant_sword](icons/cert_adamant_sword.png) | cert_adamant_sword |  | 0 |  |  |  |
+| ![Rune sword](icons/rune_sword.png) | Rune sword | A razor sharp sword. | 20800 |  |  | Wield |
+| ![cert_rune_sword](icons/cert_rune_sword.png) | cert_rune_sword |  | 0 |  |  |  |
+| ![Bronze longsword](icons/bronze_longsword.png) | Bronze longsword | A razor sharp longsword. | 40 |  |  | Wield |
+| ![cert_bronze_longsword](icons/cert_bronze_longsword.png) | cert_bronze_longsword |  | 0 |  |  |  |
+| ![Iron longsword](icons/iron_longsword.png) | Iron longsword | A razor sharp longsword. | 140 |  |  | Wield |
+| ![cert_iron_longsword](icons/cert_iron_longsword.png) | cert_iron_longsword |  | 0 |  |  |  |
+| ![Steel longsword](icons/steel_longsword.png) | Steel longsword | A razor sharp longsword. | 500 |  |  | Wield |
+| ![cert_steel_longsword](icons/cert_steel_longsword.png) | cert_steel_longsword |  | 0 |  |  |  |
+| ![Black longsword](icons/black_longsword.png) | Black longsword | A razor sharp longsword. | 960 |  |  | Wield |
+| ![cert_black_longsword](icons/cert_black_longsword.png) | cert_black_longsword |  | 0 |  |  |  |
+| ![Mithril longsword](icons/mithril_longsword.png) | Mithril longsword | A razor sharp longsword. | 1300 |  |  | Wield |
+| ![cert_mithril_longsword](icons/cert_mithril_longsword.png) | cert_mithril_longsword |  | 0 |  |  |  |
+| ![Adamant longsword](icons/adamant_longsword.png) | Adamant longsword | A razor sharp longsword. | 3200 |  |  | Wield |
+| ![cert_adamant_longsword](icons/cert_adamant_longsword.png) | cert_adamant_longsword |  | 0 |  |  |  |
+| ![Rune longsword](icons/rune_longsword.png) | Rune longsword | A razor sharp longsword. | 32000 |  |  | Wield |
+| ![cert_rune_longsword](icons/cert_rune_longsword.png) | cert_rune_longsword |  | 0 |  |  |  |
+| ![Dragon longsword](icons/dragon_longsword.png) | Dragon longsword | A very powerful sword. | 100000 | yes |  | Wield |
+| ![cert_dragon_longsword](icons/cert_dragon_longsword.png) | cert_dragon_longsword |  | 0 |  |  |  |
+| ![Bronze 2h sword](icons/bronze_2h_sword.png) | Bronze 2h sword | A two handed sword. | 80 |  |  | Wield |
+| ![cert_bronze_2h_sword](icons/cert_bronze_2h_sword.png) | cert_bronze_2h_sword |  | 0 |  |  |  |
+| ![Iron 2h sword](icons/iron_2h_sword.png) | Iron 2h sword | A two handed sword. | 280 |  |  | Wield |
+| ![cert_iron_2h_sword](icons/cert_iron_2h_sword.png) | cert_iron_2h_sword |  | 0 |  |  |  |
+| ![Steel 2h sword](icons/steel_2h_sword.png) | Steel 2h sword | A two handed sword. | 1000 |  |  | Wield |
+| ![cert_steel_2h_sword](icons/cert_steel_2h_sword.png) | cert_steel_2h_sword |  | 0 |  |  |  |
+| ![Black 2h sword](icons/black_2h_sword.png) | Black 2h sword | A two handed sword. | 1920 |  |  | Wield |
+| ![cert_black_2h_sword](icons/cert_black_2h_sword.png) | cert_black_2h_sword |  | 0 |  |  |  |
+| ![Mithril 2h sword](icons/mithril_2h_sword.png) | Mithril 2h sword | A two handed sword. | 2600 |  |  | Wield |
+| ![cert_mithril_2h_sword](icons/cert_mithril_2h_sword.png) | cert_mithril_2h_sword |  | 0 |  |  |  |
+| ![Adamant 2h sword](icons/adamant_2h_sword.png) | Adamant 2h sword | A two handed sword. | 6400 |  |  | Wield |
+| ![cert_adamant_2h_sword](icons/cert_adamant_2h_sword.png) | cert_adamant_2h_sword |  | 0 |  |  |  |
+| ![Rune 2h sword](icons/rune_2h_sword.png) | Rune 2h sword | A two handed sword. | 64000 |  |  | Wield |
+| ![cert_rune_2h_sword](icons/cert_rune_2h_sword.png) | cert_rune_2h_sword |  | 0 |  |  |  |
+| ![Bronze scimitar](icons/bronze_scimitar.png) | Bronze scimitar | A vicious curved sword. | 32 |  |  | Wield |
+| ![cert_bronze_scimitar](icons/cert_bronze_scimitar.png) | cert_bronze_scimitar |  | 0 |  |  |  |
+| ![Iron scimitar](icons/iron_scimitar.png) | Iron scimitar | A vicious curved sword. | 112 |  |  | Wield |
+| ![cert_iron_scimitar](icons/cert_iron_scimitar.png) | cert_iron_scimitar |  | 0 |  |  |  |
+| ![Steel scimitar](icons/steel_scimitar.png) | Steel scimitar | A vicious curved sword. | 400 |  |  | Wield |
+| ![cert_steel_scimitar](icons/cert_steel_scimitar.png) | cert_steel_scimitar |  | 0 |  |  |  |
+| ![Black scimitar](icons/black_scimitar.png) | Black scimitar | A vicious curved sword. | 768 |  |  | Wield |
+| ![cert_black_scimitar](icons/cert_black_scimitar.png) | cert_black_scimitar |  | 0 |  |  |  |
+| ![Mithril scimitar](icons/mithril_scimitar.png) | Mithril scimitar | A vicious curved sword. | 1040 |  |  | Wield |
+| ![cert_mithril_scimitar](icons/cert_mithril_scimitar.png) | cert_mithril_scimitar |  | 0 |  |  |  |
+| ![Adamant scimitar](icons/adamant_scimitar.png) | Adamant scimitar | A vicious curved sword. | 2560 |  |  | Wield |
+| ![cert_adamant_scimitar](icons/cert_adamant_scimitar.png) | cert_adamant_scimitar |  | 0 |  |  |  |
+| ![Rune scimitar](icons/rune_scimitar.png) | Rune scimitar | A vicious curved sword. | 25600 |  |  | Wield |
+| ![cert_rune_scimitar](icons/cert_rune_scimitar.png) | cert_rune_scimitar |  | 0 |  |  |  |
+| ![Iron warhammer](icons/iron_warhammer.png) | Iron warhammer | I don't think it's intended for joinery. | 173 |  |  | Wield |
+| ![cert_iron_warhammer](icons/cert_iron_warhammer.png) | cert_iron_warhammer |  | 0 |  |  |  |
+| ![Bronze warhammer](icons/bronze_warhammer.png) | Bronze warhammer | I don't think it's intended for joinery. | 47 |  |  | Wield |
+| ![cert_bronze_warhammer](icons/cert_bronze_warhammer.png) | cert_bronze_warhammer |  | 0 |  |  |  |
+| ![Steel warhammer](icons/steel_warhammer.png) | Steel warhammer | I don't think it's intended for joinery. | 640 |  |  | Wield |
+| ![cert_steel_warhammer](icons/cert_steel_warhammer.png) | cert_steel_warhammer |  | 0 |  |  |  |
+| ![Black warhammer](icons/black_warhammer.png) | Black warhammer | I don't think it's intended for joinery. | 640 |  |  | Wield |
+| ![cert_black_warhammer](icons/cert_black_warhammer.png) | cert_black_warhammer |  | 0 |  |  |  |
+| ![Mithril warhammer](icons/mithril_warhammer.png) | Mithril warhammer | I don't think it's intended for joinery. | 1660 |  |  | Wield |
+| ![cert_mithril_warhammer](icons/cert_mithril_warhammer.png) | cert_mithril_warhammer |  | 0 |  |  |  |
+| ![Adamnt warhammer](icons/adamnt_warhammer.png) | Adamnt warhammer | I don't think it's intended for joinery. | 4120 |  |  | Wield |
+| ![cert_adamnt_warhammer](icons/cert_adamnt_warhammer.png) | cert_adamnt_warhammer |  | 0 |  |  |  |
+| ![Rune warhammer](icons/rune_warhammer.png) | Rune warhammer | I don't think it's intended for joinery. | 41500 |  |  | Wield |
+| ![cert_rune_warhammer](icons/cert_rune_warhammer.png) | cert_rune_warhammer |  | 0 |  |  |  |
+| ![Iron axe](icons/iron_axe.png) | Iron axe | A woodcutters axe. | 56 |  |  | Wield |
+| ![cert_iron_axe](icons/cert_iron_axe.png) | cert_iron_axe |  | 0 |  |  |  |
+| ![Bronze axe](icons/bronze_axe.png) | Bronze axe | A woodcutters axe. | 16 |  |  | Wield |
+| ![cert_bronze_axe](icons/cert_bronze_axe.png) | cert_bronze_axe |  | 0 |  |  |  |
+| ![Steel axe](icons/steel_axe.png) | Steel axe | A woodcutters axe. | 200 |  |  | Wield |
+| ![cert_steel_axe](icons/cert_steel_axe.png) | cert_steel_axe |  | 0 |  |  |  |
+| ![Mithril axe](icons/mithril_axe.png) | Mithril axe | A powerful axe. | 520 |  |  | Wield |
+| ![cert_mithril_axe](icons/cert_mithril_axe.png) | cert_mithril_axe |  | 0 |  |  |  |
+| ![Adamant axe](icons/adamant_axe.png) | Adamant axe | A powerful axe. | 1280 |  |  | Wield |
+| ![cert_adamant_axe](icons/cert_adamant_axe.png) | cert_adamant_axe |  | 0 |  |  |  |
+| ![Rune axe](icons/rune_axe.png) | Rune axe | A powerful axe. | 12800 |  |  | Wield |
+| ![cert_rune_axe](icons/cert_rune_axe.png) | cert_rune_axe |  | 0 |  |  |  |
+| ![Black axe](icons/black_axe.png) | Black axe | A sinister looking axe. | 384 |  |  | Wield |
+| ![cert_black_axe](icons/cert_black_axe.png) | cert_black_axe |  | 0 |  |  |  |
+| ![Iron battleaxe](icons/iron_battleaxe.png) | Iron battleaxe | A vicious looking axe. | 182 |  |  | Wield |
+| ![cert_iron_battleaxe](icons/cert_iron_battleaxe.png) | cert_iron_battleaxe |  | 0 |  |  |  |
+| ![Steel battleaxe](icons/steel_battleaxe.png) | Steel battleaxe | A vicious looking axe. | 650 |  |  | Wield |
+| ![cert_steel_battleaxe](icons/cert_steel_battleaxe.png) | cert_steel_battleaxe |  | 0 |  |  |  |
+| ![Black battleaxe](icons/black_battleaxe.png) | Black battleaxe | A vicious looking axe. | 1248 |  |  | Wield |
+| ![cert_black_battleaxe](icons/cert_black_battleaxe.png) | cert_black_battleaxe |  | 0 |  |  |  |
+| ![Mithril battleaxe](icons/mithril_battleaxe.png) | Mithril battleaxe | A vicious looking axe. | 1690 |  |  | Wield |
+| ![cert_mithril_battleaxe](icons/cert_mithril_battleaxe.png) | cert_mithril_battleaxe |  | 0 |  |  |  |
+| ![Adamant battleaxe](icons/adamant_battleaxe.png) | Adamant battleaxe | A vicious looking axe. | 4160 |  |  | Wield |
+| ![cert_adamant_battleaxe](icons/cert_adamant_battleaxe.png) | cert_adamant_battleaxe |  | 0 |  |  |  |
+| ![Rune battleaxe](icons/rune_battleaxe.png) | Rune battleaxe | A vicious looking axe. | 41600 |  |  | Wield |
+| ![cert_rune_battleaxe](icons/cert_rune_battleaxe.png) | cert_rune_battleaxe |  | 0 |  |  |  |
+| ![Bronze battleaxe](icons/bronze_battleaxe.png) | Bronze battleaxe | A vicious looking axe. | 52 |  |  | Wield |
+| ![cert_bronze_battleaxe](icons/cert_bronze_battleaxe.png) | cert_bronze_battleaxe |  | 0 |  |  |  |
+| ![Dragon battleaxe](icons/dragon_battleaxe.png) | Dragon battleaxe | A vicious looking axe. | 200000 | yes |  | Wield |
+| ![cert_dragon_battleaxe](icons/cert_dragon_battleaxe.png) | cert_dragon_battleaxe |  | 0 |  |  |  |
+| ![Staff](icons/plainstaff.png) | Staff | It's a slightly magical stick. | 15 |  |  | Wield |
+| ![cert_plainstaff](icons/cert_plainstaff.png) | cert_plainstaff |  | 0 |  |  |  |
+| ![Staff of air](icons/staff_of_air.png) | Staff of air | A Magical staff. | 1500 |  |  | Wield |
+| ![cert_staff_of_air](icons/cert_staff_of_air.png) | cert_staff_of_air |  | 0 |  |  |  |
+| ![Staff of water](icons/staff_of_water.png) | Staff of water | A Magical staff. | 1500 |  |  | Wield |
+| ![cert_staff_of_water](icons/cert_staff_of_water.png) | cert_staff_of_water |  | 0 |  |  |  |
+| ![Staff of earth](icons/staff_of_earth.png) | Staff of earth | A Magical staff. | 1500 |  |  | Wield |
+| ![cert_staff_of_earth](icons/cert_staff_of_earth.png) | cert_staff_of_earth |  | 0 |  |  |  |
+| ![Staff of fire](icons/staff_of_fire.png) | Staff of fire | A Magical staff. | 1500 |  |  | Wield |
+| ![cert_staff_of_fire](icons/cert_staff_of_fire.png) | cert_staff_of_fire |  | 0 |  |  |  |
+| ![Magic staff](icons/magic_staff.png) | Magic staff | A Magical staff. | 200 |  |  | Wield |
+| ![cert_magic_staff](icons/cert_magic_staff.png) | cert_magic_staff |  | 0 |  |  |  |
+| ![Battlestaff](icons/battlestaff.png) | Battlestaff | It's a slightly magical stick. | 7000 | yes |  | Wield |
+| ![cert_battlestaff](icons/cert_battlestaff.png) | cert_battlestaff |  | 0 |  |  |  |
+| ![Fire battlestaff](icons/fire_battlestaff.png) | Fire battlestaff | It's a slightly magical stick. | 15500 | yes |  | Wield |
+| ![cert_fire_battlestaff](icons/cert_fire_battlestaff.png) | cert_fire_battlestaff |  | 0 |  |  |  |
+| ![Water battlestaff](icons/water_battlestaff.png) | Water battlestaff | It's a slightly magical stick. | 15500 | yes |  | Wield |
+| ![cert_water_battlestaff](icons/cert_water_battlestaff.png) | cert_water_battlestaff |  | 0 |  |  |  |
+| ![Air battlestaff](icons/air_battlestaff.png) | Air battlestaff | It's a slightly magical stick. | 15500 | yes |  | Wield |
+| ![cert_air_battlestaff](icons/cert_air_battlestaff.png) | cert_air_battlestaff |  | 0 |  |  |  |
+| ![Earth battlestaff](icons/earth_battlestaff.png) | Earth battlestaff | It's a slightly magical stick. | 15500 | yes |  | Wield |
+| ![cert_earth_battlestaff](icons/cert_earth_battlestaff.png) | cert_earth_battlestaff |  | 0 |  |  |  |
+| ![Mystic fire staff](icons/mystic_fire_staff.png) | Mystic fire staff | It's a slightly magical stick. | 42500 | yes |  | Wield |
+| ![cert_mystic_fire_staff](icons/cert_mystic_fire_staff.png) | cert_mystic_fire_staff |  | 0 |  |  |  |
+| ![Mystic water staff](icons/mystic_water_staff.png) | Mystic water staff | It's a slightly magical stick. | 42500 | yes |  | Wield |
+| ![cert_mystic_water_staff](icons/cert_mystic_water_staff.png) | cert_mystic_water_staff |  | 0 |  |  |  |
+| ![Mystic air staff](icons/mystic_air_staff.png) | Mystic air staff | It's a slightly magical stick. | 42500 | yes |  | Wield |
+| ![cert_mystic_air_staff](icons/cert_mystic_air_staff.png) | cert_mystic_air_staff |  | 0 |  |  |  |
+| ![Mystic earth staff](icons/mystic_earth_staff.png) | Mystic earth staff | It's a slightly magical stick. | 42500 | yes |  | Wield |
+| ![cert_mystic_earth_staff](icons/cert_mystic_earth_staff.png) | cert_mystic_earth_staff |  | 0 |  |  |  |
+| ![Staff of iban](icons/ibanstaff.png) | Staff of iban | A Magical staff., A highly magical staff. | 42500 | yes |  | Wield |
+| ![Broken iban staff](icons/brokenibanstaff.png) | Broken iban staff | The staff is unusable in this state. | 20 | yes |  |  |
+| ![Farmers fork](icons/farmers_fork.png) | Farmers fork |  | 0 |  |  |  |
+| ![cert_farmers_fork](icons/cert_farmers_fork.png) | cert_farmers_fork |  | 0 |  |  |  |
+| ![Halberd](icons/halberd.png) | Halberd |  | 0 |  |  |  |
+| ![cert_halberd](icons/cert_halberd.png) | cert_halberd |  | 0 |  |  |  |
+| ![Warhammer](icons/warhammer.png) | Warhammer |  | 0 |  |  |  |
+| ![cert_warhammer](icons/cert_warhammer.png) | cert_warhammer |  | 0 |  |  |  |
+| ![Javelin](icons/javelin.png) | Javelin |  | 0 |  |  |  |
+| ![cert_javelin](icons/cert_javelin.png) | cert_javelin |  | 0 |  |  |  |
+| ![Scythe](icons/scythe.png) | Scythe |  | 0 |  |  | Wield |
+| ![Iron mace](icons/iron_mace.png) | Iron mace | A spiky mace. | 63 |  |  | Wield |
+| ![cert_iron_mace](icons/cert_iron_mace.png) | cert_iron_mace |  | 0 |  |  |  |
+| ![Bronze mace](icons/bronze_mace.png) | Bronze mace | A spiky mace. | 18 |  |  | Wield |
+| ![cert_bronze_mace](icons/cert_bronze_mace.png) | cert_bronze_mace |  | 0 |  |  |  |
+| ![Steel mace](icons/steel_mace.png) | Steel mace | A spiky mace. | 225 |  |  | Wield |
+| ![cert_steel_mace](icons/cert_steel_mace.png) | cert_steel_mace |  | 0 |  |  |  |
+| ![Black mace](icons/black_mace.png) | Black mace | A spiky mace. | 432 |  |  | Wield |
+| ![cert_black_mace](icons/cert_black_mace.png) | cert_black_mace |  | 0 |  |  |  |
+| ![Mithril mace](icons/mithril_mace.png) | Mithril mace | A spiky mace. | 585 |  |  | Wield |
+| ![cert_mithril_mace](icons/cert_mithril_mace.png) | cert_mithril_mace |  | 0 |  |  |  |
+| ![Adamant mace](icons/adamant_mace.png) | Adamant mace | A spiky mace. | 1440 |  |  | Wield |
+| ![cert_adamant_mace](icons/cert_adamant_mace.png) | cert_adamant_mace |  | 0 |  |  |  |
+| ![Rune mace](icons/rune_mace.png) | Rune mace | A spiky mace. | 14400 |  |  | Wield |
+| ![cert_rune_mace](icons/cert_rune_mace.png) | cert_rune_mace |  | 0 |  |  |  |
+| ![Dragon mace](icons/dragon_mace.png) | Dragon mace | A spiky mace. | 50000 | yes |  | Wield |
+| ![cert_dragon_mace](icons/cert_dragon_mace.png) | cert_dragon_mace |  | 0 |  |  |  |
+| ![Rune essence](icons/blankrune.png) | Rune essence | An uncharged Rune Stone. | 4 |  |  |  |
+| ![cert_blankrune](icons/cert_blankrune.png) | cert_blankrune |  | 0 |  |  |  |
+| ![Air talisman](icons/air_talisman.png) | Air talisman | A mysterious power emanates from the talisman... | 4 |  |  | Locate |
+| ![cert_air_talisman](icons/cert_air_talisman.png) | cert_air_talisman |  | 0 |  |  |  |
+| ![Earth talisman](icons/earth_talisman.png) | Earth talisman | A mysterious power emanates from the talisman... | 4 |  |  | Locate |
+| ![cert_earth_talisman](icons/cert_earth_talisman.png) | cert_earth_talisman |  | 0 |  |  |  |
+| ![Fire talisman](icons/fire_talisman.png) | Fire talisman | A mysterious power emanates from the talisman... | 4 |  |  | Locate |
+| ![cert_fire_talisman](icons/cert_fire_talisman.png) | cert_fire_talisman |  | 0 |  |  |  |
+| ![Water talisman](icons/water_talisman.png) | Water talisman | A mysterious power emanates from the talisman... | 4 |  |  | Locate |
+| ![cert_water_talisman](icons/cert_water_talisman.png) | cert_water_talisman |  | 0 |  |  |  |
+| ![Body talisman](icons/body_talisman.png) | Body talisman | A mysterious power emanates from the talisman... | 4 |  |  | Locate |
+| ![cert_body_talisman](icons/cert_body_talisman.png) | cert_body_talisman |  | 0 |  |  |  |
+| ![Mind talisman](icons/mind_talisman.png) | Mind talisman | A mysterious power emanates from the talisman... | 4 |  |  | Locate |
+| ![cert_mind_talisman](icons/cert_mind_talisman.png) | cert_mind_talisman |  | 0 |  |  |  |
+| ![Blood talisman](icons/blood_talisman.png) | Blood talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
+| ![cert_blood_talisman](icons/cert_blood_talisman.png) | cert_blood_talisman |  | 0 |  |  |  |
+| ![Chaos talisman](icons/chaos_talisman.png) | Chaos talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
+| ![cert_chaos_talisman](icons/cert_chaos_talisman.png) | cert_chaos_talisman |  | 0 |  |  |  |
+| ![Cosmic talisman](icons/cosmic_talisman.png) | Cosmic talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
+| ![cert_cosmic_talisman](icons/cert_cosmic_talisman.png) | cert_cosmic_talisman |  | 0 |  |  |  |
+| ![Death talisman](icons/death_talisman.png) | Death talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
+| ![cert_death_talisman](icons/cert_death_talisman.png) | cert_death_talisman |  | 0 |  |  |  |
+| ![Law talisman](icons/law_talisman.png) | Law talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
+| ![cert_law_talisman](icons/cert_law_talisman.png) | cert_law_talisman |  | 0 |  |  |  |
+| ![Soul talisman](icons/soul_talisman.png) | Soul talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
+| ![cert_soul_talisman](icons/cert_soul_talisman.png) | cert_soul_talisman |  | 0 |  |  |  |
+| ![Nature talisman](icons/nature_talisman.png) | Nature talisman | A mysterious power emanates from the talisman... | 4 | yes |  | Locate |
+| ![cert_nature_talisman](icons/cert_nature_talisman.png) | cert_nature_talisman |  | 0 |  |  |  |
+| ![Archery ticket](icons/archery_ticket.png) | Archery ticket | I can exchange this for equipment. | 25 | yes | yes |  |
+| ![Weapon poison](icons/display_weapon_poison.png) | Weapon poison | For use on daggers and projectiles. | 11 | yes |  |  |
+| ![Sea slug](icons/seasluginv.png) | Sea slug | A rather nasty looking crustacean. | 4 | yes |  |  |
+| ![Damp sticks](icons/damp_sticks.png) | Damp sticks | Some damp wooden sticks. | 0 | yes |  |  |
+| ![Dry sticks](icons/dry_sticks.png) | Dry sticks | Some dry wooden sticks. | 0 | yes |  | Rub-together |
+| ![Broken glass](icons/broken_glass.png) | Broken glass | Smashed glass. | 0 | yes |  |  |
+| ![Red bead](icons/red_bead.png) | Red bead | A small round red bead. | 4 |  |  |  |
+| ![cert_red_bead](icons/cert_red_bead.png) | cert_red_bead |  | 0 |  |  |  |
+| ![Yellow bead](icons/yellow_bead.png) | Yellow bead | A small round yellow bead. | 4 |  |  |  |
+| ![cert_yellow_bead](icons/cert_yellow_bead.png) | cert_yellow_bead |  | 0 |  |  |  |
+| ![Black bead](icons/black_bead.png) | Black bead | A small round black bead. | 4 |  |  |  |
+| ![cert_black_bead](icons/cert_black_bead.png) | cert_black_bead |  | 0 |  |  |  |
+| ![White bead](icons/white_bead.png) | White bead | A small round white bead. | 4 |  |  |  |
+| ![cert_white_bead](icons/cert_white_bead.png) | cert_white_bead |  | 0 |  |  |  |
+| ![Amulet of accuracy](icons/amulet_of_accuracy.png) | Amulet of accuracy | It increases my aim. | 100 |  |  | Wear |
+| ![cert_amulet_of_accuracy](icons/cert_amulet_of_accuracy.png) | cert_amulet_of_accuracy |  | 0 |  |  |  |
+| ![Rocks](icons/swamprocks1.png) | Rocks | Some rocks. | 0 | yes |  |  |
+| ![Orb of light](icons/caveorb1.png) | Orb of light | A magical sphere that glimmers within. | 10 | yes |  |  |
+| ![Orb of light](icons/caveorb2.png) | Orb of light | A magical sphere that glimmers within. | 10 | yes |  |  |
+| ![Orb of light](icons/caveorb3.png) | Orb of light | A magical sphere that glimmers within. | 10 | yes |  |  |
+| ![Orb of light](icons/caveorb4.png) | Orb of light | A magical sphere that glimmers within. | 20 | yes |  |  |
+| ![Damp cloth](icons/damp_cloth.png) | Damp cloth | A damp, wet cloth. | 10 | yes |  |  |
+| ![Piece of railing](icons/caverailing.png) | Piece of railing | A broken piece of railing. | 10 | yes |  |  |
+| ![Unicorn horn](icons/cave_unicorn_horn.png) | Unicorn horn | A withered unicorn horn. | 20 | yes |  |  |
+| ![Paladin's badge](icons/paladinbadge1.png) | Paladin's badge | A coat of arms of the Ardougne Paladins. | 10 | yes |  |  |
+| ![Paladin's badge](icons/paladinbadge2.png) | Paladin's badge | A coat of arms of the Ardougne Paladins. | 10 | yes |  |  |
+| ![Paladin's badge](icons/paladinbadge3.png) | Paladin's badge | A coat of arms of the Ardougne Paladins. | 10 | yes |  |  |
+| ![Witches cat](icons/cavewitchcat.png) | Witches cat | A cat. | 0 | yes |  |  |
+| ![Doll of iban](icons/ibandoll.png) | Doll of iban | A simple doll with Iban's likeness. | 2 | yes |  | Search |
+| ![Old journal](icons/upass_journal.png) | Old journal | An account of the last times of someone. | 1 | yes |  | Read |
+| ![History of iban](icons/old_journal.png) | History of iban | The tale of Iban. | 1 | yes |  | Read |
+| ![Klank's gauntlets](icons/klanks_gauntlets.png) | Klank's gauntlets | Strong dwarvish gloves. | 6 | yes |  | Wear |
+| ![Iban's dove](icons/ibansdove.png) | Iban's dove | I thought you only saw these in pairs? | 1 | yes |  |  |
+| ![Amulet of othanian](icons/othainian_amulet.png) | Amulet of othanian | A mystical demonic amulet. | 0 | yes |  |  |
+| ![Amulet of doomion](icons/doomion_amulet.png) | Amulet of doomion | A mystical demonic amulet. | 0 | yes |  |  |
+| ![Amulet of holthion](icons/holthion_amulet.png) | Amulet of holthion | A mystical demonic amulet. | 0 | yes |  |  |

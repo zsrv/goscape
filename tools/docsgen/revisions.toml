@@ -39,11 +39,37 @@ unpack_revision = 274
 content_dir = "/home/owner/Code/github.com/LostCityRS/Server274-ref/content"
 cache_dir = "/home/owner/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache"
 
-# Item-icon rasterizer (rev-274 only so far — see the rasterizer plan).
-# client_worktree/client_branch are declarative for now: the checkout is
-# already on rev-274, and docsgen only asserts the match (SystemExit if
-# not); a later task adds real per-branch client worktrees for the other
-# revisions.
+# Item-icon rasterizer, all five revisions. client_worktree/client_branch
+# are declarative: each points at the persistent sibling goscape-client
+# checkout already on that revision's branch (docsgen only asserts the
+# match — SystemExit if not — it never mutates these worktrees). Every
+# revision but 225 loads a classic on-disk cache (cache_dir, -cache); 225
+# predates that cache format (jag-era pack pipeline) so it sets jag_dir
+# instead (-jag-dir) — icons.render_icons requires exactly one of the two.
+[revisions.225.icons]
+enabled = true
+client_worktree = "/home/owner/Code/github.com/zsrv/goscape-client-rev225"
+client_branch = "rev-225"
+jag_dir = "/home/owner/Code/github.com/LostCityRS/Server225_2/engine/data/pack/client"
+
+[revisions.244.icons]
+enabled = true
+client_worktree = "/home/owner/Code/github.com/zsrv/goscape-client-rev244"
+client_branch = "rev-244"
+cache_dir = "/home/owner/Code/github.com/LostCityRS/Server244-ref/unpack-ref/cache"
+
+[revisions."245.2".icons]
+enabled = true
+client_worktree = "/home/owner/Code/github.com/zsrv/goscape-client-rev245.2"
+client_branch = "rev-245.2"
+cache_dir = "/home/owner/Code/github.com/LostCityRS/Server245.2-ref/unpack-ref/cache"
+
+[revisions.254.icons]
+enabled = true
+client_worktree = "/home/owner/Code/github.com/zsrv/goscape-client-rev254"
+client_branch = "rev-254"
+cache_dir = "/home/owner/Code/github.com/LostCityRS/Server254-ref/unpack-ref/cache"
+
 [revisions.274.icons]
 enabled = true
 client_worktree = "/home/owner/Code/github.com/zsrv/goscape-client"

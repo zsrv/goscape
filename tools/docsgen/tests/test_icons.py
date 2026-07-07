@@ -101,3 +101,70 @@ def test_parse_summary():
 def test_parse_summary_missing_line():
     with pytest.raises(SystemExit):
         icons.parse_summary("some other output\n")
+
+
+def test_icondump_args_cache_dir():
+    args = icons._icondump_args(Path("/bin/icondump"), Path("/out"), cache_dir="/cache")
+    assert args == ["/bin/icondump", "-cache", "/cache", "-out", "/out"]
+
+
+def test_icondump_args_jag_dir():
+    # rev-225: no client cache exists (jag-era pack pipeline); icondump
+    # takes the raw jag archive dir instead of -cache.
+    args = icons._icondump_args(Path("/bin/icondump"), Path("/out"), jag_dir="/jags")
+    assert args == ["/bin/icondump", "-jag-dir", "/jags", "-out", "/out"]
+
+
+def test_icondump_args_requires_exactly_one():
+    with pytest.raises(SystemExit):
+        icons._icondump_args(Path("/bin/icondump"), Path("/out"))
+    with pytest.raises(SystemExit):
+        icons._icondump_args(Path("/bin/icondump"), Path("/out"),
+                             cache_dir="/c", jag_dir="/j")
+
+
+def test_map_by_debugname_unmatched_record_gets_no_icon_and_is_counted(tmp_path):
+    # rev-225 (config_source = content-tree): records carry no obj id — the
+    # header IS already the real debugname. Resolve id via the content
+    # tree's pack/obj.pack (debugname -> id, inverted); a record whose
+    # debugname isn't in obj.pack gets no icon and is counted in `total`
+    # (lowering the match rate) but not in `matched`.
+    icons_dir = tmp_path / "rendered"
+    icons_dir.mkdir()
+    (icons_dir / "946.png").write_bytes(b"PNG-KNIFE")
+    records = [
+        {"_debugname": "knife"},
+        {"_debugname": "no_such_item"},  # absent from obj.pack
+    ]
+    names = {946: "knife"}  # id -> debugname, same shape as load_obj_pack()
+    dest = tmp_path / "dest"
+    copied, matched, total = icons.map_records_by_debugname(
+        records, names, icons_dir, dest, floor=0.0,
+    )
+    assert copied == {"knife"}
+    assert matched == 1
+    assert total == 2
+    assert (dest / "knife.png").read_bytes() == b"PNG-KNIFE"
+    assert not (dest / "no_such_item.png").exists()
+
+
+def test_map_by_debugname_floor_gate(tmp_path):
+    icons_dir = tmp_path / "rendered"
+    icons_dir.mkdir()
+    (icons_dir / "1.png").write_bytes(b"PNG")
+    records = [
+        {"_debugname": "matched"},
+        {"_debugname": "a"}, {"_debugname": "b"}, {"_debugname": "c"},
+    ]
+    names = {1: "matched"}
+    # matched/total = 1/4 = 25% < the 90% floor -> SystemExit.
+    with pytest.raises(SystemExit):
+        icons.map_records_by_debugname(records, names, icons_dir, tmp_path / "dest")
+
+
+def test_map_by_debugname_spot_check_mismatch(tmp_path):
+    with pytest.raises(SystemExit):
+        icons.map_records_by_debugname(
+            [{"_debugname": "knife"}], {946: "knife"}, tmp_path, tmp_path,
+            spot_checks={"knife": 999},
+        )

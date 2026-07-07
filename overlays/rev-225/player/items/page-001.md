@@ -4,503 +4,503 @@
 
 | Icon | Name | Description | Cost | Members | Stackable | Options |
 |---|---|---|---|---|---|---|
-|  | Knife | A dangerous looking knife. | 6 |  |  |  |
-|  | Fur | This would make warm clothing. | 10 |  |  |  |
-|  | Silk | It's a sheet of silk. | 30 |  |  |  |
-|  | Spade | A slightly muddy spade. | 3 |  |  | Dig |
-|  | Rope | A coil of rope. | 18 |  |  |  |
-|  | Flier | Get your axes from Bob's Axes. | 1 |  |  |  |
-|  | Grey wolf fur | This would make warm clothing. | 50 | yes |  |  |
-|  | Plank | A plank of wood! | 0 |  |  |  |
-|  | Christmas cracker | I need to pull this | 0 |  |  |  |
-|  | Skull | Ooooh spooky! | 0 |  |  |  |
-|  | Tile | A fraction of a roof. | 0 |  |  |  |
-|  | Rock | A rock | 0 |  |  |  |
-|  | Papyrus | Used for making notes. | 10 | yes |  |  |
-|  | Papyrus |  | 0 | yes |  |  |
-|  | Charcoal | A lump of charcoal. | 45 |  |  |  |
-|  | Machete | A jungle specific slashing device. | 40 | yes |  | Wield |
-|  | Cooking pot |  | 0 |  |  |  |
-|  | highwayman_mask |  | 0 |  |  |  |
-|  | Disk of returning | Used to get out of Thordur's blackhole | 12 |  |  |  |
-|  | Brass key | A mysterious key made of brass. | 0 |  |  |  |
-|  | Half of a key | A very shiny key. | 0 | yes |  |  |
-|  | Half of a key | A very shiny key. | 0 | yes |  |  |
-|  | Crystal key | A very rare and mysterious key. | 0 | yes |  |  |
-|  | Muddy key | It looks like a key to a chest. | 0 |  |  |  |
-|  | Sinister key | You get a sense of dread from this key. | 0 | yes |  |  |
-|  | Coins | Lovely money! | 0 |  | yes |  |
-|  | coins_2 |  | 0 |  | yes |  |
-|  | coins_3 |  | 0 |  | yes |  |
-|  | coins_4 |  | 0 |  | yes |  |
-|  | coins_5 |  | 0 |  | yes |  |
-|  | coins_25 |  | 0 |  | yes |  |
-|  | coins_100 |  | 0 |  | yes |  |
-|  | coins_250 |  | 0 |  | yes |  |
-|  | coins_1000 |  | 0 |  | yes |  |
-|  | coins_10000 |  | 0 |  | yes |  |
-|  | White apron | A mostly clean apron. | 2 |  |  | Wear |
-|  | Brass necklace | I'd prefer a gold one. | 30 |  |  | Wear |
-|  | Blue skirt | Leg covering favoured by women and wizards. | 2 |  |  | Wear |
-|  | Pink skirt | A ladies skirt. | 2 |  |  | Wear |
-|  | Black skirt | Clothing favoured by women and dark wizards. | 2 |  |  | Wear |
-|  | Eye patch | A black piece of cloth on a string. | 2 | yes |  | Wear |
-|  | Robe of zamorak | A robe worn by worshippers of Zamorak. | 30 | yes |  | Wear |
-|  | Robe of zamorak | A robe worn by worshippers of Zamorak. | 40 | yes |  | Wear |
-|  | Cape of legends | The cape worn by members of the Legends Guild. | 450 | yes |  | Wear |
-|  | Staff of iban | A Magical staff., A highly magical staff. | 42500 | yes |  | Wield |
-|  | Broken iban staff | The staff is unusable in this state. | 20 | yes |  |  |
-|  | Farmers fork |  | 0 |  |  |  |
-|  | Halberd |  | 0 |  |  |  |
-|  | Warhammer |  | 0 |  |  |  |
-|  | Javelin |  | 0 |  |  |  |
-|  | Scythe |  | 0 |  |  | Wield |
-|  | Archery ticket | I can exchange this for equipment. | 25 | yes | yes |  |
-|  | Weapon poison | For use on daggers and projectiles. | 11 | yes |  |  |
-|  | Sea slug | A rather nasty looking crustacean. | 4 | yes |  |  |
-|  | Damp sticks | Some damp wooden sticks. | 0 | yes |  |  |
-|  | Dry sticks | Some dry wooden sticks. | 0 | yes |  | Rub-together |
-|  | Broken glass | Smashed glass. | 0 | yes |  |  |
-|  | Amulet of accuracy | It increases my aim. | 100 |  |  | Wear |
-|  | Lockpick |  | 20 | yes |  |  |
-|  | Garlic | A clove of garlic. | 3 |  |  |  |
-|  | Ice gloves | These will keep my hands cold! | 6 | yes |  | Wear |
-|  | Oily fishing rod | Useful for catching lava eels. | 15 | yes |  |  |
-|  | obj_1589 |  | 0 |  |  |  |
-|  | Dusty key | I wonder what this unlocks? | 0 | yes |  |  |
-|  | Jail key | Key to a cell. | 0 | yes |  |  |
-|  | Desert shirt | A cool, light desert shirt. | 40 | yes |  | Wear |
-|  | Desert robe | A cool, light desert robe. | 40 | yes |  | Wear |
-|  | Desert boots | Comfortable desert shoes. | 20 | yes |  | Wear |
-|  | Shantay pass | Allows you to pass through the Shantay pass into the Kharid Desert. | 5 | yes | yes |  |
-|  | Rock | Looks like a plain rock, must have some ore in it? | 0 | yes |  |  |
-|  | obj_2420 |  | 0 |  |  |  |
-|  | obj_2422 |  | 0 |  |  |  |
-|  | obj_2425 |  | 0 |  |  |  |
-|  | obj_2480 |  | 0 |  |  |  |
-|  | newbieshrimp |  | 0 |  |  |  |
-|  | obj_2513 |  | 0 |  |  |  |
-|  | Rotten tomato | Pretty smelly. | 1 | yes |  |  |
-|  | Toy horsey | A brown toy horse. | 100 |  |  | Play-with |
-|  | Toy horsey | A white toy horse. | 100 |  |  | Play-with |
-|  | Toy horsey | A black toy horse. | 100 |  |  | Play-with |
-|  | Toy horsey | A grey toy horse. | 100 |  |  | Play-with |
-|  | Worm | Ugh! It's wriggling! | 0 | yes |  |  |
-|  | Boots | They're soft and silky. | 200 | yes |  | Wear |
-|  | Boots | They're soft and silky. | 200 | yes |  | Wear |
-|  | Boots | They're soft and silky. | 200 | yes |  | Wear |
-|  | Boots | They're soft and silky. | 200 | yes |  | Wear |
-|  | Boots | They're soft and silky. | 200 | yes |  | Wear |
-|  | Robe top | The ultimate in gnome design. | 180 | yes |  | Wear |
-|  | Robe top | The ultimate in gnome design. | 180 | yes |  | Wear |
-|  | Robe top | The ultimate in gnome design. | 180 | yes |  | Wear |
-|  | Robe top | The ultimate in gnome design. | 180 | yes |  | Wear |
-|  | Robe top | The ultimate in gnome design. | 180 | yes |  | Wear |
-|  | Robe bottoms | Made by Tree Gnomes. | 180 | yes |  | Wear |
-|  | Robe bottoms | Made by Tree Gnomes. | 180 | yes |  | Wear |
-|  | Robe bottoms | Made by Tree Gnomes. | 180 | yes |  | Wear |
-|  | Robe bottoms | Made by Tree Gnomes. | 180 | yes |  | Wear |
-|  | Robe bottoms | Made by Tree Gnomes. | 180 | yes |  | Wear |
-|  | Hat | A silly pointed hat. | 160 | yes |  | Wear |
-|  | Hat | A silly pointed hat. | 160 | yes |  | Wear |
-|  | Hat | A silly pointed hat. | 160 | yes |  | Wear |
-|  | Hat | A silly pointed hat. | 160 | yes |  | Wear |
-|  | Hat | A silly pointed hat. | 160 | yes |  | Wear |
-|  | Cape of saradomin | A cape from the almighty god Saradomin. | 100 | yes |  | Wear |
-|  | Cape of guthix | A cape from the almighty god Guthix. | 100 | yes |  | Wear |
-|  | Cape of zamorak | A cape from the almighty god Zamorak. | 100 | yes |  | Wear |
-|  | Staff of saradomin | It's a stick of the gods. | 80000 | yes |  | Wield |
-|  | Staff of guthix | It's a stick of the gods. | 80000 | yes |  | Wield |
-|  | Staff of zamorak | It's a stick of the gods. | 80000 | yes |  | Wield |
-|  | Insect repellent | Drives away all known 6 legged creatures. | 3 | yes |  |  |
-|  | Bucket of wax | It's a bucket of wax. | 6 | yes |  |  |
-|  | Poison chalice | A cup of a strange brew... | 20 | yes |  | Drink |
-|  | Paramaya ticket | Allows you to rest in the luxurious Paramayer Inn. | 5 | yes |  |  |
-|  | Ship ticket | Allows you passage on the 'Lady of the waves' ship. | 5 | yes |  |  |
-|  | Potion | This is meant to be good for spots. | 0 |  |  |  |
-|  | Lamp | Wonder what happens if I rub it... | 0 |  |  | Rub |
-|  | template_for_cert |  | 0 |  | yes |  |
-|  | Flowers | A posy of flowers. | 100 | yes |  | Wield |
-|  | Flowers | A posy of flowers. | 100 | yes |  | Wield |
-|  | Flowers | A posy of flowers. | 100 | yes |  | Wield |
-|  | Flowers | A posy of flowers. | 100 | yes |  | Wield |
-|  | Flowers | A posy of flowers. | 100 | yes |  | Wield |
-|  | Flowers | A posy of flowers. | 100 | yes |  | Wield |
-|  | Flowers | A posy of flowers. | 100 | yes |  | Wield |
-|  | Flowers | A posy of flowers. | 100 | yes |  | Wield |
-|  | Flowers | A posy of flowers. | 100 | yes |  | Wield |
-|  | War ship | A model of a Karamja warship. | 2 | yes |  |  |
-|  | Bunny ears | A rabbit-like adornment. | 0 |  |  | Wear |
-|  | Red partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
-|  | Yellow partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
-|  | Blue partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
-|  | Green partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
-|  | Purple partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
-|  | White partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
-|  | Santa hat |  | 160 |  |  | Wear, Wear |
-|  | Halloween mask | Aaaarrrghhh ... i'm a monster. | 15 |  |  | Wear |
-|  | Halloween mask | Aaaarrrghhh ... i'm a monster. | 15 |  |  | Wear |
-|  | Halloween mask | Aaaarrrghhh ... i'm a monster. | 15 |  |  | Wear |
-|  | Newcomer map | Issued by RuneScape Council to all new citizens. | 1 |  |  | Read |
-|  | Jug | This jug is empty. | 1 |  |  |  |
-|  | Jug of water | It's full of water. | 1 |  |  |  |
-|  | Bucket | It's a wooden bucket. | 2 |  |  |  |
-|  | Bucket of water | It's a bucket of water. | 6 |  |  |  |
-|  | Bowl of water | It's a bowl of water. | 4 |  |  |  |
-|  | Bowl | Useful for mixing things. | 4 |  |  |  |
-|  | Waterskin(4) | A full waterskin with four portions of water. | 30 | yes |  |  |
-|  | Waterskin(3) | A nearly full waterskin with three portions of water. | 27 | yes |  |  |
-|  | Waterskin(2) | A half empty waterskin with two portions of water. | 24 | yes |  |  |
-|  | Waterskin(1) | A nearly empty waterskin with one portion of water. | 18 | yes |  |  |
-|  | Waterskin(0) | A totaly empty waterskin - you'll need to fill it up. | 15 | yes |  |  |
-|  | Strange fruit | I wonder what this tastes like? | 0 | yes |  | Eat |
-|  | Pickaxe handle | Useless without the head. | 1 |  |  |  |
-|  | Broken pickaxe | Nurmof can fix this for me. | 0 |  |  |  |
-|  | Broken pickaxe | Nurmof can fix this for me. | 0 |  |  |  |
-|  | Broken pickaxe | Nurmof can fix this for me. | 17 |  |  |  |
-|  | Broken pickaxe | Nurmof can fix this for me. | 43 |  |  |  |
-|  | Broken pickaxe | Nurmof can fix this for me. | 107 |  |  |  |
-|  | Broken pickaxe | Nurmof can fix this for me. | 1100 |  |  |  |
-|  | Pickaxe head | It's missing a handle. | 1 |  |  |  |
-|  | Pickaxe head | It's missing a handle. | 139 |  |  |  |
-|  | Pickaxe head | It's missing a handle. | 499 |  |  |  |
-|  | Pickaxe head | It's missing a handle. | 1299 |  |  |  |
-|  | Pickaxe head | It's missing a handle. | 3199 |  |  |  |
-|  | Pickaxe head | It's missing a handle. | 31999 |  |  |  |
-|  | Axe handle | Useless without the head. | 1 |  |  |  |
-|  | Broken axe | Bob can fix this for me. | 0 |  |  |  |
-|  | Broken axe | Bob can fix this for me. | 0 |  |  |  |
-|  | Broken axe | Bob can fix this for me. | 0 |  |  |  |
-|  | Broken axe | Bob can fix this for me. | 10 |  |  |  |
-|  | Broken axe | Bob can fix this for me. | 18 |  |  |  |
-|  | Broken axe | Bob can fix this for me. | 43 |  |  |  |
-|  | Broken axe | Bob can fix this for me. | 427 |  |  |  |
-|  | Axe head | It's missing a handle. | 15 |  |  |  |
-|  | Axe head | It's missing a handle. | 55 |  |  |  |
-|  | Axe head | It's missing a handle. | 199 |  |  |  |
-|  | Axe head | It's missing a handle. | 383 |  |  |  |
-|  | Axe head | It's missing a handle. | 519 |  |  |  |
-|  | Axe head | It's missing a handle. | 1279 |  |  |  |
-|  | Axe head | It's missing a handle. | 12799 |  |  |  |
-|  | Gnomeball | A ball from the game Gnomeball | 0 | yes |  | Hold |
-|  | Chart | A navigator's chart of RuneScape. | 2 | yes |  |  |
-|  | Watch | A fine looking time piece. | 100 | yes |  |  |
-|  | Sextant | Used by navigators to find their position in RuneScape. | 50 | yes |  | Look through |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes | yes | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes | yes | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes | yes | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Puzzle box | I need to solve this! | 100 | yes |  | Open |
-|  | Puzzle box | I need to solve this! | 100 | yes |  | Open |
-|  | Puzzle box | I need to solve this! | 100 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Key | A key to unlock a treasure chest. | 1 | yes |  |  |
-|  | Key | A key to some drawers. | 1 | yes |  |  |
-|  | Key | A key to some drawers. | 1 | yes |  |  |
-|  | Key | A key to some drawers. | 1 | yes |  |  |
-|  | Key | A key to some drawers. | 1 | yes |  |  |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Challenge scroll | I need to answer this correctly. | 1 | yes |  | Read |
-|  | Challenge scroll | I need to answer this correctly. | 1 | yes |  | Read |
-|  | Challenge scroll | I need to answer this correctly. | 1 | yes |  | Read |
-|  | Challenge scroll | I need to answer this correctly. | 1 | yes |  | Read |
-|  | Challenge scroll | I need to answer this correctly. | 1 | yes |  | Read |
-|  | Challenge scroll | I need to answer this correctly. | 1 | yes |  | Read |
-|  | Bailing bucket | It's a bailing bucket. | 10 | yes |  | Bail-with |
-|  | Bailing bucket | It's a bailing bucket full of salty water. | 10 | yes |  | Empty |
-|  | Khazard helmet | A helmet, as worn by the minions of General Khazard. | 10 | yes |  | Wear |
-|  | Khazard armour | Armour, as worn by the minions of General Khazard. | 12 | yes |  | Wear |
-|  | Khazard cell keys | These keys open the cells at the Khazard fight arena. | 0 | yes |  |  |
-|  | Khali brew | A bottle of Khazard's worst brew. | 5 | yes |  |  |
-|  | Lit black candle | A lit spooky candle. | 3 | yes |  |  |
-|  | Lit candle | A lit candle. | 3 | yes |  |  |
-|  | Excalibur | This used to belong to King Arthur. | 200 | yes |  | Wield |
-|  | Candle | A candle. | 3 | yes |  |  |
-|  | Black candle | A spooky candle. | 3 | yes |  |  |
-|  | Ball | A childs' ball. | 1 | yes |  |  |
-|  | Diary | A daily journal. | 0 | yes |  | Read |
-|  | Door key | A key to the Witches' house front door. | 0 | yes |  |  |
-|  | Magnet | A very attractive magnet. | 3 | yes |  |  |
-|  | Key | A key to the Witches' shed. | 0 | yes |  |  |
-|  | Barcrawl card | The official Alfred Grimhand bar crawl card. | 10 | yes |  | Read |
-|  | Ethanea | An expensive colourless liquid. | 10 | yes |  |  |
-|  | Liquid honey | This isn't worth much. | 0 | yes |  |  |
-|  | Sulphuric broline | It's highly poisonous. | 1 | yes |  |  |
-|  | Plague sample | Probably best I don't keep this too long. | 1 | yes |  |  |
-|  | Touch paper | A special kind of paper. | 1 | yes |  |  |
-|  | Distillator | Apparently it distills. | 1 | yes |  |  |
-|  | Lathas' amulet | Yup. It's an amulet. | 10 | yes |  | Wear |
-|  | Bird feed | Birds love this stuff! | 1 | yes |  |  |
-|  | Key | Opens things. | 1 | yes |  |  |
-|  | Pigeon cage | It's full of pigeons. | 1 | yes |  | Open |
-|  | Pigeon cage | It's empty... | 1 | yes |  |  |
-|  | Priest gown | Top half of a priest suit. | 5 |  |  | Wear |
-|  | Priest gown | Bottom half of a priest suit. | 5 |  |  | Wear |
-|  | Doctors' gown | Medical looking. | 40 | yes |  | Wear |
-|  | Book | The Shield of Arrav by A R Wright. | 0 |  |  | Read |
-|  | Key | The key to get into the Phoenix Gang HQ. | 0 |  |  |  |
-|  | Key | The key to the Phoenix Gang's weapons store. | 0 |  |  |  |
-|  | Scroll | An intelligence report. | 5 |  |  |  |
-|  | Broken shield | Half of the Shield of Arrav. | 0 |  |  |  |
-|  | Broken shield | Half of the Shield of Arrav. | 0 |  |  |  |
-|  | Phoenix crossbow | Former property of the Phoenix Gang. | 4 |  |  | Wield |
-|  | Certificate | I can use this to claim a reward from the King. | 0 |  |  |  |
-|  | Ogre bellows | A large pair of ogre bellows. | 0 | yes |  |  |
-|  | Ogre bellows (3) | A large pair of ogre bellows, it has three loads of swamp gas in it. | 0 | yes |  |  |
-|  | Ogre bellows (2) | A large pair of ogre bellows, it has two loads of swamp gas in it. | 0 | yes |  |  |
-|  | Ogre bellows (1) | A large pair of ogre bellows, it has one load of swamp gas in it. | 0 | yes |  |  |
-|  | Bloated toad | An inflated toad. | 0 | yes |  | Drop, Release All, Release |
-|  | Raw chompy | I need to cook this first. | 5 | yes |  |  |
-|  | Cooked chompy | It might look delicious to an ogre. | 10 | yes |  | Eat |
-|  | Ruined chompy | It's really burnt. | 0 | yes |  |  |
-|  | Seasoned chompy | It has been deliciously seasoned to taste wonderful for ogres. | 10 | yes |  |  |
-|  | chompy_bird_obj |  | 0 |  |  |  |
-|  | Cog | A cog from some machinery. | 0 | yes |  |  |
-|  | Cog | A cog from some machinery. | 0 | yes |  |  |
-|  | Cog | A cog from some machinery. | 0 | yes |  |  |
-|  | Cog | A cog from some machinery. | 0 | yes |  |  |
-|  | Rat poison | Doesn't look very tasty. | 0 | yes |  |  |
-|  | 'perfect' ring | A perfect ruby ring. | 2025 | yes |  | Wear |
-|  | 'perfect' necklace | A perfect ruby necklace. | 2175 | yes |  | Wear |
-|  | Cooking gauntlets | These gauntlets empower with a greater ability to cook fish. | 0 | yes |  | Wear |
-|  | Goldsmith gauntlet | These gauntlets empower the bearer whilst making gold. | 0 | yes |  | Wear |
-|  | Chaos gauntlets | These gauntlets empower spell casters. | 0 | yes |  | Wear |
-|  | Steel gauntlets | My reward for assisting the Fitzharmon family. | 0 | yes |  | Wear |
-|  | Crest part | A fragment of the Fitzharmon family crest. | 0 | yes |  |  |
-|  | Crest part | A fragment of the Fitzharmon family crest. | 0 | yes |  |  |
-|  | Crest part | A fragment of the Fitzharmon family crest. | 0 | yes |  |  |
-|  | Family crest | The Fitzharmon family crest. | 0 | yes |  |  |
-|  | Key | A key given to me by Wizard Traiborn. | 0 |  |  |  |
-|  | Key | A key given to me by Captain Rovin. | 0 |  |  |  |
-|  | Key | A key I found in a drain. | 0 |  |  |  |
-|  | Silverlight | The magical sword 'Silverlight'. | 50 |  |  | Wield |
-|  | Metal key | A metal key, it's very crudely constructed. | 1 |  |  |  |
-|  | Cell door key | A metalic key, usually used by prison guards. | 1 | yes |  |  |
-|  | Barrel | An empty mining barrel. | 1 | yes |  |  |
-|  | Ana in a barrel | A mining barrel with Ana in it. | 1 | yes |  | Look |
-|  | Wrought iron key | This key unlocks a very sturdy gate of some sort. | 1 | yes |  |  |
-|  | Slaves' shirt | A filthy, smelly, flea infested shirt. | 40 | yes |  | Wear |
-|  | Slave robe | A filthy, smelly, flea infested robe. | 40 | yes |  | Wear |
-|  | Slave boots | Comfortable desert shoes. | 1 | yes |  | Wear |
-|  | Scrumpled paper | A piece of paper with barely legible writing - looks like a recipe! | 10 | yes |  | Read |
-|  | Shantay disclaimer | Very important information. | 1 | yes |  | Read |
-|  | Prototype dart | An experimental type of weapon., A prototype throwing dart. | 70, 2 | yes | yes |  |
-|  | Technical plans | Plans of a technical nature. | 1 | yes |  | Read |
-|  | Tenti pineapple | The most delicious of pineapples. | 1 |  |  |  |
-|  | Bedobin key | A key to the chest in Captain Siad's room. | 1 | yes |  |  |
-|  | Prototype dart tip | A protoype dart tip - it looks deadly. | 1 | yes | yes |  |
-|  | Map part | An incomplete map piece. | 0 |  |  | Study |
-|  | Map part | An incomplete map piece. | 0 |  |  | Study |
-|  | Map part | An incomplete map piece. | 0 |  |  | Study |
-|  | Crandor map | A map to Crandor. | 0 |  |  | Study |
-|  | Nails | Keeps things in place fairly permanently. | 3 |  | yes |  |
-|  | Maze key | A key to Melzars' Maze. | 1 |  |  |  |
-|  | Key | A red key. | 0 |  |  |  |
-|  | Key | An orange key. | 0 |  |  |  |
-|  | Key | A yellow key. | 0 |  |  |  |
-|  | Key | A blue key. | 0 |  |  |  |
-|  | Key | A magenta key. | 0 |  |  |  |
-|  | Key | A green key. | 0 |  |  |  |
-|  | Enchanted beef | I don't fancy eating this now. | 1 | yes |  |  |
-|  | Enchanted rat | I don't fancy eating this now. | 1 | yes |  |  |
-|  | Enchanted bear | I don't fancy eating this now. | 1 | yes |  |  |
-|  | Enchanted chicken | I don't fancy eating this now. | 1 | yes |  |  |
-|  | Child's blanket | It's very soft! | 5 | yes |  |  |
-|  | Book | Turnip growing for beginners. | 1 | yes |  |  |
-|  | Gas mask | Stops me from breathing nasty stuff! | 2 | yes |  | Wear |
-|  | Hangover cure | It doesn't look very tasty. | 2 | yes |  |  |
-|  | A small key | Quite a small key. | 1 | yes |  |  |
-|  | A scruffy note | It seems to say "hongorer lure"... | 2 | yes |  | Read |
-|  | Picture | A picture of a lady called Elena. | 1 | yes |  |  |
-|  | A magic scroll | Maybe I should read it... | 1 | yes |  | Read |
-|  | Warrant | A search warrant for a house in Ardougne. | 5 | yes |  |  |
-|  | Red vine worm | Wormy. | 0 | yes | yes |  |
-|  | Fishing trophy | Hemenster fishing contest trophy. | 0 | yes |  |  |
-|  | Fishing pass | Pass to the Hemenster fishing contest. | 0 | yes |  |  |
-|  | Doogle leaves | A tasty herb good for seasoning. | 2 | yes |  |  |
-|  | Seasoned sardine | Sardine flavoured with doogle leaves. | 10 | yes |  |  |
-|  | Cat training medal | For feline training expertise. | 350 | yes |  | Wear |
-|  | Fluffs' kitten | It looks like it's lost. | 0 | yes |  | Use |
-|  | Pet kitten | This kitten seems to like you. | 0 | yes |  |  |
-|  | Pet kitten | This kitten seems to like you. | 0 | yes |  |  |
-|  | Pet kitten | This kitten seems to like you. | 0 | yes |  |  |
-|  | Pet kitten | This kitten seems to like you. | 0 | yes |  |  |
-|  | Pet kitten | This kitten seems to like you. | 0 | yes |  |  |
-|  | Pet kitten | This kitten seems to like you. | 0 | yes |  |  |
-|  | Pet cat | This cat definitely likes you. | 0 | yes |  |  |
-|  | Pet cat | This cat definitely likes you. | 0 | yes |  |  |
-|  | Pet cat | This cat definitely likes you. | 0 | yes |  |  |
-|  | Pet cat | This cat definitely likes you. | 0 | yes |  |  |
-|  | Pet cat | This cat definitely likes you. | 0 | yes |  |  |
-|  | Pet cat | This cat definitely likes you. | 0 | yes |  |  |
-|  | Pet cat | This cat is so well fed it can hardly move. | 0 | yes |  |  |
-|  | Pet cat | This cat is so well fed it can hardly move. | 0 | yes |  |  |
-|  | Pet cat | This cat is so well fed it can hardly move. | 0 | yes |  |  |
-|  | Pet cat | This cat is so well fed it can hardly move. | 0 | yes |  |  |
-|  | Pet cat | This cat is so well fed it can hardly move. | 0 | yes |  |  |
-|  | Pet cat | This cat is so well fed it can hardly move. | 0 | yes |  |  |
-|  | Orange goblin mail | Armour designed to fit goblins. | 40 |  |  |  |
-|  | Blue goblin mail | Armour designed to fit goblins. | 40 |  |  |  |
-|  | Goblin mail | Armour designed to fit goblins. | 40 |  |  |  |
+| ![Knife](icons/knife.png) | Knife | A dangerous looking knife. | 6 |  |  |  |
+| ![Fur](icons/fur.png) | Fur | This would make warm clothing. | 10 |  |  |  |
+| ![Silk](icons/silk.png) | Silk | It's a sheet of silk. | 30 |  |  |  |
+| ![Spade](icons/spade.png) | Spade | A slightly muddy spade. | 3 |  |  | Dig |
+| ![Rope](icons/rope.png) | Rope | A coil of rope. | 18 |  |  |  |
+| ![Flier](icons/flier.png) | Flier | Get your axes from Bob's Axes. | 1 |  |  |  |
+| ![Grey wolf fur](icons/grey_wolf_fur.png) | Grey wolf fur | This would make warm clothing. | 50 | yes |  |  |
+| ![Plank](icons/woodplank.png) | Plank | A plank of wood! | 0 |  |  |  |
+| ![Christmas cracker](icons/christmas_cracker.png) | Christmas cracker | I need to pull this | 0 |  |  |  |
+| ![Skull](icons/skull.png) | Skull | Ooooh spooky! | 0 |  |  |  |
+| ![Tile](icons/rooftile.png) | Tile | A fraction of a roof. | 0 |  |  |  |
+| ![Rock](icons/rock.png) | Rock | A rock | 0 |  |  |  |
+| ![Papyrus](icons/papyrus.png) | Papyrus | Used for making notes. | 10 | yes |  |  |
+| ![Papyrus](icons/papyrus_used.png) | Papyrus |  | 0 | yes |  |  |
+| ![Charcoal](icons/charcoal.png) | Charcoal | A lump of charcoal. | 45 |  |  |  |
+| ![Machete](icons/machette.png) | Machete | A jungle specific slashing device. | 40 | yes |  | Wield |
+| ![Cooking pot](icons/cooking_pot.png) | Cooking pot |  | 0 |  |  |  |
+| ![highwayman_mask](icons/highwayman_mask.png) | highwayman_mask |  | 0 |  |  |  |
+| ![Disk of returning](icons/discofreturning.png) | Disk of returning | Used to get out of Thordur's blackhole | 12 |  |  |  |
+| ![Brass key](icons/edgevilledungeonkey.png) | Brass key | A mysterious key made of brass. | 0 |  |  |  |
+| ![Half of a key](icons/keyhalf1.png) | Half of a key | A very shiny key. | 0 | yes |  |  |
+| ![Half of a key](icons/keyhalf2.png) | Half of a key | A very shiny key. | 0 | yes |  |  |
+| ![Crystal key](icons/crystal_key.png) | Crystal key | A very rare and mysterious key. | 0 | yes |  |  |
+| ![Muddy key](icons/muddy_key.png) | Muddy key | It looks like a key to a chest. | 0 |  |  |  |
+| ![Sinister key](icons/sinister_key.png) | Sinister key | You get a sense of dread from this key. | 0 | yes |  |  |
+| ![Coins](icons/coins.png) | Coins | Lovely money! | 0 |  | yes |  |
+| ![coins_2](icons/coins_2.png) | coins_2 |  | 0 |  | yes |  |
+| ![coins_3](icons/coins_3.png) | coins_3 |  | 0 |  | yes |  |
+| ![coins_4](icons/coins_4.png) | coins_4 |  | 0 |  | yes |  |
+| ![coins_5](icons/coins_5.png) | coins_5 |  | 0 |  | yes |  |
+| ![coins_25](icons/coins_25.png) | coins_25 |  | 0 |  | yes |  |
+| ![coins_100](icons/coins_100.png) | coins_100 |  | 0 |  | yes |  |
+| ![coins_250](icons/coins_250.png) | coins_250 |  | 0 |  | yes |  |
+| ![coins_1000](icons/coins_1000.png) | coins_1000 |  | 0 |  | yes |  |
+| ![coins_10000](icons/coins_10000.png) | coins_10000 |  | 0 |  | yes |  |
+| ![White apron](icons/white_apron.png) | White apron | A mostly clean apron. | 2 |  |  | Wear |
+| ![Brass necklace](icons/brass_necklace.png) | Brass necklace | I'd prefer a gold one. | 30 |  |  | Wear |
+| ![Blue skirt](icons/blue_skirt.png) | Blue skirt | Leg covering favoured by women and wizards. | 2 |  |  | Wear |
+| ![Pink skirt](icons/pink_skirt.png) | Pink skirt | A ladies skirt. | 2 |  |  | Wear |
+| ![Black skirt](icons/black_skirt.png) | Black skirt | Clothing favoured by women and dark wizards. | 2 |  |  | Wear |
+| ![Eye patch](icons/eye_patch.png) | Eye patch | A black piece of cloth on a string. | 2 | yes |  | Wear |
+| ![Robe of zamorak](icons/zamrobebottom.png) | Robe of zamorak | A robe worn by worshippers of Zamorak. | 30 | yes |  | Wear |
+| ![Robe of zamorak](icons/zamrobetop.png) | Robe of zamorak | A robe worn by worshippers of Zamorak. | 40 | yes |  | Wear |
+| ![Cape of legends](icons/cape_of_legends.png) | Cape of legends | The cape worn by members of the Legends Guild. | 450 | yes |  | Wear |
+| ![Staff of iban](icons/ibanstaff.png) | Staff of iban | A Magical staff., A highly magical staff. | 42500 | yes |  | Wield |
+| ![Broken iban staff](icons/brokenibanstaff.png) | Broken iban staff | The staff is unusable in this state. | 20 | yes |  |  |
+| ![Farmers fork](icons/farmers_fork.png) | Farmers fork |  | 0 |  |  |  |
+| ![Halberd](icons/halberd.png) | Halberd |  | 0 |  |  |  |
+| ![Warhammer](icons/warhammer.png) | Warhammer |  | 0 |  |  |  |
+| ![Javelin](icons/javelin.png) | Javelin |  | 0 |  |  |  |
+| ![Scythe](icons/scythe.png) | Scythe |  | 0 |  |  | Wield |
+| ![Archery ticket](icons/archery_ticket.png) | Archery ticket | I can exchange this for equipment. | 25 | yes | yes |  |
+| ![Weapon poison](icons/display_weapon_poison.png) | Weapon poison | For use on daggers and projectiles. | 11 | yes |  |  |
+| ![Sea slug](icons/seasluginv.png) | Sea slug | A rather nasty looking crustacean. | 4 | yes |  |  |
+| ![Damp sticks](icons/damp_sticks.png) | Damp sticks | Some damp wooden sticks. | 0 | yes |  |  |
+| ![Dry sticks](icons/dry_sticks.png) | Dry sticks | Some dry wooden sticks. | 0 | yes |  | Rub-together |
+| ![Broken glass](icons/broken_glass.png) | Broken glass | Smashed glass. | 0 | yes |  |  |
+| ![Amulet of accuracy](icons/amulet_of_accuracy.png) | Amulet of accuracy | It increases my aim. | 100 |  |  | Wear |
+| ![Lockpick](icons/lockpick.png) | Lockpick |  | 20 | yes |  |  |
+| ![Garlic](icons/garlic.png) | Garlic | A clove of garlic. | 3 |  |  |  |
+| ![Ice gloves](icons/ice_gloves.png) | Ice gloves | These will keep my hands cold! | 6 | yes |  | Wear |
+| ![Oily fishing rod](icons/oily_fishing_rod.png) | Oily fishing rod | Useful for catching lava eels. | 15 | yes |  |  |
+| ![obj_1589](icons/obj_1589.png) | obj_1589 |  | 0 |  |  |  |
+| ![Dusty key](icons/dusty_key.png) | Dusty key | I wonder what this unlocks? | 0 | yes |  |  |
+| ![Jail key](icons/jail_key.png) | Jail key | Key to a cell. | 0 | yes |  |  |
+| ![Desert shirt](icons/desert_shirt.png) | Desert shirt | A cool, light desert shirt. | 40 | yes |  | Wear |
+| ![Desert robe](icons/desert_robe.png) | Desert robe | A cool, light desert robe. | 40 | yes |  | Wear |
+| ![Desert boots](icons/desert_boots.png) | Desert boots | Comfortable desert shoes. | 20 | yes |  | Wear |
+| ![Shantay pass](icons/shantay_pass.png) | Shantay pass | Allows you to pass through the Shantay pass into the Kharid Desert. | 5 | yes | yes |  |
+| ![Rock](icons/thpunishrock.png) | Rock | Looks like a plain rock, must have some ore in it? | 0 | yes |  |  |
+| ![obj_2420](icons/obj_2420.png) | obj_2420 |  | 0 |  |  |  |
+| ![obj_2422](icons/obj_2422.png) | obj_2422 |  | 0 |  |  |  |
+| ![obj_2425](icons/obj_2425.png) | obj_2425 |  | 0 |  |  |  |
+| ![obj_2480](icons/obj_2480.png) | obj_2480 |  | 0 |  |  |  |
+| ![newbieshrimp](icons/newbieshrimp.png) | newbieshrimp |  | 0 |  |  |  |
+| ![obj_2513](icons/obj_2513.png) | obj_2513 |  | 0 |  |  |  |
+| ![Rotten tomato](icons/rotten_tomato.png) | Rotten tomato | Pretty smelly. | 1 | yes |  |  |
+| ![Toy horsey](icons/horsey_brown.png) | Toy horsey | A brown toy horse. | 100 |  |  | Play-with |
+| ![Toy horsey](icons/horsey_white.png) | Toy horsey | A white toy horse. | 100 |  |  | Play-with |
+| ![Toy horsey](icons/horsey_black.png) | Toy horsey | A black toy horse. | 100 |  |  | Play-with |
+| ![Toy horsey](icons/horsey_grey.png) | Toy horsey | A grey toy horse. | 100 |  |  | Play-with |
+| ![Worm](icons/worm.png) | Worm | Ugh! It's wriggling! | 0 | yes |  |  |
+| ![Boots](icons/gnome_boots_pink.png) | Boots | They're soft and silky. | 200 | yes |  | Wear |
+| ![Boots](icons/gnome_boots_green.png) | Boots | They're soft and silky. | 200 | yes |  | Wear |
+| ![Boots](icons/gnome_boots_blue.png) | Boots | They're soft and silky. | 200 | yes |  | Wear |
+| ![Boots](icons/gnome_boots_cream.png) | Boots | They're soft and silky. | 200 | yes |  | Wear |
+| ![Boots](icons/gnome_boots_turquoise.png) | Boots | They're soft and silky. | 200 | yes |  | Wear |
+| ![Robe top](icons/gnome_robetop_pink.png) | Robe top | The ultimate in gnome design. | 180 | yes |  | Wear |
+| ![Robe top](icons/gnome_robetop_green.png) | Robe top | The ultimate in gnome design. | 180 | yes |  | Wear |
+| ![Robe top](icons/gnome_robetop_blue.png) | Robe top | The ultimate in gnome design. | 180 | yes |  | Wear |
+| ![Robe top](icons/gnome_robetop_cream.png) | Robe top | The ultimate in gnome design. | 180 | yes |  | Wear |
+| ![Robe top](icons/gnome_robetop_turquoise.png) | Robe top | The ultimate in gnome design. | 180 | yes |  | Wear |
+| ![Robe bottoms](icons/gnome_robebottoms_pink.png) | Robe bottoms | Made by Tree Gnomes. | 180 | yes |  | Wear |
+| ![Robe bottoms](icons/gnome_robebottoms_green.png) | Robe bottoms | Made by Tree Gnomes. | 180 | yes |  | Wear |
+| ![Robe bottoms](icons/gnome_robebottoms_blue.png) | Robe bottoms | Made by Tree Gnomes. | 180 | yes |  | Wear |
+| ![Robe bottoms](icons/gnome_robebottoms_cream.png) | Robe bottoms | Made by Tree Gnomes. | 180 | yes |  | Wear |
+| ![Robe bottoms](icons/gnome_robebottoms_turquoise.png) | Robe bottoms | Made by Tree Gnomes. | 180 | yes |  | Wear |
+| ![Hat](icons/gnome_hat_pink.png) | Hat | A silly pointed hat. | 160 | yes |  | Wear |
+| ![Hat](icons/gnome_hat_green.png) | Hat | A silly pointed hat. | 160 | yes |  | Wear |
+| ![Hat](icons/gnome_hat_blue.png) | Hat | A silly pointed hat. | 160 | yes |  | Wear |
+| ![Hat](icons/gnome_hat_cream.png) | Hat | A silly pointed hat. | 160 | yes |  | Wear |
+| ![Hat](icons/gnome_hat_turquoise.png) | Hat | A silly pointed hat. | 160 | yes |  | Wear |
+| ![Cape of saradomin](icons/saradomin_cape.png) | Cape of saradomin | A cape from the almighty god Saradomin. | 100 | yes |  | Wear |
+| ![Cape of guthix](icons/guthix_cape.png) | Cape of guthix | A cape from the almighty god Guthix. | 100 | yes |  | Wear |
+| ![Cape of zamorak](icons/zamorak_cape.png) | Cape of zamorak | A cape from the almighty god Zamorak. | 100 | yes |  | Wear |
+| ![Staff of saradomin](icons/saradomin_staff.png) | Staff of saradomin | It's a stick of the gods. | 80000 | yes |  | Wield |
+| ![Staff of guthix](icons/guthix_staff.png) | Staff of guthix | It's a stick of the gods. | 80000 | yes |  | Wield |
+| ![Staff of zamorak](icons/zamorak_staff.png) | Staff of zamorak | It's a stick of the gods. | 80000 | yes |  | Wield |
+| ![Insect repellent](icons/insect_repellent.png) | Insect repellent | Drives away all known 6 legged creatures. | 3 | yes |  |  |
+| ![Bucket of wax](icons/bucket_wax.png) | Bucket of wax | It's a bucket of wax. | 6 | yes |  |  |
+| ![Poison chalice](icons/poison_chalice.png) | Poison chalice | A cup of a strange brew... | 20 | yes |  | Drink |
+| ![Paramaya ticket](icons/paramayaticket.png) | Paramaya ticket | Allows you to rest in the luxurious Paramayer Inn. | 5 | yes |  |  |
+| ![Ship ticket](icons/shiloshipticket.png) | Ship ticket | Allows you passage on the 'Lady of the waves' ship. | 5 | yes |  |  |
+| ![Potion](icons/acne_potion.png) | Potion | This is meant to be good for spots. | 0 |  |  |  |
+| ![Lamp](icons/macro_genilamp.png) | Lamp | Wonder what happens if I rub it... | 0 |  |  | Rub |
+| ![template_for_cert](icons/template_for_cert.png) | template_for_cert |  | 0 |  | yes |  |
+| ![Flowers](icons/flowers_waterfall_quest.png) | Flowers | A posy of flowers. | 100 | yes |  | Wield |
+| ![Flowers](icons/flowers_waterfall_quest_red.png) | Flowers | A posy of flowers. | 100 | yes |  | Wield |
+| ![Flowers](icons/flowers_waterfall_quest_blue.png) | Flowers | A posy of flowers. | 100 | yes |  | Wield |
+| ![Flowers](icons/flowers_waterfall_quest_yellow.png) | Flowers | A posy of flowers. | 100 | yes |  | Wield |
+| ![Flowers](icons/flowers_waterfall_quest_purple.png) | Flowers | A posy of flowers. | 100 | yes |  | Wield |
+| ![Flowers](icons/flowers_waterfall_quest_orange.png) | Flowers | A posy of flowers. | 100 | yes |  | Wield |
+| ![Flowers](icons/flowers_waterfall_quest_mixed.png) | Flowers | A posy of flowers. | 100 | yes |  | Wield |
+| ![Flowers](icons/flowers_waterfall_quest_white.png) | Flowers | A posy of flowers. | 100 | yes |  | Wield |
+| ![Flowers](icons/flowers_waterfall_quest_black.png) | Flowers | A posy of flowers. | 100 | yes |  | Wield |
+| ![War ship](icons/grandtree_warship.png) | War ship | A model of a Karamja warship. | 2 | yes |  |  |
+| ![Bunny ears](icons/bunnyears.png) | Bunny ears | A rabbit-like adornment. | 0 |  |  | Wear |
+| ![Red partyhat](icons/red_partyhat.png) | Red partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
+| ![Yellow partyhat](icons/yellow_partyhat.png) | Yellow partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
+| ![Blue partyhat](icons/blue_partyhat.png) | Blue partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
+| ![Green partyhat](icons/green_partyhat.png) | Green partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
+| ![Purple partyhat](icons/purple_partyhat.png) | Purple partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
+| ![White partyhat](icons/white_partyhat.png) | White partyhat | A nice hat from a cracker. | 0 |  |  | Wear |
+| ![Santa hat](icons/santa_hat.png) | Santa hat |  | 160 |  |  | Wear, Wear |
+| ![Halloween mask](icons/halloweenmask_green.png) | Halloween mask | Aaaarrrghhh ... i'm a monster. | 15 |  |  | Wear |
+| ![Halloween mask](icons/halloweenmask_blue.png) | Halloween mask | Aaaarrrghhh ... i'm a monster. | 15 |  |  | Wear |
+| ![Halloween mask](icons/halloweenmask_red.png) | Halloween mask | Aaaarrrghhh ... i'm a monster. | 15 |  |  | Wear |
+| ![Newcomer map](icons/newcomer_map.png) | Newcomer map | Issued by RuneScape Council to all new citizens. | 1 |  |  | Read |
+| ![Jug](icons/jug_empty.png) | Jug | This jug is empty. | 1 |  |  |  |
+| ![Jug of water](icons/jug_water.png) | Jug of water | It's full of water. | 1 |  |  |  |
+| ![Bucket](icons/bucket_empty.png) | Bucket | It's a wooden bucket. | 2 |  |  |  |
+| ![Bucket of water](icons/bucket_water.png) | Bucket of water | It's a bucket of water. | 6 |  |  |  |
+| ![Bowl of water](icons/bowl_water.png) | Bowl of water | It's a bowl of water. | 4 |  |  |  |
+| ![Bowl](icons/bowl_empty.png) | Bowl | Useful for mixing things. | 4 |  |  |  |
+| ![Waterskin(4)](icons/water_skin4.png) | Waterskin(4) | A full waterskin with four portions of water. | 30 | yes |  |  |
+| ![Waterskin(3)](icons/water_skin3.png) | Waterskin(3) | A nearly full waterskin with three portions of water. | 27 | yes |  |  |
+| ![Waterskin(2)](icons/water_skin2.png) | Waterskin(2) | A half empty waterskin with two portions of water. | 24 | yes |  |  |
+| ![Waterskin(1)](icons/water_skin1.png) | Waterskin(1) | A nearly empty waterskin with one portion of water. | 18 | yes |  |  |
+| ![Waterskin(0)](icons/water_skin0.png) | Waterskin(0) | A totaly empty waterskin - you'll need to fill it up. | 15 | yes |  |  |
+| ![Strange fruit](icons/macro_triffidfruit.png) | Strange fruit | I wonder what this tastes like? | 0 | yes |  | Eat |
+| ![Pickaxe handle](icons/macro_pickaxehandle.png) | Pickaxe handle | Useless without the head. | 1 |  |  |  |
+| ![Broken pickaxe](icons/macro_broken_bronze_pickaxe.png) | Broken pickaxe | Nurmof can fix this for me. | 0 |  |  |  |
+| ![Broken pickaxe](icons/macro_broken_iron_pickaxe.png) | Broken pickaxe | Nurmof can fix this for me. | 0 |  |  |  |
+| ![Broken pickaxe](icons/macro_broken_steel_pickaxe.png) | Broken pickaxe | Nurmof can fix this for me. | 17 |  |  |  |
+| ![Broken pickaxe](icons/macro_broken_mithril_pickaxe.png) | Broken pickaxe | Nurmof can fix this for me. | 43 |  |  |  |
+| ![Broken pickaxe](icons/macro_broken_adamant_pickaxe.png) | Broken pickaxe | Nurmof can fix this for me. | 107 |  |  |  |
+| ![Broken pickaxe](icons/macro_broken_rune_pickaxe.png) | Broken pickaxe | Nurmof can fix this for me. | 1100 |  |  |  |
+| ![Pickaxe head](icons/macro_bronze_pickaxehead.png) | Pickaxe head | It's missing a handle. | 1 |  |  |  |
+| ![Pickaxe head](icons/macro_iron_pickaxehead.png) | Pickaxe head | It's missing a handle. | 139 |  |  |  |
+| ![Pickaxe head](icons/macro_steel_pickaxehead.png) | Pickaxe head | It's missing a handle. | 499 |  |  |  |
+| ![Pickaxe head](icons/macro_mithril_pickaxehead.png) | Pickaxe head | It's missing a handle. | 1299 |  |  |  |
+| ![Pickaxe head](icons/macro_adamant_pickaxehead.png) | Pickaxe head | It's missing a handle. | 3199 |  |  |  |
+| ![Pickaxe head](icons/macro_rune_pickaxehead.png) | Pickaxe head | It's missing a handle. | 31999 |  |  |  |
+| ![Axe handle](icons/macro_hatchethandle.png) | Axe handle | Useless without the head. | 1 |  |  |  |
+| ![Broken axe](icons/macro_broken_bronze_hatchet.png) | Broken axe | Bob can fix this for me. | 0 |  |  |  |
+| ![Broken axe](icons/macro_broken_iron_hatchet.png) | Broken axe | Bob can fix this for me. | 0 |  |  |  |
+| ![Broken axe](icons/macro_broken_steel_hatchet.png) | Broken axe | Bob can fix this for me. | 0 |  |  |  |
+| ![Broken axe](icons/macro_broken_black_hatchet.png) | Broken axe | Bob can fix this for me. | 10 |  |  |  |
+| ![Broken axe](icons/macro_broken_mithril_hatchet.png) | Broken axe | Bob can fix this for me. | 18 |  |  |  |
+| ![Broken axe](icons/macro_broken_adamant_hatchet.png) | Broken axe | Bob can fix this for me. | 43 |  |  |  |
+| ![Broken axe](icons/macro_broken_rune_hatchet.png) | Broken axe | Bob can fix this for me. | 427 |  |  |  |
+| ![Axe head](icons/macro_bronze_hatchethead.png) | Axe head | It's missing a handle. | 15 |  |  |  |
+| ![Axe head](icons/macro_iron_hatchethead.png) | Axe head | It's missing a handle. | 55 |  |  |  |
+| ![Axe head](icons/macro_steel_hatchethead.png) | Axe head | It's missing a handle. | 199 |  |  |  |
+| ![Axe head](icons/macro_black_hatchethead.png) | Axe head | It's missing a handle. | 383 |  |  |  |
+| ![Axe head](icons/macro_mithril_hatchethead.png) | Axe head | It's missing a handle. | 519 |  |  |  |
+| ![Axe head](icons/macro_adamant_hatchethead.png) | Axe head | It's missing a handle. | 1279 |  |  |  |
+| ![Axe head](icons/macro_rune_hatchethead.png) | Axe head | It's missing a handle. | 12799 |  |  |  |
+| ![Gnomeball](icons/ball_gnomeball_game.png) | Gnomeball | A ball from the game Gnomeball | 0 | yes |  | Hold |
+| ![Chart](icons/trail_chart.png) | Chart | A navigator's chart of RuneScape. | 2 | yes |  |  |
+| ![Watch](icons/trail_watch.png) | Watch | A fine looking time piece. | 100 | yes |  |  |
+| ![Sextant](icons/trail_sextant.png) | Sextant | Used by navigators to find their position in RuneScape. | 50 | yes |  | Look through |
+| ![Casket](icons/trail_clue_easy_map001_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/obj_2715.png) | Casket | I hope there's treasure in it. | 50 | yes | yes | Open |
+| ![Casket](icons/trail_clue_easy_map002_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/obj_2718.png) | Casket | I hope there's treasure in it. | 50 | yes | yes | Open |
+| ![Casket](icons/trail_clue_easy_map003_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/obj_2721.png) | Casket | I hope there's treasure in it. | 50 | yes | yes | Open |
+| ![Casket](icons/trail_clue_hard_sextant001_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_sextant002_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_sextant003_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_sextant007_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_sextant008_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_sextant009_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_sextant010_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_sextant011_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_sextant012_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_sextant013_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Sliding piece](icons/trail_slidingpuzzleb01.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb02.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb03.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb04.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb05.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb06.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb07.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb08.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb09.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb10.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb11.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb12.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb13.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb14.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb15.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb16.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb17.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb18.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb19.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb20.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb21.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb22.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb23.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzleb24.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Casket](icons/trail_clue_hard_riddle002_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_riddle003_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_riddle004_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_riddle005_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_riddle007_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_riddle009_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_riddle010_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_riddle011_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Puzzle box](icons/trail_clue_hard_riddle014_puzzlebox.png) | Puzzle box | I need to solve this! | 100 | yes |  | Open |
+| ![Puzzle box](icons/trail_clue_hard_riddle016_puzzlebox.png) | Puzzle box | I need to solve this! | 100 | yes |  | Open |
+| ![Puzzle box](icons/trail_clue_hard_riddle017_puzzlebox.png) | Puzzle box | I need to solve this! | 100 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_sextant001_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_map001_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_map002_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_sextant002_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_sextant003_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_sextant004_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_sextant005_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_sextant006_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_sextant007_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_sextant008_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_sextant009_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_sextant010_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_sextant011_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_sextant012_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_medium_sextant013_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Key](icons/trail_clue_medium_riddle001_key.png) | Key | A key to unlock a treasure chest. | 1 | yes |  |  |
+| ![Key](icons/trail_clue_medium_riddle002_key.png) | Key | A key to some drawers. | 1 | yes |  |  |
+| ![Key](icons/trail_clue_medium_riddle003_key.png) | Key | A key to some drawers. | 1 | yes |  |  |
+| ![Key](icons/trail_clue_medium_riddle004_key.png) | Key | A key to some drawers. | 1 | yes |  |  |
+| ![Key](icons/trail_clue_medium_riddle005_key.png) | Key | A key to some drawers. | 1 | yes |  |  |
+| ![Casket](icons/trail_clue_hard_sextant004_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_sextant005_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Casket](icons/trail_clue_hard_sextant006_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_easy_map001.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_map002.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_map003.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple001.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple002.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple003.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple004.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple005.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple006.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple007.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple008.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple009.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple010.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple011.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple012.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple013.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple014.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple015.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple016.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple017.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple018.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple019.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple020.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple021.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple022.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple023.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple024.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple025.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple026.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple027.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple028.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple029.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple030.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_simple031.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague001.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague002.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague003.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague004.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague005.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_map001.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant001.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant002.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant003.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant004.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant005.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant006.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant007.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant008.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant009.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant010.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant011.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant012.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant013.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle001.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle002.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle003.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle004.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle005.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle006.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle007.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle008.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle009.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle010.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle011.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle012.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle013.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle014.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle015.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle016.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle017.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_map001.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_map002.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_sextant001.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_sextant002.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_sextant003.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_sextant004.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_sextant005.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_sextant006.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_sextant007.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_sextant008.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_sextant009.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_sextant010.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_sextant011.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_sextant012.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_sextant013.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_riddle001.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_riddle002.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_riddle003.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_riddle004.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_riddle005.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram001.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram002.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram003.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram004.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram005.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram006.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram007.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram008.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram009.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram010.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram011.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram012.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Challenge scroll](icons/trail_clue_medium_anagram001_challenge.png) | Challenge scroll | I need to answer this correctly. | 1 | yes |  | Read |
+| ![Challenge scroll](icons/trail_clue_medium_anagram002_challenge.png) | Challenge scroll | I need to answer this correctly. | 1 | yes |  | Read |
+| ![Challenge scroll](icons/trail_clue_medium_anagram003_challenge.png) | Challenge scroll | I need to answer this correctly. | 1 | yes |  | Read |
+| ![Challenge scroll](icons/trail_clue_medium_anagram006_challenge.png) | Challenge scroll | I need to answer this correctly. | 1 | yes |  | Read |
+| ![Challenge scroll](icons/trail_clue_medium_anagram007_challenge.png) | Challenge scroll | I need to answer this correctly. | 1 | yes |  | Read |
+| ![Challenge scroll](icons/trail_clue_medium_anagram008_challenge.png) | Challenge scroll | I need to answer this correctly. | 1 | yes |  | Read |
+| ![Bailing bucket](icons/bucket_bailing.png) | Bailing bucket | It's a bailing bucket. | 10 | yes |  | Bail-with |
+| ![Bailing bucket](icons/bucket_bailingfull.png) | Bailing bucket | It's a bailing bucket full of salty water. | 10 | yes |  | Empty |
+| ![Khazard helmet](icons/khazard_helmet.png) | Khazard helmet | A helmet, as worn by the minions of General Khazard. | 10 | yes |  | Wear |
+| ![Khazard armour](icons/khazard_platemail.png) | Khazard armour | Armour, as worn by the minions of General Khazard. | 12 | yes |  | Wear |
+| ![Khazard cell keys](icons/khazard_cellkeys.png) | Khazard cell keys | These keys open the cells at the Khazard fight arena. | 0 | yes |  |  |
+| ![Khali brew](icons/khali_brew.png) | Khali brew | A bottle of Khazard's worst brew. | 5 | yes |  |  |
+| ![Lit black candle](icons/lit_black_candle.png) | Lit black candle | A lit spooky candle. | 3 | yes |  |  |
+| ![Lit candle](icons/lit_candle.png) | Lit candle | A lit candle. | 3 | yes |  |  |
+| ![Excalibur](icons/excalibur.png) | Excalibur | This used to belong to King Arthur. | 200 | yes |  | Wield |
+| ![Candle](icons/unlit_candle.png) | Candle | A candle. | 3 | yes |  |  |
+| ![Black candle](icons/unlit_black_candle.png) | Black candle | A spooky candle. | 3 | yes |  |  |
+| ![Ball](icons/ball.png) | Ball | A childs' ball. | 1 | yes |  |  |
+| ![Diary](icons/witches_diary.png) | Diary | A daily journal. | 0 | yes |  | Read |
+| ![Door key](icons/witches_doorkey.png) | Door key | A key to the Witches' house front door. | 0 | yes |  |  |
+| ![Magnet](icons/magnet.png) | Magnet | A very attractive magnet. | 3 | yes |  |  |
+| ![Key](icons/witches_shedkey.png) | Key | A key to the Witches' shed. | 0 | yes |  |  |
+| ![Barcrawl card](icons/barcrawl_card.png) | Barcrawl card | The official Alfred Grimhand bar crawl card. | 10 | yes |  | Read |
+| ![Ethanea](icons/ethenea.png) | Ethanea | An expensive colourless liquid. | 10 | yes |  |  |
+| ![Liquid honey](icons/liquid_honey.png) | Liquid honey | This isn't worth much. | 0 | yes |  |  |
+| ![Sulphuric broline](icons/sulphuric_broline.png) | Sulphuric broline | It's highly poisonous. | 1 | yes |  |  |
+| ![Plague sample](icons/plaguesample.png) | Plague sample | Probably best I don't keep this too long. | 1 | yes |  |  |
+| ![Touch paper](icons/touch_paper.png) | Touch paper | A special kind of paper. | 1 | yes |  |  |
+| ![Distillator](icons/distillator.png) | Distillator | Apparently it distills. | 1 | yes |  |  |
+| ![Lathas' amulet](icons/king_lathas_amulet.png) | Lathas' amulet | Yup. It's an amulet. | 10 | yes |  | Wear |
+| ![Bird feed](icons/birdfeed.png) | Bird feed | Birds love this stuff! | 1 | yes |  |  |
+| ![Key](icons/mournerkeytw.png) | Key | Opens things. | 1 | yes |  |  |
+| ![Pigeon cage](icons/pigeons.png) | Pigeon cage | It's full of pigeons. | 1 | yes |  | Open |
+| ![Pigeon cage](icons/pigeoncage.png) | Pigeon cage | It's empty... | 1 | yes |  |  |
+| ![Priest gown](icons/priest_gown.png) | Priest gown | Top half of a priest suit. | 5 |  |  | Wear |
+| ![Priest gown](icons/priest_robe.png) | Priest gown | Bottom half of a priest suit. | 5 |  |  | Wear |
+| ![Doctors' gown](icons/doctor_gown.png) | Doctors' gown | Medical looking. | 40 | yes |  | Wear |
+| ![Book](icons/the_shield_of_arrav.png) | Book | The Shield of Arrav by A R Wright. | 0 |  |  | Read |
+| ![Key](icons/phoenixkey1.png) | Key | The key to get into the Phoenix Gang HQ. | 0 |  |  |  |
+| ![Key](icons/phoenixkey2.png) | Key | The key to the Phoenix Gang's weapons store. | 0 |  |  |  |
+| ![Scroll](icons/intelligence_report.png) | Scroll | An intelligence report. | 5 |  |  |  |
+| ![Broken shield](icons/arravshield1.png) | Broken shield | Half of the Shield of Arrav. | 0 |  |  |  |
+| ![Broken shield](icons/arravshield2.png) | Broken shield | Half of the Shield of Arrav. | 0 |  |  |  |
+| ![Phoenix crossbow](icons/phoenix_crossbow.png) | Phoenix crossbow | Former property of the Phoenix Gang. | 4 |  |  | Wield |
+| ![Certificate](icons/arravcertificate.png) | Certificate | I can use this to claim a reward from the King. | 0 |  |  |  |
+| ![Ogre bellows](icons/empty_ogre_bellows.png) | Ogre bellows | A large pair of ogre bellows. | 0 | yes |  |  |
+| ![Ogre bellows (3)](icons/filled_ogre_bellow3.png) | Ogre bellows (3) | A large pair of ogre bellows, it has three loads of swamp gas in it. | 0 | yes |  |  |
+| ![Ogre bellows (2)](icons/filled_ogre_bellow2.png) | Ogre bellows (2) | A large pair of ogre bellows, it has two loads of swamp gas in it. | 0 | yes |  |  |
+| ![Ogre bellows (1)](icons/filled_ogre_bellow1.png) | Ogre bellows (1) | A large pair of ogre bellows, it has one load of swamp gas in it. | 0 | yes |  |  |
+| ![Bloated toad](icons/bloated_toad.png) | Bloated toad | An inflated toad. | 0 | yes |  | Drop, Release All, Release |
+| ![Raw chompy](icons/raw_chompy.png) | Raw chompy | I need to cook this first. | 5 | yes |  |  |
+| ![Cooked chompy](icons/cooked_chompy.png) | Cooked chompy | It might look delicious to an ogre. | 10 | yes |  | Eat |
+| ![Ruined chompy](icons/ruined_chompy.png) | Ruined chompy | It's really burnt. | 0 | yes |  |  |
+| ![Seasoned chompy](icons/cooked_s_chompy.png) | Seasoned chompy | It has been deliciously seasoned to taste wonderful for ogres. | 10 | yes |  |  |
+| ![chompy_bird_obj](icons/chompy_bird_obj.png) | chompy_bird_obj |  | 0 |  |  |  |
+| ![Cog](icons/whitecog.png) | Cog | A cog from some machinery. | 0 | yes |  |  |
+| ![Cog](icons/blackcog.png) | Cog | A cog from some machinery. | 0 | yes |  |  |
+| ![Cog](icons/bluecog.png) | Cog | A cog from some machinery. | 0 | yes |  |  |
+| ![Cog](icons/redcog.png) | Cog | A cog from some machinery. | 0 | yes |  |  |
+| ![Rat poison](icons/rat_poison.png) | Rat poison | Doesn't look very tasty. | 0 | yes |  |  |
+| !['perfect' ring](icons/perfect_ruby_ring.png) | 'perfect' ring | A perfect ruby ring. | 2025 | yes |  | Wear |
+| !['perfect' necklace](icons/perfect_ruby_necklace.png) | 'perfect' necklace | A perfect ruby necklace. | 2175 | yes |  | Wear |
+| ![Cooking gauntlets](icons/gauntlets_of_cooking.png) | Cooking gauntlets | These gauntlets empower with a greater ability to cook fish. | 0 | yes |  | Wear |
+| ![Goldsmith gauntlet](icons/gauntlets_of_goldsmithing.png) | Goldsmith gauntlet | These gauntlets empower the bearer whilst making gold. | 0 | yes |  | Wear |
+| ![Chaos gauntlets](icons/gauntlets_of_chaos.png) | Chaos gauntlets | These gauntlets empower spell casters. | 0 | yes |  | Wear |
+| ![Steel gauntlets](icons/steel_gauntlets.png) | Steel gauntlets | My reward for assisting the Fitzharmon family. | 0 | yes |  | Wear |
+| ![Crest part](icons/avan_crest.png) | Crest part | A fragment of the Fitzharmon family crest. | 0 | yes |  |  |
+| ![Crest part](icons/caleb_crest.png) | Crest part | A fragment of the Fitzharmon family crest. | 0 | yes |  |  |
+| ![Crest part](icons/johnathon_crest.png) | Crest part | A fragment of the Fitzharmon family crest. | 0 | yes |  |  |
+| ![Family crest](icons/family_crest.png) | Family crest | The Fitzharmon family crest. | 0 | yes |  |  |
+| ![Key](icons/silverlight_key_1.png) | Key | A key given to me by Wizard Traiborn. | 0 |  |  |  |
+| ![Key](icons/silverlight_key_2.png) | Key | A key given to me by Captain Rovin. | 0 |  |  |  |
+| ![Key](icons/silverlight_key_3.png) | Key | A key I found in a drain. | 0 |  |  |  |
+| ![Silverlight](icons/silverlight.png) | Silverlight | The magical sword 'Silverlight'. | 50 |  |  | Wield |
+| ![Metal key](icons/metal_key.png) | Metal key | A metal key, it's very crudely constructed. | 1 |  |  |  |
+| ![Cell door key](icons/thcelldoorkey.png) | Cell door key | A metalic key, usually used by prison guards. | 1 | yes |  |  |
+| ![Barrel](icons/thminebarrel_empty.png) | Barrel | An empty mining barrel. | 1 | yes |  |  |
+| ![Ana in a barrel](icons/thanainabarrel.png) | Ana in a barrel | A mining barrel with Ana in it. | 1 | yes |  | Look |
+| ![Wrought iron key](icons/thgoodminekey.png) | Wrought iron key | This key unlocks a very sturdy gate of some sort. | 1 | yes |  |  |
+| ![Slaves' shirt](icons/slave_shirt.png) | Slaves' shirt | A filthy, smelly, flea infested shirt. | 40 | yes |  | Wear |
+| ![Slave robe](icons/slave_robe.png) | Slave robe | A filthy, smelly, flea infested robe. | 40 | yes |  | Wear |
+| ![Slave boots](icons/slave_boots.png) | Slave boots | Comfortable desert shoes. | 1 | yes |  | Wear |
+| ![Scrumpled paper](icons/thkebabinstructs.png) | Scrumpled paper | A piece of paper with barely legible writing - looks like a recipe! | 10 | yes |  | Read |
+| ![Shantay disclaimer](icons/thshantaydisc.png) | Shantay disclaimer | Very important information. | 1 | yes |  | Read |
+| ![Prototype dart](icons/thprotodart.png) | Prototype dart | An experimental type of weapon., A prototype throwing dart. | 70, 2 | yes | yes |  |
+| ![Technical plans](icons/thcaptplans.png) | Technical plans | Plans of a technical nature. | 1 | yes |  | Read |
+| ![Tenti pineapple](icons/tentipineapple.png) | Tenti pineapple | The most delicious of pineapples. | 1 |  |  |  |
+| ![Bedobin key](icons/thbedobinkey.png) | Bedobin key | A key to the chest in Captain Siad's room. | 1 | yes |  |  |
+| ![Prototype dart tip](icons/thprotodarttip.png) | Prototype dart tip | A protoype dart tip - it looks deadly. | 1 | yes | yes |  |
+| ![Map part](icons/mappart1.png) | Map part | An incomplete map piece. | 0 |  |  | Study |
+| ![Map part](icons/mappart2.png) | Map part | An incomplete map piece. | 0 |  |  | Study |
+| ![Map part](icons/mappart3.png) | Map part | An incomplete map piece. | 0 |  |  | Study |
+| ![Crandor map](icons/dragonmap.png) | Crandor map | A map to Crandor. | 0 |  |  | Study |
+| ![Nails](icons/nails.png) | Nails | Keeps things in place fairly permanently. | 3 |  | yes |  |
+| ![Maze key](icons/melzarkey.png) | Maze key | A key to Melzars' Maze. | 1 |  |  |  |
+| ![Key](icons/redkey.png) | Key | A red key. | 0 |  |  |  |
+| ![Key](icons/orangekey.png) | Key | An orange key. | 0 |  |  |  |
+| ![Key](icons/yellowkey.png) | Key | A yellow key. | 0 |  |  |  |
+| ![Key](icons/bluekey.png) | Key | A blue key. | 0 |  |  |  |
+| ![Key](icons/magentakey.png) | Key | A magenta key. | 0 |  |  |  |
+| ![Key](icons/greenkey.png) | Key | A green key. | 0 |  |  |  |
+| ![Enchanted beef](icons/enchanted_beef.png) | Enchanted beef | I don't fancy eating this now. | 1 | yes |  |  |
+| ![Enchanted rat](icons/enchanted_rat_meat.png) | Enchanted rat | I don't fancy eating this now. | 1 | yes |  |  |
+| ![Enchanted bear](icons/enchanted_bear_meat.png) | Enchanted bear | I don't fancy eating this now. | 1 | yes |  |  |
+| ![Enchanted chicken](icons/enchanted_chicken.png) | Enchanted chicken | I don't fancy eating this now. | 1 | yes |  |  |
+| ![Child's blanket](icons/childs_blanket.png) | Child's blanket | It's very soft! | 5 | yes |  |  |
+| ![Book](icons/turnip_book.png) | Book | Turnip growing for beginners. | 1 | yes |  |  |
+| ![Gas mask](icons/gasmask.png) | Gas mask | Stops me from breathing nasty stuff! | 2 | yes |  | Wear |
+| ![Hangover cure](icons/hangover_cure.png) | Hangover cure | It doesn't look very tasty. | 2 | yes |  |  |
+| ![A small key](icons/elenakey.png) | A small key | Quite a small key. | 1 | yes |  |  |
+| ![A scruffy note](icons/scruffy_note.png) | A scruffy note | It seems to say "hongorer lure"... | 2 | yes |  | Read |
+| ![Picture](icons/elena_picture.png) | Picture | A picture of a lady called Elena. | 1 | yes |  |  |
+| ![A magic scroll](icons/ardougnescroll.png) | A magic scroll | Maybe I should read it... | 1 | yes |  | Read |
+| ![Warrant](icons/warrant.png) | Warrant | A search warrant for a house in Ardougne. | 5 | yes |  |  |
+| ![Red vine worm](icons/red_vine_worm.png) | Red vine worm | Wormy. | 0 | yes | yes |  |
+| ![Fishing trophy](icons/hemenster_fishing_trophy.png) | Fishing trophy | Hemenster fishing contest trophy. | 0 | yes |  |  |
+| ![Fishing pass](icons/fishing_competition_pass.png) | Fishing pass | Pass to the Hemenster fishing contest. | 0 | yes |  |  |
+| ![Doogle leaves](icons/doogleleaves.png) | Doogle leaves | A tasty herb good for seasoning. | 2 | yes |  |  |
+| ![Seasoned sardine](icons/seasoned_sardine.png) | Seasoned sardine | Sardine flavoured with doogle leaves. | 10 | yes |  |  |
+| ![Cat training medal](icons/felinemedal.png) | Cat training medal | For feline training expertise. | 350 | yes |  | Wear |
+| ![Fluffs' kitten](icons/gertrudekittens.png) | Fluffs' kitten | It looks like it's lost. | 0 | yes |  | Use |
+| ![Pet kitten](icons/kittenobject.png) | Pet kitten | This kitten seems to like you. | 0 | yes |  |  |
+| ![Pet kitten](icons/kittenobject_light.png) | Pet kitten | This kitten seems to like you. | 0 | yes |  |  |
+| ![Pet kitten](icons/kittenobject_brown.png) | Pet kitten | This kitten seems to like you. | 0 | yes |  |  |
+| ![Pet kitten](icons/kittenobject_black.png) | Pet kitten | This kitten seems to like you. | 0 | yes |  |  |
+| ![Pet kitten](icons/kittenobject_browngrey.png) | Pet kitten | This kitten seems to like you. | 0 | yes |  |  |
+| ![Pet kitten](icons/kittenobject_bluegrey.png) | Pet kitten | This kitten seems to like you. | 0 | yes |  |  |
+| ![Pet cat](icons/growncatobject.png) | Pet cat | This cat definitely likes you. | 0 | yes |  |  |
+| ![Pet cat](icons/growncatobject_light.png) | Pet cat | This cat definitely likes you. | 0 | yes |  |  |
+| ![Pet cat](icons/growncatobject_brown.png) | Pet cat | This cat definitely likes you. | 0 | yes |  |  |
+| ![Pet cat](icons/growncatobject_black.png) | Pet cat | This cat definitely likes you. | 0 | yes |  |  |
+| ![Pet cat](icons/growncatobject_browngrey.png) | Pet cat | This cat definitely likes you. | 0 | yes |  |  |
+| ![Pet cat](icons/growncatobject_bluegrey.png) | Pet cat | This cat definitely likes you. | 0 | yes |  |  |
+| ![Pet cat](icons/overgrowncatobject.png) | Pet cat | This cat is so well fed it can hardly move. | 0 | yes |  |  |
+| ![Pet cat](icons/overgrowncatobject_light.png) | Pet cat | This cat is so well fed it can hardly move. | 0 | yes |  |  |
+| ![Pet cat](icons/overgrowncatobject_brown.png) | Pet cat | This cat is so well fed it can hardly move. | 0 | yes |  |  |
+| ![Pet cat](icons/overgrowncatobject_black.png) | Pet cat | This cat is so well fed it can hardly move. | 0 | yes |  |  |
+| ![Pet cat](icons/overgrowncatobject_browngrey.png) | Pet cat | This cat is so well fed it can hardly move. | 0 | yes |  |  |
+| ![Pet cat](icons/overgrowncatobject_bluegrey.png) | Pet cat | This cat is so well fed it can hardly move. | 0 | yes |  |  |
+| ![Orange goblin mail](icons/goblin_armour_orange.png) | Orange goblin mail | Armour designed to fit goblins. | 40 |  |  |  |
+| ![Blue goblin mail](icons/goblin_armour_darkblue.png) | Blue goblin mail | Armour designed to fit goblins. | 40 |  |  |  |
+| ![Goblin mail](icons/goblin_armour.png) | Goblin mail | Armour designed to fit goblins. | 40 |  |  |  |
