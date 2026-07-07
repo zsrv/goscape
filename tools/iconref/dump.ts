@@ -332,19 +332,27 @@ function dumpTriangles(): void {
                 xA: 6, xB: 26, xC: 10, yA: 6, yB: 8, yC: 28,
                 shadeA: 128, shadeB: 128, shadeC: 128,
                 originX: -50, originY: -50, originZ: 240,
-                txB: 50, tyB: -50, tzB: 240,
-                txC: -50, tyC: 50, tzC: 240,
+                txB: 50, txC: -50,
+                tyB: -50, tyC: 50,
+                tzB: 240, tzC: 240,
                 texture: 1,
                 // screen origin used by textureRaster = Pix3D.originX/Y after
                 // setRenderClipping() on a 32×32 buffer:
                 screenOriginX: 16, screenOriginY: 16,
             },
+            // NOTE: after originX/originY/originZ (view-space vertex A), the six
+            // remaining view-space numbers are AXIS-major — (txB, txC, tyB, tyC,
+            // tzB, tzC) — NOT vertex-major (txB, tyB, tzB, txC, tyC, tzC). See the
+            // signature at vendor/dash3d/Pix3D.ts:1622-1630 and every Model.ts
+            // call site (e.g. Model.ts:2136-2139). Intended view-space triangle:
+            // A=(-50,-50,240), B=(50,-50,240), C=(-50,50,240).
             run: () => Pix3D.textureTriangle(
                 6, 26, 10, 6, 8, 28,
                 128, 128, 128,
-                -50, -50, 240,
-                50, -50, 240,
-                -50, 50, 240,
+                -50, -50, 240, // originX, originY, originZ (vertex A)
+                50, -50,       // txB, txC
+                -50, 50,       // tyB, tyC
+                240, 240,      // tzB, tzC
                 1,
             ),
         },
