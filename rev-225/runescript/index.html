@@ -2205,6 +2205,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2216,6 +2221,58 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#where-scripts-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where scripts live
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-trigger-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The trigger model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-goscape-runs-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How goscape runs scripts
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-go-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where to go next
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2231,10 +2288,77 @@
                   
 
 <h1 id="runescript">RuneScript<a class="headerlink" href="#runescript" title="Permanent link">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
-</div>
+<p>RuneScript is the domain-specific language that LostCity content authors use to
+drive everything a player touches: NPC dialogue, item and scenery interactions,
+quests, combat AI, interface logic, and timed behaviour. Scripts are written as
+<code>.rs2</code> source, compiled to a compact stack-based bytecode, and executed by the
+engine's script runner. goscape runs the <em>same</em> scripts the reference server
+does — it ports the compiler and the script runtime from
+<a href="https://github.com/LostCityRS/Engine-TS"><code>LostCityRS/Engine-TS</code></a> so that
+content authored for Engine-TS behaves identically when executed by goscape.</p>
+<p>This page is the map. It explains what a script is, where scripts live, and how
+goscape turns them into behaviour. For the authoritative language spec, follow
+the <a href="language/">Language reference</a>; this section's other pages —
+<a href="writing-scripts/">Writing scripts</a> and <a href="examples/">Examples</a> — are the
+tutorial layer that leads you into it.</p>
+<h2 id="where-scripts-live">Where scripts live<a class="headerlink" href="#where-scripts-live" title="Permanent link">&para;</a></h2>
+<p>Scripts and the config they reference live in a <strong>content repository</strong>
+(<a href="https://github.com/LostCityRS/Content"><code>LostCityRS/Content</code></a>), kept separate
+from the engine. A checkout is organised roughly like this:</p>
+<ul>
+<li><code>scripts/</code> — the <code>.rs2</code> source tree. A single <code>.rs2</code> file holds one or more
+  scripts; folders group them by area, skill, quest, or subsystem.</li>
+<li><code>scripts/**/*.constant</code> — compile-time constants written <code>^name value</code>, which
+  the compiler inlines wherever <code>^name</code> appears.</li>
+<li><code>pack/</code> — text config files (<code>obj.pack</code>, <code>loc.pack</code>, <code>npc.pack</code>,
+  <code>varp.pack</code>, …) that define the objects, locations, NPCs, and variables a
+  script refers to by name rather than by raw id.</li>
+</ul>
+<p>goscape reads this tree through its <code>data/src</code> path (so <code>data/src/scripts</code> and
+<code>data/src/pack</code>) and compiles it into the game cache the client downloads. The
+<a href="toolchain/">Toolchain</a> page covers the compile and pack commands, and
+<a href="deploying/">Deploying scripts</a> covers getting the result onto a running
+server.</p>
+<h2 id="the-trigger-model">The trigger model<a class="headerlink" href="#the-trigger-model" title="Permanent link">&para;</a></h2>
+<p>Every script begins with a bracketed <strong>trigger header</strong> of the form
+<code>[trigger,subject]</code>. The <em>trigger</em> names an event — a player clicking an
+inventory item (<code>opheld1</code>), an NPC option (<code>opnpc1</code>), a scenery option
+(<code>oploc1</code>), a login, a queued action, a timer tick — and the <em>subject</em> names
+the entity, interface component, or queue slot the script binds to. When that
+event fires for that subject, the engine runs the script. There is no <code>main()</code>:
+content is a flat collection of event handlers, and the engine decides which
+one to invoke.</p>
+<p>Triggers also seed the script's <strong>active pointers</strong>. <code>[opnpc1,man]</code> arrives
+with an active player <em>and</em> an active npc already set, and most commands act
+implicitly on those pointers — <code>chatnpc</code> speaks as the active npc, <code>stat</code> reads
+the active player. Scripts share logic by calling typed procedures with
+<code>~name(args)</code> (which return values) or by tail-jumping to labels with
+<code>@name(args)</code> (which never return). The <a href="language/">Language reference</a>
+covers triggers, pointers, procedures, and labels in full.</p>
+<h2 id="how-goscape-runs-scripts">How goscape runs scripts<a class="headerlink" href="#how-goscape-runs-scripts" title="Permanent link">&para;</a></h2>
+<p>The workflow is compile-then-run. <code>goscape-cli compile</code> type-checks the <code>.rs2</code>
+tree against the entity config, lowers each script to bytecode, and writes the
+result into the cache; the server then loads that cache and its script runner
+executes the bytecode a tick at a time. Because goscape's compiler and runtime
+are ports of Engine-TS, the bytecode and its semantics match — the same source
+produces the same in-game behaviour. When goscape <em>has</em> to deviate from
+Engine-TS, the divergence is documented; the porting notes in
+<a href="language/#10-engine-side-notes-goscape-porting">the language reference</a>
+call out the places where RuneScript semantics constrain the engine.</p>
+<h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><a href="language/">Language reference</a></strong> — the authoritative spec: every trigger
+  family, variable scope, type, control-flow form, and command family.</li>
+<li><strong><a href="writing-scripts/">Writing scripts</a></strong> — file layout, the anatomy of a
+  script, and a compile-checked "hello world".</li>
+<li><strong><a href="examples/">Examples</a></strong> — real, annotated scripts lifted from the content
+  repository.</li>
+<li><strong><a href="toolchain/">Toolchain</a></strong> — the <code>goscape-cli</code> compile and pack commands.</li>
+<li><strong><a href="deploying/">Deploying scripts</a></strong> — getting compiled content onto a
+  server.</li>
+<li><strong><a href="varps/">Varps &amp; varbits</a></strong> — the per-player variable catalogue that
+  <code>%</code>-scoped variables read and write.</li>
+</ul>
 
 
 

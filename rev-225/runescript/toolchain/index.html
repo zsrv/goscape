@@ -1682,6 +1682,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Toolchain
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -1697,6 +1714,98 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-runescript-compiler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The RuneScript compiler
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compile-check-the-script-tree" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>compile</code> — check the script tree
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pack-build-the-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>pack</code> — build the cache
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#smoke-pack-per-stage-report-and-byte-diff" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>smoke-pack</code> — per-stage report and byte-diff
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="smoke-pack — per-stage report and byte-diff">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#byte-diffing-against-a-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Byte-diffing against a reference
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-go-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where to go next
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2215,6 +2324,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2226,6 +2340,86 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-runescript-compiler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The RuneScript compiler
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compile-check-the-script-tree" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>compile</code> — check the script tree
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pack-build-the-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>pack</code> — build the cache
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#smoke-pack-per-stage-report-and-byte-diff" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>smoke-pack</code> — per-stage report and byte-diff
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="smoke-pack — per-stage report and byte-diff">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#byte-diffing-against-a-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Byte-diffing against a reference
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-go-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where to go next
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2241,10 +2435,275 @@
                   
 
 <h1 id="toolchain">Toolchain<a class="headerlink" href="#toolchain" title="Permanent link">&para;</a></h1>
+<p>Turning a <code>.rs2</code> source tree into a cache the server can serve is the job of
+<strong><code>goscape-cli</code></strong>, the offline tooling binary that ships alongside the <code>goscape</code>
+server (<code>make all</code> builds both). This page is the reference for its three
+content-facing verbs:</p>
+<ul>
+<li><strong><code>compile</code></strong> — type-check and (with <code>-check</code>) get fast diagnostics on the
+  script tree without producing a cache.</li>
+<li><strong><code>pack</code></strong> — run the full pipeline that compiles the scripts and packs every
+  other archive into the game cache.</li>
+<li><strong><code>smoke-pack</code></strong> — a diagnostic driver that runs every pack stage
+  individually, reports per-stage results, and can byte-diff its output against
+  a reference cache.</li>
+</ul>
+<p>For the shape of a script and a first compile-checked example, read
+<a href="../writing-scripts/">Writing scripts</a>; for getting a freshly packed cache onto a
+running server, read <a href="../deploying/">Deploying scripts</a>. The operational side of
+packing — <code>make pack</code>, the <code>CACHE_*</code> variables, and when to repack — lives in
+the <a href="../../admin/operations/#cache-packing">Operations runbook</a>.</p>
+<h2 id="the-runescript-compiler">The RuneScript compiler<a class="headerlink" href="#the-runescript-compiler" title="Permanent link">&para;</a></h2>
+<p>goscape does not shell out to an external compiler. It compiles RuneScript with
+its own Go implementation (<code>pkg/pack/compiler</code>, with the <code>.dat</code>/<code>.idx</code> writer in
+<code>pkg/pack/compiler/runescript</code>) — a faithful port of the LostCity reference
+compiler. What that port tracks differs by revision, because the reference
+compiler itself changed across the game's history: the earliest revisions used
+the TypeScript <strong>RuneScriptTS</strong> (<code>@lostcityrs/runescript</code>), the middle revisions
+switched to the Kotlin <strong>RuneScriptKt</strong> (a downloaded <code>RuneScriptCompiler.jar</code>),
+and the later revisions returned to an advanced RuneScriptTS. goscape's compiler
+output is byte-checked against the cache the matching upstream compiler packs, so
+the reference is pinned per revision in
+<a href="../../contributor/references-pins/"><code>REFERENCES.md</code></a>.</p>
+<p>This build documents revision <strong>225</strong>. The full lineage:</p>
+<table>
+<thead>
+<tr>
+<th>Revision</th>
+<th>Reference compiler</th>
+<th>Version pin</th>
+<th>Compiled cache version</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>rev-225</td>
+<td>RuneScriptTS — <code>@lostcityrs/runescript</code> (npm)</td>
+<td><code>^0.9.4</code></td>
+<td>26</td>
+</tr>
+<tr>
+<td>rev-244</td>
+<td>RuneScriptKt — <code>RuneScriptCompiler.jar</code></td>
+<td>release tag <code>26</code> (<code>COMPILER_VERSION = 26</code>)</td>
+<td>26</td>
+</tr>
+<tr>
+<td>rev-245.2</td>
+<td>RuneScriptKt — <code>RuneScriptCompiler.jar</code></td>
+<td>release tag <code>26</code> (<code>COMPILER_VERSION = 26</code>)</td>
+<td>26</td>
+</tr>
+<tr>
+<td>rev-254</td>
+<td>RuneScriptTS — <code>@lostcityrs/runescript</code> (npm)</td>
+<td><code>^0.9.6</code> (<code>COMPILER_VERSION = 27</code>)</td>
+<td>27</td>
+</tr>
+<tr>
+<td>rev-274</td>
+<td>RuneScriptTS — <code>@lostcityrs/runescript</code> (npm)</td>
+<td><code>0.9.6</code> (unchanged from rev-254)</td>
+<td>27</td>
+</tr>
+</tbody>
+</table>
+<p>The <strong>compiled cache version</strong> is the version byte written into the script
+archive header (<code>script.dat</code>). It stepped from 26 to 27 at rev-254, when the
+reference compiler advanced past the upstream version bump; goscape's server
+reads that byte on load and refuses a cache whose version does not match the
+engine it was built for. The value is a build product of the revision, not
+something you set.</p>
 <div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
+<p class="admonition-title">You do not install a compiler</p>
+<p>Because the compiler is built into <code>goscape-cli</code>, there is no separate npm
+package or <code>.jar</code> to fetch. The table above is the <em>reference</em> each
+revision's Go port was translated from and is byte-compared against — see
+the <a href="../deploying/#byte-parity">byte-parity philosophy</a> on the Deploying
+page. Pack with the <code>goscape-cli</code> built from the <strong>same revision</strong> as your
+server binary.</p>
 </div>
+<h2 id="compile-check-the-script-tree"><code>compile</code> — check the script tree<a class="headerlink" href="#compile-check-the-script-tree" title="Permanent link">&para;</a></h2>
+<p><code>goscape-cli compile -check</code> type-checks the <code>.rs2</code> tree and reports diagnostics
+without writing a cache. It is the fast inner-loop tool: it catches unresolved
+commands, unknown entities, and type errors in a second or two, before you spend
+the time to pack. The <a href="../writing-scripts/#compile-checking-it">Writing scripts</a>
+page walks through it with a worked example and a sample error; the essentials:</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">$ </span>goscape-cli<span class="w"> </span>compile<span class="w"> </span>-check<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span>-src-dir<span class="w"> </span>data/src<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span>-datapack-dir<span class="w"> </span>data/pack<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span>data/src/scripts
+</span></code></pre></div>
+<ul>
+<li><strong><code>-check</code></strong> discards the compiled output — diagnostics only. Without it,
+  <code>compile</code> writes only the script archive (<code>script.dat</code> / <code>script.idx</code>) into
+  <code>&lt;out-dir&gt;/server</code>, which is not a complete cache; to produce a runnable cache
+  use <a href="#pack-build-the-cache"><code>pack</code></a>.</li>
+<li><strong><code>-src-dir</code></strong> (default <code>data/src</code>) is the content root — the directory
+  holding <code>scripts/</code> and <code>pack/</code> — from which the compiler loads its entity
+  symbols.</li>
+<li><strong><code>-datapack-dir</code></strong> (default <code>data/pack</code>) points at the packed entity-type
+  cache the compiler resolves ids against.</li>
+<li><strong><code>-out-dir</code></strong> (default <code>data/pack</code>) is the output directory; it is ignored
+  when <code>-check</code> is set.</li>
+<li>The final positional argument is the source path to compile.</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Compile the whole tree, not a lone file</p>
+<p>Engine commands such as <code>mes</code> are declared in <code>scripts/engine.rs2</code>, and any
+procs a script calls are defined elsewhere in the tree. The compiler only
+sees files under the path you give it, so a single-file compile fails to
+resolve those references. Point the positional argument at the whole
+<code>scripts/</code> directory (<code>data/src/scripts</code>), which the compiler walks
+recursively. See
+<a href="../writing-scripts/#compile-checking-it">Compile-checking it</a>.</p>
+</div>
+<p>A clean run logs <code>compile succeeded</code> and exits <code>0</code>. A failure prints the file,
+line, and column of the first error and exits non-zero.</p>
+<h2 id="pack-build-the-cache"><code>pack</code> — build the cache<a class="headerlink" href="#pack-build-the-cache" title="Permanent link">&para;</a></h2>
+<p><code>goscape-cli pack</code> runs the <strong>whole</strong> content pipeline: it compiles the scripts
+(one stage among many) and packs configs, interfaces, sprites, textures, sounds,
+music, models, maps, and the word-encoding table into the game cache the client
+downloads and the world reads maps from. In practice you invoke it through the
+Makefile:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>pack
+</span></code></pre></div>
+<p><code>make pack</code> calls <code>goscape-cli pack</code> with three directories, each overridable as
+a make variable (<a href="../../admin/operations/#packing-the-cache">Operations runbook</a>):</p>
+<table>
+<thead>
+<tr>
+<th><code>pack</code> flag</th>
+<th>Make variable</th>
+<th>Default</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--src-dir</code></td>
+<td><code>CACHE_SRC_DIR</code></td>
+<td><code>data/src</code></td>
+<td>Source content to pack (<code>scripts/</code>, <code>pack/</code>, …)</td>
+</tr>
+<tr>
+<td><code>--out-dir</code></td>
+<td><code>CACHE_OUT_DIR</code></td>
+<td><code>data/pack</code></td>
+<td>Packed output — point <code>world.cache_path</code> and OnDemand here</td>
+</tr>
+<tr>
+<td><code>--raw-dir</code></td>
+<td><code>CACHE_RAW_DIR</code></td>
+<td><code>data/raw</code></td>
+<td>Engine-owned raw blobs (the <code>wordenc</code> Jagfile)</td>
+</tr>
+<tr>
+<td><code>--datapack-dir</code></td>
+<td>—</td>
+<td>falls back to <code>--out-dir</code></td>
+<td>Entity-type cache directory</td>
+</tr>
+</tbody>
+</table>
+<p><code>pack</code> writes the RS2 client cache files (<code>main_file_cache.*</code>) plus the
+server-side archives (<code>server/script.dat</code>, <code>server/*.dat</code>, …) under <code>--out-dir</code>.
+The packed cache is a build product of the source: editing content under
+<code>--src-dir</code> has no effect on a running server until you repack. When to repack —
+after content changes, and when upgrading to a revision whose engine expects a
+newer cache — is covered in the
+<a href="../../admin/operations/#when-to-repack">Operations runbook</a>.</p>
+<h2 id="smoke-pack-per-stage-report-and-byte-diff"><code>smoke-pack</code> — per-stage report and byte-diff<a class="headerlink" href="#smoke-pack-per-stage-report-and-byte-diff" title="Permanent link">&para;</a></h2>
+<p><code>goscape-cli smoke-pack</code> runs the same pipeline as <code>pack</code>, but stage by stage and
+best-effort: every stage is timed and reported independently, a crashing stage is
+caught rather than aborting the run, and — when you point it at a reference cache
+— each stage's output is byte-diffed against that reference. It is the tool for
+answering "did my change break packing, and if so, where?" and "does my cache
+still match the upstream reference byte-for-byte?".</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp">$ </span>goscape-cli<span class="w"> </span>smoke-pack<span class="w"> </span>-content-dir<span class="w"> </span>data/src
+</span></code></pre></div>
+<p>Key flags:</p>
+<ul>
+<li><strong><code>-content-dir</code></strong> (required) — the source content directory.</li>
+<li><strong><code>-out-dir</code></strong> — where to write. Empty auto-creates a temp directory that is
+  deleted on exit unless <code>-keep</code> is set.</li>
+<li><strong><code>-reference-dir</code></strong> — a reference pack output (typically the upstream
+  TS-packed <code>data/pack</code>) to byte-diff each stage against. Empty disables the
+  diff.</li>
+<li><strong><code>-keep</code></strong> — preserve an auto-created <code>-out-dir</code> on exit.</li>
+<li><strong><code>-stop-on-error</code></strong> — exit at the first failing stage instead of logging it
+  and continuing.</li>
+</ul>
+<p>The run ends with a per-stage table and a summary line:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>STAGE              STATUS  ELAPSED  FILES  BYTES     ERR
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>PackConfigs        OK      412ms    128    3187204
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>ClientInterface    OK      36ms     129    3201884
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>...
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>Worldmap           OK      21ms     140    5127713
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>Result: 14 OK, 0 ERR, 0 SKIP  total elapsed: 1.2s
+</span></code></pre></div>
+<p>The stages run in pipeline order: <code>PackConfigs</code>, <code>ClientInterface</code>,
+<code>CompilerSymbols</code>, <code>RunServerCompiler</code> (this is where the scripts compile),
+<code>Title</code>, <code>Media</code>, <code>Texture</code>, <code>Wordenc</code>, <code>Sound</code>, <code>Graphics</code>, <code>Midi</code>, <code>Maps</code>,
+<code>VersionList</code>, and a standalone <code>Worldmap</code> re-run. <code>PackConfigs</code> is special: it
+produces the registry every later stage consumes, so if it fails every
+downstream stage reports <code>SKIP</code>.</p>
+<p>The exit code encodes the outcome: <code>0</code> all stages succeeded, <code>1</code> at least one
+stage failed, <code>2</code> a flag-parse error, <code>3</code> a setup error (missing or unreadable
+<code>-content-dir</code>, logger init, etc.).</p>
+<h3 id="byte-diffing-against-a-reference">Byte-diffing against a reference<a class="headerlink" href="#byte-diffing-against-a-reference" title="Permanent link">&para;</a></h3>
+<p>With <code>-reference-dir</code> set, the table gains a <code>DIFF</code> column counting per-stage
+byte-divergences, and a <code>Diff details:</code> block lists them. Each divergence is one
+of four kinds:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DIFF</code></td>
+<td>Bytes differ — reported with <code>offset</code>, <code>got</code>, and <code>want</code>.</td>
+</tr>
+<tr>
+<td><code>SIZE</code></td>
+<td>The output and reference file are different lengths.</td>
+</tr>
+<tr>
+<td><code>MISS</code></td>
+<td>The file is present in the output but absent from the reference.</td>
+</tr>
+<tr>
+<td><code>ERR</code></td>
+<td>The comparison itself failed (e.g. an unreadable file).</td>
+</tr>
+</tbody>
+</table>
+<p>A run with <code>0</code> diffs across all stages is the byte-parity proof the pack pipeline
+is designed to produce — see <a href="../deploying/#byte-parity">byte-parity philosophy</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Reference diffs are sensitive to the content path</p>
+<p>The packed <code>server/script.dat</code> embeds the source path exactly as passed via
+<code>-content-dir</code> (both goscape and the reference are case-faithful to their
+build environment). For a byte-faithful diff against a reference packed from
+the upstream default path, point <code>-content-dir</code> at a directory whose
+absolute path matches the reference build's — <code>goscape-cli smoke-pack -h</code>
+documents the exact caveat.</p>
+</div>
+<h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><a href="../deploying/">Deploying scripts</a></strong> — the edit → compile → pack → reload dev
+  loop and the production procedure.</li>
+<li><strong><a href="../writing-scripts/">Writing scripts</a></strong> — file layout and a worked
+  compile-checked first script.</li>
+<li><strong><a href="../../admin/operations/#cache-packing">Operations runbook</a></strong> — <code>make pack</code>,
+  the <code>CACHE_*</code> variables, and when to repack.</li>
+<li><strong><a href="../../contributor/references-pins/">References &amp; pins</a></strong> — the per-revision
+  upstream compiler and content pins.</li>
+</ul>
 
 
 
