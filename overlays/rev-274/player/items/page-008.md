@@ -4,397 +4,397 @@
 
 | Icon | Name | Description | Cost | Members | Stackable | Options |
 |---|---|---|---|---|---|---|
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Puzzle box | I need to solve this! | 100 | yes |  | Open |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Puzzle box | I need to solve this! | 100 | yes |  | Open |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Puzzle box | I need to solve this! | 100 | yes |  | Open |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Puzzle box | I need to solve this! | 100 | yes |  | Open |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Puzzle box | I need to solve this! | 100 | yes |  | Open |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Puzzle box | I need to solve this! | 100 | yes |  | Open |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
-|  | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Key | A key to some drawers. | 1 | yes |  |  |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Key | A key to some drawers. | 1 | yes |  |  |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Clue scroll | A clue! | 1 | yes |  | Read |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | Sliding piece |  | 0 | yes |  | Move |
-|  | obj_3667 |  | 0 |  |  |  |
-|  | obj_3668 |  | 0 |  |  |  |
-|  | obj_3669 |  | 0 |  |  |  |
-|  | obj_3670 |  | 0 |  |  |  |
-|  | obj_3671 |  | 0 |  |  |  |
-|  | obj_3672 |  | 0 |  |  |  |
-|  | obj_3673 |  | 0 |  |  |  |
-|  | obj_3674 |  | 0 |  |  |  |
-|  | obj_3675 |  | 0 |  |  |  |
-|  | obj_3676 |  | 0 |  |  |  |
-|  | obj_3677 |  | 0 |  |  |  |
-|  | Flamtaer hammer | An exquisitely shaped tool specially designed for fixing temples. | 10000 | yes |  |  |
-|  | obj_3679 |  | 0 |  |  |  |
-|  | Dummy shoe1 |  | 0 | yes |  |  |
-|  | Dummy shoe2 |  | 0 | yes |  |  |
-|  | Dummy shoe3 |  | 0 | yes |  |  |
-|  | Dummy shoe4 |  | 0 | yes |  |  |
-|  | Dummy shoe5 |  | 0 | yes |  |  |
-|  | Dummy shoe6 |  | 0 | yes |  |  |
-|  | Fremennik | One of Rellekka's many citizens. | 0 |  |  |  |
-|  | obj_3687 |  | 0 |  |  |  |
-|  | Unstrung lyre | It's almost a musical instrument. | 0 | yes |  |  |
-|  | Lyre | It's a musical instrument I don't know how to play. | 0 | yes |  | Play |
-|  | Enchanted lyre | A musical instrument that I can magically play. | 0 | yes |  | Play |
-|  | Enchanted lyre | This will teleport me to Rellekka when I play it. | 1000 | yes |  | Play |
-|  | Branch | I can use this to make a lyre. | 0 | yes |  |  |
-|  | Golden fleece | I can spin this into golden wool... | 0 | yes |  |  |
-|  | Golden wool | I can use this to make a lyre. | 0 | yes |  |  |
-|  | Pet rock | The lowest maintenance pet you will ever have. | 0 | yes |  | Feed, Stroke, Talk-to |
-|  | Hunters' talisman | Talisman to bind the draugen | 4 | yes |  | Locate |
-|  | Hunters' talisman | Talisman to bind the draugen | 4 | yes |  | Locate |
-|  | Exotic flower | Some flowers from a distant land. | 0 | yes |  |  |
-|  | Fremennik ballad | A hauntingly beautiful love ballad. | 0 | yes |  |  |
-|  | Sturdy boots | A pair of sturdy custom made boots. | 0 | yes |  |  |
-|  | Hunters map | A map showing very active hunting spots. | 0 | yes |  |  |
-|  | Custom bow string | A finely crafted string for a custom bow. | 0 | yes |  |  |
-|  | Unusual fish | An extremely rare, non edible fish. | 0 | yes |  |  |
-|  | Sea fishing map | Map showing the best fishing spots out at sea. | 0 | yes |  |  |
-|  | Weather forecast | An estimate of expected local weather patterns. | 0 | yes |  |  |
-|  | Champions token | Shows the wearer is worthy of the Champions table. | 0 | yes |  |  |
-|  | Legendary cocktail | Probably the greatest cocktail in the world. | 0 | yes |  |  |
-|  | Fiscal statement | A signed statement promising a reduction on sales tax. | 0 | yes |  |  |
-|  | Promissory note | A legally binding contract promising not to enter the longhall. | 0 | yes |  |  |
-|  | Warriors' contract | This employment contract is for a warrior to act as a bodyguard. | 0 | yes |  |  |
-|  | Keg of beer | A lot of beer in a barrel. | 0 | yes |  |  |
-|  | Low alcohol keg | Suspiciously close to beer, but without the side effects. | 0 | yes |  |  |
-|  | Strange object | It's some kind of weird little parcel thing. | 0 | yes |  |  |
-|  | Lit strange object | It's some kind of weird little parcel thing. On fire. | 0 | yes |  |  |
-|  | Red disk | A red coloured disk, apparently made of wood. | 0 | yes |  |  |
-|  | Red disk | A red coloured disk, apparently made of wood. | 0 | yes |  |  |
-|  | Viking dummy lid |  | 0 | yes |  |  |
-|  | Magnet | A very attractive magnet. | 3 | yes |  |  |
-|  | Blue thread | Some blue thread. | 0 | yes |  |  |
-|  | Small pick | A small pick for cracking small objects. | 0 | yes |  |  |
-|  | Toy ship | Might be fun to play with in the bath. | 2 | yes |  |  |
-|  | Full bucket | This bucket is completely full. It has a 5 painted on it's side. | 0 | yes |  |  |
-|  | 4/5ths full bucket | This bucket is eighty percent full. It has a 5 painted on it's side. | 0 | yes |  |  |
-|  | 3/5ths full bucket | This bucket is sixty percent full. It has a 5 painted on it's side. | 0 | yes |  |  |
-|  | 2/5ths full bucket | This bucket is forty percent full. It has a 5 painted on it's side. | 0 | yes |  |  |
-|  | 1/5ths full bucket | This bucket is twenty percent full. It has a 5 painted on it's side. | 0 | yes |  |  |
-|  | Empty bucket | This bucket is completely empty. It has a 5 painted on it's side. | 0 | yes |  |  |
-|  | Frozen bucket | This bucket of water is frozen solid. | 0 | yes |  |  |
-|  | Full jug | This jug is completely full. It has a 3 painted on it's side. | 0 | yes |  |  |
-|  | 2/3rds full jug | This jug is two thirds full. It has a 3 painted on it's side. | 0 | yes |  |  |
-|  | 1/3rds full jug | This jug is one thirds full. It has a 3 painted on it's side. | 0 | yes |  |  |
-|  | Empty jug | This jug is completely empty. It has a 3 painted on it's side. | 0 | yes |  |  |
-|  | Frozen jug | This jug of water is frozen solid. | 0 | yes |  |  |
-|  | Vase | An unusually shaped vase. You can see something glinting inside. | 0 | yes |  | Shake |
-|  | Vase of water | An unusually shaped vase full of water. You can see something glinting inside. | 0 | yes |  | Shake |
-|  | Frozen vase | An unusually shaped vase full of ice. You can see something glinting inside. | 0 | yes |  | Shake |
-|  | Vase lid | This looks like a lid to some kind of container... | 0 | yes |  |  |
-|  | Sealed vase | The lid is screwed on tightly. | 0 | yes |  | Remove-lid |
-|  | Sealed vase | The lid is screwed on tightly. It is very cold. | 0 | yes |  | Remove-lid |
-|  | Sealed vase | The lid is screwed on tightly. It is full of water. | 0 | yes |  | Remove-lid |
-|  | Frozen key | A key encased in ice. | 0 | yes |  |  |
-|  | Red herring | The colouring on it seems to be some kind of sticky goop... | 0 | yes |  |  |
-|  | Red disk | A red coloured disk, apparently made of wood. | 0 | yes |  |  |
-|  | Wooden disk | A simple looking disk made of wood. | 0 | yes |  |  |
-|  | Seers' key | The key to leave the Seers' house. | 0 | yes |  |  |
-|  | Sticky red goop | Yup, it's sticky, it's red and it's goop. | 0 |  |  |  |
-|  | obj_3747 |  | 0 |  |  |  |
-|  | Fremennik helm | A sturdy helm worn only by Fremennik clan members. | 5000 | yes |  | Wear |
-|  | Archer helm | This helmet is worn by archers. | 60000 | yes |  | Wear |
-|  | obj_3750 |  | 0 |  |  |  |
-|  | Berserker helm | This helmet is worn by berserkers. | 60000 | yes |  | Wear |
-|  | obj_3752 |  | 0 |  |  |  |
-|  | Warrior helm | This helmet is worn by warriors. | 60000 | yes |  | Wear |
-|  | obj_3754 |  | 0 |  |  |  |
-|  | Farseer helm | This helmet is worn by farseers. | 60000 | yes |  | Wear |
-|  | obj_3756 |  | 0 |  |  |  |
-|  | Fremennik blade | A sword used only by Fremennik warriors. | 5000 | yes |  | Wield |
-|  | Fremennik shield | A shield worn by Fremennik warriors. | 5000 | yes |  | Wield |
-|  | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
-|  | obj_3760 |  | 0 |  |  |  |
-|  | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
-|  | obj_3762 |  | 0 |  |  |  |
-|  | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
-|  | obj_3764 |  | 0 |  |  |  |
-|  | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
-|  | obj_3766 |  | 0 |  |  |  |
-|  | Fremennik shirt | The latest in Fremennik fashion. | 250 | yes |  | Wear |
-|  | obj_3768 |  | 0 |  |  |  |
-|  | Fremennik shirt | The latest in Fremennik fashion. | 250 | yes |  | Wear |
-|  | obj_3770 |  | 0 |  |  |  |
-|  | Fremennik shirt | The latest in Fremennik fashion. | 250 | yes |  | Wear |
-|  | obj_3772 |  | 0 |  |  |  |
-|  | Fremennik shirt | The latest in Fremennik fashion. | 250 | yes |  | Wear |
-|  | obj_3774 |  | 0 |  |  |  |
-|  | Fremennik shirt | The latest in Fremennik fashion. | 250 | yes |  | Wear |
-|  | obj_3776 |  | 0 |  |  |  |
-|  | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
-|  | obj_3778 |  | 0 |  |  |  |
-|  | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
-|  | obj_3780 |  | 0 |  |  |  |
-|  | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
-|  | obj_3782 |  | 0 |  |  |  |
-|  | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
-|  | obj_3784 |  | 0 |  |  |  |
-|  | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
-|  | obj_3786 |  | 0 |  |  |  |
-|  | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
-|  | obj_3788 |  | 0 |  |  |  |
-|  | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
-|  | obj_3790 |  | 0 |  |  |  |
-|  | Fremennik boots | Very stylish! | 500 | yes |  | Wear |
-|  | obj_3792 |  | 0 |  |  |  |
-|  | Fremennik robe | The latest fashion in Rellekka. | 500 | yes |  | Wear |
-|  | obj_3794 |  | 0 |  |  |  |
-|  | Fremennik skirt | The latest fashion in Rellekka. | 500 | yes |  | Wear |
-|  | obj_3796 |  | 0 |  |  |  |
-|  | Fremennik hat | A silly pointed hat. | 500 | yes |  | Wear |
-|  | obj_3798 |  | 0 |  |  |  |
-|  | Gloves | These will keep my hands warm! | 500 | yes |  | Wear |
-|  | obj_3800 |  | 0 |  |  |  |
-|  | Keg of beer | A lot of beer in a barrel. | 250 | yes |  | Drink |
-|  | obj_3802 |  | 0 |  |  |  |
-|  | Beer | Frothy and alcoholic. | 20 | yes |  | Drink |
-|  | obj_3804 |  | 0 |  |  |  |
-|  | Tankard | A big cup for a big thirst. | 5 | yes |  |  |
-|  | obj_3806 |  | 0 |  |  |  |
-|  | Bolt2 |  | 0 |  | yes |  |
-|  | Bolt3 |  | 0 |  | yes |  |
-|  | Bolt4 |  | 0 |  | yes |  |
-|  | Bolts |  | 0 |  | yes |  |
-|  | Poison bolt2 |  | 0 |  | yes |  |
-|  | Poison bolt3 |  | 0 |  | yes |  |
-|  | Poison bolt4 |  | 0 |  | yes |  |
-|  | Poison bolts |  | 0 |  | yes |  |
-|  | Opal bolt2 |  | 0 |  | yes |  |
-|  | Opal bolt3 |  | 0 |  | yes |  |
-|  | Opal bolt4 |  | 0 |  | yes |  |
-|  | Opal bolts |  | 0 |  | yes |  |
-|  | Pearl bolt2 |  | 0 |  | yes |  |
-|  | Pearl bolt3 |  | 0 |  | yes |  |
-|  | Pearl bolt4 |  | 0 |  | yes |  |
-|  | Pearl bolts |  | 0 |  | yes |  |
-|  | Barbed bolt2 |  | 0 |  | yes |  |
-|  | Barbed bolt3 |  | 0 |  | yes |  |
-|  | Barbed bolt4 |  | 0 |  | yes |  |
-|  | Barbed bolts |  | 0 |  | yes |  |
-|  | Torn page 1 | This seems to have been torn from a book... | 200 | yes | yes |  |
-|  | Torn page 2 | This seems to have been torn from a book... | 200 | yes | yes |  |
-|  | Torn page 3 | This seems to have been torn from a book... | 200 | yes | yes |  |
-|  | Torn page 4 | This seems to have been torn from a book... | 200 | yes | yes |  |
-|  | Torn page 1 | This seems to have been torn from a book... | 200 | yes | yes |  |
-|  | Torn page 2 | This seems to have been torn from a book... | 200 | yes | yes |  |
-|  | Torn page 3 | This seems to have been torn from a book... | 200 | yes | yes |  |
-|  | Torn page 4 | This seems to have been torn from a book... | 200 | yes | yes |  |
-|  | Torn page 1 | This seems to have been torn from a book... | 200 | yes | yes |  |
-|  | Torn page 2 | This seems to have been torn from a book... | 200 | yes | yes |  |
-|  | Torn page 3 | This seems to have been torn from a book... | 200 | yes | yes |  |
-|  | Torn page 4 | This seems to have been torn from a book... | 200 | yes | yes |  |
-|  | Damaged book | An incomplete book of Saradomin. | 200 | yes |  | Wield |
-|  | Holy book | The holy book of Saradomin. | 1000, 200 | yes |  | Wield, Preach |
-|  | Damaged book | An incomplete book of Zamorak. | 200 | yes |  | Wield |
-|  | Unholy book | The holy book of Zamorak. | 200 | yes |  | Wield, Preach |
-|  | Damaged book | An incomplete book of Guthix. | 200 | yes |  | Wield |
-|  | Book of balance | The holy book of Guthix. | 200 | yes |  | Wield, Preach |
-|  | Journal | A daily journal. | 0 | yes |  | Read |
-|  | Diary | Someone's Diary. | 0 | yes |  | Read |
-|  | Manual | Looks like some kind of manual. | 0 | yes |  | Read |
-|  | Lighthouse key | The key to the front door of the lighthouse. | 0 | yes |  |  |
-|  | Rusty casket | Looks old and rusty... | 0 | yes |  |  |
-|  | Readbook dummy |  | 0 |  |  |  |
-|  | obj_3851 |  | 0 |  |  |  |
-|  | obj_3852 |  | 0 |  |  |  |
-|  | Games necklace(8) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
-|  | obj_3854 |  | 0 |  |  |  |
-|  | Games necklace(7) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
-|  | obj_3856 |  | 0 |  |  |  |
-|  | Games necklace(6) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
-|  | obj_3858 |  | 0 |  |  |  |
-|  | Games necklace(5) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
-|  | obj_3860 |  | 0 |  |  |  |
-|  | Games necklace(4) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
-|  | obj_3862 |  | 0 |  |  |  |
-|  | Games necklace(3) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
-|  | obj_3864 |  | 0 |  |  |  |
-|  | Games necklace(2) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
-|  | obj_3866 |  | 0 |  |  |  |
-|  | Games necklace(1) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
-|  | obj_3868 |  | 0 |  |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Board game piece | A piece used in board games. | 0 | yes |  |  |
-|  | Stool | A comfy stool. | 800 | yes |  |  |
+| ![Clue scroll](icons/trail_clue_easy_vague016.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague017.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague018.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague019.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague020.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague021.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague022.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague023.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague024.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague025.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague026.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_easy_vague026_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_easy_vague027.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague028.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague029.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_vague030.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_easy_map004.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_easy_map004_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_easy_map005.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_easy_map005_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_map002.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_map002_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_map003.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_map003_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_map004.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_map005.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_sextant014.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant014_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant015.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant015_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant016.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant016_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant017.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant017_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant018.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant018_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant019.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant019_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant020.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant020_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant021.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant021_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant022.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant022_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant023.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant023_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant024.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant024_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant025.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant025_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant026.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant026_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant027.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant027_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant028.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant028_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant029.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant029_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant030.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant030_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant031.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant031_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_sextant032.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_sextant032_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_riddle018.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Puzzle box](icons/trail_clue_hard_riddle018_puzzlebox.png) | Puzzle box | I need to solve this! | 100 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_riddle019.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Puzzle box](icons/trail_clue_hard_riddle019_puzzlebox.png) | Puzzle box | I need to solve this! | 100 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_riddle020.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Puzzle box](icons/trail_clue_hard_riddle020_puzzlebox.png) | Puzzle box | I need to solve this! | 100 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_riddle021.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Puzzle box](icons/trail_clue_hard_riddle021_puzzlebox.png) | Puzzle box | I need to solve this! | 100 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_riddle022.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle023.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle024.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle025.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Puzzle box](icons/trail_clue_hard_riddle025_puzzlebox.png) | Puzzle box | I need to solve this! | 100 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_riddle026.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Puzzle box](icons/trail_clue_hard_riddle026_puzzlebox.png) | Puzzle box | I need to solve this! | 100 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_hard_riddle027.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_hard_riddle028.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_hard_riddle028_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_medium_sextant014.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_medium_sextant014_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_medium_sextant015.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_medium_sextant015_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_medium_sextant016.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_medium_sextant016_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_medium_sextant017.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_medium_sextant017_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_medium_sextant018.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_medium_sextant018_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_medium_sextant019.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_medium_sextant019_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_medium_sextant020.png) | Clue scroll | Perhaps someone at the observatory can teach me to navigate? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_medium_sextant020_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_medium_map003.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_medium_map003_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_medium_map004.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_map005.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_medium_map005_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_medium_map006.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_map007.png) | Clue scroll | Part of the world map, but where? | 1 | yes |  | Read |
+| ![Casket](icons/trail_clue_medium_map007_casket.png) | Casket | I hope there's treasure in it. | 50 | yes |  | Open |
+| ![Clue scroll](icons/trail_clue_medium_riddle006.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_riddle007.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Key](icons/trail_clue_medium_riddle007_key.png) | Key | A key to some drawers. | 1 | yes |  |  |
+| ![Clue scroll](icons/trail_clue_medium_riddle008.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Key](icons/trail_clue_medium_riddle008_key.png) | Key | A key to some drawers. | 1 | yes |  |  |
+| ![Clue scroll](icons/trail_clue_medium_riddle009.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_riddle010.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram013.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram014.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram015.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram016.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram017.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram018.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram019.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Clue scroll](icons/trail_clue_medium_anagram020.png) | Clue scroll | A clue! | 1 | yes |  | Read |
+| ![Sliding piece](icons/trail_slidingpuzzlec01.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec02.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec03.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec04.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec05.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec06.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec07.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec08.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec09.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec10.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec11.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec12.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec13.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec14.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec15.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec16.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec17.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec18.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec19.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec20.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec21.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec22.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec23.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzlec24.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled01.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled02.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled03.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled04.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled05.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled06.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled07.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled08.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled09.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled10.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled11.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled12.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled13.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled14.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled15.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled16.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled17.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled18.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled19.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled20.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled21.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled22.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled23.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![Sliding piece](icons/trail_slidingpuzzled24.png) | Sliding piece |  | 0 | yes |  | Move |
+| ![viking_toyship](icons/viking_toyship.png) | viking_toyship |  | 0 |  |  |  |
+| ![cert_black_plateskirt_trim](icons/cert_black_plateskirt_trim.png) | cert_black_plateskirt_trim |  | 0 |  |  |  |
+| ![cert_black_plateskirt_gold](icons/cert_black_plateskirt_gold.png) | cert_black_plateskirt_gold |  | 0 |  |  |  |
+| ![cert_adamant_plateskirt_trim](icons/cert_adamant_plateskirt_trim.png) | cert_adamant_plateskirt_trim |  | 0 |  |  |  |
+| ![cert_adamant_plateskirt_gold](icons/cert_adamant_plateskirt_gold.png) | cert_adamant_plateskirt_gold |  | 0 |  |  |  |
+| ![cert_rune_plateskirt_gold](icons/cert_rune_plateskirt_gold.png) | cert_rune_plateskirt_gold |  | 0 |  |  |  |
+| ![cert_rune_plateskirt_trim](icons/cert_rune_plateskirt_trim.png) | cert_rune_plateskirt_trim |  | 0 |  |  |  |
+| ![cert_rune_plateskirt_zamorak](icons/cert_rune_plateskirt_zamorak.png) | cert_rune_plateskirt_zamorak |  | 0 |  |  |  |
+| ![cert_rune_plateskirt_saradomin](icons/cert_rune_plateskirt_saradomin.png) | cert_rune_plateskirt_saradomin |  | 0 |  |  |  |
+| ![cert_rune_plateskirt_guthix](icons/cert_rune_plateskirt_guthix.png) | cert_rune_plateskirt_guthix |  | 0 |  |  |  |
+| ![cert_rune_plateskirt_goldplate](icons/cert_rune_plateskirt_goldplate.png) | cert_rune_plateskirt_goldplate |  | 0 |  |  |  |
+| ![Flamtaer hammer](icons/flamtaer_hammer.png) | Flamtaer hammer | An exquisitely shaped tool specially designed for fixing temples. | 10000 | yes |  |  |
+| ![cert_flamtaer_hammer](icons/cert_flamtaer_hammer.png) | cert_flamtaer_hammer |  | 0 |  |  |  |
+| ![Dummy shoe1](icons/dummy_shoe1.png) | Dummy shoe1 |  | 0 | yes |  |  |
+| ![Dummy shoe2](icons/dummy_shoe2.png) | Dummy shoe2 |  | 0 | yes |  |  |
+| ![Dummy shoe3](icons/dummy_shoe3.png) | Dummy shoe3 |  | 0 | yes |  |  |
+| ![Dummy shoe4](icons/dummy_shoe4.png) | Dummy shoe4 |  | 0 | yes |  |  |
+| ![Dummy shoe5](icons/dummy_shoe5.png) | Dummy shoe5 |  | 0 | yes |  |  |
+| ![Dummy shoe6](icons/dummy_shoe6.png) | Dummy shoe6 |  | 0 | yes |  |  |
+| ![Fremennik](icons/pickpocket_guide_fremennik_citizen.png) | Fremennik | One of Rellekka's many citizens. | 0 |  |  |  |
+| ![cert_pickpocket_guide_fremennik_citizen](icons/cert_pickpocket_guide_fremennik_citizen.png) | cert_pickpocket_guide_fremennik_citizen |  | 0 |  |  |  |
+| ![Unstrung lyre](icons/viking_unstrung_lyre.png) | Unstrung lyre | It's almost a musical instrument. | 0 | yes |  |  |
+| ![Lyre](icons/viking_strung_lyre.png) | Lyre | It's a musical instrument I don't know how to play. | 0 | yes |  | Play |
+| ![Enchanted lyre](icons/viking_enchanted_strung_lyre.png) | Enchanted lyre | A musical instrument that I can magically play. | 0 | yes |  | Play |
+| ![Enchanted lyre](icons/magic_strung_lyre.png) | Enchanted lyre | This will teleport me to Rellekka when I play it. | 1000 | yes |  | Play |
+| ![Branch](icons/viking_musical_tree_branch.png) | Branch | I can use this to make a lyre. | 0 | yes |  |  |
+| ![Golden fleece](icons/viking_golden_fleece.png) | Golden fleece | I can spin this into golden wool... | 0 | yes |  |  |
+| ![Golden wool](icons/viking_golden_wool.png) | Golden wool | I can use this to make a lyre. | 0 | yes |  |  |
+| ![Pet rock](icons/vt_useless_rock.png) | Pet rock | The lowest maintenance pet you will ever have. | 0 | yes |  | Feed, Stroke, Talk-to |
+| ![Hunters' talisman](icons/viking_draugen_talisman.png) | Hunters' talisman | Talisman to bind the draugen | 4 | yes |  | Locate |
+| ![Hunters' talisman](icons/viking_draugen_talisman_uncharged.png) | Hunters' talisman | Talisman to bind the draugen | 4 | yes |  | Locate |
+| ![Exotic flower](icons/viking_rare_flower.png) | Exotic flower | Some flowers from a distant land. | 0 | yes |  |  |
+| ![Fremennik ballad](icons/viking_song.png) | Fremennik ballad | A hauntingly beautiful love ballad. | 0 | yes |  |  |
+| ![Sturdy boots](icons/viking_new_boots.png) | Sturdy boots | A pair of sturdy custom made boots. | 0 | yes |  |  |
+| ![Hunters map](icons/viking_map_to_hunting_grounds.png) | Hunters map | A map showing very active hunting spots. | 0 | yes |  |  |
+| ![Custom bow string](icons/viking_bowstring.png) | Custom bow string | A finely crafted string for a custom bow. | 0 | yes |  |  |
+| ![Unusual fish](icons/viking_unique_fish.png) | Unusual fish | An extremely rare, non edible fish. | 0 | yes |  |  |
+| ![Sea fishing map](icons/viking_another_map.png) | Sea fishing map | Map showing the best fishing spots out at sea. | 0 | yes |  |  |
+| ![Weather forecast](icons/viking_weather_forecast.png) | Weather forecast | An estimate of expected local weather patterns. | 0 | yes |  |  |
+| ![Champions token](icons/viking_champion_token.png) | Champions token | Shows the wearer is worthy of the Champions table. | 0 | yes |  |  |
+| ![Legendary cocktail](icons/viking_legendary_cocktail.png) | Legendary cocktail | Probably the greatest cocktail in the world. | 0 | yes |  |  |
+| ![Fiscal statement](icons/viking_promissary_note.png) | Fiscal statement | A signed statement promising a reduction on sales tax. | 0 | yes |  |  |
+| ![Promissory note](icons/viking_promissary_note2.png) | Promissory note | A legally binding contract promising not to enter the longhall. | 0 | yes |  |  |
+| ![Warriors' contract](icons/viking_promissary_note3.png) | Warriors' contract | This employment contract is for a warrior to act as a bodyguard. | 0 | yes |  |  |
+| ![Keg of beer](icons/viking_beerkeg.png) | Keg of beer | A lot of beer in a barrel. | 0 | yes |  |  |
+| ![Low alcohol keg](icons/viking_low_alcahol_beerkeg.png) | Low alcohol keg | Suspiciously close to beer, but without the side effects. | 0 | yes |  |  |
+| ![Strange object](icons/viking_firecracker.png) | Strange object | It's some kind of weird little parcel thing. | 0 | yes |  |  |
+| ![Lit strange object](icons/viking_firecracker_lit.png) | Lit strange object | It's some kind of weird little parcel thing. On fire. | 0 | yes |  |  |
+| ![Red disk](icons/viking_dummy_coin.png) | Red disk | A red coloured disk, apparently made of wood. | 0 | yes |  |  |
+| ![Red disk](icons/viking_dummy_coin2.png) | Red disk | A red coloured disk, apparently made of wood. | 0 | yes |  |  |
+| ![Viking dummy lid](icons/viking_dummy_lid.png) | Viking dummy lid |  | 0 | yes |  |  |
+| ![Magnet](icons/viking_pointless_magnet.png) | Magnet | A very attractive magnet. | 3 | yes |  |  |
+| ![Blue thread](icons/viking_pointless_thread.png) | Blue thread | Some blue thread. | 0 | yes |  |  |
+| ![Small pick](icons/viking_pointless_pick.png) | Small pick | A small pick for cracking small objects. | 0 | yes |  |  |
+| ![Toy ship](icons/viking_pointless_shiptoy.png) | Toy ship | Might be fun to play with in the bath. | 2 | yes |  |  |
+| ![Full bucket](icons/viking_bucket_5.png) | Full bucket | This bucket is completely full. It has a 5 painted on it's side. | 0 | yes |  |  |
+| ![4/5ths full bucket](icons/viking_bucket_4.png) | 4/5ths full bucket | This bucket is eighty percent full. It has a 5 painted on it's side. | 0 | yes |  |  |
+| ![3/5ths full bucket](icons/viking_bucket_3.png) | 3/5ths full bucket | This bucket is sixty percent full. It has a 5 painted on it's side. | 0 | yes |  |  |
+| ![2/5ths full bucket](icons/viking_bucket_2.png) | 2/5ths full bucket | This bucket is forty percent full. It has a 5 painted on it's side. | 0 | yes |  |  |
+| ![1/5ths full bucket](icons/viking_bucket_1.png) | 1/5ths full bucket | This bucket is twenty percent full. It has a 5 painted on it's side. | 0 | yes |  |  |
+| ![Empty bucket](icons/viking_bucket_empty.png) | Empty bucket | This bucket is completely empty. It has a 5 painted on it's side. | 0 | yes |  |  |
+| ![Frozen bucket](icons/viking_bucket_frozen.png) | Frozen bucket | This bucket of water is frozen solid. | 0 | yes |  |  |
+| ![Full jug](icons/viking_jug_3.png) | Full jug | This jug is completely full. It has a 3 painted on it's side. | 0 | yes |  |  |
+| ![2/3rds full jug](icons/viking_jug_2.png) | 2/3rds full jug | This jug is two thirds full. It has a 3 painted on it's side. | 0 | yes |  |  |
+| ![1/3rds full jug](icons/viking_jug_1.png) | 1/3rds full jug | This jug is one thirds full. It has a 3 painted on it's side. | 0 | yes |  |  |
+| ![Empty jug](icons/viking_jug_empty.png) | Empty jug | This jug is completely empty. It has a 3 painted on it's side. | 0 | yes |  |  |
+| ![Frozen jug](icons/viking_jug_frozen.png) | Frozen jug | This jug of water is frozen solid. | 0 | yes |  |  |
+| ![Vase](icons/viking_airtight_vase.png) | Vase | An unusually shaped vase. You can see something glinting inside. | 0 | yes |  | Shake |
+| ![Vase of water](icons/viking_airtight_vase_water.png) | Vase of water | An unusually shaped vase full of water. You can see something glinting inside. | 0 | yes |  | Shake |
+| ![Frozen vase](icons/viking_airtight_vase_frozen.png) | Frozen vase | An unusually shaped vase full of ice. You can see something glinting inside. | 0 | yes |  | Shake |
+| ![Vase lid](icons/viking_vase_lid.png) | Vase lid | This looks like a lid to some kind of container... | 0 | yes |  |  |
+| ![Sealed vase](icons/viking_airtight_vase_with_lid.png) | Sealed vase | The lid is screwed on tightly. | 0 | yes |  | Remove-lid |
+| ![Sealed vase](icons/viking_airtight_vase_with_lid_frozen.png) | Sealed vase | The lid is screwed on tightly. It is very cold. | 0 | yes |  | Remove-lid |
+| ![Sealed vase](icons/viking_airtight_vase_with_lid_water.png) | Sealed vase | The lid is screwed on tightly. It is full of water. | 0 | yes |  | Remove-lid |
+| ![Frozen key](icons/viking_key_in_ice.png) | Frozen key | A key encased in ice. | 0 | yes |  |  |
+| ![Red herring](icons/viking_red_herring.png) | Red herring | The colouring on it seems to be some kind of sticky goop... | 0 | yes |  |  |
+| ![Red disk](icons/viking_red_wooden_coin.png) | Red disk | A red coloured disk, apparently made of wood. | 0 | yes |  |  |
+| ![Wooden disk](icons/viking_uncoloured_wooden_coin.png) | Wooden disk | A simple looking disk made of wood. | 0 | yes |  |  |
+| ![Seers' key](icons/viking_key.png) | Seers' key | The key to leave the Seers' house. | 0 | yes |  |  |
+| ![Sticky red goop](icons/viking_red_splat.png) | Sticky red goop | Yup, it's sticky, it's red and it's goop. | 0 |  |  |  |
+| ![cert_viking_red_splat](icons/cert_viking_red_splat.png) | cert_viking_red_splat |  | 0 |  |  |  |
+| ![Fremennik helm](icons/viking_helmet.png) | Fremennik helm | A sturdy helm worn only by Fremennik clan members. | 5000 | yes |  | Wear |
+| ![Archer helm](icons/viking_helmet_range.png) | Archer helm | This helmet is worn by archers. | 60000 | yes |  | Wear |
+| ![cert_viking_helmet_range](icons/cert_viking_helmet_range.png) | cert_viking_helmet_range |  | 0 |  |  |  |
+| ![Berserker helm](icons/viking_helmet_crush.png) | Berserker helm | This helmet is worn by berserkers. | 60000 | yes |  | Wear |
+| ![cert_viking_helmet_crush](icons/cert_viking_helmet_crush.png) | cert_viking_helmet_crush |  | 0 |  |  |  |
+| ![Warrior helm](icons/viking_helmet_slash.png) | Warrior helm | This helmet is worn by warriors. | 60000 | yes |  | Wear |
+| ![cert_viking_helmet_slash](icons/cert_viking_helmet_slash.png) | cert_viking_helmet_slash |  | 0 |  |  |  |
+| ![Farseer helm](icons/viking_helmet_magic.png) | Farseer helm | This helmet is worn by farseers. | 60000 | yes |  | Wear |
+| ![cert_viking_helmet_magic](icons/cert_viking_helmet_magic.png) | cert_viking_helmet_magic |  | 0 |  |  |  |
+| ![Fremennik blade](icons/viking_sword.png) | Fremennik blade | A sword used only by Fremennik warriors. | 5000 | yes |  | Wield |
+| ![Fremennik shield](icons/viking_shield.png) | Fremennik shield | A shield worn by Fremennik warriors. | 5000 | yes |  | Wield |
+| ![Fremennik cloak](icons/viking_cloak_green.png) | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
+| ![cert_viking_cloak_green](icons/cert_viking_cloak_green.png) | cert_viking_cloak_green |  | 0 |  |  |  |
+| ![Fremennik cloak](icons/viking_cloak_darkbrown.png) | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
+| ![cert_viking_cloak_darkbrown](icons/cert_viking_cloak_darkbrown.png) | cert_viking_cloak_darkbrown |  | 0 |  |  |  |
+| ![Fremennik cloak](icons/viking_cloak_lightbrown.png) | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
+| ![cert_viking_cloak_lightbrown](icons/cert_viking_cloak_lightbrown.png) | cert_viking_cloak_lightbrown |  | 0 |  |  |  |
+| ![Fremennik cloak](icons/viking_cloak_brown.png) | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
+| ![cert_viking_cloak_brown](icons/cert_viking_cloak_brown.png) | cert_viking_cloak_brown |  | 0 |  |  |  |
+| ![Fremennik shirt](icons/viking_top_darkbrown.png) | Fremennik shirt | The latest in Fremennik fashion. | 250 | yes |  | Wear |
+| ![cert_viking_top_darkbrown](icons/cert_viking_top_darkbrown.png) | cert_viking_top_darkbrown |  | 0 |  |  |  |
+| ![Fremennik shirt](icons/viking_top_green.png) | Fremennik shirt | The latest in Fremennik fashion. | 250 | yes |  | Wear |
+| ![cert_viking_top_green](icons/cert_viking_top_green.png) | cert_viking_top_green |  | 0 |  |  |  |
+| ![Fremennik shirt](icons/viking_top_beige.png) | Fremennik shirt | The latest in Fremennik fashion. | 250 | yes |  | Wear |
+| ![cert_viking_top_beige](icons/cert_viking_top_beige.png) | cert_viking_top_beige |  | 0 |  |  |  |
+| ![Fremennik shirt](icons/viking_top_red.png) | Fremennik shirt | The latest in Fremennik fashion. | 250 | yes |  | Wear |
+| ![cert_viking_top_red](icons/cert_viking_top_red.png) | cert_viking_top_red |  | 0 |  |  |  |
+| ![Fremennik shirt](icons/viking_top_blue.png) | Fremennik shirt | The latest in Fremennik fashion. | 250 | yes |  | Wear |
+| ![cert_viking_top_blue](icons/cert_viking_top_blue.png) | cert_viking_top_blue |  | 0 |  |  |  |
+| ![Fremennik cloak](icons/viking_cloak_red.png) | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
+| ![cert_viking_cloak_red](icons/cert_viking_cloak_red.png) | cert_viking_cloak_red |  | 0 |  |  |  |
+| ![Fremennik cloak](icons/viking_cloak_grey.png) | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
+| ![cert_viking_cloak_grey](icons/cert_viking_cloak_grey.png) | cert_viking_cloak_grey |  | 0 |  |  |  |
+| ![Fremennik cloak](icons/viking_cloak_tangerine.png) | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
+| ![cert_viking_cloak_tangerine](icons/cert_viking_cloak_tangerine.png) | cert_viking_cloak_tangerine |  | 0 |  |  |  |
+| ![Fremennik cloak](icons/viking_cloak_ocean.png) | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
+| ![cert_viking_cloak_ocean](icons/cert_viking_cloak_ocean.png) | cert_viking_cloak_ocean |  | 0 |  |  |  |
+| ![Fremennik cloak](icons/viking_cloak_purple.png) | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
+| ![cert_viking_cloak_purple](icons/cert_viking_cloak_purple.png) | cert_viking_cloak_purple |  | 0 |  |  |  |
+| ![Fremennik cloak](icons/viking_cloak_pink.png) | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
+| ![cert_viking_cloak_pink](icons/cert_viking_cloak_pink.png) | cert_viking_cloak_pink |  | 0 |  |  |  |
+| ![Fremennik cloak](icons/viking_cloak_black.png) | Fremennik cloak | The latest fashion in Rellekka. | 250 | yes |  | Wear |
+| ![cert_viking_cloak_black](icons/cert_viking_cloak_black.png) | cert_viking_cloak_black |  | 0 |  |  |  |
+| ![Fremennik boots](icons/vikingboots.png) | Fremennik boots | Very stylish! | 500 | yes |  | Wear |
+| ![cert_vikingboots](icons/cert_vikingboots.png) | cert_vikingboots |  | 0 |  |  |  |
+| ![Fremennik robe](icons/vikingrobetop.png) | Fremennik robe | The latest fashion in Rellekka. | 500 | yes |  | Wear |
+| ![cert_vikingrobetop](icons/cert_vikingrobetop.png) | cert_vikingrobetop |  | 0 |  |  |  |
+| ![Fremennik skirt](icons/vikingrobebottom.png) | Fremennik skirt | The latest fashion in Rellekka. | 500 | yes |  | Wear |
+| ![cert_vikingrobebottom](icons/cert_vikingrobebottom.png) | cert_vikingrobebottom |  | 0 |  |  |  |
+| ![Fremennik hat](icons/vikinghat.png) | Fremennik hat | A silly pointed hat. | 500 | yes |  | Wear |
+| ![cert_vikinghat](icons/cert_vikinghat.png) | cert_vikinghat |  | 0 |  |  |  |
+| ![Gloves](icons/vikinggloves.png) | Gloves | These will keep my hands warm! | 500 | yes |  | Wear |
+| ![cert_vikinggloves](icons/cert_vikinggloves.png) | cert_vikinggloves |  | 0 |  |  |  |
+| ![Keg of beer](icons/keg_of_beer.png) | Keg of beer | A lot of beer in a barrel. | 250 | yes |  | Drink |
+| ![cert_keg_of_beer](icons/cert_keg_of_beer.png) | cert_keg_of_beer |  | 0 |  |  |  |
+| ![Beer](icons/viking_tankard_full.png) | Beer | Frothy and alcoholic. | 20 | yes |  | Drink |
+| ![cert_viking_tankard_full](icons/cert_viking_tankard_full.png) | cert_viking_tankard_full |  | 0 |  |  |  |
+| ![Tankard](icons/viking_tankard_empty.png) | Tankard | A big cup for a big thirst. | 5 | yes |  |  |
+| ![cert_viking_tankard_empty](icons/cert_viking_tankard_empty.png) | cert_viking_tankard_empty |  | 0 |  |  |  |
+| ![Bolt2](icons/bolt2.png) | Bolt2 |  | 0 |  | yes |  |
+| ![Bolt3](icons/bolt3.png) | Bolt3 |  | 0 |  | yes |  |
+| ![Bolt4](icons/bolt4.png) | Bolt4 |  | 0 |  | yes |  |
+| ![Bolts](icons/bolts.png) | Bolts |  | 0 |  | yes |  |
+| ![Poison bolt2](icons/poison_bolt2.png) | Poison bolt2 |  | 0 |  | yes |  |
+| ![Poison bolt3](icons/poison_bolt3.png) | Poison bolt3 |  | 0 |  | yes |  |
+| ![Poison bolt4](icons/poison_bolt4.png) | Poison bolt4 |  | 0 |  | yes |  |
+| ![Poison bolts](icons/poison_bolts.png) | Poison bolts |  | 0 |  | yes |  |
+| ![Opal bolt2](icons/opal_bolt2.png) | Opal bolt2 |  | 0 |  | yes |  |
+| ![Opal bolt3](icons/opal_bolt3.png) | Opal bolt3 |  | 0 |  | yes |  |
+| ![Opal bolt4](icons/opal_bolt4.png) | Opal bolt4 |  | 0 |  | yes |  |
+| ![Opal bolts](icons/opal_bolts.png) | Opal bolts |  | 0 |  | yes |  |
+| ![Pearl bolt2](icons/pearl_bolt2.png) | Pearl bolt2 |  | 0 |  | yes |  |
+| ![Pearl bolt3](icons/pearl_bolt3.png) | Pearl bolt3 |  | 0 |  | yes |  |
+| ![Pearl bolt4](icons/pearl_bolt4.png) | Pearl bolt4 |  | 0 |  | yes |  |
+| ![Pearl bolts](icons/pearl_bolts.png) | Pearl bolts |  | 0 |  | yes |  |
+| ![Barbed bolt2](icons/barbed_bolt2.png) | Barbed bolt2 |  | 0 |  | yes |  |
+| ![Barbed bolt3](icons/barbed_bolt3.png) | Barbed bolt3 |  | 0 |  | yes |  |
+| ![Barbed bolt4](icons/barbed_bolt4.png) | Barbed bolt4 |  | 0 |  | yes |  |
+| ![Barbed bolts](icons/barbed_bolts.png) | Barbed bolts |  | 0 |  | yes |  |
+| ![Torn page 1](icons/holy_book_s_page1.png) | Torn page 1 | This seems to have been torn from a book... | 200 | yes | yes |  |
+| ![Torn page 2](icons/holy_book_s_page2.png) | Torn page 2 | This seems to have been torn from a book... | 200 | yes | yes |  |
+| ![Torn page 3](icons/holy_book_s_page3.png) | Torn page 3 | This seems to have been torn from a book... | 200 | yes | yes |  |
+| ![Torn page 4](icons/holy_book_s_page4.png) | Torn page 4 | This seems to have been torn from a book... | 200 | yes | yes |  |
+| ![Torn page 1](icons/holy_book_z_page1.png) | Torn page 1 | This seems to have been torn from a book... | 200 | yes | yes |  |
+| ![Torn page 2](icons/holy_book_z_page2.png) | Torn page 2 | This seems to have been torn from a book... | 200 | yes | yes |  |
+| ![Torn page 3](icons/holy_book_z_page3.png) | Torn page 3 | This seems to have been torn from a book... | 200 | yes | yes |  |
+| ![Torn page 4](icons/holy_book_z_page4.png) | Torn page 4 | This seems to have been torn from a book... | 200 | yes | yes |  |
+| ![Torn page 1](icons/holy_book_g_page1.png) | Torn page 1 | This seems to have been torn from a book... | 200 | yes | yes |  |
+| ![Torn page 2](icons/holy_book_g_page2.png) | Torn page 2 | This seems to have been torn from a book... | 200 | yes | yes |  |
+| ![Torn page 3](icons/holy_book_g_page3.png) | Torn page 3 | This seems to have been torn from a book... | 200 | yes | yes |  |
+| ![Torn page 4](icons/holy_book_g_page4.png) | Torn page 4 | This seems to have been torn from a book... | 200 | yes | yes |  |
+| ![Damaged book](icons/unfinished_saradominbook.png) | Damaged book | An incomplete book of Saradomin. | 200 | yes |  | Wield |
+| ![Holy book](icons/saradominbook_complete.png) | Holy book | The holy book of Saradomin. | 1000, 200 | yes |  | Wield, Preach |
+| ![Damaged book](icons/unfinished_zamorakbook.png) | Damaged book | An incomplete book of Zamorak. | 200 | yes |  | Wield |
+| ![Unholy book](icons/zamorakbook_complete.png) | Unholy book | The holy book of Zamorak. | 200 | yes |  | Wield, Preach |
+| ![Damaged book](icons/unfinished_guthixbook.png) | Damaged book | An incomplete book of Guthix. | 200 | yes |  | Wield |
+| ![Book of balance](icons/guthixbook_complete.png) | Book of balance | The holy book of Guthix. | 200 | yes |  | Wield, Preach |
+| ![Journal](icons/horror_diary1.png) | Journal | A daily journal. | 0 | yes |  | Read |
+| ![Diary](icons/horror_diary2.png) | Diary | Someone's Diary. | 0 | yes |  | Read |
+| ![Manual](icons/horror_diary3.png) | Manual | Looks like some kind of manual. | 0 | yes |  | Read |
+| ![Lighthouse key](icons/horror_key.png) | Lighthouse key | The key to the front door of the lighthouse. | 0 | yes |  |  |
+| ![Rusty casket](icons/horror_casket.png) | Rusty casket | Looks old and rusty... | 0 | yes |  |  |
+| ![Readbook dummy](icons/readbook_dummy.png) | Readbook dummy |  | 0 |  |  |  |
+| ![cert_readbook_dummy](icons/cert_readbook_dummy.png) | cert_readbook_dummy |  | 0 |  |  |  |
+| ![cert_blessedsnake](icons/cert_blessedsnake.png) | cert_blessedsnake |  | 0 |  |  |  |
+| ![Games necklace(8)](icons/necklace_of_minigames_8.png) | Games necklace(8) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
+| ![cert_necklace_of_minigames_8](icons/cert_necklace_of_minigames_8.png) | cert_necklace_of_minigames_8 |  | 0 |  |  |  |
+| ![Games necklace(7)](icons/necklace_of_minigames_7.png) | Games necklace(7) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
+| ![cert_necklace_of_minigames_7](icons/cert_necklace_of_minigames_7.png) | cert_necklace_of_minigames_7 |  | 0 |  |  |  |
+| ![Games necklace(6)](icons/necklace_of_minigames_6.png) | Games necklace(6) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
+| ![cert_necklace_of_minigames_6](icons/cert_necklace_of_minigames_6.png) | cert_necklace_of_minigames_6 |  | 0 |  |  |  |
+| ![Games necklace(5)](icons/necklace_of_minigames_5.png) | Games necklace(5) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
+| ![cert_necklace_of_minigames_5](icons/cert_necklace_of_minigames_5.png) | cert_necklace_of_minigames_5 |  | 0 |  |  |  |
+| ![Games necklace(4)](icons/necklace_of_minigames_4.png) | Games necklace(4) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
+| ![cert_necklace_of_minigames_4](icons/cert_necklace_of_minigames_4.png) | cert_necklace_of_minigames_4 |  | 0 |  |  |  |
+| ![Games necklace(3)](icons/necklace_of_minigames_3.png) | Games necklace(3) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
+| ![cert_necklace_of_minigames_3](icons/cert_necklace_of_minigames_3.png) | cert_necklace_of_minigames_3 |  | 0 |  |  |  |
+| ![Games necklace(2)](icons/necklace_of_minigames_2.png) | Games necklace(2) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
+| ![cert_necklace_of_minigames_2](icons/cert_necklace_of_minigames_2.png) | cert_necklace_of_minigames_2 |  | 0 |  |  |  |
+| ![Games necklace(1)](icons/necklace_of_minigames_1.png) | Games necklace(1) | An enchanted necklace. | 1050 |  |  | Wear, Rub |
+| ![cert_necklace_of_minigames_1](icons/cert_necklace_of_minigames_1.png) | cert_necklace_of_minigames_1 |  | 0 |  |  |  |
+| ![Board game piece](icons/boardgames_draughts_firerune_king.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_draughts_waterrune_king.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_draughts_earthrune_king.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_draughts_airrune_king.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_draughts_mindrune_king.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_draughts_bodyrune_king.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_draughts_naturerune_king.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_draughts_chaosrune_king.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_draughts_lawrune_king.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_draughts_cosmicrune_king.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_draughts_bloodrune_king.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_draughts_soulrune_king.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_runelink_firerune.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_runelink_waterrune.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_runelink_earthrune.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_runelink_airrune.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_runelink_mindrune.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_runelink_bodyrune.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_runelink_naturerune.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_runelink_chaosrune.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_runelink_lawrune.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_runelink_cosmicrune.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_runelink_bloodrune.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Board game piece](icons/boardgames_runelink_soulrune.png) | Board game piece | A piece used in board games. | 0 | yes |  |  |
+| ![Stool](icons/wearable_stool_white.png) | Stool | A comfy stool. | 800 | yes |  |  |

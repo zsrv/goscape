@@ -38,3 +38,14 @@ branch = "rev-274"
 unpack_revision = 274
 content_dir = "/home/owner/Code/github.com/LostCityRS/Server274-ref/content"
 cache_dir = "/home/owner/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache"
+
+# Item-icon rasterizer (rev-274 only so far — see the rasterizer plan).
+# client_worktree/client_branch are declarative for now: the checkout is
+# already on rev-274, and docsgen only asserts the match (SystemExit if
+# not); a later task adds real per-branch client worktrees for the other
+# revisions.
+[revisions.274.icons]
+enabled = true
+client_worktree = "/home/owner/Code/github.com/zsrv/goscape-client"
+client_branch = "rev-274"
+cache_dir = "/home/owner/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache"

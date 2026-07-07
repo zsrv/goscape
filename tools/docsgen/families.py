@@ -16,10 +16,13 @@ def _ops(rec, prefix):
     )
 
 
-def _obj_row(rec):
+def _obj_row(rec, icons=None):
+    debugname = rec["_debugname"]
+    name = _s(rec, "name") or debugname
+    icon_cell = f"![{name}](icons/{debugname}.png)" if icons and debugname in icons else ""
     return [
-        "",  # reserved icon column (model rasterizer is a follow-up project)
-        _s(rec, "name") or rec["_debugname"],
+        icon_cell,
+        name,
         _s(rec, "desc"),
         _s(rec, "cost", "0"),
         "yes" if _s(rec, "members") == "yes" else "",
@@ -45,13 +48,14 @@ def _loc_row(rec):
     ]
 
 
-def generate_config_families(all_dir: Path, overlay_docs: Path) -> dict[str, int]:
+def generate_config_families(all_dir: Path, overlay_docs: Path,
+                             icons: set[str] | None = None) -> dict[str, int]:
     counts: dict[str, int] = {}
     sections = []
     plans = [
         ("items", "all.obj", "Items",
          ["Icon", "Name", "Description", "Cost", "Members", "Stackable", "Options"],
-         _obj_row),
+         lambda rec: _obj_row(rec, icons)),
         ("npcs", "all.npc", "NPCs",
          ["Name", "Description", "Level", "Options"], _npc_row),
         ("locs", "all.loc", "Locations",

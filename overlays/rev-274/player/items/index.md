@@ -4,11 +4,11 @@
 
 3894 entries in 8 pages.
 
-- [page 1 (Dwarf remains – obj_499)](page-001.md)
+- [page 1 (Dwarf remains – cert_macro_broken_steel_hatchet)](page-001.md)
 - [page 2 (Broken axe – Coins 5)](page-002.md)
 - [page 3 (Coins 25 – Amulet of holthion)](page-003.md)
 - [page 4 (Iban's shadow – Incomplete stew)](page-004.md)
-- [page 5 (obj_2000 – Dragonhide body)](page-005.md)
-- [page 6 (obj_2500 – obj_2999)](page-006.md)
+- [page 5 (cert_stew2 – Dragonhide body)](page-005.md)
+- [page 6 (cert_blue_dragonhide_body – cert_toadflax)](page-006.md)
 - [page 7 (Snapdragon – Clue scroll)](page-007.md)
 - [page 8 (Clue scroll – Stool)](page-008.md)

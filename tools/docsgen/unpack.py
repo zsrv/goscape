@@ -39,6 +39,19 @@ def remove_worktree(repo: Path, wt: Path) -> None:
         )
 
 
+def build_cli(wt: Path, out: Path) -> Path:
+    """Build goscape-cli from an already-checked-out worktree `wt` into
+    `out`. Split out of run_unpack so other steps (e.g. icons, which needs
+    `goscape-cli pack` to regenerate real obj debugnames) can reuse the same
+    worktree without re-deriving the build invocation.
+    """
+    subprocess.run(
+        ["go", "build", "-trimpath", "-o", str(out), "./cmd/goscape-cli"],
+        cwd=wt, env=_go_env(), check=True,
+    )
+    return out
+
+
 def run_unpack(cfg: dict, workdir: Path, wt: Path) -> Path:
     """Build goscape-cli from an already-checked-out worktree `wt` and run
     `unpack config` against the revision's cache. Worktree lifecycle
@@ -48,11 +61,7 @@ def run_unpack(cfg: dict, workdir: Path, wt: Path) -> Path:
     """
     src = workdir / "src"
     src.mkdir(parents=True, exist_ok=True)
-    cli = workdir / "goscape-cli"
-    subprocess.run(
-        ["go", "build", "-trimpath", "-o", str(cli), "./cmd/goscape-cli"],
-        cwd=wt, env=_go_env(), check=True,
-    )
+    cli = build_cli(wt, workdir / "goscape-cli")
     subprocess.run(
         [str(cli), "unpack", "config",
          "-cache-dir", cfg["cache_dir"],
