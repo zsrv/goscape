@@ -63,9 +63,11 @@ decryptor tracks the client's encryptor and vice-versa.
   array is then folded into `mem` twice (accumulate `rsl`/`mem`, then re-mix);
   finally one generation round (`isaac`) runs and `count` is set to 256.
 - **Generation (`isaac`).** Increments `c`, adds it into `b`, then for each of
-  the 256 words applies the ISAAC barrel-shift pattern to `a` — left 13, right
-  6, left 2, right 16, selected by `i & 3` — mixes in `mem[(i+128) & 0xff]`,
-  and writes the new `mem[i]` and `rsl[i]`.
+  the 256 words: applies the ISAAC barrel-shift pattern to `a` — left 13, right
+  6, left 2, right 16, selected by `i & 3` — and adds `mem[(i+128) & 0xff]`
+  into `a`; computes the new word as `y = mem[(x>>2) & 0xff] + a + b` (where
+  `x` is the old `mem[i]`) and stores it to `mem[i]`; then sets
+  `b = mem[(y>>10) & 0xff] + x` and writes `b` to `rsl[i]`.
 - **`GetNext()`** returns result words in reverse order (`count` counts down from
   255); when the array is exhausted it calls `isaac()` to refill and resets
   `count` to 255.

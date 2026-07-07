@@ -47,8 +47,8 @@ link to it rather than repeat the buffer internals.
 ## A note on cross-revision differences
 
 The wire format is stable within a revision but shifts between them. One
-concrete example, recorded in the docs-site
-[`REFERENCES.md`](https://github.com/zsrv/goscape) rev-254 notes: **NPC ids
+concrete example, recorded in the rev-254 notes of the
+[References & pins](../contributor/references-pins.md) page: **NPC ids
 widen to 14 bits at rev-254** (the info-block terminator moves `8191 → 16383`
 and NPC capacity `8192 → 16384`) as a consequence of the `@2004scape/rsbuf`
 `254.1.0` bump. This build is rev-{{ revision }}; treat any width or opcode you

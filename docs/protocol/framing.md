@@ -75,7 +75,10 @@ tl[1]`.
 
 ### Framing errors
 
-`protocol.go` defines the sentinel errors a framing/length check can raise:
+`protocol.go` defines four sentinel errors. `CheckPacketLength` itself never
+returns an error — it only reports `(int, bool)` — the sentinels are raised by
+the decoders that consume framed data, chiefly the login header decoder
+`GameLogin.UnmarshalHeader` (`pkg/io/protocol/login/req/req.go`):
 
 | Error | Raised when |
 |---|---|
@@ -118,8 +121,10 @@ is no length prefix. The terminator is baked into the method name:
 The login username and password use `GJStrLF` / `PJStrLF`, so they are
 **newline-terminated** on the wire — the reader consumes bytes up to and
 including the `0x0A`, and the writer appends `0x0A` after the characters
-(`packet.go`, `PJStr`/`GJStr`). Each character is written as one byte
-(`rune & 0xff`), matching the client's per-UTF-16-code-unit encoding rather than
+(`packet.go`, `PJStr`/`GJStr`). Each character is written as one byte per
+UTF-16 code unit — `rune & 0xff` for code points up to `0xFFFF`; a
+supplementary code point above `0xFFFF` emits **two** bytes (the low byte of
+each half of its surrogate pair) — matching the client's encoding rather than
 Go's multi-byte UTF-8.
 
 !!! note "Missing-terminator edge case"

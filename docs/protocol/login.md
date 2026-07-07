@@ -56,7 +56,10 @@ The client opens with opcode `14` followed by one payload byte (a
 `_loginServer` discriminator that the server reads and discards). Total input:
 **2 bytes**.
 
-The server replies in three writes (`server_login.go`, case `14`):
+The server replies in two writes (`server_login.go`, case `14`): first the 8
+zero bytes, then — after the rate-limit check — one packet bundling the
+separator byte and both seed words. (The TS upstream sends the same 17 bytes in
+three calls; the byte sequence is identical.)
 
 | Order | Bytes | Value |
 |---|---|---|
@@ -193,8 +196,9 @@ Every login response opcode goscape can send (`pkg/io/protocol/login/resp/`):
 | `21` | HOP_TIMER | World-hop cooldown; the only reject with a payload | **1** |
 
 **Hop timer (`21`).** This is the sole reject that carries a payload: a single
-byte of `min(255, remainingMs / 1000)` seconds (`client.go`,
-`sendLoginHopTimer`). The client counts it down on the title screen before
-auto-retrying.
+byte of `remainingMs / 1000` seconds, clamped to `[0, 255]` (`client.go`,
+`sendLoginHopTimer` — values over 255 cap at 255, and a negative/unset
+remainder clamps to 0 rather than wrapping to 255). The client counts it down
+on the title screen before auto-retrying.
 
 All non-accepting replies are followed by a connection close.
