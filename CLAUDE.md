@@ -101,7 +101,7 @@ Each feature module lives under `modules/<name>/` and contains:
 
 `pkg/io/packet/` contains the core RS2 binary packet buffer:
 - `Packet` — wraps `bytes.Buffer` with RS2-specific read/write methods (`G1`/`P1`, `G4`/`P4`, `GJStrLF`/`PJStrLF`, `RSADec`/`RSAEnc`, etc.)
-- `PacketBit` — bit-level reader/writer
+- Bit-level I/O on the same `Packet` — `AccessBits()`/`AccessBytes()` switch modes; `GBit`/`PBit` read/write n bits
 
 `pkg/io/protocol/` defines `Operation` (opcode + payload size constant) and `CheckPacketLength` for handling partial TCP reads. Dynamic packet sizes use `-1` (1-byte length prefix) or `-2` (2-byte length prefix).
 
