@@ -1713,6 +1713,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -1728,6 +1745,59 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#a-simple-debug-proc" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A simple debug proc
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#an-npc-interaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        An NPC interaction
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-zone-timer-that-enqueues-an-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A zone timer that enqueues an action
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2273,6 +2343,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2284,6 +2359,47 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#a-simple-debug-proc" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A simple debug proc
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#an-npc-interaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        An NPC interaction
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-zone-timer-that-enqueues-an-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A zone timer that enqueues an action
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2299,10 +2415,96 @@
                   
 
 <h1 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
-</div>
+<p>Three complete scripts, copied verbatim from the
+<a href="https://github.com/LostCityRS/Content"><code>LostCityRS/Content</code></a> repository that
+goscape compiles. Each is real, shipping content — the file path above every
+listing is where it lives in the tree. They are ordered from simplest to most
+involved: a debug proc, an NPC interaction, and a zone-driven timer that
+enqueues a delayed action. For the syntax behind any line, follow the links
+into the <a href="../language/">Language reference</a>; to write and compile-check your own,
+see <a href="../writing-scripts/">Writing scripts</a>.</p>
+<h2 id="a-simple-debug-proc">A simple debug proc<a class="headerlink" href="#a-simple-debug-proc" title="Permanent link">&para;</a></h2>
+<p><code>scripts/_test/scripts/engine/debug_pos.rs2</code></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>[debugproc,pos]
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>def_int $x = coordx(coord);
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>def_int $z = coordz(coord);
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>def_int $y = coordy(coord);
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>mes(&quot;Position: &lt;tostring($x)&gt; &lt;tostring($z)&gt; &lt;tostring($y)&gt;&quot;);
+</span></code></pre></div>
+<p><code>debugproc</code> is a code-only trigger: a script you invoke by name from a dev
+command, not one the engine fires on a game event
+(<a href="../language/#1-file-layout-triggers">§1, trigger families</a>). It relies on the
+active player pointer being set by whoever calls it.</p>
+<ul>
+<li><code>coord</code> is the active player's coordinate. <code>coordx</code>, <code>coordz</code>, and <code>coordy</code>
+  unpack it into its x, z, and y (level) components — three <code>int</code>s stored in
+  script-local <code>$x</code>, <code>$z</code>, <code>$y</code> (<code>def_int</code>, <a href="../language/#2-variables">§2</a>).</li>
+<li><code>mes</code> prints one line to the message box. Inside the string, <code>&lt;tostring($x)&gt;</code>
+  runs the <code>tostring</code> command on the local and splices the result in — the same
+  <code>&lt;…&gt;</code> string-interpolation form introduced on the
+  <a href="../writing-scripts/">Writing scripts</a> page.</li>
+</ul>
+<h2 id="an-npc-interaction">An NPC interaction<a class="headerlink" href="#an-npc-interaction" title="Permanent link">&para;</a></h2>
+<p><code>scripts/areas/area_ardougne_west/scripts/priest.rs2</code></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>[opnpc1,w_ardoungepriest]
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>~chatplayer(&quot;&lt;p,neutral&gt;Hello there.&quot;);
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>~chatnpc(&quot;&lt;p,sad&gt;I wish there was more I could do for these people.&quot;);
+</span></code></pre></div>
+<p>This runs when a player clicks the first option on the <code>w_ardoungepriest</code> NPC.
+An <code>opnpc1</code> trigger arrives with <strong>two active pointers already set</strong> — the
+player who clicked and the npc they clicked — and this script uses both without
+naming either (<a href="../language/#6-pointers-the-implicit-active-register">§6, Pointers</a>).</p>
+<ul>
+<li>The leading <code>~</code> invokes a <strong>proc</strong>. <code>~chatplayer</code> and <code>~chatnpc</code> are content
+  procs (defined in <code>scripts/interface_chat/scripts/chat.rs2</code>) that wrap the
+  engine's raw dialogue commands; <code>~chatplayer</code> speaks as the active player and
+  <code>~chatnpc</code> as the active npc, producing the two-sided conversation.</li>
+<li><code>&lt;p,neutral&gt;</code> and <code>&lt;p,sad&gt;</code> are facial-expression tags the chat procs
+  interpret to animate the speaker's dialogue portrait. (This is distinct from
+  the inline text tags — <code>&lt;col=…&gt;</code>, <code>&lt;br&gt;</code> — described in
+  <a href="../language/#8-dialogue-string-formatting">§8, Dialogue &amp; string formatting</a>.)</li>
+</ul>
+<h2 id="a-zone-timer-that-enqueues-an-action">A zone timer that enqueues an action<a class="headerlink" href="#a-zone-timer-that-enqueues-an-action" title="Permanent link">&para;</a></h2>
+<p><code>scripts/areas/area_draynor/scripts/manor_vines.rs2</code></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>[zone,0_48_52_40_8] settimer(draynor_manor_vines, 5);
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>[timer,draynor_manor_vines]
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>// will only start timer after you enter the zone, but will continue 1 tile n/e outside of the zone
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>if(inzone(0_48_52_40_8, movecoord(0_48_52_40_8, 9, 0, 9), coord) = false) {
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    cleartimer(draynor_manor_vines);
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    return;
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>}
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>mes(&quot;A vine whips out and attacks you!&quot;);
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>spotanim_map(whippingplant_attack, coord, 0, 0);
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>sound_synth(nasty_tree_attack, 0, 0);
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>queue(damage_player, 0, 1);
+</span></code></pre></div>
+<p>This file combines a <strong>timer</strong> and a <strong>queue</strong> — the two scheduling mechanisms
+from <a href="../language/#7-queues-timers-and-engine-driven-scheduling">§7</a> — to make
+the Draynor Manor vines periodically lash out at whoever is standing among them.</p>
+<ul>
+<li><strong><code>[zone,0_48_52_40_8] settimer(draynor_manor_vines, 5);</code></strong> — a zone trigger.
+  When a player enters the zone anchored at that coord, <code>settimer</code> registers the
+  <code>draynor_manor_vines</code> timer to fire every <code>5</code> ticks for that player
+  (<a href="../language/#7-queues-timers-and-engine-driven-scheduling">§7, timers</a>).</li>
+<li><strong><code>[timer,draynor_manor_vines]</code></strong> — the timer body, run once per interval.</li>
+<li>The <code>if</code> guards against the player having left. <code>movecoord</code> offsets the
+  zone's base coord to compute its far corner; <code>inzone(corner1, corner2, coord)</code>
+  tests whether the active player's <code>coord</code> is still inside those bounds. If not
+  (<code>= false</code>), <code>cleartimer</code> cancels the timer and <code>return</code> stops this run —
+  a self-cancelling timer, the standard idiom for one that a <code>[zone,…]</code> trigger
+  started.</li>
+<li>Otherwise the effect fires: <code>mes</code> warns the player, <code>spotanim_map</code> plays the
+  attack animation at the player's <code>coord</code>, and <code>sound_synth</code> plays the sound.</li>
+<li><strong><code>queue(damage_player, 0, 1);</code></strong> enqueues the <code>damage_player</code> queue script
+  with delay <code>0</code> and argument <code>1</code> — the actual damage is applied through a
+  separate <code>[queue,damage_player]</code> script rather than inline, keeping the timer
+  body to scheduling and presentation.</li>
+</ul>
+<hr />
+<p>Every script above is compiled by goscape as part of the content tree; see
+<a href="../writing-scripts/#compile-checking-it">Writing scripts › Compile-checking it</a>
+for the exact <code>goscape-cli compile -check</code> command that type-checks them.</p>
 
 
 

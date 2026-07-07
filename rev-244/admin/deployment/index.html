@@ -617,6 +617,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deployment scenarios
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -632,6 +649,81 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-single-binary-with-sqlite-development-and-small-deployments" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1. Single binary with SQLite (development and small deployments)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-split-targets-on-one-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        2. Split targets on one host
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-multi-host-central-management-plus-world-hosts" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3. Multi-host: central management plus world hosts
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-kubernetes-with-the-helm-chart" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        4. Kubernetes with the Helm chart
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-container-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        5. Container images
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2273,6 +2365,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2284,6 +2381,69 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-single-binary-with-sqlite-development-and-small-deployments" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1. Single binary with SQLite (development and small deployments)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-split-targets-on-one-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        2. Split targets on one host
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-multi-host-central-management-plus-world-hosts" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3. Multi-host: central management plus world hosts
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-kubernetes-with-the-helm-chart" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        4. Kubernetes with the Helm chart
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-container-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        5. Container images
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2299,9 +2459,317 @@
                   
 
 <h1 id="deployment-scenarios">Deployment scenarios<a class="headerlink" href="#deployment-scenarios" title="Permanent link">&para;</a></h1>
+<p>goscape ships as a single binary that can run the whole server or just one part
+of it. That flexibility means there is no single "correct" way to deploy it — the
+right layout depends on how many players you serve and how you want to scale.
+This page walks through five concrete layouts, from a one-process development
+server to a Kubernetes fleet, and points at the exact configuration each one
+needs.</p>
+<p>Two choices shape every layout:</p>
+<ul>
+<li><strong>Which modules run where.</strong> The <code>target</code> key selects a set of modules, and each
+  module's own <code>enable</code> key gates it; a module runs only when both include it. The
+  <a href="../#modules-and-the-target-flag">Administrator's Guide overview</a> explains
+  the modules, the <a href="../#module-dependency-graph">dependency graph</a>, and the
+  <a href="../#network-surfaces-and-ports">four network listeners</a> they expose.</li>
+<li><strong>Which database backend the central database uses.</strong> <code>login</code> and <code>friends</code> are
+  the only two modules that read and write the central database; <code>sqlite</code> keeps it
+  in a local file, while <code>postgres</code> makes it a network service. See
+  <a href="../configuration/#choosing-a-database-backend">Configuration</a> for the
+  <code>database:</code> section.</li>
+</ul>
+<p>Throughout this page the ports <code>8080</code> (OnDemand HTTP), <code>43594</code> (world TCP), <code>2004</code>
+(login gRPC), and <code>2005</code> (friends gRPC) are the values from the overview's
+<a href="../#network-surfaces-and-ports">listener table</a>; every port and bind address
+is configurable through the <a href="../config-reference/">Config reference</a>.</p>
+<h2 id="1-single-binary-with-sqlite-development-and-small-deployments">1. Single binary with SQLite (development and small deployments)<a class="headerlink" href="#1-single-binary-with-sqlite-development-and-small-deployments" title="Permanent link">&para;</a></h2>
+<p>The simplest layout is one process that runs everything. Set <code>target: all</code> and the
+process starts all four modules; with the default <code>sqlite</code> backend it keeps its
+state in a local database file and needs no external services at all. This is what
+the bundled example preset does, and it is the layout the <a href="../quickstart/">Quick start</a>
+walks through step by step.</p>
+<p>Inside that single process the world module still reaches login and friends over
+gRPC, but those calls stay on the loopback interface (<code>127.0.0.1:2004</code> and
+<code>127.0.0.1:2005</code> by default) — no network hop leaves the host.</p>
+<pre class="mermaid"><code>graph LR
+    client([Game client])
+    subgraph host["Single host — one goscape process (target: all)"]
+        direction LR
+        ondemand["ondemand&lt;br/&gt;HTTP :8080"]
+        world["world&lt;br/&gt;TCP :43594"]
+        login["login&lt;br/&gt;gRPC :2004"]
+        friends["friends&lt;br/&gt;gRPC :2005"]
+        db[("SQLite file&lt;br/&gt;data/goscape.db")]
+        world --&gt;|loopback gRPC| login
+        world --&gt;|loopback gRPC| friends
+        login --&gt;|reads / writes| db
+        friends --&gt;|reads / writes| db
+    end
+    client --&gt;|game cache over HTTP| ondemand
+    client --&gt;|gameplay over TCP| world</code></pre>
+<p><em>Figure 1: one process runs every module; the login/friends gRPC calls never leave
+the host, and both write to a single SQLite file.</em></p>
+<div class="admonition tip">
+<p class="admonition-title">When this layout is enough</p>
+<p>A single-binary SQLite server is ideal for development, testing, and small
+single-world deployments. Because everything shares one process and one file,
+it has the fewest moving parts to operate. Move to one of the layouts below only
+when you need to scale a part of the server independently or spread it across
+hosts.</p>
+</div>
+<h2 id="2-split-targets-on-one-host">2. Split targets on one host<a class="headerlink" href="#2-split-targets-on-one-host" title="Permanent link">&para;</a></h2>
+<p>You can run each module as its own process on the same machine — for example one
+process with <code>target: login</code>, one with <code>target: friends</code>, one with <code>target: world</code>,
+and one with <code>target: ondemand</code>. Each process enables only the module it should run
+(a target pulls its dependencies into the process, but a dependency stays dormant
+unless its own <code>enable</code> is <code>true</code>). This lets you restart, resource-limit, or log
+each part independently without splitting across hosts yet.</p>
+<p>The processes coordinate through two channels. The world process <strong>dials</strong> the
+login and friends processes over gRPC, so its config must point at them:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">world</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">login_server_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">login_server_address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">127.0.0.1:2004</span><span class="w">     </span><span class="c1"># --world.login-server-address</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">friends_server_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">             </span><span class="c1"># default is false — set it to use friends</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">friends_server_address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">127.0.0.1:2005</span><span class="w">   </span><span class="c1"># --world.friends-server-address</span>
+</span></code></pre></div>
+<p>The login and friends processes <strong>share state</strong> through the central database. Since
+they are the only two central-database clients, they are the only processes that
+need to reach it.</p>
+<div class="admonition warning">
+<p class="admonition-title">SQLite serializes writers; PostgreSQL is the safe multi-process choice</p>
+<p>With the <code>sqlite</code> backend the login and friends processes must share a
+filesystem (hence the same host) because both open the same file. goscape opens
+SQLite in write-ahead-logging mode (<code>PRAGMA journal_mode=WAL</code>) with a
+five-second busy timeout (<code>busy_timeout(5000)</code>) and a single connection per
+process, so two processes writing one file <strong>work</strong>, but SQLite still allows
+only one writer at a time across the whole file: under write contention the
+second process waits up to the busy timeout and can then fail with a "database
+is locked" error. Each process also runs its own schema migrator at boot,
+serialized by the same timeout.</p>
+<p>Switch the backend to <code>postgres</code> once you split login and friends into separate
+processes. PostgreSQL is built for concurrent clients, removes the single-writer
+serialization, and is the only option once those two modules move onto different
+hosts (the next scenario). See
+<a href="../configuration/#choosing-a-database-backend">Configuration</a>.</p>
+</div>
+<pre class="mermaid"><code>graph LR
+    client([Game client])
+    subgraph host["Single host — four goscape processes"]
+        direction LR
+        ondemand["target: ondemand&lt;br/&gt;HTTP :8080"]
+        world["target: world&lt;br/&gt;TCP :43594"]
+        login["target: login&lt;br/&gt;gRPC :2004"]
+        friends["target: friends&lt;br/&gt;gRPC :2005"]
+        db[("Central database&lt;br/&gt;(shared SQLite file&lt;br/&gt;or PostgreSQL)")]
+        world --&gt;|gRPC :2004| login
+        world --&gt;|gRPC :2005| friends
+        login --&gt;|writer| db
+        friends --&gt;|writer| db
+    end
+    client --&gt;|HTTP| ondemand
+    client --&gt;|TCP| world</code></pre>
+<p><em>Figure 2: four processes on one host; the world process dials login and friends
+over gRPC, and only login and friends touch the central database.</em></p>
+<h2 id="3-multi-host-central-management-plus-world-hosts">3. Multi-host: central management plus world hosts<a class="headerlink" href="#3-multi-host-central-management-plus-world-hosts" title="Permanent link">&para;</a></h2>
+<p>To scale past a single machine, split the server into a <strong>central management host</strong>
+that runs <code>login</code> + <code>friends</code> against a PostgreSQL database, and <strong>one or more world
+hosts</strong> that each run <code>world</code> + <code>ondemand</code> and dial the management host's gRPC
+endpoints. This is the layout PostgreSQL exists for: the SQLite backend cannot span
+hosts, so <code>postgres</code> is <strong>required</strong> here.</p>
+<p>On the management host, choose the PostgreSQL backend and bind the login and friends
+listeners to a routable address (the defaults bind <code>127.0.0.1</code>, which no other host
+can reach):</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">database</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgres</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">dsn</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgres://user:pass@db-host:5432/goscape?sslmode=disable</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nt">login</span><span class="p">:</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">enable</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">grpc_listen_address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0.0.0</span><span class="w">   </span><span class="c1"># reachable by the world hosts</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nt">friends</span><span class="p">:</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">enable</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="nt">grpc_listen_address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0.0.0</span>
+</span></code></pre></div>
+<p>On each world host, disable the local login/friends modules and point the world
+module at the management host with these keys:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">world</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">enable</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">login_server_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">login_server_address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mgmt-host:2004</span><span class="w">      </span><span class="c1"># --world.login-server-address</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">friends_server_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">friends_server_address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mgmt-host:2005</span><span class="w">    </span><span class="c1"># --world.friends-server-address</span>
+</span></code></pre></div>
+<pre class="mermaid"><code>graph LR
+    subgraph mgmt["Management host"]
+        direction TB
+        login["login&lt;br/&gt;gRPC :2004"]
+        friends["friends&lt;br/&gt;gRPC :2005"]
+        pg[("PostgreSQL")]
+        login --&gt;|reads / writes| pg
+        friends --&gt;|reads / writes| pg
+    end
+    subgraph w1["World host 1"]
+        w1world["world&lt;br/&gt;TCP :43594"]
+        w1od["ondemand&lt;br/&gt;HTTP :8080"]
+    end
+    subgraph wN["World host N"]
+        wNworld["world&lt;br/&gt;TCP :43594"]
+        wNod["ondemand&lt;br/&gt;HTTP :8080"]
+    end
+    w1world --&gt;|login_server_address&lt;br/&gt;gRPC :2004| login
+    w1world --&gt;|friends_server_address&lt;br/&gt;gRPC :2005| friends
+    wNworld --&gt;|gRPC :2004| login
+    wNworld --&gt;|gRPC :2005| friends</code></pre>
+<p><em>Figure 3: N world hosts dial one management host's login and friends gRPC
+endpoints; login and friends share one PostgreSQL database.</em></p>
 <div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
+<p class="admonition-title">Match the friends profile to the world profile</p>
+<p>The friends server serves a single <code>profile</code> and rejects a world whose profile
+does not match. Keep the world module's <code>node_profile</code> (default <code>main</code>) and the
+friends module's <code>profile</code> (default <code>main</code>) in agreement across every host, or
+the world's connection to the friends server is refused.</p>
+</div>
+<h2 id="4-kubernetes-with-the-helm-chart">4. Kubernetes with the Helm chart<a class="headerlink" href="#4-kubernetes-with-the-helm-chart" title="Permanent link">&para;</a></h2>
+<p>The repository ships a Helm chart at <code>production/helm/goscape</code> that packages these
+layouts for Kubernetes. You install it <strong>once per role</strong>, choosing the role with
+<code>deploymentMode</code>:</p>
+<table>
+<thead>
+<tr>
+<th><code>deploymentMode</code></th>
+<th>Workload</th>
+<th>Modules</th>
+<th>State</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SingleBinary</code></td>
+<td>StatefulSet</td>
+<td>ondemand + world + login + friends</td>
+<td>PVC</td>
+</tr>
+<tr>
+<td><code>Management</code></td>
+<td>StatefulSet</td>
+<td>login + friends</td>
+<td>PVC</td>
+</tr>
+<tr>
+<td><code>World</code></td>
+<td>Deployment</td>
+<td>ondemand + world (dials Management)</td>
+<td>none</td>
+</tr>
+</tbody>
+</table>
+<p><code>SingleBinary</code> maps to scenario 1 and <code>Management</code> + <code>World</code> map to scenario 3: a
+single <code>Management</code> release (a StatefulSet with a PersistentVolumeClaim for its
+database) is dialed by any number of stateless <code>World</code> releases (a Deployment you
+can scale horizontally). Install one <code>World</code> release per world with a distinct
+release name and <code>goscape.node.id</code>, pointing each at the management Service:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>helm<span class="w"> </span>install<span class="w"> </span>goscape-mgmt<span class="w"> </span>./production/helm/goscape<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>-f<span class="w"> </span>production/helm/goscape/management-values.yaml
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>helm<span class="w"> </span>install<span class="w"> </span>goscape-world-1<span class="w"> </span>./production/helm/goscape<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span>-f<span class="w"> </span>production/helm/goscape/world-values.yaml<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span>--set<span class="w"> </span>goscape.node.id<span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span>--set<span class="w"> </span>goscape.loginServerAddress<span class="o">=</span>goscape-mgmt:2004<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span>--set<span class="w"> </span>goscape.friendsServerAddress<span class="o">=</span>goscape-mgmt:2005
+</span></code></pre></div>
+<p>The chart's rendered values for every revision are captured on the
+<a href="../helm-values/">Helm values examples</a> page. A few chart-specific points matter to
+operators:</p>
+<ul>
+<li><strong>The image must carry the packed cache.</strong> The chart expects the game cache baked
+  into the image at <code>/usr/share/goscape/pack</code> (the default <code>goscape.cachePath</code>), so
+  the pods have no cache PVC. Build the image with the repository's
+  <code>cmd/goscape/Dockerfile</code>, which packs the content placed at <code>data/src</code> into the
+  image during the build (see <a href="#5-container-images">scenario 5</a>).</li>
+<li>
+<p><strong><code>goscape.extraConfig</code> is an escape hatch, deep-merged over the generated config.</strong>
+  Any setting without a dedicated chart value can be set under <code>goscape.extraConfig</code>,
+  which is merged on top of the config the chart generates.</p>
+<div class="admonition warning">
+<p class="admonition-title"><code>extraConfig</code> keys must match the config schema exactly</p>
+<p>goscape decodes its config strictly, so an unknown key under
+<code>goscape.extraConfig</code> — a typo or a stale key — makes the pod fail at
+startup rather than warn. See
+<a href="../configuration/#strict-decoding">Configuration</a> for how strict decoding
+behaves and how to catch a bad key before you deploy.</p>
+</div>
+</li>
+<li>
+<p><strong>NetworkPolicy is same-namespace.</strong> With <code>networkPolicy.enabled=true</code> in
+  <code>Management</code> mode, only goscape pods carrying the <code>app.kubernetes.io/name: goscape</code>
+  label <strong>in the same namespace</strong> may reach the login and friends gRPC ports.
+  Install <code>World</code> releases in the same namespace as the <code>Management</code> release, or
+  widen the policy yourself.</p>
+</li>
+<li><strong>A custom login RSA key is a mounted Secret.</strong> In <code>World</code> and <code>SingleBinary</code>
+  modes you can replace the built-in login-decryption key: pre-create a Secret
+  holding the PEM-encoded private key and reference it with
+  <code>goscape.loginRsaKey.existingSecret</code>. The chart mounts it read-only at
+  <code>/etc/goscape-login-rsa</code> and wires it into <code>world.rsa_private_key_path</code>. The Java
+  client must carry the matching public key or every login fails; leave
+  <code>existingSecret</code> empty to keep the built-in key.</li>
+</ul>
+<p>For PostgreSQL, set <code>goscape.database.backend=postgres</code> (in <code>Management</code> or
+<code>SingleBinary</code> mode) and supply the password through a referenced Secret rather than
+in the values file.</p>
+<pre class="mermaid"><code>graph LR
+    subgraph ns["One Kubernetes namespace"]
+        direction LR
+        subgraph mgmtset["Management release (StatefulSet + PVC)"]
+            mlogin["login&lt;br/&gt;:2004"]
+            mfriends["friends&lt;br/&gt;:2005"]
+        end
+        pg[("PostgreSQL")]
+        mlogin --&gt; pg
+        mfriends --&gt; pg
+        subgraph worldset["World release (Deployment, N replicas)"]
+            wworld["world :43594"]
+            wod["ondemand :8080"]
+        end
+        wworld --&gt;|goscape-mgmt:2004| mlogin
+        wworld --&gt;|goscape-mgmt:2005| mfriends
+    end</code></pre>
+<p><em>Figure 4: the Helm chart's Management-plus-World topology in one namespace; the
+stateful Management release is dialed by scalable, stateless World replicas.</em></p>
+<h2 id="5-container-images">5. Container images<a class="headerlink" href="#5-container-images" title="Permanent link">&para;</a></h2>
+<p>The Makefile's <code>images</code> target builds two images with <code>make images</code>:</p>
+<ul>
+<li><strong><code>goscape</code></strong> (from <code>cmd/goscape/Dockerfile</code>) — the server image. Its multi-stage
+  build compiles both binaries, packs the game cache, and assembles a small
+  distroless final image containing the <code>goscape</code> server at <code>/usr/bin/goscape</code>
+  (the entrypoint), the <code>goscape-cli</code> tool at <code>/usr/bin/goscape-cli</code>, and the
+  <strong>packed cache baked in at <code>/usr/share/goscape/pack</code></strong> — the path the Helm chart
+  expects. The pack step reads source content from <code>data/src</code> in the build context,
+  so that content must be present when you build.</li>
+<li><strong><code>goscape-cli</code></strong> (from <code>cmd/goscape-cli/Dockerfile</code>) — a slim, tooling-only image
+  whose entrypoint is the <code>goscape-cli</code> offline tool (cache pack/unpack, RuneScript
+  compile, RSA key generation, and the other subcommands). Use it when you want the
+  tooling without the full server image.</li>
+</ul>
+<pre class="mermaid"><code>graph LR
+    src["Repository checkout&lt;br/&gt;+ content at data/src"]
+    subgraph make["make images"]
+        d1["cmd/goscape/Dockerfile"]
+        d2["cmd/goscape-cli/Dockerfile"]
+    end
+    src --&gt; d1
+    src --&gt; d2
+    d1 --&gt;|goscape + goscape-cli&lt;br/&gt;+ packed cache| img1["goscape image&lt;br/&gt;cache at /usr/share/goscape/pack"]
+    d2 --&gt;|goscape-cli only| img2["goscape-cli image"]</code></pre>
+<p><em>Figure 5: <code>make images</code> builds a server image with the cache baked in and a
+separate tooling-only image.</em></p>
+<div class="admonition note">
+<p class="admonition-title">Building the images</p>
+<p><code>make images</code> builds with <code>podman</code> by default (or <code>docker buildx</code> under CI,
+which produces multi-architecture <code>linux/amd64</code> and <code>linux/arm64</code> images). The
+image name prefix (<code>goscape/</code>) and tag come from Makefile variables. To pack a
+cache outside of an image build — for a local run or to prepare <code>data/src</code> — use
+<code>make pack</code>, described in the <a href="../operations/">Operations runbook</a>.</p>
 </div>
 
 

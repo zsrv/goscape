@@ -1767,6 +1767,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deploying scripts
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -1782,6 +1799,87 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-development-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The development loop
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The development loop">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-reload-reloads" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What <code>::reload</code> reloads
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Production
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#byte-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Byte parity
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-go-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where to go next
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2273,6 +2371,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2284,6 +2387,75 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-development-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The development loop
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The development loop">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-reload-reloads" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What <code>::reload</code> reloads
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Production
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#byte-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Byte parity
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-go-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where to go next
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2299,10 +2471,146 @@
                   
 
 <h1 id="deploying-scripts">Deploying scripts<a class="headerlink" href="#deploying-scripts" title="Permanent link">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
+<p>A script only affects the game once it has been <strong>compiled into the cache</strong> and
+the running world has <strong>loaded that cache</strong>. Source <code>.rs2</code> files are never read
+by the server directly. This page covers the two paths from an edit to live
+behaviour: the fast in-development loop, which hot-reloads a freshly packed cache
+without restarting; and the production procedure, which repacks, verifies
+byte-parity, and restarts. It builds on the <a href="../toolchain/">Toolchain</a> page (the
+<code>compile</code>, <code>pack</code>, and <code>smoke-pack</code> verbs) and the
+<a href="../../admin/operations/#cache-packing">Operations runbook</a> (the operational side
+of packing and restarts).</p>
+<h2 id="the-development-loop">The development loop<a class="headerlink" href="#the-development-loop" title="Permanent link">&para;</a></h2>
+<p>On a development world the round trip is four steps:</p>
+<ol>
+<li><strong>Edit</strong> a <code>.rs2</code> file under <code>data/src/scripts</code>.</li>
+<li><strong>Check</strong> it with <code>goscape-cli compile -check</code> for fast diagnostics — a
+   couple of seconds, no cache written
+   (<a href="../toolchain/#compile-check-the-script-tree">Toolchain</a>,
+   <a href="../writing-scripts/#compile-checking-it">Writing scripts</a>).</li>
+<li><strong>Pack</strong> the cache with <code>make pack</code> — this is what compiles the scripts into
+   <code>data/pack/server/script.dat</code> and rebuilds the rest of the cache
+   (<a href="../toolchain/#pack-build-the-cache">Toolchain</a>).</li>
+<li><strong>Reload</strong> in-game with the <code>::reload</code> admin command, which reloads the packed
+   cache into the running world with no restart.</li>
+</ol>
+<p>Step 2 is optional but cheap insurance: <code>compile -check</code> reports an unresolved
+command or a type error in seconds, whereas discovering it during <code>make pack</code>
+means waiting for the whole pipeline. Step 3 is not optional — <code>::reload</code> reads
+the <em>packed cache</em>, never your source.</p>
+<div class="admonition warning">
+<p class="admonition-title"><code>::reload</code> loads the packed cache, not your source</p>
+<p><code>::reload</code> re-reads the cache at <code>world.cache_path</code> (default <code>./data/pack</code>).
+It does <strong>not</strong> compile: if you edit a script and reload without running
+<code>make pack</code> first, the world reloads the <em>old</em> compiled bytecode and your
+change does not appear. Always pack, then reload.</p>
 </div>
+<h3 id="what-reload-reloads">What <code>::reload</code> reloads<a class="headerlink" href="#what-reload-reloads" title="Permanent link">&para;</a></h3>
+<p><code>::reload</code> runs the world's reload routine on the tick goroutine — the tick
+blocks while it works, so it is a brief pause, not a background job. Reading from
+the packed cache, it reloads:</p>
+<ul>
+<li><strong>Every type/config registry</strong> — varp, varbit, param, obj, loc, npc, idk, seq
+  (with its animation frames), spotanim, category, enum, struct, inv, mesanim,
+  dbtable and dbrow (and their index), hunt, varn, vars, and component types.</li>
+<li><strong>Inventories</strong> — shared inventories (<code>scope=shared</code>) are rebuilt from their
+  type; each player's temporary inventories (<code>scope=temp</code>) are cleared.
+  Persistent inventories (<code>scope=perm</code>, written to save files) are left
+  untouched.</li>
+<li><strong>Shared-variable storage</strong> — the <code>varshared</code> backing store is resized if the
+  varshared type count changed.</li>
+<li><strong>The compiled scripts</strong> — reloaded from <code>&lt;cache_path&gt;/server</code>. On a debug
+  world this broadcasts <code>Loaded N scripts.</code> (or an error message) so you can see
+  it took.</li>
+<li><strong>The CRC tables</strong> — regenerated so the values the world advertises to clients
+  match the new cache.</li>
+<li><strong>The live map's type tables</strong> — the fresh loc and obj type registries are
+  re-injected into the running map, along with the members flag.</li>
+</ul>
+<p>What <code>::reload</code> does <strong>not</strong> reload is the <strong>map geometry itself</strong>: the terrain,
+zones, and placed-loc/ground-object data loaded at startup are not re-read. Only
+the loc/obj <em>type</em> tables the map references are re-injected. A change to where
+things are placed on the map — as opposed to what a loc or obj <em>is</em> — therefore
+needs a server restart, not a reload.</p>
+<div class="admonition warning">
+<p class="admonition-title"><code>::reload</code> is developer-only: staff level 4 and non-production</p>
+<p><code>::reload</code> lives in the engine's developer command block, gated on
+<strong><code>world.node_production</code> being <code>false</code> and the caller's staff mod level
+being 4 or higher</strong>. On a production world (<code>node_production: true</code>) the
+entire developer block is skipped, so <code>::reload</code> does nothing — production
+content updates go through the <a href="#production">restart procedure</a> below. If a
+reload hits an error partway through, some registries may already be swapped
+and others not (the engine does not roll back); it logs the failure and
+tells you <code>Reload failed: see server log.</code></p>
+</div>
+<h2 id="production">Production<a class="headerlink" href="#production" title="Permanent link">&para;</a></h2>
+<p>A production world (<code>world.node_production: true</code>) does not hot-reload — the
+developer <code>::reload</code> command is unavailable there. Content is updated by
+repacking, verifying, and restarting:</p>
+<ol>
+<li><strong>Repack from source</strong> with the <code>goscape-cli</code> built from the <strong>same
+   revision</strong> as the running server (<code>make pack</code>). The cache layout is coupled to
+   the engine, so a mismatched tool can pack a cache the server reads
+   incorrectly. See
+   <a href="../../admin/operations/#packing-the-cache">Packing the cache</a>.</li>
+<li><strong>Verify</strong> the new cache with
+   <a href="../toolchain/#byte-diffing-against-a-reference"><code>goscape-cli smoke-pack -reference-dir &lt;ref&gt;</code></a>,
+   pointing <code>-reference-dir</code> at the upstream reference cache. A run reporting
+   <code>0</code> diffs across every stage is your byte-parity proof that the cache matches
+   the reference the revision was built against.</li>
+<li><strong>Restart the world</strong> so it loads the new cache — it reads <code>world.cache_path</code>
+   at boot. A clean OS-signal stop first runs a final save-all for every online
+   player. See
+   <a href="../../admin/operations/#restarts-upgrades">Restarts &amp; upgrades</a> for the full
+   procedure, including config verification and database backup before a
+   cross-revision upgrade.</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title"><code>::reboot</code> stops the world module, not the process</p>
+<p>The in-game <code>::reboot</code> / <code>::slowreboot</code> commands (staff level 3+, and only
+when <code>node_production</code> is <code>true</code>) schedule a graceful world shutdown that
+drains players with a save. But in an <code>all</code> deployment that graceful exit
+stops <strong>only the world module</strong> — the OnDemand, login, and friends modules
+keep running and the process stays up. To bring the whole process down for a
+binary swap, send <code>SIGTERM</code> after the countdown has drained the players. The
+<a href="../../admin/operations/#in-game-reboot-commands">In-game reboot commands</a>
+section of the Operations runbook covers this in full.</p>
+</div>
+<h2 id="byte-parity">Byte parity<a class="headerlink" href="#byte-parity" title="Permanent link">&para;</a></h2>
+<p>The pack pipeline is not "close enough" — it is engineered to reproduce the
+upstream cache <strong>byte-for-byte</strong>. From the project's porting lessons:</p>
+<blockquote>
+<p><strong>Byte-faithful at the boundaries.</strong> […] the pack pipeline's cache output
+[is] byte-for-byte against the reference. The pack pipeline is verified by
+byte-diffing <code>script.dat</code> (and friends) against the cache the upstream TS
+meta-repo packs.</p>
+</blockquote>
+<p>That is why <a href="../toolchain/#byte-diffing-against-a-reference"><code>smoke-pack -reference-dir</code></a>
+exists and why a non-zero diff is treated as a bug in the port, not a build
+choice you can shrug off. Two consequences worth knowing when you touch the
+pipeline:</p>
+<ul>
+<li><strong>Determinism comes before diffing.</strong> Go map iteration order is randomized, so
+  any output derived from a map must impose an explicit order; the porting notes
+  record a case where a single map-iteration-order bug masked four separate
+  parity bugs until the output was made stable.</li>
+<li><strong>The cache version byte is pinned to the reference.</strong> goscape writes the
+  script-archive version byte the reference compiler for the revision emits (26
+  through rev-245.2, 27 from rev-254 on — see the
+  <a href="../toolchain/#the-runescript-compiler">Toolchain compiler table</a>); the server
+  rejects a cache whose version does not match.</li>
+</ul>
+<p>For the durable version of this philosophy and the full set of pipeline gotchas,
+see the <a href="../../contributor/porting-lessons/">Porting lessons</a>.</p>
+<h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><a href="../toolchain/">Toolchain</a></strong> — the <code>compile</code>, <code>pack</code>, and <code>smoke-pack</code> verbs
+  in detail.</li>
+<li><strong><a href="../../admin/operations/#restarts-upgrades">Operations runbook</a></strong> — restarts,
+  upgrades, and cache packing from the operator's side.</li>
+<li><strong><a href="../writing-scripts/">Writing scripts</a></strong> — authoring and compile-checking a
+  script.</li>
+</ul>
 
 
 

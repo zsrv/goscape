@@ -1986,6 +1986,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Dev environment
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -2001,6 +2018,98 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#engine-toolchain" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Engine: toolchain
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#engine-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Engine: tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#engine-packing-the-game-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Engine: packing the game cache
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docs-site-toolchain" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Docs site: toolchain
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Docs site: toolchain">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#regenerating-the-generated-pages-when-a-pin-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Regenerating the generated pages (when a pin changes)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-and-previewing-the-site" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Building and previewing the site
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2273,6 +2382,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2284,6 +2398,86 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#engine-toolchain" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Engine: toolchain
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#engine-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Engine: tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#engine-packing-the-game-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Engine: packing the game cache
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docs-site-toolchain" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Docs site: toolchain
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Docs site: toolchain">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#regenerating-the-generated-pages-when-a-pin-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Regenerating the generated pages (when a pin changes)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-and-previewing-the-site" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Building and previewing the site
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2299,10 +2493,115 @@
                   
 
 <h1 id="dev-environment">Dev environment<a class="headerlink" href="#dev-environment" title="Permanent link">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
-</div>
+<p>This page covers two workflows: building and testing the <strong>engine</strong> (a <code>rev-N</code>
+branch), and building this <strong>documentation site</strong> (the <code>docs-site</code> branch on the
+docs worktree). They are independent — pick whichever you are working on.</p>
+<h2 id="engine-toolchain">Engine: toolchain<a class="headerlink" href="#engine-toolchain" title="Permanent link">&para;</a></h2>
+<p>The engine requires <strong>Go 1.26 or newer</strong> (<code>go.mod</code> declares <code>go 1.26</code>; the
+release images pin <code>1.26.3</code>). No other toolchain is needed to build or test the
+server — the binary is statically linkable and its dependencies are pure Go.</p>
+<p>Builds set <code>CGO_ENABLED=0</code> so the result is a static binary with no libc
+dependency:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Run the server against the bundled example config</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">CGO_ENABLED</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>go<span class="w"> </span>run<span class="w"> </span>-trimpath<span class="w"> </span>./cmd/goscape<span class="w"> </span>--config.file<span class="w"> </span>examples/bundled/goscape.yaml
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Build the server binary</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nv">CGO_ENABLED</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>-trimpath<span class="w"> </span>-o<span class="w"> </span>goscape<span class="w"> </span>./cmd/goscape
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Build both binaries (goscape + goscape-cli) via the Makefile</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>make<span class="w"> </span>all
+</span></code></pre></div>
+<p><code>make all</code> produces two executables: <code>goscape</code> (the server daemon) and
+<code>goscape-cli</code> (the offline cache/RuneScript tooling — <code>pack</code>, <code>unpack</code>,
+<code>compile</code>, <code>rsa</code>, <code>worldmap</code>, <code>jag</code>).</p>
+<h2 id="engine-tests">Engine: tests<a class="headerlink" href="#engine-tests" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Run the whole suite</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./...
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Run a single package / a single test</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./pkg/io/packet/...<span class="w"> </span>-run<span class="w"> </span>TestName
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Run the race detector on touched packages</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-race<span class="w"> </span>./...
+</span></code></pre></div>
+<p>The suite is green out of the box. Two things are worth knowing:</p>
+<ul>
+<li><strong>The race detector needs cgo.</strong> <code>go test -race</code> requires <code>CGO_ENABLED=1</code>
+  (the default), so it links against a C toolchain. The world tick loop is
+  goroutine-heavy, so race coverage on packages you touch there is worth the
+  cost.</li>
+<li><strong>Some tests need the packed cache.</strong> Tests that exercise the world server's
+  reload pipeline require <code>data/pack/</code> (produced by <code>goscape-cli pack</code>, below)
+  and skip automatically when it is absent.</li>
+</ul>
+<p>The full verification gate that porting work is held to —
+<code>CGO_ENABLED=0 go build -trimpath ./...</code>, <code>go vet ./...</code>, <code>go test ./...</code>, and
+<code>go test -race</code> on touched packages — is documented in the
+<a href="../porting-lessons/">Porting lessons</a> (§5, "Verification").</p>
+<h2 id="engine-packing-the-game-cache">Engine: packing the game cache<a class="headerlink" href="#engine-packing-the-game-cache" title="Permanent link">&para;</a></h2>
+<p>The server reads a <strong>packed cache</strong> (configs, compiled RuneScript, and maps)
+that <code>goscape-cli</code> builds from a Content source tree. <code>make pack</code> runs the packer:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>make<span class="w"> </span>pack<span class="w">   </span><span class="c1"># packs CACHE_SRC_DIR (data/src) → CACHE_OUT_DIR (data/pack)</span>
+</span></code></pre></div>
+<p>The packer reads source content from <code>data/src</code> by default (<code>CACHE_SRC_DIR</code>),
+stages intermediate output under <code>data/raw</code> (<code>CACHE_RAW_DIR</code>), and writes the
+finished cache to <code>data/pack</code> (<code>CACHE_OUT_DIR</code>). goscape does <strong>not</strong> vendor the
+Content tree, so before your first <code>make pack</code> you must point <code>data/src</code> at a
+checkout of the Content repo pinned for your revision — the simplest way is a
+symlink:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># from the repo root; use the Content checkout pinned for your revision</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="o">[</span><span class="w"> </span>-e<span class="w"> </span>data/src<span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span>ln<span class="w"> </span>-s<span class="w"> </span>/path/to/Content<span class="w"> </span>data/src
+</span></code></pre></div>
+<p>The exact Content commit each revision is pinned to is on the
+<a href="../references-pins/">References &amp; pins</a> page. <code>data/pack/</code> is what the OnDemand
+module serves to clients and what the world module reads maps from, so the same
+<code>make pack</code> output feeds both a running server and the cache-dependent tests.</p>
+<h2 id="docs-site-toolchain">Docs site: toolchain<a class="headerlink" href="#docs-site-toolchain" title="Permanent link">&para;</a></h2>
+<p>The documentation site is a separate build that lives on the <code>docs-site</code> branch.
+It assembles a per-revision docs tree, renders it with
+<a href="https://github.com/squidfunk/zensical">zensical</a>, and publishes each revision as
+a versioned site with <a href="https://github.com/squidfunk/mike">mike</a>. Everything runs
+out of a Python virtual environment:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># from the docs worktree root, one time</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>.venv/bin/pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt<span class="w">   </span><span class="c1"># zensical, mike, pytest</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># put the venv on PATH for the rest of your shell session</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$PWD</span><span class="s2">/.venv/bin:</span><span class="nv">$PATH</span><span class="s2">&quot;</span>
+</span></code></pre></div>
+<h3 id="regenerating-the-generated-pages-when-a-pin-changes">Regenerating the generated pages (when a pin changes)<a class="headerlink" href="#regenerating-the-generated-pages-when-a-pin-changes" title="Permanent link">&para;</a></h3>
+<p>The per-revision <strong>overlay</strong> pages (item/NPC/location/varp lists, the commands
+reference, music, places, and the revision-comparison table) are generated from
+each revision's Content tree and packed cache by <code>tools/docsgen</code>. You only need
+to re-run it when those inputs change — for example when a Content pin moves or a
+new revision is added:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>-m<span class="w"> </span>tools.docsgen<span class="w"> </span>--revision<span class="w"> </span><span class="m">274</span><span class="w">      </span><span class="c1"># one revision</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python<span class="w"> </span>-m<span class="w"> </span>tools.docsgen<span class="w"> </span>--revision<span class="w"> </span>all<span class="w">      </span><span class="c1"># every revision + the comparison table</span>
+</span></code></pre></div>
+<p><code>docsgen</code> reads its per-revision inputs (branch, content directory, cache
+directory) from <code>tools/docsgen/revisions.toml</code>. Its unpack/config/command steps
+need the referenced Content and cache checkouts on disk, so a docs-only
+contributor without those reference trees typically edits the hand-written pages
+(under <code>docs/</code>) and leaves the generated overlays alone.</p>
+<h3 id="building-and-previewing-the-site">Building and previewing the site<a class="headerlink" href="#building-and-previewing-the-site" title="Permanent link">&para;</a></h3>
+<p>The build is a two-step loop: <code>tools/build.py assemble</code> stages a self-contained
+docs tree for one revision (copying <code>docs/</code>, applying that revision's overlay,
+injecting <code>REFERENCES.md</code>/<code>PORTING-LESSONS.md</code> as the pins and lessons pages, and
+rendering <code>mkdocs.yml</code> from the template), and then zensical renders it:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python<span class="w"> </span>tools/build.py<span class="w"> </span>assemble<span class="w"> </span>--revision<span class="w"> </span><span class="m">274</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>zensical<span class="w"> </span>build<span class="w"> </span>--strict<span class="w"> </span>-f<span class="w"> </span>.build/rev-274/mkdocs.yml
+</span></code></pre></div>
+<p><code>--strict</code> turns warnings (such as broken internal links) into errors, so a
+clean strict build is the bar a docs change has to clear.</p>
+<p>To build and publish <strong>every</strong> revision as a mike version — and set the newest
+one as the default <code>latest</code> alias — use the <code>all</code> subcommand, then preview the
+versioned set:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python<span class="w"> </span>tools/build.py<span class="w"> </span>all<span class="w">   </span><span class="c1"># assemble + mike deploy every revision, set default</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>mike<span class="w"> </span>serve<span class="w">                  </span><span class="c1"># preview the deployed versions locally</span>
+</span></code></pre></div>
+<p>The revision set and which one is <code>latest</code> are defined by the <code>order</code> and
+<code>latest</code> keys in <code>tools/docsgen/revisions.toml</code>; adding a revision there is the
+first step of <a href="../porting/">Porting a new revision</a>'s documentation task.</p>
 
 
 

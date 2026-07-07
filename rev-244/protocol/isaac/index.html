@@ -2201,6 +2201,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ISAAC
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -2216,6 +2233,93 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-isaac-protects" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What ISAAC protects
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#seeding-from-the-login-block" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Seeding from the login block
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Seeding from the login block">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-encryptordecryptor-offset" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The encryptor/decryptor offset
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cipher-mechanics" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cipher mechanics
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cipher mechanics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#test-vectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Test vectors
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2273,6 +2377,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2284,6 +2393,81 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-isaac-protects" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What ISAAC protects
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#seeding-from-the-login-block" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Seeding from the login block
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Seeding from the login block">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-encryptordecryptor-offset" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The encryptor/decryptor offset
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cipher-mechanics" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cipher mechanics
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cipher mechanics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#test-vectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Test vectors
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2299,10 +2483,105 @@
                   
 
 <h1 id="isaac">ISAAC<a class="headerlink" href="#isaac" title="Permanent link">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
-</div>
+<p>ISAAC is the stream cipher goscape uses to encipher <strong>game-packet opcodes</strong> once
+a client is logged in. This page documents what it protects, how it is seeded
+from the login block, the encryptor/decryptor offset, and the cipher mechanics —
+all from <code>pkg/io/isaac/isaac.go</code> and the opcode read/write paths in
+<code>modules/world/player.go</code> at wire revision 244.</p>
+<h2 id="what-isaac-protects">What ISAAC protects<a class="headerlink" href="#what-isaac-protects" title="Permanent link">&para;</a></h2>
+<p>Only the <strong>opcode byte</strong> of each game packet is enciphered — not the length
+prefix, not the payload. After login:</p>
+<ul>
+<li><strong>Write path</strong> (<code>player.go</code>, <code>writeOut</code>): the outgoing opcode is
+  <code>(opcode + encryptor.GetNext()) &amp; 0xff</code>. The length prefix (0/&frac12; bytes per
+  the <a href="../framing/">framing</a> model) and payload are written in the clear.</li>
+<li><strong>Read path</strong> (<code>player.go</code>, <code>readPacket</code>): the incoming opcode is recovered as
+  <code>(rawByte - decryptor.GetNext()) &amp; 0xff</code>, then looked up in the opcode table.</li>
+</ul>
+<p>Each direction consumes one 32-bit ISAAC output per opcode, truncated to a byte.
+Because both ends advance their streams in lockstep, opcode <em>N</em> on one side is
+deciphered against the same keystream word on the other.</p>
+<p>This cipher is armed during the login handshake — see
+<a href="../login/#step-3-arming-isaac">login</a> for where in the sequence it happens and
+the <a href="../../contributor/architecture/#connection-lifecycle-and-isaac-placement">architecture guide</a>
+for its place in the connection lifecycle.</p>
+<h2 id="seeding-from-the-login-block">Seeding from the login block<a class="headerlink" href="#seeding-from-the-login-block" title="Permanent link">&para;</a></h2>
+<p>The RSA-encrypted portion of the login block carries <strong>four 32-bit seeds</strong>
+(<code>ISAACSeed[0..3]</code>; see the <a href="../login/#rsa-encrypted-block">login RSA-block table</a>).
+<code>isaac.New(seed [4]uint32)</code> copies those four words into the first four slots of
+its 256-word result array and zero-fills the rest, then runs the key schedule
+(<code>init</code>). Only 4 of the 256 words are seeded from the client — the rest of the
+entropy comes from the mixing schedule, matching the client.</p>
+<h3 id="the-encryptordecryptor-offset">The encryptor/decryptor offset<a class="headerlink" href="#the-encryptordecryptor-offset" title="Permanent link">&para;</a></h3>
+<p>goscape keys <strong>two</strong> independent ISAAC instances per connection from the same
+four seeds, with a fixed offset (<code>server_login.go</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Stream</th>
+<th>Seeded from</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>decryptor</code></td>
+<td>the four seeds <strong>as received</strong></td>
+<td>deciphering opcodes read from the client</td>
+</tr>
+<tr>
+<td><code>encryptor</code></td>
+<td>the four seeds <strong>each + 50</strong></td>
+<td>enciphering opcodes sent to the client</td>
+</tr>
+</tbody>
+</table>
+<p>Concretely, the server seeds the decryptor first, then adds <code>50</code> to every one of
+the four seed words and seeds the encryptor from the adjusted array. The Java
+client performs the mirror-image construction (its outbound cipher is seeded
+from the unmodified seeds, its inbound cipher from seeds + 50), so the server's
+decryptor tracks the client's encryptor and vice-versa.</p>
+<h2 id="cipher-mechanics">Cipher mechanics<a class="headerlink" href="#cipher-mechanics" title="Permanent link">&para;</a></h2>
+<p><code>pkg/io/isaac/isaac.go</code> is a straightforward 256-word ISAAC:</p>
+<ul>
+<li><strong>State.</strong> A 256-word result array (<code>rsl</code>), a 256-word memory array (<code>mem</code>),
+  three accumulators <code>a</code>, <code>b</code>, <code>c</code>, and a countdown <code>count</code>.</li>
+<li><strong><code>New(seed)</code></strong> copies the four seed words into <code>rsl[0..3]</code> and calls <code>init</code>.</li>
+<li><strong>Key schedule (<code>init</code>).</strong> Eight local accumulators start at the golden ratio
+  constant <code>0x9E3779B9</code> and are scrambled through four mixing rounds; the seed
+  array is then folded into <code>mem</code> twice (accumulate <code>rsl</code>/<code>mem</code>, then re-mix);
+  finally one generation round (<code>isaac</code>) runs and <code>count</code> is set to 256.</li>
+<li><strong>Generation (<code>isaac</code>).</strong> Increments <code>c</code>, adds it into <code>b</code>, then for each of
+  the 256 words: applies the ISAAC barrel-shift pattern to <code>a</code> — left 13, right
+  6, left 2, right 16, selected by <code>i &amp; 3</code> — and adds <code>mem[(i+128) &amp; 0xff]</code>
+  into <code>a</code>; computes the new word as <code>y = mem[(x&gt;&gt;2) &amp; 0xff] + a + b</code> (where
+  <code>x</code> is the old <code>mem[i]</code>) and stores it to <code>mem[i]</code>; then sets
+  <code>b = mem[(y&gt;&gt;10) &amp; 0xff] + x</code> and writes <code>b</code> to <code>rsl[i]</code>.</li>
+<li><strong><code>GetNext()</code></strong> returns result words in reverse order (<code>count</code> counts down from
+  255); when the array is exhausted it calls <code>isaac()</code> to refill and resets
+  <code>count</code> to 255.</li>
+</ul>
+<h3 id="test-vectors">Test vectors<a class="headerlink" href="#test-vectors" title="Permanent link">&para;</a></h3>
+<p>The pinned vectors in <code>isaac_test.go</code> fix the implementation. After constructing
+a stream and drawing <code>GetNext()</code> 1,000,001 times:</p>
+<table>
+<thead>
+<tr>
+<th>Seed</th>
+<th>1,000,001st <code>GetNext()</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{0, 0, 0, 0}</code></td>
+<td><code>1536048213</code></td>
+</tr>
+<tr>
+<td><code>{1, 2, 3, 4}</code></td>
+<td><code>-107094133</code> (as <code>int32</code>; i.e. <code>&amp; 0xFFFFFFFF</code>)</td>
+</tr>
+</tbody>
+</table>
 
 
 
