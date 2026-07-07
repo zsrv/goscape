@@ -96,6 +96,15 @@
 
 **Files:** `tools/docsgen/revisions.toml` (all enabled; 225 entry uses jag paths + floor 0.90), `__main__.py` (name-based mapping for `config_source == "content-tree"` revisions: exact-name match in record order against index.tsv, each tsv row consumed at most once; unmatched → no icon), `write_comparison` Icons column + tests, doc-page mentions of the pending rasterizer (grep and fix), regenerate all five, determinism, strict ×5, pytest, commit, `build.py all`, gh-pages size delta report, remove docs worktree.
 
+> **As-built addendum (2026-07-07):** the 225 mapping shipped DEBUGNAME-based, not
+> the index.tsv display-name design above — controller-directed at execution:
+> content-tree records carry debugnames, and `<content>/pack/obj.pack`
+> (`id=debugname`, unique keys, zero collisions) maps record.debugname → id
+> directly, avoiding the display-name-collision/greedy-order machinery entirely.
+> Result: 1869/1869 matched. index.tsv remains emitted by icondump but is not
+> consumed by docsgen. The docs worktree was also deliberately LEFT in place
+> (not removed) for follow-up work.
+
 ---
 
 ## Self-review notes (applied)
