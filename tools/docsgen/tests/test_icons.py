@@ -59,13 +59,39 @@ def test_icon_mapping_maps_by_index(tmp_path):
     assert not (dest / "obj_2.png").exists()
 
 
-def test_patch_debugnames_by_position(tmp_path):
+def test_patch_debugnames_by_explicit_id(tmp_path):
     all_obj = tmp_path / "all.obj"
     all_obj.write_text("[obj_0]\nname=Knife\n\n[obj_1]\nname=Fur\n")
     icons.patch_debugnames(all_obj, {0: "knife"})
     text = all_obj.read_text()
     assert "[knife]" in text
-    assert "[obj_1]" in text  # untouched — no symtab entry for id 1
+    assert "[obj_1]" in text  # untouched — no obj.pack entry for id 1
+
+
+def test_patch_debugnames_id_position_invariant(tmp_path):
+    all_obj = tmp_path / "all.obj"
+    # Placeholder id 5 at record position 0 — unpack config never emits
+    # this (one header per id, in order), so it must hard-fail rather than
+    # silently mis-key the icon mapping.
+    all_obj.write_text("[obj_5]\nname=X\n")
+    with pytest.raises(SystemExit):
+        icons.patch_debugnames(all_obj, {5: "x"})
+
+
+def test_load_obj_pack(tmp_path):
+    p = tmp_path / "obj.pack"
+    p.write_text("0=knife\n1205=bronze_dagger\n")
+    assert icons.load_obj_pack(p) == {0: "knife", 1205: "bronze_dagger"}
+
+
+def test_obj_row_name_falls_back_to_patched_debugname():
+    # Pins the APPROVED page-wide side effect of debugname patching: a
+    # record with no name= field shows its real (patched) debugname in the
+    # Name column instead of an obj_N placeholder.
+    recs = parse_config_text("[bronze_dagger]\ncost=10\n")
+    row = _obj_row(recs[0], {"bronze_dagger"})
+    assert row[1] == "bronze_dagger"
+    assert row[0] == "![bronze_dagger](icons/bronze_dagger.png)"
 
 
 def test_parse_summary():

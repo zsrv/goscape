@@ -1,19 +1,19 @@
 """Item-icon rasterizer integration (rev-274 only so far).
 
-Two independent binaries feed this step:
+Two inputs feed this step:
 
   * icondump (goscape-client `cmd/icondump`) renders every item-inventory
     icon in a rev's game cache to a 32x32 PNG, id-keyed (`<out>/<id>.png`).
-  * goscape-cli `pack` (goscape server) packs a revision's content tree and,
-    as a side effect, writes `data/symbols/*.sym` — real symbolic debugnames
-    (see pkg/pack/compiler/symbols_export.go). goscape-cli `unpack config`
-    (used for the family tables) has no such source and synthesizes
-    placeholder `[obj_N]` headers instead, so obj.sym is the only place a
-    fresh docsgen worktree can recover the real names icon files (and the
-    golden rasterizer fixtures) are keyed by.
-
-Both binaries are built fresh per run from persistent sibling worktrees —
-nothing here mutates them.
+    Built fresh per run from the persistent sibling client worktree —
+    nothing here mutates it.
+  * `<content_dir>/pack/obj.pack` — the git-tracked `id=debugname` registry
+    in the revision's content tree, the source of truth for real symbolic
+    obj debugnames (goscape's pack pipeline emits data/symbols/obj.sym as a
+    pure reformat of it; see pkg/pack/compiler/symbols_export.go:97-105).
+    goscape-cli `unpack config` (used for the family tables) decodes binary
+    configs that carry no debug name and synthesizes placeholder `[obj_N]`
+    headers instead, so obj.pack is where the real names — the ones icon
+    files and the golden rasterizer fixtures are keyed by — come from.
 """
 import os
 import re
@@ -87,48 +87,49 @@ def render_icons(icondump_bin: Path, cache_dir: str, out_dir: Path) -> tuple[int
     return rendered, skipped, total
 
 
-def build_symbols(server_cli: Path, content_dir: str, raw_dir: Path, workdir: Path) -> Path:
-    """Run `goscape-cli pack` against content_dir to (re)generate real
-    debugnames. data/symbols/*.sym is a pack-pipeline output artifact — a
-    fresh docsgen worktree starts from a clean checkout with no such
-    directory, so it must be rebuilt every run. Returns the symbols dir
-    (packall writes it as a sibling of the pack -out-dir).
+def load_obj_pack(path: Path) -> dict[int, str]:
+    """Parse a content tree's pack/obj.pack: `id=debugname` lines, one per
+    registered obj id. This is the git-tracked source of truth for symbolic
+    debugnames (data/symbols/obj.sym is a pure reformat of it — goscape
+    pkg/pack/compiler/symbols_export.go:97-105).
     """
-    pack_out = workdir / "icon-symbols-pack"
-    subprocess.run(
-        [str(server_cli), "pack",
-         "-src-dir", content_dir,
-         "-out-dir", str(pack_out),
-         "-raw-dir", str(raw_dir)],
-        check=True,
-    )
-    return pack_out.parent / "symbols"
-
-
-def load_obj_sym(path: Path) -> dict[int, str]:
     table: dict[int, str] = {}
     for line in path.read_text(errors="replace").splitlines():
         if not line.strip():
             continue
-        id_str, _, name = line.partition("\t")
+        id_str, _, name = line.partition("=")
         table[int(id_str)] = name
     return table
 
 
-def patch_debugnames(all_obj_path: Path, symtab: dict[int, str]) -> None:
+_PLACEHOLDER = re.compile(r"^\[obj_(\d+)\]$")
+
+
+def patch_debugnames(all_obj_path: Path, names: dict[int, str]) -> None:
     """Rewrite all.obj's `[obj_N]` placeholder headers with real symbolic
-    debugnames from symtab, keyed by header position (0-based == obj id;
-    see configtext.parse_config_text's `_index`). A record with no symtab
-    entry keeps its placeholder header.
+    debugnames from `names`, keyed by the EXPLICIT id N in the placeholder
+    (goscape-cli unpack config writes exactly one `[obj_N]` header per obj
+    id, in order — so N also equals configtext.parse_config_text's
+    `_index`; that invariant is asserted here rather than assumed). An id
+    with no `names` entry keeps its placeholder header.
     """
     lines = all_obj_path.read_text(errors="replace").splitlines()
     index = 0
     for i, line in enumerate(lines):
-        if line.startswith("[") and line.endswith("]"):
-            name = symtab.get(index)
+        if not (line.startswith("[") and line.endswith("]")):
+            continue
+        m = _PLACEHOLDER.match(line)
+        if m:
+            oid = int(m.group(1))
+            if oid != index:
+                raise SystemExit(
+                    f"icons: {all_obj_path} header {line} at record "
+                    f"position {index} — id/position invariant broken"
+                )
+            name = names.get(oid)
             if name:
                 lines[i] = f"[{name}]"
-            index += 1
+        index += 1
     all_obj_path.write_text("\n".join(lines) + "\n")
 
 

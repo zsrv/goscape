@@ -1,5 +1,6 @@
 """docsgen — generate per-revision overlay pages. Run from the worktree root."""
 import argparse
+import sys
 import tempfile
 import tomllib
 from pathlib import Path
@@ -45,9 +46,17 @@ def run_revision(rev: str, cfg: dict, steps: list[str]) -> dict[str, int]:
         try:
             # icons runs BEFORE configs so the rendered icon set (and the
             # real debugnames patched into all.obj below) exist by the time
-            # generate_config_families renders item rows.
+            # generate_config_families renders item rows. The mapping and
+            # the overlay copy live in the configs step, so `--steps icons`
+            # alone renders into the temp dir and discards the result.
             icon_render = None  # (out_dir, total) once icondump has run
             if "icons" in steps and icons_enabled:
+                if "configs" not in steps:
+                    print(
+                        f"rev-{rev}: warning: icons step output is discarded "
+                        "without the configs step",
+                        file=sys.stderr,
+                    )
                 client_wt = Path(icons_cfg["client_worktree"])
                 icons.assert_branch(client_wt, icons_cfg["client_branch"])
                 icondump = icons.build_icondump(
@@ -73,16 +82,14 @@ def run_revision(rev: str, cfg: dict, steps: list[str]) -> dict[str, int]:
                     icons_out, total = icon_render
                     # Real debugnames: goscape-cli unpack config (above) only
                     # ever synthesizes `[obj_N]` placeholder headers (binary
-                    # configs carry no debug name) — data/symbols/obj.sym is
-                    # a pack-pipeline output artifact, so it must be rebuilt
-                    # fresh from this same worktree + the revision's content
-                    # tree. See icons.build_symbols.
-                    server_cli = unpack.build_cli(wt, workdir / "goscape-cli-pack")
-                    sym_dir = icons.build_symbols(
-                        server_cli, cfg["content_dir"], wt / "data" / "raw", workdir,
+                    # configs carry no debug name). The content tree's
+                    # git-tracked pack/obj.pack is the id=debugname source
+                    # of truth (see icons.load_obj_pack), so patch those
+                    # names into all.obj before parsing.
+                    names = icons.load_obj_pack(
+                        Path(cfg["content_dir"]) / "pack" / "obj.pack"
                     )
-                    symtab = icons.load_obj_sym(sym_dir / "obj.sym")
-                    icons.patch_debugnames(all_dir / "all.obj", symtab)
+                    icons.patch_debugnames(all_dir / "all.obj", names)
                     records = configtext.parse_config_text(
                         (all_dir / "all.obj").read_text(errors="replace")
                     )
