@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/zsrv/goscape/pkg/pack"
-	"github.com/zsrv/goscape/pkg/unpack/internal/model"
+	"github.com/zsrv/goscape/pkg/render/model"
 )
 
 // idkPartTypeName maps IDK part-type indices to names.

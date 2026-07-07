@@ -8,7 +8,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/pack"
-	"github.com/zsrv/goscape/pkg/unpack/internal/model"
+	"github.com/zsrv/goscape/pkg/render/model"
 )
 
 // buildCfgIdx builds a single-entry ConfigIdx from raw opcode bytes.

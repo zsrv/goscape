@@ -8,7 +8,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/pack"
-	"github.com/zsrv/goscape/pkg/unpack/internal/model"
+	"github.com/zsrv/goscape/pkg/render/model"
 )
 
 // ConfigIdx mirrors tools/unpack/config/Common.ts:
@@ -78,7 +78,7 @@ type Env struct {
 	SpotAnim *pack.PackFile
 	Idk      *pack.PackFile
 
-	Models *model.Store // pkg/unpack/internal/model; unused by flo/varp/seq
+	Models *model.Store // pkg/render/model; unused by flo/varp/seq
 	SrcDir string       // content tree root; unused by flo/varp/seq
 
 	Warnf  func(format string, args ...any) // nil = no-op; TS printWarning
