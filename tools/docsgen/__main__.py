@@ -33,21 +33,8 @@ def run_revision(rev: str, cfg: dict, steps: list[str]) -> dict[str, int]:
         # tooling postdates it; see revisions.toml). In that mode no CLI build
         # is needed for the unpack/configs steps.
         content_tree = cfg.get("config_source") == "content-tree"
-        # The goscape-cli used for `unpack` may come from a different branch
-        # than the revision itself (unpack_branch, generic mechanism; unused
-        # by the current revisions.toml). The `commands` step always reads
-        # cfg["branch"].
-        unpack_branch = cfg.get("unpack_branch", cfg["branch"])
-        needs_unpack_worktree = (
-            not content_tree
-            and unpack_branch != cfg["branch"]
-            and bool({"unpack", "configs"} & set(steps))
-        )
-        unpack_wt = workdir / "unpack-worktree" if needs_unpack_worktree else wt
         if needs_worktree:
             unpack.add_worktree(unpack.REPO, cfg["branch"], wt)
-        if needs_unpack_worktree:
-            unpack.add_worktree(unpack.REPO, unpack_branch, unpack_wt)
         try:
             if "unpack" in steps or "configs" in steps:
                 if content_tree:
@@ -55,7 +42,7 @@ def run_revision(rev: str, cfg: dict, steps: list[str]) -> dict[str, int]:
                         Path(cfg["content_dir"]), workdir / "all_dir"
                     )
                 else:
-                    all_dir = unpack.run_unpack(cfg, workdir, unpack_wt)
+                    all_dir = unpack.run_unpack(cfg, workdir, wt)
                 counts |= families.generate_config_families(all_dir, overlay)
                 if counts["items"] < FLOOR_ITEMS:
                     raise SystemExit(
@@ -89,8 +76,6 @@ def run_revision(rev: str, cfg: dict, steps: list[str]) -> dict[str, int]:
         finally:
             if needs_worktree:
                 unpack.remove_worktree(unpack.REPO, wt)
-            if needs_unpack_worktree:
-                unpack.remove_worktree(unpack.REPO, unpack_wt)
     return counts
 
 

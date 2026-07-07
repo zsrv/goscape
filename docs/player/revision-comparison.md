@@ -10,4 +10,4 @@
 | rev-254 | 3142 | 1162 | 3855 | 320 | 271 | 314 | 119 |
 | rev-274 | 3894 | 1359 | 4671 | 359 | 283 | 345 | 136 |
 
-- **rev-225:** Item/NPC/location/varp data parsed from the pinned rev-225 content tree — no rev-225 client cache exists and the unpack tooling postdates this revision; counts include named config entries only, whereas later revisions count every cache entry.
+- **rev-225:** Item/NPC/location/varp data parsed from the pinned rev-225 content tree (no rev-225 client cache exists and the unpack tooling postdates this revision); counts include every *.obj/*.npc/*.loc/*.varp file under the content tree's scripts/ directory, including the scripts/_unpack staging dumps, whereas later revisions count every entry decoded from the packed client cache.
