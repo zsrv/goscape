@@ -61,9 +61,9 @@ condensed map; the full table with exact opcodes is
 | Ground-obj ops | `opobj1`..`opobj5` | a player clicks a ground item |
 | Player ops | `opplayer1`..`opplayer5` | a player right-clicks another player |
 | NPC AI | `ai_queue1`..`ai_queue20`, `ai_timer`, `ai_spawn` | an NPC's behaviour ticks |
-| Queues / timers | `queue,name`, `weakqueue,name`, `timer,name` | the engine drains that queue / timer |
+| Queues / timers | `queue,name`, `timer,name` | the engine drains that queue / timer |
 | Lifecycle | `login`, `logout` | a per-player session event |
-| Interface | `if_button,iface:comp`, `inv_button` | a UI interaction on an open interface |
+| Interface | `if_button,iface:comp`, `inv_button1`..`inv_button5` | a UI interaction on an open interface |
 | Code-only | `proc,name`, `label,name`, `debugproc,name` | called from another script |
 
 ## Variables & types in brief
