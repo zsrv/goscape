@@ -704,94 +704,6 @@ func (x *PrivateMessageRequest) GetProfile() string {
 	return ""
 }
 
-type PublicMessageRequest struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	WorldId int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
-	// rev-254 A3: re-keyed back from username to the per-login session
-	// UUID (TS World.logPublicChat posts session_uuid, World.ts:1567-1574
-	// @2e3bcf43; FriendServer.ts:286-297 @2e3bcf43 persists it directly,
-	// no account resolution). Same field number as the 244-era
-	// `username` (wire-compatible string rename).
-	SessionUuid string `protobuf:"bytes,2,opt,name=session_uuid,json=sessionUuid,proto3" json:"session_uuid,omitempty"`
-	Coord       int32  `protobuf:"varint,3,opt,name=coord,proto3" json:"coord,omitempty"`
-	Chat        string `protobuf:"bytes,4,opt,name=chat,proto3" json:"chat,omitempty"`
-	// rev-244: per-message profile (multi-profile server). TS 254+ drops
-	// profile/world from the public_chat row because session_uuid joins
-	// back to the session table — a join the central database can do
-	// directly since the DB-2 federation was retired (spec
-	// 2026-07-05-central-db-consolidation-postgres-design.md). The server
-	// no longer consumes this field or world_id when persisting
-	// public_chat; both stay on the wire for compatibility.
-	Profile       string `protobuf:"bytes,5,opt,name=profile,proto3" json:"profile,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PublicMessageRequest) Reset() {
-	*x = PublicMessageRequest{}
-	mi := &file_friends_friends_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PublicMessageRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PublicMessageRequest) ProtoMessage() {}
-
-func (x *PublicMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PublicMessageRequest.ProtoReflect.Descriptor instead.
-func (*PublicMessageRequest) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *PublicMessageRequest) GetWorldId() int32 {
-	if x != nil {
-		return x.WorldId
-	}
-	return 0
-}
-
-func (x *PublicMessageRequest) GetSessionUuid() string {
-	if x != nil {
-		return x.SessionUuid
-	}
-	return ""
-}
-
-func (x *PublicMessageRequest) GetCoord() int32 {
-	if x != nil {
-		return x.Coord
-	}
-	return 0
-}
-
-func (x *PublicMessageRequest) GetChat() string {
-	if x != nil {
-		return x.Chat
-	}
-	return ""
-}
-
-func (x *PublicMessageRequest) GetProfile() string {
-	if x != nil {
-		return x.Profile
-	}
-	return ""
-}
-
 type SubscribeUpdatesRequest struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
 	WorldId    int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
@@ -804,7 +716,7 @@ type SubscribeUpdatesRequest struct {
 
 func (x *SubscribeUpdatesRequest) Reset() {
 	*x = SubscribeUpdatesRequest{}
-	mi := &file_friends_friends_proto_msgTypes[11]
+	mi := &file_friends_friends_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -816,7 +728,7 @@ func (x *SubscribeUpdatesRequest) String() string {
 func (*SubscribeUpdatesRequest) ProtoMessage() {}
 
 func (x *SubscribeUpdatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[11]
+	mi := &file_friends_friends_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -829,7 +741,7 @@ func (x *SubscribeUpdatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeUpdatesRequest.ProtoReflect.Descriptor instead.
 func (*SubscribeUpdatesRequest) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{11}
+	return file_friends_friends_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SubscribeUpdatesRequest) GetWorldId() int32 {
@@ -867,7 +779,7 @@ type FriendsUpdate struct {
 
 func (x *FriendsUpdate) Reset() {
 	*x = FriendsUpdate{}
-	mi := &file_friends_friends_proto_msgTypes[12]
+	mi := &file_friends_friends_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -879,7 +791,7 @@ func (x *FriendsUpdate) String() string {
 func (*FriendsUpdate) ProtoMessage() {}
 
 func (x *FriendsUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[12]
+	mi := &file_friends_friends_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -892,7 +804,7 @@ func (x *FriendsUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendsUpdate.ProtoReflect.Descriptor instead.
 func (*FriendsUpdate) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{12}
+	return file_friends_friends_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *FriendsUpdate) GetUpdate() isFriendsUpdate_Update {
@@ -961,7 +873,7 @@ type FriendlistUpdate struct {
 
 func (x *FriendlistUpdate) Reset() {
 	*x = FriendlistUpdate{}
-	mi := &file_friends_friends_proto_msgTypes[13]
+	mi := &file_friends_friends_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -973,7 +885,7 @@ func (x *FriendlistUpdate) String() string {
 func (*FriendlistUpdate) ProtoMessage() {}
 
 func (x *FriendlistUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[13]
+	mi := &file_friends_friends_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -986,7 +898,7 @@ func (x *FriendlistUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendlistUpdate.ProtoReflect.Descriptor instead.
 func (*FriendlistUpdate) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{13}
+	return file_friends_friends_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *FriendlistUpdate) GetEntries() []*FriendEntry {
@@ -1006,7 +918,7 @@ type FriendEntry struct {
 
 func (x *FriendEntry) Reset() {
 	*x = FriendEntry{}
-	mi := &file_friends_friends_proto_msgTypes[14]
+	mi := &file_friends_friends_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1018,7 +930,7 @@ func (x *FriendEntry) String() string {
 func (*FriendEntry) ProtoMessage() {}
 
 func (x *FriendEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[14]
+	mi := &file_friends_friends_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1031,7 +943,7 @@ func (x *FriendEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendEntry.ProtoReflect.Descriptor instead.
 func (*FriendEntry) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{14}
+	return file_friends_friends_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *FriendEntry) GetWorldId() int32 {
@@ -1057,7 +969,7 @@ type IgnorelistUpdate struct {
 
 func (x *IgnorelistUpdate) Reset() {
 	*x = IgnorelistUpdate{}
-	mi := &file_friends_friends_proto_msgTypes[15]
+	mi := &file_friends_friends_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1069,7 +981,7 @@ func (x *IgnorelistUpdate) String() string {
 func (*IgnorelistUpdate) ProtoMessage() {}
 
 func (x *IgnorelistUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[15]
+	mi := &file_friends_friends_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1082,7 +994,7 @@ func (x *IgnorelistUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IgnorelistUpdate.ProtoReflect.Descriptor instead.
 func (*IgnorelistUpdate) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{15}
+	return file_friends_friends_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *IgnorelistUpdate) GetUsername37() []uint64 {
@@ -1104,7 +1016,7 @@ type PrivateMessageDelivery struct {
 
 func (x *PrivateMessageDelivery) Reset() {
 	*x = PrivateMessageDelivery{}
-	mi := &file_friends_friends_proto_msgTypes[16]
+	mi := &file_friends_friends_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1116,7 +1028,7 @@ func (x *PrivateMessageDelivery) String() string {
 func (*PrivateMessageDelivery) ProtoMessage() {}
 
 func (x *PrivateMessageDelivery) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[16]
+	mi := &file_friends_friends_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1129,7 +1041,7 @@ func (x *PrivateMessageDelivery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrivateMessageDelivery.ProtoReflect.Descriptor instead.
 func (*PrivateMessageDelivery) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{16}
+	return file_friends_friends_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *PrivateMessageDelivery) GetFromUsername37() uint64 {
@@ -1176,7 +1088,7 @@ type RelayMuteRequest struct {
 
 func (x *RelayMuteRequest) Reset() {
 	*x = RelayMuteRequest{}
-	mi := &file_friends_friends_proto_msgTypes[17]
+	mi := &file_friends_friends_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1188,7 +1100,7 @@ func (x *RelayMuteRequest) String() string {
 func (*RelayMuteRequest) ProtoMessage() {}
 
 func (x *RelayMuteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[17]
+	mi := &file_friends_friends_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1201,7 +1113,7 @@ func (x *RelayMuteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayMuteRequest.ProtoReflect.Descriptor instead.
 func (*RelayMuteRequest) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{17}
+	return file_friends_friends_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *RelayMuteRequest) GetTargetWorldId() int32 {
@@ -1244,7 +1156,7 @@ type RelayKickRequest struct {
 
 func (x *RelayKickRequest) Reset() {
 	*x = RelayKickRequest{}
-	mi := &file_friends_friends_proto_msgTypes[18]
+	mi := &file_friends_friends_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1256,7 +1168,7 @@ func (x *RelayKickRequest) String() string {
 func (*RelayKickRequest) ProtoMessage() {}
 
 func (x *RelayKickRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[18]
+	mi := &file_friends_friends_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1269,7 +1181,7 @@ func (x *RelayKickRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayKickRequest.ProtoReflect.Descriptor instead.
 func (*RelayKickRequest) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{18}
+	return file_friends_friends_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *RelayKickRequest) GetTargetWorldId() int32 {
@@ -1306,7 +1218,7 @@ type RelayShutdownRequest struct {
 
 func (x *RelayShutdownRequest) Reset() {
 	*x = RelayShutdownRequest{}
-	mi := &file_friends_friends_proto_msgTypes[19]
+	mi := &file_friends_friends_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1318,7 +1230,7 @@ func (x *RelayShutdownRequest) String() string {
 func (*RelayShutdownRequest) ProtoMessage() {}
 
 func (x *RelayShutdownRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[19]
+	mi := &file_friends_friends_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1331,7 +1243,7 @@ func (x *RelayShutdownRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayShutdownRequest.ProtoReflect.Descriptor instead.
 func (*RelayShutdownRequest) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{19}
+	return file_friends_friends_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *RelayShutdownRequest) GetTargetWorldId() int32 {
@@ -1368,7 +1280,7 @@ type RelayBroadcastRequest struct {
 
 func (x *RelayBroadcastRequest) Reset() {
 	*x = RelayBroadcastRequest{}
-	mi := &file_friends_friends_proto_msgTypes[20]
+	mi := &file_friends_friends_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1380,7 +1292,7 @@ func (x *RelayBroadcastRequest) String() string {
 func (*RelayBroadcastRequest) ProtoMessage() {}
 
 func (x *RelayBroadcastRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[20]
+	mi := &file_friends_friends_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1393,7 +1305,7 @@ func (x *RelayBroadcastRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayBroadcastRequest.ProtoReflect.Descriptor instead.
 func (*RelayBroadcastRequest) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{20}
+	return file_friends_friends_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *RelayBroadcastRequest) GetTargetWorldId() int32 {
@@ -1432,7 +1344,7 @@ type RelayTrackRequest struct {
 
 func (x *RelayTrackRequest) Reset() {
 	*x = RelayTrackRequest{}
-	mi := &file_friends_friends_proto_msgTypes[21]
+	mi := &file_friends_friends_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1444,7 +1356,7 @@ func (x *RelayTrackRequest) String() string {
 func (*RelayTrackRequest) ProtoMessage() {}
 
 func (x *RelayTrackRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[21]
+	mi := &file_friends_friends_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1457,7 +1369,7 @@ func (x *RelayTrackRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayTrackRequest.ProtoReflect.Descriptor instead.
 func (*RelayTrackRequest) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{21}
+	return file_friends_friends_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *RelayTrackRequest) GetTargetWorldId() int32 {
@@ -1499,7 +1411,7 @@ type RelayReloadRequest struct {
 
 func (x *RelayReloadRequest) Reset() {
 	*x = RelayReloadRequest{}
-	mi := &file_friends_friends_proto_msgTypes[22]
+	mi := &file_friends_friends_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1511,7 +1423,7 @@ func (x *RelayReloadRequest) String() string {
 func (*RelayReloadRequest) ProtoMessage() {}
 
 func (x *RelayReloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[22]
+	mi := &file_friends_friends_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1524,7 +1436,7 @@ func (x *RelayReloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayReloadRequest.ProtoReflect.Descriptor instead.
 func (*RelayReloadRequest) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{22}
+	return file_friends_friends_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *RelayReloadRequest) GetTargetWorldId() int32 {
@@ -1552,7 +1464,7 @@ type RelayClearLoginsRequest struct {
 
 func (x *RelayClearLoginsRequest) Reset() {
 	*x = RelayClearLoginsRequest{}
-	mi := &file_friends_friends_proto_msgTypes[23]
+	mi := &file_friends_friends_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1564,7 +1476,7 @@ func (x *RelayClearLoginsRequest) String() string {
 func (*RelayClearLoginsRequest) ProtoMessage() {}
 
 func (x *RelayClearLoginsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[23]
+	mi := &file_friends_friends_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1577,7 +1489,7 @@ func (x *RelayClearLoginsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayClearLoginsRequest.ProtoReflect.Descriptor instead.
 func (*RelayClearLoginsRequest) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{23}
+	return file_friends_friends_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *RelayClearLoginsRequest) GetTargetWorldId() int32 {
@@ -1605,7 +1517,7 @@ type RelayClearLogoutsRequest struct {
 
 func (x *RelayClearLogoutsRequest) Reset() {
 	*x = RelayClearLogoutsRequest{}
-	mi := &file_friends_friends_proto_msgTypes[24]
+	mi := &file_friends_friends_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1617,7 +1529,7 @@ func (x *RelayClearLogoutsRequest) String() string {
 func (*RelayClearLogoutsRequest) ProtoMessage() {}
 
 func (x *RelayClearLogoutsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[24]
+	mi := &file_friends_friends_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1630,7 +1542,7 @@ func (x *RelayClearLogoutsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayClearLogoutsRequest.ProtoReflect.Descriptor instead.
 func (*RelayClearLogoutsRequest) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{24}
+	return file_friends_friends_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *RelayClearLogoutsRequest) GetTargetWorldId() int32 {
@@ -1660,7 +1572,7 @@ type RelayQueueScriptRequest struct {
 
 func (x *RelayQueueScriptRequest) Reset() {
 	*x = RelayQueueScriptRequest{}
-	mi := &file_friends_friends_proto_msgTypes[25]
+	mi := &file_friends_friends_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1672,7 +1584,7 @@ func (x *RelayQueueScriptRequest) String() string {
 func (*RelayQueueScriptRequest) ProtoMessage() {}
 
 func (x *RelayQueueScriptRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[25]
+	mi := &file_friends_friends_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1685,7 +1597,7 @@ func (x *RelayQueueScriptRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayQueueScriptRequest.ProtoReflect.Descriptor instead.
 func (*RelayQueueScriptRequest) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{25}
+	return file_friends_friends_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *RelayQueueScriptRequest) GetTargetWorldId() int32 {
@@ -1727,7 +1639,7 @@ type SubscribeWorldEventsRequest struct {
 
 func (x *SubscribeWorldEventsRequest) Reset() {
 	*x = SubscribeWorldEventsRequest{}
-	mi := &file_friends_friends_proto_msgTypes[26]
+	mi := &file_friends_friends_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1739,7 +1651,7 @@ func (x *SubscribeWorldEventsRequest) String() string {
 func (*SubscribeWorldEventsRequest) ProtoMessage() {}
 
 func (x *SubscribeWorldEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[26]
+	mi := &file_friends_friends_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1752,7 +1664,7 @@ func (x *SubscribeWorldEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeWorldEventsRequest.ProtoReflect.Descriptor instead.
 func (*SubscribeWorldEventsRequest) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{26}
+	return file_friends_friends_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *SubscribeWorldEventsRequest) GetWorldId() int32 {
@@ -1793,7 +1705,7 @@ type WorldEvent struct {
 
 func (x *WorldEvent) Reset() {
 	*x = WorldEvent{}
-	mi := &file_friends_friends_proto_msgTypes[27]
+	mi := &file_friends_friends_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1805,7 +1717,7 @@ func (x *WorldEvent) String() string {
 func (*WorldEvent) ProtoMessage() {}
 
 func (x *WorldEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[27]
+	mi := &file_friends_friends_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1818,7 +1730,7 @@ func (x *WorldEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorldEvent.ProtoReflect.Descriptor instead.
 func (*WorldEvent) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{27}
+	return file_friends_friends_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *WorldEvent) GetEvent() isWorldEvent_Event {
@@ -1977,7 +1889,7 @@ type MuteEvent struct {
 
 func (x *MuteEvent) Reset() {
 	*x = MuteEvent{}
-	mi := &file_friends_friends_proto_msgTypes[28]
+	mi := &file_friends_friends_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1989,7 +1901,7 @@ func (x *MuteEvent) String() string {
 func (*MuteEvent) ProtoMessage() {}
 
 func (x *MuteEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[28]
+	mi := &file_friends_friends_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2002,7 +1914,7 @@ func (x *MuteEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MuteEvent.ProtoReflect.Descriptor instead.
 func (*MuteEvent) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{28}
+	return file_friends_friends_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *MuteEvent) GetUsername37() uint64 {
@@ -2028,7 +1940,7 @@ type KickEvent struct {
 
 func (x *KickEvent) Reset() {
 	*x = KickEvent{}
-	mi := &file_friends_friends_proto_msgTypes[29]
+	mi := &file_friends_friends_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2040,7 +1952,7 @@ func (x *KickEvent) String() string {
 func (*KickEvent) ProtoMessage() {}
 
 func (x *KickEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[29]
+	mi := &file_friends_friends_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2053,7 +1965,7 @@ func (x *KickEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KickEvent.ProtoReflect.Descriptor instead.
 func (*KickEvent) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{29}
+	return file_friends_friends_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *KickEvent) GetUsername37() uint64 {
@@ -2072,7 +1984,7 @@ type ShutdownEvent struct {
 
 func (x *ShutdownEvent) Reset() {
 	*x = ShutdownEvent{}
-	mi := &file_friends_friends_proto_msgTypes[30]
+	mi := &file_friends_friends_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2084,7 +1996,7 @@ func (x *ShutdownEvent) String() string {
 func (*ShutdownEvent) ProtoMessage() {}
 
 func (x *ShutdownEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[30]
+	mi := &file_friends_friends_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2097,7 +2009,7 @@ func (x *ShutdownEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShutdownEvent.ProtoReflect.Descriptor instead.
 func (*ShutdownEvent) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{30}
+	return file_friends_friends_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ShutdownEvent) GetDurationTicks() int32 {
@@ -2116,7 +2028,7 @@ type BroadcastEvent struct {
 
 func (x *BroadcastEvent) Reset() {
 	*x = BroadcastEvent{}
-	mi := &file_friends_friends_proto_msgTypes[31]
+	mi := &file_friends_friends_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2128,7 +2040,7 @@ func (x *BroadcastEvent) String() string {
 func (*BroadcastEvent) ProtoMessage() {}
 
 func (x *BroadcastEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[31]
+	mi := &file_friends_friends_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2141,7 +2053,7 @@ func (x *BroadcastEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BroadcastEvent.ProtoReflect.Descriptor instead.
 func (*BroadcastEvent) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{31}
+	return file_friends_friends_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *BroadcastEvent) GetMessage() string {
@@ -2161,7 +2073,7 @@ type TrackEvent struct {
 
 func (x *TrackEvent) Reset() {
 	*x = TrackEvent{}
-	mi := &file_friends_friends_proto_msgTypes[32]
+	mi := &file_friends_friends_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2173,7 +2085,7 @@ func (x *TrackEvent) String() string {
 func (*TrackEvent) ProtoMessage() {}
 
 func (x *TrackEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[32]
+	mi := &file_friends_friends_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2186,7 +2098,7 @@ func (x *TrackEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrackEvent.ProtoReflect.Descriptor instead.
 func (*TrackEvent) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{32}
+	return file_friends_friends_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *TrackEvent) GetUsername37() uint64 {
@@ -2211,7 +2123,7 @@ type ReloadEvent struct {
 
 func (x *ReloadEvent) Reset() {
 	*x = ReloadEvent{}
-	mi := &file_friends_friends_proto_msgTypes[33]
+	mi := &file_friends_friends_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2223,7 +2135,7 @@ func (x *ReloadEvent) String() string {
 func (*ReloadEvent) ProtoMessage() {}
 
 func (x *ReloadEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[33]
+	mi := &file_friends_friends_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2236,7 +2148,7 @@ func (x *ReloadEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReloadEvent.ProtoReflect.Descriptor instead.
 func (*ReloadEvent) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{33}
+	return file_friends_friends_proto_rawDescGZIP(), []int{32}
 }
 
 type ClearLoginsEvent struct {
@@ -2247,7 +2159,7 @@ type ClearLoginsEvent struct {
 
 func (x *ClearLoginsEvent) Reset() {
 	*x = ClearLoginsEvent{}
-	mi := &file_friends_friends_proto_msgTypes[34]
+	mi := &file_friends_friends_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2259,7 +2171,7 @@ func (x *ClearLoginsEvent) String() string {
 func (*ClearLoginsEvent) ProtoMessage() {}
 
 func (x *ClearLoginsEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[34]
+	mi := &file_friends_friends_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2272,7 +2184,7 @@ func (x *ClearLoginsEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearLoginsEvent.ProtoReflect.Descriptor instead.
 func (*ClearLoginsEvent) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{34}
+	return file_friends_friends_proto_rawDescGZIP(), []int{33}
 }
 
 type ClearLogoutsEvent struct {
@@ -2283,7 +2195,7 @@ type ClearLogoutsEvent struct {
 
 func (x *ClearLogoutsEvent) Reset() {
 	*x = ClearLogoutsEvent{}
-	mi := &file_friends_friends_proto_msgTypes[35]
+	mi := &file_friends_friends_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2295,7 +2207,7 @@ func (x *ClearLogoutsEvent) String() string {
 func (*ClearLogoutsEvent) ProtoMessage() {}
 
 func (x *ClearLogoutsEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[35]
+	mi := &file_friends_friends_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2308,7 +2220,7 @@ func (x *ClearLogoutsEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearLogoutsEvent.ProtoReflect.Descriptor instead.
 func (*ClearLogoutsEvent) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{35}
+	return file_friends_friends_proto_rawDescGZIP(), []int{34}
 }
 
 type QueueScriptEvent struct {
@@ -2321,7 +2233,7 @@ type QueueScriptEvent struct {
 
 func (x *QueueScriptEvent) Reset() {
 	*x = QueueScriptEvent{}
-	mi := &file_friends_friends_proto_msgTypes[36]
+	mi := &file_friends_friends_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2333,7 +2245,7 @@ func (x *QueueScriptEvent) String() string {
 func (*QueueScriptEvent) ProtoMessage() {}
 
 func (x *QueueScriptEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_friends_friends_proto_msgTypes[36]
+	mi := &file_friends_friends_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2346,7 +2258,7 @@ func (x *QueueScriptEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueueScriptEvent.ProtoReflect.Descriptor instead.
 func (*QueueScriptEvent) Descriptor() ([]byte, []int) {
-	return file_friends_friends_proto_rawDescGZIP(), []int{36}
+	return file_friends_friends_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *QueueScriptEvent) GetScriptName() string {
@@ -2433,13 +2345,7 @@ const file_friends_friends_proto_rawDesc = "" +
 	"\x05pm_id\x18\x05 \x01(\rR\x04pmId\x12\x12\n" +
 	"\x04chat\x18\x06 \x01(\tR\x04chat\x12\x14\n" +
 	"\x05coord\x18\a \x01(\x05R\x05coord\x12\x18\n" +
-	"\aprofile\x18\b \x01(\tR\aprofile\"\x98\x01\n" +
-	"\x14PublicMessageRequest\x12\x19\n" +
-	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12!\n" +
-	"\fsession_uuid\x18\x02 \x01(\tR\vsessionUuid\x12\x14\n" +
-	"\x05coord\x18\x03 \x01(\x05R\x05coord\x12\x12\n" +
-	"\x04chat\x18\x04 \x01(\tR\x04chat\x12\x18\n" +
-	"\aprofile\x18\x05 \x01(\tR\aprofile\"n\n" +
+	"\aprofile\x18\b \x01(\tR\aprofile\"n\n" +
 	"\x17SubscribeUpdatesRequest\x12\x19\n" +
 	"\bworld_id\x18\x01 \x01(\x05R\aworldId\x12\x1e\n" +
 	"\n" +
@@ -2558,7 +2464,7 @@ const file_friends_friends_proto_rawDesc = "" +
 	"scriptName\x12\x1e\n" +
 	"\n" +
 	"username37\x18\x02 \x01(\x04R\n" +
-	"username372\xcd\f\n" +
+	"username372\x82\f\n" +
 	"\x0eFriendsService\x12G\n" +
 	"\fWorldConnect\x12\x1f.friends.v1.WorldConnectRequest\x1a\x16.google.protobuf.Empty\x12N\n" +
 	"\vPlayerLogin\x12\x1e.friends.v1.PlayerLoginRequest\x1a\x1f.friends.v1.PlayerLoginResponse\x12G\n" +
@@ -2568,8 +2474,7 @@ const file_friends_friends_proto_rawDesc = "" +
 	"\rFriendlistDel\x12 .friends.v1.FriendlistDelRequest\x1a\x16.google.protobuf.Empty\x12I\n" +
 	"\rIgnorelistAdd\x12 .friends.v1.IgnorelistAddRequest\x1a\x16.google.protobuf.Empty\x12I\n" +
 	"\rIgnorelistDel\x12 .friends.v1.IgnorelistDelRequest\x1a\x16.google.protobuf.Empty\x12K\n" +
-	"\x0ePrivateMessage\x12!.friends.v1.PrivateMessageRequest\x1a\x16.google.protobuf.Empty\x12I\n" +
-	"\rPublicMessage\x12 .friends.v1.PublicMessageRequest\x1a\x16.google.protobuf.Empty\x12T\n" +
+	"\x0ePrivateMessage\x12!.friends.v1.PrivateMessageRequest\x1a\x16.google.protobuf.Empty\x12T\n" +
 	"\x10SubscribeUpdates\x12#.friends.v1.SubscribeUpdatesRequest\x1a\x19.friends.v1.FriendsUpdate0\x01\x12A\n" +
 	"\tRelayMute\x12\x1c.friends.v1.RelayMuteRequest\x1a\x16.google.protobuf.Empty\x12A\n" +
 	"\tRelayKick\x12\x1c.friends.v1.RelayKickRequest\x1a\x16.google.protobuf.Empty\x12I\n" +
@@ -2595,7 +2500,7 @@ func file_friends_friends_proto_rawDescGZIP() []byte {
 	return file_friends_friends_proto_rawDescData
 }
 
-var file_friends_friends_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
+var file_friends_friends_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
 var file_friends_friends_proto_goTypes = []any{
 	(*WorldConnectRequest)(nil),         // 0: friends.v1.WorldConnectRequest
 	(*PlayerLoginRequest)(nil),          // 1: friends.v1.PlayerLoginRequest
@@ -2607,49 +2512,48 @@ var file_friends_friends_proto_goTypes = []any{
 	(*IgnorelistAddRequest)(nil),        // 7: friends.v1.IgnorelistAddRequest
 	(*IgnorelistDelRequest)(nil),        // 8: friends.v1.IgnorelistDelRequest
 	(*PrivateMessageRequest)(nil),       // 9: friends.v1.PrivateMessageRequest
-	(*PublicMessageRequest)(nil),        // 10: friends.v1.PublicMessageRequest
-	(*SubscribeUpdatesRequest)(nil),     // 11: friends.v1.SubscribeUpdatesRequest
-	(*FriendsUpdate)(nil),               // 12: friends.v1.FriendsUpdate
-	(*FriendlistUpdate)(nil),            // 13: friends.v1.FriendlistUpdate
-	(*FriendEntry)(nil),                 // 14: friends.v1.FriendEntry
-	(*IgnorelistUpdate)(nil),            // 15: friends.v1.IgnorelistUpdate
-	(*PrivateMessageDelivery)(nil),      // 16: friends.v1.PrivateMessageDelivery
-	(*RelayMuteRequest)(nil),            // 17: friends.v1.RelayMuteRequest
-	(*RelayKickRequest)(nil),            // 18: friends.v1.RelayKickRequest
-	(*RelayShutdownRequest)(nil),        // 19: friends.v1.RelayShutdownRequest
-	(*RelayBroadcastRequest)(nil),       // 20: friends.v1.RelayBroadcastRequest
-	(*RelayTrackRequest)(nil),           // 21: friends.v1.RelayTrackRequest
-	(*RelayReloadRequest)(nil),          // 22: friends.v1.RelayReloadRequest
-	(*RelayClearLoginsRequest)(nil),     // 23: friends.v1.RelayClearLoginsRequest
-	(*RelayClearLogoutsRequest)(nil),    // 24: friends.v1.RelayClearLogoutsRequest
-	(*RelayQueueScriptRequest)(nil),     // 25: friends.v1.RelayQueueScriptRequest
-	(*SubscribeWorldEventsRequest)(nil), // 26: friends.v1.SubscribeWorldEventsRequest
-	(*WorldEvent)(nil),                  // 27: friends.v1.WorldEvent
-	(*MuteEvent)(nil),                   // 28: friends.v1.MuteEvent
-	(*KickEvent)(nil),                   // 29: friends.v1.KickEvent
-	(*ShutdownEvent)(nil),               // 30: friends.v1.ShutdownEvent
-	(*BroadcastEvent)(nil),              // 31: friends.v1.BroadcastEvent
-	(*TrackEvent)(nil),                  // 32: friends.v1.TrackEvent
-	(*ReloadEvent)(nil),                 // 33: friends.v1.ReloadEvent
-	(*ClearLoginsEvent)(nil),            // 34: friends.v1.ClearLoginsEvent
-	(*ClearLogoutsEvent)(nil),           // 35: friends.v1.ClearLogoutsEvent
-	(*QueueScriptEvent)(nil),            // 36: friends.v1.QueueScriptEvent
-	(*emptypb.Empty)(nil),               // 37: google.protobuf.Empty
+	(*SubscribeUpdatesRequest)(nil),     // 10: friends.v1.SubscribeUpdatesRequest
+	(*FriendsUpdate)(nil),               // 11: friends.v1.FriendsUpdate
+	(*FriendlistUpdate)(nil),            // 12: friends.v1.FriendlistUpdate
+	(*FriendEntry)(nil),                 // 13: friends.v1.FriendEntry
+	(*IgnorelistUpdate)(nil),            // 14: friends.v1.IgnorelistUpdate
+	(*PrivateMessageDelivery)(nil),      // 15: friends.v1.PrivateMessageDelivery
+	(*RelayMuteRequest)(nil),            // 16: friends.v1.RelayMuteRequest
+	(*RelayKickRequest)(nil),            // 17: friends.v1.RelayKickRequest
+	(*RelayShutdownRequest)(nil),        // 18: friends.v1.RelayShutdownRequest
+	(*RelayBroadcastRequest)(nil),       // 19: friends.v1.RelayBroadcastRequest
+	(*RelayTrackRequest)(nil),           // 20: friends.v1.RelayTrackRequest
+	(*RelayReloadRequest)(nil),          // 21: friends.v1.RelayReloadRequest
+	(*RelayClearLoginsRequest)(nil),     // 22: friends.v1.RelayClearLoginsRequest
+	(*RelayClearLogoutsRequest)(nil),    // 23: friends.v1.RelayClearLogoutsRequest
+	(*RelayQueueScriptRequest)(nil),     // 24: friends.v1.RelayQueueScriptRequest
+	(*SubscribeWorldEventsRequest)(nil), // 25: friends.v1.SubscribeWorldEventsRequest
+	(*WorldEvent)(nil),                  // 26: friends.v1.WorldEvent
+	(*MuteEvent)(nil),                   // 27: friends.v1.MuteEvent
+	(*KickEvent)(nil),                   // 28: friends.v1.KickEvent
+	(*ShutdownEvent)(nil),               // 29: friends.v1.ShutdownEvent
+	(*BroadcastEvent)(nil),              // 30: friends.v1.BroadcastEvent
+	(*TrackEvent)(nil),                  // 31: friends.v1.TrackEvent
+	(*ReloadEvent)(nil),                 // 32: friends.v1.ReloadEvent
+	(*ClearLoginsEvent)(nil),            // 33: friends.v1.ClearLoginsEvent
+	(*ClearLogoutsEvent)(nil),           // 34: friends.v1.ClearLogoutsEvent
+	(*QueueScriptEvent)(nil),            // 35: friends.v1.QueueScriptEvent
+	(*emptypb.Empty)(nil),               // 36: google.protobuf.Empty
 }
 var file_friends_friends_proto_depIdxs = []int32{
-	13, // 0: friends.v1.FriendsUpdate.friendlist:type_name -> friends.v1.FriendlistUpdate
-	15, // 1: friends.v1.FriendsUpdate.ignorelist:type_name -> friends.v1.IgnorelistUpdate
-	16, // 2: friends.v1.FriendsUpdate.private_message:type_name -> friends.v1.PrivateMessageDelivery
-	14, // 3: friends.v1.FriendlistUpdate.entries:type_name -> friends.v1.FriendEntry
-	28, // 4: friends.v1.WorldEvent.mute:type_name -> friends.v1.MuteEvent
-	29, // 5: friends.v1.WorldEvent.kick:type_name -> friends.v1.KickEvent
-	30, // 6: friends.v1.WorldEvent.shutdown:type_name -> friends.v1.ShutdownEvent
-	31, // 7: friends.v1.WorldEvent.broadcast:type_name -> friends.v1.BroadcastEvent
-	32, // 8: friends.v1.WorldEvent.track:type_name -> friends.v1.TrackEvent
-	33, // 9: friends.v1.WorldEvent.reload:type_name -> friends.v1.ReloadEvent
-	34, // 10: friends.v1.WorldEvent.clear_logins:type_name -> friends.v1.ClearLoginsEvent
-	35, // 11: friends.v1.WorldEvent.clear_logouts:type_name -> friends.v1.ClearLogoutsEvent
-	36, // 12: friends.v1.WorldEvent.queue_script:type_name -> friends.v1.QueueScriptEvent
+	12, // 0: friends.v1.FriendsUpdate.friendlist:type_name -> friends.v1.FriendlistUpdate
+	14, // 1: friends.v1.FriendsUpdate.ignorelist:type_name -> friends.v1.IgnorelistUpdate
+	15, // 2: friends.v1.FriendsUpdate.private_message:type_name -> friends.v1.PrivateMessageDelivery
+	13, // 3: friends.v1.FriendlistUpdate.entries:type_name -> friends.v1.FriendEntry
+	27, // 4: friends.v1.WorldEvent.mute:type_name -> friends.v1.MuteEvent
+	28, // 5: friends.v1.WorldEvent.kick:type_name -> friends.v1.KickEvent
+	29, // 6: friends.v1.WorldEvent.shutdown:type_name -> friends.v1.ShutdownEvent
+	30, // 7: friends.v1.WorldEvent.broadcast:type_name -> friends.v1.BroadcastEvent
+	31, // 8: friends.v1.WorldEvent.track:type_name -> friends.v1.TrackEvent
+	32, // 9: friends.v1.WorldEvent.reload:type_name -> friends.v1.ReloadEvent
+	33, // 10: friends.v1.WorldEvent.clear_logins:type_name -> friends.v1.ClearLoginsEvent
+	34, // 11: friends.v1.WorldEvent.clear_logouts:type_name -> friends.v1.ClearLogoutsEvent
+	35, // 12: friends.v1.WorldEvent.queue_script:type_name -> friends.v1.QueueScriptEvent
 	0,  // 13: friends.v1.FriendsService.WorldConnect:input_type -> friends.v1.WorldConnectRequest
 	1,  // 14: friends.v1.FriendsService.PlayerLogin:input_type -> friends.v1.PlayerLoginRequest
 	3,  // 15: friends.v1.FriendsService.PlayerLogout:input_type -> friends.v1.PlayerLogoutRequest
@@ -2659,41 +2563,39 @@ var file_friends_friends_proto_depIdxs = []int32{
 	7,  // 19: friends.v1.FriendsService.IgnorelistAdd:input_type -> friends.v1.IgnorelistAddRequest
 	8,  // 20: friends.v1.FriendsService.IgnorelistDel:input_type -> friends.v1.IgnorelistDelRequest
 	9,  // 21: friends.v1.FriendsService.PrivateMessage:input_type -> friends.v1.PrivateMessageRequest
-	10, // 22: friends.v1.FriendsService.PublicMessage:input_type -> friends.v1.PublicMessageRequest
-	11, // 23: friends.v1.FriendsService.SubscribeUpdates:input_type -> friends.v1.SubscribeUpdatesRequest
-	17, // 24: friends.v1.FriendsService.RelayMute:input_type -> friends.v1.RelayMuteRequest
-	18, // 25: friends.v1.FriendsService.RelayKick:input_type -> friends.v1.RelayKickRequest
-	19, // 26: friends.v1.FriendsService.RelayShutdown:input_type -> friends.v1.RelayShutdownRequest
-	20, // 27: friends.v1.FriendsService.RelayBroadcast:input_type -> friends.v1.RelayBroadcastRequest
-	21, // 28: friends.v1.FriendsService.RelayTrack:input_type -> friends.v1.RelayTrackRequest
-	22, // 29: friends.v1.FriendsService.RelayReload:input_type -> friends.v1.RelayReloadRequest
-	23, // 30: friends.v1.FriendsService.RelayClearLogins:input_type -> friends.v1.RelayClearLoginsRequest
-	24, // 31: friends.v1.FriendsService.RelayClearLogouts:input_type -> friends.v1.RelayClearLogoutsRequest
-	25, // 32: friends.v1.FriendsService.RelayQueueScript:input_type -> friends.v1.RelayQueueScriptRequest
-	26, // 33: friends.v1.FriendsService.SubscribeWorldEvents:input_type -> friends.v1.SubscribeWorldEventsRequest
-	37, // 34: friends.v1.FriendsService.WorldConnect:output_type -> google.protobuf.Empty
-	2,  // 35: friends.v1.FriendsService.PlayerLogin:output_type -> friends.v1.PlayerLoginResponse
-	37, // 36: friends.v1.FriendsService.PlayerLogout:output_type -> google.protobuf.Empty
-	37, // 37: friends.v1.FriendsService.ChatSetMode:output_type -> google.protobuf.Empty
-	37, // 38: friends.v1.FriendsService.FriendlistAdd:output_type -> google.protobuf.Empty
-	37, // 39: friends.v1.FriendsService.FriendlistDel:output_type -> google.protobuf.Empty
-	37, // 40: friends.v1.FriendsService.IgnorelistAdd:output_type -> google.protobuf.Empty
-	37, // 41: friends.v1.FriendsService.IgnorelistDel:output_type -> google.protobuf.Empty
-	37, // 42: friends.v1.FriendsService.PrivateMessage:output_type -> google.protobuf.Empty
-	37, // 43: friends.v1.FriendsService.PublicMessage:output_type -> google.protobuf.Empty
-	12, // 44: friends.v1.FriendsService.SubscribeUpdates:output_type -> friends.v1.FriendsUpdate
-	37, // 45: friends.v1.FriendsService.RelayMute:output_type -> google.protobuf.Empty
-	37, // 46: friends.v1.FriendsService.RelayKick:output_type -> google.protobuf.Empty
-	37, // 47: friends.v1.FriendsService.RelayShutdown:output_type -> google.protobuf.Empty
-	37, // 48: friends.v1.FriendsService.RelayBroadcast:output_type -> google.protobuf.Empty
-	37, // 49: friends.v1.FriendsService.RelayTrack:output_type -> google.protobuf.Empty
-	37, // 50: friends.v1.FriendsService.RelayReload:output_type -> google.protobuf.Empty
-	37, // 51: friends.v1.FriendsService.RelayClearLogins:output_type -> google.protobuf.Empty
-	37, // 52: friends.v1.FriendsService.RelayClearLogouts:output_type -> google.protobuf.Empty
-	37, // 53: friends.v1.FriendsService.RelayQueueScript:output_type -> google.protobuf.Empty
-	27, // 54: friends.v1.FriendsService.SubscribeWorldEvents:output_type -> friends.v1.WorldEvent
-	34, // [34:55] is the sub-list for method output_type
-	13, // [13:34] is the sub-list for method input_type
+	10, // 22: friends.v1.FriendsService.SubscribeUpdates:input_type -> friends.v1.SubscribeUpdatesRequest
+	16, // 23: friends.v1.FriendsService.RelayMute:input_type -> friends.v1.RelayMuteRequest
+	17, // 24: friends.v1.FriendsService.RelayKick:input_type -> friends.v1.RelayKickRequest
+	18, // 25: friends.v1.FriendsService.RelayShutdown:input_type -> friends.v1.RelayShutdownRequest
+	19, // 26: friends.v1.FriendsService.RelayBroadcast:input_type -> friends.v1.RelayBroadcastRequest
+	20, // 27: friends.v1.FriendsService.RelayTrack:input_type -> friends.v1.RelayTrackRequest
+	21, // 28: friends.v1.FriendsService.RelayReload:input_type -> friends.v1.RelayReloadRequest
+	22, // 29: friends.v1.FriendsService.RelayClearLogins:input_type -> friends.v1.RelayClearLoginsRequest
+	23, // 30: friends.v1.FriendsService.RelayClearLogouts:input_type -> friends.v1.RelayClearLogoutsRequest
+	24, // 31: friends.v1.FriendsService.RelayQueueScript:input_type -> friends.v1.RelayQueueScriptRequest
+	25, // 32: friends.v1.FriendsService.SubscribeWorldEvents:input_type -> friends.v1.SubscribeWorldEventsRequest
+	36, // 33: friends.v1.FriendsService.WorldConnect:output_type -> google.protobuf.Empty
+	2,  // 34: friends.v1.FriendsService.PlayerLogin:output_type -> friends.v1.PlayerLoginResponse
+	36, // 35: friends.v1.FriendsService.PlayerLogout:output_type -> google.protobuf.Empty
+	36, // 36: friends.v1.FriendsService.ChatSetMode:output_type -> google.protobuf.Empty
+	36, // 37: friends.v1.FriendsService.FriendlistAdd:output_type -> google.protobuf.Empty
+	36, // 38: friends.v1.FriendsService.FriendlistDel:output_type -> google.protobuf.Empty
+	36, // 39: friends.v1.FriendsService.IgnorelistAdd:output_type -> google.protobuf.Empty
+	36, // 40: friends.v1.FriendsService.IgnorelistDel:output_type -> google.protobuf.Empty
+	36, // 41: friends.v1.FriendsService.PrivateMessage:output_type -> google.protobuf.Empty
+	11, // 42: friends.v1.FriendsService.SubscribeUpdates:output_type -> friends.v1.FriendsUpdate
+	36, // 43: friends.v1.FriendsService.RelayMute:output_type -> google.protobuf.Empty
+	36, // 44: friends.v1.FriendsService.RelayKick:output_type -> google.protobuf.Empty
+	36, // 45: friends.v1.FriendsService.RelayShutdown:output_type -> google.protobuf.Empty
+	36, // 46: friends.v1.FriendsService.RelayBroadcast:output_type -> google.protobuf.Empty
+	36, // 47: friends.v1.FriendsService.RelayTrack:output_type -> google.protobuf.Empty
+	36, // 48: friends.v1.FriendsService.RelayReload:output_type -> google.protobuf.Empty
+	36, // 49: friends.v1.FriendsService.RelayClearLogins:output_type -> google.protobuf.Empty
+	36, // 50: friends.v1.FriendsService.RelayClearLogouts:output_type -> google.protobuf.Empty
+	36, // 51: friends.v1.FriendsService.RelayQueueScript:output_type -> google.protobuf.Empty
+	26, // 52: friends.v1.FriendsService.SubscribeWorldEvents:output_type -> friends.v1.WorldEvent
+	33, // [33:53] is the sub-list for method output_type
+	13, // [13:33] is the sub-list for method input_type
 	13, // [13:13] is the sub-list for extension type_name
 	13, // [13:13] is the sub-list for extension extendee
 	0,  // [0:13] is the sub-list for field type_name
@@ -2704,12 +2606,12 @@ func file_friends_friends_proto_init() {
 	if File_friends_friends_proto != nil {
 		return
 	}
-	file_friends_friends_proto_msgTypes[12].OneofWrappers = []any{
+	file_friends_friends_proto_msgTypes[11].OneofWrappers = []any{
 		(*FriendsUpdate_Friendlist)(nil),
 		(*FriendsUpdate_Ignorelist)(nil),
 		(*FriendsUpdate_PrivateMessage)(nil),
 	}
-	file_friends_friends_proto_msgTypes[27].OneofWrappers = []any{
+	file_friends_friends_proto_msgTypes[26].OneofWrappers = []any{
 		(*WorldEvent_Mute)(nil),
 		(*WorldEvent_Kick)(nil),
 		(*WorldEvent_Shutdown)(nil),
@@ -2726,7 +2628,7 @@ func file_friends_friends_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_friends_friends_proto_rawDesc), len(file_friends_friends_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   37,
+			NumMessages:   36,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

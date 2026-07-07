@@ -2,6 +2,7 @@ package friends
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -9,9 +10,111 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/friendspb"
+	"github.com/zsrv/goscape/pkg/telemetry"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
 )
+
+// captureEmitter records emitted PlayerInputEnvelopes for assertions.
+type captureEmitter struct {
+	mu   sync.Mutex
+	envs []*eventspb.PlayerInputEnvelope
+}
+
+func (c *captureEmitter) EmitAuth(*eventspb.AuthEnvelope)   {}
+func (c *captureEmitter) EmitWorld(*eventspb.WorldEnvelope) {}
+func (c *captureEmitter) EmitPlayerInput(env *eventspb.PlayerInputEnvelope) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.envs = append(c.envs, env)
+}
+func (c *captureEmitter) EmitWealth(*eventspb.WealthEnvelope) {}
+
+func (c *captureEmitter) snapshot() []*eventspb.PlayerInputEnvelope {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]*eventspb.PlayerInputEnvelope(nil), c.envs...)
+}
+
+// TestPrivateMessage_EmitsPrivateChatEvent pins the Kafka-only PM
+// record (spec docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md):
+// a delivered PM emits exactly one PlayerInputEnvelope{PrivateChatEvent}
+// keyed by the RESOLVED account ids (TS FriendServer.ts:266-284 resolve
+// step), with the request's coord and text; no private_chat row exists.
+func TestPrivateMessage_EmitsPrivateChatEvent(t *testing.T) {
+	cap := &captureEmitter{}
+	telemetry.Set(cap)
+	t.Cleanup(telemetry.Reset)
+
+	h := newTestHandler(t)
+	fromID := seedAccount(t, h.repos.db, 0xAAAA)
+	toID := seedAccount(t, h.repos.db, 0xBBBB)
+
+	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
+		WorldId:          7,
+		Profile:          "main",
+		Username37:       0xAAAA,
+		TargetUsername37: 0xBBBB,
+		StaffLvl:         0,
+		PmId:             1,
+		Chat:             "hi there",
+		Coord:            12345,
+	}); err != nil {
+		t.Fatalf("PrivateMessage: %v", err)
+	}
+
+	envs := cap.snapshot()
+	if len(envs) != 1 {
+		t.Fatalf("emitted %d envelopes, want 1", len(envs))
+	}
+	env := envs[0]
+	pc := env.GetPrivateChat()
+	if pc == nil {
+		t.Fatalf("payload = %T, want PrivateChat", env.Payload)
+	}
+	if env.AccountId != fromID {
+		t.Errorf("AccountId = %d, want %d (resolved sender)", env.AccountId, fromID)
+	}
+	if env.WorldId != 7 {
+		t.Errorf("WorldId = %d, want 7", env.WorldId)
+	}
+	if pc.RecipientAccountId != toID {
+		t.Errorf("RecipientAccountId = %d, want %d", pc.RecipientAccountId, toID)
+	}
+	if pc.Text != "hi there" {
+		t.Errorf("Text = %q, want %q", pc.Text, "hi there")
+	}
+	if pc.Coord != 12345 {
+		t.Errorf("Coord = %d, want 12345", pc.Coord)
+	}
+}
+
+// TestPrivateMessage_MissingAccount_NoEmit pins that the TS silent-drop
+// (FriendServer.ts:266-284: either endpoint unresolvable → no insert,
+// no delivery, successful result) also means NO event: an undelivered
+// PM leaves no record anywhere.
+func TestPrivateMessage_MissingAccount_NoEmit(t *testing.T) {
+	cap := &captureEmitter{}
+	telemetry.Set(cap)
+	t.Cleanup(telemetry.Reset)
+
+	h := newTestHandler(t)
+	seedAccount(t, h.repos.db, 0xAAAA) // recipient 0xBBBB deliberately absent
+
+	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
+		WorldId:          1,
+		Profile:          "main",
+		Username37:       0xAAAA,
+		TargetUsername37: 0xBBBB,
+		Chat:             "hi",
+	}); err != nil {
+		t.Fatalf("PrivateMessage: %v (silent drop must return success)", err)
+	}
+	if n := len(cap.snapshot()); n != 0 {
+		t.Errorf("emitted %d envelopes, want 0 (silent drop)", n)
+	}
+}
 
 // nameToBase37 is a slice-5a-test-only convenience for inline username
 // literals. The handler's RELAY_* methods are username-agnostic at the
@@ -304,7 +407,8 @@ func TestHandler_IgnorelistDel_RemovesEntry(t *testing.T) {
 func TestPrivateMessage_NoSubscription(t *testing.T) {
 	h := newTestHandler(t)
 	// Both endpoints need accounts under the TS 274 re-key —
-	// LogPrivateMessage now resolves from/to against the central database.
+	// ResolvePrivateMessageEndpoints resolves from/to against the
+	// central database.
 	seedAccount(t, h.repos.db, 0xAAAA)
 	seedAccount(t, h.repos.db, 0xBBBB)
 	// No SubscribeUpdates call for the target — registry is empty for
@@ -742,11 +846,17 @@ func TestPrivateMessage_CrossWorld(t *testing.T) {
 	}
 }
 
-// TestHandler_PrivateMessage_PersistsBeforeSending pins slice 6's
-// insert-then-send ordering: the handler writes to private_chat
-// before pushing PrivateMessageDelivery to the recipient's stream.
-// Mirrors TS FriendServer.ts:273-285.
-func TestHandler_PrivateMessage_PersistsBeforeSending(t *testing.T) {
+// TestHandler_PrivateMessage_EmitsBeforeSending pins the emit-then-send
+// ordering: the handler emits the PM's PrivateChatEvent (chat is
+// Kafka-only — documented TS divergence, spec
+// docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md; TS
+// FriendServer.ts:273-285 wrote a private_chat row here instead) before
+// pushing PrivateMessageDelivery to the recipient's stream.
+func TestHandler_PrivateMessage_EmitsBeforeSending(t *testing.T) {
+	cap := &captureEmitter{}
+	telemetry.Set(cap)
+	t.Cleanup(telemetry.Reset)
+
 	db := createTestDB(t)
 	repos := newRepositories(db)
 	r := repos.get("main")
@@ -783,19 +893,19 @@ func TestHandler_PrivateMessage_PersistsBeforeSending(t *testing.T) {
 		t.Fatalf("PrivateMessage: %v", err)
 	}
 
-	// Persistence — TS 274 re-key: private_chat is keyed by resolved
-	// account ids (account_id, to_account_id), not raw username37s.
-	var from, to int64
-	var coord int32
-	var msg string
-	if err := db.QueryRowContext(t.Context(),
-		`SELECT account_id, to_account_id, coord, message FROM private_chat`).
-		Scan(&from, &to, &coord, &msg); err != nil {
-		t.Fatalf("SELECT private_chat: %v", err)
+	// Emission — TS 274 re-key: the event is keyed by resolved account
+	// ids (AccountId, RecipientAccountId), not raw username37s.
+	envs := cap.snapshot()
+	if len(envs) != 1 {
+		t.Fatalf("emitted %d envelopes, want 1", len(envs))
 	}
-	if from != fromID || to != toID || coord != 12345 || msg != "hi" {
-		t.Errorf("row = (%d, %d, %d, %q), want (%d, %d, 12345, %q)",
-			from, to, coord, msg, fromID, toID, "hi")
+	pc := envs[0].GetPrivateChat()
+	if pc == nil {
+		t.Fatalf("payload = %T, want PrivateChat", envs[0].Payload)
+	}
+	if envs[0].AccountId != fromID || pc.RecipientAccountId != toID || pc.Coord != 12345 || pc.Text != "hi" {
+		t.Errorf("event = (%d, %d, %d, %q), want (%d, %d, 12345, %q)",
+			envs[0].AccountId, pc.RecipientAccountId, pc.Coord, pc.Text, fromID, toID, "hi")
 	}
 
 	// Delivery
@@ -809,12 +919,12 @@ func TestHandler_PrivateMessage_PersistsBeforeSending(t *testing.T) {
 	}
 }
 
-// TestHandler_PrivateMessage_InsertErrorBlocksSend pins that a
-// LogPrivateMessage failure (of any kind, not just errAccountMissing)
-// returns codes.Internal AND does not deliver the PM. Forces the
-// failure by closing the *gamedb.DB after the initial-snapshot reads
-// complete. Mirrors the TS thrown-await pattern.
-func TestHandler_PrivateMessage_InsertErrorBlocksSend(t *testing.T) {
+// TestHandler_PrivateMessage_ResolveErrorBlocksSend pins that a
+// ResolvePrivateMessageEndpoints failure (of any kind, not just
+// errAccountMissing) returns codes.Internal AND does not deliver the
+// PM. Forces the failure by closing the *gamedb.DB after the
+// initial-snapshot reads complete. Mirrors the TS thrown-await pattern.
+func TestHandler_PrivateMessage_ResolveErrorBlocksSend(t *testing.T) {
 	db := createTestDB(t)
 	repos := newRepositories(db)
 	r := repos.get("main")
@@ -823,13 +933,13 @@ func TestHandler_PrivateMessage_InsertErrorBlocksSend(t *testing.T) {
 	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
 	r.InitializeWorld(1, 100)
 	r.Register(1, 200, 0, 0)
-	// Seed both endpoints so LogPrivateMessage's account resolution
-	// would otherwise succeed. Note that db.Close() below still fails
-	// the very first query LogPrivateMessage issues — resolving
-	// `from`'s account id — not the later INSERT step; the point of
-	// this test is that a non-errAccountMissing failure anywhere in
-	// LogPrivateMessage still maps to codes.Internal, regardless of
-	// which query trips it.
+	// Seed both endpoints so ResolvePrivateMessageEndpoints' account
+	// resolution would otherwise succeed. Note that db.Close() below
+	// still fails the very first query ResolvePrivateMessageEndpoints
+	// issues — resolving `from`'s account id; the point of this test is
+	// that a non-errAccountMissing failure anywhere in
+	// ResolvePrivateMessageEndpoints still maps to codes.Internal,
+	// regardless of which query trips it.
 	seedAccount(t, db, 100)
 	seedAccount(t, db, 200)
 
@@ -847,10 +957,10 @@ func TestHandler_PrivateMessage_InsertErrorBlocksSend(t *testing.T) {
 	stream.recvWithin(t, 2*time.Second)
 	stream.recvWithin(t, 2*time.Second)
 
-	// Force a LogPrivateMessage failure: close the underlying *gamedb.DB.
-	// The subscriber goroutine is now in select{} waiting for new
-	// updates; it doesn't query the DB until something arrives on its
-	// channel.
+	// Force a ResolvePrivateMessageEndpoints failure: close the
+	// underlying *gamedb.DB. The subscriber goroutine is now in select{}
+	// waiting for new updates; it doesn't query the DB until something
+	// arrives on its channel.
 	if err := db.Close(); err != nil {
 		t.Fatalf("db.Close: %v", err)
 	}
@@ -874,7 +984,7 @@ func TestHandler_PrivateMessage_InsertErrorBlocksSend(t *testing.T) {
 	// poll — recvWithin would t.Fatal on timeout.
 	select {
 	case u := <-stream.out:
-		t.Fatalf("unexpected delivery after LogPrivateMessage error: %T", u.Update)
+		t.Fatalf("unexpected delivery after ResolvePrivateMessageEndpoints error: %T", u.Update)
 	case <-time.After(200 * time.Millisecond):
 		// expected: nothing arrives
 	}
@@ -884,10 +994,15 @@ func TestHandler_PrivateMessage_InsertErrorBlocksSend(t *testing.T) {
 // re-key's restored account-existence check (TS FriendServer.ts:270-284:
 // executeTakeFirstOrThrow on either endpoint throws, the outer catch
 // swallows it — no insert, no delivery, socket stays healthy). goscape:
-// the RPC succeeds, no private_chat row is written, and nothing is
-// delivered to the target's stream, even though the target is
-// subscribed and would otherwise receive it.
+// the RPC succeeds, no PrivateChatEvent is emitted (chat is Kafka-only,
+// spec docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md),
+// and nothing is delivered to the target's stream, even though the
+// target is subscribed and would otherwise receive it.
 func TestPrivateMessage_MissingTarget_DroppedSilently(t *testing.T) {
+	cap := &captureEmitter{}
+	telemetry.Set(cap)
+	t.Cleanup(telemetry.Reset)
+
 	db := createTestDB(t)
 	repos := newRepositories(db)
 	r := repos.get("main")
@@ -917,12 +1032,8 @@ func TestPrivateMessage_MissingTarget_DroppedSilently(t *testing.T) {
 		t.Fatalf("PrivateMessage: got %v, want nil (silent drop)", err)
 	}
 
-	var n int
-	if err := db.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM private_chat`).Scan(&n); err != nil {
-		t.Fatalf("count: %v", err)
-	}
-	if n != 0 {
-		t.Errorf("private_chat rows: got %d, want 0", n)
+	if n := len(cap.snapshot()); n != 0 {
+		t.Errorf("emitted %d envelopes, want 0 (silent drop)", n)
 	}
 
 	// No delivery should land on the target's stream. Short non-fatal
@@ -937,9 +1048,15 @@ func TestPrivateMessage_MissingTarget_DroppedSilently(t *testing.T) {
 
 // TestPrivateMessage_BothExist_PersistedAndDelivered dual-pins the
 // presence side of TestPrivateMessage_MissingTarget_DroppedSilently:
-// when both endpoints resolve, the PM is still persisted to
-// private_chat and delivered to the target's stream.
+// when both endpoints resolve, the PM is still emitted as a
+// PrivateChatEvent (chat is Kafka-only, spec
+// docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md) and
+// delivered to the target's stream.
 func TestPrivateMessage_BothExist_PersistedAndDelivered(t *testing.T) {
+	cap := &captureEmitter{}
+	telemetry.Set(cap)
+	t.Cleanup(telemetry.Reset)
+
 	db := createTestDB(t)
 	repos := newRepositories(db)
 	r := repos.get("main")
@@ -968,12 +1085,8 @@ func TestPrivateMessage_BothExist_PersistedAndDelivered(t *testing.T) {
 		t.Fatalf("PrivateMessage: %v", err)
 	}
 
-	var n int
-	if err := db.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM private_chat`).Scan(&n); err != nil {
-		t.Fatalf("count: %v", err)
-	}
-	if n != 1 {
-		t.Errorf("private_chat rows: got %d, want 1", n)
+	if n := len(cap.snapshot()); n != 1 {
+		t.Errorf("emitted %d envelopes, want 1", n)
 	}
 
 	u := stream.recvWithin(t, 2*time.Second)
@@ -1304,78 +1417,5 @@ func TestSingleProfile_WorldConnectRejectsMismatch(t *testing.T) {
 	}
 	if got := h.repos.get("main").GetWorld(0xB0B); got != 1 {
 		t.Errorf("main presence: world %d, want 1 (routing must use the configured profile)", got)
-	}
-}
-
-// --- public_chat audit (follow-up post-slice-7) ---
-
-// TestHandler_PublicMessage_PersistsRow pins the happy path: a valid
-// PublicMessageRequest returns (Empty, nil) AND the row is visible in
-// public_chat under r.profile. No delivery, no subscription, no
-// validation. Mirrors TS FriendServer.ts:286-297.
-func TestHandler_PublicMessage_PersistsRow(t *testing.T) {
-	db := createTestDB(t)
-	repos := newRepositories(db)
-	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
-	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
-
-	resp, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
-		WorldId:     10,
-		Profile:     "main",
-		SessionUuid: "uuid-pub-1",
-		Coord:       9876,
-		Chat:        "audit me",
-	})
-	if err != nil {
-		t.Fatalf("PublicMessage: %v", err)
-	}
-	if resp == nil {
-		t.Fatalf("PublicMessage: nil response, want non-nil Empty")
-	}
-
-	var sessionUUID, msg string
-	var coord int32
-	if err := db.QueryRowContext(t.Context(),
-		`SELECT session_uuid, coord, message FROM public_chat`).
-		Scan(&sessionUUID, &coord, &msg); err != nil {
-		t.Fatalf("SELECT public_chat: %v", err)
-	}
-	if sessionUUID != "uuid-pub-1" || coord != 9876 || msg != "audit me" {
-		t.Errorf("row = (%q, %d, %q), want (uuid-pub-1, 9876, audit me)", sessionUUID, coord, msg)
-	}
-}
-
-// TestHandler_PublicMessage_InsertErrorReturnsInternal pins that a SQL
-// failure on public_chat insert returns codes.Internal. Forces the
-// failure by closing the *sql.DB before the call. Mirrors the slice 6
-// TestHandler_PrivateMessage_InsertErrorBlocksSend pattern (minus the
-// delivery half, which doesn't exist for public_chat).
-func TestHandler_PublicMessage_InsertErrorReturnsInternal(t *testing.T) {
-	db := createTestDB(t)
-	repos := newRepositories(db)
-	log := noopLogger()
-	cfg := Config{WorldPlayerLimit: 100, Profile: "main"}
-	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
-
-	if err := db.Close(); err != nil {
-		t.Fatalf("db.Close: %v", err)
-	}
-
-	resp, err := h.PublicMessage(t.Context(), &friendspb.PublicMessageRequest{
-		WorldId:     10,
-		Profile:     "main",
-		SessionUuid: "uuid-pub-err",
-		Coord:       0,
-		Chat:        "should not persist",
-	})
-	if err == nil {
-		t.Fatalf("PublicMessage on closed DB: got nil error, want Internal")
-	}
-	if resp != nil {
-		t.Errorf("PublicMessage err path: resp = %+v, want nil", resp)
-	}
-	if status.Code(err) != codes.Internal {
-		t.Fatalf("PublicMessage err code = %v, want %v", status.Code(err), codes.Internal)
 	}
 }
