@@ -1,5 +1,12 @@
 [
   {
+    "version": "rev-274",
+    "title": "rev-274",
+    "aliases": [
+      "latest"
+    ]
+  },
+  {
     "version": "rev-254",
     "title": "rev-254",
     "aliases": []
