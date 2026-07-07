@@ -2417,6 +2417,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2428,6 +2433,58 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-you-need" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What you need
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connecting-to-a-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Connecting to a server
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accounts-and-logging-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Accounts and logging in
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-tour" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reference tour
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2443,10 +2500,87 @@
                   
 
 <h1 id="players-guide">Player's Guide<a class="headerlink" href="#players-guide" title="Permanent link">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
-</div>
+<p>This guide is for people who want to <em>play</em> on a goscape server: what you need to
+connect, how logging in works, and where to look up the items, NPCs, places, and
+commands that exist in the game world.</p>
+<p>goscape is a <strong>server</strong> — it does not include a game client. You play through the
+LostCityRS Java game client, which talks to a goscape server over the network. A
+<strong>revision</strong> is a numbered snapshot of the RuneScape game (its map, items, NPCs,
+and rules) that the server and client must agree on. These pages describe game
+revision <strong>274</strong>. If you are looking at a different server, use the
+<strong>version selector in the header</strong> to switch this documentation to the matching
+revision.</p>
+<h2 id="what-you-need">What you need<a class="headerlink" href="#what-you-need" title="Permanent link">&para;</a></h2>
+<p>To play you need the <strong>LostCityRS Client-Java</strong> build that matches the server's
+revision. Client and server speak a wire protocol that changes between revisions,
+so a rev-274 client will not work against a server built for another
+revision, and vice versa.</p>
+<p>Each revision branch pins the exact upstream client commit it was built and
+tested against. Rather than repeat commit hashes here (they change as the port
+advances), the pins are recorded in one place and treated like a lockfile — see
+the <a href="../contributor/references-pins/">References &amp; pins</a> page in the
+Contributor's Guide, which lists the pinned <code>Client-Java</code> commit for every
+revision alongside the other upstream sources.</p>
+<h2 id="connecting-to-a-server">Connecting to a server<a class="headerlink" href="#connecting-to-a-server" title="Permanent link">&para;</a></h2>
+<p>You connect to a goscape server that someone else (the <strong>server operator</strong>) is
+running. From them you need one thing: the <strong>host address</strong> of the machine the
+server runs on. Point your client at that host and it reaches the server through
+two network listeners:</p>
+<ul>
+<li><strong>World (TCP)</strong> — the port your client talks to for live gameplay: movement,
+  chat, combat, everything you do in the world. By default this is TCP port
+  <code>43594</code>, the classic RuneScape game port.</li>
+<li><strong>OnDemand (HTTP)</strong> — an HTTP service the client downloads the game cache from
+  (the map, models, and other assets it needs to render the world). By default
+  this is port <code>8080</code>.</li>
+</ul>
+<p>Both ports are configurable by the operator, so the numbers above are only the
+defaults. Everything about wiring a client to a running server — the full list of
+listeners, and how a client that runs on a different machine reaches them — is
+covered from the operator's side in the Administrator's Guide under
+<a href="../admin/quickstart/#connecting-a-client">Connecting a client</a>.</p>
+<h2 id="accounts-and-logging-in">Accounts and logging in<a class="headerlink" href="#accounts-and-logging-in" title="Permanent link">&para;</a></h2>
+<p>There is <strong>no separate sign-up step</strong>. You log in from the client with a username
+and a password, and whether that creates an account depends on one server
+setting:</p>
+<ul>
+<li><strong>When auto-registration is enabled</strong> (<code>login.auto-register</code>, which is on by
+  default), the <em>first</em> time you log in with a username, the server creates the
+  account for that username and remembers the password you used. Every later
+  login checks your password against that stored account.</li>
+<li><strong>When auto-registration is disabled</strong>, logging in with a username the server
+  has never seen is rejected as invalid credentials — the operator has to provide
+  accounts some other way.</li>
+</ul>
+<p>Passwords are <strong>case-insensitive</strong>: the server lowercases the password before
+storing and before checking it, so <code>Hunter2</code> and <code>hunter2</code> are the same password.
+Whether auto-registration is on is the operator's choice; it is one of the login
+settings documented in the Administrator's Guide
+<a href="../admin/config-reference/">Config reference</a>.</p>
+<h2 id="reference-tour">Reference tour<a class="headerlink" href="#reference-tour" title="Permanent link">&para;</a></h2>
+<p>The rest of the Player's Guide is generated directly from the server's game data
+for this revision, so the numbers and names match exactly what is live on a
+rev-274 server. Use these as a lookup when you want to know what
+something is or where to find it. For a side-by-side of how the totals differ
+between revisions, see <a href="revision-comparison/">Revision comparison</a>.</p>
+<ul>
+<li><strong><a href="commands/">Commands</a></strong> — the text commands you can type in chat. These come
+  in two families: <code>::</code> <strong>engine cheat commands</strong> (built into the server engine)
+  and <code>~</code> <strong>debugproc commands</strong> (defined in the game's RuneScript content; the
+  <code>~</code> prefix is itself configurable by the operator). Most commands are gated
+  behind <strong>staff moderator levels</strong> and exist for administration and testing — an
+  ordinary player account cannot run the bulk of them.</li>
+<li><strong><a href="items/">Items</a></strong> — every object in the game, from coins to equipment,
+  with each one's description, shop value, and properties, spread across several
+  pages.</li>
+<li><strong><a href="npcs/">NPCs</a></strong> — the non-player characters that populate the world,
+  such as townspeople, shopkeepers, and monsters.</li>
+<li><strong><a href="locs/">Locations</a></strong> — the world objects you see and interact with,
+  such as doors, ladders, trees, and furniture (often called "locs").</li>
+<li><strong><a href="music/">Music tracks</a></strong> — the in-game music tracks and short jingles.</li>
+<li><strong><a href="places/">Places</a></strong> — the named world-map labels (regions and landmarks) and
+  their map coordinates.</li>
+</ul>
 
 
 

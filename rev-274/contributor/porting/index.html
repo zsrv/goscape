@@ -2185,6 +2185,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Porting a new revision
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -2200,6 +2217,48 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#engine-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Engine steps
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Documentation step
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2418,6 +2477,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2429,6 +2493,36 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#engine-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Engine steps
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Documentation step
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2444,10 +2538,119 @@
                   
 
 <h1 id="porting-a-new-revision">Porting a new revision<a class="headerlink" href="#porting-a-new-revision" title="Permanent link">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
-</div>
+<p>This page turns the branch model into an ordered recipe. It operationalizes the
+"Future revisions" section of the <a href="../references-pins/">References &amp; pins</a> lockfile
+and the porting workflow in the <a href="../porting-lessons/">Porting lessons</a> (§2), and
+ends with the step that most recipes forget: adding the new revision to <strong>this
+documentation site</strong>. Read the <a href="../porting-lessons/">Porting lessons</a> in full
+first — the per-step rules below assume its philosophy (§1) and its TS→Go gotcha
+catalogue (§3).</p>
+<p>The core identity is simple: <strong>the Go port of revision <em>N</em> is the Go port of
+revision <em>N−1</em> plus the translated Engine-TS delta.</strong> That makes porting a branch
+operation, not a rewrite.</p>
+<h2 id="engine-steps">Engine steps<a class="headerlink" href="#engine-steps" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Branch <code>rev-N</code> from the nearest prior revision branch.</strong> Cut the new branch
+   from the closest existing revision (for the current lineage that is the tip of
+   the chain in the <a href="../branches/">Branch model</a>). The port inherits everything
+   already translated; you are only responsible for the delta.</p>
+</li>
+<li>
+<p><strong>Look up the prior revision's pinned Engine-TS commit</strong> in
+   <a href="../references-pins/">References &amp; pins</a>, then <strong>diff the primary reference
+   across the gap</strong>:</p>
+</li>
+</ol>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>-C<span class="w"> </span>Engine-TS<span class="w"> </span>diff<span class="w"> </span>&lt;prev-commit&gt;..&lt;new-commit&gt;
+</span></code></pre></div>
+<p>That diff is your <strong>work list</strong> — every changed TS region is a region you must
+   translate. (Where the upstream branches share history, this cross-pin diff is
+   the real, minimal delta; the pins page notes the merge-base for each gap.)</p>
+<ol>
+<li><strong>Translate each TS change into the corresponding Go region</strong>, applying the
+   gotcha rules from the <a href="../porting-lessons/">Porting lessons</a> §3 (identity
+   <code>uid</code>-vs-<code>slot</code> discipline, shared-handler/base-class fixes landing in both Go
+   forks, tick-order fidelity, the protected-access invariant, pack determinism,
+   and so on). The Go branch diff should correspond change-for-change to the TS
+   diff — that correspondence is your audit:</li>
+</ol>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>diff<span class="w"> </span>rev-&lt;N-1&gt;<span class="w"> </span>rev-N<span class="w">   </span><span class="c1"># should mirror the Engine-TS diff, region for region</span>
+</span></code></pre></div>
+<ol>
+<li>
+<p><strong>Bump the Content and compiler pins together with the engine.</strong> The pack
+   pipeline is byte-parity-checked against the cache the upstream meta-repo packs,
+   so the engine, the Content tree, and the RuneScript compiler move as a set.
+   The compiler is revision-dependent (RuneScriptTS for some revisions,
+   RuneScriptKt for others — the pins page records which per revision), so
+   re-verify the compiler and the resulting cache version bytes for the new pin.</p>
+</li>
+<li>
+<p><strong>Record the new reference commits</strong> in <code>REFERENCES.md</code> under a new <code>## rev-N</code>
+   section — the Engine-TS, Content, Client-Java, and compiler pins, plus a note
+   documenting the lineage (which branch it was cut from, the merge-base, and any
+   toolchain swap). Because branch names move, <strong>the commit hash is the pin</strong>;
+   record the full hash, not just the branch name.</p>
+</li>
+<li>
+<p><strong>Keep the branch self-contained.</strong> Do not share code packages across revision
+   branches — each revision is an independent faithful translation and must be
+   free to diverge with its upstream. Copy-and-adapt rather than extract-and-share.</p>
+</li>
+<li>
+<p><strong>Carry the deviation tracker forward.</strong> <code>PORTING.md</code> rows that still apply
+   travel with the new branch; close rows using the closure shapes defined there
+   (FIXED / EXCEPTION-DOCUMENTED / NO-DIVERGENCE / NOT-A-GAP), and move closed
+   rows to <code>docs/PORTING-CLOSED.md</code>. Any accepted divergence keeps its in-code
+   <code>PORTING-EXCEPTION (&lt;row-id&gt;, &lt;short&gt;)</code> marker.</p>
+</li>
+<li>
+<p><strong>Pass the verification gate.</strong> Build (<code>CGO_ENABLED=0 go build -trimpath
+   ./...</code>), <code>go vet ./...</code>, <code>go test ./...</code>, and <code>go test -race</code> on touched
+   packages. Confirm byte parity for the boundaries (ISAAC, RSA, opcodes, bzip2,
+   CRC, wordenc, collision) and byte-diff the pack output against the
+   upstream-packed cache when the pack pipeline changed. Pin the TS-correct
+   contract of each fix with a test — see the <a href="../porting-lessons/">Porting lessons</a>
+   §5.</p>
+</li>
+</ol>
+<h2 id="documentation-step">Documentation step<a class="headerlink" href="#documentation-step" title="Permanent link">&para;</a></h2>
+<p>A revision is not fully ported until it appears on this site. The docs build is
+data-driven from one file, so the sequence is short (run it from the docs
+worktree root, with the venv on <code>PATH</code> — see <a href="../dev-setup/">Dev environment</a>):</p>
+<ol>
+<li>
+<p><strong>Add the revision to <code>tools/docsgen/revisions.toml</code>.</strong> Append the revision to
+   the <code>order</code> list (and update <code>latest</code> if it is now the newest), then add a
+   <code>[revisions.&lt;N&gt;]</code> table giving its <code>branch</code>, <code>unpack_revision</code>, <code>content_dir</code>,
+   and <code>cache_dir</code> — the same Content tree and packed cache the engine port was
+   built against. (These are the inputs both <code>docsgen</code> and <code>build.py</code> read.)</p>
+</li>
+<li>
+<p><strong>Regenerate the overlay pages with docsgen:</strong></p>
+</li>
+</ol>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>-m<span class="w"> </span>tools.docsgen<span class="w"> </span>--revision<span class="w"> </span>&lt;N&gt;<span class="w">     </span><span class="c1"># generates overlays/rev-&lt;N&gt;/…</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>python<span class="w"> </span>-m<span class="w"> </span>tools.docsgen<span class="w"> </span>--revision<span class="w"> </span>all<span class="w">     </span><span class="c1"># or refresh every rev + comparison table</span>
+</span></code></pre></div>
+<p>This unpacks the revision's cache/content and writes its item, NPC, location,
+   varp, commands, music, and places pages under <code>overlays/rev-&lt;N&gt;/</code>, plus the
+   navigation fragment <code>build.py</code> needs.</p>
+<ol>
+<li><strong>Add the mike version and rebuild the site.</strong> <code>tools/build.py all</code> assembles
+   every revision (injecting the updated <code>REFERENCES.md</code> and <code>PORTING-LESSONS.md</code>
+   as the pins and lessons pages automatically), deploys each as a mike version,
+   and sets the newest as the <code>latest</code> default:</li>
+</ol>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>tools/build.py<span class="w"> </span>assemble<span class="w"> </span>--revision<span class="w"> </span>&lt;N&gt;<span class="w">          </span><span class="c1"># stage just the new rev</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>zensical<span class="w"> </span>build<span class="w"> </span>--strict<span class="w"> </span>-f<span class="w"> </span>.build/rev-&lt;N&gt;/mkdocs.yml<span class="w">   </span><span class="c1"># strict-build it in isolation</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>python<span class="w"> </span>tools/build.py<span class="w"> </span>all<span class="w">                              </span><span class="c1"># deploy every rev as a mike version</span>
+</span></code></pre></div>
+<p>Because <code>REFERENCES.md</code> is injected verbatim into the site at assemble time,
+   updating it in step 5 of the engine steps above is also what publishes the new
+   revision's pins to the <a href="../references-pins/">References &amp; pins</a> page — there is
+   no separate page to edit.</p>
 
 
 

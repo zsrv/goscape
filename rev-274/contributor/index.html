@@ -2408,6 +2408,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2419,6 +2424,64 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#philosophy-faithful-translation-is-the-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Philosophy: faithful translation is the default
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Philosophy: faithful translation is the default">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-fidelity-gate-deviations-are-tracked-never-silent" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The fidelity gate: deviations are tracked, never silent
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-lives-where-main-versus-the-revision-branches" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What lives where: <code>main</code> versus the revision branches
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-start-reading" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where to start reading
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2434,10 +2497,99 @@
                   
 
 <h1 id="contributors-guide">Contributor's Guide<a class="headerlink" href="#contributors-guide" title="Permanent link">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Placeholder</p>
-<p>This page is written by a later task in the implementation plan.</p>
-</div>
+<p>goscape is a Go rewrite of the <a href="https://github.com/LostCityRS">Lost City</a>
+TypeScript RuneScape server (<a href="https://github.com/LostCityRS/Engine-TS">Engine-TS</a>),
+built to speak to the Lost City Java client. This guide is for people who want to
+change the engine itself: fix a parity bug, port a new game revision, or work on
+this documentation site. It assumes you have read the operator-facing
+<a href="../admin/">Administrator's Guide</a> for the runtime picture (modules,
+targets, the service lifecycle) and does not repeat it.</p>
+<h2 id="philosophy-faithful-translation-is-the-default">Philosophy: faithful translation is the default<a class="headerlink" href="#philosophy-faithful-translation-is-the-default" title="Permanent link">&para;</a></h2>
+<p>goscape is not a reimagining of the Lost City server — it is a <strong>1:1 translation</strong>
+of Engine-TS into Go. That single rule drives almost every convention in the
+codebase:</p>
+<ul>
+<li><strong>Every ported game-logic region maps to an identifiable Engine-TS function</strong>,
+  cited inline in the Go source as <code>// TS &lt;File&gt;.ts:&lt;lines&gt;</code>. The TS file and
+  symbol are the durable anchor; a bug is found by diff-checking the Go region
+  against the cited TS source.</li>
+<li><strong>Infrastructure is adapted to Go idiom; game logic is not.</strong> goscape rebuilds
+  the service lifecycle, module system, and config layering in idiomatic Go
+  (see <a href="architecture/">Architecture</a>), but inside ported game logic it does
+  <strong>not</strong> refactor opportunistically — a "cleaner" rewrite is how behaviour
+  bugs get introduced.</li>
+<li><strong>The boundaries are byte-faithful.</strong> The wire protocol (ISAAC, RSA, opcodes),
+  the codecs (bzip2, CRC, wordenc), collision, and the pack pipeline's cache
+  output are byte-for-byte identical to the reference and pinned by tests.</li>
+</ul>
+<p>These principles are stated in full, with the bug classes that motivate them, in
+the <a href="porting-lessons/">Porting lessons</a> page (§1, "Philosophy").</p>
+<h3 id="the-fidelity-gate-deviations-are-tracked-never-silent">The fidelity gate: deviations are tracked, never silent<a class="headerlink" href="#the-fidelity-gate-deviations-are-tracked-never-silent" title="Permanent link">&para;</a></h3>
+<p>Because faithful translation is the default, <strong>every behavioural divergence from
+Engine-TS needs a justification, and that justification is recorded</strong> — a
+divergence is never left implicit. Each revision branch carries two tracker
+files: <code>PORTING.md</code> (the active backlog of known gaps) and
+<code>docs/PORTING-CLOSED.md</code> (closed rows, parity tables, and audit history). An
+accepted in-code divergence carries a <code>PORTING-EXCEPTION (&lt;row-id&gt;, &lt;short&gt;)</code>
+marker next to it, so <code>grep -rn "PORTING-EXCEPTION" modules pkg cmd internal</code>
+lists every exception the port has agreed to live with. A comment that merely
+<em>claims</em> a divergence is intentional is treated as the prime suspect, not as
+evidence — see the <a href="porting-lessons/">Porting lessons</a> for why "by design"
+comments are re-verified against the TS source before they are trusted.</p>
+<h2 id="what-lives-where-main-versus-the-revision-branches">What lives where: <code>main</code> versus the revision branches<a class="headerlink" href="#what-lives-where-main-versus-the-revision-branches" title="Permanent link">&para;</a></h2>
+<p>This repository holds <strong>one Go port per game revision, one branch per
+revision</strong>. The split matters for anyone browsing the source:</p>
+<ul>
+<li><strong><code>main</code> carries no engine code.</strong> It is the cross-revision documentation
+  hub — the <code>REFERENCES.md</code> lockfile (published here as
+  <a href="references-pins/">References &amp; pins</a>) and the durable <code>PORTING-LESSONS.md</code>
+  (published as <a href="porting-lessons/">Porting lessons</a>). This versioned
+  documentation site is built from the same cross-revision sources, which it
+  injects verbatim so the pins and lessons never drift from their canonical
+  files.</li>
+<li><strong>Each <code>rev-N</code> branch is one complete, self-contained port</strong> of that game
+  revision — its own engine code, tooling, and tests. Revision branches are not
+  meant to share code packages; each is an independent faithful translation.
+  Revision-specific docs (the branch's own <code>README.md</code>, <code>CLAUDE.md</code>,
+  <code>PORTING.md</code>, and <code>docs/PORTING-CLOSED.md</code>) live on the branch, not on <code>main</code>.</li>
+</ul>
+<p>The <a href="branches/">Branch model</a> page explains the lineage of those branches and
+the "the pin is the commit hash" doctrine that ties each one to an exact upstream
+commit.</p>
+<h2 id="where-to-start-reading">Where to start reading<a class="headerlink" href="#where-to-start-reading" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>If you want to…</th>
+<th>Start here</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Understand how the branches relate and what each one is pinned to</td>
+<td><a href="branches/">Branch model</a> → <a href="references-pins/">References &amp; pins</a></td>
+</tr>
+<tr>
+<td>Get a working build, run the tests, or preview these docs</td>
+<td><a href="dev-setup/">Dev environment</a></td>
+</tr>
+<tr>
+<td>Modify engine code (services, modules, packet I/O, the login/ISAAC path)</td>
+<td><a href="architecture/">Architecture</a></td>
+</tr>
+<tr>
+<td>Internalize the TS→Go pitfalls before touching ported logic</td>
+<td><a href="porting-lessons/">Porting lessons</a></td>
+</tr>
+<tr>
+<td>Port a whole new game revision end to end</td>
+<td><a href="porting/">Porting a new revision</a></td>
+</tr>
+</tbody>
+</table>
+<p>If you are chasing a wire-level detail, the <a href="../protocol/">Protocol</a>
+guide documents the login handshake, packet framing, ISAAC, and OnDemand from
+the client's point of view.</p>
 
 
 
