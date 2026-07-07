@@ -2830,6 +2830,8 @@ still match the upstream reference byte-for-byte?".</p>
 <li><strong><code>-content-dir</code></strong> (required) — the source content directory.</li>
 <li><strong><code>-out-dir</code></strong> — where to write. Empty auto-creates a temp directory that is
   deleted on exit unless <code>-keep</code> is set.</li>
+<li><strong><code>-datapack-dir</code></strong> — entity-type cache directory used by the server compiler
+  stage. Empty falls back to the effective <code>-out-dir</code>.</li>
 <li><strong><code>-reference-dir</code></strong> — a reference pack output (typically the upstream
   TS-packed <code>data/pack</code>) to byte-diff each stage against. Empty disables the
   diff.</li>
