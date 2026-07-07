@@ -1,0 +1,20 @@
+      - Items:
+          - player/items/index.md
+          - "page 1 (Knife – Goblin mail)": player/items/page-001.md
+          - "page 2 (Holy table napkin – Adamnt warhammer)": player/items/page-002.md
+          - "page 3 (Rune warhammer – Leather gloves)": player/items/page-003.md
+          - "page 4 (Leather boots – Bones)": player/items/page-004.md
+      - NPCs:
+          - player/npcs/index.md
+          - "page 1 (Man – Horvik)": player/npcs/page-001.md
+          - "page 2 (Lowe – Fishing spot)": player/npcs/page-002.md
+          - "page 3 (Fishing spot – Brother Brace)": player/npcs/page-003.md
+      - Locations:
+          - player/locs/index.md
+          - "page 1 (Crate – Piano stool)": player/locs/page-001.md
+          - "page 2 (Grandfather clock – Tulips)": player/locs/page-002.md
+          - "page 3 (Flowers – Door)": player/locs/page-003.md
+          - "page 4 (Door – Statue of Guthix)": player/locs/page-004.md
+          - "page 5 (Counter – Tower ladder)": player/locs/page-005.md
+          - "page 6 (Target – upass_walkway_icon)": player/locs/page-006.md
+          - "page 7 (Swamp – Oak)": player/locs/page-007.md

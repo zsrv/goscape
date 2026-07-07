@@ -53,9 +53,19 @@ def assemble(rev: str, cfg: dict) -> Path:
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(note + text)
 
+    nav_frag_path = overlay / "_nav_generated.yml"
+    if not nav_frag_path.exists():
+        sys.exit(
+            f"error: {nav_frag_path} missing — run "
+            f"`.venv/bin/python -m tools.docsgen --revision {rev}` first"
+        )
     tmpl = string.Template((ROOT / "mkdocs.yml.tmpl").read_text())
     (stage / "mkdocs.yml").write_text(
-        tmpl.substitute(revision=rev, revision_branch=cfg["branch"])
+        tmpl.substitute(
+            revision=rev,
+            revision_branch=cfg["branch"],
+            nav_generated=nav_frag_path.read_text().rstrip("\n"),
+        )
     )
     return stage
 

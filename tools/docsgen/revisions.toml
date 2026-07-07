@@ -5,8 +5,15 @@ latest = "274"
 [revisions.225]
 branch = "rev-225"
 unpack_revision = 225
+# No rev-225 client cache exists (that era's pack pipeline shipped .jag
+# archives, not main_file_cache.*) and goscape-cli's `unpack` verb postdates
+# this revision, so item/npc/loc/varp data is parsed straight from the pinned
+# content tree: every named *.obj/*.npc/*.loc/*.varp script file plus the
+# upstream scripts/_unpack staging dumps (the two sets are disjoint and
+# together cover the full config space).
+config_source = "content-tree"
+note = "Item/NPC/location/varp data parsed from the pinned rev-225 content tree — no rev-225 client cache exists and the unpack tooling postdates this revision; counts include named config entries only, whereas later revisions count every cache entry."
 content_dir = "/home/owner/Code/github.com/LostCityRS/Server225_2/content"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server2/engine/data/pack"
 
 [revisions.244]
 branch = "rev-244"

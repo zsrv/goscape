@@ -1,0 +1,22 @@
+      - Items:
+          - player/items/index.md
+          - "page 1 (Dwarf remains – obj_499)": player/items/page-001.md
+          - "page 2 (Broken axe – Coins 5)": player/items/page-002.md
+          - "page 3 (Coins 25 – Amulet of holthion)": player/items/page-003.md
+          - "page 4 (Iban's shadow – Incomplete stew)": player/items/page-004.md
+          - "page 5 (obj_2000 – Dragonhide body)": player/items/page-005.md
+          - "page 6 (obj_2500 – Elemental metal)": player/items/page-006.md
+      - NPCs:
+          - player/npcs/index.md
+          - "page 1 (Hans – Banker)": player/npcs/page-001.md
+          - "page 2 (Mosol Rei – Doomion)": player/npcs/page-002.md
+          - "page 3 (Holthion – Earth elemental)": player/npcs/page-003.md
+      - Locations:
+          - player/locs/index.md
+          - "page 1 (Crate – loc_499)": player/locs/page-001.md
+          - "page 2 (loc_500 – loc_999)": player/locs/page-002.md
+          - "page 3 (loc_1000 – loc_1499)": player/locs/page-003.md
+          - "page 4 (loc_1500 – Crate)": player/locs/page-004.md
+          - "page 5 (Door – Mysterious glow)": player/locs/page-005.md
+          - "page 6 (Mysterious glow – loc_2999)": player/locs/page-006.md
+          - "page 7 (Timber defence – Rocks)": player/locs/page-007.md
