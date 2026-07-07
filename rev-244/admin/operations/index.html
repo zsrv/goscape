@@ -3032,8 +3032,8 @@ logging model.</p>
 <h2 id="restarts-upgrades">Restarts &amp; upgrades<a class="headerlink" href="#restarts-upgrades" title="Permanent link">&para;</a></h2>
 <h3 id="stopping-the-server-cleanly">Stopping the server cleanly<a class="headerlink" href="#stopping-the-server-cleanly" title="Permanent link">&para;</a></h3>
 <p>Send the process <code>SIGINT</code> (Ctrl-C) or <code>SIGTERM</code>. A single signal handler at the top
-of the process asks every module to stop in dependency order — no module installs its
-own handler. As the world module stops, its tick loop runs a <strong>final save-all</strong>: every
+of the process asks every module to stop in reverse dependency order — each module
+waits for its dependents to stop first — no module installs its own handler. As the world module stops, its tick loop runs a <strong>final save-all</strong>: every
 still-online player is saved and logged out, and shutdown waits (with a bounded
 timeout) for those save requests to flush to the login service before exiting. A clean
 signal-based stop therefore preserves player progress made since the last autosave.</p>
