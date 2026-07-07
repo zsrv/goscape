@@ -15,33 +15,42 @@ def _go_env() -> dict:
     }
 
 
-def run_unpack(repo: Path, cfg: dict, workdir: Path) -> Path:
-    wt = workdir / "worktree"
-    src = workdir / "src"
-    src.mkdir(parents=True, exist_ok=True)
+def add_worktree(repo: Path, branch: str, wt: Path) -> None:
     subprocess.run(
         ["git", "-C", str(repo), "worktree", "add", "--force",
-         str(wt), cfg["branch"]],
+         str(wt), branch],
         check=True,
     )
-    try:
-        cli = workdir / "goscape-cli"
-        subprocess.run(
-            ["go", "build", "-trimpath", "-o", str(cli), "./cmd/goscape-cli"],
-            cwd=wt, env=_go_env(), check=True,
-        )
-        subprocess.run(
-            [str(cli), "unpack", "config",
-             "-cache-dir", cfg["cache_dir"],
-             "-src-dir", str(src),
-             "-revision", str(cfg["unpack_revision"])],
-            check=True,
-        )
-    finally:
-        subprocess.run(
-            ["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)],
-            check=False,
-        )
+
+
+def remove_worktree(repo: Path, wt: Path) -> None:
+    subprocess.run(
+        ["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)],
+        check=False,
+    )
+
+
+def run_unpack(cfg: dict, workdir: Path, wt: Path) -> Path:
+    """Build goscape-cli from an already-checked-out worktree `wt` and run
+    `unpack config` against the revision's cache. Worktree lifecycle
+    (add/remove) is owned by the caller (run_revision) so the checkout can
+    outlive this call for later steps (e.g. `commands`) that also need to
+    read files out of it.
+    """
+    src = workdir / "src"
+    src.mkdir(parents=True, exist_ok=True)
+    cli = workdir / "goscape-cli"
+    subprocess.run(
+        ["go", "build", "-trimpath", "-o", str(cli), "./cmd/goscape-cli"],
+        cwd=wt, env=_go_env(), check=True,
+    )
+    subprocess.run(
+        [str(cli), "unpack", "config",
+         "-cache-dir", cfg["cache_dir"],
+         "-src-dir", str(src),
+         "-revision", str(cfg["unpack_revision"])],
+        check=True,
+    )
     out = src / "scripts" / "_unpack" / str(cfg["unpack_revision"])
     if not (out / "all.obj").exists():
         raise SystemExit(f"unpack produced no all.obj under {out}")
