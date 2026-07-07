@@ -42,7 +42,7 @@ Common trigger families:
 | Ground obj ops        | `opobj1`..`opobj5`, `opobju`, `opobjt`         | Player clicks a ground item               |
 | Player ops            | `opplayer1`..`opplayer5`                       | Player right-clicks another player        |
 | AI                    | `ai_queue1`..`ai_queue20`, `ai_timer`, `ai_spawn`, `ai_aprange` | NPC behaviour ticks    |
-| Queues / timers       | `queue,name`, `weakqueue,name`, `timer,name`   | Engine drains the named queue / timer     |
+| Queues / timers       | `queue,name`, `timer,name`                     | Engine drains the named queue / timer     |
 | Lifecycle             | `login`, `logout`, `autocon`                   | Per-player session events                 |
 | Interface             | `if_button,iface:comp`, `if_buttond`, `inv_button` | UI interactions on an open interface  |
 | Code-only             | `proc,name`, `label,name`, `debugproc,name`    | Called from other scripts                 |

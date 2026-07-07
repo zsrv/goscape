@@ -232,17 +232,24 @@ Once a reboot is scheduled, the shutdown proceeds in stages: during the final ~5
 ticks (~30 seconds) new logins are rejected so nobody is admitted only to be evicted;
 at the shutdown tick every player is logged out (with a save); any player still stuck
 after ~1024 ticks (~10 minutes) is force-removed; and once the world is empty, the
-**world module** exits cleanly.
+world's run loop returns `modules.ErrStopProcess`, which tells the module manager to
+stop **every** module and bring the whole process down cleanly (exit status `0`, which
+`app.go` logs at info as a requested stop).
 
-!!! warning "A reboot stops the world module, not the process"
-    The world module's graceful exit does not stop anything else. In an `all`
-    deployment, the OnDemand, login, and friends modules keep running and the process
-    stays up — only a module *failure* stops the whole group, and a scheduled reboot
-    is a clean termination, not a failure. `/healthz` eventually starts returning
-    `503` as the tick signal goes stale, but nothing restarts or terminates the
-    process (the Helm chart configures no liveness probe). Do not rely on `::reboot`
-    or `::slowreboot` alone to bring an `all` process down for an upgrade: after the
-    countdown has drained the players, send `SIGTERM` to stop the process itself.
+!!! note "A completed reboot exits the whole process — run under a supervisor"
+    A finished `::reboot` / `::slowreboot` stops the entire process, not just the
+    world module: once the countdown has drained the players, the world signals a
+    process stop and the module manager brings OnDemand, login, and friends down
+    alongside it, exiting cleanly with status `0`. This matches upstream Engine-TS,
+    whose `World.ts` `processShutdown` calls `process.exit(0)`. Because the process
+    exits rather than lingering, run goscape under a process supervisor — a systemd
+    unit with a restart policy, or a Docker / Kubernetes restart policy — so it
+    relaunches (on the new binary, for an upgrade) after a reboot completes; this is
+    the same operational model as upstream. A completed reboot no longer leaves the
+    process half-alive, so the stale-tick `/healthz` `503` above does not arise from
+    it. To stop the process **without** the reboot semantic — a routine restart that
+    is not operator-scheduled from in-game — send `SIGTERM`; that path is also clean
+    and saves every online player.
 
 ### Upgrading the binary
 

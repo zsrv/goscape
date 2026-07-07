@@ -98,13 +98,16 @@ repacking, verifying, and restarting:
    procedure, including config verification and database backup before a
    cross-revision upgrade.
 
-!!! note "`::reboot` stops the world module, not the process"
+!!! note "`::reboot` stops the whole process"
     The in-game `::reboot` / `::slowreboot` commands (staff level 3+, and only
     when `node_production` is `true`) schedule a graceful world shutdown that
-    drains players with a save. But in an `all` deployment that graceful exit
-    stops **only the world module** — the OnDemand, login, and friends modules
-    keep running and the process stays up. To bring the whole process down for a
-    binary swap, send `SIGTERM` after the countdown has drained the players. The
+    drains players with a save. When the world empties, that shutdown brings the
+    **entire process** down cleanly — OnDemand, login, and friends stop alongside
+    the world (exit status `0`), matching upstream Engine-TS. So `::reboot` is a
+    valid way to trigger a binary swap: run the server under a process supervisor
+    and it relaunches on the new binary once the reboot completes. A plain
+    `SIGTERM` (also a clean save-all stop) remains the way to restart without the
+    reboot semantic. The
     [In-game reboot commands](../admin/operations.md#in-game-reboot-commands)
     section of the Operations runbook covers this in full.
 
