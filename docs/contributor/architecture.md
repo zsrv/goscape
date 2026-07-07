@@ -106,9 +106,14 @@ and learning it makes the protocol code readable at a glance:
   (null-terminated). `GJStrLF` reads a newline-terminated JagString.
 - **`RSAEnc` / `RSADec`** encrypt/decrypt the buffer's contents with the login
   RSA key; `GData`/`PData` move raw byte runs.
-- **`packet.PacketBit`** is the separate **bit-level** reader/writer (`GBit` /
-  `PBit`) used where the protocol packs sub-byte fields (appearance, movement
-  updates).
+- **Bit-level I/O happens on the same `Packet`**, not on a separate type. The
+  struct carries a bit cursor (`BitPos`) alongside the byte cursor (`Pos`);
+  calling `AccessBits()` switches the stream position to bit access, after
+  which `GBit(n)` / `PBit(n, value)` read/write *n* bits at a time, and
+  `AccessBytes()` rounds the bit cursor back up to a byte boundary before any
+  byte accessor is used again. This mode switch is how the protocol packs
+  sub-byte fields — the player-info/NPC-info bitmasks in movement and
+  appearance updates are built this way.
 
 Because these accessors are the byte boundary, they are pinned by tests and must
 stay byte-faithful — see the [Porting lessons](porting-lessons.md) on
