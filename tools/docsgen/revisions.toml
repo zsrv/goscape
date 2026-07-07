@@ -1,0 +1,40 @@
+# Per-revision inputs for docsgen and build.py. Paths are host-absolute.
+order = ["225", "244", "245.2", "254", "274"]
+latest = "274"
+
+[revisions.225]
+branch = "rev-225"
+unpack_revision = 225
+# No rev-225 client cache exists (that era's pack pipeline shipped .jag
+# archives, not main_file_cache.*) and goscape-cli's `unpack` verb postdates
+# this revision, so item/npc/loc/varp data is parsed straight from the pinned
+# content tree: every named *.obj/*.npc/*.loc/*.varp script file plus the
+# upstream scripts/_unpack staging dumps (the two sets are disjoint and
+# together cover the full config space).
+config_source = "content-tree"
+note = "Item/NPC/location/varp data parsed from the pinned rev-225 content tree (no rev-225 client cache exists and the unpack tooling postdates this revision); counts include every *.obj/*.npc/*.loc/*.varp file under the content tree's scripts/ directory, including the scripts/_unpack staging dumps, whereas later revisions count every entry decoded from the packed client cache."
+content_dir = "/home/owner/Code/github.com/LostCityRS/Server225_2/content"
+
+[revisions.244]
+branch = "rev-244"
+unpack_revision = 244
+content_dir = "/home/owner/Code/github.com/LostCityRS/Server244-ref/content"
+cache_dir = "/home/owner/Code/github.com/LostCityRS/Server244-ref/unpack-ref/cache"
+
+[revisions."245.2"]
+branch = "rev-245.2"
+unpack_revision = 245
+content_dir = "/home/owner/Code/github.com/LostCityRS/Server245.2-ref/content"
+cache_dir = "/home/owner/Code/github.com/LostCityRS/Server245.2-ref/unpack-ref/cache"
+
+[revisions.254]
+branch = "rev-254"
+unpack_revision = 254
+content_dir = "/home/owner/Code/github.com/LostCityRS/Server254-ref/content"
+cache_dir = "/home/owner/Code/github.com/LostCityRS/Server254-ref/unpack-ref/cache"
+
+[revisions.274]
+branch = "rev-274"
+unpack_revision = 274
+content_dir = "/home/owner/Code/github.com/LostCityRS/Server274-ref/content"
+cache_dir = "/home/owner/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache"

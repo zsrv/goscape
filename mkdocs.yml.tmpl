@@ -1,0 +1,112 @@
+site_name: goscape
+site_description: A Go rewrite of the LostCityRS RuneScape server engine
+site_url: https://goscape.invalid/
+
+theme:
+  name: material
+  custom_dir: overrides
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.indexes
+    - navigation.sections
+    - navigation.tabs
+    - navigation.top
+    - search.highlight
+
+extra:
+  revision: "$revision"
+  revision_branch: "$revision_branch"
+  version:
+    provider: mike
+    default: latest
+    alias: true
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - zensical.extensions.glightbox:
+      auto_themed: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:zensical.extensions.emoji.to_svg
+      emoji_index: !!python/name:zensical.extensions.emoji.twemoji
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+      user: zensical
+      repo: zensical
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - zensical.extensions.macros
+
+nav:
+  - Home: index.md
+  - Administrator's Guide:
+      - admin/index.md
+      - Quick start: admin/quickstart.md
+      - Configuration: admin/configuration.md
+      - Config reference: admin/config-reference.md
+      - Deployment scenarios: admin/deployment.md
+      - Helm values examples: admin/helm-values.md
+      - Operations runbook: admin/operations.md
+  - Player's Guide:
+      - player/index.md
+      - Commands: player/commands.md
+$nav_generated
+      - Music tracks: player/music.md
+      - Places: player/places.md
+      - Revision comparison: player/revision-comparison.md
+  - RuneScript:
+      - runescript/index.md
+      - Language reference: runescript/language.md
+      - Writing scripts: runescript/writing-scripts.md
+      - Examples: runescript/examples.md
+      - Toolchain: runescript/toolchain.md
+      - Deploying scripts: runescript/deploying.md
+      - Varps & varbits: runescript/varps.md
+  - Contributor's Guide:
+      - contributor/index.md
+      - Branch model: contributor/branches.md
+      - References & pins: contributor/references-pins.md
+      - Porting lessons: contributor/porting-lessons.md
+      - Dev environment: contributor/dev-setup.md
+      - Architecture: contributor/architecture.md
+      - Porting a new revision: contributor/porting.md
+  - Protocol:
+      - protocol/index.md
+      - Login handshake: protocol/login.md
+      - Packet framing: protocol/framing.md
+      - ISAAC: protocol/isaac.md
+      - OnDemand: protocol/ondemand.md
