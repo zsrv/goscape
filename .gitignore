@@ -32,3 +32,9 @@ CLAUDE.local.md
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# docs toolchain
+.venv/
+.build/
+site/
+__pycache__/
