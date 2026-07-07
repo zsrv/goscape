@@ -1,0 +1,2299 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Go rewrite of the LostCityRS RuneScape server engine">
+      
+      
+      
+        <link rel="canonical" href="https://goscape.invalid/rev-254/contributor/references-pins/">
+      
+      
+        <link rel="prev" href="../branches/">
+      
+      
+        <link rel="next" href="../porting-lessons/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.47">
+    
+    
+      
+        <title>Reference Sources - goscape</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.5e19f6ca.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#reference-sources" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  You're viewing the documentation for an older game revision.
+  <a href="../../..">
+    <strong>Click here for the latest revision.</strong>
+  </a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),base=new URL("../.."),outdated=__md_get("__outdated",sessionStorage,base);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="goscape" class="md-header__button md-logo" aria-label="goscape" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            goscape
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Reference Sources
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../admin/" class="md-tabs__link">
+          
+  
+  Administrator's Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../player/" class="md-tabs__link">
+          
+  
+  Player's Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../runescript/" class="md-tabs__link">
+          
+  
+  RuneScript
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  Contributor's Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../protocol/" class="md-tabs__link">
+          
+  
+  Protocol
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="goscape" class="md-nav__button md-logo" aria-label="goscape" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+
+    </a>
+    goscape
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../admin/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Administrator's Guide
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Administrator's Guide
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Quick start
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/config-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Config reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deployment scenarios
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/helm-values/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Helm values examples
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/operations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Operations runbook
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../player/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Player's Guide
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Player's Guide
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../player/commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../player/reference-pending/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../player/music/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Music tracks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../player/places/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Places
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../player/revision-comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Revision comparison
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../runescript/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  RuneScript
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  RuneScript
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../runescript/language/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Language reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../runescript/writing-scripts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Writing scripts
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../runescript/examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../runescript/toolchain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Toolchain
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../runescript/deploying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deploying scripts
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../runescript/varps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Varps & varbits
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Contributor's Guide
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Contributor's Guide
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../branches/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Branch model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  References & pins
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  References & pins
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#rev-225-go-branch-rev-225" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rev-225 — Go branch <code>rev-225</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rev-244-go-branch-rev-244" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rev-244 — Go branch <code>rev-244</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rev-2452-go-branch-rev-2452" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rev-245.2 — Go branch <code>rev-245.2</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rev-254-go-branch-rev-254" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rev-254 — Go branch <code>rev-254</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rev-274-go-branch-rev-274" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rev-274 — Go branch <code>rev-274</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-revisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Future revisions
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../porting-lessons/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Porting lessons
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dev-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Dev environment
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../porting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Porting a new revision
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../protocol/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Protocol
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Protocol
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocol/login/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Login handshake
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocol/framing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Packet framing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocol/isaac/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ISAAC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocol/ondemand/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  OnDemand
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#rev-225-go-branch-rev-225" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rev-225 — Go branch <code>rev-225</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rev-244-go-branch-rev-244" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rev-244 — Go branch <code>rev-244</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rev-2452-go-branch-rev-2452" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rev-245.2 — Go branch <code>rev-245.2</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rev-254-go-branch-rev-254" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rev-254 — Go branch <code>rev-254</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rev-274-go-branch-rev-274" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rev-274 — Go branch <code>rev-274</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-revisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Future revisions
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+<!-- assembled from REFERENCES.md on main; edit that file, not this page -->
+<h1 id="reference-sources">Reference Sources<a class="headerlink" href="#reference-sources" title="Permanent link">&para;</a></h1>
+<p>The upstream sources each Go revision was ported <strong>from</strong>. Branch names move,
+so the <strong>commit hash is the real pin</strong> — treat this file like a lockfile for
+the port. To port a new revision, diff the new reference commit against the
+commit recorded here for the revision you branch from (see the "Porting
+workflow" section of <code>PORTING-LESSONS.md</code>).</p>
+<p>Local working-copy paths are machine-specific and do not belong here; only
+the portable URL / branch / commit do.</p>
+<h2 id="rev-225-go-branch-rev-225">rev-225 — Go branch <code>rev-225</code><a class="headerlink" href="#rev-225-go-branch-rev-225" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Repo</th>
+<th>Role</th>
+<th>URL</th>
+<th>Branch</th>
+<th>Pinned commit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine-TS</td>
+<td><strong>primary</strong> — authoritative translation source; every ported Go region maps to a TS function</td>
+<td><a href="https://github.com/LostCityRS/Engine-TS">https://github.com/LostCityRS/Engine-TS</a></td>
+<td><code>225</code></td>
+<td><code>e1dea19f256c7ff1a89d47024c811c755ad2184d</code></td>
+</tr>
+<tr>
+<td>Content</td>
+<td>game content (<code>.rs2</code> scripts, configs, maps) packed and served by the server</td>
+<td><a href="https://github.com/LostCityRS/Content">https://github.com/LostCityRS/Content</a></td>
+<td><code>225</code></td>
+<td><code>9901aa27b60198afac49012f45f32e4eb4d5c012</code></td>
+</tr>
+<tr>
+<td>Client-Java</td>
+<td>the client this server speaks to; wire-protocol cross-check</td>
+<td><a href="https://github.com/LostCityRS/Client-Java">https://github.com/LostCityRS/Client-Java</a></td>
+<td><code>225-clean</code></td>
+<td><code>cc3781de9e45265c52711dca850cd154f03c3a2c</code></td>
+</tr>
+<tr>
+<td>RuneScriptTS</td>
+<td>RuneScript compiler reference for <code>pkg/script</code> + the pack pipeline (<code>@lostcityrs/runescript</code>; Engine-TS at the pin above depends on <code>^0.9.4</code>)</td>
+<td><a href="https://github.com/LostCityRS/RuneScriptTS">https://github.com/LostCityRS/RuneScriptTS</a></td>
+<td><code>main</code></td>
+<td><code>750291cf59f55f64d8a9565d2607110b532dad94</code></td>
+</tr>
+<tr>
+<td>Engine</td>
+<td>engine reference (Java)</td>
+<td><a href="https://github.com/LostCityRS/Engine">https://github.com/LostCityRS/Engine</a></td>
+<td><code>main</code></td>
+<td><code>5b5584280d910511ac5635e1025b9fd2912a8264</code></td>
+</tr>
+<tr>
+<td>Server</td>
+<td>runnable meta-repo whose <code>engine/</code> checkout is Engine-TS at the pinned commit; the TS-packed-cache <strong>byte-parity baseline</strong> for the pack pipeline</td>
+<td><a href="https://github.com/LostCityRS/Server">https://github.com/LostCityRS/Server</a></td>
+<td><code>main</code></td>
+<td><code>326bb4a3b24fbf7a1bf503ec598a4c2cab118ee1</code></td>
+</tr>
+</tbody>
+</table>
+<p>(Commits captured 2026-06-03 from the goscape-client <code>REFERENCES.md</code> 225 pins
+plus the local reference checkouts. The local working copies have since moved
+to 244 branches — the pins above are what the rev-225 port corresponds to,
+regardless of where those branches point now.)</p>
+<p>Notes:</p>
+<ul>
+<li>The packer writes <code>jagFileVersion=26</code>; do <strong>not</strong> bump it to 27 unless the
+  upstream Server meta-repo pins <code>@lostcityrs/runescript</code> past <code>750291c</code>
+  (see <code>PORTING-LESSONS.md</code> §3, "Pack pipeline / byte parity").</li>
+</ul>
+<h2 id="rev-244-go-branch-rev-244">rev-244 — Go branch <code>rev-244</code><a class="headerlink" href="#rev-244-go-branch-rev-244" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Repo</th>
+<th>Role</th>
+<th>URL</th>
+<th>Branch</th>
+<th>Pinned commit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine-TS</td>
+<td><strong>primary</strong> — authoritative translation source</td>
+<td><a href="https://github.com/LostCityRS/Engine-TS">https://github.com/LostCityRS/Engine-TS</a></td>
+<td><code>244</code></td>
+<td><code>9aadcec4e9560b810b5e5eee31aadc67f3b206cd</code></td>
+</tr>
+<tr>
+<td>Content</td>
+<td>game content packed and served by the server</td>
+<td><a href="https://github.com/LostCityRS/Content">https://github.com/LostCityRS/Content</a></td>
+<td><code>244</code></td>
+<td><code>e5d0282e03b383efd3b2a81e63090e703ffb5399</code></td>
+</tr>
+<tr>
+<td>Client-Java</td>
+<td>the client this server speaks to; wire-protocol cross-check</td>
+<td><a href="https://github.com/LostCityRS/Client-Java">https://github.com/LostCityRS/Client-Java</a></td>
+<td><code>244</code></td>
+<td><code>01f1608842acb12901f7e4f3df25553f641cc86e</code></td>
+</tr>
+<tr>
+<td>RuneScriptKt</td>
+<td>RuneScript compiler — <strong>replaces RuneScriptTS in 244</strong> (see note)</td>
+<td><a href="https://github.com/LostCityRS/RuneScriptKt">https://github.com/LostCityRS/RuneScriptKt</a></td>
+<td>release tag <code>26</code></td>
+<td>jar sha256 <code>38e16e2c375cfdb0179cce1cab9c06d279cc7c30b0cbc298c97a37c4dca1851a</code> (the release-26 <code>RuneScriptCompiler.jar</code> is the effective pin — captured 2026-06-05 from the upstream-auto-downloaded, checksum-verified jar; local source checkout sits at tag <code>22</code> and is not used)</td>
+</tr>
+<tr>
+<td>cloudflare/zlib</td>
+<td>gzip byte-parity reference — bun's <code>node:zlib.gzipSync</code> (the upstream pack toolchain's gzip) is this vendored fork; goscape's <code>pkg/io/gziputil</code> ports its level-6 deflate bit-exactly (B6)</td>
+<td><a href="https://github.com/cloudflare/zlib">https://github.com/cloudflare/zlib</a></td>
+<td><code>gcc.amd64</code> lineage</td>
+<td><code>886098f3f339617b4243b286f5ed364b9989e245</code> (bun 1.2.20 <code>process.versions.zlib</code>; verified to reproduce all 4,764 reference cache gzip members byte-identically — stock zlib/zlib-ng/libdeflate do NOT)</td>
+</tr>
+</tbody>
+</table>
+<p>(Commits captured 2026-06-03 from the local reference checkouts, matching the
+goscape-client <code>REFERENCES.md</code> rev-244 pins. Go branch <code>rev-244</code> is cut from
+<code>rev-225</code> at <code>21b66635</code>. Engine (Java) and Server — pinned at <code>main</code> for
+rev-225 — have no 244-specific checkout yet; record them here if/when a
+244-specific need arises, otherwise the rev-225 pins remain the last-known
+reference.)</p>
+<p>Notes:</p>
+<ul>
+<li><strong>The 225→244 diff is a clean work list.</strong> Unlike the client's Java
+  references (divergent deob lineages), the Engine-TS <code>225</code> and <code>244</code> pins
+  share history (merge-base <code>de5fa4db</code>), so
+  <code>git -C Engine-TS diff e1dea19f..9aadcec4</code> is the real server delta.</li>
+<li><strong>Compiler swap:</strong> 244 drops the <code>@lostcityrs/runescript</code> npm dependency.
+  <code>src/util/RuneScriptCompiler.ts</code> auto-downloads <code>RuneScriptCompiler.jar</code>
+  from RuneScriptKt releases at <code>ScriptProvider.COMPILER_VERSION = 26</code> and
+  verifies its sha256. Pack byte-parity work on rev-244 must track
+  RuneScriptKt-26 output, not RuneScriptTS.</li>
+<li><strong><code>@2004scape/rsbuf</code> bumps <code>^225.1.7</code> → <code>^244.1.0</code></strong> — <code>pkg/rsbuf</code> (the Go
+  reimplementation of that crate, see <code>pkg/rsbuf/doc.go</code>) must be re-audited
+  against the 244 crate. <code>@2004scape/rsmod-pathfinder</code> is unchanged (<code>^5.0.4</code>).</li>
+</ul>
+<h2 id="rev-2452-go-branch-rev-2452">rev-245.2 — Go branch <code>rev-245.2</code><a class="headerlink" href="#rev-2452-go-branch-rev-2452" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Repo</th>
+<th>Role</th>
+<th>URL</th>
+<th>Branch</th>
+<th>Pinned commit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine-TS</td>
+<td><strong>primary</strong> — authoritative translation source</td>
+<td><a href="https://github.com/LostCityRS/Engine-TS">https://github.com/LostCityRS/Engine-TS</a></td>
+<td><code>245.2</code></td>
+<td><code>3c16994ca4ba51b4e04f88316c1f7395b0c4bb8a</code></td>
+</tr>
+<tr>
+<td>Content</td>
+<td>game content packed and served by the server</td>
+<td><a href="https://github.com/LostCityRS/Content">https://github.com/LostCityRS/Content</a></td>
+<td><code>245.2</code></td>
+<td><code>cbcfe6706ef9f4093e5b8e4c9cfee93577346993</code></td>
+</tr>
+<tr>
+<td>Client-Java</td>
+<td>the client this server speaks to; wire-protocol cross-check</td>
+<td><a href="https://github.com/LostCityRS/Client-Java">https://github.com/LostCityRS/Client-Java</a></td>
+<td><code>245.2</code></td>
+<td><code>176a85f7b423111c878a476e1ead048745e377c0</code></td>
+</tr>
+<tr>
+<td>RuneScriptKt</td>
+<td>RuneScript compiler</td>
+<td>—</td>
+<td>—</td>
+<td>unchanged from §rev-244 (release tag <code>26</code>; <code>ScriptProvider.COMPILER_VERSION = 26</code> at the 245.2 pin)</td>
+</tr>
+<tr>
+<td>cloudflare/zlib</td>
+<td>gzip byte-parity reference</td>
+<td>—</td>
+<td>—</td>
+<td>unchanged from §rev-244 (<code>886098f3</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>(Commits captured 2026-06-09, matching the goscape-client <code>REFERENCES.md</code>
+rev-245.2 pins. Go branch <code>rev-245.2</code> is cut from <code>rev-244</code> at <code>2ecde050</code>.)</p>
+<p>Notes:</p>
+<ul>
+<li><strong>Lineage:</strong> the upstream <code>245.2</code> branch diverged from the <code>244</code> lineage at
+  merge-base <code>4095da3b</code>; most 244-era fixes were cherry-picked onto both
+  sides and cancel out, so the net cross-pin diff
+  <code>git -C Engine-TS diff 9aadcec4..3c16994c</code> (26 files, +246/−178) is the
+  real work list.</li>
+<li><strong>The diff reverts two 244-only commits</strong> and goscape follows the 245.2
+  pin: the hiscores banned-accounts gate (<code>ccc263c7</code>, absent from 245.2) and
+  the friends staff threshold (<code>staffLvl &gt; 1</code> → <code>&gt; 0</code>).</li>
+<li><strong>No toolchain swap:</strong> <code>@2004scape/rsbuf</code> stays <code>^244.1.0</code> (no <code>pkg/rsbuf</code>
+  re-audit), <code>@2004scape/rsmod-pathfinder</code> stays <code>^5.0.4</code>, the compiler
+  stays the RuneScriptKt release-26 jar.</li>
+</ul>
+<h2 id="rev-254-go-branch-rev-254">rev-254 — Go branch <code>rev-254</code><a class="headerlink" href="#rev-254-go-branch-rev-254" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Repo</th>
+<th>Role</th>
+<th>URL</th>
+<th>Branch</th>
+<th>Pinned commit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine-TS</td>
+<td><strong>primary</strong> — authoritative translation source</td>
+<td><a href="https://github.com/LostCityRS/Engine-TS">https://github.com/LostCityRS/Engine-TS</a></td>
+<td><code>254</code></td>
+<td><code>2e3bcf4392200e84dd15ce67008c5d41fa4537aa</code></td>
+</tr>
+<tr>
+<td>Content</td>
+<td>game content packed and served by the server</td>
+<td><a href="https://github.com/LostCityRS/Content">https://github.com/LostCityRS/Content</a></td>
+<td><code>254</code></td>
+<td><code>caee3f2eb3eb3df60126e2be88c436dc2dc98e43</code></td>
+</tr>
+<tr>
+<td>Client-Java</td>
+<td>the client this server speaks to; wire-protocol cross-check</td>
+<td><a href="https://github.com/LostCityRS/Client-Java">https://github.com/LostCityRS/Client-Java</a></td>
+<td><code>254</code></td>
+<td><code>2e629784c3dcb671ee3aab134f9cb91d614d8094</code></td>
+</tr>
+<tr>
+<td>rsbuf</td>
+<td>renderer/info reference crate — <code>@2004scape/rsbuf</code> bumps <code>^244.1.0</code> → <code>254.1.0</code> at the 254 pin; <code>pkg/rsbuf</code> re-audited against it</td>
+<td><a href="https://github.com/2004scape/rsbuf">https://github.com/2004scape/rsbuf</a></td>
+<td><code>254</code></td>
+<td><code>304955d5cd6896dbcd76fb2bb17736ea426cae3e</code></td>
+</tr>
+<tr>
+<td>RuneScriptTS</td>
+<td>RuneScript compiler — <strong>returns at the advanced 254 pin</strong> (<code>@lostcityrs/runescript ^0.9.6</code>, <code>ScriptProvider.COMPILER_VERSION = 27</code>); replaces the RuneScriptKt release-26 jar used at 244/245.2</td>
+<td><a href="https://github.com/LostCityRS/RuneScriptTS">https://github.com/LostCityRS/RuneScriptTS</a></td>
+<td><code>main</code></td>
+<td>record the resolved 0.9.x commit when the pack-parity work pins it</td>
+</tr>
+<tr>
+<td>cloudflare/zlib</td>
+<td>gzip byte-parity reference</td>
+<td>—</td>
+<td>—</td>
+<td>unchanged from §rev-244 (<code>886098f3</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>(Engine pin ADVANCED 2026-06-10 from the original capture <code>43e02957</code> — see
+the pin-advance note below. Content/Client-Java/rsbuf match the
+goscape-client <code>REFERENCES.md</code> rev-254 pins; their upstream tips have not
+moved. Go branch <code>rev-254</code> is cut from <code>rev-245.2</code> at <code>4b4c6106</code>.)</p>
+<p>Notes:</p>
+<ul>
+<li><strong>Pin advance (2026-06-10, user decision):</strong> the original capture pinned
+  Engine-TS at the then-tip <code>43e02957</code>, but that engine cannot pack the
+  pinned Content — Content <code>caee3f2e</code> uses a <code>midi</code> dbtable column type
+  that Engine-TS only gained in <code>2dc4a811</code> (post-pin). The pin was
+  advanced to the current <code>254</code> tip <code>2e3bcf43</code> (57 commits, 200 files,
+  +4506/−3655 over <code>43e02957</code>) rather than cherry-picking. Wire prot
+  tables and <code>ENGINE_REVISION = 254</code> are unchanged across the advance;
+  the compiler swaps back to RuneScriptTS (above) and the
+  <code>tools/pack/CompilerSymbols.ts</code> .sym export pipeline is deleted
+  upstream.</li>
+<li><strong>Lineage:</strong> the upstream <code>254</code> branch shares history with <code>245.2</code>
+  (merge-base <code>cc487e8c</code>); the net cross-pin work list is
+  <code>git -C Engine-TS diff 3c16994c..2e3bcf43</code> — plus the rsbuf crate diff
+  <code>origin/244..origin/254</code> (2 commits; <code>origin/244</code> tip <code>1defefb1</code> IS the
+  merge-base).</li>
+<li><strong>Toolchain: rsbuf bumps to <code>254.1.0</code></strong> — NPC ids widen to 14 bits on the
+  wire (terminator 8191 → 16383, capacity 8192 → 16384, <code>NODE_MAX_NPCS</code>
+  8191 → 16383). <code>@2004scape/rsmod-pathfinder</code> stays <code>^5.0.4</code>.</li>
+<li><strong>The zone-op table is renumbered at 254</strong> alongside both prot tables;
+  <code>pkg/rsbuf</code>'s zone-op fork moves with it (cross-table pin test).</li>
+<li><strong>jagFileVersion:</strong> the §rev-225 note ("do not bump to 27 unless the
+  upstream pins <code>@lostcityrs/runescript</code> past <code>750291c</code>") now triggers —
+  the advanced 254 pin depends on <code>^0.9.6</code>. The pack-parity work must
+  re-verify the version byte against the new reference cache.</li>
+</ul>
+<h2 id="rev-274-go-branch-rev-274">rev-274 — Go branch <code>rev-274</code><a class="headerlink" href="#rev-274-go-branch-rev-274" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Repo</th>
+<th>Role</th>
+<th>URL</th>
+<th>Branch</th>
+<th>Pinned commit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine-TS</td>
+<td><strong>primary</strong> — authoritative translation source</td>
+<td><a href="https://github.com/LostCityRS/Engine-TS">https://github.com/LostCityRS/Engine-TS</a></td>
+<td><code>274</code></td>
+<td><code>dee467c868e694a2d5a931e3d19e580c83666cb2</code></td>
+</tr>
+<tr>
+<td>Content</td>
+<td>game content packed and served by the server</td>
+<td><a href="https://github.com/LostCityRS/Content">https://github.com/LostCityRS/Content</a></td>
+<td><code>274</code></td>
+<td><code>7f97b0a535a885bff9846631ca78438b6a731274</code></td>
+</tr>
+<tr>
+<td>Client-Java</td>
+<td>the client this server speaks to; wire-protocol cross-check</td>
+<td><a href="https://github.com/LostCityRS/Client-Java">https://github.com/LostCityRS/Client-Java</a></td>
+<td><code>274</code></td>
+<td><code>32f30626156783de9f142306eb73a2243909dacf</code></td>
+</tr>
+<tr>
+<td>rsbuf</td>
+<td>cross-check reference only; the crate dependency is DROPPED at 274 (ported into Engine-TS <code>src/network/rsbuf/</code>)</td>
+<td><a href="https://github.com/2004scape/rsbuf">https://github.com/2004scape/rsbuf</a></td>
+<td><code>274</code></td>
+<td><code>669116109588ab5f5d9de8c24aace1d335da5399</code></td>
+</tr>
+<tr>
+<td>RuneScriptTS</td>
+<td>RuneScript compiler</td>
+<td>—</td>
+<td>—</td>
+<td>unchanged from §rev-254 (<code>@lostcityrs/runescript</code> <code>0.9.6</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>(Commits captured 2026-06-12 from the Server274-ref reference worktrees. Go
+branch <code>rev-274</code> is cut from <code>rev-254</code> at <code>d5e3234f</code>.)</p>
+<p>Notes:</p>
+<ol>
+<li>Go branch cut from <code>rev-254</code> at <code>d5e3234f</code>.</li>
+<li>Work list = <code>git -C Engine-TS diff 2e3bcf43..dee467c8</code> (188 files,
+   +13,792/−3,694, merge-base <code>93b6e557</code>).</li>
+<li><strong>Toolchain: bun → Node 24</strong> at the 274 pin — <code>node:zlib</code> 1.3.1 replaces
+   bun/cloudflare-zlib <code>886098f3</code> as the gzip byte-parity baseline
+   (resolution recorded by the Phase-3 gzip-baseline task of the rev-274
+   plan).</li>
+<li><strong>rsbuf crate + rsmod-pathfinder WASM dependencies DROPPED upstream</strong> —
+   both internalized into TS (<code>src/network/rsbuf/</code>,
+   <code>src/engine/routefinder/</code>); the TS files at the Engine-TS pin are the
+   authoritative reference from 274 on.</li>
+</ol>
+<h2 id="future-revisions">Future revisions<a class="headerlink" href="#future-revisions" title="Permanent link">&para;</a></h2>
+<p>When porting revision <em>N</em>:</p>
+<ol>
+<li>Add a <code>## rev-N</code> section below recording the reference commits used.</li>
+<li>Branch the Go code <code>rev-N</code> from <code>rev-225</code> (or the nearest prior revision).</li>
+<li>Diff the primary reference across the gap —
+   <code>git -C Engine-TS diff e1dea19f..&lt;rev-N commit&gt;</code> — and apply the
+   corresponding Go deltas on the <code>rev-N</code> branch, so the Go branch diff
+   mirrors the TS revision diff.</li>
+<li>Bump the <strong>Content</strong> and <strong>compiler</strong> pins in the same section (the
+   compiler is revision-dependent: RuneScriptTS for 225, RuneScriptKt for
+   244+) — the pack pipeline is byte-parity-checked against the cache the
+   upstream packs, so engine, content, and compiler move together.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../branches/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Branch model">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Branch model
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../porting-lessons/" class="md-footer__link md-footer__link--next" aria-label="Next: Porting lessons">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Porting lessons
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","navigation.footer","navigation.indexes","navigation.sections","navigation.tabs","navigation.top","search.highlight"],"search":"../../assets/javascripts/workers/search.b6b7e04f.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"latest","provider":"mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.0df4f2d0.min.js"></script>
+      
+    
+  </body>
+</html>

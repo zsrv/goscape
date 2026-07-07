@@ -1,0 +1,2215 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Go rewrite of the LostCityRS RuneScape server engine">
+      
+      
+      
+        <link rel="canonical" href="https://goscape.invalid/rev-254/contributor/porting-lessons/">
+      
+      
+        <link rel="prev" href="../references-pins/">
+      
+      
+        <link rel="next" href="../dev-setup/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.47">
+    
+    
+      
+        <title>Porting Lessons (TypeScript → Go, RuneScape server) - goscape</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.5e19f6ca.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#porting-lessons-typescript-go-runescape-server" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  You're viewing the documentation for an older game revision.
+  <a href="../../..">
+    <strong>Click here for the latest revision.</strong>
+  </a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),base=new URL("../.."),outdated=__md_get("__outdated",sessionStorage,base);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="goscape" class="md-header__button md-logo" aria-label="goscape" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            goscape
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Porting Lessons (TypeScript → Go, RuneScape server)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../admin/" class="md-tabs__link">
+          
+  
+  Administrator's Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../player/" class="md-tabs__link">
+          
+  
+  Player's Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../runescript/" class="md-tabs__link">
+          
+  
+  RuneScript
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  Contributor's Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../protocol/" class="md-tabs__link">
+          
+  
+  Protocol
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="goscape" class="md-nav__button md-logo" aria-label="goscape" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+
+    </a>
+    goscape
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../admin/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Administrator's Guide
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Administrator's Guide
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Quick start
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/config-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Config reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deployment scenarios
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/helm-values/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Helm values examples
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/operations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Operations runbook
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../player/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Player's Guide
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Player's Guide
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../player/commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../player/reference-pending/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../player/music/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Music tracks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../player/places/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Places
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../player/revision-comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Revision comparison
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../runescript/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  RuneScript
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  RuneScript
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../runescript/language/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Language reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../runescript/writing-scripts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Writing scripts
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../runescript/examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../runescript/toolchain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Toolchain
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../runescript/deploying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deploying scripts
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../runescript/varps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Varps & varbits
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Contributor's Guide
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Contributor's Guide
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../branches/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Branch model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../references-pins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  References & pins
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Porting lessons
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Porting lessons
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-philosophy" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1. Philosophy
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-porting-workflow-for-a-new-revision" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        2. Porting workflow for a new revision
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-ts-go-translation-gotchas" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3. TS → Go translation gotchas
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. TS → Go translation gotchas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#identity-operand-encoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Identity &amp; operand encoding
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-handler-fork-drift" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Shared-handler / fork drift
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tick-order-scheduling" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tick order &amp; scheduling
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trust-nothing-that-isnt-the-ts-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Trust nothing that isn't the TS source
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pack-pipeline-byte-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pack pipeline / byte parity
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#process" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Process
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-comment-reference-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        4. Comment &amp; reference conventions
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        5. Verification
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dev-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Dev environment
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../porting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Porting a new revision
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../protocol/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Protocol
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Protocol
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocol/login/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Login handshake
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocol/framing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Packet framing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocol/isaac/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ISAAC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocol/ondemand/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  OnDemand
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-philosophy" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1. Philosophy
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-porting-workflow-for-a-new-revision" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        2. Porting workflow for a new revision
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-ts-go-translation-gotchas" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3. TS → Go translation gotchas
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. TS → Go translation gotchas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#identity-operand-encoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Identity &amp; operand encoding
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-handler-fork-drift" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Shared-handler / fork drift
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tick-order-scheduling" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tick order &amp; scheduling
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trust-nothing-that-isnt-the-ts-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Trust nothing that isn't the TS source
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pack-pipeline-byte-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pack pipeline / byte parity
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#process" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Process
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-comment-reference-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        4. Comment &amp; reference conventions
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        5. Verification
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+<!-- assembled from PORTING-LESSONS.md on main; edit that file, not this page -->
+<h1 id="porting-lessons-typescript-go-runescape-server">Porting Lessons (TypeScript → Go, RuneScape server)<a class="headerlink" href="#porting-lessons-typescript-go-runescape-server" title="Permanent link">&para;</a></h1>
+<p>Cross-revision knowledge for porting a LostCityRS Engine-TS server revision
+to Go. This is the durable, repo-owned distillation of what makes these ports
+correct and what bites if you translate naively. Read it before starting a
+new revision.</p>
+<p>Companion files: <code>REFERENCES.md</code> (pinned upstream commits per revision), and
+each revision branch's own <code>README.md</code> / <code>CLAUDE.md</code> / <code>PORTING.md</code> /
+<code>docs/PORTING-CLOSED.md</code> (revision-specific conventions and the deviation
+tracker).</p>
+<hr />
+<h2 id="1-philosophy">1. Philosophy<a class="headerlink" href="#1-philosophy" title="Permanent link">&para;</a></h2>
+<p><strong>Faithful 1:1 translation is the default.</strong> Every ported game-logic region
+maps to an identifiable Engine-TS function, cited inline as
+<code>// TS &lt;File&gt;.ts:&lt;lines&gt;</code>. goscape adapts the <em>infrastructure</em> (dskit service
+lifecycle, module system, config layering) to Go idiom, but inside ported
+game logic do <strong>not</strong> refactor opportunistically — behaviour bugs are found
+by diff-checking the Go region against the cited TS source.</p>
+<p><strong>Byte-faithful at the boundaries.</strong> Wire protocol (ISAAC, RSA, opcodes),
+codecs (bzip2, CRC, wordenc), collision, and the pack pipeline's cache output
+are byte-for-byte against the reference. The pack pipeline is verified by
+byte-diffing <code>script.dat</code> (and friends) against the cache the upstream
+TS meta-repo packs.</p>
+<p><strong>Deviations are tracked, never silent.</strong> Each revision branch carries
+<code>PORTING.md</code> (active backlog) + <code>docs/PORTING-CLOSED.md</code> (closed rows, parity
+tables, audit history). Accepted in-code divergences carry a
+<code>PORTING-EXCEPTION (&lt;row-id&gt;, &lt;short&gt;)</code> marker — <code>grep -rn "PORTING-EXCEPTION"
+modules pkg cmd internal</code> lists every accepted exception (10 at the time of
+the multi-revision conversion).</p>
+<hr />
+<h2 id="2-porting-workflow-for-a-new-revision">2. Porting workflow for a new revision<a class="headerlink" href="#2-porting-workflow-for-a-new-revision" title="Permanent link">&para;</a></h2>
+<p>The Go port of revision N is (Go port of revision N-1) + (the translated TS
+delta). That makes it a branch operation:</p>
+<ol>
+<li><strong>Branch</strong> <code>rev-N</code> from the nearest prior Go revision branch (e.g.
+   <code>rev-225</code>).</li>
+<li><strong>Diff the primary TS reference across the gap.</strong> Look up the prior
+   revision's pinned commit in <code>REFERENCES.md</code>, then
+   <code>git -C Engine-TS diff &lt;prev-commit&gt;..&lt;new-commit&gt;</code>. That diff is your
+   work list.</li>
+<li><strong>Translate each TS change</strong> into the corresponding Go region, applying
+   the gotcha rules in §3. The Go branch diff (<code>git diff rev-(N-1) rev-N</code>)
+   should correspond change-for-change to the TS diff — this is your audit.</li>
+<li><strong>Record</strong> the new reference commits in <code>REFERENCES.md</code> under <code>## rev-N</code> —
+   including the Content and RuneScriptTS pins, which move together with the
+   engine (the pack byte-parity baseline shifts with all three).</li>
+<li>Each revision branch is self-contained (its own code, tooling, CI). Do
+   <strong>not</strong> share code packages across revisions — independent faithful
+   translations.</li>
+<li><strong>Carry the tracker forward.</strong> <code>PORTING.md</code> rows that still apply travel
+   with the branch; close rows using the closure shapes defined in
+   <code>PORTING.md</code> §Tracking conventions (FIXED / EXCEPTION-DOCUMENTED /
+   NO-DIVERGENCE / NOT-A-GAP).</li>
+</ol>
+<hr />
+<h2 id="3-ts-go-translation-gotchas">3. TS → Go translation gotchas<a class="headerlink" href="#3-ts-go-translation-gotchas" title="Permanent link">&para;</a></h2>
+<p>Each is a real bug class hit during the rev-225 port. Verify against the TS
+source before "fixing" anything that merely looks wrong — and before
+<em>preserving</em> anything that merely looks intentional.</p>
+<h3 id="identity-operand-encoding">Identity &amp; operand encoding<a class="headerlink" href="#identity-operand-encoding" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Pick ONE identity per subsystem.</strong> Player identity exists as both <code>uid</code>
+  and protocol <code>slot</code>; mixing them inside one subsystem caused repeated bugs
+  (e.g. an obj-ownership check keyed by <code>uid</code> everywhere except one network
+  handler that used <code>slot</code>). Convention: the network layer speaks <code>slot</code>,
+  world/script logic speaks <code>uid</code>.</li>
+<li><strong>Script int-operand encoding is bit-packed.</strong> The VARP/VARN secondary-
+  player flag is <strong>bit 16</strong> of the int operand (<code>(intOperand&gt;&gt;16)&amp;1</code>), not a
+  0/1 selector. <code>.</code>-prefixed (secondary-player) script commands must use
+  operand-aware accessors (<code>activePlayer()</code>), not <code>Self</code>, or writes silently
+  hit the wrong player.</li>
+</ul>
+<h3 id="shared-handler-fork-drift">Shared-handler / fork drift<a class="headerlink" href="#shared-handler-fork-drift" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>When N opcodes share one TS handler, Go shares one implementation.</strong>
+  Forking per-opcode drifts (three move opcodes → one TS <code>MoveClickHandler</code>;
+  the Go fork forgot modal-close in one copy). Parameterize the wire delta,
+  not the behaviour.</li>
+<li><strong>When TS keeps logic in a shared base class (<code>PathingEntity</code>), a fix must
+  land in BOTH Go forks</strong> (Player and Npc) — Go has no inheritance, so the
+  shared TS line exists twice.</li>
+<li><strong>Two parallel compute paths can feed the same wire field.</strong> Fix the path
+  that actually serializes (the renderer read accessors, not the bridge-fed
+  struct field) — the spawn-orientation bug was "fixed" twice on the wrong
+  path first.</li>
+</ul>
+<h3 id="tick-order-scheduling">Tick order &amp; scheduling<a class="headerlink" href="#tick-order-scheduling" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Tick ORDER is behaviour.</strong> TS interleaves movement between pre-step and
+  post-step interaction passes; running "movement, then interactions" broke
+  walk-up combat. Port the pipeline order, not just the pieces.</li>
+<li><strong><code>Player.Save()</code> is tick-goroutine-only.</strong> Off-tick paths (disconnect,
+  shutdown) must route through the relay action queue so saves run on-tick;
+  three separate save-loss paths came from violating this.</li>
+<li><strong>The protected-access invariant is load-bearing for content.</strong> All ~1159
+  <code>.rs2</code> content scripts consume items <em>after</em> a dialogue yield without
+  checking <code>inv_del</code>'s return. That is safe ONLY because <code>runScript</code> refuses
+  to start a protected script while another holds protected access (TS
+  <code>Player.ts:2094</code>). Immediate-run handlers (the opheld family, if_button /
+  inv_button) bypass <code>CanAccess()</code> and rely solely on that guard; script
+  resumes bypass <code>runScript</code> entirely (the <code>force=true</code> path). Removing or
+  weakening the guard re-opens live item-dupe exploits.</li>
+</ul>
+<h3 id="trust-nothing-that-isnt-the-ts-source">Trust nothing that isn't the TS source<a class="headerlink" href="#trust-nothing-that-isnt-the-ts-source" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>A test can pin a bug.</strong> A "deviation" test that contradicts TS may be
+  enshrining the bug it was written around — verify against TS before
+  preserving the pinned contract, and update the test when TS disagrees.</li>
+<li><strong>"By design" / "handled elsewhere" comments lie.</strong> A comment claiming a
+  divergence is intentional (or covered by another path) is the prime
+  suspect, not evidence. Re-verify against TS before trusting it.</li>
+<li><strong>Ask "what does TS do?" FIRST.</strong> Before estimating any gap as
+  implementation work, check the TS state: if TS itself has the feature
+  stubbed or commented out (NpcMode QUEUE1..20), the correct Go closure is
+  documentation, not implementation.</li>
+<li><strong>Mis-described audit rows are themselves misdirection.</strong> Severity or
+  category in a finding can be wrong; re-derive the divergence claim from
+  first principles against current TS + Go before acting on it.</li>
+</ul>
+<h3 id="pack-pipeline-byte-parity">Pack pipeline / byte parity<a class="headerlink" href="#pack-pipeline-byte-parity" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Fix determinism FIRST, then byte-diff.</strong> A "non-deterministic output"
+  complaint against an external baseline can hide a multi-bug stack: one
+  map-iteration-order bug masked four separate parity bugs that only became
+  visible once output was stable. Go map iteration is randomized — any
+  ordered output derived from a map needs explicit ordering.</li>
+<li><strong>Mirror TS's data-driven dispatch.</strong> Discriminating types via Go pointer
+  equality (instead of the data-driven check TS does) is fragile and broke
+  default-value emission.</li>
+<li><strong><code>jagFileVersion=26</code>.</strong> Do not bump to 27 unless the upstream meta-repo
+  pins <code>@lostcityrs/runescript</code> past <code>750291c</code> (see <code>REFERENCES.md</code>).</li>
+</ul>
+<h3 id="process">Process<a class="headerlink" href="#process" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Capture <code>go test</code>'s real exit code</strong> — and stress-run any fix that
+  changes RNG-dependent behaviour. A flaky test passing once by RNG luck
+  masked a real regression.</li>
+<li><strong>Get a live client debug log EARLY</strong> when headless repros keep passing —
+  one tick-ordering bug was invisible to every synthetic repro and obvious in
+  the first live log.</li>
+</ul>
+<hr />
+<h2 id="4-comment-reference-conventions">4. Comment &amp; reference conventions<a class="headerlink" href="#4-comment-reference-conventions" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Cite TS by file and line:</strong> <code>// TS World.ts:128-129</code> next to the ported
+  region. The file/symbol is the durable anchor; line numbers drift — fix
+  them when touching the code, don't invest in keeping them precise.</li>
+<li><strong>No per-comment revision tags.</strong> The branch <em>is</em> the revision context, and
+  <code>REFERENCES.md</code> pins the exact TS commit — together they make every bare
+  <code>// TS:</code> comment unambiguous.</li>
+<li><strong><code>PORTING-EXCEPTION (&lt;row-id&gt;, &lt;short&gt;)</code></strong> one-line markers (with a <code>See
+  PORTING.md</code> cross-reference) index every accepted divergence in code. Keep
+  them grep-discoverable; each keeps its row-id reference.</li>
+<li><strong><code>PORTING.md</code> is updated as a side effect</strong> of any work that touches a
+  tracked region; closed rows move to <code>docs/PORTING-CLOSED.md</code>.</li>
+</ul>
+<hr />
+<h2 id="5-verification">5. Verification<a class="headerlink" href="#5-verification" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Gates:</strong> <code>CGO_ENABLED=0 go build -trimpath ./...</code>, <code>go vet ./...</code>,
+  <code>go test ./...</code>, and <code>go test -race</code> on touched packages (the race detector
+  needs <code>CGO_ENABLED=1</code>, the default). The world tick loop is goroutine-heavy;
+  race coverage matters.</li>
+<li><strong>Byte parity:</strong> ISAAC, RSA, opcodes, bzip2, CRC, wordenc, and collision are
+  byte-faithful and pinned by tests; pack output is byte-diffed against the
+  upstream-packed cache when the pack pipeline changes.</li>
+<li><strong>Pin tests:</strong> when a fix lands, pin the TS-correct contract with a test.
+  When an existing test pinned the buggy contract, update the test — after
+  verifying against TS (§3, "A test can pin a bug").</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../references-pins/" class="md-footer__link md-footer__link--prev" aria-label="Previous: References &amp; pins">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                References & pins
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../dev-setup/" class="md-footer__link md-footer__link--next" aria-label="Next: Dev environment">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Dev environment
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","navigation.footer","navigation.indexes","navigation.sections","navigation.tabs","navigation.top","search.highlight"],"search":"../../assets/javascripts/workers/search.b6b7e04f.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"latest","provider":"mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.0df4f2d0.min.js"></script>
+      
+    
+  </body>
+</html>
