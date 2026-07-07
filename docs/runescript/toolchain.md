@@ -146,6 +146,8 @@ Key flags:
 - **`-content-dir`** (required) — the source content directory.
 - **`-out-dir`** — where to write. Empty auto-creates a temp directory that is
   deleted on exit unless `-keep` is set.
+- **`-datapack-dir`** — entity-type cache directory used by the server compiler
+  stage. Empty falls back to the effective `-out-dir`.
 - **`-reference-dir`** — a reference pack output (typically the upstream
   TS-packed `data/pack`) to byte-diff each stage against. Empty disables the
   diff.

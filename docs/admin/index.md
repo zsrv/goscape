@@ -98,7 +98,8 @@ Two behaviours are important to operators:
 - **One signal handler drives shutdown.** A single operating-system signal handler
   lives at the top level of the App. When it receives a stop signal (for example
   `SIGINT`/`Ctrl-C` or `SIGTERM`), it asks the service group to stop, and every
-  service shuts down through its `Stopping` state in dependency order. Individual
+  service shuts down through its `Stopping` state in reverse dependency order —
+  each module waits for the modules that depend on it to stop first. Individual
   modules do not install their own signal handlers.
 
 !!! note "What this means in practice"

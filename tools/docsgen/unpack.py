@@ -1,6 +1,7 @@
 """Build a rev branch's goscape-cli and run `unpack config` against its cache."""
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 REPO = Path("/home/owner/Code/github.com/zsrv/goscape")
@@ -24,10 +25,18 @@ def add_worktree(repo: Path, branch: str, wt: Path) -> None:
 
 
 def remove_worktree(repo: Path, wt: Path) -> None:
-    subprocess.run(
+    result = subprocess.run(
         ["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)],
         check=False,
     )
+    if result.returncode != 0:
+        print(
+            f"docsgen: warning: failed to remove worktree at {wt} "
+            f"(git exited {result.returncode}); remove it manually with "
+            f"'git -C {repo} worktree remove --force {wt}' "
+            "or 'git worktree prune'.",
+            file=sys.stderr,
+        )
 
 
 def run_unpack(cfg: dict, workdir: Path, wt: Path) -> Path:

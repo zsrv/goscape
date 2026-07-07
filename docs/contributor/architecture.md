@@ -146,7 +146,8 @@ There is exactly **one real OS signal handler in the process, and the App root
 owns it.** At startup the App installs `signals.NewHandler(...)`
 (`pkg/dskit/signals`); when it receives a stop signal it calls `StopAsync()` on
 the services `Manager`, which cascades shutdown through every service's
-`Stopping` state in dependency order.
+`Stopping` state in reverse dependency order — each module waits for the modules
+that depend on it to finish stopping first.
 
 The catch is that `pkg/dskit/server` (the HTTP server the OnDemand module uses)
 would install its *own* signal handler by default, and so would an embedded

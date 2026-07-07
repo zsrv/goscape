@@ -46,5 +46,5 @@ def render_music_page(content_dir: Path, out: Path) -> int:
         lines += [f"- {md_escape(n)}" for n in names]
         lines.append("")
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("\n".join(lines))
+    out.write_text("\n".join(lines) + "\n")
     return total

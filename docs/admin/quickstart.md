@@ -115,6 +115,7 @@ bundled `auto_register: true` setting, creates the demo account on first use.
 ## Stopping the server
 
 Press `Ctrl-C` (or send `SIGTERM`). A single signal handler at the top of the
-process asks every module to shut down in dependency order; there is no partial,
-half-running state left behind. The [service lifecycle](index.md#service-lifecycle)
+process asks every module to shut down in reverse dependency order — dependents
+stop before the modules they depend on; there is no partial, half-running state
+left behind. The [service lifecycle](index.md#service-lifecycle)
 section of the overview explains what happens during shutdown.

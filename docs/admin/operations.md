@@ -199,8 +199,8 @@ logging model.
 ### Stopping the server cleanly
 
 Send the process `SIGINT` (Ctrl-C) or `SIGTERM`. A single signal handler at the top
-of the process asks every module to stop in dependency order — no module installs its
-own handler. As the world module stops, its tick loop runs a **final save-all**: every
+of the process asks every module to stop in reverse dependency order — each module
+waits for its dependents to stop first — no module installs its own handler. As the world module stops, its tick loop runs a **final save-all**: every
 still-online player is saved and logged out, and shutdown waits (with a bounded
 timeout) for those save requests to flush to the login service before exiting. A clean
 signal-based stop therefore preserves player progress made since the last autosave.
