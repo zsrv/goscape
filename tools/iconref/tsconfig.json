@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "lib": ["ESNext", "DOM"],
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "moduleDetection": "force",
+        "allowJs": true,
+        "baseUrl": ".",
+        "paths": {
+            "#/*": ["vendor/*"]
+        },
+        "allowImportingTsExtensions": false,
+        "verbatimModuleSyntax": true,
+        "noEmit": true,
+        "strict": false,
+        "skipLibCheck": true,
+        "noImplicitOverride": true
+    },
+    "include": ["dump.ts", "vendor/**/*.ts"]
+}

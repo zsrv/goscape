@@ -1,0 +1,312 @@
+[
+  {
+    "id": 0,
+    "debugname": "mcannonremains",
+    "categories": [
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 1,
+    "debugname": "mcannontoolkit",
+    "categories": [
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 2,
+    "debugname": "mcannonball",
+    "categories": [
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 3,
+    "debugname": "nulodions_notes",
+    "categories": [
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 4,
+    "debugname": "ammo_mould",
+    "categories": [
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 6,
+    "debugname": "twpart1",
+    "categories": [
+      "flat_faces"
+    ]
+  },
+  {
+    "id": 7,
+    "debugname": "cert_twpart1",
+    "categories": [
+      "certtemplate",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 9,
+    "debugname": "cert_twpart2",
+    "categories": [
+      "certtemplate",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 10,
+    "debugname": "twpart3",
+    "categories": [
+      "flat_faces"
+    ]
+  },
+  {
+    "id": 11,
+    "debugname": "cert_twpart3",
+    "categories": [
+      "certtemplate",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 13,
+    "debugname": "cert_twpart4",
+    "categories": [
+      "certtemplate",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 14,
+    "debugname": "mcannonrailing1_obj",
+    "categories": [
+      "textured_faces"
+    ]
+  },
+  {
+    "id": 17,
+    "debugname": "grail_bell",
+    "categories": [
+      "recoloured",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 18,
+    "debugname": "magic_golden_feather",
+    "categories": [
+      "recoloured",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 20,
+    "debugname": "whitecog",
+    "categories": [
+      "flat_faces"
+    ]
+  },
+  {
+    "id": 21,
+    "debugname": "blackcog",
+    "categories": [
+      "flat_faces",
+      "recoloured"
+    ]
+  },
+  {
+    "id": 22,
+    "debugname": "bluecog",
+    "categories": [
+      "flat_faces",
+      "recoloured"
+    ]
+  },
+  {
+    "id": 29,
+    "debugname": "cert_insect_repellent",
+    "categories": [
+      "certtemplate",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 30,
+    "debugname": "bucket_wax",
+    "categories": [
+      "recoloured",
+      "textured_faces"
+    ]
+  },
+  {
+    "id": 32,
+    "debugname": "lit_black_candle",
+    "categories": [
+      "alpha_faces",
+      "recoloured",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 33,
+    "debugname": "lit_candle",
+    "categories": [
+      "alpha_faces",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 78,
+    "debugname": "ice_arrow",
+    "categories": [
+      "countobj_stack",
+      "flat_faces",
+      "recoloured"
+    ]
+  },
+  {
+    "id": 91,
+    "debugname": "guamvial",
+    "categories": [
+      "alpha_faces",
+      "recoloured",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 93,
+    "debugname": "marrentillvial",
+    "categories": [
+      "alpha_faces",
+      "recoloured",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 95,
+    "debugname": "tarrominvial",
+    "categories": [
+      "alpha_faces",
+      "recoloured",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 303,
+    "debugname": "net",
+    "categories": [
+      "textured_faces"
+    ]
+  },
+  {
+    "id": 305,
+    "debugname": "big_net",
+    "categories": [
+      "textured_faces"
+    ]
+  },
+  {
+    "id": 583,
+    "debugname": "bucket_bailing",
+    "categories": [
+      "textured_faces"
+    ]
+  },
+  {
+    "id": 598,
+    "debugname": "unlitarrow",
+    "categories": [
+      "countobj_stack",
+      "flat_faces"
+    ]
+  },
+  {
+    "id": 877,
+    "debugname": "bolt",
+    "categories": [
+      "countobj_stack",
+      "flat_faces"
+    ]
+  },
+  {
+    "id": 878,
+    "debugname": "poison_bolt",
+    "categories": [
+      "countobj_stack",
+      "flat_faces",
+      "recoloured"
+    ]
+  },
+  {
+    "id": 879,
+    "debugname": "opal_bolt",
+    "categories": [
+      "countobj_stack",
+      "flat_faces",
+      "recoloured"
+    ]
+  },
+  {
+    "id": 946,
+    "debugname": "knife",
+    "categories": [
+      "flat_faces"
+    ]
+  },
+  {
+    "id": 1205,
+    "debugname": "bronze_dagger",
+    "categories": [
+      "flat_faces",
+      "recoloured"
+    ]
+  },
+  {
+    "id": 3262,
+    "debugname": "eadgar_troll_thistle",
+    "categories": [
+      "ambient_contrast",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 3263,
+    "debugname": "eadgar_dried_troll_thistle",
+    "categories": [
+      "ambient_contrast",
+      "recoloured",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 3266,
+    "debugname": "eadgar_drunk_parrot",
+    "categories": [
+      "ambient_contrast",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 3693,
+    "debugname": "viking_golden_fleece",
+    "categories": [
+      "ambient_contrast",
+      "recoloured",
+      "untextured_gouraud"
+    ]
+  },
+  {
+    "id": 3694,
+    "debugname": "viking_golden_wool",
+    "categories": [
+      "alpha_faces",
+      "ambient_contrast",
+      "recoloured",
+      "textured_faces"
+    ]
+  }
+]

@@ -1,0 +1,17 @@
+{
+    "name": "iconref",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "description": "TS reference harness that renders rev-274 item icons + rasterizer intermediates into golden pixels for the goscape pkg/render port.",
+    "imports": {
+        "#/*": "./vendor/*"
+    },
+    "scripts": {
+        "dump": "tsx dump.ts"
+    },
+    "devDependencies": {
+        "tsx": "^4.19.2",
+        "typescript": "^5.6.3"
+    }
+}
