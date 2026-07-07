@@ -29,10 +29,13 @@ Decisions made during brainstorming:
   `Repository.LogPublicMessage` / `LogPrivateMessage`; nothing in goscape or
   the platform ever reads them back. They mirror TS `FriendServer.ts`
   moderation logging.
-- **No real chat events are emitted today.** `proto/events/v1/world.proto`
-  has `ChatMessageEvent` and `player_input.proto` has `PrivateChatEvent`, and
-  ClickHouse `001_events.sql` has matching columns, but the only producer is
-  the platform's demo seeder. Real chat currently lands only in the DB tables.
+- **Public chat already emits an event** (correction, plan-phase discovery):
+  `modules/world/handlers_game.go` emits `WorldEnvelope{ChatMessageEvent}`
+  with the unfiltered decoded text (NAI-Phase2), *in addition to* the
+  friends-bridge DB write. Private chat has **no** emission anywhere — the
+  `PrivateChatEvent` proto and ClickHouse columns exist but the only producer
+  is the platform's demo seeder. The DB tables remain the only complete
+  record (PMs are absent from the pipeline entirely).
 - The platform is **not a fork**: it imports goscape as a Go module
   (`replace github.com/zsrv/goscape => ../goscape-rev225`) and installs its
   Kafka emitter via the `pkg/telemetry.Set` seam (no-op in the public repo).
@@ -50,8 +53,12 @@ Decisions made during brainstorming:
   oneof field `chat` → `public_chat` (field number 103 unchanged).
 - Drop the `Channel` enum (`CHANNEL_PUBLIC`/`CHANNEL_CLAN`): these revisions
   are 2004–05 era; clan chat does not exist. Speculative dead weight.
-- New shape: `PublicChatEvent { string session_uuid = 1; int32 coord = 2;
-  string text = 3; }`
+  Verified: `CHANNEL_CLAN` has zero producers; the only emission site uses
+  `CHANNEL_PUBLIC`.
+- New shape (correction: keep `text` on its existing field number so
+  in-flight Kafka messages decode across the rename; reserve the retired
+  enum field): `PublicChatEvent { reserved 1; string text = 2;
+  string session_uuid = 3; int32 coord = 4; }`
 
 `player_input.proto`:
 
@@ -68,12 +75,14 @@ Regenerate `pkg/eventspb` via buf.
 
 ### 2. Public chat: emit from the world module, retire the RPC
 
-- `modules/world/handlers_game.go` (~line 428): replace
-  `s.friendsBridge.PublicMessage(p.sessionOrHeadless(), coord, decoded)` with
-  `telemetry.Get().EmitWorld(...)` carrying a `PublicChatEvent`
-  (`session_uuid` = `p.sessionOrHeadless()`, `coord`, `text` = decoded;
-  envelope `account_id` = player's account id, `world_id` = node id). Same
-  emission pattern as the mouse-move event in `handler_events.go`.
+- `modules/world/handlers_game.go`: merge the two existing sites into one.
+  The NAI-Phase2 `ChatMessageEvent` emission (~line 388) and the
+  `s.friendsBridge.PublicMessage(p.sessionOrHeadless(), coord, decoded)`
+  audit block (~line 428) are replaced by a single
+  `telemetry.Get().EmitWorld(...)` at the audit-block position carrying a
+  `PublicChatEvent` (`session_uuid` = `p.sessionOrHeadless()`, `coord`,
+  `text` = decoded — unfiltered, as both old sites used; envelope
+  `account_id` = `p.accountID`, `world_id` = node id).
 - Delete the now-dead plumbing end to end:
   - `FriendsBridge.PublicMessage` (`modules/world/bridges.go`) + all impls
     (grpc bridge, noops, test fakes)
