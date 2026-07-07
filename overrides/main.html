@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+
+{% block outdated %}
+  You're viewing the documentation for an older game revision.
+  <a href="{{ '../' ~ base_url }}">
+    <strong>Click here for the latest revision.</strong>
+  </a>
+{% endblock %}
