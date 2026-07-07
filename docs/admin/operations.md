@@ -231,8 +231,18 @@ When production mode is enabled:
 Once a reboot is scheduled, the shutdown proceeds in stages: during the final ~50
 ticks (~30 seconds) new logins are rejected so nobody is admitted only to be evicted;
 at the shutdown tick every player is logged out (with a save); any player still stuck
-after ~1024 ticks (~10 minutes) is force-removed; and once the world is empty it
-exits. In an `all` deployment that graceful world exit brings the whole process down.
+after ~1024 ticks (~10 minutes) is force-removed; and once the world is empty, the
+**world module** exits cleanly.
+
+!!! warning "A reboot stops the world module, not the process"
+    The world module's graceful exit does not stop anything else. In an `all`
+    deployment, the OnDemand, login, and friends modules keep running and the process
+    stays up — only a module *failure* stops the whole group, and a scheduled reboot
+    is a clean termination, not a failure. `/healthz` eventually starts returning
+    `503` as the tick signal goes stale, but nothing restarts or terminates the
+    process (the Helm chart configures no liveness probe). Do not rely on `::reboot`
+    or `::slowreboot` alone to bring an `all` process down for an upgrade: after the
+    countdown has drained the players, send `SIGTERM` to stop the process itself.
 
 ### Upgrading the binary
 
