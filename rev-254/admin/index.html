@@ -2521,7 +2521,8 @@ is <code>Terminated</code> (stopped cleanly) or <code>Failed</code> (stopped bec
 <li><strong>One signal handler drives shutdown.</strong> A single operating-system signal handler
   lives at the top level of the App. When it receives a stop signal (for example
   <code>SIGINT</code>/<code>Ctrl-C</code> or <code>SIGTERM</code>), it asks the service group to stop, and every
-  service shuts down through its <code>Stopping</code> state in dependency order. Individual
+  service shuts down through its <code>Stopping</code> state in reverse dependency order —
+  each module waits for the modules that depend on it to stop first. Individual
   modules do not install their own signal handlers.</li>
 </ul>
 <div class="admonition note">
