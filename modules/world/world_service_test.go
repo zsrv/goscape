@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/zsrv/goscape/pkg/dskit/modules"
 )
 
 // arch-28.4c: BasicService legally runs stoppingFn WITHOUT ever calling
@@ -74,19 +76,22 @@ func TestWorldServiceFnsStartingBodyErrorSkipsRun(t *testing.T) {
 	}
 }
 
-// TestWorldServiceFnsRunFnOutcomes pins runFn's three post-run branches —
-// unchanged from NewWorldService's pre-restructure inline runFn: an error
-// from run() propagates, a nil return under a graceful exit yields nil,
-// and any other nil return is reported as an unexpected stop.
+// TestWorldServiceFnsRunFnOutcomes pins runFn's three post-run branches: an
+// error from run() propagates; a graceful ::reboot/::slowreboot exit returns
+// modules.ErrStopProcess (so the manager's failure listener tears down every
+// sibling module and the process exits — TS World.ts processShutdown calls
+// process.exit(0)); and any other run() return is reported as an unexpected
+// stop (a plain error, distinct from the ErrStopProcess sentinel).
 func TestWorldServiceFnsRunFnOutcomes(t *testing.T) {
 	cases := []struct {
-		name         string
-		runErr       error
-		gracefulExit bool
-		wantErr      bool
+		name            string
+		runErr          error
+		gracefulExit    bool
+		wantErr         bool
+		wantStopProcess bool
 	}{
 		{name: "run error propagates", runErr: errors.New("boom"), wantErr: true},
-		{name: "graceful exit returns nil", gracefulExit: true, wantErr: false},
+		{name: "graceful exit returns ErrStopProcess", gracefulExit: true, wantErr: true, wantStopProcess: true},
 		{name: "unexpected stop returns error", wantErr: true},
 	}
 	for _, tc := range cases {
@@ -110,6 +115,12 @@ func TestWorldServiceFnsRunFnOutcomes(t *testing.T) {
 			}
 			if !tc.wantErr && err != nil {
 				t.Fatalf("run: want nil, got %v", err)
+			}
+			if tc.wantStopProcess && !errors.Is(err, modules.ErrStopProcess) {
+				t.Fatalf("run: want modules.ErrStopProcess, got %v", err)
+			}
+			if !tc.wantStopProcess && errors.Is(err, modules.ErrStopProcess) {
+				t.Fatalf("run: unexpected ErrStopProcess, got %v", err)
 			}
 		})
 	}
