@@ -324,9 +324,21 @@ function dumpTriangles(): void {
             args: { xA: 12, xB: 22, xC: 15, yA: 10, yB: 12, yC: 24, colourA: 0x107f, colourB: 0x287f, colourC: 0x407f },
             run: () => Pix3D.gouraudTriangle(12, 22, 15, 10, 12, 24, 0x107f, 0x287f, 0x407f),
         },
+        // SHADE ARITHMETIC (traced through the vendored code — do NOT assume
+        // shade==128 is full-bright): textureTriangle shifts the input shade
+        // s <<= 16, hands the raster s>>8 (= s<<8), and textureRaster does
+        // shadeA <<= 9 (= s<<17) then shadeShift = shadeA >> 23 = s >> 6, and
+        // curU += (shadeA >> 3) & 0xc0000 (bank-select bits = s & 0x30 shifted).
+        // So s=128 → shadeShift 2 (texels >>> 2, i.e. darkened, bank 0);
+        // s=32 → shift 0 (full-bright); s=200 → shift 3. Equal shades at all
+        // three vertices make every shadeStep/shadeStrides term zero, so the
+        // cases below deliberately vary the shades to exercise interpolation.
         {
             // Textured, texture id 1. Screen triangle + a front-facing view-space
             // triangle (A/B/C view coords) so the texture actually samples.
+            // Uniform shade 128 → constant shadeShift 2 (dark), no shade
+            // interpolation — kept as the simplest textured baseline; the two
+            // cases after it cover varying shades and a transparent texture.
             name: 'textured_tex1', routine: 'texture', prefill: 0, lowDetail: false, hclip: false, trans: 0,
             args: {
                 xA: 6, xB: 26, xC: 10, yA: 6, yB: 8, yC: 28,
@@ -354,6 +366,69 @@ function dumpTriangles(): void {
                 -50, 50,       // tyB, tyC
                 240, 240,      // tzB, tzC
                 1,
+            ),
+        },
+        {
+            // Textured with VARYING shades (32/128/200 → shadeShift 0/2/3 and
+            // non-zero bank-select bits): exercises shadeStepAB/BC/AC,
+            // shadeStrides, and the per-stride shadeShift recompute that the
+            // uniform-shade case leaves dead. Texture 2: opaque (no zero texels
+            // per the vendored getTexels rule), highest colour count of the 50
+            // (62 unique, luminance spread 151) for strong UV discrimination.
+            // Args AXIS-major after origin, as above.
+            name: 'textured_shaded', routine: 'texture', prefill: 0, lowDetail: false, hclip: false, trans: 0,
+            args: {
+                xA: 6, xB: 26, xC: 10, yA: 6, yB: 8, yC: 28,
+                shadeA: 32, shadeB: 128, shadeC: 200,
+                originX: -50, originY: -50, originZ: 240,
+                txB: 50, txC: -50,
+                tyB: -50, tyC: 50,
+                tzB: 240, tzC: 240,
+                texture: 2,
+                screenOriginX: 16, screenOriginY: 16,
+            },
+            run: () => Pix3D.textureTriangle(
+                6, 26, 10, 6, 8, 28,
+                32, 128, 200,
+                -50, -50, 240, // originX, originY, originZ (vertex A)
+                50, -50,       // txB, txC
+                -50, 50,       // tyB, tyC
+                240, 240,      // tzB, tzC
+                2,
+            ),
+        },
+        {
+            // Textured with a TRANSPARENT (keyed) texture: texture 7 has
+            // zero-value texels after the & 0xf8f8ff mask (verified against the
+            // vendored getTexels rule), so texTrans[7] = true → opaque = false
+            // → textureRaster takes the separate `rgb !== 0` skip loop instead
+            // of the unconditional-store loop; with this geometry it draws 144
+            // px and leaves 75 real holes inside the triangle, proving the skip
+            // path skipped. Texture 7 is also wi=64, so getTexels' 64→128
+            // upsampling branch is exercised too. (Texture 17 is also keyed but
+            // near-black — avg RGB (7,9,12) — and every sampled texel shades to
+            // 0 with this geometry, yielding an empty, useless golden; hence 7.)
+            // Varying shades again so the non-opaque loop's shade handling is
+            // exercised. Args AXIS-major after origin, as above.
+            name: 'textured_trans7', routine: 'texture', prefill: 0, lowDetail: false, hclip: false, trans: 0,
+            args: {
+                xA: 6, xB: 26, xC: 10, yA: 6, yB: 8, yC: 28,
+                shadeA: 32, shadeB: 128, shadeC: 200,
+                originX: -50, originY: -50, originZ: 240,
+                txB: 50, txC: -50,
+                tyB: -50, tyC: 50,
+                tzB: 240, tzC: 240,
+                texture: 7,
+                screenOriginX: 16, screenOriginY: 16,
+            },
+            run: () => Pix3D.textureTriangle(
+                6, 26, 10, 6, 8, 28,
+                32, 128, 200,
+                -50, -50, 240, // originX, originY, originZ (vertex A)
+                50, -50,       // txB, txC
+                -50, 50,       // tyB, tyC
+                240, 240,      // tzB, tzC
+                7,
             ),
         },
     ];

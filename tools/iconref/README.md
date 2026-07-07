@@ -63,9 +63,19 @@ Mirrors `Client.ts:1152-1154`: `unpackTextures` → `initColourTable(0.8)` →
 ## Outputs (written to `../../pkg/render/testdata/`)
 
 - `palette.bin` — 65536 × int32 **little-endian** (`Pix3D.colourTable`), 262144 bytes.
-- `tri/*.rgba` + `tri/manifest.json` — synthetic single-triangle goldens. The
-  manifest records every input (routine, coords, colours, `lowDetail`, `hclip`,
-  `trans`, prefill, texture id/view-space verts) so each case is exactly replayable.
+- `tri/*.rgba` + `tri/manifest.json` — synthetic single-triangle goldens
+  (gouraud small/large/degenerate/alpha-128, flat, and three textured cases:
+  uniform-shade texture 1, varying-shade opaque texture 2, varying-shade
+  transparent texture 7). The manifest records every input (routine, coords,
+  colours, `lowDetail`, `hclip`, `trans`, prefill, texture id/view-space verts)
+  so each case is exactly replayable.
+
+  Shade arithmetic note (traced; shade `s` is NOT "128 = full-bright"):
+  `textureTriangle` shifts `s <<= 16` and hands the raster `s >> 8`; the raster
+  then does `<<= 9` and derives `shadeShift = s >> 6` plus bank-select bits from
+  `s & 0x30`. So `s=32` → shift 0 (full-bright), `s=128` → shift 2 (darkened),
+  `s=200` → shift 3. Equal shades at all three vertices leave every
+  shadeStep/shadeStrides term zero, hence the varying-shade cases.
 - `lit/dagger.json` — `bronze_dagger` (id 1205) post-`calculateNormals`
   `faceColourA/B/C` (length == model FaceCount).
 - `icons274/<debugname>.rgba` + `.png` — the curated sample icons via
