@@ -18,7 +18,7 @@ message WorldEnvelope {
     TilePositionEvent tile_position = 100;
     CombatEvent combat = 101;
     InteractionEvent interaction = 102;
-    ChatMessageEvent chat = 103;
+    PublicChatEvent public_chat = 103;
     NpcSpawnEvent npc_spawn = 104;
     NpcDespawnEvent npc_despawn = 105;
     DoorStateEvent door_state = 106;
@@ -45,14 +45,22 @@ message InteractionEvent {
   string action = 3;
 }
 
-message ChatMessageEvent {
-  enum Channel {
-    CHANNEL_UNSPECIFIED = 0;
-    CHANNEL_PUBLIC = 1;
-    CHANNEL_CLAN = 2;
-  }
-  Channel channel = 1;
+// PublicChatEvent is the only record of a public-chat utterance — chat
+// is Kafka-only (documented TS divergence: TS persists a public_chat DB
+// row instead; spec docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md).
+message PublicChatEvent {
+  // Field 1 was ChatMessageEvent.Channel; the enum is retired (these
+  // revisions are 2004-05 era — clan chat does not exist).
+  reserved 1;
+  // WordPack-decoded, UNFILTERED text (TS sets player.logMessage BEFORE
+  // the wordenc filter, MessagePublicHandler.ts:32). Kept on field 2 so
+  // in-flight Kafka messages decode across the rename.
   string text = 2;
+  // Player.session per-login UUID; 'headless' when unassigned (TS
+  // Player.ts ctor default). No session-validity gate.
+  string session_uuid = 3;
+  // coordgrid.PackCoord(level, x, z) at utterance.
+  int32 coord = 4;
 }
 
 message NpcSpawnEvent {
