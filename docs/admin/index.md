@@ -109,19 +109,23 @@ Two behaviours are important to operators:
 
 ## Network surfaces and ports
 
-A full `all` deployment exposes three network listeners. The ports below are the ones
-set in the bundled example config; every port and bind address is configurable.
+A full `all` deployment exposes four network listeners. The ports below are the ones
+the bundled example config ends up with — the OnDemand and login ports are set
+explicitly in it, while the world and friends ports come from built-in defaults.
+Every port and bind address is configurable.
 
 | Listener | Module | Protocol | Default port |
 |----------|--------|----------|--------------|
 | OnDemand | `ondemand` | HTTP | 8080 |
 | Login | `login` | gRPC | 2004 |
-| Game world | `world` | TCP | set in the `world` config section |
+| Friends | `friends` | gRPC | 2005 |
+| Game world | `world` | TCP | 43594 |
 
 The OnDemand HTTP server delivers the game cache to connecting clients. The login
-service is a gRPC endpoint that authenticates players. The world server is a raw TCP
-listener that carries live gameplay; its port is configured in the `world` section
-rather than fixed to a well-known number.
+service is a gRPC endpoint that authenticates players. The friends service is a
+second gRPC endpoint serving friends and ignore lists; the world module consults it —
+game clients never talk to it directly. The world server is a raw TCP listener that
+carries live gameplay; its port is the one a game client connects to.
 
 Behind these listeners is the **central database**, shared by the `login` and
 `friends` modules. By default this is a local SQLite database file, which is why the
