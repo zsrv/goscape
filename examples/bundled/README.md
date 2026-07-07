@@ -7,7 +7,7 @@ required to run it.**
 
 ## Quick start
 
-Requirements: Go ≥ 1.23.
+Requirements: Go ≥ 1.26.
 
 ```bash
 CGO_ENABLED=0 go run -trimpath ./cmd/goscape \
@@ -30,7 +30,8 @@ go run ./cmd/goscape --config.file examples/bundled/goscape.yaml --config.verify
 |------|--------|-------|
 | 8080 | ondemand | HTTP OnDemand server |
 | 2004 | login  | gRPC login service |
-| (world) | world | TCP game server (port from world config) |
+| 2005 | friends | gRPC friends service |
+| 43594 | world | TCP game server |
 
 ## Data
 
