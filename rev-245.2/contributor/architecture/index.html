@@ -2649,7 +2649,8 @@ view is in the <a href="../../protocol/login/">login handshake</a> and
 owns it.</strong> At startup the App installs <code>signals.NewHandler(...)</code>
 (<code>pkg/dskit/signals</code>); when it receives a stop signal it calls <code>StopAsync()</code> on
 the services <code>Manager</code>, which cascades shutdown through every service's
-<code>Stopping</code> state in dependency order.</p>
+<code>Stopping</code> state in reverse dependency order — each module waits for the modules
+that depend on it to finish stopping first.</p>
 <p>The catch is that <code>pkg/dskit/server</code> (the HTTP server the OnDemand module uses)
 would install its <em>own</em> signal handler by default, and so would an embedded
 world server. To keep ownership at the root, the App calls

@@ -2629,8 +2629,9 @@ smoke-test script, which sends one login request through <code>grpcurl</code>:</
 bundled <code>auto_register: true</code> setting, creates the demo account on first use.</p>
 <h2 id="stopping-the-server">Stopping the server<a class="headerlink" href="#stopping-the-server" title="Permanent link">&para;</a></h2>
 <p>Press <code>Ctrl-C</code> (or send <code>SIGTERM</code>). A single signal handler at the top of the
-process asks every module to shut down in dependency order; there is no partial,
-half-running state left behind. The <a href="../#service-lifecycle">service lifecycle</a>
+process asks every module to shut down in reverse dependency order — dependents
+stop before the modules they depend on; there is no partial, half-running state
+left behind. The <a href="../#service-lifecycle">service lifecycle</a>
 section of the overview explains what happens during shutdown.</p>
 
 
