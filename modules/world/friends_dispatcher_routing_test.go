@@ -82,16 +82,11 @@ func (o *orderRecordingFriendsClient) PrivateMessage(ctx context.Context, req *f
 	o.fakeFriendsClient.PrivateMessage(ctx, req)
 }
 
-func (o *orderRecordingFriendsClient) PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest) {
-	o.record("PublicMessage")
-	o.fakeFriendsClient.PublicMessage(ctx, req)
-}
-
 var _ FriendsClient = (*orderRecordingFriendsClient)(nil)
 
 // TestFriendsMutationsRouteThroughDispatcher pins arch-29.13's routing
 // contract at the granularity of INDIVIDUAL CALL SITES: every friends
-// mutation call site (the 7 grpcFriendsBridge mutation methods, tick.go's
+// mutation call site (the 6 grpcFriendsBridge mutation methods, tick.go's
 // PlayerLogin dispatch in processLogins, and server.go's PlayerLogout
 // dispatch in removePlayerOnTick) must enqueue on the friendsMutationDispatcher
 // rather than fire its own goroutine.
@@ -140,7 +135,7 @@ func TestFriendsMutationsRouteThroughDispatcher(t *testing.T) {
 		}
 	}
 
-	// --- the 7 grpcFriendsBridge mutation methods ---
+	// --- the 6 grpcFriendsBridge mutation methods ---
 	bridge.AddFriend("alice", 1)
 	assertRoutedThroughDispatcher(t, "AddFriend")
 
@@ -158,9 +153,6 @@ func TestFriendsMutationsRouteThroughDispatcher(t *testing.T) {
 
 	bridge.PrivateMessage("alice", 0, 1, 1, "hi", 0)
 	assertRoutedThroughDispatcher(t, "PrivateMessage")
-
-	bridge.PublicMessage("session-uuid", 0, "hi")
-	assertRoutedThroughDispatcher(t, "PublicMessage")
 
 	// --- tick.go processLogins' inline friends PlayerLogin dispatch ---
 	loginConn, loginNetConn := newTestClient(t)
@@ -203,7 +195,7 @@ func TestFriendsMutationsRouteThroughDispatcher(t *testing.T) {
 
 	wantOrder := []string{
 		"FriendlistAdd", "FriendlistDel", "IgnorelistAdd", "IgnorelistDel",
-		"ChatSetMode", "PrivateMessage", "PublicMessage",
+		"ChatSetMode", "PrivateMessage",
 		"PlayerLogin", "PlayerLogout",
 	}
 	deadline := time.Now().Add(2 * time.Second)

@@ -400,8 +400,8 @@ func handleMessagePublic(p *Player, payload []byte) error {
 	// friend server (World.ts:1567-1574). goscape emits one
 	// PublicChatEvent inline instead — same tuple, same
 	// no-session-gate posture ('headless' sessions emit too,
-	// World.ts:629-631); the public_chat table and the PublicMessage
-	// RPC are retired.
+	// World.ts:629-631); the public_chat table and the friends-server
+	// audit-log RPC are retired.
 	{
 		s := p.client.server
 		coord := coordgrid.PackCoord(p.level, p.x, p.z)

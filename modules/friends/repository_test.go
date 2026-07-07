@@ -908,74 +908,6 @@ func TestRepository_LogPrivateMessage_EmptyMessageAllowed(t *testing.T) {
 	}
 }
 
-// --- public_chat persistence (follow-up post-slice-7) ---
-
-func TestRepository_LogPublicMessage_PersistsRow(t *testing.T) {
-	r, db := newTestRepo(t)
-	ctx := t.Context()
-	if err := r.LogPublicMessage(ctx, "uuid-aaa", 54321, "hello"); err != nil {
-		t.Fatalf("LogPublicMessage: %v", err)
-	}
-	var n int
-	if err := db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM public_chat`).Scan(&n); err != nil {
-		t.Fatalf("COUNT query: %v", err)
-	}
-	if n != 1 {
-		t.Fatalf("row count = %d, want 1", n)
-	}
-	var sessionUUID, msg string
-	var coord int32
-	if err := db.QueryRowContext(ctx,
-		`SELECT session_uuid, coord, message FROM public_chat`).
-		Scan(&sessionUUID, &coord, &msg); err != nil {
-		t.Fatalf("SELECT row: %v", err)
-	}
-	if sessionUUID != "uuid-aaa" {
-		t.Errorf("session_uuid = %q, want %q", sessionUUID, "uuid-aaa")
-	}
-	if coord != 54321 {
-		t.Errorf("coord = %d, want 54321", coord)
-	}
-	if msg != "hello" {
-		t.Errorf("message = %q, want %q", msg, "hello")
-	}
-}
-
-func TestRepository_LogPublicMessage_AppendOnly(t *testing.T) {
-	r, db := newTestRepo(t)
-	ctx := t.Context()
-	if err := r.LogPublicMessage(ctx, "uuid-bbb", 0, "first"); err != nil {
-		t.Fatalf("first: %v", err)
-	}
-	if err := r.LogPublicMessage(ctx, "uuid-bbb", 0, "second"); err != nil {
-		t.Fatalf("second: %v", err)
-	}
-	var n int
-	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM public_chat`).Scan(&n); err != nil {
-		t.Fatalf("COUNT: %v", err)
-	}
-	if n != 2 {
-		t.Errorf("row count = %d, want 2 (append-only, no dedupe)", n)
-	}
-}
-
-func TestRepository_LogPublicMessage_EmptyMessageAllowed(t *testing.T) {
-	r, db := newTestRepo(t)
-	ctx := t.Context()
-	if err := r.LogPublicMessage(ctx, "uuid-empty", 0, ""); err != nil {
-		t.Fatalf("LogPublicMessage(empty): %v", err)
-	}
-	var n int
-	if err := db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM public_chat WHERE message = ''`).Scan(&n); err != nil {
-		t.Fatalf("COUNT: %v", err)
-	}
-	if n != 1 {
-		t.Errorf("row count = %d, want 1 (empty message allowed, no server-side validation)", n)
-	}
-}
-
 // distinctUsername37s returns n values >= start, skipping any multiple of
 // 37. jstring.FromBase37 treats every multiple of 37 (37, 74, 111, ...) as
 // the single sentinel string "invalid_name" (JString.ts:42-44), so a naive
@@ -1211,25 +1143,5 @@ func TestLogPrivateMessage_BothExist_PersistsIDKeyedRow(t *testing.T) {
 	if gotFrom != fromID || gotTo != toID || gotCoord != 12345 || gotMsg != "hello" || gotProfile != "test" {
 		t.Errorf("row: got (%d,%d,%d,%q,%q), want (%d,%d,12345,\"hello\",\"test\")",
 			gotFrom, gotTo, gotCoord, gotMsg, gotProfile, fromID, toID)
-	}
-}
-
-func TestLogPublicMessage_TSRowShape(t *testing.T) {
-	// TS FriendServer.ts:286-297 inserts {session_uuid, timestamp, coord,
-	// message} — no profile, no world (recovered by joining session).
-	r, db := newTestRepo(t)
-	if err := r.LogPublicMessage(t.Context(), "01234567-89ab-cdef-0123-456789abcdef", 99, "gday"); err != nil {
-		t.Fatalf("LogPublicMessage: %v", err)
-	}
-	var uuid, msg string
-	var coord int32
-	err := db.QueryRowContext(t.Context(),
-		`SELECT session_uuid, coord, message FROM public_chat`,
-	).Scan(&uuid, &coord, &msg)
-	if err != nil {
-		t.Fatalf("select: %v", err)
-	}
-	if uuid != "01234567-89ab-cdef-0123-456789abcdef" || coord != 99 || msg != "gday" {
-		t.Errorf("row: got (%q,%d,%q)", uuid, coord, msg)
 	}
 }

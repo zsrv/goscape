@@ -767,21 +767,3 @@ func (r *Repository) LogPrivateMessage(ctx context.Context, from, to uint64, coo
 	}
 	return nil
 }
-
-// LogPublicMessage appends one row to public_chat in the exact TS 274
-// shape {session_uuid, timestamp, coord, message}
-// (FriendServer.ts:286-297). No profile/world columns — those are
-// recovered by joining session on session_uuid, which the central
-// database can now do; headless uuids simply have no session row (TS
-// accepts those too — deliberately NO FK here). timestamp uses the
-// column DEFAULT (TS writes toDbDate(nodeTime); goscape's proto does
-// not carry nodeTime — established, accepted deviation).
-func (r *Repository) LogPublicMessage(ctx context.Context, sessionUUID string, coord int32, message string) error {
-	if _, err := r.db.ExecContext(ctx,
-		r.db.Rebind(`INSERT INTO public_chat (session_uuid, coord, message) VALUES (?, ?, ?)`),
-		sessionUUID, coord, message,
-	); err != nil {
-		return fmt.Errorf("LogPublicMessage: %w", err)
-	}
-	return nil
-}

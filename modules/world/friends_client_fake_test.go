@@ -28,7 +28,6 @@ type fakeFriendsClient struct {
 	ignorelistAddReqs  chan *friendspb.IgnorelistAddRequest
 	ignorelistDelReqs  chan *friendspb.IgnorelistDelRequest
 	privateMessageReqs chan *friendspb.PrivateMessageRequest
-	publicMessageReqs  chan *friendspb.PublicMessageRequest
 
 	// SubscribeUpdates state.
 	subscribeReqs []*friendspb.SubscribeUpdatesRequest
@@ -76,7 +75,6 @@ func newFakeFriendsClient() *fakeFriendsClient {
 		ignorelistAddReqs:   make(chan *friendspb.IgnorelistAddRequest, 16),
 		ignorelistDelReqs:   make(chan *friendspb.IgnorelistDelRequest, 16),
 		privateMessageReqs:  make(chan *friendspb.PrivateMessageRequest, 16),
-		publicMessageReqs:   make(chan *friendspb.PublicMessageRequest, 16),
 		playerLoginAccepted: true,
 
 		relayMuteReqs:         make(chan *friendspb.RelayMuteRequest, 16),
@@ -159,13 +157,6 @@ func (f *fakeFriendsClient) IgnorelistDel(ctx context.Context, req *friendspb.Ig
 func (f *fakeFriendsClient) PrivateMessage(ctx context.Context, req *friendspb.PrivateMessageRequest) {
 	select {
 	case f.privateMessageReqs <- req:
-	default:
-	}
-}
-
-func (f *fakeFriendsClient) PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest) {
-	select {
-	case f.publicMessageReqs <- req:
 	default:
 	}
 }
