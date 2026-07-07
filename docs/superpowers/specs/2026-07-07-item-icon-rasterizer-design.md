@@ -1,7 +1,10 @@
 # Item-icon rasterizer — design
 
 **Date:** 2026-07-07
-**Status:** approved by user (brainstorming session)
+**Status:** approved by user (brainstorming session); **AMENDED same day — see
+"Amendment 1" at the end, which supersedes the Architecture section's renderer
+location, inputs, and phasing.** The fidelity tier, per-branch fidelity intent,
+and harness+golden verification decisions stand.
 **Prereq:** versioned docs site (merged to `main`, spec 2026-07-06); item tables reserve an empty Icon column.
 
 ## Problem
@@ -194,3 +197,57 @@ New `icons` step in `tools/docsgen`:
 
 Golden-pixel tests per branch (the fidelity gate) + unit tests for parser
 and palette math + docsgen determinism/floor gates + strict site builds.
+
+## Amendment 1 (2026-07-07): reuse goscape-client — supersedes Architecture/inputs/phasing
+
+**Trigger:** the user surfaced `/home/owner/Code/github.com/zsrv/goscape-client`
+— an existing MIT-licensed Go port of the RS2 client with the SAME five-branch
+model (rev-225 … rev-274), per-revision faithful ports with inline Java `@pin`
+provenance, and a completed `audit-274` correctness audit. Exploration verified
+it contains the complete icon closure on every branch (`objtype.GetSprite` /
+2-arg `GetIcon` on 225, full `Model`, full `Pix3D` incl. textured paths,
+`Pix2D`/`Pix32`), that triangle rasterization is pure CPU integer math (GL only
+uploads the final framebuffer — byte-exact reuse holds), that `pkg/` has no
+`internal/` walls, and that the sole nondeterminism is the faithful
+`math/rand` brightness jitter in `InitColourTable` (same jitter as the
+reference clients). User approved modifying goscape-client.
+
+**Superseding decisions:**
+1. **No fresh rasterizer port.** The ~4,450-line port is replaced by reuse of
+   goscape-client's render packages per branch.
+2. **The icon tool lives in goscape-client** (client functionality belongs in
+   the client): new `cmd/icondump` per branch — headless driver that loads the
+   revision's native data (config jag + textures jag + models from
+   `main_file_cache` on 244+; **jag archives on 225**, which `Server225_2`
+   provides — the "no 225 cache" problem does not exist on the client data
+   path), calls `GetSprite(id, 0, 1)` / era-appropriate `GetIcon`, converts
+   `Pix32.Pixels` (0 → transparent) to NRGBA, writes `<id>.png` + an
+   `index.tsv` of `id<TAB>name`. The goscape SERVER repo gains nothing; the
+   Task-2 decoder promotion and Task-3 harness commits on goscape rev-274 are
+   reverted/migrated (harness + goldens move to goscape-client rev-274).
+3. **Deterministic palette hook:** goscape-client gains
+   `pix3d.InitColourTableDeterministic(brightness)` (no jitter) used only by
+   icondump; the faithful jittered function is untouched. Documented as an
+   extension: the reference's jitter has expectation exactly `brightness`, and
+   the R3 harness pinned `Math.random = 0.5` (zero jitter) so goldens match.
+4. **Goldens gate the reused code:** the R3 goldens (palette.bin, 8 synthetic
+   triangles, lit/dagger.json, 39 icons) become goscape-client tests —
+   synthetic tris against `Pix3D` directly, palette against the deterministic
+   hook, icons end-to-end through icondump. Any mismatch = a REAL
+   goscape-client fidelity bug → fix there under its own conventions
+   (escalate if a fix would be non-trivial). Per-branch Java harnesses for
+   254/245.2/244/225 goldens remain as originally decided.
+5. **docsgen mapping:** icondump emits ids; docsgen maps id→debugname. For
+   244+ the unpack-derived records are id-ordered and dense (verify at
+   implementation: record `_index` == obj id — client numDefinitions 3894 ==
+   record count on 274). For rev-225 (content-tree records, no ids) mapping is
+   by exact NAME in record order via icondump's index.tsv, unmatched → no
+   icon; the 225 icon floor is 90% (others stay 95%).
+6. **goscape-client work protocol:** worktrees per branch (like the server
+   repo), same commit conventions; goldens/harness live on its branches.
+
+**What survives unchanged from the original spec:** full fidelity tier
+(already implemented in goscape-client, gated by our goldens), per-branch
+fidelity (goscape-client's branches ARE the per-revision ports), harness +
+golden-pixel verification, docs integration shape (overlays icons dir, Icon
+cell, floors, determinism), out-of-scope list, icon variant policy.
