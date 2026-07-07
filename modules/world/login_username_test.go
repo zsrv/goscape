@@ -50,10 +50,12 @@ func TestNewPlayer_PopulatesUsernameFields(t *testing.T) {
 }
 
 // TestNewPlayer_PopulatesSession pins the slice-7 wiring: newPlayer must
-// copy c.sessionUUID onto Player.session so chat-audit rows
-// (public_chat / private_chat) can key on the per-login UUID. The whole-
-// slice review for slice 7 noted that only the world-side e2e covered
-// this — this direct unit test fills the gap.
+// copy c.sessionUUID onto Player.session so the public-chat telemetry
+// record (PublicChatEvent.session_uuid — chat is Kafka-only, spec
+// docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md) can key
+// on the per-login UUID. The whole-slice review for slice 7 noted that
+// only the world-side e2e covered this — this direct unit test fills
+// the gap.
 func TestNewPlayer_PopulatesSession(t *testing.T) {
 	const uuid = "11111111-2222-3333-4444-555555555555"
 	c := &client{username: "alice", sessionUUID: uuid}

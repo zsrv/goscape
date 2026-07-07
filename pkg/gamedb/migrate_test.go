@@ -24,7 +24,7 @@ func TestMigrate_CreatesAllTables(t *testing.T) {
 		"hiscore", "hiscore_large", "login",
 		"message_thread", "message", "message_status",
 		"account_session", "wealth_event",
-		"friendlist", "ignorelist", "private_chat", "public_chat",
+		"friendlist", "ignorelist",
 	} {
 		var n int
 		if err := db.QueryRow(
@@ -67,7 +67,6 @@ func TestMigrate_AccountDeleteCascades(t *testing.T) {
 	}
 	mustExec(`INSERT INTO friendlist (profile, account_id, friend_account_id) VALUES ('main', ?, ?)`, owner, friend)
 	mustExec(`INSERT INTO ignorelist (profile, account_id, value) VALUES ('main', ?, 'ghost')`, owner)
-	mustExec(`INSERT INTO private_chat (account_id, profile, coord, to_account_id, message) VALUES (?, 'main', 0, ?, 'hi')`, owner, friend)
 	mustExec(`INSERT INTO hiscore (account_id, type, level, value, date) VALUES (?, 0, 3, 1154, '2026-07-05 00:00:00')`, owner)
 
 	mustExec(`DELETE FROM account WHERE id = ?`, owner)
@@ -79,7 +78,6 @@ func TestMigrate_AccountDeleteCascades(t *testing.T) {
 	}{
 		{"friendlist", "account_id", owner, 0},
 		{"ignorelist", "account_id", owner, 0},
-		{"private_chat", "account_id", owner, 0},
 		{"hiscore", "account_id", owner, 0},
 		// friend still exists; the friend-side row died with owner.
 		{"friendlist", "friend_account_id", friend, 0},
@@ -187,5 +185,23 @@ func TestMigrate_SecondRunNoChange(t *testing.T) {
 	db := migratedTestDB(t)
 	if err := db.Migrate(t.Context()); err != nil {
 		t.Fatalf("second Migrate: %v (want ErrNoChange swallowed)", err)
+	}
+}
+
+// TestMigrate_ChatTablesDropped pins migration 000002: chat is
+// Kafka-only (spec docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md),
+// so a fully-migrated schema has neither public_chat nor private_chat.
+func TestMigrate_ChatTablesDropped(t *testing.T) {
+	db := migratedTestDB(t) // same helper TestMigrate_CreatesAllTables uses
+	for _, tbl := range []string{"public_chat", "private_chat"} {
+		var n int
+		if err := db.QueryRow(
+			`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, tbl,
+		).Scan(&n); err != nil {
+			t.Fatalf("sqlite_master query: %v", err)
+		}
+		if n != 0 {
+			t.Errorf("table %s still exists, want dropped", tbl)
+		}
 	}
 }
