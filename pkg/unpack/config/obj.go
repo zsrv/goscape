@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/zsrv/goscape/pkg/pack"
-	"github.com/zsrv/goscape/pkg/render/model"
+	"github.com/zsrv/goscape/pkg/unpack/internal/model"
 )
 
 // unpackObj is the core implementation of ObjConfig unpacking.

@@ -18,7 +18,7 @@ import (
 	"github.com/zsrv/goscape/pkg/io/jagfile"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/pack"
-	"github.com/zsrv/goscape/pkg/render/model"
+	"github.com/zsrv/goscape/pkg/unpack/internal/model"
 )
 
 // Options holds all inputs for a config-family unpack run.

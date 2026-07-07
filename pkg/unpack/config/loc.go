@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/zsrv/goscape/pkg/pack"
-	"github.com/zsrv/goscape/pkg/render/model"
+	"github.com/zsrv/goscape/pkg/unpack/internal/model"
 )
 
 // LocShapeSuffix maps a loc shape index (0-22) to the two-character model
