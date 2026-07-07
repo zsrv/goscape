@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/zsrv/goscape/pkg/cache"
+	"github.com/zsrv/goscape/pkg/dskit/modules"
 	"github.com/zsrv/goscape/pkg/dskit/services"
 	"github.com/zsrv/goscape/pkg/dskit/signals"
 	"github.com/zsrv/goscape/pkg/tapper"
@@ -158,7 +159,18 @@ func worldServiceFns(
 				return err
 			}
 			if gracefulExit() {
-				return nil // NAI-182 — ::reboot / ::slowreboot graceful exit
+				// NAI-182 — ::reboot / ::slowreboot graceful exit. TS
+				// World.ts processShutdown calls process.exit(0) once the
+				// last player has drained (World.ts:1219 @e1dea19f), killing
+				// the whole process so an external supervisor restarts it.
+				// Returning ErrStopProcess (not nil) makes this world service
+				// Fail with that sentinel, which the app's manager failure
+				// listener turns into sm.StopAsync() — tearing down every
+				// sibling module (ondemand/login/friends) instead of leaving
+				// them running half-alive under `target: all`. app.go's
+				// failedServicesError treats ErrStopProcess as a requested
+				// shutdown, so the process still exits 0.
+				return modules.ErrStopProcess
 			}
 			return fmt.Errorf("server stopped unexpectedly")
 		}
