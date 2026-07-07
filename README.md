@@ -2,11 +2,12 @@
 
 A Go rewrite of the [Lost City](https://github.com/LostCityRS) TypeScript RuneScape server
 ([Engine-TS](https://github.com/LostCityRS/Engine-TS)), targeting wire-protocol
-**revision 225** and compatible with the Lost City Java client.
+**revision 244** and compatible with the Lost City Java client.
 
-The server is self-contained: login and friends persist to local SQLite, and the ondemand
-(HTTP) and world (TCP) modules are plain network listeners — **no external services are
-required to run it**.
+The server is self-contained: login and friends persist to a central database (sqlite by
+default, or postgres via `database.backend`), and the ondemand (HTTP) and world (TCP)
+modules are plain network listeners — **no external services are required to run it**
+with the default sqlite backend.
 
 ## Modules
 
@@ -15,9 +16,9 @@ The binary is module-targeted (Grafana dskit-style service lifecycle; see `pkg/d
 | Target     | What it runs                                  |
 |------------|-----------------------------------------------|
 | `ondemand` | HTTP OnDemand server (client cache delivery)  |
-| `world`    | TCP game server (RS2 protocol, rev 225)       |
-| `login`    | gRPC login service (SQLite-backed)            |
-| `friends`  | friends/private-message server (SQLite)       |
+| `world`    | TCP game server (RS2 protocol, rev 244)       |
+| `login`    | gRPC login service (sqlite or postgres central DB) |
+| `friends`  | friends/private-message server (sqlite or postgres central DB) |
 | `all`      | all of the above (default)                    |
 
 Select with `--target` or `target:` in the config file. Configuration follows a layered
