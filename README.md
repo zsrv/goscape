@@ -18,7 +18,7 @@ revision branch and carries the upstream delta forward.
 |---|---|
 | `main` | This docs hub: cross-revision references, porting lessons, and the docs-site tooling |
 | `rev-225` | Complete revision-225 port — the original branch (RuneScriptTS compiler); every later branch descends from it |
-| `rev-244` | Complete revision-244 port, cut from `rev-225` — swaps in the RuneScriptKt compiler jar and `@2004scape/rsbuf` `244.1.0` |
+| `rev-244` | Complete revision-244 port, cut from `rev-225` — swaps in the RuneScriptKt compiler jar; `@2004scape/rsbuf` bumps to `244.1.0` |
 | `rev-245.2` | Complete revision-245.2 port, cut from `rev-244` — reverts two 244-only commits; no toolchain change |
 | `rev-254` | Complete revision-254 port, cut from `rev-245.2` — RuneScriptTS returns (`0.9.6`); `@2004scape/rsbuf` `254.1.0` widens NPC ids to 14 bits |
 | `rev-274` | Complete revision-274 port, cut from `rev-254` — rsbuf and rsmod-pathfinder are internalised into Engine-TS; the newest revision |
@@ -53,7 +53,7 @@ Build and preview it locally with Python:
 
 ```bash
 # one-time: create the virtualenv and install the toolchain (zensical, mike, pytest)
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+python -m venv .venv && .venv/bin/pip install -r requirements.txt
 export PATH="$PWD/.venv/bin:$PATH"
 
 # regenerate the per-revision generated pages — only when a pin changes.
