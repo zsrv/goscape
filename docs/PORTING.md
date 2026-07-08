@@ -29,7 +29,7 @@ Sev: 🔥 HIGH (real-world incident risk) / ⚠ MED (correctness or future-fragi
 
 | Sev | Go file:line | TS source | Status | Size | Note |
 |---|---|---|---|---|---|
-| _(none — ARCH-1 CLOSED 2026-06-13: tick error-recovery now TS-faithful (panic-only retry), backported from rev-274; see backlog note below)_ |
+| ℹ LOW | `pkg/gamedb/migrations/{sqlite,postgres}/000002_drop_chat.up.sql` + `modules/world/handlers_game.go` (`MESSAGE_PUBLIC` handler) + `modules/friends/handler.go` (`PrivateMessage` handler) | `FriendServer.ts:291-306` @9aadcec4 (public chat persist) + `FriendServer.ts:260-290` @9aadcec4 (PM persist) | ✅ EXCEPTION-DOCUMENTED | — | **Chat persistence (public_chat / private_chat) — DIVERGENCE.** TS persists public chat (`FriendServer.ts:291-306`) and PMs (`FriendServer.ts:260-290`) to central-DB tables. goscape retires both tables (migration `000002_drop_chat`) and emits `PublicChatEvent` (world module, `MESSAGE_PUBLIC` handler) / `PrivateChatEvent` (friends `PrivateMessage` handler) telemetry events instead — Kafka-only, fire-and-forget. The TS resolve-both-accounts silent-drop for PMs is preserved (`ResolvePrivateMessageEndpoints`). A deployment without a telemetry emitter records chat nowhere. ARCH-1 CLOSED 2026-06-13 (tick error-recovery TS-faithful, backported from rev-274; see backlog note below). Approved in `docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md`. |
 
 ---
 

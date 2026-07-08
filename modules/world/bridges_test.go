@@ -44,12 +44,6 @@ type recordedPrivateMessageCall struct {
 	message        string
 	coord          int
 }
-type recordedPublicMessageCall struct {
-	method   string // "PublicMessage"
-	username string
-	coord    int
-	message  string
-}
 
 type recordingBridges struct {
 	friends              []recordedFriendsCall
@@ -58,7 +52,6 @@ type recordingBridges struct {
 	inputTracks          []recordedInputTrackingCall  // NAI-73
 	submittedSessionLogs [][]SessionLog               // NAI-74 — one element per tick flush
 	privateMsgs          []recordedPrivateMessageCall // NAI-158
-	publicMsgs           []recordedPublicMessageCall  // public_chat follow-up
 }
 
 func (r *recordingBridges) AddFriend(p string, t uint64) {
@@ -80,11 +73,6 @@ func (r *recordingBridges) PrivateMessage(p string, staffLvl int32, pmId uint32,
 	r.privateMsgs = append(r.privateMsgs, recordedPrivateMessageCall{
 		method: "PrivateMessage", playerUsername: p, staffLvl: staffLvl,
 		pmId: pmId, target: target, message: message, coord: coord,
-	})
-}
-func (r *recordingBridges) PublicMessage(username string, coord int, message string) {
-	r.publicMsgs = append(r.publicMsgs, recordedPublicMessageCall{
-		method: "PublicMessage", username: username, coord: coord, message: message,
 	})
 }
 func (r *recordingBridges) NotifyPlayerBan(staff, username string, until time.Time) {
@@ -151,7 +139,6 @@ func TestNoopBridgesAllMethods(t *testing.T) {
 	b.RemoveIgnore("u", 1)
 	b.SetChatMode("u", 0)
 	b.PrivateMessage("u", 0, 0, 1, "x", 0)
-	b.PublicMessage("alice", 0, "msg")
 	now := time.Now()
 	b.NotifyPlayerBan("s", "u", now)
 	b.NotifyPlayerMute("s", "u", now)

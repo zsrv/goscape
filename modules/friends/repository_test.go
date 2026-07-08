@@ -819,234 +819,11 @@ func TestIsVisibleToMany_MatchesScalarIsVisibleTo(t *testing.T) {
 	}
 }
 
-// TestRepository_LogPrivateMessage_AppendOnly pins append-only semantics
-// (no dedupe). Both endpoints must exist under the TS 9aadcec4 re-key —
-// LogPrivateMessage now resolves both accounts.
-func TestRepository_LogPrivateMessage_AppendOnly(t *testing.T) {
-	r, db := newTestRepo(t)
-	ctx := t.Context()
-	seedAccount(t, db, 1111)
-	seedAccount(t, db, 2222)
-	if err := r.LogPrivateMessage(ctx, 1111, 2222, 0, "first"); err != nil {
-		t.Fatalf("first: %v", err)
-	}
-	if err := r.LogPrivateMessage(ctx, 1111, 2222, 0, "second"); err != nil {
-		t.Fatalf("second: %v", err)
-	}
-	var n int
-	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM private_chat`).Scan(&n); err != nil {
-		t.Fatalf("COUNT: %v", err)
-	}
-	if n != 2 {
-		t.Errorf("row count = %d, want 2 (append-only, no dedupe)", n)
-	}
-}
-
-func TestRepository_LogPrivateMessage_RespectsProfile(t *testing.T) {
-	r, db := newTestRepo(t) // profile = "test"
-	seedAccount(t, db, 1)
-	seedAccount(t, db, 2)
-	r2 := NewRepository(db, "other")
-	ctx := t.Context()
-	if err := r.LogPrivateMessage(ctx, 1, 2, 0, "from default"); err != nil {
-		t.Fatalf("r: %v", err)
-	}
-	if err := r2.LogPrivateMessage(ctx, 1, 2, 0, "from other"); err != nil {
-		t.Fatalf("r2: %v", err)
-	}
-	rows, err := db.QueryContext(ctx,
-		`SELECT profile, message FROM private_chat ORDER BY id`)
-	if err != nil {
-		t.Fatalf("query: %v", err)
-	}
-	defer rows.Close()
-	type pair struct {
-		profile string
-		message string
-	}
-	var got []pair
-	for rows.Next() {
-		var p pair
-		if err := rows.Scan(&p.profile, &p.message); err != nil {
-			t.Fatalf("scan: %v", err)
-		}
-		got = append(got, p)
-	}
-	if len(got) != 2 {
-		t.Fatalf("len(got) = %d, want 2", len(got))
-	}
-	if got[0] != (pair{"test", "from default"}) {
-		t.Errorf("got[0] = %+v, want {test, from default}", got[0])
-	}
-	if got[1] != (pair{"other", "from other"}) {
-		t.Errorf("got[1] = %+v, want {other, from other}", got[1])
-	}
-}
-
-func TestRepository_LogPrivateMessage_EmptyMessageAllowed(t *testing.T) {
-	r, db := newTestRepo(t)
-	ctx := t.Context()
-	seedAccount(t, db, 1)
-	seedAccount(t, db, 2)
-	if err := r.LogPrivateMessage(ctx, 1, 2, 0, ""); err != nil {
-		t.Fatalf("LogPrivateMessage(empty): %v", err)
-	}
-	var n int
-	if err := db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM private_chat WHERE message = ''`).Scan(&n); err != nil {
-		t.Fatalf("COUNT: %v", err)
-	}
-	if n != 1 {
-		t.Errorf("row count = %d, want 1 (empty message allowed, no server-side validation)", n)
-	}
-}
-
-// --- public_chat persistence: TS 9aadcec4 account_id+profile+world shape ---
-
-// TestRepository_LogPublicMessage_PersistsRow pins the happy path: the
-// wire username resolves to an account, and the row carries
-// {account_id, profile, world, coord, message} — 6 total columns
-// including the autoincrement id (TS FriendServer.ts:291-306 @9aadcec4;
-// prisma schema.prisma:201-211).
-func TestRepository_LogPublicMessage_PersistsRow(t *testing.T) {
-	r, db := newTestRepo(t)
-	ctx := t.Context()
-	acctID := seedAccount(t, db, 0xC0FFEE)
-	if err := r.LogPublicMessage(ctx, 10, jstring.FromBase37(0xC0FFEE), 54321, "hello"); err != nil {
-		t.Fatalf("LogPublicMessage: %v", err)
-	}
-	var n int
-	if err := db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM public_chat`).Scan(&n); err != nil {
-		t.Fatalf("COUNT query: %v", err)
-	}
-	if n != 1 {
-		t.Fatalf("row count = %d, want 1", n)
-	}
-	var gotAccountID int64
-	var gotProfile string
-	var gotWorld, gotCoord int32
-	var msg string
-	if err := db.QueryRowContext(ctx,
-		`SELECT account_id, profile, world, coord, message FROM public_chat`).
-		Scan(&gotAccountID, &gotProfile, &gotWorld, &gotCoord, &msg); err != nil {
-		t.Fatalf("SELECT row: %v", err)
-	}
-	if gotAccountID != acctID {
-		t.Errorf("account_id = %d, want %d", gotAccountID, acctID)
-	}
-	if gotProfile != "test" {
-		t.Errorf("profile = %q, want %q", gotProfile, "test")
-	}
-	if gotWorld != 10 {
-		t.Errorf("world = %d, want 10", gotWorld)
-	}
-	if gotCoord != 54321 {
-		t.Errorf("coord = %d, want 54321", gotCoord)
-	}
-	if msg != "hello" {
-		t.Errorf("message = %q, want %q", msg, "hello")
-	}
-}
-
-func TestRepository_LogPublicMessage_AppendOnly(t *testing.T) {
-	r, db := newTestRepo(t)
-	ctx := t.Context()
-	seedAccount(t, db, 0xBBBB)
-	name := jstring.FromBase37(0xBBBB)
-	if err := r.LogPublicMessage(ctx, 0, name, 0, "first"); err != nil {
-		t.Fatalf("first: %v", err)
-	}
-	if err := r.LogPublicMessage(ctx, 0, name, 0, "second"); err != nil {
-		t.Fatalf("second: %v", err)
-	}
-	var n int
-	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM public_chat`).Scan(&n); err != nil {
-		t.Fatalf("COUNT: %v", err)
-	}
-	if n != 2 {
-		t.Errorf("row count = %d, want 2 (append-only, no dedupe)", n)
-	}
-}
-
-func TestRepository_LogPublicMessage_EmptyMessageAllowed(t *testing.T) {
-	r, db := newTestRepo(t)
-	ctx := t.Context()
-	seedAccount(t, db, 0xCCCC)
-	if err := r.LogPublicMessage(ctx, 0, jstring.FromBase37(0xCCCC), 0, ""); err != nil {
-		t.Fatalf("LogPublicMessage(empty): %v", err)
-	}
-	var n int
-	if err := db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM public_chat WHERE message = ''`).Scan(&n); err != nil {
-		t.Fatalf("COUNT: %v", err)
-	}
-	if n != 1 {
-		t.Errorf("row count = %d, want 1 (empty message allowed, no server-side validation)", n)
-	}
-}
-
-func TestRepository_LogPublicMessage_RespectsProfile(t *testing.T) {
-	r, db := newTestRepo(t) // profile = "test"
-	seedAccount(t, db, 0xDDDD)
-	name := jstring.FromBase37(0xDDDD)
-	r2 := NewRepository(db, "other")
-	ctx := t.Context()
-	if err := r.LogPublicMessage(ctx, 0, name, 0, "from default"); err != nil {
-		t.Fatalf("r: %v", err)
-	}
-	if err := r2.LogPublicMessage(ctx, 0, name, 0, "from other"); err != nil {
-		t.Fatalf("r2: %v", err)
-	}
-	rows, err := db.QueryContext(ctx,
-		`SELECT profile, message FROM public_chat ORDER BY id`)
-	if err != nil {
-		t.Fatalf("query: %v", err)
-	}
-	defer rows.Close()
-	type pair struct {
-		profile string
-		message string
-	}
-	var got []pair
-	for rows.Next() {
-		var p pair
-		if err := rows.Scan(&p.profile, &p.message); err != nil {
-			t.Fatalf("scan: %v", err)
-		}
-		got = append(got, p)
-	}
-	if len(got) != 2 {
-		t.Fatalf("len(got) = %d, want 2", len(got))
-	}
-	if got[0] != (pair{"test", "from default"}) {
-		t.Errorf("got[0] = %+v, want {test, from default}", got[0])
-	}
-	if got[1] != (pair{"other", "from other"}) {
-		t.Errorf("got[1] = %+v, want {other, from other}", got[1])
-	}
-}
-
-// TestLogPublicMessage_MissingAccount_ErrAccountMissing pins the audit's
-// second headline delta: an unresolvable username throws in TS
-// (executeTakeFirstOrThrow, FriendServer.ts:294) and is caught by the
-// outer per-connection try/catch — no persisted row. goscape surfaces
-// this as errAccountMissing, dual-pinned against the presence case in
-// TestRepository_LogPublicMessage_PersistsRow above.
-func TestLogPublicMessage_MissingAccount_ErrAccountMissing(t *testing.T) {
-	r, db := newTestRepo(t)
-	err := r.LogPublicMessage(t.Context(), 5, "nobody", 0, "hello")
-	if !errors.Is(err, errAccountMissing) {
-		t.Fatalf("LogPublicMessage(missing account): got %v, want errAccountMissing", err)
-	}
-	var n int
-	if err := db.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM public_chat`).Scan(&n); err != nil {
-		t.Fatalf("count: %v", err)
-	}
-	if n != 0 {
-		t.Errorf("public_chat rows: got %d, want 0", n)
-	}
-}
+// (LogPrivateMessage/LogPublicMessage persistence tests retired — chat
+// is Kafka-only, spec docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md;
+// both tables and the LogPublicMessage/LogPrivateMessage insert paths no
+// longer exist. Resolution is covered by
+// TestResolvePrivateMessageEndpoints_* below.)
 
 // distinctUsername37s returns n values >= start, skipping any multiple of
 // 37. jstring.FromBase37 treats every multiple of 37 (37, 74, 111, ...) as
@@ -1259,46 +1036,33 @@ func TestAddIgnore_MissingOwner_NoOp(t *testing.T) {
 	}
 }
 
-func TestLogPrivateMessage_MissingEndpoint_ErrAccountMissing(t *testing.T) {
-	// TS FriendServer.ts:275-276 @9aadcec4 executeTakeFirstOrThrow → outer
-	// catch → PM dropped with no insert.
+// TestResolvePrivateMessageEndpoints_MissingEndpoint pins the TS
+// silent-drop precondition (FriendServer.ts:275-276 @9aadcec4): either
+// endpoint unresolvable → errAccountMissing.
+func TestResolvePrivateMessageEndpoints_MissingEndpoint(t *testing.T) {
 	r, db := newTestRepo(t)
-	seedAccount(t, db, 1)
-	err := r.LogPrivateMessage(t.Context(), 1, 2, 0, "hello")
-	if !errors.Is(err, errAccountMissing) {
-		t.Fatalf("LogPrivateMessage(missing to): got %v, want errAccountMissing", err)
+
+	seedAccount(t, db, 1) // only 'from' exists
+	if _, _, err := r.ResolvePrivateMessageEndpoints(t.Context(), 1, 2); !errors.Is(err, errAccountMissing) {
+		t.Fatalf("missing to: got %v, want errAccountMissing", err)
 	}
-	err = r.LogPrivateMessage(t.Context(), 3, 1, 0, "hello")
-	if !errors.Is(err, errAccountMissing) {
-		t.Fatalf("LogPrivateMessage(missing from): got %v, want errAccountMissing", err)
-	}
-	var n int
-	if err := db.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM private_chat`).Scan(&n); err != nil {
-		t.Fatalf("count: %v", err)
-	}
-	if n != 0 {
-		t.Errorf("private_chat rows: got %d, want 0", n)
+	if _, _, err := r.ResolvePrivateMessageEndpoints(t.Context(), 3, 1); !errors.Is(err, errAccountMissing) {
+		t.Fatalf("missing from: got %v, want errAccountMissing", err)
 	}
 }
 
-func TestLogPrivateMessage_BothExist_PersistsIDKeyedRow(t *testing.T) {
+// TestResolvePrivateMessageEndpoints_BothExist pins that both ids come
+// back resolved (the ids TS used to key the private_chat row by).
+func TestResolvePrivateMessageEndpoints_BothExist(t *testing.T) {
 	r, db := newTestRepo(t)
-	fromID := seedAccount(t, db, 1)
-	toID := seedAccount(t, db, 2)
-	if err := r.LogPrivateMessage(t.Context(), 1, 2, 12345, "hello"); err != nil {
-		t.Fatalf("LogPrivateMessage: %v", err)
-	}
-	var gotFrom, gotTo int64
-	var gotCoord int32
-	var gotMsg, gotProfile string
-	err := db.QueryRowContext(t.Context(),
-		`SELECT account_id, to_account_id, coord, message, profile FROM private_chat`,
-	).Scan(&gotFrom, &gotTo, &gotCoord, &gotMsg, &gotProfile)
+
+	fromWant := seedAccount(t, db, 1)
+	toWant := seedAccount(t, db, 2)
+	from, to, err := r.ResolvePrivateMessageEndpoints(t.Context(), 1, 2)
 	if err != nil {
-		t.Fatalf("select: %v", err)
+		t.Fatalf("ResolvePrivateMessageEndpoints: %v", err)
 	}
-	if gotFrom != fromID || gotTo != toID || gotCoord != 12345 || gotMsg != "hello" || gotProfile != "test" {
-		t.Errorf("row: got (%d,%d,%d,%q,%q), want (%d,%d,12345,\"hello\",\"test\")",
-			gotFrom, gotTo, gotCoord, gotMsg, gotProfile, fromID, toID)
+	if from != fromWant || to != toWant {
+		t.Errorf("resolved = (%d, %d), want (%d, %d)", from, to, fromWant, toWant)
 	}
 }

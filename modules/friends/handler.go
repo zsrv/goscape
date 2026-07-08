@@ -5,11 +5,15 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/friendspb"
+	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
 // handler implements friendspb.FriendsServiceServer.
@@ -165,36 +169,56 @@ func (h *handler) IgnorelistDel(ctx context.Context, req *friendspb.IgnorelistDe
 	return &emptypb.Empty{}, nil
 }
 
-// PrivateMessage persists the PM to private_chat (account-id-keyed,
-// under the request profile) and routes a PrivateMessageDelivery to the
-// target's open stream (if any). Mirrors TS FriendServer.ts:260-290
-// @9aadcec4: both endpoint accounts are resolved against the central
-// database first (:275-276); if either is missing the PM is dropped
-// silently — no insert, no delivery, successful result (TS throws
-// inside the message handler and the outer catch swallows it, :88/419).
-// Other insert failures keep the codes.Internal posture (matches the
-// established posture of FriendlistAdd/Del/IgnorelistAdd/Del).
+// PrivateMessage resolves both endpoint accounts, emits the PM's
+// PrivateChatEvent, and routes a PrivateMessageDelivery to the target's
+// open stream (if any). Mirrors TS FriendServer.ts:260-290 @9aadcec4:
+// both endpoint accounts are resolved against the central database first
+// (:275-276); if either is missing the PM is dropped silently — no emit,
+// no delivery, successful result (TS throws inside the message handler
+// and the outer catch swallows it, :88/419). Other resolve failures keep
+// the codes.Internal posture (matches the established posture of
+// FriendlistAdd/Del/IgnorelistAdd/Del).
 //
-// req.Coord is server-side-persisted (and otherwise unused for
-// routing). req.WorldId is unused for routing because the registry
-// is keyed solely by (profile, username37); cross-world routing
-// therefore falls out for free.
+// Chat is Kafka-only (documented TS divergence, spec
+// docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md): TS
+// inserts a private_chat row here (:278-288); goscape emits one
+// PrivateChatEvent {recipient_account_id, text, coord} keyed by the
+// RESOLVED account ids instead (envelope account_id = resolved sender).
+// req.Coord rides the event (and is otherwise unused for routing).
+// req.WorldId is unused for routing because the registry is keyed solely
+// by (profile, username37); cross-world routing therefore falls out for
+// free.
 //
 // Retires NAI-S4A-D-FED-NO-ACCOUNT-EXISTENCE-CHECK: that exception
 // existed because the friends server was federated from the login/
 // account store with no `account` table to JOIN against. Now that
-// friends is a client of the central database (this task), the
-// existence check TS always had is restored via
-// Repository.LogPrivateMessage's errAccountMissing sentinel.
+// friends is a client of the central database, the existence check TS
+// always had is restored via
+// Repository.ResolvePrivateMessageEndpoints's errAccountMissing sentinel.
 func (h *handler) PrivateMessage(ctx context.Context, req *friendspb.PrivateMessageRequest) (*emptypb.Empty, error) {
 	repo := h.repos.get(req.Profile)
 	h.ensureWorld(req.Profile, req.WorldId)
-	if err := repo.LogPrivateMessage(ctx, req.Username37, req.TargetUsername37, req.Coord, req.Chat); err != nil {
+	fromID, toID, err := repo.ResolvePrivateMessageEndpoints(ctx, req.Username37, req.TargetUsername37)
+	if err != nil {
 		if errors.Is(err, errAccountMissing) {
 			return &emptypb.Empty{}, nil
 		}
-		return nil, status.Errorf(codes.Internal, "LogPrivateMessage: %v", err)
+		return nil, status.Errorf(codes.Internal, "ResolvePrivateMessageEndpoints: %v", err)
 	}
+	telemetry.Get().EmitPlayerInput(&eventspb.PlayerInputEnvelope{
+		SchemaVersion: 1,
+		EventId:       uuid.NewString(),
+		Ts:            timestamppb.Now(),
+		AccountId:     fromID,
+		WorldId:       req.WorldId,
+		Payload: &eventspb.PlayerInputEnvelope_PrivateChat{
+			PrivateChat: &eventspb.PrivateChatEvent{
+				RecipientAccountId: toID,
+				Text:               req.Chat,
+				Coord:              req.Coord,
+			},
+		},
+	})
 	h.subs.send(req.Profile, req.TargetUsername37, &friendspb.FriendsUpdate{
 		Update: &friendspb.FriendsUpdate_PrivateMessage{
 			PrivateMessage: &friendspb.PrivateMessageDelivery{
@@ -471,38 +495,6 @@ func (h *handler) RelayQueueScript(_ context.Context, req *friendspb.RelayQueueS
 			Username37: req.Username37,
 		}},
 	})
-	return &emptypb.Empty{}, nil
-}
-
-// PublicMessage persists one row to public_chat. Mirrors TS
-// FriendServer.ts:291-306 @9aadcec4 — append-only, no delivery, no
-// validation (beyond the account-existence resolution below). Insert
-// error → codes.Internal (matches slice 6 PrivateMessage posture and
-// FRIENDLIST/IGNORELIST mutation handlers).
-//
-// Central-DB re-key (this task): req.Username (the raw account.username
-// TEXT carried on the wire, proto/friends/friends.proto:153) is now
-// resolved against the central `account` table before insert, matching
-// TS's own `where('username','=',username).executeTakeFirstOrThrow()`
-// (:294). A missing account → Repository.LogPublicMessage returns
-// errAccountMissing, mapped here to a silent success — TS's throw is
-// caught by the outer per-connection try/catch and the log entry is
-// simply dropped (:88/419), no client-visible error. req.WorldId is
-// still persisted (the `world` column, :296-305; prisma
-// schema.prisma:201-211) — unlike rev-274's own LATER TS pin, which
-// drops both `world` and account resolution entirely in favor of a bare
-// session_uuid (docs/superpowers/sdd/audit-port244.md "Deltas vs
-// rev-274" (2)).
-//
-// Retires NAI-S6-D-PUBLIC-CHAT-DEFERRED.
-func (h *handler) PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest) (*emptypb.Empty, error) {
-	repo := h.repos.get(req.Profile)
-	if err := repo.LogPublicMessage(ctx, req.WorldId, req.Username, req.Coord, req.Chat); err != nil {
-		if errors.Is(err, errAccountMissing) {
-			return &emptypb.Empty{}, nil
-		}
-		return nil, status.Errorf(codes.Internal, "LogPublicMessage: %v", err)
-	}
 	return &emptypb.Empty{}, nil
 }
 
