@@ -31,17 +31,6 @@ type FriendsBridge interface {
 	// Real impl: grpcFriendsBridge.PrivateMessage (this file) fans a
 	// friendspb.PrivateMessageRequest out to the friends server.
 	PrivateMessage(playerUsername string, staffLvl int32, pmId uint32, target uint64, message string, coord int)
-
-	// PublicMessage audit-logs a public-chat utterance to the friends
-	// server. sessionUUID is the per-login UUID (Player.session,
-	// populated by slice 7). coord is the packed coordgrid.PackCoord
-	// value at utterance. message is the WordPack-decoded text (not
-	// the raw word-packed bytes — see handleMessagePublic for the
-	// decode site). Real impl: grpcFriendsBridge.PublicMessage (this
-	// file) fans a friendspb.PublicMessageRequest out to the friends
-	// server. Mirrors TS World.sendPublicMessageLog inline payload
-	// (FriendServer.ts:670-694 publicMessage emitter).
-	PublicMessage(sessionUUID string, coord int, message string)
 }
 
 // LoginBridgeMod mirrors TS World.loginThread.postMessage('player_ban'/
@@ -309,7 +298,6 @@ func (noopBridges) AddIgnore(string, uint64)                                  {}
 func (noopBridges) RemoveIgnore(string, uint64)                               {}
 func (noopBridges) SetChatMode(string, int)                                   {}
 func (noopBridges) PrivateMessage(string, int32, uint32, uint64, string, int) {}
-func (noopBridges) PublicMessage(string, int, string)                         {}
 func (noopBridges) NotifyPlayerBan(string, string, time.Time)                 {}
 func (noopBridges) NotifyPlayerMute(string, string, time.Time)                {}
 func (noopBridges) NotifyPlayerReport(*Player, string, string)                {}
@@ -474,18 +462,6 @@ func (b *grpcFriendsBridge) PrivateMessage(playerUsername string, staffLvl int32
 	}
 	b.dispatcher.enqueue(func(ctx context.Context) {
 		b.client.PrivateMessage(ctx, req)
-	})
-}
-
-func (b *grpcFriendsBridge) PublicMessage(sessionUUID string, coord int, message string) {
-	req := &friendspb.PublicMessageRequest{
-		WorldId:     b.worldID,
-		SessionUuid: sessionUUID,
-		Coord:       int32(coord),
-		Chat:        message,
-	}
-	b.dispatcher.enqueue(func(ctx context.Context) {
-		b.client.PublicMessage(ctx, req)
 	})
 }
 

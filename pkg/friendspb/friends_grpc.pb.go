@@ -29,7 +29,6 @@ const (
 	FriendsService_IgnorelistAdd_FullMethodName        = "/friends.v1.FriendsService/IgnorelistAdd"
 	FriendsService_IgnorelistDel_FullMethodName        = "/friends.v1.FriendsService/IgnorelistDel"
 	FriendsService_PrivateMessage_FullMethodName       = "/friends.v1.FriendsService/PrivateMessage"
-	FriendsService_PublicMessage_FullMethodName        = "/friends.v1.FriendsService/PublicMessage"
 	FriendsService_SubscribeUpdates_FullMethodName     = "/friends.v1.FriendsService/SubscribeUpdates"
 	FriendsService_RelayMute_FullMethodName            = "/friends.v1.FriendsService/RelayMute"
 	FriendsService_RelayKick_FullMethodName            = "/friends.v1.FriendsService/RelayKick"
@@ -63,11 +62,6 @@ type FriendsServiceClient interface {
 	// Chat. Mirrors TS PRIVATE_MESSAGE. Server persists then delivers via
 	// SubscribeUpdates fan-out; insert error → codes.Internal.
 	PrivateMessage(ctx context.Context, in *PrivateMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// Public-chat audit log. Mirrors TS FriendServer.ts:286-297 — append-
-	// only persistence keyed by per-login session UUID (Player.session,
-	// populated by slice 7). No delivery half; the world handles in-world
-	// chat propagation itself. Insert error → codes.Internal.
-	PublicMessage(ctx context.Context, in *PublicMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Server -> world push. Server streams update events for a single
 	// (world, player) subscription. Backed by a per-subscriber registry
 	// with broadcastWorldToFollowers fan-out on mutating RPCs.
@@ -188,16 +182,6 @@ func (c *friendsServiceClient) PrivateMessage(ctx context.Context, in *PrivateMe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, FriendsService_PrivateMessage_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *friendsServiceClient) PublicMessage(ctx context.Context, in *PublicMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, FriendsService_PublicMessage_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -352,11 +336,6 @@ type FriendsServiceServer interface {
 	// Chat. Mirrors TS PRIVATE_MESSAGE. Server persists then delivers via
 	// SubscribeUpdates fan-out; insert error → codes.Internal.
 	PrivateMessage(context.Context, *PrivateMessageRequest) (*emptypb.Empty, error)
-	// Public-chat audit log. Mirrors TS FriendServer.ts:286-297 — append-
-	// only persistence keyed by per-login session UUID (Player.session,
-	// populated by slice 7). No delivery half; the world handles in-world
-	// chat propagation itself. Insert error → codes.Internal.
-	PublicMessage(context.Context, *PublicMessageRequest) (*emptypb.Empty, error)
 	// Server -> world push. Server streams update events for a single
 	// (world, player) subscription. Backed by a per-subscriber registry
 	// with broadcastWorldToFollowers fan-out on mutating RPCs.
@@ -419,9 +398,6 @@ func (UnimplementedFriendsServiceServer) IgnorelistDel(context.Context, *Ignorel
 }
 func (UnimplementedFriendsServiceServer) PrivateMessage(context.Context, *PrivateMessageRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method PrivateMessage not implemented")
-}
-func (UnimplementedFriendsServiceServer) PublicMessage(context.Context, *PublicMessageRequest) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method PublicMessage not implemented")
 }
 func (UnimplementedFriendsServiceServer) SubscribeUpdates(*SubscribeUpdatesRequest, grpc.ServerStreamingServer[FriendsUpdate]) error {
 	return status.Error(codes.Unimplemented, "method SubscribeUpdates not implemented")
@@ -635,24 +611,6 @@ func _FriendsService_PrivateMessage_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(FriendsServiceServer).PrivateMessage(ctx, req.(*PrivateMessageRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _FriendsService_PublicMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PublicMessageRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FriendsServiceServer).PublicMessage(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: FriendsService_PublicMessage_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FriendsServiceServer).PublicMessage(ctx, req.(*PublicMessageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -883,10 +841,6 @@ var FriendsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PrivateMessage",
 			Handler:    _FriendsService_PrivateMessage_Handler,
-		},
-		{
-			MethodName: "PublicMessage",
-			Handler:    _FriendsService_PublicMessage_Handler,
 		},
 		{
 			MethodName: "RelayMute",

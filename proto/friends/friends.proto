@@ -26,12 +26,6 @@ service FriendsService {
   // SubscribeUpdates fan-out; insert error → codes.Internal.
   rpc PrivateMessage(PrivateMessageRequest) returns (google.protobuf.Empty);
 
-  // Public-chat audit log. Mirrors TS FriendServer.ts:286-297 — append-
-  // only persistence keyed by per-login session UUID (Player.session,
-  // populated by slice 7). No delivery half; the world handles in-world
-  // chat propagation itself. Insert error → codes.Internal.
-  rpc PublicMessage(PublicMessageRequest) returns (google.protobuf.Empty);
-
   // Server -> world push. Server streams update events for a single
   // (world, player) subscription. Backed by a per-subscriber registry
   // with broadcastWorldToFollowers fan-out on mutating RPCs.
@@ -123,13 +117,6 @@ message PrivateMessageRequest {
   uint32 pm_id             = 5;
   string chat              = 6;
   int32  coord             = 7;
-}
-
-message PublicMessageRequest {
-  int32  world_id     = 1;
-  string session_uuid = 2;
-  int32  coord        = 3;
-  string chat         = 4;
 }
 
 message SubscribeUpdatesRequest {

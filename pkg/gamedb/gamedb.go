@@ -120,8 +120,8 @@ func ensureDBParentDir(dsn string) error {
 }
 
 // IsForeignKeyViolation reports whether err is an FK-constraint
-// violation. Consumers (friends AddFriend/AddIgnore/LogPrivateMessage)
-// map it to the TS "account missing" drop path: an account deleted
+// violation. Consumers (friends AddFriend/AddIgnore) map it to the TS
+// "account missing" drop path: an account deleted
 // between existence check and insert must not surface as an internal
 // error (spec §Error handling).
 func IsForeignKeyViolation(err error) bool {

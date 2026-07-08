@@ -375,22 +375,6 @@ func handleMessagePublic(p *Player, payload []byte) error {
 	out := packet.NewPacket(nil)
 	wordpack.Pack(out, filtered)
 
-	// NAI-Phase2: emit ChatMessageEvent (public-channel only — this handler
-	// only services MESSAGE_PUBLIC opcode 158; clan-chat has its own handler).
-	telemetry.Get().EmitWorld(&eventspb.WorldEnvelope{
-		SchemaVersion: 1,
-		EventId:       uuid.NewString(),
-		Ts:            timestamppb.Now(),
-		WorldId:       int32(p.client.server.cfg.NodeID),
-		AccountId:     p.accountID,
-		Payload: &eventspb.WorldEnvelope_Chat{
-			Chat: &eventspb.ChatMessageEvent{
-				Channel: eventspb.ChatMessageEvent_CHANNEL_PUBLIC,
-				Text:    decoded,
-			},
-		},
-	})
-
 	// TS-DRIFT-1: clamp rights to min(staffModLevel, 2) per
 	// MessagePublicHandler.ts:31 — Rev 244 mod-crown visibility caps the
 	// rendered crown level at 2 (any staff level >2 still displays as 2).
@@ -400,20 +384,39 @@ func handleMessagePublic(p *Player, payload []byte) error {
 	}
 	p.Chat(color, effect, rights, out.Bytes())
 
-	// Audit-log to friends-server with the UNFILTERED decoded text — mirrors
-	// TS player.logMessage = unpack at MessagePublicHandler.ts:32 (BEFORE filter).
-	// TS defers this: the handler only stores logMessage, then World.ts:648
-	// drains it once per tick via logPublicChat (resetPathingEntity nils it).
-	// Go has no logMessage field; it logs inline here instead — same sink
-	// (friendsBridge.PublicMessage), same session+coord+text. Structural-only
-	// divergence (see docs/PORTING-CLOSED.md "logMessage closed").
-	// Skip when p.session is empty or the unbridged "headless" sentinel —
-	// audit logging is meaningless without a real per-login UUID. The bridge
-	// goroutine-wraps the underlying RPC so the tick never blocks.
-	if p.session != "" && p.session != "headless" {
+	// Chat is Kafka-only (documented TS divergence, spec
+	// docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md). TS stores
+	// player.logMessage (UNFILTERED, MessagePublicHandler.ts:32, BEFORE
+	// filter), drains it once per tick via logPublicChat (World.ts:648) and
+	// persists {session_uuid, coord, message} to public_chat via the friend
+	// server (FriendServer.ts:286-297 @e1dea19f). goscape emits one
+	// PublicChatEvent inline instead — same tuple. This single emission takes
+	// over from the retired NAI-Phase2 ChatMessageEvent (which fired
+	// unconditionally here), so the merged event is likewise unconditional:
+	// the former session gate guarded only the now-retired public_chat DB
+	// sink; dropping it keeps the "always record public chat" posture the
+	// NAI-Phase2 emission already had. The public_chat table and the
+	// PublicMessage RPC are retired. session_uuid carries the raw
+	// Player.session (a real per-login UUID in production, or the "headless"
+	// tick fallback); the envelope account_id identifies the speaker either
+	// way.
+	{
 		s := p.client.server
 		coord := coordgrid.PackCoord(p.level, p.x, p.z)
-		s.friendsBridge.PublicMessage(p.session, coord, decoded)
+		telemetry.Get().EmitWorld(&eventspb.WorldEnvelope{
+			SchemaVersion: 1,
+			EventId:       uuid.NewString(),
+			Ts:            timestamppb.Now(),
+			WorldId:       int32(s.cfg.NodeID),
+			AccountId:     p.accountID,
+			Payload: &eventspb.WorldEnvelope_PublicChat{
+				PublicChat: &eventspb.PublicChatEvent{
+					Text:        decoded,
+					SessionUuid: p.session,
+					Coord:       int32(coord),
+				},
+			},
+		})
 	}
 
 	// TS MessagePublicHandler.ts:42 — set socialProtect after a successful
