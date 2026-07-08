@@ -24,55 +24,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type ChatMessageEvent_Channel int32
-
-const (
-	ChatMessageEvent_CHANNEL_UNSPECIFIED ChatMessageEvent_Channel = 0
-	ChatMessageEvent_CHANNEL_PUBLIC      ChatMessageEvent_Channel = 1
-	ChatMessageEvent_CHANNEL_CLAN        ChatMessageEvent_Channel = 2
-)
-
-// Enum value maps for ChatMessageEvent_Channel.
-var (
-	ChatMessageEvent_Channel_name = map[int32]string{
-		0: "CHANNEL_UNSPECIFIED",
-		1: "CHANNEL_PUBLIC",
-		2: "CHANNEL_CLAN",
-	}
-	ChatMessageEvent_Channel_value = map[string]int32{
-		"CHANNEL_UNSPECIFIED": 0,
-		"CHANNEL_PUBLIC":      1,
-		"CHANNEL_CLAN":        2,
-	}
-)
-
-func (x ChatMessageEvent_Channel) Enum() *ChatMessageEvent_Channel {
-	p := new(ChatMessageEvent_Channel)
-	*p = x
-	return p
-}
-
-func (x ChatMessageEvent_Channel) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ChatMessageEvent_Channel) Descriptor() protoreflect.EnumDescriptor {
-	return file_events_v1_world_proto_enumTypes[0].Descriptor()
-}
-
-func (ChatMessageEvent_Channel) Type() protoreflect.EnumType {
-	return &file_events_v1_world_proto_enumTypes[0]
-}
-
-func (x ChatMessageEvent_Channel) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ChatMessageEvent_Channel.Descriptor instead.
-func (ChatMessageEvent_Channel) EnumDescriptor() ([]byte, []int) {
-	return file_events_v1_world_proto_rawDescGZIP(), []int{4, 0}
-}
-
 type WorldEnvelope struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SchemaVersion uint32                 `protobuf:"varint,1,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
@@ -85,7 +36,7 @@ type WorldEnvelope struct {
 	//	*WorldEnvelope_TilePosition
 	//	*WorldEnvelope_Combat
 	//	*WorldEnvelope_Interaction
-	//	*WorldEnvelope_Chat
+	//	*WorldEnvelope_PublicChat
 	//	*WorldEnvelope_NpcSpawn
 	//	*WorldEnvelope_NpcDespawn
 	//	*WorldEnvelope_DoorState
@@ -194,10 +145,10 @@ func (x *WorldEnvelope) GetInteraction() *InteractionEvent {
 	return nil
 }
 
-func (x *WorldEnvelope) GetChat() *ChatMessageEvent {
+func (x *WorldEnvelope) GetPublicChat() *PublicChatEvent {
 	if x != nil {
-		if x, ok := x.Payload.(*WorldEnvelope_Chat); ok {
-			return x.Chat
+		if x, ok := x.Payload.(*WorldEnvelope_PublicChat); ok {
+			return x.PublicChat
 		}
 	}
 	return nil
@@ -255,8 +206,8 @@ type WorldEnvelope_Interaction struct {
 	Interaction *InteractionEvent `protobuf:"bytes,102,opt,name=interaction,proto3,oneof"`
 }
 
-type WorldEnvelope_Chat struct {
-	Chat *ChatMessageEvent `protobuf:"bytes,103,opt,name=chat,proto3,oneof"`
+type WorldEnvelope_PublicChat struct {
+	PublicChat *PublicChatEvent `protobuf:"bytes,103,opt,name=public_chat,json=publicChat,proto3,oneof"`
 }
 
 type WorldEnvelope_NpcSpawn struct {
@@ -281,7 +232,7 @@ func (*WorldEnvelope_Combat) isWorldEnvelope_Payload() {}
 
 func (*WorldEnvelope_Interaction) isWorldEnvelope_Payload() {}
 
-func (*WorldEnvelope_Chat) isWorldEnvelope_Payload() {}
+func (*WorldEnvelope_PublicChat) isWorldEnvelope_Payload() {}
 
 func (*WorldEnvelope_NpcSpawn) isWorldEnvelope_Payload() {}
 
@@ -479,28 +430,38 @@ func (x *InteractionEvent) GetAction() string {
 	return ""
 }
 
-type ChatMessageEvent struct {
-	state         protoimpl.MessageState   `protogen:"open.v1"`
-	Channel       ChatMessageEvent_Channel `protobuf:"varint,1,opt,name=channel,proto3,enum=events.v1.ChatMessageEvent_Channel" json:"channel,omitempty"`
-	Text          string                   `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+// PublicChatEvent is the only record of a public-chat utterance — chat
+// is Kafka-only (documented TS divergence: TS persists a public_chat DB
+// row instead; spec docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md).
+type PublicChatEvent struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// WordPack-decoded, UNFILTERED text (TS sets player.logMessage BEFORE
+	// the wordenc filter, MessagePublicHandler.ts:32). Kept on field 2 so
+	// in-flight Kafka messages decode across the rename.
+	Text string `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	// Player.session per-login UUID; 'headless' when unassigned (TS
+	// Player.ts ctor default). No session-validity gate.
+	SessionUuid string `protobuf:"bytes,3,opt,name=session_uuid,json=sessionUuid,proto3" json:"session_uuid,omitempty"`
+	// coordgrid.PackCoord(level, x, z) at utterance.
+	Coord         int32 `protobuf:"varint,4,opt,name=coord,proto3" json:"coord,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ChatMessageEvent) Reset() {
-	*x = ChatMessageEvent{}
+func (x *PublicChatEvent) Reset() {
+	*x = PublicChatEvent{}
 	mi := &file_events_v1_world_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ChatMessageEvent) String() string {
+func (x *PublicChatEvent) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ChatMessageEvent) ProtoMessage() {}
+func (*PublicChatEvent) ProtoMessage() {}
 
-func (x *ChatMessageEvent) ProtoReflect() protoreflect.Message {
+func (x *PublicChatEvent) ProtoReflect() protoreflect.Message {
 	mi := &file_events_v1_world_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -512,23 +473,30 @@ func (x *ChatMessageEvent) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ChatMessageEvent.ProtoReflect.Descriptor instead.
-func (*ChatMessageEvent) Descriptor() ([]byte, []int) {
+// Deprecated: Use PublicChatEvent.ProtoReflect.Descriptor instead.
+func (*PublicChatEvent) Descriptor() ([]byte, []int) {
 	return file_events_v1_world_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *ChatMessageEvent) GetChannel() ChatMessageEvent_Channel {
-	if x != nil {
-		return x.Channel
-	}
-	return ChatMessageEvent_CHANNEL_UNSPECIFIED
-}
-
-func (x *ChatMessageEvent) GetText() string {
+func (x *PublicChatEvent) GetText() string {
 	if x != nil {
 		return x.Text
 	}
 	return ""
+}
+
+func (x *PublicChatEvent) GetSessionUuid() string {
+	if x != nil {
+		return x.SessionUuid
+	}
+	return ""
+}
+
+func (x *PublicChatEvent) GetCoord() int32 {
+	if x != nil {
+		return x.Coord
+	}
+	return 0
 }
 
 type NpcSpawnEvent struct {
@@ -783,7 +751,7 @@ var File_events_v1_world_proto protoreflect.FileDescriptor
 
 const file_events_v1_world_proto_rawDesc = "" +
 	"\n" +
-	"\x15events/v1/world.proto\x12\tevents.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xac\x05\n" +
+	"\x15events/v1/world.proto\x12\tevents.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb8\x05\n" +
 	"\rWorldEnvelope\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\rR\rschemaVersion\x12\x19\n" +
 	"\bevent_id\x18\x02 \x01(\tR\aeventId\x12*\n" +
@@ -793,8 +761,9 @@ const file_events_v1_world_proto_rawDesc = "" +
 	"account_id\x18\x05 \x01(\x03R\taccountId\x12C\n" +
 	"\rtile_position\x18d \x01(\v2\x1c.events.v1.TilePositionEventH\x00R\ftilePosition\x120\n" +
 	"\x06combat\x18e \x01(\v2\x16.events.v1.CombatEventH\x00R\x06combat\x12?\n" +
-	"\vinteraction\x18f \x01(\v2\x1b.events.v1.InteractionEventH\x00R\vinteraction\x121\n" +
-	"\x04chat\x18g \x01(\v2\x1b.events.v1.ChatMessageEventH\x00R\x04chat\x127\n" +
+	"\vinteraction\x18f \x01(\v2\x1b.events.v1.InteractionEventH\x00R\vinteraction\x12=\n" +
+	"\vpublic_chat\x18g \x01(\v2\x1a.events.v1.PublicChatEventH\x00R\n" +
+	"publicChat\x127\n" +
 	"\tnpc_spawn\x18h \x01(\v2\x18.events.v1.NpcSpawnEventH\x00R\bnpcSpawn\x12=\n" +
 	"\vnpc_despawn\x18i \x01(\v2\x1a.events.v1.NpcDespawnEventH\x00R\n" +
 	"npcDespawn\x12:\n" +
@@ -814,14 +783,11 @@ const file_events_v1_world_proto_rawDesc = "" +
 	"\x10InteractionEvent\x12*\n" +
 	"\x11target_account_id\x18\x01 \x01(\x03R\x0ftargetAccountId\x12\"\n" +
 	"\rtarget_npc_id\x18\x02 \x01(\x05R\vtargetNpcId\x12\x16\n" +
-	"\x06action\x18\x03 \x01(\tR\x06action\"\xaf\x01\n" +
-	"\x10ChatMessageEvent\x12=\n" +
-	"\achannel\x18\x01 \x01(\x0e2#.events.v1.ChatMessageEvent.ChannelR\achannel\x12\x12\n" +
-	"\x04text\x18\x02 \x01(\tR\x04text\"H\n" +
-	"\aChannel\x12\x17\n" +
-	"\x13CHANNEL_UNSPECIFIED\x10\x00\x12\x12\n" +
-	"\x0eCHANNEL_PUBLIC\x10\x01\x12\x10\n" +
-	"\fCHANNEL_CLAN\x10\x02\"s\n" +
+	"\x06action\x18\x03 \x01(\tR\x06action\"d\n" +
+	"\x0fPublicChatEvent\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\x12!\n" +
+	"\fsession_uuid\x18\x03 \x01(\tR\vsessionUuid\x12\x14\n" +
+	"\x05coord\x18\x04 \x01(\x05R\x05coordJ\x04\b\x01\x10\x02\"s\n" +
 	"\rNpcSpawnEvent\x12\x15\n" +
 	"\x06npc_id\x18\x01 \x01(\x05R\x05npcId\x12\x19\n" +
 	"\bnpc_type\x18\x02 \x01(\x05R\anpcType\x12\f\n" +
@@ -852,37 +818,34 @@ func file_events_v1_world_proto_rawDescGZIP() []byte {
 	return file_events_v1_world_proto_rawDescData
 }
 
-var file_events_v1_world_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_events_v1_world_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_events_v1_world_proto_goTypes = []any{
-	(ChatMessageEvent_Channel)(0), // 0: events.v1.ChatMessageEvent.Channel
-	(*WorldEnvelope)(nil),         // 1: events.v1.WorldEnvelope
-	(*TilePositionEvent)(nil),     // 2: events.v1.TilePositionEvent
-	(*CombatEvent)(nil),           // 3: events.v1.CombatEvent
-	(*InteractionEvent)(nil),      // 4: events.v1.InteractionEvent
-	(*ChatMessageEvent)(nil),      // 5: events.v1.ChatMessageEvent
-	(*NpcSpawnEvent)(nil),         // 6: events.v1.NpcSpawnEvent
-	(*NpcDespawnEvent)(nil),       // 7: events.v1.NpcDespawnEvent
-	(*DoorStateEvent)(nil),        // 8: events.v1.DoorStateEvent
-	(*PacketReceivedEvent)(nil),   // 9: events.v1.PacketReceivedEvent
-	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
+	(*WorldEnvelope)(nil),         // 0: events.v1.WorldEnvelope
+	(*TilePositionEvent)(nil),     // 1: events.v1.TilePositionEvent
+	(*CombatEvent)(nil),           // 2: events.v1.CombatEvent
+	(*InteractionEvent)(nil),      // 3: events.v1.InteractionEvent
+	(*PublicChatEvent)(nil),       // 4: events.v1.PublicChatEvent
+	(*NpcSpawnEvent)(nil),         // 5: events.v1.NpcSpawnEvent
+	(*NpcDespawnEvent)(nil),       // 6: events.v1.NpcDespawnEvent
+	(*DoorStateEvent)(nil),        // 7: events.v1.DoorStateEvent
+	(*PacketReceivedEvent)(nil),   // 8: events.v1.PacketReceivedEvent
+	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
 }
 var file_events_v1_world_proto_depIdxs = []int32{
-	10, // 0: events.v1.WorldEnvelope.ts:type_name -> google.protobuf.Timestamp
-	2,  // 1: events.v1.WorldEnvelope.tile_position:type_name -> events.v1.TilePositionEvent
-	3,  // 2: events.v1.WorldEnvelope.combat:type_name -> events.v1.CombatEvent
-	4,  // 3: events.v1.WorldEnvelope.interaction:type_name -> events.v1.InteractionEvent
-	5,  // 4: events.v1.WorldEnvelope.chat:type_name -> events.v1.ChatMessageEvent
-	6,  // 5: events.v1.WorldEnvelope.npc_spawn:type_name -> events.v1.NpcSpawnEvent
-	7,  // 6: events.v1.WorldEnvelope.npc_despawn:type_name -> events.v1.NpcDespawnEvent
-	8,  // 7: events.v1.WorldEnvelope.door_state:type_name -> events.v1.DoorStateEvent
-	9,  // 8: events.v1.WorldEnvelope.packet_received:type_name -> events.v1.PacketReceivedEvent
-	0,  // 9: events.v1.ChatMessageEvent.channel:type_name -> events.v1.ChatMessageEvent.Channel
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	9, // 0: events.v1.WorldEnvelope.ts:type_name -> google.protobuf.Timestamp
+	1, // 1: events.v1.WorldEnvelope.tile_position:type_name -> events.v1.TilePositionEvent
+	2, // 2: events.v1.WorldEnvelope.combat:type_name -> events.v1.CombatEvent
+	3, // 3: events.v1.WorldEnvelope.interaction:type_name -> events.v1.InteractionEvent
+	4, // 4: events.v1.WorldEnvelope.public_chat:type_name -> events.v1.PublicChatEvent
+	5, // 5: events.v1.WorldEnvelope.npc_spawn:type_name -> events.v1.NpcSpawnEvent
+	6, // 6: events.v1.WorldEnvelope.npc_despawn:type_name -> events.v1.NpcDespawnEvent
+	7, // 7: events.v1.WorldEnvelope.door_state:type_name -> events.v1.DoorStateEvent
+	8, // 8: events.v1.WorldEnvelope.packet_received:type_name -> events.v1.PacketReceivedEvent
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_events_v1_world_proto_init() }
@@ -894,7 +857,7 @@ func file_events_v1_world_proto_init() {
 		(*WorldEnvelope_TilePosition)(nil),
 		(*WorldEnvelope_Combat)(nil),
 		(*WorldEnvelope_Interaction)(nil),
-		(*WorldEnvelope_Chat)(nil),
+		(*WorldEnvelope_PublicChat)(nil),
 		(*WorldEnvelope_NpcSpawn)(nil),
 		(*WorldEnvelope_NpcDespawn)(nil),
 		(*WorldEnvelope_DoorState)(nil),
@@ -905,14 +868,13 @@ func file_events_v1_world_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_events_v1_world_proto_rawDesc), len(file_events_v1_world_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      0,
 			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_events_v1_world_proto_goTypes,
 		DependencyIndexes: file_events_v1_world_proto_depIdxs,
-		EnumInfos:         file_events_v1_world_proto_enumTypes,
 		MessageInfos:      file_events_v1_world_proto_msgTypes,
 	}.Build()
 	File_events_v1_world_proto = out.File

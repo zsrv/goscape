@@ -16,11 +16,11 @@ import (
 	jstring "github.com/zsrv/goscape/pkg/util/jstring"
 )
 
-// errAccountMissing is LogPrivateMessage/LogPublicMessage's sentinel for
+// errAccountMissing is ResolvePrivateMessageEndpoints's sentinel for
 // "an endpoint account does not exist". Mirrors TS FriendServer.ts
 // @3c16994c, where executeTakeFirstOrThrow throws and the outer
 // per-connection catch (FriendServer.ts:88/419) drops the message. The
-// handler maps it to a silent drop (no delivery/persist, success RPC).
+// handler maps it to a silent drop (no delivery/emit, success RPC).
 var errAccountMissing = errors.New("account missing")
 
 // friendListLimit / ignoreListLimit cap the friend list and ignore list
@@ -216,11 +216,9 @@ func (r *Repository) accountID(ctx context.Context, username37 uint64) (int64, b
 }
 
 // accountIDByUsername resolves the raw account.username text to its
-// account row id. Split out from accountID for LogPublicMessage's
-// benefit: PublicMessageRequest.username (proto/friends/friends.proto:153)
-// carries the plain username string on THIS branch's wire — not a
-// username37-encoded uint64 like every other Repository method's
-// caller — so there is no round trip through jstring to perform.
+// account row id. accountID wraps it for the (common) case where the
+// caller holds the username37-encoded form and must decode first.
+// ok=false with nil error when the account does not exist.
 func (r *Repository) accountIDByUsername(ctx context.Context, username string) (int64, bool, error) {
 	var id int64
 	err := r.db.QueryRowContext(ctx,
@@ -749,92 +747,34 @@ func (r *Repository) ignoreValuesAmong(ctx context.Context, owner uint64, candid
 	return found, nil
 }
 
-// LogPrivateMessage persists a PM keyed by resolved account ids (TS
-// FriendServer.ts:260-290 @3c16994c: resolve from/to via
-// executeTakeFirstOrThrow (:275-276), insert {account_id, profile,
-// to_account_id, timestamp, coord, message} (:278-288)). Either endpoint
-// missing → errAccountMissing: the handler drops the PM silently,
-// matching the TS throw-and-catch. timestamp uses the column DEFAULT
-// (equivalent to TS's explicit toDbDate(Date.now())).
+// ResolvePrivateMessageEndpoints resolves both PM endpoints to account
+// ids — the resolve step of TS FriendServer.ts:275-276 @3c16994c
+// (executeTakeFirstOrThrow on from and to). Either endpoint missing →
+// errAccountMissing: the handler drops the PM silently, matching the TS
+// throw-and-catch (the outer per-connection try/catch, :88/419). The TS
+// insert into private_chat is retired — chat is Kafka-only (documented
+// divergence, spec
+// docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md); the
+// caller emits a PrivateChatEvent with the resolved ids instead.
 //
 // Retires NAI-S4A-D-FED-NO-ACCOUNT-EXISTENCE-CHECK: the federated-DB
 // posture that made the existence check undesirable (no shared account
 // table to join against) no longer applies now that friends is a client
 // of the central database.
-func (r *Repository) LogPrivateMessage(ctx context.Context, from, to uint64, coord int32, message string) error {
+func (r *Repository) ResolvePrivateMessageEndpoints(ctx context.Context, from, to uint64) (int64, int64, error) {
 	fromID, ok, err := r.accountID(ctx, from)
 	if err != nil {
-		return fmt.Errorf("LogPrivateMessage: %w", err)
+		return 0, 0, fmt.Errorf("ResolvePrivateMessageEndpoints: %w", err)
 	}
 	if !ok {
-		return fmt.Errorf("LogPrivateMessage from %d: %w", from, errAccountMissing)
+		return 0, 0, fmt.Errorf("ResolvePrivateMessageEndpoints from %d: %w", from, errAccountMissing)
 	}
 	toID, ok, err := r.accountID(ctx, to)
 	if err != nil {
-		return fmt.Errorf("LogPrivateMessage: %w", err)
+		return 0, 0, fmt.Errorf("ResolvePrivateMessageEndpoints: %w", err)
 	}
 	if !ok {
-		return fmt.Errorf("LogPrivateMessage to %d: %w", to, errAccountMissing)
+		return 0, 0, fmt.Errorf("ResolvePrivateMessageEndpoints to %d: %w", to, errAccountMissing)
 	}
-	if _, err := r.db.ExecContext(ctx,
-		r.db.Rebind(`INSERT INTO private_chat (account_id, profile, coord, to_account_id, message)
-		 VALUES (?, ?, ?, ?, ?)`),
-		fromID, r.profile, coord, toID, message,
-	); err != nil {
-		if gamedb.IsForeignKeyViolation(err) {
-			// Endpoint deleted between resolve and insert — same
-			// outcome as the TS missing-account throw: drop.
-			return fmt.Errorf("LogPrivateMessage: %w", errAccountMissing)
-		}
-		return fmt.Errorf("LogPrivateMessage: %w", err)
-	}
-	return nil
-}
-
-// LogPublicMessage appends one row to public_chat, resolving the wire
-// username to its account id first — matching TS
-// FriendServer.ts:291-306 @3c16994c: `const from = await
-// db.selectFrom('account').selectAll().where('username','=',username)
-// .executeTakeFirstOrThrow()` (:294) throws on a missing account,
-// dropped silently by the outer per-connection try/catch
-// (FriendServer.ts:88/419); the handler maps errAccountMissing to a
-// silent success, mirroring that catch. Row shape (:296-305; prisma
-// schema.prisma:201-211): {account_id, profile, world, timestamp,
-// coord, message} — 6 persisted columns (timestamp via column DEFAULT;
-// TS writes toDbDate(nodeTime) explicitly — an accepted deviation, same
-// posture as LogPrivateMessage's timestamp default).
-//
-// Unlike rev-274 (whose own, LATER TS pin reduced public_chat to
-// {session_uuid, coord, message} with no account lookup at all — see
-// docs/superpowers/sdd/audit-port2452.md "Deltas vs rev-274" (2)),
-// rev-245.2's OWN pin (3c16994c) still carries this older
-// account_id/profile/world shape, which this branch's gamedb schema
-// (pkg/gamedb/migrations/*/000001_init.up.sql) already provisions.
-//
-// username is the raw account.username text carried on the wire
-// (PublicMessageRequest.username, proto/friends/friends.proto:153) —
-// NOT a username37-encoded uint64 like every other Repository method's
-// caller in this file — so resolution goes through accountIDByUsername
-// rather than accountID.
-func (r *Repository) LogPublicMessage(ctx context.Context, world int32, username string, coord int32, message string) error {
-	acctID, ok, err := r.accountIDByUsername(ctx, username)
-	if err != nil {
-		return fmt.Errorf("LogPublicMessage: %w", err)
-	}
-	if !ok {
-		return fmt.Errorf("LogPublicMessage %q: %w", username, errAccountMissing)
-	}
-	if _, err := r.db.ExecContext(ctx,
-		r.db.Rebind(`INSERT INTO public_chat (account_id, profile, world, coord, message)
-		 VALUES (?, ?, ?, ?, ?)`),
-		acctID, r.profile, world, coord, message,
-	); err != nil {
-		if gamedb.IsForeignKeyViolation(err) {
-			// Account deleted between resolve and insert — same
-			// outcome as the TS missing-account throw: drop.
-			return fmt.Errorf("LogPublicMessage: %w", errAccountMissing)
-		}
-		return fmt.Errorf("LogPublicMessage: %w", err)
-	}
-	return nil
+	return fromID, toID, nil
 }

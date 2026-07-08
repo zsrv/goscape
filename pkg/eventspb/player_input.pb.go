@@ -486,12 +486,19 @@ func (x *KeystrokeEvent) GetModifiers() uint32 {
 	return 0
 }
 
+// PrivateChatEvent is the only record of a PM — chat is Kafka-only
+// (documented TS divergence: TS persists a private_chat DB row instead;
+// spec docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md).
+// Envelope account_id = resolved sender account id.
 type PrivateChatEvent struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	RecipientAccountId int64                  `protobuf:"varint,1,opt,name=recipient_account_id,json=recipientAccountId,proto3" json:"recipient_account_id,omitempty"`
 	Text               string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// coordgrid packed coord of the sender at send time (wire field
+	// PrivateMessageRequest.coord; TS persisted it in the private_chat row).
+	Coord         int32 `protobuf:"varint,3,opt,name=coord,proto3" json:"coord,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PrivateChatEvent) Reset() {
@@ -538,6 +545,13 @@ func (x *PrivateChatEvent) GetText() string {
 	return ""
 }
 
+func (x *PrivateChatEvent) GetCoord() int32 {
+	if x != nil {
+		return x.Coord
+	}
+	return 0
+}
+
 var File_events_v1_player_input_proto protoreflect.FileDescriptor
 
 const file_events_v1_player_input_proto_rawDesc = "" +
@@ -579,10 +593,11 @@ const file_events_v1_player_input_proto_rawDesc = "" +
 	"\x04zoom\x18\x03 \x01(\x02R\x04zoom\"I\n" +
 	"\x0eKeystrokeEvent\x12\x19\n" +
 	"\bkey_code\x18\x01 \x01(\rR\akeyCode\x12\x1c\n" +
-	"\tmodifiers\x18\x02 \x01(\rR\tmodifiers\"X\n" +
+	"\tmodifiers\x18\x02 \x01(\rR\tmodifiers\"n\n" +
 	"\x10PrivateChatEvent\x120\n" +
 	"\x14recipient_account_id\x18\x01 \x01(\x03R\x12recipientAccountId\x12\x12\n" +
-	"\x04text\x18\x02 \x01(\tR\x04textB&Z$github.com/zsrv/goscape/pkg/eventspbb\x06proto3"
+	"\x04text\x18\x02 \x01(\tR\x04text\x12\x14\n" +
+	"\x05coord\x18\x03 \x01(\x05R\x05coordB&Z$github.com/zsrv/goscape/pkg/eventspbb\x06proto3"
 
 var (
 	file_events_v1_player_input_proto_rawDescOnce sync.Once

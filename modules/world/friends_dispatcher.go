@@ -23,7 +23,7 @@ var friendsDispatchWarnThresholds = []int{256, 1024}
 // World.friendThread.postMessage channel — strictly FIFO, globally,
 // across every player. Before this dispatcher, goscape fired one
 // independent goroutine per RPC (grpcFriendsBridge's Add/RemoveFriend,
-// Add/RemoveIgnore, SetChatMode, Private/PublicMessage; the inline
+// Add/RemoveIgnore, SetChatMode, PrivateMessage; the inline
 // PlayerLogin call in tick.go's processLogins; the inline PlayerLogout
 // call in server.go's removePlayerOnTick), so gRPC gave no cross-RPC
 // ordering guarantee: a login/logout pair for the same player could

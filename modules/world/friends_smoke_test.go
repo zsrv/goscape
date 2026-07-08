@@ -3,7 +3,6 @@ package world
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"log/slog"
 	"net"
 	"path/filepath"
@@ -15,12 +14,14 @@ import (
 
 	"github.com/zsrv/goscape/modules/friends"
 	"github.com/zsrv/goscape/modules/login"
+	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/friendspb"
 	"github.com/zsrv/goscape/pkg/gamedb"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/loginpb"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/telemetry"
 	jstring "github.com/zsrv/goscape/pkg/util/jstring"
 
 	_ "modernc.org/sqlite"
@@ -31,10 +32,10 @@ import (
 // and inserts one bare account row per username37 in seedUsernames37.
 // Central-DB re-key (this task): friends.New now opens its OWN pool
 // against the shared database: config (independent-clients model, same
-// as login.New) — AddFriend/LogPrivateMessage/LogPublicMessage resolve
-// endpoints against the `account` table, so any smoke test that
-// exercises those RPCs meaningfully needs the accounts seeded first.
-// Mirrors the login.New pre-migrate pattern in
+// as login.New) — AddFriend/AddIgnore and PrivateMessage's
+// ResolvePrivateMessageEndpoints resolve endpoints against the `account`
+// table, so any smoke test that exercises those RPCs meaningfully needs
+// the accounts seeded first. Mirrors the login.New pre-migrate pattern in
 // TestLoginClient_E2E_PlayerSessionIsUUID.
 func newFriendsDBCfg(t *testing.T, log *slog.Logger, dbPath string, seedUsernames37 ...uint64) gamedb.Config {
 	t.Helper()
@@ -392,14 +393,17 @@ func TestFriendsClient_E2E_PrivateMessageDelivery(t *testing.T) {
 	}
 }
 
-// TestFriendsClient_E2E_PrivateMessagePersistsRow pins slice 6:
-// a client.PrivateMessage call against a real in-process
-// friends.Friends produces a row in private_chat under r.profile,
-// queryable via a second *sql.DB open against the same on-disk file.
-//
-// This is the persistence half of the slice-4b-and-slice-6 chain;
-// delivery is pinned by TestFriendsClient_E2E_PrivateMessageDelivery.
-func TestFriendsClient_E2E_PrivateMessagePersistsRow(t *testing.T) {
+// TestFriendsClient_E2E_PrivateMessageEmitsEvent pins slice 6 under the
+// Kafka-only chat model (spec
+// docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md): a
+// client.PrivateMessage call against a real in-process friends.Friends
+// emits the PM's PrivateChatEvent instead of persisting a private_chat
+// row; delivery is pinned by TestFriendsClient_E2E_PrivateMessageDelivery.
+func TestFriendsClient_E2E_PrivateMessageEmitsEvent(t *testing.T) {
+	cap := &captureEmitter{}
+	telemetry.Set(cap)
+	t.Cleanup(telemetry.Reset)
+
 	port := freePort(t)
 	dbPath := filepath.Join(t.TempDir(), "friends.db")
 	cfg := friends.Config{
@@ -454,53 +458,27 @@ func TestFriendsClient_E2E_PrivateMessagePersistsRow(t *testing.T) {
 		Coord:            42,
 	})
 
-	// Open a second *sql.DB against the same file. Poll up to 2s for
-	// the row — synchronous RPC completion should mean the row is
-	// already committed, but WAL settling on a fresh file under -race
-	// can take a few ms.
-	rdb, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("sql.Open: %v", err)
-	}
-	t.Cleanup(func() { _ = rdb.Close() })
-
-	// Central-DB re-key: private_chat is keyed by resolved account ids
-	// (account_id, to_account_id), not raw username37s.
-	var fromID, toID int64
-	if err := rdb.QueryRowContext(t.Context(),
-		`SELECT id FROM account WHERE username = ?`, jstring.FromBase37(1111),
-	).Scan(&fromID); err != nil {
-		t.Fatalf("resolve sender account id: %v", err)
-	}
-	if err := rdb.QueryRowContext(t.Context(),
-		`SELECT id FROM account WHERE username = ?`, jstring.FromBase37(2222),
-	).Scan(&toID); err != nil {
-		t.Fatalf("resolve recipient account id: %v", err)
-	}
-
-	deadline := time.Now().Add(2 * time.Second)
-	var from, to int64
-	var coord int32
-	var msg string
-	for time.Now().Before(deadline) {
-		err := rdb.QueryRowContext(t.Context(),
-			`SELECT account_id, to_account_id, coord, message
-			 FROM private_chat
-			 WHERE profile = 'main'
-			 ORDER BY id DESC
-			 LIMIT 1`).Scan(&from, &to, &coord, &msg)
-		if err == nil {
-			break
+	// The RPC is synchronous, so the friends handler has emitted by the
+	// time client.PrivateMessage returns.
+	var pmEnvs []*eventspb.PlayerInputEnvelope
+	cap.mu.Lock()
+	for _, e := range cap.playerInputEnvs {
+		if e.GetPrivateChat() != nil {
+			pmEnvs = append(pmEnvs, e)
 		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			t.Fatalf("query private_chat: %v", err)
-		}
-		time.Sleep(10 * time.Millisecond)
 	}
-
-	if from != fromID || to != toID || coord != 42 || msg != "persisted" {
-		t.Errorf("private_chat row = (%d, %d, %d, %q), want (%d, %d, 42, %q)",
-			from, to, coord, msg, fromID, toID, "persisted")
+	cap.mu.Unlock()
+	if len(pmEnvs) != 1 {
+		t.Fatalf("PrivateChatEvent envelopes: got %d, want 1", len(pmEnvs))
+	}
+	pc := pmEnvs[0].GetPrivateChat()
+	if pc.Coord != 42 || pc.Text != "persisted" {
+		t.Errorf("event = (coord %d, %q), want (42, %q)", pc.Coord, pc.Text, "persisted")
+	}
+	// Sender/recipient ride as RESOLVED account ids.
+	if pmEnvs[0].AccountId == 0 || pc.RecipientAccountId == 0 {
+		t.Errorf("account ids = (%d, %d), want both non-zero resolved ids",
+			pmEnvs[0].AccountId, pc.RecipientAccountId)
 	}
 }
 
@@ -949,109 +927,10 @@ func TestLoginClient_E2E_PlayerSessionIsUUID(t *testing.T) {
 	}
 }
 
-// TestFriendsClient_E2E_PublicMessagePersistsRow pins the public_chat
-// follow-up end-to-end: a client.PublicMessage call against a real
-// in-process friends.Friends produces a row in public_chat under
-// r.profile, queryable via a second *sql.DB open against the same
-// on-disk file. Mirrors slice 6's TestFriendsClient_E2E_
-// PrivateMessagePersistsRow.
-func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
-	port := freePort(t)
-	dbPath := filepath.Join(t.TempDir(), "friends.db")
-	cfg := friends.Config{
-		GRPCListenAddress:       "127.0.0.1",
-		GRPCListenPort:          port,
-		WorldPlayerLimit:        100,
-		Enable:                  true,
-		GracefulShutdownTimeout: 5 * time.Second,
-	}
-	log := discardLogger()
-	// Central-DB re-key: LogPublicMessage now resolves req.Username against
-	// the `account` table (TS FriendServer.ts:294 @3c16994c), so the
-	// account must exist first.
-	publicMsgUsername37 := jstring.ToBase37("alice")
-	dbCfg := newFriendsDBCfg(t, log, dbPath, publicMsgUsername37)
-	svc, err := friends.New(cfg, dbCfg, log)
-	if err != nil {
-		t.Fatalf("friends.New: %v", err)
-	}
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
-	defer cancel()
-	if err := svc.StartAsync(ctx); err != nil {
-		t.Fatalf("StartAsync: %v", err)
-	}
-	if err := svc.AwaitRunning(ctx); err != nil {
-		t.Fatalf("AwaitRunning: %v", err)
-	}
-	t.Cleanup(func() {
-		svc.StopAsync()
-		_ = svc.AwaitTerminated(context.Background())
-	})
-
-	addr := "127.0.0.1:" + strconv.Itoa(port)
-	client, err := NewFriendsClient(addr, log)
-	if err != nil {
-		t.Fatalf("NewFriendsClient: %v", err)
-	}
-	t.Cleanup(func() { _ = client.Close() })
-
-	client.WorldConnect(ctx, 10, "main")
-
-	// rev-244 re-key: Username is a player username (not session UUID).
-	// TS World.ts:1620-1628 logPublicChat keys by player.username. Central-DB
-	// re-key (this task): the friends server now resolves this username
-	// against `account` and persists the resolved account_id, matching TS
-	// FriendServer.ts:291-306 @3c16994c (account_id + profile + world shape).
-	client.PublicMessage(ctx, &friendspb.PublicMessageRequest{
-		WorldId:  10,
-		Profile:  "main",
-		Username: "alice",
-		Coord:    42,
-		Chat:     "persisted publicly",
-	})
-
-	// Open a second *sql.DB against the same file. Poll up to 2s for
-	// the row — synchronous RPC completion should mean the row is
-	// already committed, but WAL settling on a fresh file under -race
-	// can take a few ms.
-	rdb, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("sql.Open: %v", err)
-	}
-	t.Cleanup(func() { _ = rdb.Close() })
-
-	var wantAccountID int64
-	if err := rdb.QueryRowContext(t.Context(),
-		`SELECT id FROM account WHERE username = ?`, jstring.FromBase37(publicMsgUsername37),
-	).Scan(&wantAccountID); err != nil {
-		t.Fatalf("resolve alice's account id: %v", err)
-	}
-
-	deadline := time.Now().Add(2 * time.Second)
-	var gotAccountID int64
-	var world, coord int32
-	var msg string
-	for time.Now().Before(deadline) {
-		err := rdb.QueryRowContext(t.Context(),
-			`SELECT account_id, world, coord, message
-			 FROM public_chat
-			 WHERE profile = 'main'
-			 ORDER BY id DESC
-			 LIMIT 1`).Scan(&gotAccountID, &world, &coord, &msg)
-		if err == nil {
-			break
-		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			t.Fatalf("query public_chat: %v", err)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	if gotAccountID != wantAccountID || world != 10 || coord != 42 || msg != "persisted publicly" {
-		t.Errorf("public_chat row = (account_id=%d, world=%d, %d, %q), want (account_id=%d, world=10, 42, %q)",
-			gotAccountID, world, coord, msg, wantAccountID, "persisted publicly")
-	}
-}
+// (TestFriendsClient_E2E_PublicMessagePersistsRow retired — chat is
+// Kafka-only, spec docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md;
+// the PublicMessage RPC no longer exists. Public-chat emission is pinned
+// by modules/world TestHandleMessagePublic_EmitsPublicChatEvent.)
 
 // TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket pins NAI-182-D5
 // end-to-end: real friends-server PM RPC → real gRPC SubscribeUpdates
