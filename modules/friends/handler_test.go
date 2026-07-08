@@ -837,6 +837,78 @@ func TestPrivateMessage_CrossWorld(t *testing.T) {
 	}
 }
 
+// TestHandler_PrivateMessage_EmitsBeforeSending pins the emit-then-send
+// ordering: the handler emits the PM's PrivateChatEvent (chat is
+// Kafka-only — documented TS divergence, spec
+// docs/superpowers/specs/2026-07-07-chat-kafka-only-design.md; TS
+// FriendServer.ts:273-285 wrote a private_chat row here instead) before
+// pushing PrivateMessageDelivery to the recipient's stream.
+func TestHandler_PrivateMessage_EmitsBeforeSending(t *testing.T) {
+	cap := &captureEmitter{}
+	telemetry.Set(cap)
+	t.Cleanup(telemetry.Reset)
+
+	db := createTestDB(t)
+	repos := newRepositories(db)
+	r := repos.get("main")
+	log := noopLogger()
+	cfg := Config{WorldPlayerLimit: 100}
+	h := &handler{repos: repos, subs: newSubscriptions(log), cfg: cfg, log: log}
+	r.InitializeWorld(1, 100)
+	r.Register(1, 200, 0, 0) // recipient online
+	fromID := seedAccount(t, db, 100)
+	toID := seedAccount(t, db, 200)
+
+	stream := newTestStream(t)
+	errc := make(chan error, 1)
+	go func() {
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Profile: "main", Username37: 200}, stream)
+	}()
+	t.Cleanup(func() {
+		stream.cancel()
+		<-errc
+	})
+	stream.recvWithin(t, 2*time.Second) // empty friendlist snapshot
+	stream.recvWithin(t, 2*time.Second) // empty ignorelist snapshot
+
+	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
+		WorldId:          1,
+		Profile:          "main",
+		Username37:       100,
+		TargetUsername37: 200,
+		StaffLvl:         0,
+		PmId:             0xCAFEBABE,
+		Chat:             "hi",
+		Coord:            12345,
+	}); err != nil {
+		t.Fatalf("PrivateMessage: %v", err)
+	}
+
+	// Emission
+	envs := cap.snapshot()
+	if len(envs) != 1 {
+		t.Fatalf("emitted %d envelopes, want 1", len(envs))
+	}
+	pc := envs[0].GetPrivateChat()
+	if pc == nil {
+		t.Fatalf("payload = %T, want PrivateChat", envs[0].Payload)
+	}
+	if envs[0].AccountId != fromID || pc.RecipientAccountId != toID || pc.Coord != 12345 || pc.Text != "hi" {
+		t.Errorf("event = (%d, %d, %d, %q), want (%d, %d, 12345, %q)",
+			envs[0].AccountId, pc.RecipientAccountId, pc.Coord, pc.Text, fromID, toID, "hi")
+	}
+
+	// Delivery
+	u := stream.recvWithin(t, 2*time.Second)
+	pm, ok := u.Update.(*friendspb.FriendsUpdate_PrivateMessage)
+	if !ok {
+		t.Fatalf("update = %T, want FriendsUpdate_PrivateMessage", u.Update)
+	}
+	if pm.PrivateMessage.PmId != 0xCAFEBABE {
+		t.Errorf("PmId = %#x, want 0xCAFEBABE", pm.PrivateMessage.PmId)
+	}
+}
+
 // TestHandler_PrivateMessage_ResolveErrorBlocksSend pins that a SQL
 // failure during endpoint resolution returns codes.Internal AND does
 // not deliver the PM. Forces the failure by closing the *sql.DB after
