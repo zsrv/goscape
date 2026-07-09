@@ -33,7 +33,8 @@ func TestNewServer_LoadsWordencFilter(t *testing.T) {
 		CachePath:        cachePath,
 		TCPListenNetwork: "tcp",
 		TCPListenAddress: "127.0.0.1",
-		TCPListenPort:    0, // OS picks a free port
+		TCPListenPort:    0,                                       // OS picks a free port
+		WordEncPath:      filepath.Join("data", "raw", "wordenc"), // matches world.wordenc-path default
 	}
 	s, err := NewServer(cfg, nil, nil, discardLogger(), nil)
 	if err != nil {

@@ -293,6 +293,12 @@ world:
   # public key. Empty uses the built-in key.
   # CLI: --world.rsa-private-key-path (default: "")
   rsa_private_key_path: ""
+  # Path to the wordenc jagfile (chat word-censoring filter data), resolved
+  # against the process working directory. Default is the TS-faithful
+  # hardcoded relative path; override for embedders that run from a
+  # different cwd.
+  # CLI: --world.wordenc-path (default: data/raw/wordenc)
+  wordenc_path: data/raw/wordenc
 
   # --- Inter-module connections ---
   # CLI: --world.login-server-address (default: 127.0.0.1:2004)

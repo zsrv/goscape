@@ -25,7 +25,16 @@ type Config struct {
 	// the built-in key. Mirrors Engine-TS World.ts:104 (data/config/private.pem).
 	// The Java client must be rebuilt with the matching public key
 	// (Client.java LOGIN_RSAN / LOGIN_RSAE) or every login fails.
-	RSAPrivateKeyPath                string             `yaml:"rsa_private_key_path"`
+	RSAPrivateKeyPath string `yaml:"rsa_private_key_path"`
+	// WordEncPath is the path to the wordenc jagfile that encfilter.Load
+	// reads at boot to build the chat word-censoring filter. Defaults to
+	// "data/raw/wordenc", the TS-faithful hardcoded relative path (Engine-TS
+	// WordEnc.ts:35-37) resolved against the process working directory,
+	// exactly as before this field existed. Go-original operational knob
+	// (same pattern as RSAPrivateKeyPath): lets an embedder that runs from a
+	// cwd other than the goscape repo root (e.g. a singleplayer binary)
+	// point at an absolute path instead.
+	WordEncPath                      string             `yaml:"wordenc_path"`
 	LoginServerAddress               string             `yaml:"login_server_address"`
 	FriendsServerAddress             string             `yaml:"friends_server_address"`
 	TCPServerIdleTimeout             time.Duration      `yaml:"tcp_server_idle_timeout"`
@@ -99,6 +108,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.StringVar(&c.CachePath, "world.cache-path", "./data/pack", "Cache root; gamemap loads map-pack files from <path>/maps/")
 	f.StringVar(&c.ContentPath, "world.content-path", "", "Source content root for ::rebuild's in-process PackAll. Empty disables the cheat.")
 	f.StringVar(&c.RSAPrivateKeyPath, "world.rsa-private-key-path", "", "Optional PEM RSA private key (PKCS#1/PKCS#8) for login decryption, replacing the built-in default key. The client must carry the matching public key. Empty uses the built-in key.")
+	f.StringVar(&c.WordEncPath, "world.wordenc-path", "data/raw/wordenc", "Path to the wordenc jagfile (chat word-censoring filter data), resolved against the process working directory. Default is the TS-faithful hardcoded relative path; override for embedders that run from a different cwd.")
 	f.BoolVar(&c.ContentWatch, "world.content-watch", false, "Watch ContentPath subdirs and auto-trigger ::rebuild on changes (debounced 1s). Requires --world.content-path.")
 	f.IntVar(&c.NodeMaxPlayers, "world.node-max-players", 2047, "DEPRECATED/unused: TS dropped the NODE_MAX_PLAYERS env var at rev-274 and hardcoded World.PLAYERS=2047 (World.ts:118 @dee467c8). goscape's real cap is hardcoded too — the player list is a 2048-entry array scanning slots 1..2046 (newPlayerList(2048), player_list.go). Nothing reads this field; the default is pinned to 2047 to match the TS constant.")
 	f.IntVar(&c.NodeMaxConnected, "world.node-max-connected", 1000, "")

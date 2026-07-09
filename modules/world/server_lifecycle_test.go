@@ -38,6 +38,7 @@ func TestNewServerDoesNotBind(t *testing.T) {
 		TCPListenNetwork: "tcp",
 		TCPListenAddress: "127.0.0.1",
 		TCPListenPort:    lis.Addr().(*net.TCPAddr).Port,
+		WordEncPath:      filepath.Join("data", "raw", "wordenc"), // matches world.wordenc-path default
 	}
 	s, err := NewServer(cfg, nil, nil, discardLogger(), nil)
 	if err != nil {
