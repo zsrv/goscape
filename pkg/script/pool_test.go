@@ -79,39 +79,53 @@ func TestInitReusesReleasedBuffers(t *testing.T) {
 }
 
 // The spec's stale-leak pin: nothing from a released run may be observable
-// in a state built on the recycled buffers.
+// in a state built on the recycled buffers. Buffer identity is asserted so
+// the test cannot pass vacuously when sync.Pool hands back a fresh bundle
+// (e.g. a background GC emptied the pool) — it retries like
+// TestInitReusesReleasedBuffers and fails only if reuse never happens.
 func TestRecycledStateLeaksNothing(t *testing.T) {
-	s1 := Init(newPoolTestScript(), nil, false, []int{111, 222}, []string{"stale-local"})
-	s1.PushInt(31337)
-	s1.PushString("stale-stack")
-	s1.Frames[0] = Frame{Script: s1.Script, PC: 77, IntLocals: []int{9}}
-	Release(s1)
+	for range 5 {
+		s1 := Init(newPoolTestScript(), nil, false, []int{111, 222}, []string{"stale-local"})
+		s1.PushInt(31337)
+		s1.PushString("stale-stack")
+		s1.Frames[0] = Frame{Script: s1.Script, PC: 77, IntLocals: []int{9}}
+		p := &s1.IntStack[0]
+		Release(s1)
 
-	s2 := Init(newPoolTestScript(), nil, false, nil, nil)
-	defer Release(s2)
+		s2 := Init(newPoolTestScript(), nil, false, nil, nil)
+		if &s2.IntStack[0] != p {
+			// Pool handed back a different bundle; the leak pin needs a
+			// genuinely recycled one. Try again.
+			Release(s2)
+			continue
+		}
+		defer Release(s2)
 
-	if got := s2.PopInt(); got != 0 {
-		t.Errorf("empty-stack PopInt on recycled state = %d, want 0 (underflow default)", got)
-	}
-	if got := s2.PopString(); got != "" {
-		t.Errorf("empty-stack PopString on recycled state = %q, want \"\"", got)
-	}
-	for i, v := range s2.IntLocals {
-		if v != 0 {
-			t.Errorf("IntLocals[%d] = %d, want 0 (locals must be fresh allocations)", i, v)
+		if got := s2.PopInt(); got != 0 {
+			t.Errorf("empty-stack PopInt on recycled state = %d, want 0 (underflow default)", got)
 		}
-	}
-	for i, v := range s2.StringLocals {
-		if v != "" {
-			t.Errorf("StringLocals[%d] = %q, want \"\" (locals must be fresh allocations)", i, v)
+		if got := s2.PopString(); got != "" {
+			t.Errorf("empty-stack PopString on recycled state = %q, want \"\"", got)
 		}
+		for i, v := range s2.IntLocals {
+			if v != 0 {
+				t.Errorf("IntLocals[%d] = %d, want 0 (locals must be fresh allocations)", i, v)
+			}
+		}
+		for i, v := range s2.StringLocals {
+			if v != "" {
+				t.Errorf("StringLocals[%d] = %q, want \"\" (locals must be fresh allocations)", i, v)
+			}
+		}
+		if s2.FrameSP != 0 {
+			t.Errorf("FrameSP = %d, want 0", s2.FrameSP)
+		}
+		if !frameIsZero(s2.Frames[0]) {
+			t.Errorf("Frames[0] not zero on recycled state: %+v", s2.Frames[0])
+		}
+		return
 	}
-	if s2.FrameSP != 0 {
-		t.Errorf("FrameSP = %d, want 0", s2.FrameSP)
-	}
-	if !frameIsZero(s2.Frames[0]) {
-		t.Errorf("Frames[0] not zero on recycled state: %+v", s2.Frames[0])
-	}
+	t.Fatal("no buffer reuse observed across 5 Release→Init cycles; stale-leak pin never exercised")
 }
 
 func BenchmarkInitRelease(b *testing.B) {
