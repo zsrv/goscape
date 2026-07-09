@@ -183,6 +183,11 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 		// state matches, and additionally fires CloseModal(false) on
 		// no-MAIN-modal. Both behaviors live in OnScriptFinishedOrAborted.
 		self.OnScriptFinishedOrAborted(state)
+		// PERF-3: terminal — the identity guard above has already cleared
+		// any matching activeScript, so the state is provably
+		// unreferenced; recycle its stack buffers. Suspend arms must
+		// never do this.
+		script.Release(state)
 	case script.Suspended, script.PauseButton, script.CountDialog:
 		self.StoreActiveScript(state)
 		// TS Player.ts:2141 — `script.activePlayer.protect = protect` to
@@ -300,6 +305,8 @@ func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 	switch state.Execution {
 	case script.Finished, script.Aborted:
 		// Clean exit; nothing to do (entry already removed by caller).
+		// PERF-3: recycle the terminal state's stack buffers.
+		script.Release(state)
 	case script.WorldSuspended:
 		delay := state.PopInt()
 		s.EnqueueWorldScript(state, delay)
