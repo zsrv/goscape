@@ -15,13 +15,15 @@ import (
 // component layout — swappable/activeOverColour; ref274CacheDir is defined
 // in testdata_path_test.go).
 //
-// encfilter.Load() reads data/raw/wordenc relative to the working directory;
-// t.Chdir changes to the repo root so the committed data/raw/wordenc is reachable.
+// cfg.WordEncPath is set below to the world.wordenc-path default
+// ("data/raw/wordenc"), which encfilter.Load resolves relative to the
+// working directory; t.Chdir changes to the repo root so the committed
+// data/raw/wordenc is reachable.
 //
 // TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:35-37 (static WordEnc.load).
 func TestNewServer_LoadsWordencFilter(t *testing.T) {
 	cachePath := ref274CacheDir(t)
-	// encfilter.Load() resolves data/raw/wordenc relative to cwd. Switch to the
+	// cfg.WordEncPath (set below) resolves relative to cwd. Switch to the
 	// repo root so the committed data/raw/wordenc jagfile is reachable.
 	repoRoot := filepath.Join("..", "..")
 	absRoot, err := filepath.Abs(repoRoot)

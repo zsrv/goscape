@@ -19,8 +19,9 @@ import (
 // TestNewServer_LoadsWordencFilter in server_wordenc_test.go.
 func TestNewServerDoesNotBind(t *testing.T) {
 	cachePath := ref274CacheDir(t)
-	// encfilter.Load() (invoked by NewServer) resolves data/raw/wordenc
-	// relative to cwd — switch to the repo root so it's reachable.
+	// cfg.WordEncPath (set below to the world.wordenc-path default) is
+	// resolved by encfilter.Load relative to cwd — switch to the repo root
+	// so the committed data/raw/wordenc jagfile is reachable.
 	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatalf("resolve repo root: %v", err)
