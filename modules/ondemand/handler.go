@@ -23,7 +23,7 @@ var publicMimeTypes = map[string]string{
 
 // isValidMapName matches the m{x}_{z} / l{x}_{z} cache-key convention used
 // by goscape-client (see client.go:9479 / 9496). Anything else is rejected
-// so the path joined under data/pack/client/maps cannot escape that dir
+// so the path joined under <cache_path>/client/maps (default data/pack) cannot escape that dir
 // via "..", absolute paths, or unexpected segments.
 func isValidMapName(s string) bool {
 	if len(s) < 4 || (s[0] != 'm' && s[0] != 'l') {
@@ -143,7 +143,7 @@ func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 		// CacheHTTPFallback fetches missing map/loc cache items here. Live
 		// clients never hit this — they request map data via game opcode 150
 		// over the TCP stream. The name is constrained to ^[ml]\d+_\d+$ to
-		// guarantee the joined path resolves under data/pack/client/maps.
+		// guarantee the joined path resolves under <cache_path>/client/maps (default data/pack).
 		name := strings.TrimPrefix(r.URL.Path, "/maps/")
 		if !isValidMapName(name) {
 			http.NotFound(w, r)
