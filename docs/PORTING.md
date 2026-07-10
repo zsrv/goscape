@@ -37,7 +37,7 @@ Sev: 🔥 HIGH (real-world incident risk) / ⚠ MED (correctness or future-fragi
 
 | Sev | Location | Issue | Size | Note |
 |---|---|---|---|---|
-| _(none — both LOW rows closed 2026-06-03: PERF-1 tick player-snapshot scratch + PERF-2 hunt zone-iteration scratch/iterator; benchmarks + closure rows in [`docs/PORTING-CLOSED.md`](docs/PORTING-CLOSED.md) §Performance hotspots)_ |
+| _(none — all rows closed: PERF-1 tick player-snapshot scratch + PERF-2 hunt zone-iteration scratch/iterator (2026-06-03), PERF-3 ScriptState buffer pool (2026-07-09); benchmarks + closure rows in [`docs/PORTING-CLOSED.md`](docs/PORTING-CLOSED.md) §Performance hotspots)_ |
 
 ---
 
