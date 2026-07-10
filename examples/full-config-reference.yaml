@@ -110,6 +110,10 @@ ondemand:
   # CLI: --ondemand.log-source-ips-full (default: false)
   log_source_ips_full: false
 
+  # Cache root; archive and song/map files are served from <path>/client/.
+  # CLI: --ondemand.cache-path (default: ./data/pack)
+  cache_path: ./data/pack
+
   # --- Static-file fallback ---
   # Directory served as a static-file fallback after named routes miss.
   # CLI: --ondemand.public-dir (default: ./public)

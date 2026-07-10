@@ -306,8 +306,9 @@ func TestRootHandler_MidWithoutUnderscore404s(t *testing.T) {
 // (web.ts:62) precedes every archive `startsWith` branch. A regression that
 // re-ordered the prefix checks ahead of `.mid` would serve the wrong ondemand.
 func TestRootHandler_MidBeatsArchivePrefix(t *testing.T) {
-	// The handlers use hardcoded relative paths under data/pack/client, so
-	// run from a temp CWD seeded with both candidate files.
+	// The handlers serve relative paths under <cfg.CachePath>/client, so
+	// run from a temp CWD seeded with both candidate files under the
+	// default cache_path "data/pack".
 	t.Chdir(t.TempDir())
 
 	songDir := filepath.Join("data", "pack", "client", "songs")
@@ -324,7 +325,7 @@ func TestRootHandler_MidBeatsArchivePrefix(t *testing.T) {
 		t.Fatalf("write archive: %v", err)
 	}
 
-	a := &OnDemand{log: discardLogger()}
+	a := &OnDemand{log: discardLogger(), cfg: Config{CachePath: "data/pack"}}
 	req := httptest.NewRequest(http.MethodGet, "/config_123.mid", nil)
 	rr := httptest.NewRecorder()
 	a.RootHandler(rr, req)

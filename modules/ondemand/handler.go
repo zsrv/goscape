@@ -79,7 +79,7 @@ func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 		filename := r.URL.Path[1:us] + ".mid"
 
 		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client/songs", filename))
+		http.ServeFile(w, r, path.Join(a.cfg.CachePath, "client/songs", filename))
 		return
 	}
 
@@ -93,49 +93,49 @@ func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/title") { // title screen
 		// TODO: check [http.Dir.Open] for path sanitization ideas
 		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "title"))
+		http.ServeFile(w, r, path.Join(a.cfg.CachePath, "client", "title"))
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/config") { // config
 		// TODO: check [http.Dir.Open] for path sanitization ideas
 		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "config"))
+		http.ServeFile(w, r, path.Join(a.cfg.CachePath, "client", "config"))
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/interface") { // interface
 		// TODO: check [http.Dir.Open] for path sanitization ideas
 		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "interface"))
+		http.ServeFile(w, r, path.Join(a.cfg.CachePath, "client", "interface"))
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/media") { // 2d graphics
 		// TODO: check [http.Dir.Open] for path sanitization ideas
 		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "media"))
+		http.ServeFile(w, r, path.Join(a.cfg.CachePath, "client", "media"))
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/models") { // 3d graphics
 		// TODO: check [http.Dir.Open] for path sanitization ideas
 		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "models"))
+		http.ServeFile(w, r, path.Join(a.cfg.CachePath, "client", "models"))
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/textures") { // textures
 		// TODO: check [http.Dir.Open] for path sanitization ideas
 		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "textures"))
+		http.ServeFile(w, r, path.Join(a.cfg.CachePath, "client", "textures"))
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/wordenc") { // chat system
 		// TODO: check [http.Dir.Open] for path sanitization ideas
 		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "wordenc"))
+		http.ServeFile(w, r, path.Join(a.cfg.CachePath, "client", "wordenc"))
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/sounds") { // sound effects
 		// TODO: check [http.Dir.Open] for path sanitization ideas
 		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client", "sounds"))
+		http.ServeFile(w, r, path.Join(a.cfg.CachePath, "client", "sounds"))
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/maps/") { // per-zone map/loc files (m{x}_{z}, l{x}_{z})
@@ -150,7 +150,7 @@ func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client/maps", name))
+		http.ServeFile(w, r, path.Join(a.cfg.CachePath, "client/maps", name))
 		return
 	}
 	// /rs2.cgi Java applet bootstrap — mirrors web.ts:88-113. Matched before

@@ -16,6 +16,14 @@ type Config struct {
 	Server server.Config `yaml:",inline"`
 	Enable bool          `yaml:"enable"`
 
+	// CachePath is the directory containing the packed client cache tree
+	// (client/… jags + client/songs/*.mid + client/maps/*). Rev-225 serves
+	// these as static files; the default preserves the historical
+	// hardcoded data/pack relative path (resolved against the process
+	// working directory). Go-original embedding knob — same pattern as
+	// world.rsa_private_key_path.
+	CachePath string `yaml:"cache_path"`
+
 	// PublicDir is the filesystem directory served as a static-file fallback
 	// after named routes do not match. Mirrors web.ts:114-119 in Engine-TS.
 	PublicDir string `yaml:"public_dir"`
@@ -83,6 +91,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.StringVar(&c.Server.LogSourceIPsRegex, "ondemand.log-source-ips-regex", `^\s*([^,]+?)\s*(?:,|$)`, "Regex for matching the source IPs. The first capture group is used. Used in conjunction with ondemand.log-source-ips-header.")
 	f.BoolVar(&c.Server.LogSourceIPsFull, "ondemand.log-source-ips-full", false, "Log all source IPs instead of returning the first match.")
 
+	f.StringVar(&c.CachePath, "ondemand.cache-path", "./data/pack", "Cache root; archive and song/map files are served from <path>/client/.")
 	f.StringVar(&c.PublicDir, "ondemand.public-dir", "./public", "Filesystem directory served as a static-file fallback after named routes do not match.")
 
 	// /rs2.cgi bootstrap params (mirror web.ts:88-113 + Environment.NODE_*).
