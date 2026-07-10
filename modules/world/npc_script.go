@@ -431,6 +431,8 @@ func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveN
 		// NAI-54: TS Npc.ts:226-228 — only nulls activeScript when
 		// state matches.
 		npc.OnScriptFinishedOrAborted(state)
+		// PERF-3: terminal — identity guard done; recycle stack buffers.
+		script.Release(state)
 	case script.NpcSuspended:
 		npc.StoreActiveScript(state)
 	case script.WorldSuspended:
