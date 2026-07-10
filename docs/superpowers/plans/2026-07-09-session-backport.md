@@ -70,7 +70,10 @@ and verify its fixture dependencies exist on this branch (`newTestServer`, `newR
 ```bash
 GOPATH=... go test ./pkg/script/ -v -count=1 && \
 GOPATH=... go test ./pkg/script/... ./modules/world/... && \
-GOPATH=... CGO_ENABLED=1 go test -race ./pkg/script/ ./modules/world/ && \
+GOPATH=... CGO_ENABLED=1 go test -race -short ./pkg/script/ ./modules/world/ && \
+# (-short: TestInitReleaseAllocBytes measures B/op, which the race detector
+#  inflates ~2×; the test self-skips under -short. Verified pre-existing on
+#  unmodified rev-274 — as-built amendment, Wave A.)
 GOPATH=... go test -run '^$' ./... && gofmt -l pkg/script modules/world
 GOPATH=... go test ./pkg/script/ -run '^$' -bench BenchmarkInitRelease -benchtime 10000x
 ```
