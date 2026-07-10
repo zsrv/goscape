@@ -16,13 +16,15 @@ import (
 // the git common-dir fallback can resolve a different revision's pack
 // (e.g. 245.2-format) that LoadComponentTypes can no longer decode.
 //
-// encfilter.Load() reads data/raw/wordenc relative to the working directory;
-// t.Chdir changes to the repo root so the committed data/raw/wordenc is reachable.
+// cfg.WordEncPath is set below to the world.wordenc-path default
+// ("data/raw/wordenc"), which encfilter.Load resolves relative to the
+// working directory; t.Chdir changes to the repo root so the committed
+// data/raw/wordenc is reachable.
 //
 // TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:35-37 (static WordEnc.load).
 func TestNewServer_LoadsWordencFilter(t *testing.T) {
 	cachePath := ref244CacheDir(t)
-	// encfilter.Load() resolves data/raw/wordenc relative to cwd. Switch to the
+	// cfg.WordEncPath (set below) resolves relative to cwd. Switch to the
 	// repo root so the committed data/raw/wordenc jagfile is reachable.
 	repoRoot := filepath.Join("..", "..")
 	absRoot, err := filepath.Abs(repoRoot)
@@ -34,7 +36,8 @@ func TestNewServer_LoadsWordencFilter(t *testing.T) {
 		CachePath:        cachePath,
 		TCPListenNetwork: "tcp",
 		TCPListenAddress: "127.0.0.1",
-		TCPListenPort:    0, // OS picks a free port
+		TCPListenPort:    0,                                       // OS picks a free port
+		WordEncPath:      filepath.Join("data", "raw", "wordenc"), // matches world.wordenc-path default
 	}
 	s, err := NewServer(cfg, nil, nil, discardLogger(), nil)
 	if err != nil {

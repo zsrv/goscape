@@ -1,16 +1,16 @@
 // Package encfilter ports the TS WordEnc + WordEncBadWords + WordEncFragments
 // + WordEncDomains + WordEncTlds classes from Engine-TS/src/cache/wordenc/ to Go.
 //
-// One *Filter per Server; constructed via Load (reads data/raw/wordenc jagfile,
-// per TS WordEnc.ts rev-244 hardcode) or LoadFromJag (reads an already-parsed
-// Jagfile). After construction, *Filter is read-only and Filter.Filter is safe
-// for concurrent calls.
+// One *Filter per Server; constructed via Load (reads the wordenc jagfile at
+// a caller-supplied path — world.Config.WordEncPath defaults to
+// "data/raw/wordenc", matching the TS WordEnc.ts rev-244 hardcode) or
+// LoadFromJag (reads an already-parsed Jagfile). After construction, *Filter
+// is read-only and Filter.Filter is safe for concurrent calls.
 package encfilter
 
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/io/jagfile"
@@ -50,16 +50,20 @@ type Filter struct {
 	tldTypes []int
 }
 
-// Load reads the word-encoding Jagfile and returns a populated *Filter.
+// Load reads the word-encoding Jagfile at path and returns a populated
+// *Filter.
 //
 // Rev-244 port: TS WordEnc.load ignores its dir argument and loads from the
 // hardcoded relative path "data/raw/wordenc" (TS WordEnc.ts:35-37,
 // Engine-TS@9aadcec4). Missing file → error (TS Jagfile.load throws; no
-// silent-return). Path is relative to the process working directory, matching
-// the TS hardcode convention.
-func Load() (*Filter, error) {
+// silent-return). goscape's caller (world.Config.WordEncPath) defaults to
+// that same "data/raw/wordenc" literal, so an unconfigured server resolves
+// it relative to the process working directory exactly as the TS hardcode
+// did; the path is now a parameter so embedders that run from a different
+// cwd (e.g. a singleplayer binary) can supply an absolute path instead.
+func Load(path string) (*Filter, error) {
 	// TS WordEnc.ts:35-37: load(_dir) { const wordenc = Jagfile.load('data/raw/wordenc'); … }
-	return loadFromFile(filepath.Join("data", "raw", "wordenc"))
+	return loadFromFile(path)
 }
 
 // loadFromFile reads jagPath and returns a populated *Filter. Used by Load and
