@@ -466,6 +466,11 @@ type ScriptState struct {
 	// the name does not resolve to a known MesanimType (NAI-179 retired
 	// the unconditional -1 deviation; MesanimType resolution now live).
 	SplitMesanim int32
+
+	// buf is the pooled backing bundle for IntStack/StringStack/Frames
+	// (PERF-3, pool.go). Nil for states not built by Init (literal
+	// &ScriptState{} test fixtures) and after Release.
+	buf *scriptBuffers
 }
 
 // PushInt pushes v onto the int stack, normalised through signed-int32
