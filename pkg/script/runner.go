@@ -13,20 +13,27 @@ import (
 //
 // The PC starts at 0; the first instruction is executed on the first Execute tick.
 func Init(script *ScriptFile, self ActivePlayer, protect bool, intArgs []int, stringArgs []string) *ScriptState {
+	// PERF-3: the three fixed-capacity buffers come from the pool
+	// (pool.go); a fresh-from-New bundle is zeroed by make, a recycled one
+	// has stringStack/frames cleared by Release and an intentionally-dirty
+	// intStack (unobservable — see pool.go). Locals stay freshly allocated:
+	// RuneScript reads them before writing and relies on zero-init.
+	b := buffersPool.Get().(*scriptBuffers)
 	s := &ScriptState{
 		Script:    script,
 		PC:        0,
 		Execution: Running,
 
-		IntStack:    make([]int, StackCapacity),
-		StringStack: make([]string, StackCapacity),
+		IntStack:    b.intStack,
+		StringStack: b.stringStack,
 
 		IntLocals:    make([]int, max(int(script.IntLocalCount), len(intArgs))),
 		StringLocals: make([]string, max(int(script.StringLocalCount), len(stringArgs))),
 
-		Frames: make([]Frame, FrameCapacity),
+		Frames: b.frames,
 
 		Self: self,
+		buf:  b,
 	}
 
 	copy(s.IntLocals, intArgs)
