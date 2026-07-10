@@ -237,8 +237,9 @@ type Server struct {
 
 	// wordenc filters player-visible chat text through the RS2 word-encoding
 	// substitution rules loaded from the wordenc jagfile. Populated at
-	// NewServer via encfilter.Load (data/raw/wordenc); test paths inject
-	// encfilter.Empty(). TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:35-37.
+	// NewServer via encfilter.Load(cfg.WordEncPath) (default
+	// "data/raw/wordenc"); test paths inject encfilter.Empty(). TS ref:
+	// Engine-TS/src/cache/wordenc/WordEnc.ts:35-37.
 	wordenc *encfilter.Filter
 
 	// midi caches per-track MIDI lengths parsed from the client cache's
@@ -716,7 +717,9 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// Load word-encoding filter from the raw jagfile. Rev-244: TS dropped the
 	// existence check and hardcoded "data/raw/wordenc" — missing file is now a
 	// fatal boot error. TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:35-37.
-	s.wordenc, err = encfilter.Load()
+	// cfg.WordEncPath defaults to that same literal, resolved against the
+	// process working directory as before; embedders may override it.
+	s.wordenc, err = encfilter.Load(cfg.WordEncPath)
 	if err != nil {
 		return nil, fmt.Errorf("load wordenc: %w", err)
 	}
