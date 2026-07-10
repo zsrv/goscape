@@ -187,8 +187,10 @@ func TestFilter_EmptyInput(t *testing.T) {
 // TestLoadFromFile_SyntheticRawDir pins the rev-244 path behavior: loadFromFile
 // reads the jagfile at the supplied path (no subdir added) and returns a
 // populated *Filter. Mirrors the TS WordEnc.ts:35-37 contract where
-// Load() hardcodes "data/raw/wordenc" and passes it as a full path to
-// Jagfile.load.
+// WordEnc.load hardcodes "data/raw/wordenc" and passes it as a full path to
+// Jagfile.load; goscape's Load(path) now takes that path as a parameter
+// (world.Config.WordEncPath defaults to "data/raw/wordenc") instead of
+// hardcoding it internally.
 func TestLoadFromFile_SyntheticRawDir(t *testing.T) {
 	// Build a synthetic jagfile and save it to a temp location named "wordenc"
 	// to mirror the TS "data/raw/wordenc" layout.
@@ -222,5 +224,72 @@ func TestLoadFromFile_MissingFile(t *testing.T) {
 	_, err := loadFromFile(missing)
 	if err == nil {
 		t.Fatalf("loadFromFile on missing path: want error, got nil")
+	}
+}
+
+// TestLoad_CustomAbsolutePath pins the embedding fix: Load(path) reads the
+// jagfile at an arbitrary absolute path with no dependency on the process
+// working directory — unlike the old no-arg Load(), which hardcoded the
+// cwd-relative "data/raw/wordenc" internally. This is what lets a
+// singleplayer binary embedding this server (running from any cwd) point
+// world.Config.WordEncPath at an absolute path instead. Deliberately does
+// NOT t.Chdir anywhere, to prove cwd independence.
+func TestLoad_CustomAbsolutePath(t *testing.T) {
+	jf := makeSyntheticJag(t)
+	jagPath := filepath.Join(t.TempDir(), "wordenc")
+	if err := jf.Save(jagPath); err != nil {
+		t.Fatalf("Save synthetic jag to %q: %v", jagPath, err)
+	}
+	if !filepath.IsAbs(jagPath) {
+		t.Fatalf("test setup: jagPath must be absolute, got %q", jagPath)
+	}
+
+	f, err := Load(jagPath)
+	if err != nil {
+		t.Fatalf("Load(%q): %v", jagPath, err)
+	}
+	if got := len(f.bads); got != 1 || string(f.bads[0]) != "anal" {
+		t.Errorf("bads: got %v, want [anal]", f.bads)
+	}
+}
+
+// TestLoad_DefaultRelativePath pins that Load, called with the literal
+// world.Config.WordEncPath default ("data/raw/wordenc"), preserves the exact
+// rev-244 TS-hardcode behavior: a relative path resolved against the process
+// working directory. Complements TestLoad_CustomAbsolutePath (override case)
+// and TestNewServer_LoadsWordencFilter in modules/world (real jagfile,
+// exercised through world.Config).
+func TestLoad_DefaultRelativePath(t *testing.T) {
+	jf := makeSyntheticJag(t)
+	dir := t.TempDir()
+	// Lay the jag out at <dir>/data/raw/wordenc and chdir into <dir>, mirroring
+	// how a server run from its repo root resolves the default.
+	rawDir := filepath.Join(dir, "data", "raw")
+	if err := os.MkdirAll(rawDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll %q: %v", rawDir, err)
+	}
+	if err := jf.Save(filepath.Join(rawDir, "wordenc")); err != nil {
+		t.Fatalf("Save synthetic jag to %q: %v", rawDir, err)
+	}
+	t.Chdir(dir)
+
+	const defaultWordEncPath = "data/raw/wordenc" // world.Config.WordEncPath default
+	f, err := Load(defaultWordEncPath)
+	if err != nil {
+		t.Fatalf("Load(%q): %v", defaultWordEncPath, err)
+	}
+	if got := len(f.bads); got != 1 || string(f.bads[0]) != "anal" {
+		t.Errorf("bads: got %v, want [anal]", f.bads)
+	}
+}
+
+// TestLoad_MissingFile pins that Load(path) surfaces a non-nil error when the
+// jagfile at path is absent — same contract as loadFromFile
+// (TestLoadFromFile_MissingFile), exercised through the public Load entry
+// point that world.NewServer actually calls.
+func TestLoad_MissingFile(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "wordenc")
+	if _, err := Load(missing); err == nil {
+		t.Fatalf("Load(%q): want error, got nil", missing)
 	}
 }
