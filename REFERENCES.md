@@ -137,14 +137,15 @@ Notes:
 
 | Repo | Role | URL | Branch | Pinned commit |
 |---|---|---|---|---|
-| Engine-TS | **primary** — authoritative translation source | https://github.com/LostCityRS/Engine-TS | `274` | `dee467c868e694a2d5a931e3d19e580c83666cb2` |
-| Content | game content packed and served by the server | https://github.com/LostCityRS/Content | `274` | `7f97b0a535a885bff9846631ca78438b6a731274` |
+| Engine-TS | **primary** — authoritative translation source | https://github.com/LostCityRS/Engine-TS | `274` | `4c95f87efe00b068cadbd229d94736626907bd1a` |
+| Content | game content packed and served by the server | https://github.com/LostCityRS/Content | `274` | `376072662e78a314bf35bb18815be39521491a6b` |
 | Client-Java | the client this server speaks to; wire-protocol cross-check | https://github.com/LostCityRS/Client-Java | `274` | `32f30626156783de9f142306eb73a2243909dacf` |
 | rsbuf | cross-check reference only; the crate dependency is DROPPED at 274 (ported into Engine-TS `src/network/rsbuf/`) | https://github.com/2004scape/rsbuf | `274` | `669116109588ab5f5d9de8c24aace1d335da5399` |
 | RuneScriptTS | RuneScript compiler | — | — | unchanged from §rev-254 (`@lostcityrs/runescript` `0.9.6`) |
 
-(Commits captured 2026-06-12 from the Server274-ref reference worktrees. Go
-branch `rev-274` is cut from `rev-254` at `d5e3234f`.)
+(Commits captured 2026-06-12 from the Server274-ref reference worktrees;
+Engine-TS/Content re-pinned 2026-07-16 (see note 5). Go branch `rev-274` is
+cut from `rev-254` at `d5e3234f`.)
 
 Notes:
 
@@ -159,6 +160,11 @@ Notes:
    both internalized into TS (`src/network/rsbuf/`,
    `src/engine/routefinder/`); the TS files at the Engine-TS pin are the
    authoritative reference from 274 on.
+5. **Re-pinned 2026-07-16**: Engine-TS advanced `dee467c8` → `4c95f87e`
+   (4 engine commits); Content advanced `7f97b0a5` → `37607266`
+   (31 content commits). Superseding work list =
+   `git -C Engine-TS diff dee467c8..4c95f87e`. Note 2's work list above
+   remains the historical record of the original 274 cut.
 
 ## Future revisions
 
