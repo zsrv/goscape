@@ -19,8 +19,10 @@ import (
 // pinned engine depends on `@lostcityrs/runescript@0.9.6`, which carries
 // upstream commit 750291c ("chore: Bumped compiler version", a pure marker
 // bump with no layout change), and the rev-274 reference cache
-// (Server274-ref/engine/data/pack/server/script.dat @dee467c8) still reports
-// 27 in its header (unchanged from the rev-254 @2e3bcf43 reference). The Go
+// (Server274-ref/engine/data/pack/server/script.dat @4c95f87e, re-pinned by
+// the 2026-07-16 pin-update plan Task 5) still reports 27 in its header
+// (unchanged from the rev-254 @2e3bcf43 reference and the rev-274 @dee467c8
+// reference before it). The Go
 // engine reads this header via
 // pkg/script/provider.go (CompilerVersion = 27) and rejects mismatches,
 // so the packer must emit 27 for byte-parity and engine-loadable output.
