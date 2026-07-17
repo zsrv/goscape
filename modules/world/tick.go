@@ -238,6 +238,14 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processInteractions()
 		s.addCycleTime(statPlayer, t0)
 
+		// TS World.ts @4c95f87e (e31a8719): player.reorient() runs after
+		// movement — face a loc/obj target if we walked over and held
+		// still. MUST run after processPathing/processInteractions so
+		// stepsTaken reflects this tick.
+		t0 = time.Now()
+		s.processPlayerReorient()
+		s.addCycleTime(statPlayer, t0)
+
 		t0 = time.Now()
 		s.processEnergy() // NAI-135: TS World.ts:731 per-player updateEnergy
 		s.addCycleTime(statPlayer, t0)
@@ -1031,9 +1039,8 @@ func (s *Server) processInfo() {
 
 	players := s.snapshotPlayers()
 
-	// NAI-66: TS World.ts:995 — per-tick refocus before rsbuf compute.
-	// Refocuses on a moved PathingEntity target or clears the cached
-	// Loc/Obj targetX/Z when the player took zero steps this tick.
+	// facing (reorientEntity/reorient) runs in the player's turn
+	// (processPlayers), not here. TS World.ts:992 @4c95f87e (e31a8719).
 	//
 	// NAI-93: TS World.ts:996 — buildArea.rebuildNormal() runs in this
 	// loop, BEFORE the ComputePlayers/ComputePlayer calls below, so the
@@ -1043,7 +1050,6 @@ func (s *Server) processInfo() {
 	// TS comment at World.ts:996 verbatim: "set origin before compute
 	// player is why this is above."
 	for _, p := range players {
-		p.reorient()
 		p.buildArea.rebuildNormal()
 	}
 
@@ -1065,11 +1071,8 @@ func (s *Server) processInfo() {
 	}
 	s.renderer.ComputePlayers(sources)
 
-	// NAI-66: TS World.ts:1046 — npc-side per-tick refocus.
-	for _, n := range s.npcLoop {
-		n.reorient()
-	}
-
+	// facing (reorientEntity/reorient) runs in Npc.turn(), not here. TS
+	// World.ts:1045 @4c95f87e (e31a8719).
 	npcSources := make([]rsbuf.NpcSource, len(s.npcLoop))
 	for i, n := range s.npcLoop {
 		npcSources[i] = n
@@ -1214,12 +1217,27 @@ func (s *Server) processZones() {
 }
 
 // processPlayerFacing runs the per-player "Update target facing" pass —
-// TS World.ts:707-708 @2e3bcf43 (ee28c1aa): `player.setFaceEntity();`
-// between processEngineQueue and processInteraction.
+// TS World.ts @4c95f87e: both halves of "face the interaction target" run
+// here, the same tick the op set the target and before processInteraction
+// can clear it: the FACE_ENTITY mask (setFaceEntity, ee28c1aa @2e3bcf43),
+// plus the serverside faceAngle toward a pathing target for new observers
+// (reorientEntity, e31a8719).
 func (s *Server) processPlayerFacing() {
 	players := s.snapshotPlayers()
 	for _, p := range players {
 		p.setFaceEntity()
+		p.reorientEntity()
+	}
+}
+
+// processPlayerReorient runs after movement: face a loc/obj target if we
+// walked over and held still (needs this tick's stepsTaken). TS World.ts
+// @4c95f87e — player.reorient() between processInteraction and
+// updateEnergy (e31a8719).
+func (s *Server) processPlayerReorient() {
+	players := s.snapshotPlayers()
+	for _, p := range players {
+		p.reorient()
 	}
 }
 

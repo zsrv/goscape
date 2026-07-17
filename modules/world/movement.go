@@ -314,28 +314,38 @@ func (p *Player) randomWalk() {
 	p.queueWaypoint(x, z)
 }
 
-// reorient is the per-tick refocus invoked from Server.processInfo
-// before rsbuf compute. Mirrors TS PathingEntity.reorient at
-// Engine-TS/src/engine/entity/PathingEntity.ts:349-361.
-//
-// PathingEntity targets (Player/Npc) are refocused on the target's
-// current position (target may have moved this tick). Non-pathing
-// targets (Loc/Obj) trigger one-shot focus + clear of the cached
-// fine-coord (targetX/Z) iff the player took zero steps this tick —
-// semantically "the entity moved off while we were trying to reach it."
-func (p *Player) reorient() {
+// reorientEntity refocuses the serverside faceAngle toward a pathing
+// (Player/Npc) target, run BEFORE movement/interaction so it captures the
+// target's pre-move position for a newly-visible observer this tick.
+// client=false: no face-coord mask — FACE_ENTITY (not FACE_COORD) is what
+// live-tracks the target for existing observers. Mirrors TS
+// PathingEntity.reorientEntity, TS PathingEntity.ts @4c95f87e
+// (Engine-TS/src/engine/entity/PathingEntity.ts:364-369).
+func (p *Player) reorientEntity() {
 	switch t := p.target.(type) {
 	case *Player:
 		p.focus(coordgrid.Fine(t.x, 1), coordgrid.Fine(t.z, 1), false)
 	case *Npc:
 		p.focus(coordgrid.Fine(t.x, t.size), coordgrid.Fine(t.z, t.size), false)
-	default:
-		_ = t
-		if p.targetX != -1 && p.stepsTaken == 0 {
-			p.focus(p.targetX, p.targetZ, false)
-			p.targetX = -1
-			p.targetZ = -1
-		}
+	}
+}
+
+// reorient faces a loc/obj target once the player has stopped moving
+// (targetX != -1 && stepsTaken == 0), shipping the face-coord mask
+// (client=true) — the only path that ships the face-coord for loc/obj
+// facing. Early-returns for a pathing target: reorientEntity already
+// handled it earlier this tick. MUST run AFTER movement so stepsTaken
+// reflects this tick's steps. Mirrors TS PathingEntity.reorient, TS
+// PathingEntity.ts @4c95f87e (Engine-TS/src/engine/entity/PathingEntity.ts:377-388).
+func (p *Player) reorient() {
+	switch p.target.(type) {
+	case *Player, *Npc:
+		return
+	}
+	if p.targetX != -1 && p.stepsTaken == 0 {
+		p.focus(p.targetX, p.targetZ, true)
+		p.targetX = -1
+		p.targetZ = -1
 	}
 }
 

@@ -80,13 +80,12 @@ func (p *Player) unsetMapFlag() {
 // NAI-41 contact-time→SetInteraction-time migration is superseded by
 // that per-tick derivation.)
 //
-// TS PathingEntity.ts:528 — focus() is called on every SetInteraction with
-// the target's fine coord. The four (kind × target-shape) wire-write cases:
-//   - Npc/Player target (any kind): instant=false — faceAngle written only.
-//   - Loc/Obj target + InteractionEngine: instant=true — faceAngle + faceSquare
-//     written, MaskFaceCoord ORed. Mirrors (*Npc).SetInteraction at
-//     modules/world/npc_interaction.go:657-666.
-//   - Loc/Obj target + InteractionScript: instant=false — faceAngle only.
+// e31a8719 @4c95f87e: SetInteraction no longer calls focus() at all —
+// facing only changes during the entity's own turn (reorientEntity() for
+// a pathing target, reorient() for loc/obj target). For a Loc/Obj target,
+// targetX/targetZ are still cached here (TS PathingEntity.ts:549-552)
+// for reorient() to consume once the player stops moving. Mirrors
+// (*Npc).SetInteraction at modules/world/npc_interaction.go.
 func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int) {
 	p.target = target
 	p.targetOp = op
@@ -130,32 +129,20 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 	// allowRepath set-site (TS PathingEntity.ts:533-536) along with the whole
 	// AllowRepath mechanism — the "I can't reach that!" fix.
 
-	// TS PathingEntity.ts (@dee467c8) — focus on the target's fine coord.
-	// instant=true ⇔ NonPathingEntity (Loc/Obj) clicked via the engine
-	// (kind == InteractionEngine). Any other combination passes
-	// instant=false: faceAngle still written, but faceSquare/mask are
-	// not. Mirrors (*Npc).SetInteraction at modules/world/npc_interaction.go:657-666.
-	tx, tz, _ := target.Coords()
-	tw, tl := targetWidthLength(target)
-	fx := coordgrid.Fine(tx, tw)
-	fz := coordgrid.Fine(tz, tl)
-	isNonPathing := false
+	// Setting an interaction no longer focus()es here — facing only
+	// changes during the entity's own turn (reorientEntity() for a
+	// pathing target, reorient() for loc/obj; both from processPlayers /
+	// Npc.turn). For non-pathing targets we still record targetX/Z for
+	// reorient() to consume. TS PathingEntity.ts @4c95f87e
+	// (setInteraction, e31a8719). Mirrors (*Npc).SetInteraction at
+	// modules/world/npc_interaction.go.
+	// (Consumer is (*Player).reorient at modules/world/movement.go, NAI-66.)
 	switch target.(type) {
 	case *entitypkg.Loc, *entitypkg.Obj:
-		isNonPathing = true
-	}
-	p.focus(fx, fz, isNonPathing && kind == InteractionEngine)
-
-	// ee28c1aa @2e3bcf43: setInteraction no longer writes faceEntity — the
-	// Player/Npc faceEntity arms moved to setFaceEntity() (face_entity.go),
-	// called per-tick (tick.go processPlayerFacing + ResetMasks tail). Only
-	// the NonPathingEntity targetX/Z cache remains here:
-	// TS PathingEntity.ts:551-554 @2e3bcf43 `if (target instanceof
-	// NonPathingEntity) { this.targetX = ...; this.targetZ = ...; }`.
-	// (Consumer is (*Player).reorient at modules/world/movement.go, NAI-66.)
-	if isNonPathing {
-		p.targetX = fx
-		p.targetZ = fz
+		tx, tz, _ := target.Coords()
+		tw, tl := targetWidthLength(target)
+		p.targetX = coordgrid.Fine(tx, tw)
+		p.targetZ = coordgrid.Fine(tz, tl)
 	}
 }
 

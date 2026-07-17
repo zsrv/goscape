@@ -150,13 +150,15 @@ func TestProcessInfo_PassesRealLastAppearance(t *testing.T) {
 	}
 }
 
-// TestProcessInfoInvokesReorient pins NAI-66's per-tick wire-up on the
-// player side: a player with a *Loc target and cached targetX/Z +
-// stepsTaken == 0 must have targetX/Z cleared and faceAngleX/Z written
-// before processInfo's rsbuf ComputePlayers pass runs (ordering claim).
-// Uses a valid slot (slot=1) and initialises s.renderer so ComputePlayers
-// actually executes rather than being short-circuited by slot<1.
-func TestProcessInfoInvokesReorient(t *testing.T) {
+// TestProcessInfoDoesNotReorientPlayer pins TS World.ts @4c95f87e
+// (e31a8719): processInfo no longer reorients players — that moved to
+// player.reorient(), called from processPlayerReorient in the tick loop
+// (after processInteractions, before processEnergy). A player with a
+// *Loc target and cached targetX/Z + stepsTaken == 0 keeps that state
+// untouched across processInfo's rsbuf ComputePlayers pass. Uses a valid
+// slot (slot=1) and initialises s.renderer so ComputePlayers actually
+// executes rather than being short-circuited by slot<1.
+func TestProcessInfoDoesNotReorientPlayer(t *testing.T) {
 	s := newTestServer(t)
 	s.renderer = rsbuf.NewRenderer()
 
@@ -169,28 +171,30 @@ func TestProcessInfoInvokesReorient(t *testing.T) {
 	p.targetX = 999
 	p.targetZ = 1001
 	p.stepsTaken = 0
+	preFaceX, preFaceZ := p.faceAngleX, p.faceAngleZ
 
 	s.processInfo()
 
-	if p.targetX != -1 {
-		t.Errorf("targetX: got %d, want -1 (reorient must clear before ComputePlayers)", p.targetX)
+	if p.targetX != 999 {
+		t.Errorf("targetX: got %d, want 999 (unchanged — processInfo must not reorient)", p.targetX)
 	}
-	if p.targetZ != -1 {
-		t.Errorf("targetZ: got %d, want -1 (reorient must clear before ComputePlayers)", p.targetZ)
+	if p.targetZ != 1001 {
+		t.Errorf("targetZ: got %d, want 1001 (unchanged — processInfo must not reorient)", p.targetZ)
 	}
-	if p.faceAngleX != 999 {
-		t.Errorf("faceAngleX: got %d, want 999 (reorient must focus before ComputePlayers)", p.faceAngleX)
+	if p.faceAngleX != preFaceX {
+		t.Errorf("faceAngleX: got %d, want %d (unchanged — processInfo must not reorient)", p.faceAngleX, preFaceX)
 	}
-	if p.faceAngleZ != 1001 {
-		t.Errorf("faceAngleZ: got %d, want 1001 (reorient must focus before ComputePlayers)", p.faceAngleZ)
+	if p.faceAngleZ != preFaceZ {
+		t.Errorf("faceAngleZ: got %d, want %d (unchanged — processInfo must not reorient)", p.faceAngleZ, preFaceZ)
 	}
 }
 
-// TestProcessInfoInvokesNpcReorient pins the NPC-side reorient wire-up
-// (TS World.ts:1046). An NPC with a *Loc target, cached targetX/Z, and
-// stepsTaken == 0 must have targetX/Z cleared and faceAngleX/Z written
-// before processInfo's rsbuf ComputeNpcs pass runs.
-func TestProcessInfoInvokesNpcReorient(t *testing.T) {
+// TestProcessInfoDoesNotReorientNpc pins TS World.ts:1045 @4c95f87e
+// (e31a8719): processInfo no longer reorients npcs — that moved to
+// Npc.turn() (reorientEntity/reorient, npc_ai.go). An NPC with a *Loc
+// target, cached targetX/Z, and stepsTaken == 0 keeps that state
+// untouched across processInfo's rsbuf ComputeNpcs pass.
+func TestProcessInfoDoesNotReorientNpc(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	if err := s.gamemap.Init(t.TempDir()); err != nil {
@@ -199,8 +203,8 @@ func TestProcessInfoInvokesNpcReorient(t *testing.T) {
 	s.renderer = rsbuf.NewRenderer()
 
 	// rev-274 processInfo gate (World.ts:979-981): the info pass is skipped
-	// when the world is empty. This test exercises the NPC-side reorient path,
-	// so it must have at least one player online.
+	// when the world is empty. This test exercises the NPC-side path, so it
+	// must have at least one player online.
 	_ = setupInfoPlayer(t, s, 1, 50, 52, 0)
 
 	n := makeInteractionNpc(t, s, 1, 50, 50, 0)
@@ -210,19 +214,20 @@ func TestProcessInfoInvokesNpcReorient(t *testing.T) {
 	n.targetX = 888
 	n.targetZ = 777
 	n.stepsTaken = 0
+	preFaceX, preFaceZ := n.faceAngleX, n.faceAngleZ
 
 	s.processInfo()
 
-	if n.targetX != -1 {
-		t.Errorf("npc targetX: got %d, want -1 (npc reorient must clear before ComputeNpcs)", n.targetX)
+	if n.targetX != 888 {
+		t.Errorf("npc targetX: got %d, want 888 (unchanged — processInfo must not reorient)", n.targetX)
 	}
-	if n.targetZ != -1 {
-		t.Errorf("npc targetZ: got %d, want -1 (npc reorient must clear before ComputeNpcs)", n.targetZ)
+	if n.targetZ != 777 {
+		t.Errorf("npc targetZ: got %d, want 777 (unchanged — processInfo must not reorient)", n.targetZ)
 	}
-	if n.faceAngleX != 888 {
-		t.Errorf("npc faceAngleX: got %d, want 888 (npc reorient must focus before ComputeNpcs)", n.faceAngleX)
+	if n.faceAngleX != preFaceX {
+		t.Errorf("npc faceAngleX: got %d, want %d (unchanged — processInfo must not reorient)", n.faceAngleX, preFaceX)
 	}
-	if n.faceAngleZ != 777 {
-		t.Errorf("npc faceAngleZ: got %d, want 777 (npc reorient must focus before ComputeNpcs)", n.faceAngleZ)
+	if n.faceAngleZ != preFaceZ {
+		t.Errorf("npc faceAngleZ: got %d, want %d (unchanged — processInfo must not reorient)", n.faceAngleZ, preFaceZ)
 	}
 }

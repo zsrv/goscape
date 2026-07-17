@@ -1521,12 +1521,18 @@ func TestSetInteractionObjTargetWritesTargetXZ(t *testing.T) {
 	}
 }
 
-// --- NAI-67 T1.3: Player.SetInteraction TS:528 focus() driver tests ---
+// --- NAI-67 T1.3 → e31a8719 @4c95f87e: Player.SetInteraction no longer
+// calls focus() at all (was TS PathingEntity.ts:528, removed by the
+// reorient split). These pins were rewritten from
+// "SetInteraction writes faceAngle/faceSquare" to "SetInteraction leaves
+// faceAngle/faceSquare/mask untouched, regardless of target shape or
+// InteractionKind" — the wire-visible change is now case (e) of the
+// reorient-split task: (*Player).reorient() (movement.go), not
+// SetInteraction, is what ships the face-coord mask. ---
 
-// TestSetInteractionNpcTargetWritesFaceAngleNoFaceSquare pins TS
-// PathingEntity.ts:528: Npc target (PathingEntity, not NonPathingEntity)
-// passes instant=false ⇒ faceAngle written, faceSquare/mask untouched.
-func TestSetInteractionNpcTargetWritesFaceAngleNoFaceSquare(t *testing.T) {
+// TestSetInteractionNpcTargetDoesNotFocus pins TS PathingEntity.ts
+// setInteraction @4c95f87e: Npc target — no focus() call at all.
+func TestSetInteractionNpcTargetDoesNotFocus(t *testing.T) {
 	s := newTestServer(t)
 	npc := makeInteractionNpc(t, s, 1, 50, 60, 0)
 	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
@@ -1534,13 +1540,12 @@ func TestSetInteractionNpcTargetWritesFaceAngleNoFaceSquare(t *testing.T) {
 	p.faceSquareX = -1
 	p.faceSquareZ = -1
 	p.masks = 0
+	preFaceX, preFaceZ := p.faceAngleX, p.faceAngleZ
 
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 
-	wantFX := coordgrid.Fine(50, 1)
-	wantFZ := coordgrid.Fine(60, 1)
-	if p.faceAngleX != wantFX || p.faceAngleZ != wantFZ {
-		t.Errorf("faceAngle: got (%d, %d), want (%d, %d)", p.faceAngleX, p.faceAngleZ, wantFX, wantFZ)
+	if p.faceAngleX != preFaceX || p.faceAngleZ != preFaceZ {
+		t.Errorf("faceAngle: got (%d, %d), want unchanged (%d, %d)", p.faceAngleX, p.faceAngleZ, preFaceX, preFaceZ)
 	}
 	if p.faceSquareX != -1 || p.faceSquareZ != -1 {
 		t.Errorf("Npc target must NOT write faceSquare (got %d, %d)", p.faceSquareX, p.faceSquareZ)
@@ -1548,12 +1553,15 @@ func TestSetInteractionNpcTargetWritesFaceAngleNoFaceSquare(t *testing.T) {
 	if p.masks&MaskFaceCoord != 0 {
 		t.Errorf("Npc target must NOT set MaskFaceCoord (masks=%d)", p.masks)
 	}
+	// PathingEntity target: no targetX/Z cache either.
+	if p.targetX != -1 || p.targetZ != -1 {
+		t.Errorf("targetX/Z: got (%d, %d), want (-1, -1) (Npc target is pathing, no cache)", p.targetX, p.targetZ)
+	}
 }
 
-// TestSetInteractionPlayerTargetWritesFaceAngleNoFaceSquare pins TS
-// PathingEntity.ts:528: Player target (PathingEntity) passes
-// instant=false ⇒ faceAngle written, faceSquare/mask untouched.
-func TestSetInteractionPlayerTargetWritesFaceAngleNoFaceSquare(t *testing.T) {
+// TestSetInteractionPlayerTargetDoesNotFocus pins TS PathingEntity.ts
+// setInteraction @4c95f87e: Player target — no focus() call at all.
+func TestSetInteractionPlayerTargetDoesNotFocus(t *testing.T) {
 	s := newTestServer(t)
 	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
 	defer wait()
@@ -1562,13 +1570,12 @@ func TestSetInteractionPlayerTargetWritesFaceAngleNoFaceSquare(t *testing.T) {
 	p.faceSquareX = -1
 	p.faceSquareZ = -1
 	p.masks = 0
+	preFaceX, preFaceZ := p.faceAngleX, p.faceAngleZ
 
 	p.SetInteraction(InteractionEngine, other, 1, -1)
 
-	wantFX := coordgrid.Fine(50, 1)
-	wantFZ := coordgrid.Fine(60, 1)
-	if p.faceAngleX != wantFX || p.faceAngleZ != wantFZ {
-		t.Errorf("faceAngle: got (%d, %d), want (%d, %d)", p.faceAngleX, p.faceAngleZ, wantFX, wantFZ)
+	if p.faceAngleX != preFaceX || p.faceAngleZ != preFaceZ {
+		t.Errorf("faceAngle: got (%d, %d), want unchanged (%d, %d)", p.faceAngleX, p.faceAngleZ, preFaceX, preFaceZ)
 	}
 	if p.faceSquareX != -1 || p.faceSquareZ != -1 {
 		t.Errorf("Player target must NOT write faceSquare (got %d, %d)", p.faceSquareX, p.faceSquareZ)
@@ -1578,87 +1585,98 @@ func TestSetInteractionPlayerTargetWritesFaceAngleNoFaceSquare(t *testing.T) {
 	}
 }
 
-// TestSetInteractionLocEngineWritesFaceSquareAndMask pins TS
-// PathingEntity.ts:528: Loc target + InteractionEngine ⇒ instant=true
-// path; faceSquare = (fx, fz); MaskFaceCoord ORed in.
-func TestSetInteractionLocEngineWritesFaceSquareAndMask(t *testing.T) {
+// TestSetInteractionLocEngineDoesNotFocus pins TS PathingEntity.ts
+// setInteraction @4c95f87e: Loc target + InteractionEngine — no focus()
+// call; targetX/Z ARE still cached for (*Player).reorient() to consume.
+func TestSetInteractionLocEngineDoesNotFocus(t *testing.T) {
 	s := newTestServer(t)
 	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
 	defer wait()
 	p.faceSquareX = -1
 	p.faceSquareZ = -1
 	p.masks = 0
+	preFaceX, preFaceZ := p.faceAngleX, p.faceAngleZ
 	// 3x2 Loc at (50, 60) — non-trivial sizing exercises width/length use.
 	loc := entitypkg.NewLoc(0, 50, 60, 3, 2, entitypkg.LifecycleForever, 0, 10, 0)
 
 	p.SetInteraction(InteractionEngine, loc, 1, -1)
 
-	wantFX := coordgrid.Fine(50, 3)
-	wantFZ := coordgrid.Fine(60, 2)
-	if p.faceAngleX != wantFX || p.faceAngleZ != wantFZ {
-		t.Errorf("faceAngle: got (%d, %d), want (%d, %d)", p.faceAngleX, p.faceAngleZ, wantFX, wantFZ)
+	if p.faceAngleX != preFaceX || p.faceAngleZ != preFaceZ {
+		t.Errorf("faceAngle: got (%d, %d), want unchanged (%d, %d)", p.faceAngleX, p.faceAngleZ, preFaceX, preFaceZ)
 	}
-	if p.faceSquareX != wantFX || p.faceSquareZ != wantFZ {
-		t.Errorf("faceSquare: got (%d, %d), want (%d, %d)", p.faceSquareX, p.faceSquareZ, wantFX, wantFZ)
+	if p.faceSquareX != -1 || p.faceSquareZ != -1 {
+		t.Errorf("faceSquare: got (%d, %d), want (-1, -1) — SetInteraction must not write it", p.faceSquareX, p.faceSquareZ)
 	}
-	if p.masks&MaskFaceCoord == 0 {
-		t.Errorf("MaskFaceCoord bit not set (masks=%d)", p.masks)
+	if p.masks&MaskFaceCoord != 0 {
+		t.Errorf("MaskFaceCoord bit set, want unset (masks=%d)", p.masks)
+	}
+	wantTX := coordgrid.Fine(50, 3)
+	wantTZ := coordgrid.Fine(60, 2)
+	if p.targetX != wantTX || p.targetZ != wantTZ {
+		t.Errorf("targetX/Z: got (%d, %d), want (%d, %d) — still cached for reorient()", p.targetX, p.targetZ, wantTX, wantTZ)
 	}
 }
 
-// TestSetInteractionLocScriptDoesNotWriteFaceSquare pins TS:528 — Loc
-// target + InteractionScript ⇒ instant=false (scripts don't trigger the
-// engine-face wire write).
-func TestSetInteractionLocScriptDoesNotWriteFaceSquare(t *testing.T) {
+// TestSetInteractionLocScriptDoesNotFocus pins TS PathingEntity.ts
+// setInteraction @4c95f87e: Loc target + InteractionScript — same
+// no-focus behavior as InteractionEngine (kind no longer gates focus()
+// at all, since focus() isn't called from setInteraction anymore).
+func TestSetInteractionLocScriptDoesNotFocus(t *testing.T) {
 	s := newTestServer(t)
 	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
 	defer wait()
 	p.faceSquareX = -1
 	p.faceSquareZ = -1
 	p.masks = 0
+	preFaceX, preFaceZ := p.faceAngleX, p.faceAngleZ
 	loc := entitypkg.NewLoc(0, 50, 60, 3, 2, entitypkg.LifecycleForever, 0, 10, 0)
 
 	p.SetInteraction(InteractionScript, loc, 1, -1)
 
-	wantFX := coordgrid.Fine(50, 3)
-	wantFZ := coordgrid.Fine(60, 2)
-	// faceAngle still written on every SetInteraction (TS:528 unconditional).
-	if p.faceAngleX != wantFX || p.faceAngleZ != wantFZ {
-		t.Errorf("faceAngle: got (%d, %d), want (%d, %d)", p.faceAngleX, p.faceAngleZ, wantFX, wantFZ)
+	if p.faceAngleX != preFaceX || p.faceAngleZ != preFaceZ {
+		t.Errorf("faceAngle: got (%d, %d), want unchanged (%d, %d)", p.faceAngleX, p.faceAngleZ, preFaceX, preFaceZ)
 	}
-	// instant=false ⇒ faceSquare/mask untouched.
 	if p.faceSquareX != -1 || p.faceSquareZ != -1 {
 		t.Errorf("InteractionScript must NOT write faceSquare (got %d, %d)", p.faceSquareX, p.faceSquareZ)
 	}
 	if p.masks&MaskFaceCoord != 0 {
 		t.Errorf("InteractionScript must NOT set MaskFaceCoord (masks=%d)", p.masks)
 	}
+	wantTX := coordgrid.Fine(50, 3)
+	wantTZ := coordgrid.Fine(60, 2)
+	if p.targetX != wantTX || p.targetZ != wantTZ {
+		t.Errorf("targetX/Z: got (%d, %d), want (%d, %d) — cache is unconditional on kind", p.targetX, p.targetZ, wantTX, wantTZ)
+	}
 }
 
-// TestSetInteractionObjEngineWritesFaceSquareAndMask pins TS:528 — Obj
-// target + InteractionEngine ⇒ instant=true. Obj is always 1x1, so
-// fine(_, 1).
-func TestSetInteractionObjEngineWritesFaceSquareAndMask(t *testing.T) {
+// TestSetInteractionObjEngineDoesNotFocus pins TS PathingEntity.ts
+// setInteraction @4c95f87e: Obj target + InteractionEngine — no focus()
+// call. Obj is always 1x1, so fine(_, 1) for the targetX/Z cache.
+func TestSetInteractionObjEngineDoesNotFocus(t *testing.T) {
 	s := newTestServer(t)
 	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
 	defer wait()
 	p.faceSquareX = -1
 	p.faceSquareZ = -1
 	p.masks = 0
+	preFaceX, preFaceZ := p.faceAngleX, p.faceAngleZ
 	obj := entitypkg.NewObj(0, 50, 60, entitypkg.LifecycleForever, 42, 1)
 
 	p.SetInteraction(InteractionEngine, obj, 1, -1)
 
-	wantFX := coordgrid.Fine(50, 1)
-	wantFZ := coordgrid.Fine(60, 1)
-	if p.faceAngleX != wantFX || p.faceAngleZ != wantFZ {
-		t.Errorf("faceAngle: got (%d, %d), want (%d, %d)", p.faceAngleX, p.faceAngleZ, wantFX, wantFZ)
+	if p.faceAngleX != preFaceX || p.faceAngleZ != preFaceZ {
+		t.Errorf("faceAngle: got (%d, %d), want unchanged (%d, %d)", p.faceAngleX, p.faceAngleZ, preFaceX, preFaceZ)
 	}
-	if p.faceSquareX != wantFX || p.faceSquareZ != wantFZ {
-		t.Errorf("faceSquare: got (%d, %d), want (%d, %d)", p.faceSquareX, p.faceSquareZ, wantFX, wantFZ)
+	if p.faceSquareX != -1 || p.faceSquareZ != -1 {
+		t.Errorf("faceSquare: got (%d, %d), want (-1, -1) — SetInteraction must not write it", p.faceSquareX, p.faceSquareZ)
 	}
-	if p.masks&MaskFaceCoord == 0 {
-		t.Errorf("MaskFaceCoord bit not set (masks=%d)", p.masks)
+	if p.masks&MaskFaceCoord != 0 {
+		t.Errorf("MaskFaceCoord bit set, want unset (masks=%d)", p.masks)
+	}
+	wantTX := coordgrid.Fine(50, 1)
+	wantTZ := coordgrid.Fine(60, 1)
+	if p.targetX != wantTX || p.targetZ != wantTZ {
+		t.Errorf("targetX/Z: got (%d, %d), want (%d, %d) — still cached for reorient()", p.targetX, p.targetZ, wantTX, wantTZ)
 	}
 }
 
@@ -2919,6 +2937,12 @@ func TestPlayer_InOperableDistance_Obj_CrossLevel(t *testing.T) {
 // commit 15861a7d) — a 32x-too-large value that silently truncated
 // through uint16 and rendered as a random direction on the client.
 //
+// e31a8719 @4c95f87e: SetInteraction itself no longer focuses (see the
+// no-focus pins above); the fine-scale write it guards now happens one
+// step later, in (*Player).reorient() consuming the targetX/Z that
+// SetInteraction still caches. Drive both to keep exercising the
+// regression end-to-end.
+//
 // Pins:
 //   - faceSquareX equals coordgrid.Fine(tree.x, 1) (a single source of truth).
 //   - The resulting value fits inside uint16 with no truncation,
@@ -2935,6 +2959,8 @@ func TestSetInteractionLoc_FaceSquareUsesTSFineScale(t *testing.T) {
 	tree := entitypkg.NewLoc(0, 3201, 3200, 1, 1, entitypkg.LifecycleForever, 42, 10, 0)
 
 	p.SetInteraction(InteractionEngine, tree, 1, -1)
+	p.stepsTaken = 0
+	p.reorient() // consumes the cached targetX/Z, ships faceSquare (client=true)
 
 	wantX := coordgrid.Fine(3201, 1) // TS: 3201*2 + 1 = 6403
 	wantZ := coordgrid.Fine(3200, 1) // TS: 3200*2 + 1 = 6401

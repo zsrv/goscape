@@ -723,11 +723,11 @@ func (p *Player) Teleport(x, z, level int) {
 // modules/world/player_masks.go which takes absolute coords and
 // applies *2+1.
 //
-// Drivers per TS: Teleport (PathingEntity.ts:289), takeStep
-// (PathingEntity.ts:220), reorient (PathingEntity.ts:353,358),
-// setInteraction (PathingEntity.ts:528). The setInteraction site is
-// the only one that ever passes instant=true — gated on
-// (target instanceof NonPathingEntity && interaction === Interaction.ENGINE).
+// Drivers per TS @4c95f87e: Teleport (PathingEntity.ts:289), takeStep
+// (PathingEntity.ts:220), reorientEntity (PathingEntity.ts:364-369,
+// client=false), reorient (PathingEntity.ts:377-388, client=true).
+// setInteraction no longer calls focus() (e31a8719) — reorient() is now
+// the only driver that ever passes instant=true.
 func (p *Player) focus(fx, fz int, instant bool) {
 	p.faceAngleX = fx
 	p.faceAngleZ = fz

@@ -1041,17 +1041,18 @@ func (n *Npc) inApproachDistance(rng int, target entity) bool {
 
 // SetInteraction anchors the NPC's interaction on target. Mirrors TS
 // PathingEntity.setInteraction at Engine-TS/.../PathingEntity.ts:526-557
-// @2e3bcf43. Side-effect set (ex-NAI-10 deferrals):
+// @4c95f87e. Side-effect set (ex-NAI-10 deferrals):
 //  1. apRange = 10
 //  2. apRangeCalled = false
 //  3. targetSubject.com/typ snapshot
-//  4. focus() → faceAngleX/Z
-//  5. targetX/targetZ (Loc/Obj targets)
-//  6. target.IsValid() pre-check
+//  4. targetX/targetZ (Loc/Obj targets)
+//  5. target.IsValid() pre-check
 //
 // faceEntity is NOT written here — ee28c1aa @2e3bcf43 removed the
 // Player/Npc faceEntity arms; facing is derived per-turn by
-// setFaceEntity() (face_entity.go).
+// setFaceEntity() (face_entity.go). Nor does focus() run here —
+// e31a8719 @4c95f87e moved facing to the entity's own turn
+// (reorientEntity()/reorient()).
 //
 // TS quirk preserved: `com ? com : -1` coerces 0 → -1 on subject.com.
 func (n *Npc) SetInteraction(kind InteractionKind, target entity, op, com int) bool {
@@ -1087,29 +1088,23 @@ func (n *Npc) SetInteraction(kind InteractionKind, target entity, op, com int) b
 	// allowRepath set-site (TS PathingEntity.ts:533-536) along with the whole
 	// AllowRepath mechanism — the "I can't reach that!" fix.
 
-	// focus — fine-grained face-angle coord. Non-pathing targets
-	// (Loc/Obj) use the engine-face path when the kind is engine;
-	// pathing targets (Player/Npc) never set instant.
-	tx, tz, _ := target.Coords()
-	tw, tl := targetWidthLength(target)
-	fx := coordgrid.Fine(tx, tw)
-	fz := coordgrid.Fine(tz, tl)
-	isNonPathing := false
+	// Setting an interaction no longer focus()es here — facing only
+	// changes during the entity's own turn (reorientEntity() for a
+	// pathing target, reorient() for loc/obj; both from Npc.turn /
+	// processPlayers). For non-pathing targets we still record targetX/Z
+	// for reorient() to consume. TS PathingEntity.ts @4c95f87e
+	// (setInteraction, e31a8719).
 	switch target.(type) {
 	case *entitypkg.Loc, *entitypkg.Obj:
-		isNonPathing = true
+		tx, tz, _ := target.Coords()
+		tw, tl := targetWidthLength(target)
+		n.targetX = coordgrid.Fine(tx, tw)
+		n.targetZ = coordgrid.Fine(tz, tl)
 	}
-	n.focus(fx, fz, isNonPathing && kind == InteractionEngine)
 
 	// ee28c1aa @2e3bcf43: setInteraction no longer writes faceEntity — the
 	// Player/Npc faceEntity arms moved to setFaceEntity() (face_entity.go),
-	// called per-turn (npc_ai.go turn() + ResetMasks tail). Only the
-	// NonPathingEntity targetX/Z cache remains: TS PathingEntity.ts:551-554
-	// @2e3bcf43.
-	if isNonPathing {
-		n.targetX = fx
-		n.targetZ = fz
-	}
+	// called per-turn (npc_ai.go turn() + ResetMasks tail).
 
 	return true
 }
@@ -1132,11 +1127,11 @@ func targetWidthLength(target entity) (width, length int) {
 // (*Npc).FaceSquare in modules/world/npc_masks.go which takes absolute
 // coords and applies *2+1.
 //
-// Drivers per TS: takeStep (PathingEntity.ts:220), Teleport
-// (PathingEntity.ts:289), reorient (PathingEntity.ts:353,358),
-// setInteraction (PathingEntity.ts:528). The setInteraction site
-// (modules/world/npc_interaction.go:665) is the only one that ever
-// passes instant=true.
+// Drivers per TS @4c95f87e: takeStep (PathingEntity.ts:220), Teleport
+// (PathingEntity.ts:289), reorientEntity (PathingEntity.ts:364-369,
+// client=false), reorient (PathingEntity.ts:377-388, client=true).
+// setInteraction no longer calls focus() (e31a8719) — reorient() is now
+// the only driver that ever passes instant=true.
 func (n *Npc) focus(fx, fz int, instant bool) {
 	n.faceAngleX = fx
 	n.faceAngleZ = fz
@@ -1175,23 +1170,37 @@ func (n *Npc) effectiveFaceCoord() (x, z int) {
 	return n.faceSquareX, n.faceSquareZ
 }
 
-// reorient is the Npc-side per-tick refocus invoked from
-// Server.processInfo before rsbuf compute. Mirrors TS
-// PathingEntity.reorient at PathingEntity.ts:349-361. Same shape as
-// (*Player).reorient.
-func (n *Npc) reorient() {
+// reorientEntity refocuses the serverside faceAngle toward a pathing
+// (Player/Npc) target, run BEFORE movement/interaction (from turn(),
+// between processMovementInteraction and setFaceEntity). client=false: no
+// face-coord mask. Mirrors TS PathingEntity.reorientEntity, same shape as
+// (*Player).reorientEntity. TS PathingEntity.ts @4c95f87e
+// (Engine-TS/src/engine/entity/PathingEntity.ts:364-369).
+func (n *Npc) reorientEntity() {
 	switch t := n.target.(type) {
 	case *Player:
 		n.focus(coordgrid.Fine(t.x, 1), coordgrid.Fine(t.z, 1), false)
 	case *Npc:
 		n.focus(coordgrid.Fine(t.x, t.size), coordgrid.Fine(t.z, t.size), false)
-	default:
-		_ = t
-		if n.targetX != -1 && n.stepsTaken == 0 {
-			n.focus(n.targetX, n.targetZ, false)
-			n.targetX = -1
-			n.targetZ = -1
-		}
+	}
+}
+
+// reorient faces a loc/obj target once the npc has stopped moving
+// (targetX != -1 && stepsTaken == 0), shipping the face-coord mask
+// (client=true). Early-returns for a pathing target: reorientEntity
+// already handled it earlier this turn. MUST run AFTER
+// processMovementInteraction so stepsTaken reflects this tick. Mirrors TS
+// PathingEntity.reorient, same shape as (*Player).reorient. TS
+// PathingEntity.ts @4c95f87e (Engine-TS/src/engine/entity/PathingEntity.ts:377-388).
+func (n *Npc) reorient() {
+	switch n.target.(type) {
+	case *Player, *Npc:
+		return
+	}
+	if n.targetX != -1 && n.stepsTaken == 0 {
+		n.focus(n.targetX, n.targetZ, true)
+		n.targetX = -1
+		n.targetZ = -1
 	}
 }
 

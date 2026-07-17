@@ -17,10 +17,11 @@ import (
 
 // TestProcessInfo_ZeroPlayers_SkipsBody pins the rev-274 processInfo gate:
 // with getTotalPlayers()==0 the function returns immediately, before the
-// per-NPC reorient loop runs. Observable via Npc.reorient: an NPC with a
-// cached targetX and stepsTaken==0 has its targetX cleared to -1 by the
-// reorient loop — but ONLY if processInfo's body executes. With the gate the
-// targetX survives.
+// npc-loop ComputeNpcs push runs. processInfo no longer reorients npcs
+// (TS World.ts:1045 @4c95f87e, e31a8719 — that moved to Npc.turn()), so
+// the observable is the renderer's per-nid low-def cache: ComputeNpcs
+// always recomputes NpcLowDefOf for every npc it processes (it force-emits
+// FACE_COORD), so it stays nil iff processInfo's body never ran.
 func TestProcessInfo_ZeroPlayers_SkipsBody(t *testing.T) {
 	s := newTestServer(t)
 	s.renderer = rsbuf.NewRenderer()
@@ -28,9 +29,7 @@ func TestProcessInfo_ZeroPlayers_SkipsBody(t *testing.T) {
 	n := newNpcForLifecycleTest(t)
 	n.server = s
 	n.x, n.z, n.level = 3094, 3106, 0
-	n.target = nil
-	n.targetX, n.targetZ = 99, 99 // cached focus coord; reorient would clear to -1
-	n.stepsTaken = 0
+	n.target = nil // nid=1 (NewNpc(1, ...) inside newNpcForLifecycleTest)
 	s.npcLoop = append(s.npcLoop, n)
 
 	if got := s.getTotalPlayers(); got != 0 {
@@ -39,9 +38,9 @@ func TestProcessInfo_ZeroPlayers_SkipsBody(t *testing.T) {
 
 	s.processInfo()
 
-	if n.targetX != 99 || n.targetZ != 99 {
-		t.Errorf("processInfo ran its body at 0 players (targetX=%d,targetZ=%d, want 99,99); "+
-			"the World.ts:979-981 0-player early return is missing", n.targetX, n.targetZ)
+	if got := s.renderer.NpcLowDefOf(n.nid); got != nil {
+		t.Errorf("processInfo ran its body at 0 players (NpcLowDefOf(%d) = %v, want nil); "+
+			"the World.ts:979-981 0-player early return is missing", n.nid, got)
 	}
 }
 

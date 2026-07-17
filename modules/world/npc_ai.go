@@ -50,9 +50,17 @@ func (n *Npc) turn(s *Server) {
 	// === Movement / interaction (NAI-11) ===
 	n.processMovementInteraction(s)
 
-	// "// Update target facing" — TS Npc.ts:183-184 @2e3bcf43 (ee28c1aa):
-	// setFaceEntity() runs after processMovementInteraction, deriving
-	// faceEntity from the (possibly just-cleared/just-set) target.
+	// Reorient during the npc's own turn (not the post-movement processInfo
+	// sweep), so an npc that didn't take a turn this tick keeps its spawn
+	// orientation. TS Npc.ts:186-187 @4c95f87e (e31a8719): reorientEntity
+	// (faceAngle toward a player/npc) then reorient (face a loc/obj once
+	// stopped), then the FACE_ENTITY mask.
+	n.reorientEntity()
+	n.reorient()
+
+	// "// Update target facing" — TS Npc.ts:189 @2e3bcf43 (ee28c1aa):
+	// setFaceEntity() runs after processMovementInteraction/reorient,
+	// deriving faceEntity from the (possibly just-cleared/just-set) target.
 	n.setFaceEntity()
 
 	// rev-274: TS Npc.ts:186 calls validateDistanceWalked() at the NPC
