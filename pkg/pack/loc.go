@@ -41,8 +41,9 @@ var LocShapeSuffix = map[int]string{
 }
 
 // locShapeCentrepieceStraight is shape value 10 (suffix "_8"), the
-// centrepiece-straight shape that gets first-pass priority and is the
-// fallback for `directReference` resolution.
+// centrepiece-straight shape that gets first-pass priority: the raw
+// (unsuffixed) model name resolves directly to this shape (TS
+// LocConfig.ts:329-336 @4c95f87e; upstream 3b653372).
 const locShapeCentrepieceStraight = 10
 
 // locModelShape pairs a resolved model id with its shape value, used to
@@ -230,58 +231,42 @@ func parseLocConfigFor(categoryPack, seqPack, texturePack *PackFile, lk *paramLo
 }
 
 // resolveLocModels mirrors the TS model-resolution loop at
-// LocConfig.ts:319-360. For each raw model name in srcModels:
-//   - probe modelPack for an exact match, then for each shape suffix
-//   - if only the exact match exists (no shape-suffix variants),
-//     force the model to shape _8 (centrepiece_straight)
-//   - otherwise probe `_8` first and then all other shapes in order
+// LocConfig.ts:326-349 @4c95f87e (upstream 3b653372). For each raw model
+// name in srcModels:
+//   - centrepiece_straight comes first in Content's data, so the RAW
+//     (unsuffixed) name is probed first and, if present, resolved to
+//     shape _8 (centrepiece_straight) directly — Content dropped the `_8`
+//     filename suffix in the paired rename, so the raw name now IS the
+//     centrepiece model.
+//   - then every other shape suffix is probed in order.
 //
 // modelFlags receives 0x4 at each resolved model id, matching TS
-// LocConfig.ts:337,347,359 @ 9aadcec4. May be nil (callers that
-// don't need flag tracking pass nil).
+// LocConfig.ts:333,345. May be nil (callers that don't need flag
+// tracking pass nil).
 //
-// Returns the (model, shape) list to feed opcode 1, plus a flag
-// indicating whether any non-_8 shape was synthesised (used for the
-// "any _8 shape forces name transmit" downstream check).
+// Returns the (model, shape) list to feed opcode 1.
 func resolveLocModels(srcModels []string, modelPack *PackFile, modelFlags []int, debugname string) ([]locModelShape, error) {
 	var models []locModelShape
 	for _, raw := range srcModels {
-		directReference := modelPack.GetByName(raw) != -1
-		for shape := 0; shape <= 22; shape++ {
-			if shape == locShapeCentrepieceStraight {
-				continue
-			}
-			if modelPack.GetByName(raw+LocShapeSuffix[shape]) != -1 {
-				directReference = false
-				break
-			}
-		}
-
-		if directReference {
-			forceID := modelPack.GetByName(raw)
-			if forceID != -1 {
-				if modelFlags != nil {
-					modelFlags[forceID] |= 0x4 // TS LocConfig.ts:337
-				}
-				models = append(models, locModelShape{model: forceID, shape: locShapeCentrepieceStraight})
-				continue
-			}
-		}
-
-		// centrepiece_straight (`_8`) first.
-		if id := modelPack.GetByName(raw + "_8"); id != -1 {
+		// centrepiece_straight comes first in their data, so we check it
+		// first — the raw (unsuffixed) name IS the centrepiece model since
+		// TS LocConfig.ts:329-336 @4c95f87e (upstream 3b653372; Content
+		// dropped the _8 filename suffix in the paired rename).
+		if id := modelPack.GetByName(raw); id != -1 {
 			if modelFlags != nil {
-				modelFlags[id] |= 0x4 // TS LocConfig.ts:347
+				modelFlags[id] |= 0x4 // TS LocConfig.ts:333
 			}
 			models = append(models, locModelShape{model: id, shape: locShapeCentrepieceStraight})
 		}
+
+		// now we can check the rest of the shapes.
 		for shape := 0; shape <= 22; shape++ {
 			if shape == locShapeCentrepieceStraight {
 				continue
 			}
 			if id := modelPack.GetByName(raw + LocShapeSuffix[shape]); id != -1 {
 				if modelFlags != nil {
-					modelFlags[id] |= 0x4 // TS LocConfig.ts:359
+					modelFlags[id] |= 0x4 // TS LocConfig.ts:345
 				}
 				models = append(models, locModelShape{model: id, shape: shape})
 			}
@@ -303,7 +288,7 @@ func resolveLocModels(srcModels []string, modelPack *PackFile, modelFlags []int,
 //
 // modelFlags is indexed by model id (size = Model PackFile max). The loc
 // packer writes 0x4 flags for model references via resolveLocModels per
-// TS LocConfig.ts:337,347,359 @ 9aadcec4.
+// TS LocConfig.ts:333,345 @4c95f87e.
 //
 // TS source: tools/pack/config/LocConfig.ts:170-434.
 func packLocConfigs(configs map[string][]ConfigLine, locPack, modelPack *PackFile, modelFlags []int) (server, client *PackedData, err error) {

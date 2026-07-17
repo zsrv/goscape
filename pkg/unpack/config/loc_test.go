@@ -528,6 +528,17 @@ func TestRenameModelLoc_NoStrip(t *testing.T) {
 	}
 }
 
+// TestRenameModelLoc_Shape10NoStrip verifies shape 10 (centrepiece_straight,
+// "_8") no longer strips a suffix — the raw name IS the centrepiece model
+// name post-rename. TS LocConfig.ts:15 @4c95f87e (upstream 3b653372).
+func TestRenameModelLoc_Shape10NoStrip(t *testing.T) {
+	modelPack := makePackFile(5, "mywall_8")
+	result := renameModelLoc(5, 10, modelPack)
+	if result != "mywall_8" {
+		t.Errorf("want mywall_8 (unchanged) got %q", result)
+	}
+}
+
 // --- rev-254 additions (TS @2e3bcf43) ---
 
 // TestUnpackLocModels_Opcode5_CollectsCentrepieceModels verifies code 5 collects

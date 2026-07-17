@@ -615,10 +615,11 @@ func TestPackLocConfigs_Desc(t *testing.T) {
 }
 
 func TestPackLocConfigs_Models_ForceShape8(t *testing.T) {
-	// "chair" exists in modelPack and has no shape-suffix variants → forced
-	// shape _8. All-centrepiece list → compact opcode-5 form at rev-254
-	// (TS LocConfig.ts:386-392 @ 2e3bcf43; this pin previously asserted
-	// the pre-254 opcode-1 pair form).
+	// "chair" exists in modelPack as the raw (unsuffixed) name → resolves to
+	// shape _8 (centrepiece_straight) via the raw-name probe (TS
+	// LocConfig.ts:329-336 @4c95f87e; upstream 3b653372). All-centrepiece
+	// list → compact opcode-5 form at rev-254 (TS LocConfig.ts:386-392
+	// @ 2e3bcf43).
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("c")
 	configs := map[string][]ConfigLine{"c": {{Key: "model", Value: "chair"}}}
@@ -635,36 +636,15 @@ func TestPackLocConfigs_Models_ForceShape8(t *testing.T) {
 	}
 }
 
-func TestPackLocConfigs_Models_DirectMatchWithShape8Variant(t *testing.T) {
-	// "table" matches exactly (id=0) AND "table_8" exists (id=2). TS
-	// directReference probe scans shape 0..22 SKIPPING shape 10 (_8),
-	// so the "_8" variant alone does NOT flip directReference to false.
-	// Result: directReference wins → emit id=0 forced into shape _8;
-	// all-centrepiece → opcode-5 compact form at rev-254 (this pin
-	// previously asserted the pre-254 opcode-1 pair form).
-	mp, _, _, _, _, _ := locTestRegistries(t)
-	locPack := locOneSlotPack("t")
-	configs := map[string][]ConfigLine{"t": {{Key: "model", Value: "table"}}}
-	_, client, err := packLocConfigs(configs, locPack, mp, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// opcode 5 + p1(1) + p2(modelID=0 for "table") — NO shape byte
-	// + opcode 2 + pjstr("t\n") (shape _8 forces name) + Next
-	want := []byte{0x00, 0x01, 0x05, 0x01, 0x00, 0x00, 0x02, 't', 0x0A, 0x00}
-	if !bytes.Equal(client.Dat.Data, want) {
-		t.Fatalf("got % x, want % x", client.Dat.Data, want)
-	}
-}
-
 func TestPackLocConfigs_Models_MixedShapesKeepCode1(t *testing.T) {
-	// "wall" resolves via suffix variants: wall_8 (centrepiece, id=1) AND
-	// wall_1 (wall_straight shape 0, id=0). Mixed shapes → centrepieceOnly
-	// false → the opcode-1 (model, shape) pair form is retained
-	// (TS LocConfig.ts:393-401 @ 2e3bcf43).
+	// "wall" resolves via the raw-name centrepiece probe (id=1, post-rename
+	// naming — TS LocConfig.ts:329-336 @4c95f87e; upstream 3b653372) AND the
+	// wall_1 shape-suffix variant (wall_straight shape 0, id=0). Mixed
+	// shapes → centrepieceOnly false → the opcode-1 (model, shape) pair
+	// form is retained (TS LocConfig.ts:393-401 @ 2e3bcf43).
 	mp := newTestPF("model", map[int]string{
 		0: "wall_1", // LocShapeSuffix[0] = "_1" (wall_straight)
-		1: "wall_8", // centrepiece_straight
+		1: "wall",   // centrepiece_straight (raw name, no _8 suffix)
 	})
 	locPack := locOneSlotPack("mywall")
 	configs := map[string][]ConfigLine{
@@ -674,7 +654,7 @@ func TestPackLocConfigs_Models_MixedShapesKeepCode1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// opcode 1 + p1(count=2) + (p2(1)+p1(10)) [wall_8 probed first] +
+	// opcode 1 + p1(count=2) + (p2(1)+p1(10)) [raw "wall" probed first] +
 	// (p2(0)+p1(0)) + opcode 2 + pjstr (centrepiece presence forces name)
 	// + Next
 	want := []byte{0x00, 0x01,
@@ -840,13 +820,15 @@ func TestPackLocConfigs_DebugnameEmpty(t *testing.T) {
 }
 
 // TestPackLocConfigs_ModelFlags_0x4_ShapeSuffix pins that resolveLocModels
-// writes 0x4 into modelFlags for the per-shape suffix branch
-// (TS LocConfig.ts:359 @ 9aadcec4).
+// writes 0x4 into modelFlags for BOTH the raw-name centrepiece branch and
+// the per-shape suffix branch (TS LocConfig.ts:333,345 @4c95f87e; upstream
+// 3b653372 — the old directReference logic that forced raw-only resolution
+// when a shape variant existed is deleted).
 //
 // Setup: raw="wall" has a non-_8 shape variant "wall_0" (LocShapeSuffix[0]).
-// directReference probe finds "wall_0" → directReference=false.
-// "wall_8" does not exist → _8 branch skipped.
-// Shape 0 loop → modelFlags[model_id_of_wall_0] |= 0x4.
+// The raw-name probe finds "wall" (id=0) → centrepiece shape, modelFlags[0]
+// |= 0x4. The per-shape loop finds "wall_0" (id=1) → shape 0, modelFlags[1]
+// |= 0x4. Both are emitted now — the raw name is never dropped.
 func TestPackLocConfigs_ModelFlags_0x4_ShapeSuffix(t *testing.T) {
 	// LocShapeSuffix[0] is the suffix for shape 0.
 	suffix0 := LocShapeSuffix[0]
@@ -867,29 +849,81 @@ func TestPackLocConfigs_ModelFlags_0x4_ShapeSuffix(t *testing.T) {
 	if modelFlags[1] != 0x4 {
 		t.Errorf("modelFlags[1] = 0x%x, want 0x4 (per-shape branch)", modelFlags[1])
 	}
-	// "wall" (id=0) untouched (direct ref probe found shape variant).
-	if modelFlags[0] != 0 {
-		t.Errorf("modelFlags[0] = 0x%x, want 0", modelFlags[0])
+	// "wall" (id=0) ALSO resolved via the raw-name centrepiece branch → 0x4
+	// (no longer suppressed by directReference when a shape variant exists).
+	if modelFlags[0] != 0x4 {
+		t.Errorf("modelFlags[0] = 0x%x, want 0x4 (raw-name centrepiece branch)", modelFlags[0])
 	}
 }
 
-// TestResolveLocModels_DirectRef_ModelFlags pins the forced-shape
-// (direct-reference) branch: when no shape-suffix variants exist for
-// the raw name, the exact-match model gets 0x4 (TS LocConfig.ts:337).
-func TestResolveLocModels_DirectRef_ModelFlags(t *testing.T) {
+// TestResolveLocModels_RawNameHit pins pin (a): a raw-name hit alone (no
+// shape-suffix variants) resolves to the centrepiece shape and sets
+// modelFlags. TS LocConfig.ts:329-336 @4c95f87e (upstream 3b653372) — the
+// old directReference machinery required "door_8" for this; the simplified
+// probe reads the raw name directly since Content dropped the `_8` filename
+// suffix in the paired rename.
+func TestResolveLocModels_RawNameHit(t *testing.T) {
 	mp := newTestPF("model", map[int]string{
-		0: "pillar", // only direct ref, no shape suffixes in pack
+		0: "door", // raw name only, no shape suffixes in pack
 	})
 	modelFlags := make([]int, 1)
-	models, err := resolveLocModels([]string{"pillar"}, mp, modelFlags, "test")
+	models, err := resolveLocModels([]string{"door"}, mp, modelFlags, "test")
 	if err != nil {
 		t.Fatalf("resolveLocModels: %v", err)
 	}
-	if len(models) != 1 || models[0].model != 0 {
-		t.Fatalf("expected model id 0, got %v", models)
+	if len(models) != 1 || models[0].model != 0 || models[0].shape != locShapeCentrepieceStraight {
+		t.Fatalf("expected [{model:0 shape:10}], got %v", models)
 	}
 	if modelFlags[0] != 0x4 {
-		t.Errorf("modelFlags[0] = 0x%x, want 0x4 (direct-ref branch)", modelFlags[0])
+		t.Errorf("modelFlags[0] = 0x%x, want 0x4", modelFlags[0])
+	}
+}
+
+// TestResolveLocModels_RawPlusShapedVariant pins pin (b): when BOTH the raw
+// name and a shape-suffixed variant exist in modelPack, BOTH are resolved
+// and emitted — the raw name as centrepiece (shape 10), the suffixed
+// variant at its own shape. TS LocConfig.ts:329-346 @4c95f87e (upstream
+// 3b653372). Under the old directReference logic, the presence of any
+// shape-suffix variant flipped directReference to false and caused the raw
+// name to be dropped entirely (only the suffixed variant was emitted); the
+// simplified probe treats the two checks independently.
+func TestResolveLocModels_RawPlusShapedVariant(t *testing.T) {
+	// LocShapeSuffix[0] == "_1" (shape value 0).
+	mp := newTestPF("model", map[int]string{
+		0: "door",
+		1: "door" + LocShapeSuffix[0],
+	})
+	modelFlags := make([]int, 2)
+	models, err := resolveLocModels([]string{"door"}, mp, modelFlags, "test")
+	if err != nil {
+		t.Fatalf("resolveLocModels: %v", err)
+	}
+	want := []locModelShape{
+		{model: 0, shape: locShapeCentrepieceStraight},
+		{model: 1, shape: 0},
+	}
+	if len(models) != len(want) || models[0] != want[0] || models[1] != want[1] {
+		t.Fatalf("got %v, want %v", models, want)
+	}
+	if modelFlags[0] != 0x4 {
+		t.Errorf("modelFlags[0] = 0x%x, want 0x4 (raw-name centrepiece)", modelFlags[0])
+	}
+	if modelFlags[1] != 0x4 {
+		t.Errorf("modelFlags[1] = 0x%x, want 0x4 (shape-suffix variant)", modelFlags[1])
+	}
+}
+
+// TestResolveLocModels_NoMatches pins pin (c): no raw or suffixed match at
+// all for a non-empty srcModels → error "failed to find suitable loc
+// models" (unchanged from before this task).
+func TestResolveLocModels_NoMatches(t *testing.T) {
+	mp := newTestPF("model", map[int]string{0: "unrelated"})
+	_, err := resolveLocModels([]string{"ghost"}, mp, nil, "test")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if got, want := err.Error(), "test: failed to find suitable loc models"; got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 

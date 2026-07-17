@@ -460,10 +460,15 @@ func unpackModelNames(jag, jag2 *jagfile.Jagfile, modelRenameOffset int, env *En
 				continue
 			}
 
-			// TS lines 259-264: collision loop
-			// initial name = `${debugname}${LocShapeSuffix[shape]}`
-			// collision: `${debugname}i${i}${LocShapeSuffix[shape]}`
+			// TS lines 259-264 @4c95f87e (upstream 3b653372): collision loop.
+			// centrepiece_straight (shape 10) emits no suffix; all other
+			// shapes keep theirs.
+			// initial name = `${debugname}${suffix}`
+			// collision: `${debugname}i${i}${suffix}`
 			suffix := LocShapeSuffix[shape]
+			if shape == 10 {
+				suffix = ""
+			}
 			name := debugname + suffix
 			i := 2
 			for modelPack.GetByName(name) != -1 {

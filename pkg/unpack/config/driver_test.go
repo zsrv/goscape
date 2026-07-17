@@ -475,6 +475,10 @@ func namedPackFile(srcDir, typ string, entries map[int]string) *pack.PackFile {
 // the compare cache sets the loop start to compareIdx.size, and models below
 // modelRenameOffset are skipped; the ldModels rename pass is GONE.
 //
+// Shape 10 (centrepiece_straight) emits debugname with NO "_8" suffix (TS
+// Unpack.ts:259-264 @4c95f87e; upstream 3b653372) — the expectations below
+// were updated from "fountain_8"/"statue_8" accordingly.
+//
 // TS source: Unpack.ts:205-276 @2e3bcf43.
 func TestUnpackModelNames_254Guards(t *testing.T) {
 	// Two locs, each one centrepiece model: loc 0 → model 5, loc 1 → model 6.
@@ -497,12 +501,13 @@ func TestUnpackModelNames_254Guards(t *testing.T) {
 		if err := unpackModelNames(jag, nil, 6, env, srcDir); err != nil {
 			t.Fatalf("unpackModelNames: %v", err)
 		}
-		// model 5 < offset 6 → untouched; model 6 >= 6 → renamed fountain_8.
+		// model 5 < offset 6 → untouched; model 6 >= 6 → renamed fountain
+		// (shape 10 carries no "_8" suffix).
 		if got := env.Model.GetByID(5); got != "model_5" {
 			t.Errorf("model 5: want model_5 got %q", got)
 		}
-		if got := env.Model.GetByID(6); got != "fountain_8" {
-			t.Errorf("model 6: want fountain_8 got %q", got)
+		if got := env.Model.GetByID(6); got != "fountain" {
+			t.Errorf("model 6: want fountain got %q", got)
 		}
 	})
 
@@ -518,8 +523,8 @@ func TestUnpackModelNames_254Guards(t *testing.T) {
 		if got := env.Model.GetByID(5); got != "model_5" {
 			t.Errorf("model 5: want model_5 (skipped via start) got %q", got)
 		}
-		if got := env.Model.GetByID(6); got != "fountain_8" {
-			t.Errorf("model 6: want fountain_8 got %q", got)
+		if got := env.Model.GetByID(6); got != "fountain" {
+			t.Errorf("model 6: want fountain got %q", got)
 		}
 	})
 
@@ -530,11 +535,36 @@ func TestUnpackModelNames_254Guards(t *testing.T) {
 		if err := unpackModelNames(jag, nil, 0, env, srcDir); err != nil {
 			t.Fatalf("unpackModelNames: %v", err)
 		}
-		if got := env.Model.GetByID(5); got != "statue_8" {
-			t.Errorf("model 5: want statue_8 got %q", got)
+		if got := env.Model.GetByID(5); got != "statue" {
+			t.Errorf("model 5: want statue got %q", got)
 		}
-		if got := env.Model.GetByID(6); got != "fountain_8" {
-			t.Errorf("model 6: want fountain_8 got %q", got)
+		if got := env.Model.GetByID(6); got != "fountain" {
+			t.Errorf("model 6: want fountain got %q", got)
 		}
 	})
+}
+
+// TestUnpackModelNames_Shape10CollisionNoSuffix pins that the collision
+// loop for shape 10 (centrepiece_straight) appends "i{N}" WITHOUT a
+// trailing "_8" — the "debugnamei2" form, not "debugnamei2_8". TS
+// Unpack.ts:259-264 @4c95f87e (upstream 3b653372).
+func TestUnpackModelNames_Shape10CollisionNoSuffix(t *testing.T) {
+	srcDir := t.TempDir()
+	// loc 0 ("statue") → model 5, shape 10 (centrepiece).
+	bodies := [][]byte{
+		{1, 1, 0x00, 5, 10, 0},
+	}
+	env := &Env{
+		Loc: namedPackFile(srcDir, "loc", map[int]string{0: "statue"}),
+		// model_5 needs renaming; id 99 already holds the name "statue",
+		// forcing the collision loop to fire.
+		Model: namedPackFile(srcDir, "model", map[int]string{5: "model_5", 99: "statue"}),
+	}
+	jag := makeTinyJagWithLoc(t, bodies)
+	if err := unpackModelNames(jag, nil, 0, env, srcDir); err != nil {
+		t.Fatalf("unpackModelNames: %v", err)
+	}
+	if got := env.Model.GetByID(5); got != "statuei2" {
+		t.Errorf("model 5: want statuei2 got %q", got)
+	}
 }

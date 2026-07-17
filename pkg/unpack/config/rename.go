@@ -257,7 +257,7 @@ func renameModelSpot(modelID int, name string, modelPack *pack.PackFile, srcDir 
 // renameModelLoc strips _ld and shape suffixes from the model name.
 // Does NOT move files; loc models are not relocated.
 //
-// TS source: LocConfig.ts:8-20.
+// TS source: LocConfig.ts:8-18 @4c95f87e.
 func renameModelLoc(modelID int, shape int, modelPack *pack.PackFile) string {
 	name := modelPack.GetByID(modelID)
 
@@ -266,7 +266,10 @@ func renameModelLoc(modelID int, shape int, modelPack *pack.PackFile) string {
 	}
 
 	suffix := LocShapeSuffix[shape]
-	if strings.HasSuffix(name, suffix) {
+	// shape 10 (centrepiece_straight, "_8") carries no filename suffix since
+	// TS LocConfig.ts:15 @4c95f87e (upstream 3b653372) — only strip for
+	// non-centrepiece shapes.
+	if shape != 10 && strings.HasSuffix(name, suffix) {
 		name = name[:len(name)-2]
 	}
 
