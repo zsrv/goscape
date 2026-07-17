@@ -126,12 +126,15 @@ func TestHandleMoveGameClickClosesChatModal(t *testing.T) {
 	}
 }
 
-// TestHandleMoveOpClickClosesChatModal pins the rev-254 (f0ccbe8a) contract:
-// the pinned MoveClickHandler runs clearPendingAction for ALL move opcodes —
-// the pre-rev-254 !opClick gate is gone, so MOVE_OPCLICK also closes an open
-// chat modal (TS MoveClickHandler.ts:27-28; message.opClick is decoded but
-// never read by the handler).
-func TestHandleMoveOpClickClosesChatModal(t *testing.T) {
+// TestHandleMoveOpClickPreservesChatModal pins the TS 3da10133 contract
+// (MoveClickHandler.ts:26-32 @4c95f87e): MOVE_OPCLICK no longer runs
+// clearPendingAction, so an open chat modal must stay open. This reverts the
+// f0ccbe8a "unconditional clear" posture goscape carried at the dee467c8
+// pin — a MOVE_OPCLICK is always paired with a following op packet that
+// clears+sets the interaction itself, so clearing here would drop the
+// target in the gap when the per-tick user packet limit splits the pair
+// across ticks.
+func TestHandleMoveOpClickPreservesChatModal(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
@@ -147,11 +150,11 @@ func TestHandleMoveOpClickClosesChatModal(t *testing.T) {
 		t.Fatalf("handleMoveOpClick: %v", err)
 	}
 
-	if p.modalChat != -1 {
-		t.Errorf("modalChat: got %d, want -1 (op click now ALSO fires ClearPendingAction per f0ccbe8a)", p.modalChat)
+	if p.modalChat != 100 {
+		t.Errorf("modalChat: got %d, want 100 (unchanged — MOVE_OPCLICK must NOT fire ClearPendingAction, TS MoveClickHandler.ts:26-32 @4c95f87e)", p.modalChat)
 	}
-	if p.modalState&modalStateChat != modalStateNone {
-		t.Errorf("modalState chat bit still set: got 0x%x", p.modalState)
+	if p.modalState&modalStateChat != modalStateChat {
+		t.Errorf("modalState chat bit cleared: got 0x%x, want bit still set", p.modalState)
 	}
 }
 

@@ -219,9 +219,6 @@ func handleMoveGameClick(p *Player, payload []byte) error {
 }
 
 // handleMoveOpClick is the dispatch entry for MOVE_OPCLICK (opcode 167).
-// f0ccbe8a: the handler body no longer branches on opClick — clearPendingAction
-// + tempRun + queueWaypoints + walktrigger run for op clicks too (TS decodes
-// message.opClick but the pinned MoveClickHandler never reads it).
 func handleMoveOpClick(p *Player, payload []byte) error {
 	return moveClickInner(p, payload, true, 0)
 }
@@ -248,8 +245,11 @@ func handleMoveOpClick(p *Player, payload []byte) error {
 //  2. ctrlHeld out of [0,1] OR DistanceToSW(player, start) > 104 →
 //     unsetMapFlag (clearWaypoints + write) + clear userPath, no-op
 //     (TS L20-25).
-//  3. ClearPendingAction — for ALL move opcodes incl. MOVE_OPCLICK
-//     (TS L27-28; the pre-rev-254 !opClick gate is gone).
+//  3. ClearPendingAction — gated on !opClick (TS L26-32 @4c95f87e): a
+//     MOVE_OPCLICK is always paired with a following op packet that
+//     clears+sets the interaction itself, so clearing here would drop the
+//     target in the gap when the per-tick user packet limit splits the pair
+//     across ticks.
 //  4. tempRun = ctrlHeld; override to 0 if runenergy<100 && ctrlHeld==1
 //     (TS L30-35).
 //  5. Routefinder on (TS L36-50 @dee467c8): rebuild userPath from the client
@@ -259,8 +259,6 @@ func handleMoveOpClick(p *Player, payload []byte) error {
 //     unconditionally after.
 //     Routefinder off (TS L51-54): server-side findPath to the last coord.
 //     userPath is NOT touched on this branch (TS-faithful).
-//
-// opClick is retained for the debug log only.
 func moveClickInner(p *Player, payload []byte, opClick bool, trailingBytes int) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -300,9 +298,14 @@ func moveClickInner(p *Player, payload []byte, opClick bool, trailingBytes int) 
 
 	p.client.log.Debug("move click", "ctrl_held", ctrlHeld, "dest_packed", packed[len(packed)-1], "op_click", opClick)
 
-	// Clear previous interaction (TS L27-28) — unconditional since f0ccbe8a
-	// (fires for MOVE_OPCLICK too).
-	p.ClearPendingAction()
+	// Clear previous interaction — but not for op-click moves (TS
+	// MoveClickHandler.ts:26-32 @4c95f87e, upstream #103): a MOVE_OPCLICK is
+	// always paired with a following op packet that clears+sets the
+	// interaction itself; clearing here would drop the target in the gap when
+	// the per-tick user packet limit splits the pair across ticks.
+	if !opClick {
+		p.ClearPendingAction()
+	}
 
 	// Handle ctrl run (TS L30-35).
 	if p.runenergy < 100 && ctrlHeld == 1 {
