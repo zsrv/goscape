@@ -626,33 +626,32 @@ func handleStatAdvance(s *ScriptState) error {
 }
 
 // statRandomThreshold computes the STAT_RANDOM success threshold per TS
-// PlayerOps.ts:578-586:
+// PlayerOps.ts:583-586 @4c95f87e:
 //
-//	value = floor(low*(99-level)/98) + floor(high*(level-1)/98) + 1
+//	clampedLevel = min(level, 99)
+//	value = floor(low*(99-clampedLevel)/98) + floor(high*(clampedLevel-1)/98) + 1
 //
-// In JS the arithmetic is float64 and Math.floor rounds toward -∞. Go
-// integer division truncates toward zero, so the two semantics diverge
-// whenever a numerator is negative — which happens for boosted stats
-// where the live `level` exceeds 99 (the (99-level) factor in the low
-// term goes negative). At level=120 low=10: TS floor(-210/98)=-3, Go
-// trunc -210/98=-2, off by one across the whole equation.
+// math.Floor is retained for the OOB-stat level=0 regime (the
+// (level-1) numerator is still negative there; JS Math.floor rounds
+// toward -∞ where Go int division truncates toward zero).
 //
-// Express both terms via math.Floor on float64 to stay TS-faithful for
-// the boosted regime; truncates back to int afterwards. The function
-// pure on (low, high, level) — no Player or random dependencies — so
-// the formula can be pinned directly without rand-seed gymnastics.
+// The function is pure on (low, high, level) — no Player or random
+// dependencies — so the formula can be pinned directly without rand-seed
+// gymnastics.
 func statRandomThreshold(low, high, level int) int {
-	return int(math.Floor(float64(low)*float64(99-level)/98)) +
-		int(math.Floor(float64(high)*float64(level-1)/98)) + 1
+	clamped := min(level, 99)
+	return int(math.Floor(float64(low)*float64(99-clamped)/98)) +
+		int(math.Floor(float64(high)*float64(clamped-1)/98)) + 1
 }
 
 // handleStatRandom implements STAT_RANDOM. TS uses JavaRandom's next
 // double * 256; we use math/rand/v2.IntN(256) — close enough for
 // smoke-testing script flow but *not* bit-identical at the RNG level.
 //
-// TS formula (PlayerOps.ts:578-586):
+// TS formula (PlayerOps.ts:583-586 @4c95f87e):
 //
-//	value = floor(low*(99-level)/98) + floor(high*(level-1)/98) + 1
+//	clampedLevel = min(level, 99)
+//	value = floor(low*(99-clampedLevel)/98) + floor(high*(clampedLevel-1)/98) + 1
 //	chance = floor(random * 256)          // [0, 255]
 //	pushInt(value > chance ? 1 : 0)
 //

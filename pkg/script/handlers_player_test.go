@@ -1111,17 +1111,30 @@ func TestStatOpsRejectOOBStatID(t *testing.T) {
 	}
 }
 
-// TestStatRandomThreshold_MatchFloorSemantics pins h-player-4 (formula):
-// `value = floor(low*(99-level)/98) + floor(high*(level-1)/98) + 1` uses
-// Math.floor (round toward -∞) per JS, NOT Go's trunc-toward-zero. The
-// divergence only fires when a numerator goes negative — which happens
-// for boosted stats with level > 99 (the (99-level) factor in the low
-// term flips sign).
-//
-// Toggle-revert RED proof: restore the pre-fix inline integer-division
-// formula in handleStatRandom (`(low*(99-level))/98 + (high*(level-1))/98 + 1`)
-// and remove statRandomThreshold; the boost subtests then read 11 and
-// fail with the cited assertion message. Unboosted subtests stay GREEN.
+func TestStatRandomThresholdClampsLevelTo99(t *testing.T) {
+	// boosted stat: level 120 must behave exactly like level 99
+	if got, want := statRandomThreshold(10, 10, 120), statRandomThreshold(10, 10, 99); got != want {
+		t.Fatalf("clamped threshold = %d, want %d", got, want)
+	}
+	// level 99: low*(0)/98 + high*98/98 + 1 = high + 1
+	if got := statRandomThreshold(10, 40, 99); got != 41 {
+		t.Fatalf("threshold(10,40,99) = %d, want 41", got)
+	}
+	// sub-99 path unchanged: level 1 → low + 1
+	if got := statRandomThreshold(10, 40, 1); got != 11 {
+		t.Fatalf("threshold(10,40,1) = %d, want 11", got)
+	}
+}
+
+// TestStatRandomThreshold_MatchFloorSemantics pins h-player-4 (formula) and
+// the float-vs-trunc semantics fix: TS PlayerOps.ts:583-586 @4c95f87e uses
+// Math.floor (rounds toward -∞) per JS, not Go's integer division which
+// truncates toward zero. After clamping, boosted stats ≥99 all clamp to 99
+// and behave identically. The remaining divergence only fires in the OOB
+// level=0 regime where the (level-1) numerator is negative, so math.Floor
+// rounds -0.1... down to -1 while Go truncation rounds toward zero → 0,
+// yielding a 1-point delta. This row verifies that Floor semantics are
+// preserved for that OOB edge case.
 func TestStatRandomThreshold_MatchFloorSemantics(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -1131,14 +1144,15 @@ func TestStatRandomThreshold_MatchFloorSemantics(t *testing.T) {
 	}{
 		{"level 50 (positive numerators)", 10, 10, 50, 11, 11},
 		{"level 99 (low term zero)", 10, 10, 99, 11, 11},
-		{"level 120 boost (negative numerator)", 10, 10, 120, 10, 11},
-		{"level 200 extreme boost", 10, 10, 200, 10, 11},
+		{"level 120 boost (clamped to 99)", 10, 10, 120, 11, 11},
+		{"level 200 extreme boost (clamped to 99)", 10, 10, 200, 11, 11},
+		{"level 0 OOB (floor regimes catches trunc)", 10, 10, 0, 10, 11},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := statRandomThreshold(tt.low, tt.high, tt.level)
 			if got != tt.want {
-				t.Errorf("statRandomThreshold(low=%d,high=%d,level=%d): got %d, want %d (pre-fix Go trunc-toward-zero would give %d); TS PlayerOps.ts:578-586 uses Math.floor not integer division (h-player-4)",
+				t.Errorf("statRandomThreshold(low=%d,high=%d,level=%d): got %d, want %d (pre-fix Go trunc-toward-zero would give %d); TS PlayerOps.ts:583-586 @4c95f87e uses Math.floor not integer division (h-player-4)",
 					tt.low, tt.high, tt.level, got, tt.want, tt.preFixGoTrunc)
 			}
 		})
