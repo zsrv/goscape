@@ -18,12 +18,13 @@ var assetsFS embed.FS
 // are registered in routes(); later tasks add session middleware and
 // the remaining page handlers in sibling files.
 type portal struct {
-	cfg    Config
-	store  *Store
-	mailer Mailer
-	log    *slog.Logger
-	pages  map[string]*template.Template
-	rl     *rateLimiter
+	cfg      Config
+	store    *Store
+	mailer   Mailer
+	log      *slog.Logger
+	pages    map[string]*template.Template
+	rl       *rateLimiter
+	dummyPHC string // anti-enumeration timing pad; see handleLogin
 }
 
 type pageData struct {
@@ -46,10 +47,19 @@ func newPortal(cfg Config, store *Store, mailer Mailer, log *slog.Logger) (*port
 		}
 		pages[path.Base(f)] = t
 	}
+	// Precompute a dummy password hash once, using the same Argon2 params
+	// as real account hashes, so the unknown-email login path can burn an
+	// equivalent amount of CPU time to the wrong-password path (anti
+	// account-enumeration timing pad; see handleLogin).
+	dummy, err := HashPassword("goscape-dummy-timing-pad", cfg.Argon2)
+	if err != nil {
+		return nil, fmt.Errorf("dummy hash: %w", err)
+	}
 	return &portal{
 		cfg: cfg, store: store, mailer: mailer, log: log,
-		pages: pages,
-		rl:    newRateLimiter(),
+		pages:    pages,
+		rl:       newRateLimiter(),
+		dummyPHC: dummy,
 	}, nil
 }
 

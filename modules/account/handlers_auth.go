@@ -92,6 +92,10 @@ func (p *portal) handleRegister(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/login?msg=Account+created,+but+the+verification+email+failed+to+send.+Log+in+and+use+Resend.", http.StatusFound)
 			return
 		}
+	} else {
+		p.log.Warn("post-register account lookup failed; verification mail not sent", slog.Any("err", err))
+		http.Redirect(w, r, "/login?msg=Account+created,+but+the+verification+email+failed+to+send.+Log+in+and+use+Resend.", http.StatusFound)
+		return
 	}
 	http.Redirect(w, r, "/login?msg=Account+created.+Check+your+email+for+a+verification+link.", http.StatusFound)
 }
@@ -109,6 +113,11 @@ func (p *portal) handleLogin(w http.ResponseWriter, r *http.Request) {
 	fail := func(msg string) { p.render(w, r, "login.html", msg) }
 	acct, err := p.store.AccountByEmail(r.Context(), email)
 	if errors.Is(err, ErrNotFound) {
+		// Anti-enumeration timing pad: burn the same argon2id cost that
+		// the wrong-password path below pays via VerifyPassword, so an
+		// unknown email can't be distinguished from a wrong password by
+		// response latency.
+		_, _ = VerifyPassword(r.FormValue("password"), p.dummyPHC)
 		fail("error: unknown email or wrong password")
 		return
 	}
