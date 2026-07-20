@@ -236,15 +236,13 @@ func (p *portal) handleForgot(w http.ResponseWriter, r *http.Request) {
 	// pad closes). The goroutine uses its own context: the request's
 	// dies as soon as we render below.
 	if acct, err := p.store.AccountByEmail(r.Context(), r.FormValue("email")); err == nil {
-		p.mailWG.Add(1)
-		go func() {
-			defer p.mailWG.Done()
+		p.mailWG.Go(func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			if err := p.sendResetEmail(ctx, acct); err != nil {
 				p.log.Warn("reset mail failed", slog.Any("err", err))
 			}
-		}()
+		})
 	}
 	p.render(w, r, "message.html", "If that email has an account, a reset link is on its way.")
 }
