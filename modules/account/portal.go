@@ -23,6 +23,7 @@ type portal struct {
 	mailer Mailer
 	log    *slog.Logger
 	pages  map[string]*template.Template
+	rl     *rateLimiter
 }
 
 type pageData struct {
@@ -48,6 +49,7 @@ func newPortal(cfg Config, store *Store, mailer Mailer, log *slog.Logger) (*port
 	return &portal{
 		cfg: cfg, store: store, mailer: mailer, log: log,
 		pages: pages,
+		rl:    newRateLimiter(),
 	}, nil
 }
 
@@ -90,14 +92,3 @@ func (p *portal) routes() *http.ServeMux {
 func (p *portal) handleHome(w http.ResponseWriter, r *http.Request) {
 	p.render(w, r, "home.html", nil)
 }
-
-// Temporary stubs — Task 14 replaces these with the real session/CSRF
-// middleware in middleware.go (rate limiter, auth context, CSRF
-// tokens, and the p.public wrapper).
-func ctxAccount(*http.Request) *PortalAccount { return nil }
-
-const sessionCookieName = "goscape_session"
-
-func csrfToken(string) string { return "" }
-
-func (p *portal) public(h http.HandlerFunc) http.HandlerFunc { return h }
