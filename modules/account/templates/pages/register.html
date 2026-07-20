@@ -1,0 +1,15 @@
+{{define "title"}}Register — goscape{{end}}
+{{define "content"}}
+<h1>Create your account</h1>
+{{if .Data}}<p class="flash error">{{.Data}}</p>{{end}}
+<form class="stack" method="post" action="/register">
+  <label>Email <input type="email" name="email" required maxlength="255"></label>
+  <label>Password
+    <input type="password" name="password" required minlength="8" maxlength="20">
+    <span class="muted">8-20 characters, no spaces — this password is also used at the game login screen, which caps passwords at 20 characters.</span>
+  </label>
+  <label>Repeat password <input type="password" name="password2" required maxlength="20"></label>
+  <button type="submit">Register</button>
+</form>
+<p>Already have an account? <a href="/login">Log in</a>.</p>
+{{end}}
