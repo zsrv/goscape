@@ -141,7 +141,8 @@ func TestSetupModuleManager_DAGTopology(t *testing.T) {
 		Friends:      {"common", Database},
 		Login:        {"common", Database},
 		World:        {"common", Login, Friends},
-		SingleBinary: {OnDemand, Friends, Login, World},
+		Account:      {"common", Database},
+		SingleBinary: {OnDemand, Friends, Login, World, Account},
 	}
 	for mod, expected := range want {
 		got := g.deps[mod]

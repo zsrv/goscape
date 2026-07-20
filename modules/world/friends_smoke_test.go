@@ -861,6 +861,7 @@ func TestLoginClient_E2E_PlayerSessionIsUUID(t *testing.T) {
 		AutoSubscribeMembers: true,
 		BCryptCost:           4,
 		Enable:               true,
+		AuthMode:             login.AuthModeLocal,
 	}
 	svc, err := login.New(cfg, dbCfg, log)
 	if err != nil {
