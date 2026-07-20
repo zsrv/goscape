@@ -151,4 +151,8 @@ func TestStore_CreateCharacter(t *testing.T) {
 	if _, _, err := s.CharacterWithAccount(ctx, "ghost"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing char: got %v, want ErrNotFound", err)
 	}
+
+	if _, err := s.CreateCharacter(ctx, 99999, "ghostowner", 2); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("nonexistent owner: got %v, want ErrNotFound", err)
+	}
 }

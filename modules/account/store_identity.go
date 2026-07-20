@@ -188,6 +188,21 @@ func (s *Store) CreateCharacter(ctx context.Context, accountID int64, name strin
 		}
 	}()
 
+	// Serialize concurrent creations for one account: touching the owner
+	// row takes a row-level lock, so under Postgres READ COMMITTED a
+	// second racing transaction blocks here until the first commits and
+	// then sees its portal_character row in the COUNT below. (SQLite has
+	// a single writer, so this is a no-op there.) FOR UPDATE would be
+	// Postgres-only syntax; an UPDATE works on both dialects.
+	lockRes, err := tx.ExecContext(ctx, s.db.Rebind(
+		`UPDATE portal_account SET updated_at = ? WHERE id = ?`), time.Now().UTC(), accountID)
+	if err != nil {
+		return Character{}, fmt.Errorf("account: lock owner row: %w", err)
+	}
+	if n, _ := lockRes.RowsAffected(); n == 0 {
+		return Character{}, ErrNotFound
+	}
+
 	var n int
 	if err := tx.QueryRowContext(ctx, s.db.Rebind(
 		`SELECT COUNT(*) FROM portal_character WHERE account_id = ?`), accountID).Scan(&n); err != nil {
