@@ -85,7 +85,12 @@ func (p *portal) routes() *http.ServeMux {
 	})
 	mux.Handle("GET /static/", http.FileServerFS(assetsFS))
 	mux.HandleFunc("GET /{$}", p.public(p.handleHome))
-	// Tasks 14-20 register the remaining routes here.
+	mux.HandleFunc("GET /register", p.public(p.handleRegisterForm))
+	mux.HandleFunc("POST /register", p.public(p.handleRegister))
+	mux.HandleFunc("GET /login", p.public(p.handleLoginForm))
+	mux.HandleFunc("POST /login", p.public(p.handleLogin))
+	mux.HandleFunc("POST /logout", p.authed(p.handleLogout))
+	// Tasks 16-20 register the remaining routes here.
 	return mux
 }
 
