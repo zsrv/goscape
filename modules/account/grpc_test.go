@@ -138,9 +138,7 @@ func TestAdminRPCsRequireToken(t *testing.T) {
 	}
 	good := metadata.AppendToOutgoingContext(t.Context(), "authorization", "Bearer sekrit")
 	if _, err = client.SearchAccounts(good, &accountpb.SearchAccountsRequest{Query: "x"}); err != nil {
-		if c := status.Code(err); c != codes.OK && c != codes.Unimplemented {
-			t.Fatalf("good bearer: %v", err)
-		}
+		t.Fatalf("good bearer: %v", err)
 	}
 
 	// VerifyGameLogin never needs the token.

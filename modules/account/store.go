@@ -241,3 +241,55 @@ func (s *Store) RecentAudit(ctx context.Context, limit int, target string) ([]Au
 	}
 	return out, rows.Err()
 }
+
+func (s *Store) GroupsByAccount(ctx context.Context, accountID int64) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, s.db.Rebind(
+		`SELECT g.name FROM portal_group_member gm
+		 JOIN portal_group g ON g.id = gm.group_id
+		 WHERE gm.account_id = ? ORDER BY g.name`), accountID)
+	if err != nil {
+		return nil, fmt.Errorf("account: groups by account: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("account: scan group: %w", err)
+		}
+		out = append(out, name)
+	}
+	return out, rows.Err()
+}
+
+// SearchAccounts finds accounts by email substring (case-insensitive),
+// exact character name, or exact linked provider user id. Admin-only
+// surface; capped at 50 rows.
+func (s *Store) SearchAccounts(ctx context.Context, query string) ([]PortalAccount, error) {
+	pattern := "%" + strings.ToLower(strings.TrimSpace(query)) + "%"
+	exact := strings.ToLower(strings.TrimSpace(query))
+	rows, err := s.db.QueryContext(ctx, s.db.Rebind(
+		`SELECT DISTINCT pa.id, pa.email, pa.email_verified, pa.password_hash, pa.status, pa.created_at, pa.updated_at
+		 FROM portal_account pa
+		 LEFT JOIN portal_character pc ON pc.account_id = pa.id
+		 LEFT JOIN portal_identity pi ON pi.account_id = pa.id
+		 WHERE pa.email LIKE ? OR pc.username = ? OR pi.provider_user_id = ?
+		 ORDER BY pa.id LIMIT 50`), pattern, exact, query)
+	if err != nil {
+		return nil, fmt.Errorf("account: search: %w", err)
+	}
+	defer rows.Close()
+	var out []PortalAccount
+	for rows.Next() {
+		var (
+			a        PortalAccount
+			verified int
+		)
+		if err := rows.Scan(&a.ID, &a.Email, &verified, &a.PasswordHash, &a.Status, &a.CreatedAt, &a.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("account: scan search row: %w", err)
+		}
+		a.EmailVerified = verified == 1
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
