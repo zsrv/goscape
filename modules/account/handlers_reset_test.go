@@ -24,6 +24,7 @@ func TestPasswordResetFlow(t *testing.T) {
 	before := len(mailer.sent)
 	resp := postForm(t, client, srv.URL+"/forgot-password", url.Values{"email": {"ghost@example.com"}})
 	unknownBody := readBody(t, resp)
+	p.mailWG.Wait()
 	if len(mailer.sent) != before {
 		t.Fatal("unknown email must not send mail")
 	}
@@ -31,6 +32,7 @@ func TestPasswordResetFlow(t *testing.T) {
 	if knownBody := readBody(t, resp); knownBody != unknownBody {
 		t.Fatal("known/unknown email responses must be identical (enumeration)")
 	}
+	p.mailWG.Wait()
 	if len(mailer.sent) != before+1 {
 		t.Fatal("known email must send mail")
 	}
@@ -72,6 +74,7 @@ func TestPasswordResetFlow(t *testing.T) {
 
 	// A weak new password does NOT burn the token.
 	resp = postForm(t, client, srv.URL+"/forgot-password", url.Values{"email": {"a@example.com"}})
+	p.mailWG.Wait()
 	link2 := extractLink(t, mailer.last(t).Body, "http://portal.test/reset-password?token=")
 	token2 := strings.SplitN(link2, "token=", 2)[1]
 	resp = postForm(t, client, srv.URL+"/reset-password", url.Values{

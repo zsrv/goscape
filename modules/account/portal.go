@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"path"
+	"sync"
 )
 
 //go:embed templates static
@@ -24,7 +25,8 @@ type portal struct {
 	log      *slog.Logger
 	pages    map[string]*template.Template
 	rl       *rateLimiter
-	dummyPHC string // anti-enumeration timing pad; see handleLogin
+	dummyPHC string         // anti-enumeration timing pad; see handleLogin
+	mailWG   sync.WaitGroup // tracks fire-and-forget outbound-mail goroutines so tests and shutdown can wait for them
 }
 
 type pageData struct {
