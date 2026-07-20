@@ -1,0 +1,13 @@
+{{define "title"}}New character — goscape{{end}}
+{{define "content"}}
+<h1>Create a character</h1>
+{{if .Data}}<p class="flash error">{{.Data}}</p>{{end}}
+<form class="stack" method="post" action="/characters/new">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <label>Character name
+    <input name="name" required maxlength="12" pattern="[A-Za-z0-9_ ]{1,12}">
+    <span class="muted">1-12 characters: letters, numbers, spaces or underscores. This is the name you log into the game with (using your account password).</span>
+  </label>
+  <button type="submit">Create</button>
+</form>
+{{end}}

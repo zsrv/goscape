@@ -51,7 +51,8 @@ The `--target` flag (or `target:` in the config file) selects which modules to r
 - `world` — TCP game server only
 - `login` — gRPC login service only
 - `friends` — friends server only
-- `all` (default) — all of the above
+- `account` — portal (SSR web app) + AccountService gRPC only
+- `all` (default) — all of the above, now including `account`
 
 Verify a config file without starting: `--config.verify=true`. Expand env vars in config: `--config.expand-env=true`. (Both are value flags and require the `=true`; the bare form errors with `flag needs an argument`.)
 
@@ -79,7 +80,8 @@ friends   friends server                                       → common, datab
 login     gRPC login service                                   → common, database
 world     TCP game server (world.Server)                       → common, login, friends
 ondemand  HTTP OnDemand server (dskit server + OnDemand)       → common, world
-all       composite "run everything" target                    → ondemand, friends, login, world
+account   portal + AccountService gRPC                         → common, database
+all       composite "run everything" target                    → ondemand, friends, login, world, account
 ```
 
 Adding a new module: register it in `modules.go`, wire its dependencies, and add its config to `cmd/goscape/app/config.go`.

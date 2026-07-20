@@ -1,0 +1,8 @@
+{{define "title"}}Forgot password — goscape{{end}}
+{{define "content"}}
+<h1>Forgot your password?</h1>
+<form class="stack" method="post" action="/forgot-password">
+  <label>Email <input type="email" name="email" required maxlength="255"></label>
+  <button type="submit">Send reset link</button>
+</form>
+{{end}}

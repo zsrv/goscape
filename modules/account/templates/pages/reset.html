@@ -1,0 +1,14 @@
+{{define "title"}}Reset password — goscape{{end}}
+{{define "content"}}
+<h1>Choose a new password</h1>
+{{if .Data.Error}}<p class="flash error">{{.Data.Error}}</p>{{end}}
+<form class="stack" method="post" action="/reset-password">
+  <input type="hidden" name="token" value="{{.Data.Token}}">
+  <label>New password
+    <input type="password" name="password" required minlength="8" maxlength="20">
+    <span class="muted">8-20 characters, no spaces (game-client compatible).</span>
+  </label>
+  <label>Repeat new password <input type="password" name="password2" required maxlength="20"></label>
+  <button type="submit">Set password</button>
+</form>
+{{end}}

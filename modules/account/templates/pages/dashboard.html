@@ -1,0 +1,36 @@
+{{define "title"}}Dashboard — goscape{{end}}
+{{define "content"}}
+<h1>Your account</h1>
+<p>{{.Account.Email}}
+{{if .Account.EmailVerified}} <span class="muted">(verified)</span>
+{{else}} <span class="error">(unverified)</span>
+<form class="inline" method="post" action="/resend-verification">
+  <input type="hidden" name="csrf" value="{{.CSRF}}"><button>Resend verification email</button>
+</form>
+{{end}}</p>
+
+<h2>Linked accounts</h2>
+{{if .Data.Identities}}
+<table><tr><th>Provider</th><th>Account</th><th>Status</th></tr>
+{{range .Data.Identities}}
+<tr><td>{{.Provider}}</td><td>{{.ProviderUsername}} ({{.ProviderUserID}})</td>
+<td>{{if .RevokedAt.Valid}}revoked{{else}}linked{{end}}</td></tr>
+{{end}}</table>
+<p class="muted">Linked accounts cannot be removed. Contact an admin if you need a link changed.</p>
+{{else}}
+<p>No linked accounts.
+{{if .Data.DiscordConfigured}}<a class="button" href="/link/discord">Link Discord</a>{{end}}</p>
+{{end}}
+
+<h2>Characters ({{len .Data.Characters}}/{{.Data.CharacterLimit}})</h2>
+{{if .Data.Characters}}
+<table><tr><th>Name</th><th>Created</th></tr>
+{{range .Data.Characters}}<tr><td>{{.Username}}</td><td>{{.CreatedAt.Format "2006-01-02"}}</td></tr>{{end}}
+</table>
+{{else}}<p>No characters yet.</p>{{end}}
+{{if .Data.Eligible}}
+<p><a class="button" href="/characters/new">Create a character</a></p>
+{{else}}
+<p class="muted">Your account is not eligible to create characters yet — link a Discord account, or ask an admin for manual approval.</p>
+{{end}}
+{{end}}
