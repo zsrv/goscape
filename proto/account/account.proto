@@ -1,0 +1,104 @@
+syntax = "proto3";
+package account.v1;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/zsrv/goscape/pkg/accountpb";
+
+// AccountService is the account-management module's wire contract.
+// VerifyGameLogin is called by the login module (unauthenticated,
+// internal network). Every other RPC is the admin surface used by
+// `goscape-cli account` and requires
+//   authorization: Bearer <account.admin_token>
+// metadata; with no token configured the admin surface is disabled.
+// Spec: docs/superpowers/specs/2026-07-19-account-management-design.md
+service AccountService {
+  rpc VerifyGameLogin(VerifyGameLoginRequest) returns (VerifyGameLoginResponse);
+
+  rpc SearchAccounts(SearchAccountsRequest)         returns (SearchAccountsResponse);
+  rpc GetAccount(GetAccountRequest)                 returns (GetAccountResponse);
+  rpc SetGroupMembership(SetGroupMembershipRequest) returns (google.protobuf.Empty);
+  rpc SetAccountStatus(SetAccountStatusRequest)     returns (google.protobuf.Empty);
+  rpc UnlinkIdentity(UnlinkIdentityRequest)         returns (google.protobuf.Empty);
+  rpc ReleaseIdentity(ReleaseIdentityRequest)       returns (google.protobuf.Empty);
+  rpc AdminResetPassword(AdminResetPasswordRequest) returns (AdminResetPasswordResponse);
+  rpc BootstrapAdmin(BootstrapAdminRequest)         returns (google.protobuf.Empty);
+}
+
+enum VerifyResult {
+  VERIFY_RESULT_UNSPECIFIED         = 0;
+  VERIFY_RESULT_OK                  = 1;
+  VERIFY_RESULT_INVALID_CREDENTIALS = 2;
+  VERIFY_RESULT_ACCOUNT_DISABLED    = 3;
+  VERIFY_RESULT_EMAIL_UNVERIFIED    = 4;
+}
+
+message VerifyGameLoginRequest {
+  string character_name = 1; // safe-name normalized by the login module
+  string password       = 2; // verbatim from the client (post-RSA decode)
+  string remote_address  = 3; // audit context
+}
+
+message VerifyGameLoginResponse {
+  VerifyResult result            = 1;
+  int64        game_account_id   = 2; // goscape `account` row for this character
+  int64        portal_account_id = 3;
+}
+
+message AccountSummary {
+  int64  id              = 1;
+  string email           = 2;
+  bool   email_verified  = 3;
+  string status          = 4; // active | disabled
+  int32  character_count = 5;
+}
+
+// query matches: email substring (case-insensitive), exact character
+// name, or exact provider user id.
+message SearchAccountsRequest  { string query = 1; }
+message SearchAccountsResponse { repeated AccountSummary accounts = 1; }
+
+message IdentityInfo {
+  string provider          = 1;
+  string provider_user_id  = 2;
+  string provider_username = 3;
+  bool   revoked           = 4;
+}
+
+message CharacterInfo {
+  int64  id              = 1;
+  string username        = 2;
+  int64  game_account_id = 3;
+}
+
+// Exactly one of id / email must be set.
+message GetAccountRequest { int64 id = 1; string email = 2; }
+message GetAccountResponse {
+  AccountSummary         account    = 1;
+  repeated IdentityInfo  identities = 2;
+  repeated CharacterInfo characters = 3;
+  repeated string        groups     = 4;
+}
+
+message SetGroupMembershipRequest {
+  int64  account_id = 1;
+  string group      = 2; // manually_approved | admin
+  bool   member     = 3;
+}
+
+message SetAccountStatusRequest {
+  int64  account_id = 1;
+  string status     = 2; // active | disabled
+}
+
+// UnlinkIdentity soft-revokes ("burns") — the identity can never vouch
+// for another account. ReleaseIdentity hard-deletes, freeing it.
+message UnlinkIdentityRequest  { int64 account_id = 1; string provider = 2; }
+message ReleaseIdentityRequest { string provider = 1; string provider_user_id = 2; }
+
+// AdminResetPassword mints a single-use reset token and returns the
+// portal URL an admin can hand to the player out-of-band.
+message AdminResetPasswordRequest  { int64 account_id = 1; }
+message AdminResetPasswordResponse { string reset_url = 1; }
+
+message BootstrapAdminRequest { string email = 1; }

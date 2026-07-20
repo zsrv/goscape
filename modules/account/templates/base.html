@@ -1,0 +1,31 @@
+{{define "base"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{block "title" .}}goscape{{end}}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <a class="brand" href="/">goscape</a>
+  <nav>
+    {{if .Account}}
+      <a href="/dashboard">Dashboard</a>
+      <a href="/settings/password">Settings</a>
+      <form class="inline" method="post" action="/logout">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <button type="submit">Log out</button>
+      </form>
+    {{else}}
+      <a href="/login">Log in</a>
+      <a href="/register">Register</a>
+    {{end}}
+  </nav>
+</header>
+<main>
+{{if .Msg}}<p class="flash">{{.Msg}}</p>{{end}}
+{{block "content" .}}{{end}}
+</main>
+</body>
+</html>{{end}}

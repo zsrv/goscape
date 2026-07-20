@@ -1,0 +1,59 @@
+{{define "title"}}Admin — account{{end}}
+{{define "content"}}
+<h1>Account {{.Data.Acct.ID}} — {{.Data.Acct.Email}}</h1>
+<p>Status: <b>{{.Data.Acct.Status}}</b> · Verified: {{.Data.Acct.EmailVerified}} · Groups: {{range .Data.Groups}}{{.}} {{end}}</p>
+
+<h2>Actions</h2>
+<form class="inline" method="post" action="/admin/accounts/{{.Data.Acct.ID}}/group">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <input type="hidden" name="group" value="manually_approved">
+  {{if .Data.Approved}}<button type="submit">Remove manual approval</button>
+  {{else}}<input type="hidden" name="member" value="on"><button type="submit">Manually approve</button>{{end}}
+</form>
+<form class="inline" method="post" action="/admin/accounts/{{.Data.Acct.ID}}/status">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  {{if eq .Data.Acct.Status "active"}}<input type="hidden" name="status" value="disabled"><button type="submit">Disable account</button>
+  {{else}}<input type="hidden" name="status" value="active"><button type="submit">Re-enable account</button>{{end}}
+</form>
+<form class="inline" method="post" action="/admin/accounts/{{.Data.Acct.ID}}/resend-verification">
+  <input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit">Resend verification</button>
+</form>
+<form class="inline" method="post" action="/admin/accounts/{{.Data.Acct.ID}}/send-reset">
+  <input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit">Send password reset</button>
+</form>
+
+<h2>Linked identities</h2>
+<table><tr><th>Provider</th><th>User id</th><th>Name</th><th>State</th><th></th></tr>
+{{range .Data.Identities}}
+<tr><td>{{.Provider}}</td><td>{{.ProviderUserID}}</td><td>{{.ProviderUsername}}</td>
+<td>{{if .RevokedAt.Valid}}REVOKED{{else}}linked{{end}}</td>
+<td>
+{{if not .RevokedAt.Valid}}
+<form class="inline" method="post" action="/admin/accounts/{{$.Data.Acct.ID}}/unlink">
+  <input type="hidden" name="csrf" value="{{$.CSRF}}">
+  <input type="hidden" name="provider" value="{{.Provider}}">
+  <button type="submit">Unlink (burn)</button>
+</form>
+{{end}}
+<form class="inline" method="post" action="/admin/accounts/{{$.Data.Acct.ID}}/release">
+  <input type="hidden" name="csrf" value="{{$.CSRF}}">
+  <input type="hidden" name="provider" value="{{.Provider}}">
+  <input type="hidden" name="provider_user_id" value="{{.ProviderUserID}}">
+  <button type="submit">Release identity</button>
+</form>
+</td></tr>
+{{end}}</table>
+
+<h2>Characters</h2>
+<table><tr><th>Name</th><th>Game account</th><th>Created</th></tr>
+{{range .Data.Characters}}<tr><td>{{.Username}}</td><td>{{.GameAccountID}}</td><td>{{.CreatedAt.Format "2006-01-02"}}</td></tr>{{end}}
+</table>
+
+<h2>Recent audit</h2>
+<table><tr><th>When</th><th>Actor</th><th>Action</th><th>Details</th></tr>
+{{range .Data.Audit}}
+<tr><td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
+<td>{{if .Actor.Valid}}{{.Actor.Int64}}{{else}}system{{end}}</td>
+<td>{{.Action}}</td><td>{{.Details}}</td></tr>
+{{end}}</table>
+{{end}}

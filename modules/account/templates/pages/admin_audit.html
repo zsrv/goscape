@@ -1,0 +1,14 @@
+{{define "title"}}Admin — audit{{end}}
+{{define "content"}}
+<h1>Audit log</h1>
+<form method="get" action="/admin/audit">
+  <input name="target" value="{{.Data.Target}}" placeholder="target filter, e.g. account:7">
+  <button type="submit">Filter</button>
+</form>
+<table><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th><th>Details</th></tr>
+{{range .Data.Entries}}
+<tr><td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td>
+<td>{{if .Actor.Valid}}{{.Actor.Int64}}{{else}}system{{end}}</td>
+<td>{{.Action}}</td><td>{{.Target}}</td><td>{{.Details}}</td></tr>
+{{end}}</table>
+{{end}}
