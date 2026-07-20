@@ -37,6 +37,7 @@ var verbs = []verb{
 	{"worldmap", runWorldmap, "Build mapview/worldmap.jag from packed map output and Content assets."},
 	{"unpack", runUnpack, "Unpack a client cache into Content-tree sources (16 families)."},
 	{"rsa", runRSA, "Generate or inspect RSA login keys (gen | info)."},
+	{"account", runAccount, "Administer portal accounts (search | show | approve | disable | unlink | reset-password | ...)."},
 }
 
 // dispatch routes args[0] to a verb handler. stdout receives help
