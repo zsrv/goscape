@@ -123,6 +123,36 @@ func TestPlayerLogin_InvalidCredentials(t *testing.T) {
 	}
 }
 
+// TestPlayerLogin_PortalSentinelPassword_LocalMode pins the
+// portal-sentinel-vs-local-mode fix: a character created via the portal
+// (account-mode game row password = "!portal-managed!", 16 bytes, never
+// a bcrypt hash) that attempts to log in after a rollback to
+// auth_mode=local must get a clean INVALID_CREDENTIALS response, not an
+// Internal error from bcrypt choking on a too-short hash.
+func TestPlayerLogin_PortalSentinelPassword_LocalMode(t *testing.T) {
+	h, _ := newTestHandler(t)
+	const sentinel = "!portal-managed!" // mirrors account.SentinelGamePassword
+	if _, err := insertAccount(t.Context(), h.db, "portaluser", sentinel, "127.0.0.1"); err != nil {
+		t.Fatalf("insertAccount: %v", err)
+	}
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "portaluser",
+		Password:      "whatever",
+		Uid:           42,
+		RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS {
+		t.Errorf("Result: got %v, want LOGIN_RESULT_INVALID_CREDENTIALS", resp.Result)
+	}
+}
+
 // TestPlayerLogin_ExistingPlayer_CaseInsensitivePassword pins login-server-4:
 // TS LoginServer.ts:233 calls `bcrypt.compare(password.toLowerCase(), …)`,
 // so a user who registered with "lowerpw" (lowercase hash) can log in with

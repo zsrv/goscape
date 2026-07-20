@@ -10,6 +10,11 @@ import (
 	"github.com/zsrv/goscape/pkg/util/log"
 )
 
+const (
+	AuthModeLocal   = "local"
+	AuthModeAccount = "account"
+)
+
 type Config struct {
 	LogLevel                *log.Level    `yaml:"log_level"` // optional per-module override; nil = inherit global
 	GRPCListenAddress       string        `yaml:"grpc_listen_address"`
@@ -32,6 +37,13 @@ type Config struct {
 	// Placed on the LOGIN module (the TS consumer is LoginServer), not
 	// the world config.
 	NodeHopTime time.Duration `yaml:"node_hop_time"`
+	// AuthMode selects credential verification: "local" (default) is the
+	// TS-faithful path — bcrypt against account.password with the
+	// lowercase quirk, auto-register honored. "account" delegates to the
+	// account module's VerifyGameLogin gRPC (character name + portal
+	// account password, case-sensitive, no auto-register).
+	AuthMode           string `yaml:"auth_mode"`
+	AccountGRPCAddress string `yaml:"account_grpc_address"`
 }
 
 func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
@@ -45,6 +57,8 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.BoolVar(&c.Enable, "login.enable", false, "Whether to run the login module.")
 	f.DurationVar(&c.GracefulShutdownTimeout, "login.graceful-shutdown-timeout", 30*time.Second, "Timeout for graceful gRPC server shutdown.")
 	f.DurationVar(&c.NodeHopTime, "login.node-hop-time", 45*time.Second, "Mirror of TS NODE_HOP_TIME: world-hop cooldown after a graceful logout on another world (hop-timer login reject).")
+	f.StringVar(&c.AuthMode, "login.auth-mode", AuthModeLocal, "Credential verification mode: local (TS-faithful bcrypt) or account (delegate to account module).")
+	f.StringVar(&c.AccountGRPCAddress, "login.account-grpc-address", "", "AccountService gRPC address (host:port). Required when login.auth-mode=account.")
 }
 
 // Validate enforces runtime invariants (docs/PORTING.md Arc 18 CFG-1).
@@ -65,6 +79,18 @@ func (c *Config) Validate() error {
 	}
 	if c.NodeHopTime < 0 {
 		return fmt.Errorf("login: NodeHopTime must be >= 0, got %v", c.NodeHopTime)
+	}
+	switch c.AuthMode {
+	case AuthModeLocal:
+	case AuthModeAccount:
+		if c.AccountGRPCAddress == "" {
+			return fmt.Errorf("login: account_grpc_address must be set when auth_mode=account")
+		}
+		if c.AutoRegister {
+			return fmt.Errorf("login: auto_register=true conflicts with auth_mode=account (accounts are created by the portal)")
+		}
+	default:
+		return fmt.Errorf("login: auth_mode must be one of [local, account], got %q", c.AuthMode)
 	}
 	return nil
 }
