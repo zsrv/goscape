@@ -246,6 +246,18 @@ login:
   # World-hop cooldown after a graceful logout on another world (hop-timer login
   # reject). CLI: --login.node-hop-time (default: 45s)
   node_hop_time: 45s
+  # Credential verification mode. "local" is the TS-faithful path: bcrypt
+  # against account.password (with the lowercase quirk), auto_register
+  # honored. "account" delegates to the account module's VerifyGameLogin
+  # gRPC (character name + portal account password, case-sensitive, no
+  # auto-register) — requires account_grpc_address and auto_register: false
+  # (auth_mode=account + auto_register=true is a config conflict: accounts
+  # are created by the portal, not on first game login).
+  # CLI: --login.auth-mode (default: local)
+  auth_mode: local
+  # AccountService gRPC address (host:port). Required when auth_mode: account.
+  # CLI: --login.account-grpc-address (default: "")
+  account_grpc_address: ""
   # Per-module log level override (yaml-only; no CLI flag); falls back to the
   # top-level log_level. Valid levels: trace, debug, info, warn, error.
   #log_level: info

@@ -6,6 +6,10 @@ import (
 	"log/slog"
 	"net"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/zsrv/goscape/pkg/accountpb"
 	"github.com/zsrv/goscape/pkg/dskit/services"
 	"github.com/zsrv/goscape/pkg/gamedb"
 )
@@ -19,9 +23,10 @@ type Login struct {
 	dbCfg gamedb.Config
 	log   *slog.Logger
 
-	db  *gamedb.DB
-	srv *grpcServer
-	lis net.Listener
+	db       *gamedb.DB
+	srv      *grpcServer
+	lis      net.Listener
+	acctConn *grpc.ClientConn
 }
 
 // New validates the config and constructs the Login module. dbCfg is
@@ -43,7 +48,19 @@ func (l *Login) starting(ctx context.Context) error {
 		return fmt.Errorf("open central database: %w", err)
 	}
 
-	srv := newGRPCServer(l.cfg, db, l.log)
+	var acct accountpb.AccountServiceClient
+	if l.cfg.AuthMode == AuthModeAccount {
+		conn, err := grpc.NewClient(l.cfg.AccountGRPCAddress,
+			grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			db.Close()
+			return fmt.Errorf("dial account service: %w", err)
+		}
+		l.acctConn = conn
+		acct = accountpb.NewAccountServiceClient(conn)
+	}
+
+	srv := newGRPCServer(l.cfg, db, acct, l.log)
 	lis, err := srv.listen(l.cfg)
 	if err != nil {
 		db.Close()
@@ -80,6 +97,9 @@ func (l *Login) stopping(_ error) error {
 	// and running() being invoked — gRPC never took ownership of the listener.
 	if l.lis != nil {
 		l.lis.Close()
+	}
+	if l.acctConn != nil {
+		l.acctConn.Close()
 	}
 	if l.db != nil {
 		l.db.Close()
