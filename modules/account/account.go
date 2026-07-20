@@ -32,6 +32,7 @@ type Account struct {
 
 	db      *gamedb.DB
 	store   *Store
+	portal  *portal
 	grpcSrv *grpc.Server
 	grpcLis net.Listener
 	httpSrv *http.Server
@@ -82,6 +83,7 @@ func (a *Account) starting(ctx context.Context) error {
 
 	a.db = db
 	a.store = store
+	a.portal = p
 	a.grpcSrv = grpcSrv
 	a.grpcLis = grpcLis
 	a.httpSrv = &http.Server{Handler: p.routes(), ReadHeaderTimeout: 10 * time.Second}
@@ -144,6 +146,21 @@ func (a *Account) stopping(_ error) error {
 	}
 	if a.httpLis != nil {
 		a.httpLis.Close()
+	}
+	// Drain fire-and-forget mail goroutines before closing the DB pool —
+	// a reset request landing just before shutdown must not race
+	// db.Close. Bounded: mail is best-effort, the pool is not.
+	if a.portal != nil {
+		done := make(chan struct{})
+		go func() {
+			a.portal.mailWG.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			a.log.Warn("timed out draining outbound-mail goroutines")
+		}
 	}
 	if a.db != nil {
 		a.db.Close()
