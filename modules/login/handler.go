@@ -171,29 +171,32 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 				return nil, status.Error(codes.Internal, "account not found after insert")
 			}
 		}
-	}
 
-	// 3b. Per-attempt rate limit + attempt log. TS LoginServer.ts:234-268:
-	// runs only when the account exists (auto-registered accounts
-	// included), BEFORE the password compare; 3 rows for (account, ip)
-	// inside 5s → response 8; a rate-limited attempt does NOT insert.
-	// goscape's per-attempt sessionUUID stands in for TS's socket uuid.
-	// (TS's `if (account)` guard covers its no-auto-register fallthrough,
-	// which goscape already returned from at step 3 — account is non-nil
-	// here.) UNCHANGED branch-local step: shared across both auth modes
-	// since it operates only on account.ID, which is resolved above by
-	// either branch of the mode dispatch.
-	recent, err := countRecentLoginAttempts(ctx, h.db, account.ID, ip, 5*time.Second)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "countRecentLoginAttempts: %v", err)
-	}
-	if recent >= 3 {
-		return &loginpb.PlayerLoginResponse{
-			Result: loginpb.LoginResult_LOGIN_RESULT_RATE_LIMITED,
-		}, nil
-	}
-	if err := insertLoginAttempt(ctx, h.db, sessionUUID, account.ID, int(req.NodeId), int(req.Uid), ip); err != nil {
-		return nil, status.Errorf(codes.Internal, "insertLoginAttempt: %v", err)
+		// 3b. Per-attempt rate limit + attempt log. TS LoginServer.ts:234-268:
+		// runs only when the account exists (auto-registered accounts
+		// included), BEFORE the password compare; 3 rows for (account, ip)
+		// inside 5s → response 8; a rate-limited attempt does NOT insert.
+		// goscape's per-attempt sessionUUID stands in for TS's socket uuid.
+		// (TS's `if (account)` guard covers its no-auto-register fallthrough,
+		// which goscape already returned from at step 3 — account is non-nil
+		// here.) Local-mode only: in account mode, credential verification
+		// happens inside the account service's VerifyGameLogin RPC above and
+		// returns before this point on failure, so this step would only ever
+		// count SUCCESSFUL account-mode logins — not a real anti-bruteforce
+		// guard. See rev-274/rev-254, where the legacy mechanism is retired
+		// entirely rather than gated.
+		recent, err := countRecentLoginAttempts(ctx, h.db, account.ID, ip, 5*time.Second)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "countRecentLoginAttempts: %v", err)
+		}
+		if recent >= 3 {
+			return &loginpb.PlayerLoginResponse{
+				Result: loginpb.LoginResult_LOGIN_RESULT_RATE_LIMITED,
+			}, nil
+		}
+		if err := insertLoginAttempt(ctx, h.db, sessionUUID, account.ID, int(req.NodeId), int(req.Uid), ip); err != nil {
+			return nil, status.Errorf(codes.Internal, "insertLoginAttempt: %v", err)
+		}
 	}
 
 	// 4. Password check — LOCAL MODE ONLY; account-mode credentials were

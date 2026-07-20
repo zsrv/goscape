@@ -127,6 +127,18 @@ func TestPlayerLogin_AccountMode(t *testing.T) {
 		t.Fatalf("delegated request: %+v", stub.gotReq)
 	}
 
+	// The legacy per-attempt DB rate limit is local-mode only: it must not
+	// insert a `login` row for a successful account-mode login (credential
+	// verification already happened in the account service above).
+	var loginRows int
+	if err := db.QueryRowContext(ctx, db.Rebind(
+		`SELECT COUNT(*) FROM login WHERE account_id = ?`), gameID).Scan(&loginRows); err != nil {
+		t.Fatal(err)
+	}
+	if loginRows != 0 {
+		t.Fatalf("login rows for account-mode login = %d, want 0 (rate limit is local-mode only)", loginRows)
+	}
+
 	// Result mapping table.
 	cases := []struct {
 		verify accountpb.VerifyResult
