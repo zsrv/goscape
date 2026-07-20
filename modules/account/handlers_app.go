@@ -86,3 +86,127 @@ func (p *portal) handleDiscordCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, "/dashboard?msg=Discord+linked", http.StatusFound)
 }
+
+type dashboardData struct {
+	Characters        []Character
+	Identities        []Identity
+	Eligible          bool
+	CharacterLimit    int
+	DiscordConfigured bool
+}
+
+func (p *portal) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	acct := ctxAccount(r)
+	chars, err := p.store.CharactersByAccount(r.Context(), acct.ID)
+	if err != nil {
+		p.log.Error("dashboard characters", slog.Any("err", err))
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	ids, err := p.store.IdentitiesByAccount(r.Context(), acct.ID)
+	if err != nil {
+		p.log.Error("dashboard identities", slog.Any("err", err))
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	eligible, err := p.store.GateEligible(r.Context(), acct.ID, p.cfg.Gate.Providers)
+	if err != nil {
+		p.log.Error("dashboard gate", slog.Any("err", err))
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	p.render(w, r, "dashboard.html", dashboardData{
+		Characters:        chars,
+		Identities:        ids,
+		Eligible:          eligible && acct.EmailVerified,
+		CharacterLimit:    p.cfg.CharacterLimit,
+		DiscordConfigured: p.disc.configured(),
+	})
+}
+
+func (p *portal) handleCharacterForm(w http.ResponseWriter, r *http.Request) {
+	p.render(w, r, "character_new.html", nil)
+}
+
+// handleCharacterCreate is the gate choke point (spec: single place).
+func (p *portal) handleCharacterCreate(w http.ResponseWriter, r *http.Request) {
+	acct := ctxAccount(r)
+	fail := func(msg string) { p.render(w, r, "character_new.html", msg) }
+	if !acct.EmailVerified {
+		fail("verify your email address before creating characters")
+		return
+	}
+	eligible, err := p.store.GateEligible(r.Context(), acct.ID, p.cfg.Gate.Providers)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if !eligible {
+		fail("your account is not eligible yet — link a Discord account or ask an admin for approval")
+		return
+	}
+	name, err := NormalizeCharacterName(r.FormValue("name"))
+	if err != nil {
+		fail(err.Error())
+		return
+	}
+	ch, err := p.store.CreateCharacter(r.Context(), acct.ID, name, p.cfg.CharacterLimit)
+	switch {
+	case errors.Is(err, ErrNameTaken):
+		fail("that name is already taken")
+		return
+	case errors.Is(err, ErrCharacterLimit):
+		fail(fmt.Sprintf("you've reached the character limit (%d)", p.cfg.CharacterLimit))
+		return
+	case err != nil:
+		p.log.Error("create character", slog.Any("err", err))
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := p.store.AppendAudit(r.Context(), acct.ID, "character.create",
+		fmt.Sprintf("account:%d", acct.ID), "name="+ch.Username); err != nil {
+		p.log.Warn("audit failed", slog.Any("err", err))
+	}
+	http.Redirect(w, r, "/dashboard?msg=Character+"+ch.Username+"+created.+Log+into+the+game+with+that+name+and+your+account+password.", http.StatusFound)
+}
+
+func (p *portal) handleSettingsForm(w http.ResponseWriter, r *http.Request) {
+	p.render(w, r, "settings.html", nil)
+}
+
+func (p *portal) handleSettingsPassword(w http.ResponseWriter, r *http.Request) {
+	acct := ctxAccount(r)
+	fail := func(msg string) { p.render(w, r, "settings.html", msg) }
+	ok, err := VerifyPassword(r.FormValue("current"), acct.PasswordHash)
+	if err != nil || !ok {
+		fail("your current password is wrong")
+		return
+	}
+	newPW := r.FormValue("password")
+	if newPW != r.FormValue("password2") {
+		fail("the new passwords don't match")
+		return
+	}
+	if err := ValidPortalPassword(newPW); err != nil {
+		fail(err.Error())
+		return
+	}
+	phc, err := HashPassword(newPW, p.cfg.Argon2)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := p.store.SetPasswordHash(r.Context(), acct.ID, phc); err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := p.store.DeleteAccountSessions(r.Context(), acct.ID); err != nil {
+		p.log.Warn("session sweep failed", slog.Any("err", err))
+	}
+	if err := p.store.AppendAudit(r.Context(), acct.ID, "account.password_change",
+		fmt.Sprintf("account:%d", acct.ID), ""); err != nil {
+		p.log.Warn("audit failed", slog.Any("err", err))
+	}
+	p.clearSessionCookie(w)
+	http.Redirect(w, r, "/login?msg=Password+changed+—+log+in+again+(this+is+also+your+game+password)", http.StatusFound)
+}

@@ -112,7 +112,12 @@ func (p *portal) routes() *http.ServeMux {
 	mux.HandleFunc("POST /reset-password", p.public(p.handleReset))
 	mux.HandleFunc("GET /link/discord", p.authed(p.handleLinkDiscord))
 	mux.HandleFunc("GET /oauth/discord/callback", p.authed(p.handleDiscordCallback))
-	// Tasks 19-20 register the remaining routes here.
+	mux.HandleFunc("GET /dashboard", p.authed(p.handleDashboard))
+	mux.HandleFunc("GET /characters/new", p.authed(p.handleCharacterForm))
+	mux.HandleFunc("POST /characters/new", p.authed(p.handleCharacterCreate))
+	mux.HandleFunc("GET /settings/password", p.authed(p.handleSettingsForm))
+	mux.HandleFunc("POST /settings/password", p.authed(p.handleSettingsPassword))
+	// Task 20 registers the remaining routes here.
 	return mux
 }
 
