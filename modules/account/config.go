@@ -146,8 +146,8 @@ func (c *Config) Validate() error {
 	if c.Argon2.Time < 1 {
 		return fmt.Errorf("account: argon2.time must be >= 1, got %d", c.Argon2.Time)
 	}
-	if c.Argon2.Parallelism < 1 {
-		return fmt.Errorf("account: argon2.parallelism must be >= 1, got %d", c.Argon2.Parallelism)
+	if c.Argon2.Parallelism < 1 || c.Argon2.Parallelism > 255 {
+		return fmt.Errorf("account: argon2.parallelism must be in [1, 255], got %d", c.Argon2.Parallelism)
 	}
 	if c.Session.IdleTTL <= 0 || c.Session.AbsoluteTTL <= 0 {
 		return fmt.Errorf("account: session TTLs must be > 0, got idle=%v absolute=%v", c.Session.IdleTTL, c.Session.AbsoluteTTL)

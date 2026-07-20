@@ -74,6 +74,7 @@ func TestConfig_ValidateEnabled(t *testing.T) {
 		{"bad limit", func(c *Config) { c.CharacterLimit = 0 }, "character_limit"},
 		{"bad argon2 memory", func(c *Config) { c.Argon2.MemoryKiB = 1024 }, "argon2"},
 		{"bad argon2 time", func(c *Config) { c.Argon2.Time = 0 }, "argon2"},
+		{"argon2 parallelism too high", func(c *Config) { c.Argon2.Parallelism = 256 }, "argon2"},
 		{"bad idle ttl", func(c *Config) { c.Session.IdleTTL = 0 }, "session"},
 		{"idle > absolute", func(c *Config) { c.Session.IdleTTL = 1000 * time.Hour }, "session"},
 		{"unknown gate provider", func(c *Config) { c.Gate.Providers = []string{"myspace"} }, "gate.providers"},
