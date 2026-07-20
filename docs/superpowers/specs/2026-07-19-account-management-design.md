@@ -106,7 +106,7 @@ no race window, and legacy rows are automatically respected.
 
 ## Email flows
 
-Plain SMTP (host/port/STARTTLS/from in config), text templates.
+Plain SMTP (host/port/from in config; STARTTLS auto-negotiated), text templates.
 
 - **Verification:** registration creates the account immediately and sends a
   link (`portal_token`, purpose `verify_email`, 24h, single-use). SMTP failure
@@ -251,10 +251,11 @@ account:
   smtp:
     host: ...
     port: 587
-    starttls: true
     from: ...
     username: ...
     password: ...
+    # STARTTLS is negotiated automatically by net/smtp whenever the
+    # relay advertises it; there is deliberately no knob for it.
   providers:
     discord:
       client_id: ...
