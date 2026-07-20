@@ -19,6 +19,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/zsrv/goscape/pkg/accountpb"
 	"github.com/zsrv/goscape/pkg/gamedb"
 	"github.com/zsrv/goscape/pkg/loginpb"
 )
@@ -27,9 +28,10 @@ import (
 type handler struct {
 	loginpb.UnimplementedLoginServiceServer
 
-	db  *gamedb.DB
-	cfg Config
-	log *slog.Logger
+	db   *gamedb.DB
+	cfg  Config
+	acct accountpb.AccountServiceClient // non-nil only when cfg.AuthMode == AuthModeAccount
+	log  *slog.Logger
 
 	// loginRequests tracks usernames whose login flow is currently in progress,
 	// so duplicate attempts (racing login) can be rejected cleanly.
@@ -85,47 +87,113 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		}, nil
 	}
 
-	// 3. Account lookup / auto-registration.
-	account, err := accountByUsername(ctx, h.db, req.Username, req.Profile)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "accountByUsername: %v", err)
-	}
-	if account == nil {
-		if !h.cfg.AutoRegister {
+	// 3/4. Credential verification — mode-dispatched.
+	var account *accountRow
+	if h.cfg.AuthMode == AuthModeAccount {
+		// 3/4 (account mode): delegate credential verification to the
+		// account module. Password travels VERBATIM — the TS lowercase
+		// quirk is local-mode-only (spec: config-gated divergence).
+		vctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		vresp, verr := h.acct.VerifyGameLogin(vctx, &accountpb.VerifyGameLoginRequest{
+			CharacterName: req.Username,
+			Password:      req.Password,
+			RemoteAddress: req.RemoteAddress,
+		})
+		cancel()
+		if verr != nil {
+			// Transport/deadline failure: surface a gRPC error so the
+			// world maps it to login-server-offline, exactly like a dead
+			// login server.
+			return nil, status.Errorf(codes.Unavailable, "account service: %v", verr)
+		}
+		switch vresp.Result {
+		case accountpb.VerifyResult_VERIFY_RESULT_OK:
+			// fall through to row load below
+		case accountpb.VerifyResult_VERIFY_RESULT_INVALID_CREDENTIALS:
 			return &loginpb.PlayerLoginResponse{
 				Result: loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS,
 			}, nil
+		case accountpb.VerifyResult_VERIFY_RESULT_ACCOUNT_DISABLED,
+			accountpb.VerifyResult_VERIFY_RESULT_EMAIL_UNVERIFIED:
+			// Both render as the client's "account disabled" screen; the
+			// portal dashboard is where the player learns which it was.
+			return &loginpb.PlayerLoginResponse{
+				Result: loginpb.LoginResult_LOGIN_RESULT_ACCOUNT_DISABLED,
+			}, nil
+		default:
+			return nil, status.Errorf(codes.Internal, "account service returned %v", vresp.Result)
 		}
-		// Lowercase before hash — mirrors TS LoginServer.ts:213
-		// `bcrypt.hashSync(password.toLowerCase(), 10)`. Cross-server
-		// account parity requires byte-identical hash input.
-		hashed, err := bcrypt.GenerateFromPassword([]byte(strings.ToLower(req.Password)), h.cfg.BCryptCost)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "bcrypt hash: %v", err)
-		}
-		if _, err := insertAccount(ctx, h.db, req.Username, string(hashed), ip); err != nil {
-			return nil, status.Errorf(codes.Internal, "insertAccount: %v", err)
-		}
-		account, err = accountByUsername(ctx, h.db, req.Username, req.Profile)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "accountByUsername (post-insert): %v", err)
+		var aerr error
+		account, aerr = accountByID(ctx, h.db, vresp.GameAccountId, req.Profile)
+		if aerr != nil {
+			return nil, status.Errorf(codes.Internal, "accountByID: %v", aerr)
 		}
 		if account == nil {
-			return nil, status.Error(codes.Internal, "account not found after insert")
+			// Portal creation inserts the game row in the same tx as the
+			// character, so this indicates DB divergence — refuse.
+			return nil, status.Errorf(codes.Internal, "account row %d missing for verified character %q", vresp.GameAccountId, req.Username)
 		}
-	}
+	} else {
+		// 3/4 (local mode): UNCHANGED existing lookup / auto-register /
+		// bcrypt-compare block, verbatim.
 
-	// 4. Password check.
-	// Lowercase before compare — mirrors TS LoginServer.ts:233
-	// `bcrypt.compare(password.toLowerCase(), account.password)`.
-	if err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(strings.ToLower(req.Password))); err != nil {
-		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+		// 3. Account lookup / auto-registration.
+		var err error
+		account, err = accountByUsername(ctx, h.db, req.Username, req.Profile)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "accountByUsername: %v", err)
+		}
+		if account == nil {
+			if !h.cfg.AutoRegister {
+				return &loginpb.PlayerLoginResponse{
+					Result: loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS,
+				}, nil
+			}
+			// Lowercase before hash — mirrors TS LoginServer.ts:213
+			// `bcrypt.hashSync(password.toLowerCase(), 10)`. Cross-server
+			// account parity requires byte-identical hash input.
+			hashed, err := bcrypt.GenerateFromPassword([]byte(strings.ToLower(req.Password)), h.cfg.BCryptCost)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "bcrypt hash: %v", err)
+			}
+			if _, err := insertAccount(ctx, h.db, req.Username, string(hashed), ip); err != nil {
+				return nil, status.Errorf(codes.Internal, "insertAccount: %v", err)
+			}
+			account, err = accountByUsername(ctx, h.db, req.Username, req.Profile)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "accountByUsername (post-insert): %v", err)
+			}
+			if account == nil {
+				return nil, status.Error(codes.Internal, "account not found after insert")
+			}
+		}
+
+		// 4. Password check.
+		// A row whose password is the portal's SentinelGamePassword
+		// ("!portal-managed!", 16 bytes) cannot possibly be a bcrypt hash
+		// (always exactly 60 bytes) — this happens when a portal-created
+		// character logs in after a rollback to auth_mode=local.
+		// bcrypt.CompareHashAndPassword on a too-short hash returns an
+		// unexported hash-too-short error, NOT ErrMismatchedHashAndPassword,
+		// so the generic error branch below would surface codes.Internal
+		// instead of INVALID_CREDENTIALS. Short-circuit here instead.
+		if len(account.Password) < 60 {
 			return &loginpb.PlayerLoginResponse{
 				Result:    loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS,
 				AccountId: int32(account.ID),
 			}, nil
 		}
-		return nil, status.Errorf(codes.Internal, "bcrypt compare: %v", err)
+		// Lowercase before compare — mirrors TS LoginServer.ts:233
+		// `bcrypt.compare(password.toLowerCase(), account.password)`.
+		if err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(strings.ToLower(req.Password))); err != nil {
+			if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+				return &loginpb.PlayerLoginResponse{
+					Result:    loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS,
+					AccountId: int32(account.ID),
+				}, nil
+			}
+			return nil, status.Errorf(codes.Internal, "bcrypt compare: %v", err)
+		}
 	}
 
 	// 5. Ban check (account-level).

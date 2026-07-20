@@ -10,6 +10,11 @@ import (
 	"github.com/zsrv/goscape/pkg/util/log"
 )
 
+const (
+	AuthModeLocal   = "local"
+	AuthModeAccount = "account"
+)
+
 type Config struct {
 	LogLevel                *log.Level    `yaml:"log_level"` // optional per-module override; nil = inherit global
 	GRPCListenAddress       string        `yaml:"grpc_listen_address"`
@@ -21,6 +26,13 @@ type Config struct {
 	AutoSubscribeMembers    bool          `yaml:"auto_subscribe_members"`
 	Enable                  bool          `yaml:"enable"`
 	GracefulShutdownTimeout time.Duration `yaml:"graceful_shutdown_timeout"`
+	// AuthMode selects credential verification: "local" (default) is the
+	// TS-faithful path — bcrypt against account.password with the
+	// lowercase quirk, auto_register honored. "account" delegates to the
+	// account module's VerifyGameLogin gRPC (character name + portal
+	// account password, case-sensitive, no auto-register).
+	AuthMode           string `yaml:"auth_mode"`
+	AccountGRPCAddress string `yaml:"account_grpc_address"`
 }
 
 func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
@@ -33,6 +45,8 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.BoolVar(&c.AutoSubscribeMembers, "login.auto-subscribe-members", true, "Automatically upgrade non-member accounts to members on member worlds.")
 	f.BoolVar(&c.Enable, "login.enable", false, "Whether to run the login module.")
 	f.DurationVar(&c.GracefulShutdownTimeout, "login.graceful-shutdown-timeout", 30*time.Second, "Timeout for graceful gRPC server shutdown.")
+	f.StringVar(&c.AuthMode, "login.auth-mode", AuthModeLocal, "Credential verification mode: local (TS-faithful bcrypt) or account (delegate to account module).")
+	f.StringVar(&c.AccountGRPCAddress, "login.account-grpc-address", "", "AccountService gRPC address (host:port). Required when login.auth-mode=account.")
 }
 
 // Validate enforces runtime invariants (docs/PORTING.md Arc 18 CFG-1).
@@ -50,6 +64,18 @@ func (c *Config) Validate() error {
 	}
 	if c.SavePath == "" {
 		return fmt.Errorf("login: SavePath must be non-empty when login.enable=true")
+	}
+	switch c.AuthMode {
+	case AuthModeLocal:
+	case AuthModeAccount:
+		if c.AccountGRPCAddress == "" {
+			return fmt.Errorf("login: account_grpc_address must be set when auth_mode=account")
+		}
+		if c.AutoRegister {
+			return fmt.Errorf("login: auto_register=true conflicts with auth_mode=account (accounts are created by the portal)")
+		}
+	default:
+		return fmt.Errorf("login: auth_mode must be one of [local, account], got %q", c.AuthMode)
 	}
 	return nil
 }
