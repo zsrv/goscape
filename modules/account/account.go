@@ -55,6 +55,9 @@ func (a *Account) starting(ctx context.Context) error {
 	store := NewStore(db)
 
 	var mailer Mailer = newLogMailer(a.log)
+	if a.cfg.SMTP.Host != "" {
+		mailer = newSMTPMailer(a.cfg.SMTP)
+	}
 	p, err := newPortal(a.cfg, store, mailer, a.log)
 	if err != nil {
 		db.Close()

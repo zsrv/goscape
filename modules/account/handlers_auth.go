@@ -156,3 +156,45 @@ func (p *portal) handleLogout(w http.ResponseWriter, r *http.Request) {
 	p.clearSessionCookie(w)
 	http.Redirect(w, r, "/?msg=Logged+out", http.StatusFound)
 }
+
+func (p *portal) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
+	raw := r.URL.Query().Get("token")
+	if raw == "" {
+		p.render(w, r, "message.html", "That verification link is invalid or expired.")
+		return
+	}
+	accountID, err := p.store.ConsumeToken(r.Context(), TokenPurposeVerifyEmail, HashToken(raw))
+	if errors.Is(err, ErrNotFound) {
+		p.render(w, r, "message.html", "That verification link is invalid or expired.")
+		return
+	}
+	if err != nil {
+		p.log.Error("verify token failed", slog.Any("err", err))
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := p.store.SetEmailVerified(r.Context(), accountID); err != nil {
+		p.log.Error("set verified failed", slog.Any("err", err))
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	p.render(w, r, "message.html", "Your email is verified. You can now create characters (once your account passes the gate).")
+}
+
+func (p *portal) handleResendVerification(w http.ResponseWriter, r *http.Request) {
+	acct := ctxAccount(r)
+	if acct.EmailVerified {
+		http.Redirect(w, r, "/dashboard?msg=Your+email+is+already+verified", http.StatusFound)
+		return
+	}
+	if !p.rl.allow("mail:"+acct.Email, mailLimit, mailWindow) {
+		http.Error(w, "too many emails requested — try again later", http.StatusTooManyRequests)
+		return
+	}
+	if err := p.sendVerificationEmail(r.Context(), acct); err != nil {
+		p.log.Warn("resend failed", slog.Any("err", err))
+		http.Redirect(w, r, "/dashboard?msg=Sending+failed+—+try+again+later", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/dashboard?msg=Verification+email+sent", http.StatusFound)
+}

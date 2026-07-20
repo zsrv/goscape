@@ -100,7 +100,9 @@ func (p *portal) routes() *http.ServeMux {
 	mux.HandleFunc("GET /login", p.public(p.handleLoginForm))
 	mux.HandleFunc("POST /login", p.public(p.handleLogin))
 	mux.HandleFunc("POST /logout", p.authed(p.handleLogout))
-	// Tasks 16-20 register the remaining routes here.
+	mux.HandleFunc("GET /verify-email", p.public(p.handleVerifyEmail))
+	mux.HandleFunc("POST /resend-verification", p.authed(p.handleResendVerification))
+	// Tasks 17-20 register the remaining routes here.
 	return mux
 }
 
