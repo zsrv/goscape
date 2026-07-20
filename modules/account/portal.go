@@ -27,6 +27,7 @@ type portal struct {
 	rl       *rateLimiter
 	dummyPHC string         // anti-enumeration timing pad; see handleLogin
 	mailWG   sync.WaitGroup // tracks fire-and-forget outbound-mail goroutines so tests and shutdown can wait for them
+	disc     *discordClient
 }
 
 type pageData struct {
@@ -62,6 +63,7 @@ func newPortal(cfg Config, store *Store, mailer Mailer, log *slog.Logger) (*port
 		pages:    pages,
 		rl:       newRateLimiter(),
 		dummyPHC: dummy,
+		disc:     newDiscordClient(cfg.Providers.Discord),
 	}, nil
 }
 
@@ -108,7 +110,9 @@ func (p *portal) routes() *http.ServeMux {
 	mux.HandleFunc("POST /forgot-password", p.public(p.handleForgot))
 	mux.HandleFunc("GET /reset-password", p.public(p.handleResetForm))
 	mux.HandleFunc("POST /reset-password", p.public(p.handleReset))
-	// Tasks 18-20 register the remaining routes here.
+	mux.HandleFunc("GET /link/discord", p.authed(p.handleLinkDiscord))
+	mux.HandleFunc("GET /oauth/discord/callback", p.authed(p.handleDiscordCallback))
+	// Tasks 19-20 register the remaining routes here.
 	return mux
 }
 
