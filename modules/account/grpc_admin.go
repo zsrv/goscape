@@ -114,6 +114,12 @@ func (h *grpcHandler) SetGroupMembership(ctx context.Context, req *accountpb.Set
 	if !slices.Contains([]string{GroupManuallyApproved, GroupAdmin}, req.Group) {
 		return nil, status.Errorf(codes.InvalidArgument, "unknown group %q", req.Group)
 	}
+	if _, err := h.store.AccountByID(ctx, req.AccountId); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, status.Error(codes.NotFound, "account not found")
+		}
+		return nil, status.Errorf(codes.Internal, "lookup: %v", err)
+	}
 	var err error
 	if req.Member {
 		err = h.store.AddGroupMember(ctx, req.Group, req.AccountId, 0)
@@ -128,19 +134,28 @@ func (h *grpcHandler) SetGroupMembership(ctx context.Context, req *accountpb.Set
 }
 
 func (h *grpcHandler) SetAccountStatus(ctx context.Context, req *accountpb.SetAccountStatusRequest) (*emptypb.Empty, error) {
+	if req.Status != StatusActive && req.Status != StatusDisabled {
+		return nil, status.Errorf(codes.InvalidArgument, "unknown status %q", req.Status)
+	}
 	if err := h.store.SetAccountStatus(ctx, req.AccountId, req.Status); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "account not found")
 		}
-		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-	if req.Status == StatusDisabled {
-		// Disabling an account kills its portal sessions too.
-		if err := h.store.DeleteAccountSessions(ctx, req.AccountId); err != nil {
-			return nil, status.Errorf(codes.Internal, "clear sessions: %v", err)
-		}
+		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 	h.audit(ctx, "account.status", accountTarget(req.AccountId), req.Status)
+	if req.Status == StatusDisabled {
+		// Disabling an account kills its portal sessions too. This is
+		// belt-and-braces: the portal session middleware already drops
+		// sessions belonging to non-active accounts on their next request,
+		// so a failed sweep here only delays lockout by one request. The
+		// status write and audit record already applied, so a sweep
+		// failure must not make the RPC report the mutation as failed.
+		if err := h.store.DeleteAccountSessions(ctx, req.AccountId); err != nil {
+			h.log.Warn("clear sessions after status change failed",
+				slog.Int64("account_id", req.AccountId), slog.Any("err", err))
+		}
+	}
 	return &emptypb.Empty{}, nil
 }
 

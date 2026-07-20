@@ -1,6 +1,7 @@
 package account
 
 import (
+	"strings"
 	"testing"
 
 	"google.golang.org/grpc/codes"
@@ -62,6 +63,20 @@ func TestAdminRPCs(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Error taxonomy: not-found vs invalid-argument must map distinctly.
+	if _, err := client.SetAccountStatus(ctx, &accountpb.SetAccountStatusRequest{
+		AccountId: 99999, Status: StatusActive}); status.Code(err) != codes.NotFound {
+		t.Fatalf("status on unknown account: %v", err)
+	}
+	if _, err := client.SetAccountStatus(ctx, &accountpb.SetAccountStatusRequest{
+		AccountId: portalID, Status: "frobnicated"}); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("bogus status: %v", err)
+	}
+	if _, err := client.SetGroupMembership(ctx, &accountpb.SetGroupMembershipRequest{
+		AccountId: 99999, Group: GroupManuallyApproved, Member: true}); status.Code(err) != codes.NotFound {
+		t.Fatalf("group membership on unknown account: %v", err)
+	}
+
 	// Unlink (burn) then release.
 	if _, err := client.UnlinkIdentity(ctx, &accountpb.UnlinkIdentityRequest{
 		AccountId: portalID, Provider: "discord"}); err != nil {
@@ -98,9 +113,20 @@ func TestAdminRPCs(t *testing.T) {
 		t.Fatal("bootstrap-admin must add admin group")
 	}
 
-	// Every admin action audited.
+	// Every admin action audited, with a NULL actor and the grpc-admin
+	// details prefix locked in as the wire contract for the gRPC surface.
 	entries, err := s.RecentAudit(t.Context(), 50, "")
 	if err != nil || len(entries) < 6 {
 		t.Fatalf("audit entries: n=%d err=%v", len(entries), err)
+	}
+	foundGRPCAdminEntry := false
+	for _, e := range entries {
+		if !e.Actor.Valid && strings.HasPrefix(e.Details, "grpc-admin: ") {
+			foundGRPCAdminEntry = true
+			break
+		}
+	}
+	if !foundGRPCAdminEntry {
+		t.Fatalf("expected an audit entry with NULL actor and grpc-admin details prefix: %+v", entries)
 	}
 }
