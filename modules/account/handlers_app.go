@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -167,7 +168,7 @@ func (p *portal) handleCharacterCreate(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf("account:%d", acct.ID), "name="+ch.Username); err != nil {
 		p.log.Warn("audit failed", slog.Any("err", err))
 	}
-	http.Redirect(w, r, "/dashboard?msg=Character+"+ch.Username+"+created.+Log+into+the+game+with+that+name+and+your+account+password.", http.StatusFound)
+	http.Redirect(w, r, "/dashboard?msg="+url.QueryEscape("Character "+ch.Username+" created. Log into the game with that name and your account password."), http.StatusFound)
 }
 
 func (p *portal) handleSettingsForm(w http.ResponseWriter, r *http.Request) {
@@ -208,5 +209,5 @@ func (p *portal) handleSettingsPassword(w http.ResponseWriter, r *http.Request) 
 		p.log.Warn("audit failed", slog.Any("err", err))
 	}
 	p.clearSessionCookie(w)
-	http.Redirect(w, r, "/login?msg=Password+changed+—+log+in+again+(this+is+also+your+game+password)", http.StatusFound)
+	http.Redirect(w, r, "/login?msg="+url.QueryEscape("Password changed - log in again (this is also your game password)"), http.StatusFound)
 }

@@ -63,6 +63,11 @@ func TestCharacterCreation_GateAndLimit(t *testing.T) {
 	if resp.StatusCode != http.StatusFound {
 		t.Fatalf("eligible create: %d", resp.StatusCode)
 	}
+	// Verify the redirect message contains the character name and is properly escaped.
+	redirectURL, _ := url.Parse(resp.Header.Get("Location"))
+	if msg := redirectURL.Query().Get("msg"); !strings.Contains(msg, "zezima") {
+		t.Errorf("Location msg = %q, want to contain 'zezima'", msg)
+	}
 	chars, _ := s.CharactersByAccount(t.Context(), id)
 	if len(chars) != 1 || chars[0].Username != "zezima" {
 		t.Fatalf("created: %+v", chars)
@@ -106,6 +111,11 @@ func TestSettings_ChangePassword(t *testing.T) {
 	})
 	if resp.StatusCode != http.StatusFound || !strings.HasPrefix(resp.Header.Get("Location"), "/login") {
 		t.Fatalf("change password: %d → %s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	// Verify the redirect message is properly escaped.
+	redirectURL, _ := url.Parse(resp.Header.Get("Location"))
+	if msg := redirectURL.Query().Get("msg"); !strings.Contains(msg, "Password changed") {
+		t.Errorf("Location msg = %q, want to contain 'Password changed'", msg)
 	}
 	acct, _ := s.AccountByID(t.Context(), id)
 	if ok, _ := VerifyPassword("newpass33!", acct.PasswordHash); !ok {
