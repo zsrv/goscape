@@ -25,6 +25,43 @@ type accountRow struct {
 	HasLoginRow   bool
 }
 
+// accountRowScanner is the common subset of *sql.Row used by
+// scanAccountRow — satisfied by db.QueryRowContext's return value.
+type accountRowScanner interface {
+	Scan(dest ...any) error
+}
+
+// scanAccountRow scans the shared account+account_login projection used
+// by both accountByUsername and accountByID into an accountRow. Callers
+// supply the *sql.Row from a query selecting the same column list/order
+// as accountByUsername's query.
+func scanAccountRow(row accountRowScanner) (*accountRow, error) {
+	r := &accountRow{}
+	var hasLoginRow int
+	err := row.Scan(
+		&r.ID,
+		&r.Username,
+		&r.Password,
+		&r.StaffModLevel,
+		&r.Members,
+		&r.BannedUntil,
+		&r.MutedUntil,
+		&r.LogoutTime,
+		&r.LoggedOut,
+		&r.LoggedIn,
+		&r.NodeID,
+		&hasLoginRow,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	r.HasLoginRow = hasLoginRow == 1
+	return r, nil
+}
+
 func accountByUsername(ctx context.Context, db *gamedb.DB, username, profile string) (*accountRow, error) {
 	const query = `
 SELECT a.id, a.username, a.password, a.staff_mod_level, a.members,
@@ -38,29 +75,33 @@ FROM account a
 LEFT JOIN account_login al ON al.account_id = a.id AND al.profile = ?
 WHERE a.username = ?`
 
-	row := &accountRow{}
-	var hasLoginRow int
-	err := db.QueryRowContext(ctx, db.Rebind(query), profile, username).Scan(
-		&row.ID,
-		&row.Username,
-		&row.Password,
-		&row.StaffModLevel,
-		&row.Members,
-		&row.BannedUntil,
-		&row.MutedUntil,
-		&row.LogoutTime,
-		&row.LoggedOut,
-		&row.LoggedIn,
-		&row.NodeID,
-		&hasLoginRow,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
+	row, err := scanAccountRow(db.QueryRowContext(ctx, db.Rebind(query), profile, username))
 	if err != nil {
 		return nil, fmt.Errorf("accountByUsername: %w", err)
 	}
-	row.HasLoginRow = hasLoginRow == 1
+	return row, nil
+}
+
+// accountByID is accountByUsername keyed on account.id — used by the
+// account-mode login path, which learns the row id from
+// VerifyGameLogin instead of trusting the wire username.
+func accountByID(ctx context.Context, db *gamedb.DB, id int64, profile string) (*accountRow, error) {
+	const query = `
+SELECT a.id, a.username, a.password, a.staff_mod_level, a.members,
+       a.banned_until, a.muted_until,
+       al.logout_time,
+       COALESCE(al.logged_out, 0),
+       COALESCE(al.logged_in, 0),
+       COALESCE(al.node_id, 0),
+       CASE WHEN al.account_id IS NOT NULL THEN 1 ELSE 0 END as has_login_row
+FROM account a
+LEFT JOIN account_login al ON al.account_id = a.id AND al.profile = ?
+WHERE a.id = ?`
+
+	row, err := scanAccountRow(db.QueryRowContext(ctx, db.Rebind(query), profile, id))
+	if err != nil {
+		return nil, fmt.Errorf("accountByID: %w", err)
+	}
 	return row, nil
 }
 
