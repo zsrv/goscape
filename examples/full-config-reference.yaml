@@ -376,6 +376,9 @@ world:
 account:
   # Run the account module. CLI: --account.enable (code default: false)
   enable: false
+  # Per-module log level override (yaml-only; no CLI flag); falls back to the
+  # top-level log_level. Valid levels: trace, debug, info, warn, error.
+  #log_level: info
   # CLI: --account.http-listen-address (default: 127.0.0.1)
   http_listen_address: 127.0.0.1
   # CLI: --account.http-listen-port (default: 8081)

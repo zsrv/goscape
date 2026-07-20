@@ -214,9 +214,9 @@ func (g *App) initAccount() (services.Service, error) {
 }
 
 // initDatabase is the migration anchor: it brings the central-database
-// schema up to date before any DB-using module starts (login and
-// friends both depend on it in the graph). It holds no runtime
-// connection — login and friends each open their own pool
+// schema up to date before any DB-using module starts (login, friends, and
+// account all depend on it in the graph). It holds no runtime
+// connection — login, friends, and account each open their own pool
 // (independent-clients model, pkg/gamedb doc).
 func (g *App) initDatabase() (services.Service, error) {
 	if !g.cfg.Login.Enable && !g.cfg.Friends.Enable && !g.cfg.Account.Enable {
