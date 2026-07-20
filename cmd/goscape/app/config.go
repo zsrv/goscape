@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/zsrv/goscape/modules/account"
 	"github.com/zsrv/goscape/modules/friends"
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
@@ -25,6 +26,7 @@ type Config struct {
 	Friends  friends.Config  `yaml:"friends,omitempty"`
 	Login    login.Config    `yaml:"login,omitempty"`
 	World    world.Config    `yaml:"world,omitempty"`
+	Account  account.Config  `yaml:"account,omitempty"`
 }
 
 func NewDefaultConfig() *Config {
@@ -51,6 +53,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	c.Friends.RegisterFlagsAndApplyDefaults(f)
 	c.Login.RegisterFlagsAndApplyDefaults(f)
 	c.World.RegisterFlagsAndApplyDefaults(f)
+	c.Account.RegisterFlagsAndApplyDefaults(f)
 }
 
 // Validate fans out to each module's Validate, returning the first error.
@@ -84,6 +87,9 @@ func (c *Config) Validate() error {
 		if err := c.OnDemand.Validate(); err != nil {
 			return err
 		}
+	}
+	if err := c.Account.Validate(); err != nil {
+		return err
 	}
 	return nil
 }

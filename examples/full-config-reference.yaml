@@ -370,6 +370,74 @@ world:
 
 
 # ----------------------------------------------------------------------------
+# account — portal accounts (SSR web app) + AccountService gRPC surface
+#           consumed by the login module and goscape-cli
+# ----------------------------------------------------------------------------
+account:
+  # Run the account module. CLI: --account.enable (code default: false)
+  enable: false
+  # CLI: --account.http-listen-address (default: 127.0.0.1)
+  http_listen_address: 127.0.0.1
+  # CLI: --account.http-listen-port (default: 8081)
+  http_listen_port: 8081
+  # CLI: --account.grpc-listen-address (default: 127.0.0.1)
+  grpc_listen_address: 127.0.0.1
+  # CLI: --account.grpc-listen-port (default: 2005)
+  grpc_listen_port: 2005
+  # Externally reachable portal base URL (email links, OAuth redirect). No
+  # trailing slash. Required when account.enable=true.
+  # CLI: --account.public-url (default: "")
+  public_url: ""
+  # Maximum characters per portal account.
+  # CLI: --account.character-limit (default: 5)
+  character_limit: 5
+  # Bearer token guarding the admin gRPC surface. Empty disables every admin
+  # RPC. YAML-only (secret); no CLI flag.
+  admin_token: ""
+  # Character-creation gate: an account may create characters iff it is
+  # active, email-verified, under the character limit, AND (member of
+  # manually_approved OR holds a non-revoked identity whose provider is
+  # listed here). Empty = manual approval only. YAML-only (list); no CLI flag.
+  gate:
+    providers:
+      - discord
+  # argon2id password hashing parameters (RFC 9106).
+  argon2:
+    # CLI: --account.argon2-memory-kib (default: 65536)
+    memory_kib: 65536
+    # CLI: --account.argon2-time (default: 2)
+    time: 2
+    # CLI: --account.argon2-parallelism (default: 1)
+    parallelism: 1
+  # Portal cookie session bounds: a session expires idle_ttl after last use,
+  # and unconditionally absolute_ttl after login.
+  session:
+    # CLI: --account.session-idle-ttl (default: 168h)
+    idle_ttl: 168h
+    # CLI: --account.session-absolute-ttl (default: 720h)
+    absolute_ttl: 720h
+  # SMTP relay for verification/reset email. Empty host disables outbound
+  # mail (links are logged instead).
+  smtp:
+    # CLI: --account.smtp-host (default: "")
+    host: ""
+    # CLI: --account.smtp-port (default: 587)
+    port: 587
+    # CLI: --account.smtp-from (default: "")
+    from: ""
+    # YAML-only (secret); no CLI flag.
+    username: ""
+    # YAML-only (secret); no CLI flag.
+    password: ""
+  # Third-party identity provider OAuth2 app credentials. YAML-only; no CLI
+  # flags (secret-adjacent / secret).
+  providers:
+    discord:
+      client_id: ""
+      client_secret: ""
+
+
+# ----------------------------------------------------------------------------
 # NOT a config section: pkg/telemetry exists in the codebase but is NOT wired
 # into the application config. There is no top-level `telemetry:` block — adding
 # one fails strict decoding. This is intentional, not a TODO:

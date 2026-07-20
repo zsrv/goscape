@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/zsrv/goscape/modules/account"
 	"github.com/zsrv/goscape/modules/friends"
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
@@ -29,6 +30,7 @@ const (
 	Login    string = "login"
 	World    string = "world"
 	Database string = "database"
+	Account  string = "account"
 
 	// Composite targets
 
@@ -186,13 +188,38 @@ func (g *App) initFriends() (services.Service, error) {
 	return g.friends, nil
 }
 
+func (g *App) initAccount() (services.Service, error) {
+	if !g.cfg.Account.Enable {
+		// arch-29.8: see initOnDemand's disabled branch for rationale.
+		g.logger.Info("module disabled", "module", "account")
+		return nil, nil
+	}
+
+	logLevel := slog.Level(g.cfg.LogLevel)
+	if g.cfg.Account.LogLevel != nil {
+		logLevel = slog.Level(*g.cfg.Account.LogLevel)
+	}
+	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout, log.WithSourceFormat(g.cfg.LogSource))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create account logger: %w", err)
+	}
+	logger = logger.With("component", "account")
+
+	a, err := account.New(g.cfg.Account, g.cfg.Database, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create account: %w", err)
+	}
+	g.account = a
+	return g.account, nil
+}
+
 // initDatabase is the migration anchor: it brings the central-database
 // schema up to date before any DB-using module starts (login and
 // friends both depend on it in the graph). It holds no runtime
 // connection — login and friends each open their own pool
 // (independent-clients model, pkg/gamedb doc).
 func (g *App) initDatabase() (services.Service, error) {
-	if !g.cfg.Login.Enable && !g.cfg.Friends.Enable {
+	if !g.cfg.Login.Enable && !g.cfg.Friends.Enable && !g.cfg.Account.Enable {
 		// No DB consumer in this target — contribute no service
 		// (arch-29.8 posture: a disabled module must not masquerade
 		// as Running).
@@ -253,6 +280,7 @@ func (g *App) setupModuleManager(logger *slog.Logger) error {
 	mm.RegisterModule(Login, g.initLogin)
 	mm.RegisterModule(World, g.initWorld)
 	mm.RegisterModule(Database, g.initDatabase, modules.UserInvisibleModule)
+	mm.RegisterModule(Account, g.initAccount)
 
 	mm.RegisterModule(SingleBinary, nil)
 
@@ -264,8 +292,9 @@ func (g *App) setupModuleManager(logger *slog.Logger) error {
 		Friends:  {Common, Database},
 		Login:    {Common, Database},
 		World:    {Common, Login, Friends},
+		Account:  {Common, Database},
 
-		SingleBinary: {OnDemand, Friends, Login, World},
+		SingleBinary: {OnDemand, Friends, Login, World, Account},
 	}
 
 	for mod, targets := range deps {

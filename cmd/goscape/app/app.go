@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/zsrv/goscape/modules/account"
 	"github.com/zsrv/goscape/modules/friends"
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
@@ -35,6 +36,7 @@ type App struct {
 	friends  *friends.Friends
 	login    *login.Login
 	world    *world.World
+	account  *account.Account
 
 	// signalsHandlerMu guards signalsHandler against the Run/Stop race
 	// surfaced by COV-1's race detector: Run() writes signalsHandler at
