@@ -73,7 +73,7 @@ func (d *discordClient) exchangeCode(ctx context.Context, code, redirectURI stri
 	var payload struct {
 		AccessToken string `json:"access_token"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil || payload.AccessToken == "" {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&payload); err != nil || payload.AccessToken == "" {
 		return "", fmt.Errorf("token exchange: bad payload (%v)", err)
 	}
 	return payload.AccessToken, nil
@@ -98,7 +98,7 @@ func (d *discordClient) identify(ctx context.Context, accessToken string) (strin
 		ID       string `json:"id"`
 		Username string `json:"username"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil || payload.ID == "" {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&payload); err != nil || payload.ID == "" {
 		return "", "", fmt.Errorf("identify: bad payload (%v)", err)
 	}
 	return payload.ID, payload.Username, nil
