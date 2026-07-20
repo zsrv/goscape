@@ -198,3 +198,91 @@ func (p *portal) handleResendVerification(w http.ResponseWriter, r *http.Request
 	}
 	http.Redirect(w, r, "/dashboard?msg=Verification+email+sent", http.StatusFound)
 }
+
+type resetPageData struct {
+	Token string
+	Error string
+}
+
+// sendResetEmail mints a 1h reset_password token and mails the link.
+// Shared by the self-service forgot flow and the admin "send reset"
+// action (Task 20).
+func (p *portal) sendResetEmail(ctx context.Context, acct *PortalAccount) error {
+	raw, err := NewRawToken()
+	if err != nil {
+		return err
+	}
+	if err := p.store.CreateToken(ctx, acct.ID, TokenPurposeResetPassword, HashToken(raw), time.Hour); err != nil {
+		return err
+	}
+	link := p.cfg.PublicURL + "/reset-password?token=" + raw
+	body := fmt.Sprintf("A password reset was requested for your goscape account.\r\n\r\nSet a new password here:\r\n\r\n%s\r\n\r\nThe link expires in 1 hour and can be used once. If you didn't request this, ignore this mail.\r\n", link)
+	return p.mailer.Send(acct.Email, "Reset your goscape password", body)
+}
+
+func (p *portal) handleForgotForm(w http.ResponseWriter, r *http.Request) {
+	p.render(w, r, "forgot.html", nil)
+}
+
+func (p *portal) handleForgot(w http.ResponseWriter, r *http.Request) {
+	if !p.rl.allow("mail:"+clientIP(r), mailLimit, mailWindow) {
+		http.Error(w, "too many emails requested — try again later", http.StatusTooManyRequests)
+		return
+	}
+	// Enumeration safety: identical response whether or not the account
+	// exists; only the mail differs.
+	if acct, err := p.store.AccountByEmail(r.Context(), r.FormValue("email")); err == nil {
+		if err := p.sendResetEmail(r.Context(), acct); err != nil {
+			p.log.Warn("reset mail failed", slog.Any("err", err))
+		}
+	}
+	p.render(w, r, "message.html", "If that email has an account, a reset link is on its way.")
+}
+
+func (p *portal) handleResetForm(w http.ResponseWriter, r *http.Request) {
+	p.render(w, r, "reset.html", resetPageData{Token: r.URL.Query().Get("token")})
+}
+
+func (p *portal) handleReset(w http.ResponseWriter, r *http.Request) {
+	token := r.FormValue("token")
+	password := r.FormValue("password")
+	fail := func(msg string) {
+		p.render(w, r, "reset.html", resetPageData{Token: token, Error: msg})
+	}
+	// Validate the new password BEFORE consuming the single-use token,
+	// so a policy failure doesn't burn the link.
+	if password != r.FormValue("password2") {
+		fail("the passwords don't match")
+		return
+	}
+	if err := ValidPortalPassword(password); err != nil {
+		fail(err.Error())
+		return
+	}
+	accountID, err := p.store.ConsumeToken(r.Context(), TokenPurposeResetPassword, HashToken(token))
+	if errors.Is(err, ErrNotFound) {
+		p.render(w, r, "message.html", "That reset link is invalid or expired.")
+		return
+	}
+	if err != nil {
+		p.log.Error("reset consume failed", slog.Any("err", err))
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	phc, err := HashPassword(password, p.cfg.Argon2)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := p.store.SetPasswordHash(r.Context(), accountID, phc); err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := p.store.DeleteAccountSessions(r.Context(), accountID); err != nil {
+		p.log.Warn("session sweep failed", slog.Any("err", err))
+	}
+	if err := p.store.AppendAudit(r.Context(), 0, "account.password_reset", fmt.Sprintf("account:%d", accountID), "self-service"); err != nil {
+		p.log.Warn("audit failed", slog.Any("err", err))
+	}
+	http.Redirect(w, r, "/login?msg=Password+changed.+Log+in+with+your+new+password.", http.StatusFound)
+}

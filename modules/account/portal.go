@@ -102,7 +102,11 @@ func (p *portal) routes() *http.ServeMux {
 	mux.HandleFunc("POST /logout", p.authed(p.handleLogout))
 	mux.HandleFunc("GET /verify-email", p.public(p.handleVerifyEmail))
 	mux.HandleFunc("POST /resend-verification", p.authed(p.handleResendVerification))
-	// Tasks 17-20 register the remaining routes here.
+	mux.HandleFunc("GET /forgot-password", p.public(p.handleForgotForm))
+	mux.HandleFunc("POST /forgot-password", p.public(p.handleForgot))
+	mux.HandleFunc("GET /reset-password", p.public(p.handleResetForm))
+	mux.HandleFunc("POST /reset-password", p.public(p.handleReset))
+	// Tasks 18-20 register the remaining routes here.
 	return mux
 }
 
