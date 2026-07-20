@@ -140,7 +140,15 @@ func (p *portal) routes() *http.ServeMux {
 				return "", err
 			}
 			if status == StatusDisabled {
-				return status, p.store.DeleteAccountSessions(r.Context(), target.ID)
+				// Best-effort sweep, non-fatal: the status write already
+				// committed, so failing the action here would skip the
+				// audit row for a mutation that took effect. The portal
+				// middleware drops non-active accounts' sessions on their
+				// next request anyway (same rationale as the gRPC
+				// SetAccountStatus path).
+				if err := p.store.DeleteAccountSessions(r.Context(), target.ID); err != nil {
+					p.log.Warn("session sweep after disable failed", slog.Any("err", err))
+				}
 			}
 			return status, nil
 		})))
