@@ -5,10 +5,31 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
+
+	"github.com/zsrv/goscape/pkg/accountpb"
 	"github.com/zsrv/goscape/pkg/dskit/services"
 	"github.com/zsrv/goscape/pkg/gamedb"
 )
+
+// accountClientKeepaliveParams mirrors modules/world/grpc_keepalive.go's
+// clientKeepaliveParams() for the login→account gRPC dial. modules/login
+// cannot import modules/world (it would invert the module dependency
+// graph — world depends on login, not the reverse), so the same
+// keepalive.ClientParameters values are replicated here rather than
+// shared. Without it a NAT/firewall dropping connection state without
+// RST can leave the account-service dial silently wedged.
+func accountClientKeepaliveParams() keepalive.ClientParameters {
+	return keepalive.ClientParameters{
+		Time:                30 * time.Second,
+		Timeout:             10 * time.Second,
+		PermitWithoutStream: true,
+	}
+}
 
 // Login is the login server module. It owns its private pool to the
 // central database and the gRPC server.
@@ -19,9 +40,10 @@ type Login struct {
 	dbCfg gamedb.Config
 	log   *slog.Logger
 
-	db  *gamedb.DB
-	srv *grpcServer
-	lis net.Listener
+	db       *gamedb.DB
+	srv      *grpcServer
+	lis      net.Listener
+	acctConn *grpc.ClientConn
 }
 
 // New validates the config and constructs the Login module. dbCfg is
@@ -48,7 +70,20 @@ func (l *Login) starting(ctx context.Context) error {
 		return fmt.Errorf("open central database: %w", err)
 	}
 
-	srv := newGRPCServer(l.cfg, db, l.log)
+	var acct accountpb.AccountServiceClient
+	if l.cfg.AuthMode == AuthModeAccount {
+		conn, err := grpc.NewClient(l.cfg.AccountGRPCAddress,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithKeepaliveParams(accountClientKeepaliveParams()))
+		if err != nil {
+			db.Close()
+			return fmt.Errorf("dial account service: %w", err)
+		}
+		l.acctConn = conn
+		acct = accountpb.NewAccountServiceClient(conn)
+	}
+
+	srv := newGRPCServer(l.cfg, db, acct, l.log)
 	lis, err := srv.listen(l.cfg)
 	if err != nil {
 		db.Close()
@@ -85,6 +120,9 @@ func (l *Login) stopping(_ error) error {
 	// and running() being invoked — gRPC never took ownership of the listener.
 	if l.lis != nil {
 		l.lis.Close()
+	}
+	if l.acctConn != nil {
+		l.acctConn.Close()
 	}
 	if l.db != nil {
 		l.db.Close()
