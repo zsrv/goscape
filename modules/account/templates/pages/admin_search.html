@@ -1,0 +1,16 @@
+{{define "title"}}Admin — goscape{{end}}
+{{define "content"}}
+<h1>Admin — accounts</h1>
+<form method="get" action="/admin">
+  <input name="q" value="{{.Data.Query}}" placeholder="email, character name, or Discord id">
+  <button type="submit">Search</button>
+  <a href="/admin/audit">Audit log</a>
+</form>
+{{if .Data.Results}}
+<table><tr><th>ID</th><th>Email</th><th>Verified</th><th>Status</th></tr>
+{{range .Data.Results}}
+<tr><td><a href="/admin/accounts/{{.ID}}">{{.ID}}</a></td>
+<td>{{.Email}}</td><td>{{.EmailVerified}}</td><td>{{.Status}}</td></tr>
+{{end}}</table>
+{{else if .Data.Query}}<p>No matches.</p>{{end}}
+{{end}}

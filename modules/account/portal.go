@@ -117,7 +117,51 @@ func (p *portal) routes() *http.ServeMux {
 	mux.HandleFunc("POST /characters/new", p.authed(p.handleCharacterCreate))
 	mux.HandleFunc("GET /settings/password", p.authed(p.handleSettingsForm))
 	mux.HandleFunc("POST /settings/password", p.authed(p.handleSettingsPassword))
-	// Task 20 registers the remaining routes here.
+	mux.HandleFunc("GET /admin", p.admin(p.handleAdminSearch))
+	mux.HandleFunc("GET /admin/accounts/{id}", p.admin(p.handleAdminAccount))
+	mux.HandleFunc("GET /admin/audit", p.admin(p.handleAdminAudit))
+	mux.HandleFunc("POST /admin/accounts/{id}/group", p.admin(p.adminAction("group.set",
+		func(r *http.Request, target *PortalAccount) (string, error) {
+			group := r.FormValue("group")
+			if group != GroupManuallyApproved && group != GroupAdmin {
+				return "", fmt.Errorf("unknown group %q", group)
+			}
+			member := r.FormValue("member") == "on"
+			admin := ctxAccount(r)
+			if member {
+				return group + "=true", p.store.AddGroupMember(r.Context(), group, target.ID, admin.ID)
+			}
+			return group + "=false", p.store.RemoveGroupMember(r.Context(), group, target.ID)
+		})))
+	mux.HandleFunc("POST /admin/accounts/{id}/status", p.admin(p.adminAction("account.status",
+		func(r *http.Request, target *PortalAccount) (string, error) {
+			status := r.FormValue("status")
+			if err := p.store.SetAccountStatus(r.Context(), target.ID, status); err != nil {
+				return "", err
+			}
+			if status == StatusDisabled {
+				return status, p.store.DeleteAccountSessions(r.Context(), target.ID)
+			}
+			return status, nil
+		})))
+	mux.HandleFunc("POST /admin/accounts/{id}/unlink", p.admin(p.adminAction("identity.unlink",
+		func(r *http.Request, target *PortalAccount) (string, error) {
+			provider := r.FormValue("provider")
+			return provider, p.store.RevokeIdentity(r.Context(), target.ID, provider)
+		})))
+	mux.HandleFunc("POST /admin/accounts/{id}/release", p.admin(p.adminAction("identity.release",
+		func(r *http.Request, target *PortalAccount) (string, error) {
+			provider, uid := r.FormValue("provider"), r.FormValue("provider_user_id")
+			return provider + ":" + uid, p.store.ReleaseIdentity(r.Context(), provider, uid)
+		})))
+	mux.HandleFunc("POST /admin/accounts/{id}/resend-verification", p.admin(p.adminAction("account.resend_verification",
+		func(r *http.Request, target *PortalAccount) (string, error) {
+			return "", p.sendVerificationEmail(r.Context(), target)
+		})))
+	mux.HandleFunc("POST /admin/accounts/{id}/send-reset", p.admin(p.adminAction("account.reset_password",
+		func(r *http.Request, target *PortalAccount) (string, error) {
+			return "reset link mailed", p.sendResetEmail(r.Context(), target)
+		})))
 	return mux
 }
 
