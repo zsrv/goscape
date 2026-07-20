@@ -3,6 +3,7 @@ package account
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"errors"
 	"log/slog"
@@ -65,7 +66,7 @@ func requireCSRF(w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 	c, err := r.Cookie(sessionCookieName)
-	if err != nil || r.FormValue("csrf") != csrfToken(c.Value) {
+	if err != nil || subtle.ConstantTimeCompare([]byte(r.FormValue("csrf")), []byte(csrfToken(c.Value))) != 1 {
 		http.Error(w, "invalid csrf token", http.StatusForbidden)
 		return false
 	}
@@ -132,7 +133,7 @@ func (p *portal) setSessionCookie(w http.ResponseWriter, raw string) {
 func (p *portal) clearSessionCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name: sessionCookieName, Value: "", Path: "/", MaxAge: -1,
-		HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		HttpOnly: true, Secure: strings.HasPrefix(p.cfg.PublicURL, "https://"), SameSite: http.SameSiteLaxMode,
 	})
 }
 
