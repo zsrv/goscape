@@ -185,6 +185,20 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		// schema history only.
 
 		// 4. Password check.
+		// A row whose password is the portal's SentinelGamePassword
+		// ("!portal-managed!", 16 bytes) cannot possibly be a bcrypt hash
+		// (always exactly 60 bytes) — this happens when a portal-created
+		// character logs in after a rollback to auth_mode=local.
+		// bcrypt.CompareHashAndPassword on a too-short hash returns an
+		// unexported hash-too-short error, NOT ErrMismatchedHashAndPassword,
+		// so the generic error branch below would surface codes.Internal
+		// instead of INVALID_CREDENTIALS. Short-circuit here instead.
+		if len(account.Password) < 60 {
+			return &loginpb.PlayerLoginResponse{
+				Result:    loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS,
+				AccountId: int32(account.ID),
+			}, nil
+		}
 		// Lowercase before compare — mirrors TS LoginServer.ts:233
 		// `bcrypt.compare(password.toLowerCase(), account.password)`.
 		if err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(strings.ToLower(req.Password))); err != nil {

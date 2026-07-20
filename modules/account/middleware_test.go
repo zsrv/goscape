@@ -1,6 +1,7 @@
 package account
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -128,5 +129,32 @@ func TestRateLimiter(t *testing.T) {
 	}
 	if !rl.allow("other", 3, time.Minute) {
 		t.Fatal("different key must be independent")
+	}
+}
+
+// TestRateLimiter_Eviction pins the unbounded-map fix: once the map
+// crosses rlEvictionThreshold, the next allow() call sweeps entries
+// whose own window has already expired, so a flood of distinct
+// attacker-controlled keys (IP/email on anonymous endpoints) doesn't
+// grow the map without bound.
+func TestRateLimiter_Eviction(t *testing.T) {
+	rl := newRateLimiter()
+	// The window must comfortably outlast the insertion loop itself (a
+	// few thousand map writes under one mutex), otherwise entries start
+	// expiring — and getting swept — before the map ever exceeds the
+	// threshold, which would make "before" below flaky.
+	tiny := 200 * time.Millisecond
+	for i := range rlEvictionThreshold + 1 {
+		rl.allow(fmt.Sprintf("evict-%d", i), 3, tiny)
+	}
+	before := len(rl.windows)
+	if before <= rlEvictionThreshold {
+		t.Fatalf("setup: expected map to exceed threshold, got %d", before)
+	}
+	time.Sleep(2 * tiny)
+	rl.allow("trigger-sweep", 3, time.Minute)
+	after := len(rl.windows)
+	if after >= before {
+		t.Fatalf("expected eviction to shrink the map: before=%d after=%d", before, after)
 	}
 }

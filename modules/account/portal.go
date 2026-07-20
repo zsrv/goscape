@@ -3,6 +3,7 @@ package account
 import (
 	"bytes"
 	"embed"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -160,6 +161,21 @@ func (p *portal) routes() *http.ServeMux {
 	mux.HandleFunc("POST /admin/accounts/{id}/release", p.admin(p.adminAction("identity.release",
 		func(r *http.Request, target *PortalAccount) (string, error) {
 			provider, uid := r.FormValue("provider"), r.FormValue("provider_user_id")
+			// Verify the identity actually belongs to the {id} target before
+			// releasing it: without this check an admin on account A's detail
+			// page could pass a (provider, provider_user_id) pair belonging to
+			// account B, and the audit row (target=account:A) would misattribute
+			// the release of B's identity to A's page.
+			identity, err := p.store.IdentityByProviderUser(r.Context(), provider, uid)
+			if errors.Is(err, ErrNotFound) {
+				return "", fmt.Errorf("no such identity")
+			}
+			if err != nil {
+				return "", err
+			}
+			if identity.AccountID != target.ID {
+				return "", fmt.Errorf("identity belongs to a different account")
+			}
 			return provider + ":" + uid, p.store.ReleaseIdentity(r.Context(), provider, uid)
 		})))
 	mux.HandleFunc("POST /admin/accounts/{id}/resend-verification", p.admin(p.adminAction("account.resend_verification",

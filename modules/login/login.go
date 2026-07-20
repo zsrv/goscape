@@ -5,14 +5,31 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 
 	"github.com/zsrv/goscape/pkg/accountpb"
 	"github.com/zsrv/goscape/pkg/dskit/services"
 	"github.com/zsrv/goscape/pkg/gamedb"
 )
+
+// accountClientKeepaliveParams mirrors modules/world/grpc_keepalive.go's
+// clientKeepaliveParams() for the login→account gRPC dial. modules/login
+// cannot import modules/world (it would invert the module dependency
+// graph — world depends on login, not the reverse), so the same
+// keepalive.ClientParameters values are replicated here rather than
+// shared. Without it a NAT/firewall dropping connection state without
+// RST can leave the account-service dial silently wedged.
+func accountClientKeepaliveParams() keepalive.ClientParameters {
+	return keepalive.ClientParameters{
+		Time:                30 * time.Second,
+		Timeout:             10 * time.Second,
+		PermitWithoutStream: true,
+	}
+}
 
 // Login is the login server module. It owns its private pool to the
 // central database and the gRPC server.
@@ -51,7 +68,8 @@ func (l *Login) starting(ctx context.Context) error {
 	var acct accountpb.AccountServiceClient
 	if l.cfg.AuthMode == AuthModeAccount {
 		conn, err := grpc.NewClient(l.cfg.AccountGRPCAddress,
-			grpc.WithTransportCredentials(insecure.NewCredentials()))
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithKeepaliveParams(accountClientKeepaliveParams()))
 		if err != nil {
 			db.Close()
 			return fmt.Errorf("dial account service: %w", err)

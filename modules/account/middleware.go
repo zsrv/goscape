@@ -153,9 +153,19 @@ type rateLimiter struct {
 }
 
 type rlWindow struct {
-	start time.Time
-	count int
+	start  time.Time
+	count  int
+	window time.Duration // the window duration this entry was created with, for eviction
 }
+
+// rlEvictionThreshold bounds rateLimiter.windows: keys come from
+// attacker-controlled input (IP/email on anonymous endpoints like
+// /login and /register), so without a bound a sustained flood of
+// distinct keys grows the map without limit. Once the map reaches this
+// size, allow() sweeps every entry whose own window has already
+// expired before proceeding — cheap relative to the flood that would
+// be needed to keep the map above the threshold.
+const rlEvictionThreshold = 4096
 
 func newRateLimiter() *rateLimiter {
 	return &rateLimiter{windows: make(map[string]*rlWindow)}
@@ -165,9 +175,16 @@ func (rl *rateLimiter) allow(key string, limit int, window time.Duration) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 	now := time.Now()
+	if len(rl.windows) >= rlEvictionThreshold {
+		for k, w := range rl.windows {
+			if now.Sub(w.start) >= w.window {
+				delete(rl.windows, k)
+			}
+		}
+	}
 	w, ok := rl.windows[key]
 	if !ok || now.Sub(w.start) >= window {
-		rl.windows[key] = &rlWindow{start: now, count: 1}
+		rl.windows[key] = &rlWindow{start: now, count: 1, window: window}
 		return true
 	}
 	w.count++

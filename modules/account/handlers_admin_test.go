@@ -99,6 +99,39 @@ func TestAdminPages(t *testing.T) {
 	}
 }
 
+// TestAdminRelease_ScopedToTarget pins the release-audit-misattribution
+// fix: releasing an identity that actually belongs to a DIFFERENT
+// account, via account A's detail page, must fail rather than silently
+// deleting B's identity and recording the release against A's audit
+// trail.
+func TestAdminRelease_ScopedToTarget(t *testing.T) {
+	_, s, srv, client, raw := adminPortal(t)
+	targetAID := seedVerifiedAccountWithCharacter(t, s, "playera@example.com", "playera")
+	targetBID := seedVerifiedAccountWithCharacter(t, s, "playerb@example.com", "playerb")
+	if err := s.LinkIdentity(t.Context(), targetBID, "discord", "D9", "bob"); err != nil {
+		t.Fatal(err)
+	}
+	csrf := csrfToken(raw)
+
+	detailA := fmt.Sprintf("%s/admin/accounts/%d", srv.URL, targetAID)
+	resp := postForm(t, client, detailA+"/release", url.Values{
+		"csrf": {csrf}, "provider": {"discord"}, "provider_user_id": {"D9"},
+	})
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("release: %d", resp.StatusCode)
+	}
+	if loc := resp.Header.Get("Location"); !strings.Contains(loc, "Action+failed") {
+		t.Fatalf("cross-account release must fail, got redirect %q", loc)
+	}
+	ids, err := s.IdentitiesByAccount(t.Context(), targetBID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) != 1 {
+		t.Fatal("cross-account release must not delete the identity")
+	}
+}
+
 func TestAdminMailActions(t *testing.T) {
 	p, s, srv, client, raw := adminPortal(t)
 	mailer := p.mailer.(*recordingMailer)
