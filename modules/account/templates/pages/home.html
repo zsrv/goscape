@@ -1,0 +1,10 @@
+{{define "title"}}goscape — account portal{{end}}
+{{define "content"}}
+<h1>goscape account portal</h1>
+<p>Create an account, link your Discord, and create game characters.</p>
+{{if not .Account}}
+<p><a class="button" href="/register">Create an account</a></p>
+{{else}}
+<p><a class="button" href="/dashboard">Go to your dashboard</a></p>
+{{end}}
+{{end}}
