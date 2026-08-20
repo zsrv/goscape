@@ -96,7 +96,11 @@ config:
 apiVersion: configuration.konghq.com/v1
 kind: KongConsumer
 metadata:
-  name: {{ .username }}
+  # Prefixed like every other rendered object, so two releases in one
+  # namespace don't collide on the object name. The username: field
+  # below stays bare — it is the Kong-facing identity the API key maps
+  # to, and prefixing it would change the credential's meaning.
+  name: {{ include "goscape.fullname" $ }}-hiscore-consumer-{{ .username }}
   labels:
     {{- include "goscape.labels" $ | nindent 4 }}
   annotations:
