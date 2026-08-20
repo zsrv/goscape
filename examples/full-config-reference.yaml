@@ -453,6 +453,77 @@ account:
 
 
 # ----------------------------------------------------------------------------
+# hiscore — hiscores read API. Serves public JSON leaderboards over the
+#           hiscore tables that the login module populates on logout.
+#           Designed to sit behind an API gateway (Kong) which owns
+#           authentication and per-consumer rate limiting; this module is
+#           anonymous-safe on its own.
+# ----------------------------------------------------------------------------
+hiscore:
+  # CLI: --hiscore.enable (default: false)
+  enable: false
+  # Default profile queried when a request does not specify one.
+  # CLI: --hiscore.profile (default: main)
+  profile: main
+  # Cache-Control max-age on API responses. Responses are also ETag'd.
+  # CLI: --hiscore.cache-max-age (default: 1m)
+  cache_max_age: 1m
+  # CLI: --hiscore.default-limit (default: 25)
+  default_limit: 25
+  # CLI: --hiscore.max-limit (default: 100)
+  max_limit: 100
+  # Deepest rank reachable by offset paging. Cursor paging is unbounded
+  # and is the intended mechanism for bulk reads.
+  # CLI: --hiscore.leaderboard-max-rank (default: 500000)
+  leaderboard_max_rank: 500000
+  # Read gateway-supplied X-Consumer-* headers for logging. Nothing is
+  # ever authorized by them; leave false unless a gateway fronts this.
+  # Enabling this WITHOUT a real gateway in front lets any caller set its
+  # own X-Consumer-Username to mint a fresh rate-limit bucket per request,
+  # silently defeating the backstop_rate below (no data/access is at risk
+  # since nothing is authorized by the header — the limiter just stops
+  # limiting, with no signal that it happened).
+  # CLI: --hiscore.trust-gateway-headers (default: false)
+  trust_gateway_headers: false
+  # Coarse in-process requests/minute per caller, for when no gateway
+  # limits apply. 0 disables. CLI: --hiscore.backstop-rate (default: 120)
+  backstop_rate: 120
+
+  # --- HTTP listener (inlined dskit server.Config) ---
+  # CLI: --hiscore.http-listen-network (default: tcp)
+  http_listen_network: tcp
+  # CLI: --hiscore.http-listen-address (default: 127.0.0.1)
+  http_listen_address: 127.0.0.1
+  # CLI: --hiscore.http-listen-port (default: 8082)
+  http_listen_port: 8082
+
+  # --- HTTP server timeouts (inlined dskit server.Config) ---
+  # CLI: --hiscore.graceful-shutdown-timeout (default: 30s)
+  graceful_shutdown_timeout: 30s
+  # CLI: --hiscore.http-read-timeout (default: 30s)
+  http_server_read_timeout: 30s
+  # CLI: --hiscore.http-write-timeout (default: 30s)
+  http_server_write_timeout: 30s
+  # CLI: --hiscore.http-idle-timeout (default: 120s)
+  http_server_idle_timeout: 120s
+
+  # --- Source-IP logging (inlined dskit server.Config) ---
+  # CLI: --hiscore.log-source-ips-enabled (default: true)
+  log_source_ips_enabled: true
+  # Both header and regex blank selects dskit's built-in Forwarded /
+  # X-Real-IP / X-Forwarded-For chain, which is what Kong populates —
+  # deliberately unlike ondemand, which defaults to cf-connecting-ip for
+  # its Cloudflare-fronted deployment.
+  # CLI: --hiscore.log-source-ips-header (default: "")
+  log_source_ips_header: ""
+  # CLI: --hiscore.log-source-ips-regex (default: "")
+  log_source_ips_regex: ""
+  # Log all matched source IPs instead of only the first.
+  # CLI: --hiscore.log-source-ips-full (default: false)
+  log_source_ips_full: false
+
+
+# ----------------------------------------------------------------------------
 # NOT a config section: pkg/telemetry exists in the codebase but is NOT wired
 # into the application config. There is no top-level `telemetry:` block — adding
 # one fails strict decoding. This is intentional, not a TODO:

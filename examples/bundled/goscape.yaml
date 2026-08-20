@@ -34,3 +34,6 @@ world:
   tcp_keepalive_period: 30s
   node_debug: false
   friends_server_enabled: true
+
+hiscore:
+  enable: true

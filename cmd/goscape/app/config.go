@@ -7,6 +7,7 @@ import (
 
 	"github.com/zsrv/goscape/modules/account"
 	"github.com/zsrv/goscape/modules/friends"
+	"github.com/zsrv/goscape/modules/hiscore"
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
 	"github.com/zsrv/goscape/modules/world"
@@ -27,6 +28,7 @@ type Config struct {
 	Login    login.Config    `yaml:"login,omitempty"`
 	World    world.Config    `yaml:"world,omitempty"`
 	Account  account.Config  `yaml:"account,omitempty"`
+	Hiscore  hiscore.Config  `yaml:"hiscore,omitempty"`
 }
 
 func NewDefaultConfig() *Config {
@@ -54,6 +56,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	c.Login.RegisterFlagsAndApplyDefaults(f)
 	c.World.RegisterFlagsAndApplyDefaults(f)
 	c.Account.RegisterFlagsAndApplyDefaults(f)
+	c.Hiscore.RegisterFlagsAndApplyDefaults(f)
 }
 
 // Validate fans out to each module's Validate, returning the first error.
@@ -89,6 +92,9 @@ func (c *Config) Validate() error {
 		}
 	}
 	if err := c.Account.Validate(); err != nil {
+		return err
+	}
+	if err := c.Hiscore.Validate(); err != nil {
 		return err
 	}
 	return nil

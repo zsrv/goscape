@@ -124,8 +124,9 @@ func TestSetupModuleManager_CommonIsInvisible(t *testing.T) {
 // TestSetupModuleManager_DAGTopology pins the exact dependency edges
 // declared in modules.go — Arc 11 sanctioned OnDemand:{Common,World};
 // Database (task 3, database module) is the migration anchor and sits
-// between Common and both DB-using modules: Friends:{Common,Database},
-// Login:{Common,Database}.
+// between Common and every DB-using module: Friends:{Common,Database},
+// Login:{Common,Database}, Account:{Common,Database},
+// Hiscore:{Common,Database}.
 // Changing
 // any edge here is load-bearing and should be a deliberate decision.
 // COV-1 (Arc 18).
@@ -142,7 +143,8 @@ func TestSetupModuleManager_DAGTopology(t *testing.T) {
 		Login:        {"common", Database},
 		World:        {"common", Login, Friends},
 		Account:      {"common", Database},
-		SingleBinary: {OnDemand, Friends, Login, World, Account},
+		Hiscore:      {"common", Database},
+		SingleBinary: {OnDemand, Friends, Login, World, Account, Hiscore},
 	}
 	for mod, expected := range want {
 		got := g.deps[mod]
