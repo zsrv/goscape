@@ -37,3 +37,6 @@ public/
 .mcp.json
 # Private per its own header (CLAUDE.md, by contrast, stays committed).
 CLAUDE.local.md
+
+# superpowers SDD scratch workspace (ledger, briefs, review packages)
+.superpowers/

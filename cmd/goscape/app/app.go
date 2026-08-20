@@ -9,6 +9,7 @@ import (
 
 	"github.com/zsrv/goscape/modules/account"
 	"github.com/zsrv/goscape/modules/friends"
+	"github.com/zsrv/goscape/modules/hiscore"
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
 	"github.com/zsrv/goscape/modules/world"
@@ -37,6 +38,7 @@ type App struct {
 	login    *login.Login
 	world    *world.World
 	account  *account.Account
+	hiscore  *hiscore.Hiscore
 
 	// signalsHandlerMu guards signalsHandler against the Run/Stop race
 	// surfaced by COV-1's race detector: Run() writes signalsHandler at
