@@ -205,3 +205,25 @@ func TestMigrate_SecondRunNoChange(t *testing.T) {
 		t.Fatalf("second Migrate: %v (want ErrNoChange swallowed)", err)
 	}
 }
+
+// TestMigrate_HiscoreIndexes pins the ranking indexes added in 000004.
+// The hiscore API's leaderboard ordering and rank counting both depend
+// on them; without them every leaderboard page is a full sort.
+func TestMigrate_HiscoreIndexes(t *testing.T) {
+	db := migratedTestDB(t)
+
+	want := []string{
+		"idx_hiscore_rank",
+		"idx_hiscore_account",
+		"idx_hiscore_large_rank",
+		"idx_hiscore_large_account",
+	}
+	for _, name := range want {
+		var got string
+		err := db.QueryRowContext(t.Context(), db.Rebind(
+			`SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?`), name).Scan(&got)
+		if err != nil {
+			t.Fatalf("index %s missing after migrate: %v", name, err)
+		}
+	}
+}
