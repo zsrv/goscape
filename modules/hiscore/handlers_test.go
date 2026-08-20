@@ -392,6 +392,47 @@ func TestLeaderboardEndpoint_CursorWalkMatchesOffsetWalk(t *testing.T) {
 	}
 }
 
+// The interesting boundary is a board that is an exact multiple of the
+// page size: the final page comes back full, so it still emits a
+// next_cursor, and the follow-up request (page 4, past the end) must
+// come back empty with no cursor rather than looping forever.
+func TestLeaderboardEndpoint_CursorWalkExactMultiple(t *testing.T) {
+	a, db := newTestAPI(t)
+	seedBoard(t, db, "main", 1, 12)
+
+	var viaCursor []boardEntry
+	target := "/v1/leaderboards/attack?limit=4"
+	pages := 0
+	for {
+		pages++
+		if pages > 10 {
+			t.Fatalf("did not terminate after %d pages", pages)
+		}
+		rec := doGET(t, a, target)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s: status %d", target, rec.Code)
+		}
+		var body leaderboardResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		viaCursor = append(viaCursor, body.Entries...)
+		if body.NextCursor == "" {
+			break
+		}
+		target = "/v1/leaderboards/attack?limit=4&cursor=" + url.QueryEscape(body.NextCursor)
+	}
+
+	if len(viaCursor) != 12 {
+		t.Fatalf("cursor walk returned %d entries, want 12", len(viaCursor))
+	}
+	for i, e := range viaCursor {
+		if e.Rank != int64(i+1) {
+			t.Errorf("entry %d: rank = %d, want %d", i, e.Rank, i+1)
+		}
+	}
+}
+
 func TestLeaderboardEndpoint_BadRequests(t *testing.T) {
 	a, _ := newTestAPI(t)
 
@@ -407,7 +448,9 @@ func TestLeaderboardEndpoint_BadRequests(t *testing.T) {
 		{"non-numeric limit", "/v1/leaderboards/attack?limit=abc"},
 		{"negative offset", "/v1/leaderboards/attack?offset=-1"},
 		{"offset past max rank", "/v1/leaderboards/attack?offset=500000&limit=25"},
+		{"offset near max int64 overflows the deep-offset guard", "/v1/leaderboards/attack?offset=9223372036854775807&limit=25"},
 		{"offset and cursor together", "/v1/leaderboards/attack?offset=5&cursor=abc"},
+		{"offset present but empty, with cursor", "/v1/leaderboards/attack?offset=&cursor=abc"},
 		{"malformed cursor", "/v1/leaderboards/attack?cursor=!!!"},
 		{"empty profile", "/v1/leaderboards/attack?profile="},
 	}
@@ -418,6 +461,13 @@ func TestLeaderboardEndpoint_BadRequests(t *testing.T) {
 			if tc.name == "empty profile" {
 				if rec.Code != http.StatusOK {
 					t.Fatalf("status = %d, want 200 (empty profile falls back to default)", rec.Code)
+				}
+				var body leaderboardResponse
+				if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+					t.Fatalf("decode: %v", err)
+				}
+				if body.Profile != "main" {
+					t.Errorf("profile = %q, want main (fell back to configured default, not a literal empty profile)", body.Profile)
 				}
 				return
 			}

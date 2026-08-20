@@ -318,6 +318,13 @@ func (a *api) handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rawCursor := q.Get("cursor")
+	// Presence, not value: an offset param supplied but left empty is
+	// still "supplied" for the mutual-exclusivity check, even though
+	// intParam (matching profileParam's convention) treats an empty
+	// value as absent when actually parsing it below. This is
+	// deliberate — ?offset=&cursor=... is ambiguous about which mode
+	// the caller wants, and rejecting it is safer than silently
+	// guessing which one they meant.
 	hasOffset := q.Has("offset")
 	if rawCursor != "" && hasOffset {
 		a.writeError(w, http.StatusBadRequest, codeInvalidRequest,
@@ -342,7 +349,11 @@ func (a *api) handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 				"offset must be a non-negative integer")
 			return
 		}
-		if offset+limit > a.cfg.LeaderboardMaxRank {
+		// Overflow-free form of offset+limit > LeaderboardMaxRank: both
+		// operands are already bounded (limit <= a.cfg.MaxLimit, offset
+		// >= 0), so offset+limit itself is never computed and cannot
+		// wrap past math.MaxInt64 into a falsely-passing negative.
+		if offset > a.cfg.LeaderboardMaxRank-limit {
 			a.writeError(w, http.StatusBadRequest, codeInvalidRequest,
 				fmt.Sprintf("offset+limit must not exceed %d; use cursor paging for deep reads",
 					a.cfg.LeaderboardMaxRank))
