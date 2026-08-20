@@ -2,8 +2,11 @@ package hiscore
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/zsrv/goscape/pkg/gamedb"
 )
 
 func TestLookupAccountByName(t *testing.T) {
@@ -243,6 +246,187 @@ func TestPlayerCard_ProfileIsolation(t *testing.T) {
 	}
 	if len(card.Skills) != 0 {
 		t.Fatalf("got %d entries under profile main, want 0 — beta rows must not leak", len(card.Skills))
+	}
+}
+
+// seedBoard inserts n visible players on one board, descending in XP so
+// that account "p0" is rank 1. Returns usernames in rank order.
+func seedBoard(t *testing.T, db *gamedb.DB, profile string, typ, n int) []string {
+	t.Helper()
+	names := make([]string, 0, n)
+	table := TableForType(typ)
+	for i := range n {
+		name := fmt.Sprintf("p%d", i)
+		id := insertAccount(t, db, name, 0, nil)
+		insertHiscore(t, db, table, id, profile, typ, 99-i, int64(1_000_000-i*1000), testClock)
+		names = append(names, name)
+	}
+	return names
+}
+
+func TestLeaderboardByOffset(t *testing.T) {
+	db := createTestDB(t)
+	store := NewStore(db)
+	names := seedBoard(t, db, "main", 1, 10)
+
+	rows, err := store.LeaderboardByOffset(t.Context(), "main", 1, 3, 4, testClock)
+	if err != nil {
+		t.Fatalf("LeaderboardByOffset: %v", err)
+	}
+	if len(rows) != 4 {
+		t.Fatalf("got %d rows, want 4", len(rows))
+	}
+	for i, r := range rows {
+		wantRank := int64(3 + i + 1)
+		if r.Rank != wantRank {
+			t.Errorf("row %d: rank = %d, want %d", i, r.Rank, wantRank)
+		}
+		if r.Username != names[3+i] {
+			t.Errorf("row %d: username = %q, want %q", i, r.Username, names[3+i])
+		}
+	}
+}
+
+func TestLeaderboardByOffset_ExcludesHidden(t *testing.T) {
+	db := createTestDB(t)
+	store := NewStore(db)
+
+	future := testClock.Add(24 * time.Hour)
+	staff := insertAccount(t, db, "modash", 2, nil)
+	banned := insertAccount(t, db, "cheater", 0, &future)
+	player := insertAccount(t, db, "zezima", 0, nil)
+
+	insertHiscore(t, db, "hiscore", staff, "main", 1, 99, 30_000_000, testClock)
+	insertHiscore(t, db, "hiscore", banned, "main", 1, 99, 25_000_000, testClock)
+	insertHiscore(t, db, "hiscore", player, "main", 1, 90, 10_000_000, testClock)
+
+	rows, err := store.LeaderboardByOffset(t.Context(), "main", 1, 0, 10, testClock)
+	if err != nil {
+		t.Fatalf("LeaderboardByOffset: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("got %d rows, want 1 visible", len(rows))
+	}
+	if rows[0].Username != "zezima" || rows[0].Rank != 1 {
+		t.Errorf("got %q at rank %d, want zezima at rank 1", rows[0].Username, rows[0].Rank)
+	}
+}
+
+// The card and the leaderboard must agree on rank for the same player,
+// including when hidden accounts sit above them.
+func TestRankAgreement_CardVsLeaderboard(t *testing.T) {
+	db := createTestDB(t)
+	store := NewStore(db)
+
+	future := testClock.Add(24 * time.Hour)
+	hidden := insertAccount(t, db, "cheater", 0, &future)
+	insertHiscore(t, db, "hiscore", hidden, "main", 1, 99, 99_000_000, testClock)
+	names := seedBoard(t, db, "main", 1, 5)
+
+	rows, err := store.LeaderboardByOffset(t.Context(), "main", 1, 0, 10, testClock)
+	if err != nil {
+		t.Fatalf("LeaderboardByOffset: %v", err)
+	}
+	for _, r := range rows {
+		card, err := store.PlayerCard(t.Context(), "main", r.AccountID, testClock)
+		if err != nil {
+			t.Fatalf("PlayerCard(%d): %v", r.AccountID, err)
+		}
+		if len(card.Skills) != 1 {
+			t.Fatalf("player %s: got %d entries, want 1", r.Username, len(card.Skills))
+		}
+		if card.Skills[0].Rank != r.Rank {
+			t.Errorf("player %s: card rank %d != leaderboard rank %d",
+				r.Username, card.Skills[0].Rank, r.Rank)
+		}
+	}
+	if len(rows) != len(names) {
+		t.Errorf("got %d rows, want %d", len(rows), len(names))
+	}
+}
+
+func TestLeaderboardByOffset_Overall(t *testing.T) {
+	db := createTestDB(t)
+	store := NewStore(db)
+	seedBoard(t, db, "main", 0, 3)
+
+	rows, err := store.LeaderboardByOffset(t.Context(), "main", 0, 0, 10, testClock)
+	if err != nil {
+		t.Fatalf("LeaderboardByOffset(overall): %v", err)
+	}
+	if len(rows) != 3 {
+		t.Fatalf("got %d rows from hiscore_large, want 3", len(rows))
+	}
+}
+
+func TestLeaderboardByOffset_PastEnd(t *testing.T) {
+	db := createTestDB(t)
+	store := NewStore(db)
+	seedBoard(t, db, "main", 1, 3)
+
+	rows, err := store.LeaderboardByOffset(t.Context(), "main", 1, 100, 10, testClock)
+	if err != nil {
+		t.Fatalf("LeaderboardByOffset: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("got %d rows past the end, want 0 and no error", len(rows))
+	}
+}
+
+// TestLeaderboardByOffset_UTCNormalization mirrors
+// TestLookupAccountByName_UTCNormalization's shape, adapted to the
+// leaderboard query: a still-banned account's ban must not silently
+// lift just because the caller passed a non-UTC now.
+//
+// The banned account's ban expires shortly before UTC midnight. At the
+// true UTC instant the ban is still active, so the account must stay
+// off the page. A same-day offset would be vacuous here — modernc.org/
+// sqlite's conn.formatTime serializes a non-UTC time.Time with its own
+// offset attached, and DATETIME columns are then compared as TEXT, so
+// only a scenario where the offset pushes now's formatted wall-clock
+// date past midnight (while the stored, UTC banned_until is still on
+// the prior day) can flip the lexicographic comparison and let a
+// still-banned account leak onto the leaderboard.
+func TestLeaderboardByOffset_UTCNormalization(t *testing.T) {
+	db := createTestDB(t)
+	store := NewStore(db)
+
+	// trueNow is 30 minutes before midnight UTC.
+	trueNow := time.Date(2026, 8, 19, 23, 30, 0, 0, time.UTC)
+	// stillBanned expires 20 minutes after trueNow (23:50 UTC, still
+	// shortly before midnight): the ban is still active at trueNow, so
+	// the account must stay off the page.
+	stillBanned := trueNow.Add(20 * time.Minute)
+
+	banned := insertAccount(t, db, "cheater", 0, &stillBanned)
+	player := insertAccount(t, db, "zezima", 0, nil)
+
+	const attack = 1
+	insertHiscore(t, db, "hiscore", banned, "main", attack, 99, 50_000_000, trueNow)
+	insertHiscore(t, db, "hiscore", player, "main", attack, 90, 10_000_000, trueNow)
+
+	// offsetNow represents the exact same instant as trueNow, but its
+	// wall clock (and therefore its formatted date) has rolled over to
+	// the next day.
+	offsetNow := trueNow.In(time.FixedZone("test+05", 5*60*60))
+	if offsetNow.Day() == trueNow.Day() {
+		t.Fatalf("test fixture is broken: offsetNow (%v) must land on a different calendar day than trueNow (%v)", offsetNow, trueNow)
+	}
+
+	wantRows, err := store.LeaderboardByOffset(t.Context(), "main", attack, 0, 10, trueNow)
+	if err != nil {
+		t.Fatalf("LeaderboardByOffset(trueNow): %v", err)
+	}
+	if len(wantRows) != 1 || wantRows[0].Username != "zezima" {
+		t.Fatalf("LeaderboardByOffset(trueNow): got %v, want only zezima — still-banned cheater must be absent", wantRows)
+	}
+
+	gotRows, err := store.LeaderboardByOffset(t.Context(), "main", attack, 0, 10, offsetNow)
+	if err != nil {
+		t.Fatalf("LeaderboardByOffset(offsetNow): %v", err)
+	}
+	if len(gotRows) != 1 || gotRows[0].Username != "zezima" {
+		t.Fatalf("LeaderboardByOffset(offsetNow): got %v, want only zezima (must agree with trueNow) — still-banned cheater must not leak onto the page", gotRows)
 	}
 }
 

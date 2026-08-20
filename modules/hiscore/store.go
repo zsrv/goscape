@@ -41,11 +41,11 @@ type Account struct {
 // disagree between endpoints:
 //   - LookupAccountByName, below
 //   - the rank subquery in cardQuery, below
-//   - the shared leaderboard SELECT (a later change)
+//   - boardSelect, below
 //
 // Drift is caught by TestPlayerCard_HiddenRowsDoNotConsumeRanks,
 // TestLeaderboardByOffset_ExcludesHidden and
-// TestRankAgreement_CardVsLeaderboard, all added by later changes.
+// TestRankAgreement_CardVsLeaderboard.
 
 // LookupAccountByName resolves a base37 safe name to a visible account.
 // The caller normalizes the name (jstring.ToSafeName) before calling.
@@ -181,6 +181,80 @@ func (s *Store) entriesFor(ctx context.Context, table, profile string, accountID
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("hiscore: card rows %s: %w", table, err)
+	}
+	return out, nil
+}
+
+// Row is one leaderboard entry.
+type Row struct {
+	AccountID int64
+	Username  string
+	Rank      int64
+	Level     int
+	ValueX10  int64
+	UpdatedAt time.Time
+}
+
+// boardSelect is the shared projection and visibility filter for both
+// paging modes. %[1]s is the table name (compile-time constant). The
+// predicate is inlined here rather than shared with LookupAccountByName
+// or cardQuery — see the visibility-rule comment above.
+//
+// The ORDER BY (boardOrder, appended by callers) matches
+// idx_%[1]s_rank exactly, so the engine serves it as an index range
+// scan rather than a sort.
+const boardSelect = `
+SELECT h.account_id, a.username, h.level, h.value, h.date
+  FROM %[1]s h
+  JOIN account a ON a.id = h.account_id
+ WHERE h.profile = ? AND h.type = ?
+   AND a.staff_mod_level <= 1
+   AND (a.banned_until IS NULL OR a.banned_until < ?)`
+
+const boardOrder = `
+ ORDER BY h.value DESC, h.date ASC, h.account_id ASC`
+
+// LeaderboardByOffset returns one page starting at a zero-based offset.
+// Rank is offset+index+1: the page is already in rank order and the
+// visibility filter is applied inside the same query, so the offset
+// counts only visible rows.
+//
+// now is normalized to UTC before it reaches SQL; see LookupAccountByName
+// for why an un-normalized now is unsafe against TEXT-stored DATETIME
+// columns.
+//
+// OFFSET is O(offset) in every SQL engine. This mode exists for random
+// access ("jump to page N"); bulk readers use LeaderboardByCursor.
+func (s *Store) LeaderboardByOffset(ctx context.Context, profile string, typ, offset, limit int, now time.Time) ([]Row, error) {
+	now = now.UTC()
+
+	q := fmt.Sprintf(boardSelect, TableForType(typ)) + boardOrder + `
+ LIMIT ? OFFSET ?`
+
+	rows, err := s.db.QueryContext(ctx, s.db.Rebind(q), profile, typ, now, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("hiscore: leaderboard offset query: %w", err)
+	}
+	defer rows.Close()
+
+	return scanBoard(rows, int64(offset)+1)
+}
+
+// scanBoard reads board rows, assigning consecutive ranks from firstRank.
+func scanBoard(rows *sql.Rows, firstRank int64) ([]Row, error) {
+	var out []Row
+	rank := firstRank
+	for rows.Next() {
+		var r Row
+		if err := rows.Scan(&r.AccountID, &r.Username, &r.Level, &r.ValueX10, &r.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("hiscore: leaderboard scan: %w", err)
+		}
+		r.Rank = rank
+		rank++
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("hiscore: leaderboard rows: %w", err)
 	}
 	return out, nil
 }
