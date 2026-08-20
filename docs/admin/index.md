@@ -20,6 +20,7 @@ file). The selectable targets are:
 | `world` | TCP game server only |
 | `login` | gRPC login service only |
 | `friends` | Friends server only |
+| `account` | Player portal (SSR web app) + AccountService gRPC only |
 | `hiscore` | HTTP hiscores API only |
 | `all` | All of the above (this is the default) |
 
@@ -42,6 +43,7 @@ graph TD
     all --> friends
     all --> login
     all --> world
+    all --> account
     all --> hiscore
 
     ondemand[ondemand] --> world
@@ -56,6 +58,9 @@ graph TD
 
     friends[friends] --> database
     friends --> common
+
+    account[account] --> database
+    account --> common
 
     hiscore[hiscore] --> database
     hiscore --> common
@@ -115,10 +120,10 @@ Two behaviours are important to operators:
 
 ## Network surfaces and ports
 
-A full `all` deployment exposes five network listeners. The ports below are the ones
-the bundled example config ends up with — the OnDemand and login ports are set
-explicitly in it, while the world, friends, and hiscore ports come from built-in
-defaults. Every port and bind address is configurable.
+A full `all` deployment exposes five network listeners with the shipped defaults. The
+ports below are the ones the bundled example config ends up with — the OnDemand and
+login ports are set explicitly in it, while the world, friends, and hiscore ports come
+from built-in defaults. Every port and bind address is configurable.
 
 | Listener | Module | Protocol | Default port |
 |----------|--------|----------|--------------|
@@ -127,6 +132,23 @@ defaults. Every port and bind address is configurable.
 | Friends | `friends` | gRPC | 2005 |
 | Game world | `world` | TCP | 43594 |
 | Hiscores API | `hiscore` | HTTP | 8082 |
+
+The `account` module is part of the `all` target but ships **disabled**
+(`account.enable` defaults to `false`), so it is not in the bundled example and adds
+no listener until you turn it on. When enabled it opens two:
+
+| Listener | Module | Protocol | Default port |
+|----------|--------|----------|--------------|
+| Player portal | `account` | HTTP | 8081 |
+| AccountService | `account` | gRPC | 2005 |
+
+!!! warning "The account and friends gRPC defaults collide"
+
+    `account.grpc_listen_port` and `friends.grpc_listen_port` both default to `2005`,
+    and both bind `127.0.0.1`. Enabling the account module alongside friends without
+    changing one of them makes whichever module starts second fail to bind, which
+    fails that module and takes the process down at startup. Set an explicit
+    `account.grpc_listen_port` (or move friends') whenever you run both.
 
 The OnDemand HTTP server delivers the game cache to connecting clients. The login
 service is a gRPC endpoint that authenticates players. The friends service is a
