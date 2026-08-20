@@ -31,4 +31,11 @@ spec:
         - port: {{ .Values.goscape.ports.worldTCP }}
           protocol: TCP
     {{- end }}
+    {{- if or (eq .Values.deploymentMode "SingleBinary") (eq .Values.deploymentMode "Management") }}
+    # Allow the hiscore API from anywhere — same deployment-mode gating
+    # (SingleBinary || Management) as the Service's hiscore-http port.
+    - ports:
+        - port: {{ .Values.goscape.ports.hiscoreHTTP }}
+          protocol: TCP
+    {{- end }}
 {{- end }}
