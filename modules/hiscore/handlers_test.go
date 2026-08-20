@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -283,5 +284,171 @@ func TestPlayerEndpoint_DatabaseFailure(t *testing.T) {
 	}
 	if cc := rec.Header().Get("Cache-Control"); cc != "no-store" {
 		t.Errorf("Cache-Control = %q, want no-store — errors must not be cached at the edge", cc)
+	}
+}
+
+func TestLeaderboardEndpoint(t *testing.T) {
+	a, db := newTestAPI(t)
+	seedBoard(t, db, "main", 1, 10)
+
+	rec := doGET(t, a, "/v1/leaderboards/attack?limit=3&offset=2")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body.String())
+	}
+
+	var body leaderboardResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.Skill != "attack" {
+		t.Errorf("skill = %q, want attack", body.Skill)
+	}
+	if len(body.Entries) != 3 {
+		t.Fatalf("got %d entries, want 3", len(body.Entries))
+	}
+	if body.Entries[0].Rank != 3 {
+		t.Errorf("first rank = %d, want 3 (offset 2)", body.Entries[0].Rank)
+	}
+	if body.NextCursor == "" {
+		t.Error("next_cursor empty, want a token — more rows remain")
+	}
+}
+
+func TestLeaderboardEndpoint_Overall(t *testing.T) {
+	a, db := newTestAPI(t)
+	seedBoard(t, db, "main", 0, 3)
+
+	rec := doGET(t, a, "/v1/leaderboards/overall")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body.String())
+	}
+	var body leaderboardResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Entries) != 3 {
+		t.Errorf("got %d entries from hiscore_large, want 3", len(body.Entries))
+	}
+}
+
+func TestLeaderboardEndpoint_XPIsWhole(t *testing.T) {
+	a, db := newTestAPI(t)
+	acct := insertAccount(t, db, "zezima", 0, nil)
+	insertHiscore(t, db, "hiscore", acct, "main", 1, 99, 130_344_310, testClock)
+
+	rec := doGET(t, a, "/v1/leaderboards/attack")
+	var body leaderboardResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.Entries[0].XP != 13_034_431 {
+		t.Errorf("xp = %d, want 13034431 (whole XP)", body.Entries[0].XP)
+	}
+}
+
+func TestLeaderboardEndpoint_NextCursorEmptyAtEnd(t *testing.T) {
+	a, db := newTestAPI(t)
+	seedBoard(t, db, "main", 1, 3)
+
+	rec := doGET(t, a, "/v1/leaderboards/attack?limit=10")
+	var body leaderboardResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.NextCursor != "" {
+		t.Errorf("next_cursor = %q, want empty at end of board", body.NextCursor)
+	}
+}
+
+func TestLeaderboardEndpoint_CursorWalkMatchesOffsetWalk(t *testing.T) {
+	a, db := newTestAPI(t)
+	seedBoard(t, db, "main", 1, 12)
+
+	var viaCursor []boardEntry
+	target := "/v1/leaderboards/attack?limit=5"
+	for {
+		rec := doGET(t, a, target)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s: status %d", target, rec.Code)
+		}
+		var body leaderboardResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		viaCursor = append(viaCursor, body.Entries...)
+		if body.NextCursor == "" {
+			break
+		}
+		target = "/v1/leaderboards/attack?limit=5&cursor=" + url.QueryEscape(body.NextCursor)
+	}
+
+	if len(viaCursor) != 12 {
+		t.Fatalf("cursor walk returned %d entries, want 12", len(viaCursor))
+	}
+	for i, e := range viaCursor {
+		if e.Rank != int64(i+1) {
+			t.Errorf("entry %d: rank = %d, want %d", i, e.Rank, i+1)
+		}
+	}
+}
+
+func TestLeaderboardEndpoint_BadRequests(t *testing.T) {
+	a, _ := newTestAPI(t)
+
+	tests := []struct {
+		name   string
+		target string
+	}{
+		{"unknown skill", "/v1/leaderboards/nonsense"},
+		{"disabled stat", "/v1/leaderboards/stat18"},
+		{"limit above max", "/v1/leaderboards/attack?limit=101"},
+		{"zero limit", "/v1/leaderboards/attack?limit=0"},
+		{"negative limit", "/v1/leaderboards/attack?limit=-1"},
+		{"non-numeric limit", "/v1/leaderboards/attack?limit=abc"},
+		{"negative offset", "/v1/leaderboards/attack?offset=-1"},
+		{"offset past max rank", "/v1/leaderboards/attack?offset=500000&limit=25"},
+		{"offset and cursor together", "/v1/leaderboards/attack?offset=5&cursor=abc"},
+		{"malformed cursor", "/v1/leaderboards/attack?cursor=!!!"},
+		{"empty profile", "/v1/leaderboards/attack?profile="},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := doGET(t, a, tc.target)
+			// "empty profile" falls back to the configured default and is valid.
+			if tc.name == "empty profile" {
+				if rec.Code != http.StatusOK {
+					t.Fatalf("status = %d, want 200 (empty profile falls back to default)", rec.Code)
+				}
+				return
+			}
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400; body %s", rec.Code, rec.Body.String())
+			}
+			var body errorEnvelope
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if body.Error.Code != codeInvalidRequest {
+				t.Errorf("code = %q, want %q", body.Error.Code, codeInvalidRequest)
+			}
+		})
+	}
+}
+
+// An unknown profile is a valid query that simply has no rows.
+func TestLeaderboardEndpoint_UnknownProfileIsEmpty(t *testing.T) {
+	a, db := newTestAPI(t)
+	seedBoard(t, db, "main", 1, 3)
+
+	rec := doGET(t, a, "/v1/leaderboards/attack?profile=nosuchprofile")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	var body leaderboardResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Entries) != 0 {
+		t.Errorf("got %d entries, want 0", len(body.Entries))
 	}
 }

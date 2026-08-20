@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -70,6 +71,7 @@ func newAPI(cfg Config, store *Store, log *slog.Logger) (*api, error) {
 func (a *api) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/skills", a.guard(a.handleSkills))
 	mux.HandleFunc("GET /v1/players/{name}", a.guard(a.handlePlayer))
+	mux.HandleFunc("GET /v1/leaderboards/{skill}", a.guard(a.handleLeaderboard))
 	// A catch-all so unmatched paths get the JSON error shape rather
 	// than net/http's text 404.
 	mux.HandleFunc("/", a.guard(func(w http.ResponseWriter, r *http.Request) {
@@ -277,4 +279,122 @@ func (a *api) profileParam(r *http.Request) string {
 func (a *api) internal(w http.ResponseWriter, what string, err error) {
 	a.log.Error("hiscore: "+what, slog.Any("err", err))
 	a.writeError(w, http.StatusInternalServerError, codeInternal, "internal error")
+}
+
+type boardEntry struct {
+	Rank      int64     `json:"rank"`
+	Name      string    `json:"name"`
+	Level     int       `json:"level"`
+	XP        int64     `json:"xp"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type leaderboardResponse struct {
+	Skill   string       `json:"skill"`
+	Profile string       `json:"profile"`
+	Entries []boardEntry `json:"entries"`
+	// NextCursor is empty when the page reached the end of the board.
+	// Bulk readers should follow it rather than incrementing offset:
+	// OFFSET is O(offset), so an offset walk of the whole board is
+	// quadratic while a cursor walk is linear.
+	NextCursor string `json:"next_cursor"`
+}
+
+func (a *api) handleLeaderboard(w http.ResponseWriter, r *http.Request) {
+	skill, ok := SkillByName(r.PathValue("skill"))
+	if !ok {
+		a.writeError(w, http.StatusBadRequest, codeInvalidRequest, "unknown skill")
+		return
+	}
+
+	q := r.URL.Query()
+	profile := a.profileParam(r)
+
+	limit, err := a.intParam(q, "limit", a.cfg.DefaultLimit)
+	if err != nil || limit < 1 || limit > a.cfg.MaxLimit {
+		a.writeError(w, http.StatusBadRequest, codeInvalidRequest,
+			fmt.Sprintf("limit must be an integer in [1, %d]", a.cfg.MaxLimit))
+		return
+	}
+
+	rawCursor := q.Get("cursor")
+	hasOffset := q.Has("offset")
+	if rawCursor != "" && hasOffset {
+		a.writeError(w, http.StatusBadRequest, codeInvalidRequest,
+			"offset and cursor are mutually exclusive")
+		return
+	}
+
+	now := a.now()
+	var rows []Row
+
+	if rawCursor != "" {
+		cur, cerr := DecodeCursor(rawCursor)
+		if cerr != nil {
+			a.writeError(w, http.StatusBadRequest, codeInvalidRequest, "malformed cursor")
+			return
+		}
+		rows, err = a.store.LeaderboardByCursor(r.Context(), profile, skill.Type, cur, limit, now)
+	} else {
+		offset, oerr := a.intParam(q, "offset", 0)
+		if oerr != nil || offset < 0 {
+			a.writeError(w, http.StatusBadRequest, codeInvalidRequest,
+				"offset must be a non-negative integer")
+			return
+		}
+		if offset+limit > a.cfg.LeaderboardMaxRank {
+			a.writeError(w, http.StatusBadRequest, codeInvalidRequest,
+				fmt.Sprintf("offset+limit must not exceed %d; use cursor paging for deep reads",
+					a.cfg.LeaderboardMaxRank))
+			return
+		}
+		rows, err = a.store.LeaderboardByOffset(r.Context(), profile, skill.Type, offset, limit, now)
+	}
+	if err != nil {
+		a.internal(w, "leaderboard", err)
+		return
+	}
+
+	resp := leaderboardResponse{
+		Skill:   skill.Name,
+		Profile: profile,
+		Entries: make([]boardEntry, 0, len(rows)),
+	}
+	var newest time.Time
+	for _, row := range rows {
+		resp.Entries = append(resp.Entries, boardEntry{
+			Rank:      row.Rank,
+			Name:      jstring.ToDisplayName(row.Username),
+			Level:     row.Level,
+			XP:        wholeXP(row.ValueX10),
+			UpdatedAt: row.UpdatedAt,
+		})
+		if row.UpdatedAt.After(newest) {
+			newest = row.UpdatedAt
+		}
+	}
+
+	// A short page means the board is exhausted; only hand out a cursor
+	// when there is plausibly more to read.
+	if len(rows) == limit {
+		last := rows[len(rows)-1]
+		resp.NextCursor = Cursor{
+			ValueX10:  last.ValueX10,
+			UpdatedAt: last.UpdatedAt,
+			AccountID: last.AccountID,
+			Rank:      last.Rank + 1,
+		}.Encode()
+	}
+
+	a.writeJSON(w, r, resp, newest)
+}
+
+// intParam parses an optional integer query parameter. A present but
+// empty value is treated as absent.
+func (a *api) intParam(q url.Values, name string, def int) (int, error) {
+	raw := q.Get(name)
+	if raw == "" {
+		return def, nil
+	}
+	return strconv.Atoi(raw)
 }
