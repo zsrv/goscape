@@ -521,6 +521,9 @@ hiscore:
   # Log all matched source IPs instead of only the first.
   # CLI: --hiscore.log-source-ips-full (default: false)
   log_source_ips_full: false
+  # Per-module log level override (yaml-only; no CLI flag); falls back to the
+  # top-level log_level. Valid levels: trace, debug, info, warn, error.
+  #log_level: info
 
 
 # ----------------------------------------------------------------------------
