@@ -240,6 +240,46 @@ func (s *Store) LeaderboardByOffset(ctx context.Context, profile string, typ, of
 	return scanBoard(rows, int64(offset)+1)
 }
 
+// LeaderboardByCursor returns one page starting at a keyset position.
+// Unlike OFFSET, the seek is O(limit) at any depth, so a full-board walk
+// is linear rather than quadratic. Ranks come from the cursor, which is
+// exact because the ordering is total.
+//
+// now is normalized to UTC before it reaches SQL; see LookupAccountByName
+// for why an un-normalized now is unsafe against TEXT-stored DATETIME
+// columns.
+//
+// The keyset predicate mirrors the ORDER BY term for term: strictly
+// worse value, or equal value and strictly later date, or all three
+// equal and a strictly greater account_id.
+func (s *Store) LeaderboardByCursor(ctx context.Context, profile string, typ int, cur Cursor, limit int, now time.Time) ([]Row, error) {
+	now = now.UTC()
+
+	q := fmt.Sprintf(boardSelect, TableForType(typ))
+	args := []any{profile, typ, now}
+
+	firstRank := int64(1)
+	if !cur.IsStart() {
+		q += `
+   AND (h.value < ?
+     OR (h.value = ? AND (h.date > ?
+       OR (h.date = ? AND h.account_id > ?))))`
+		args = append(args, cur.ValueX10, cur.ValueX10, cur.UpdatedAt, cur.UpdatedAt, cur.AccountID)
+		firstRank = cur.Rank
+	}
+	q += boardOrder + `
+ LIMIT ?`
+	args = append(args, limit)
+
+	rows, err := s.db.QueryContext(ctx, s.db.Rebind(q), args...)
+	if err != nil {
+		return nil, fmt.Errorf("hiscore: leaderboard cursor query: %w", err)
+	}
+	defer rows.Close()
+
+	return scanBoard(rows, firstRank)
+}
+
 // scanBoard reads board rows, assigning consecutive ranks from firstRank.
 func scanBoard(rows *sql.Rows, firstRank int64) ([]Row, error) {
 	var out []Row

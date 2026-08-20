@@ -486,3 +486,100 @@ func TestPlayerCard_UTCNormalization(t *testing.T) {
 		t.Errorf("PlayerCard(offsetNow): rank = %d, want %d (must agree with trueNow)", gotCard.Skills[0].Rank, wantCard.Skills[0].Rank)
 	}
 }
+
+// TestLeaderboard_OffsetCursorEquivalence is the test that keeps two
+// paging modes honest: walking the same board both ways must yield
+// identical rows in identical order with identical absolute ranks.
+func TestLeaderboard_OffsetCursorEquivalence(t *testing.T) {
+	db := createTestDB(t)
+	store := NewStore(db)
+	seedBoard(t, db, "main", 1, 17)
+
+	const page = 5
+
+	var viaOffset []Row
+	for off := 0; ; off += page {
+		rows, err := store.LeaderboardByOffset(t.Context(), "main", 1, off, page, testClock)
+		if err != nil {
+			t.Fatalf("LeaderboardByOffset(%d): %v", off, err)
+		}
+		if len(rows) == 0 {
+			break
+		}
+		viaOffset = append(viaOffset, rows...)
+	}
+
+	var viaCursor []Row
+	cur := Cursor{}
+	for {
+		rows, err := store.LeaderboardByCursor(t.Context(), "main", 1, cur, page, testClock)
+		if err != nil {
+			t.Fatalf("LeaderboardByCursor(%+v): %v", cur, err)
+		}
+		if len(rows) == 0 {
+			break
+		}
+		viaCursor = append(viaCursor, rows...)
+		last := rows[len(rows)-1]
+		cur = Cursor{
+			ValueX10:  last.ValueX10,
+			UpdatedAt: last.UpdatedAt,
+			AccountID: last.AccountID,
+			Rank:      last.Rank + 1,
+		}
+	}
+
+	if len(viaOffset) != len(viaCursor) {
+		t.Fatalf("offset walk got %d rows, cursor walk got %d", len(viaOffset), len(viaCursor))
+	}
+	for i := range viaOffset {
+		o, c := viaOffset[i], viaCursor[i]
+		if o.AccountID != c.AccountID || o.Rank != c.Rank || o.ValueX10 != c.ValueX10 {
+			t.Errorf("row %d diverges: offset %+v vs cursor %+v", i, o, c)
+		}
+	}
+	if len(viaOffset) != 17 {
+		t.Errorf("walked %d rows, want 17", len(viaOffset))
+	}
+}
+
+// A cursor sitting on a tie must resume after the exact row it names,
+// not before it and not after the whole tie group.
+func TestLeaderboardByCursor_TieBoundary(t *testing.T) {
+	db := createTestDB(t)
+	store := NewStore(db)
+
+	a := insertAccount(t, db, "aaa", 0, nil)
+	b := insertAccount(t, db, "bbb", 0, nil)
+	c := insertAccount(t, db, "ccc", 0, nil)
+	for _, id := range []int64{a, b, c} {
+		insertHiscore(t, db, "hiscore", id, "main", 1, 90, 10_000_000, testClock)
+	}
+
+	first, err := store.LeaderboardByCursor(t.Context(), "main", 1, Cursor{}, 1, testClock)
+	if err != nil {
+		t.Fatalf("first page: %v", err)
+	}
+	if len(first) != 1 || first[0].AccountID != a {
+		t.Fatalf("first page = %+v, want the lowest account_id of the tie group", first)
+	}
+
+	next, err := store.LeaderboardByCursor(t.Context(), "main", 1, Cursor{
+		ValueX10:  first[0].ValueX10,
+		UpdatedAt: first[0].UpdatedAt,
+		AccountID: first[0].AccountID,
+		Rank:      2,
+	}, 10, testClock)
+	if err != nil {
+		t.Fatalf("second page: %v", err)
+	}
+	if len(next) != 2 {
+		t.Fatalf("got %d rows after the tie boundary, want 2", len(next))
+	}
+	if next[0].AccountID != b || next[1].AccountID != c {
+		t.Errorf("got accounts %d,%d, want %d,%d", next[0].AccountID, next[1].AccountID, b, c)
+	}
+	if next[0].Rank != 2 || next[1].Rank != 3 {
+		t.Errorf("got ranks %d,%d, want 2,3", next[0].Rank, next[1].Rank)
+	}
+}
