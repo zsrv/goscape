@@ -87,7 +87,7 @@ func TestConfig_ValidateEnabled(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), tc.wantSub) {
 				t.Fatalf("want error containing %q, got %v", tc.wantSub, err)
 			}
-			if err != nil && !strings.HasPrefix(err.Error(), "account: ") {
+			if !strings.HasPrefix(err.Error(), "account: ") {
 				t.Fatalf("errors must self-prefix 'account: ', got %v", err)
 			}
 		})
