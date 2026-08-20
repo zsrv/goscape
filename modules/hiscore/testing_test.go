@@ -51,22 +51,16 @@ var testClock = time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)
 // invisible to the API.
 func insertAccount(t *testing.T, db *gamedb.DB, username string, staffModLevel int, bannedUntil *time.Time) int64 {
 	t.Helper()
-	res, err := db.ExecContext(t.Context(), db.Rebind(
+	// INSERT ... RETURNING is the dialect-uniform id-retrieval form
+	// (SQLite >= 3.35 and Postgres both support it; LastInsertId is
+	// sqlite-only). Mirrors modules/login/db.go:insertAccount.
+	var id int64
+	err := db.QueryRowContext(t.Context(), db.Rebind(
 		`INSERT INTO account (username, password, registration_ip, staff_mod_level, members, banned_until)
-		 VALUES (?, ?, ?, ?, ?, ?)`),
-		username, "x", "127.0.0.1", staffModLevel, 0, bannedUntil)
+		 VALUES (?, ?, ?, ?, ?, ?) RETURNING id`),
+		username, "x", "127.0.0.1", staffModLevel, 0, bannedUntil).Scan(&id)
 	if err != nil {
 		t.Fatalf("insertAccount(%s): %v", username, err)
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		// Postgres' pgx driver does not support LastInsertId; read it back.
-		var back int64
-		if qerr := db.QueryRowContext(t.Context(), db.Rebind(
-			`SELECT id FROM account WHERE username = ?`), username).Scan(&back); qerr != nil {
-			t.Fatalf("insertAccount(%s): id lookup: %v", username, qerr)
-		}
-		return back
 	}
 	return id
 }

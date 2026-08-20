@@ -49,7 +49,15 @@ type Account struct {
 
 // LookupAccountByName resolves a base37 safe name to a visible account.
 // The caller normalizes the name (jstring.ToSafeName) before calling.
+//
+// now is normalized to UTC before it reaches SQL: DATETIME columns are
+// stored in UTC (the repo-wide convention — see modules/account and
+// modules/login), and this store does not trust callers to have done
+// the normalization themselves. A local-offset now compared against a
+// UTC banned_until can misjudge the ban filter by the offset.
 func (s *Store) LookupAccountByName(ctx context.Context, safeName string, now time.Time) (Account, error) {
+	now = now.UTC()
+
 	const q = `SELECT a.id, a.username
 	  FROM account a
 	 WHERE a.username = ?
