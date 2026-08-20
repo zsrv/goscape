@@ -100,7 +100,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.StringVar(&c.HTTPListenAddress, "account.http-listen-address", "127.0.0.1", "Portal HTTP listen address.")
 	f.IntVar(&c.HTTPListenPort, "account.http-listen-port", 8081, "Portal HTTP listen port.")
 	f.StringVar(&c.GRPCListenAddress, "account.grpc-listen-address", "127.0.0.1", "AccountService gRPC listen address.")
-	f.IntVar(&c.GRPCListenPort, "account.grpc-listen-port", 2005, "AccountService gRPC listen port.")
+	f.IntVar(&c.GRPCListenPort, "account.grpc-listen-port", 2006, "AccountService gRPC listen port. Must not collide with friends.grpc_listen_port (2005).")
 	f.StringVar(&c.PublicURL, "account.public-url", "", "Externally reachable portal base URL (email links, OAuth redirect). No trailing slash.")
 	f.IntVar(&c.CharacterLimit, "account.character-limit", 5, "Maximum characters per portal account.")
 	f.IntVar(&c.Argon2.MemoryKiB, "account.argon2-memory-kib", 65536, "argon2id memory cost in KiB.")
