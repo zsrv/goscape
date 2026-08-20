@@ -51,6 +51,8 @@ goscape:
     loginGRPC: 2004
     # -- friends gRPC container port
     friendsGRPC: 2005
+    # -- hiscore API HTTP container port
+    hiscoreHTTP: 8082
   node:
     # -- World id (World / SingleBinary modes)
     id: 1
@@ -170,3 +172,29 @@ networkPolicy:
 
 # Arbitrary extra manifests rendered verbatim (list of objects or template strings)
 extraManifests: []
+
+# Kong gateway configuration for the hiscores API.
+#
+# This renders Kong Ingress Controller CONFIGURATION only (Ingress,
+# KongPlugin, KongConsumer). It does NOT install Kong. Kong is a
+# prerequisite, installed separately from its own chart, because a
+# gateway is cluster-wide infrastructure shared by every service behind
+# it rather than a per-application component.
+hiscoreGateway:
+  createGatewayConfig: false
+  host: ""
+  ingressClassName: kong
+  # Consumer used for unauthenticated callers (the website, casual
+  # users). key-auth falls back to it instead of rejecting, because
+  # hiscore data is public — keys exist for quota and accountability.
+  anonymousConsumer: hiscore-anonymous
+  rateLimit:
+    anonymousPerMinute: 60
+    consumerPerMinute: 600
+  cacheTTLSeconds: 60
+  corsOrigins: []
+  # Third-party consumers. Each entry names an EXISTING Secret holding
+  # the key-auth credential; key material never lives in values.yaml.
+  #   - username: partner-a
+  #     credentialSecret: hiscore-partner-a-key
+  consumers: []

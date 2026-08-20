@@ -34,6 +34,12 @@ spec:
       targetPort: friends-grpc
       protocol: TCP
     {{- end }}
+    {{- if or (eq $mode "SingleBinary") (eq $mode "Management") }}
+    - name: hiscore-http
+      port: {{ .Values.goscape.ports.hiscoreHTTP }}
+      targetPort: hiscore-http
+      protocol: TCP
+    {{- end }}
 {{- if or (eq $mode "SingleBinary") (eq $mode "Management") }}
 ---
 apiVersion: v1

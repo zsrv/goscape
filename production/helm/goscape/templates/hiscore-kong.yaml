@@ -1,0 +1,123 @@
+{{- if .Values.hiscoreGateway.createGatewayConfig }}
+{{- if not (.Capabilities.APIVersions.Has "configuration.konghq.com/v1") }}
+{{- fail "hiscoreGateway.createGatewayConfig is true but the Kong Ingress Controller CRDs (configuration.konghq.com/v1) are not installed in this cluster. Kong is a prerequisite of this chart, not a dependency: install it from its own chart first, or set hiscoreGateway.createGatewayConfig=false." }}
+{{- end }}
+{{- if not .Values.hiscoreGateway.host }}
+{{- fail "hiscoreGateway.host must be set when hiscoreGateway.createGatewayConfig is true." }}
+{{- end }}
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: {{ include "goscape.fullname" . }}-hiscore-key-auth
+  labels:
+    {{- include "goscape.labels" . | nindent 4 }}
+plugin: key-auth
+config:
+  key_names:
+    - apikey
+  # Unauthenticated callers fall back to the anonymous consumer instead
+  # of being rejected: hiscore data is public, so keys exist for quota
+  # and accountability, not confidentiality.
+  anonymous: {{ .Values.hiscoreGateway.anonymousConsumer | quote }}
+  hide_credentials: true
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: {{ include "goscape.fullname" . }}-hiscore-rate-limiting
+  labels:
+    {{- include "goscape.labels" . | nindent 4 }}
+plugin: rate-limiting
+config:
+  minute: {{ .Values.hiscoreGateway.rateLimit.consumerPerMinute }}
+  policy: local
+  limit_by: consumer
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: {{ include "goscape.fullname" . }}-hiscore-proxy-cache
+  labels:
+    {{- include "goscape.labels" . | nindent 4 }}
+plugin: proxy-cache
+config:
+  strategy: memory
+  cache_ttl: {{ .Values.hiscoreGateway.cacheTTLSeconds }}
+  content_type:
+    - application/json
+    - application/json; charset=utf-8
+  request_method:
+    - GET
+    - HEAD
+  response_code:
+    - 200
+    - 304
+{{- if .Values.hiscoreGateway.corsOrigins }}
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: {{ include "goscape.fullname" . }}-hiscore-cors
+  labels:
+    {{- include "goscape.labels" . | nindent 4 }}
+plugin: cors
+config:
+  origins:
+    {{- toYaml .Values.hiscoreGateway.corsOrigins | nindent 4 }}
+  methods:
+    - GET
+    - HEAD
+  credentials: false
+{{- end }}
+{{- range .Values.hiscoreGateway.consumers }}
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: {{ .username }}
+  labels:
+    {{- include "goscape.labels" $ | nindent 4 }}
+  annotations:
+    kubernetes.io/ingress.class: {{ $.Values.hiscoreGateway.ingressClassName | quote }}
+username: {{ .username | quote }}
+credentials:
+  - {{ .credentialSecret | quote }}
+{{- end }}
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: {{ .Values.hiscoreGateway.anonymousConsumer }}
+  labels:
+    {{- include "goscape.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/ingress.class: {{ .Values.hiscoreGateway.ingressClassName | quote }}
+username: {{ .Values.hiscoreGateway.anonymousConsumer | quote }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "goscape.fullname" . }}-hiscore
+  labels:
+    {{- include "goscape.labels" . | nindent 4 }}
+  annotations:
+    konghq.com/plugins: >-
+      {{ include "goscape.fullname" . }}-hiscore-key-auth,{{ include "goscape.fullname" . }}-hiscore-rate-limiting,{{ include "goscape.fullname" . }}-hiscore-proxy-cache{{ if .Values.hiscoreGateway.corsOrigins }},{{ include "goscape.fullname" . }}-hiscore-cors{{ end }}
+    konghq.com/strip-path: "false"
+spec:
+  ingressClassName: {{ .Values.hiscoreGateway.ingressClassName }}
+  rules:
+    - host: {{ .Values.hiscoreGateway.host | quote }}
+      http:
+        paths:
+          - path: /v1
+            pathType: Prefix
+            backend:
+              service:
+                # The chart exposes one Service with named ports; there
+                # is no per-module Service to target.
+                name: {{ include "goscape.fullname" . }}
+                port:
+                  name: hiscore-http
+{{- end }}
