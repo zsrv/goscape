@@ -140,15 +140,10 @@ no listener until you turn it on. When enabled it opens two:
 | Listener | Module | Protocol | Default port |
 |----------|--------|----------|--------------|
 | Player portal | `account` | HTTP | 8081 |
-| AccountService | `account` | gRPC | 2005 |
+| AccountService | `account` | gRPC | 2006 |
 
-!!! warning "The account and friends gRPC defaults collide"
-
-    `account.grpc_listen_port` and `friends.grpc_listen_port` both default to `2005`,
-    and both bind `127.0.0.1`. Enabling the account module alongside friends without
-    changing one of them makes whichever module starts second fail to bind, which
-    fails that module and takes the process down at startup. Set an explicit
-    `account.grpc_listen_port` (or move friends') whenever you run both.
+Both are safe to enable alongside everything else: `2006` was chosen so the account
+module does not collide with the friends server on `2005`.
 
 The OnDemand HTTP server delivers the game cache to connecting clients. The login
 service is a gRPC endpoint that authenticates players. The friends service is a
