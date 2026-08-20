@@ -131,6 +131,13 @@ SELECT h.type, h.level, h.value, h.date,
 // now is normalized to UTC once here, before either query runs; see
 // LookupAccountByName for why an un-normalized now is unsafe against
 // TEXT-stored DATETIME columns.
+//
+// Precondition: PlayerCard does not check whether accountID itself is
+// visible — the visibility filter above applies only to the competing
+// rows counted for rank. A caller reaching this from untrusted input
+// must gate accountID through LookupAccountByName first, which returns
+// ErrNotFound for a hidden account; a caller that deliberately wants a
+// hidden account's own card (an admin tool, say) may skip that gate.
 func (s *Store) PlayerCard(ctx context.Context, profile string, accountID int64, now time.Time) (Card, error) {
 	now = now.UTC()
 
