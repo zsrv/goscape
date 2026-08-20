@@ -37,6 +37,27 @@ config:
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:
+  name: {{ include "goscape.fullname" . }}-hiscore-rate-limiting-anonymous
+  labels:
+    {{- include "goscape.labels" . | nindent 4 }}
+# rate-limiting's get_identifier keys on the consumer id whenever
+# limit_by: consumer resolves one — and key-auth's anonymous fallback
+# assigns EVERY unauthenticated caller the same anonymous KongConsumer,
+# so the route-scoped consumer plugin above would put the entire
+# internet's anonymous traffic in one shared bucket. This plugin is
+# instead attached directly to the anonymous KongConsumer below (not to
+# the Ingress): a consumer-scoped plugin overrides the same-named
+# route-scoped one for that consumer, and limit_by: ip gives each real
+# caller its own bucket.
+plugin: rate-limiting
+config:
+  minute: {{ .Values.hiscoreGateway.rateLimit.anonymousPerMinute }}
+  policy: local
+  limit_by: ip
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
   name: {{ include "goscape.fullname" . }}-hiscore-proxy-cache
   labels:
     {{- include "goscape.labels" . | nindent 4 }}
@@ -93,6 +114,10 @@ metadata:
     {{- include "goscape.labels" . | nindent 4 }}
   annotations:
     kubernetes.io/ingress.class: {{ .Values.hiscoreGateway.ingressClassName | quote }}
+    # Consumer-scoped plugin: overrides the Ingress's route-scoped
+    # rate-limiting plugin for this consumer specifically, so anonymous
+    # traffic buckets per-IP instead of sharing one global bucket.
+    konghq.com/plugins: {{ include "goscape.fullname" . }}-hiscore-rate-limiting-anonymous
 username: {{ .Values.hiscoreGateway.anonymousConsumer | quote }}
 ---
 apiVersion: networking.k8s.io/v1
