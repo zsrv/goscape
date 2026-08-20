@@ -20,6 +20,7 @@ file). The selectable targets are:
 | `world` | TCP game server only |
 | `login` | gRPC login service only |
 | `friends` | Friends server only |
+| `hiscore` | HTTP hiscores API only |
 | `all` | All of the above (this is the default) |
 
 Running `all` in one process gives you a self-contained server that needs no
@@ -41,6 +42,7 @@ graph TD
     all --> friends
     all --> login
     all --> world
+    all --> hiscore
 
     ondemand[ondemand] --> world
     ondemand --> common
@@ -54,6 +56,9 @@ graph TD
 
     friends[friends] --> database
     friends --> common
+
+    hiscore[hiscore] --> database
+    hiscore --> common
 
     database[database] --> common
 
@@ -110,10 +115,10 @@ Two behaviours are important to operators:
 
 ## Network surfaces and ports
 
-A full `all` deployment exposes four network listeners. The ports below are the ones
+A full `all` deployment exposes five network listeners. The ports below are the ones
 the bundled example config ends up with — the OnDemand and login ports are set
-explicitly in it, while the world and friends ports come from built-in defaults.
-Every port and bind address is configurable.
+explicitly in it, while the world, friends, and hiscore ports come from built-in
+defaults. Every port and bind address is configurable.
 
 | Listener | Module | Protocol | Default port |
 |----------|--------|----------|--------------|
@@ -121,6 +126,7 @@ Every port and bind address is configurable.
 | Login | `login` | gRPC | 2004 |
 | Friends | `friends` | gRPC | 2005 |
 | Game world | `world` | TCP | 43594 |
+| Hiscores API | `hiscore` | HTTP | 8082 |
 
 The OnDemand HTTP server delivers the game cache to connecting clients. The login
 service is a gRPC endpoint that authenticates players. The friends service is a
