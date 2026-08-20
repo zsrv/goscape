@@ -219,8 +219,19 @@ func TestPlayerEndpoint_NameNormalization(t *testing.T) {
 func TestPlayerEndpoint_NotFound(t *testing.T) {
 	a, db := newTestAPI(t)
 	future := testClock.Add(24 * time.Hour)
-	insertAccount(t, db, "cheater", 0, &future)
-	insertAccount(t, db, "modash", 2, nil)
+	cheater := insertAccount(t, db, "cheater", 0, &future)
+	modash := insertAccount(t, db, "modash", 2, nil)
+
+	// Both fixtures carry real hiscore rows: without the visibility
+	// filter in LookupAccountByName, either would return a populated
+	// card (200), not a 404. Giving them rows is what makes this test
+	// actually exercise the ban/staff predicate rather than the
+	// unrelated never-exported branch that TestPlayerEndpoint_NeverExportedIs404
+	// already covers.
+	insertHiscore(t, db, "hiscore_large", cheater, "main", 0, 100, 1_000_000, testClock)
+	insertHiscore(t, db, "hiscore", cheater, "main", 1, 99, 900_000, testClock)
+	insertHiscore(t, db, "hiscore_large", modash, "main", 0, 200, 2_000_000, testClock)
+	insertHiscore(t, db, "hiscore", modash, "main", 1, 99, 1_800_000, testClock)
 
 	// Unknown, banned, and staff must all be indistinguishable 404s.
 	for _, name := range []string{"nobody", "cheater", "modash"} {
@@ -360,7 +371,7 @@ func TestLeaderboardEndpoint_NextCursorEmptyAtEnd(t *testing.T) {
 	}
 }
 
-func TestLeaderboardEndpoint_CursorWalkMatchesOffsetWalk(t *testing.T) {
+func TestLeaderboardEndpoint_CursorWalkReachesAllRanks(t *testing.T) {
 	a, db := newTestAPI(t)
 	seedBoard(t, db, "main", 1, 12)
 
