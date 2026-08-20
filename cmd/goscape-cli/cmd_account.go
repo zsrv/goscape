@@ -23,7 +23,7 @@ import (
 func runAccount(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("account", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	addr := fs.String("addr", "127.0.0.1:2005", "AccountService gRPC address")
+	addr := fs.String("addr", "127.0.0.1:2006", "AccountService gRPC address")
 	token := fs.String("token", "", "admin bearer token (default: GOSCAPE_ACCOUNT_TOKEN env)")
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, `usage: goscape-cli account [-addr host:port] [-token T] <subcommand> [args]

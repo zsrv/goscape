@@ -383,8 +383,8 @@ account:
   http_listen_port: 8081
   # CLI: --account.grpc-listen-address (default: 127.0.0.1)
   grpc_listen_address: 127.0.0.1
-  # CLI: --account.grpc-listen-port (default: 2005)
-  grpc_listen_port: 2005
+  # CLI: --account.grpc-listen-port (default: 2006)
+  grpc_listen_port: 2006
   # Externally reachable portal base URL (email links, OAuth redirect). No
   # trailing slash. Required when account.enable=true.
   # CLI: --account.public-url (default: "")

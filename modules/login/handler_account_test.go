@@ -72,14 +72,14 @@ func TestConfig_AuthModeValidation(t *testing.T) {
 	}
 	c = base()
 	c.AuthMode = AuthModeAccount
-	c.AccountGRPCAddress = "127.0.0.1:2005"
+	c.AccountGRPCAddress = "127.0.0.1:2006"
 	c.AutoRegister = true
 	if err := c.Validate(); err == nil {
 		t.Fatal("account mode + auto_register must be a config conflict")
 	}
 	c = base()
 	c.AuthMode = AuthModeAccount
-	c.AccountGRPCAddress = "127.0.0.1:2005"
+	c.AccountGRPCAddress = "127.0.0.1:2006"
 	c.AutoRegister = false
 	if err := c.Validate(); err != nil {
 		t.Fatalf("valid account mode rejected: %v", err)
