@@ -68,3 +68,19 @@ func TestConfigCheckConfig(t *testing.T) {
 		t.Errorf("CheckConfig() = %v, want empty", got)
 	}
 }
+
+// TestConfig_HiscoreDefaults pins that the hiscore module is registered
+// in the app config and defaults to off.
+func TestConfig_HiscoreDefaults(t *testing.T) {
+	cfg := NewDefaultConfig()
+
+	if cfg.Hiscore.Enable {
+		t.Error("Hiscore.Enable: got true, want false by default")
+	}
+	if cfg.Hiscore.Profile != "main" {
+		t.Errorf("Hiscore.Profile: got %q, want main", cfg.Hiscore.Profile)
+	}
+	if cfg.Hiscore.LeaderboardMaxRank != 500000 {
+		t.Errorf("Hiscore.LeaderboardMaxRank: got %d, want 500000", cfg.Hiscore.LeaderboardMaxRank)
+	}
+}
