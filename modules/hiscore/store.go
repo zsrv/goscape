@@ -264,7 +264,13 @@ func (s *Store) LeaderboardByCursor(ctx context.Context, profile string, typ int
    AND (h.value < ?
      OR (h.value = ? AND (h.date > ?
        OR (h.date = ? AND h.account_id > ?))))`
-		args = append(args, cur.ValueX10, cur.ValueX10, cur.UpdatedAt, cur.UpdatedAt, cur.AccountID)
+		// cur.UpdatedAt is normalized to UTC here, same as every other
+		// now/timestamp crossing into SQL in this file (see
+		// LookupAccountByName): a hand-crafted cursor could carry a
+		// zone offset, and an unnormalized value would compare wrong
+		// against the UTC-stored TEXT date column.
+		cursorUpdatedAt := cur.UpdatedAt.UTC()
+		args = append(args, cur.ValueX10, cur.ValueX10, cursorUpdatedAt, cursorUpdatedAt, cur.AccountID)
 		firstRank = cur.Rank
 	}
 	q += boardOrder + `

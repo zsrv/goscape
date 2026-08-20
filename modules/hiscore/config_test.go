@@ -65,6 +65,8 @@ func TestConfig_Validate(t *testing.T) {
 		{"default above max", func(c *Config) { c.DefaultLimit = 500 }, "default_limit"},
 		{"zero max limit", func(c *Config) { c.MaxLimit = 0 }, "max_limit"},
 		{"zero max rank", func(c *Config) { c.LeaderboardMaxRank = 0 }, "leaderboard_max_rank"},
+		{"max limit above max rank", func(c *Config) { c.LeaderboardMaxRank = 50; c.MaxLimit = 100 }, "max_limit"},
+		{"max limit equal to max rank is valid", func(c *Config) { c.LeaderboardMaxRank = 100; c.MaxLimit = 100 }, ""},
 		{"negative cache age", func(c *Config) { c.CacheMaxAge = -time.Second }, "cache_max_age"},
 		{"negative backstop", func(c *Config) { c.BackstopRate = -1 }, "backstop_rate"},
 	}

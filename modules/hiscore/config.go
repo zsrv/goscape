@@ -93,6 +93,11 @@ func (c *Config) Validate() error {
 	if c.LeaderboardMaxRank < 1 {
 		return fmt.Errorf("hiscore: leaderboard_max_rank must be >= 1, got %d", c.LeaderboardMaxRank)
 	}
+	if c.MaxLimit > c.LeaderboardMaxRank {
+		return fmt.Errorf("hiscore: max_limit (%d) must not exceed leaderboard_max_rank (%d), "+
+			"or offset+limit > leaderboard_max_rank would reject every offset request "+
+			"including offset=0", c.MaxLimit, c.LeaderboardMaxRank)
+	}
 	if c.CacheMaxAge < 0 {
 		return fmt.Errorf("hiscore: cache_max_age must not be negative, got %v", c.CacheMaxAge)
 	}
