@@ -83,7 +83,6 @@ curl http://localhost:8082/v1/skills
 ```json
 {
   "skills": [
-    { "type": 0, "name": "overall" },
     { "type": 1, "name": "attack" },
     { "type": 2, "name": "defence" },
     { "type": 3, "name": "strength" },
@@ -107,9 +106,17 @@ curl http://localhost:8082/v1/skills
 }
 ```
 
-Note `"overall"` (type 0) is listed here but is not itself a selectable
-per-stat board — it is what `/v1/players/{name}` returns as `overall`.
-Every other `type` is the underlying stat index **+ 1** (e.g. `attack`
+This endpoint lists only the 19 enabled per-stat boards; `overall` (type
+0) is **not** among them — `initSkills` (`modules/hiscore/skills.go`)
+deliberately keeps it out of `skillList` (pinned by
+`TestSkills_ExcludesOverall`), since it is an aggregate over every stat
+rather than a stat itself. It is what `/v1/players/{name}` returns as
+`overall`, and it is still a valid `{skill}` path value for
+`/v1/leaderboards/{skill}` (see below) — a client wanting an overall
+leaderboard must know the name `overall` out of band, because
+enumerating `/v1/skills` can never surface it.
+
+Every listed `type` is the underlying stat index **+ 1** (e.g. `attack`
 is stat index 0, board type 1). The values are not contiguous: `type`
 19 and 20 do not appear — they belong to `stat18`/`stat19`, two
 2004-era reserved slots that Engine-TS keeps for index parity but never
@@ -181,8 +188,10 @@ curl -i http://localhost:8082/v1/players/NoSuchPlayer
 
 ### `GET /v1/leaderboards/{skill}`
 
-One page of a board, `{skill}` being any `name` from `/v1/skills`
-(including `overall`).
+One page of a board, `{skill}` being any board `name` accepted by
+`SkillByName` — the 19 names listed by `/v1/skills` plus `overall`,
+which `/v1/skills` deliberately omits (see the note under
+`GET /v1/skills` above for why).
 
 ```bash
 curl 'http://localhost:8082/v1/leaderboards/attack?limit=3'
@@ -226,6 +235,14 @@ rows (i.e. more may follow); it is empty at the end of the board. See
 Unknown skill names and out-of-range parameters are rejected with `400`
 and the same error envelope shown above (`code: "invalid_request"`), not
 silently clamped.
+
+Skill names in `{skill}` are matched exactly, lower-case, against
+`SkillByName` — unlike `{name}` on `/v1/players/{name}`, which is
+normalized (base37 safe-name round trip; see `GET /v1/players/{name}`
+above). `/v1/leaderboards/Attack` is therefore a `400`, not a
+case-folded match to `attack`. This is a deliberate API contract, not a
+bug: case-sensitive skill selectors are reasonable, they are just
+asymmetric with the player-name path.
 
 ## 4. XP units
 
@@ -334,27 +351,33 @@ be cached at a shared edge.
 
 The API serves **`GET` only**. Every route is registered as
 `mux.HandleFunc("GET /v1/...", ...)` (Go 1.22+ method-specific
-`http.ServeMux` patterns). A non-`GET` request to one of those paths
-never reaches this module's own handler or its JSON error envelope — the
-standard library's router rejects it first, with a **plain-text `405`**:
+`http.ServeMux` patterns), plus a catch-all `mux.HandleFunc("/", ...)`
+in `register` (`modules/hiscore/handlers.go`) that matches every method
+on every otherwise-unmatched path. `http.ServeMux` only synthesizes its
+own `405 Method Not Allowed` when a request path matches no registered
+pattern *at all*; here it always matches something — either a specific
+`GET`-only route or the method-agnostic catch-all — so that synthesized
+405 never fires. A non-`GET` request instead falls through to the
+catch-all and gets the module's ordinary `not_found` envelope:
 
 ```bash
 curl -i -X POST http://localhost:8082/v1/players/Zezima
 ```
 
 ```
-HTTP/1.1 405 Method Not Allowed
-Allow: GET
-Content-Type: text/plain; charset=utf-8
-X-Content-Type-Options: nosniff
+HTTP/1.1 404 Not Found
+Content-Type: application/json; charset=utf-8
+Cache-Control: no-store
 
-Method Not Allowed
+{"error":{"code":"not_found","message":"no such resource"}}
 ```
 
-If you are writing a client and treating every response as the
-`{"error": {...}}` shape, special-case `405` (and any other transport-
-level rejection your gateway or load balancer might inject) — this one
-specific status does not carry the module's error envelope.
+There is no `Allow` header — the catch-all does not know the path was
+otherwise valid, only that the method didn't match a registered `GET`
+route for it. If you are writing a client, this is good news rather
+than a gotcha: every response, `GET` or not, matched route or not,
+carries the same `{"error": {...}}` shape. There is no transport-level
+exception to special-case.
 
 ## 9. Deploying behind Kong
 
@@ -439,6 +462,13 @@ filter hides an account). Nothing in this module is ever authorized by
 gateway-supplied headers. `X-Consumer-Username` / `X-Anonymous-Consumer`
 (read only when `hiscore.trust_gateway_headers: true`) select **a log
 line and a rate-limit bucket** — never a permission, never a data scope.
+The consumer name, whether the caller was anonymous, and its resolved
+client IP are attached (via `callerAttrs`, `modules/hiscore/gateway.go`)
+to the two diagnostically useful log lines: the rate-limit rejection in
+`guard` and the internal-error path in `internal`. There is
+deliberately no per-request access log at `info` level — dskit's server
+already logs every request, and this endpoint is meant to be cacheable
+and high-volume.
 
 Two caveats surfaced during review, both about the rate limiter rather
 than data exposure:
