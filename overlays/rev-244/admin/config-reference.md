@@ -249,6 +249,18 @@ login:
   auto_subscribe_members: true
   # CLI: --login.graceful-shutdown-timeout (default: 30s)
   graceful_shutdown_timeout: 30s
+  # Credential verification mode. "local" is the TS-faithful path: bcrypt
+  # against account.password (with the lowercase quirk), auto_register
+  # honored. "account" delegates to the account module's VerifyGameLogin
+  # gRPC (character name + portal account password, case-sensitive, no
+  # auto-register) — requires account_grpc_address and auto_register: false
+  # (auth_mode=account + auto_register=true is a config conflict: accounts
+  # are created by the portal, not on first game login).
+  # CLI: --login.auth-mode (default: local)
+  auth_mode: local
+  # AccountService gRPC address (host:port). Required when auth_mode: account.
+  # CLI: --login.account-grpc-address (default: "")
+  account_grpc_address: ""
   # Per-module log level override (yaml-only; no CLI flag); falls back to the
   # top-level log_level. Valid levels: trace, debug, info, warn, error.
   #log_level: info
@@ -298,6 +310,12 @@ world:
   # public key. Empty uses the built-in key.
   # CLI: --world.rsa-private-key-path (default: "")
   rsa_private_key_path: ""
+  # Path to the wordenc jagfile (chat word-censoring filter data), resolved
+  # against the process working directory. Default is the TS-faithful
+  # hardcoded relative path; override for embedders that run from a
+  # different cwd.
+  # CLI: --world.wordenc-path (default: data/raw/wordenc)
+  wordenc_path: data/raw/wordenc
 
   # --- Inter-module connections ---
   # CLI: --world.login-server-address (default: 127.0.0.1:2004)
@@ -365,6 +383,151 @@ world:
   #node_max_players: 2047
   # Declared but consumed by no code path.
   #enable_tcp_server: false
+
+
+# ----------------------------------------------------------------------------
+# account — portal accounts (SSR web app) + AccountService gRPC surface
+#           consumed by the login module and goscape-cli
+# ----------------------------------------------------------------------------
+account:
+  # Run the account module. CLI: --account.enable (code default: false)
+  enable: false
+  # Per-module log level override (yaml-only; no CLI flag); falls back to the
+  # top-level log_level. Valid levels: trace, debug, info, warn, error.
+  #log_level: info
+  # CLI: --account.http-listen-address (default: 127.0.0.1)
+  http_listen_address: 127.0.0.1
+  # CLI: --account.http-listen-port (default: 8081)
+  http_listen_port: 8081
+  # CLI: --account.grpc-listen-address (default: 127.0.0.1)
+  grpc_listen_address: 127.0.0.1
+  # CLI: --account.grpc-listen-port (default: 2005)
+  grpc_listen_port: 2005
+  # Externally reachable portal base URL (email links, OAuth redirect). No
+  # trailing slash. Required when account.enable=true.
+  # CLI: --account.public-url (default: "")
+  public_url: ""
+  # Maximum characters per portal account.
+  # CLI: --account.character-limit (default: 5)
+  character_limit: 5
+  # Bearer token guarding the admin gRPC surface. Empty disables every admin
+  # RPC. YAML-only (secret); no CLI flag.
+  admin_token: ""
+  # Character-creation gate: an account may create characters iff it is
+  # active, email-verified, under the character limit, AND (member of
+  # manually_approved OR holds a non-revoked identity whose provider is
+  # listed here). Empty = manual approval only. YAML-only (list); no CLI flag.
+  gate:
+    providers:
+      - discord
+  # argon2id password hashing parameters (RFC 9106).
+  argon2:
+    # CLI: --account.argon2-memory-kib (default: 65536)
+    memory_kib: 65536
+    # CLI: --account.argon2-time (default: 2)
+    time: 2
+    # CLI: --account.argon2-parallelism (default: 1)
+    parallelism: 1
+  # Portal cookie session bounds: a session expires idle_ttl after last use,
+  # and unconditionally absolute_ttl after login.
+  session:
+    # CLI: --account.session-idle-ttl (default: 168h)
+    idle_ttl: 168h
+    # CLI: --account.session-absolute-ttl (default: 720h)
+    absolute_ttl: 720h
+  # SMTP relay for verification/reset email. Empty host disables outbound
+  # mail (links are logged instead).
+  smtp:
+    # CLI: --account.smtp-host (default: "")
+    host: ""
+    # CLI: --account.smtp-port (default: 587)
+    port: 587
+    # CLI: --account.smtp-from (default: "")
+    from: ""
+    # YAML-only (secret); no CLI flag.
+    username: ""
+    # YAML-only (secret); no CLI flag.
+    password: ""
+  # Third-party identity provider OAuth2 app credentials. YAML-only; no CLI
+  # flags (secret-adjacent / secret).
+  providers:
+    discord:
+      client_id: ""
+      client_secret: ""
+
+
+# ----------------------------------------------------------------------------
+# hiscore — hiscores read API. Serves public JSON leaderboards over the
+#           hiscore tables that the login module populates on logout.
+#           Designed to sit behind an API gateway (Kong) which owns
+#           authentication and per-consumer rate limiting; this module is
+#           anonymous-safe on its own.
+# ----------------------------------------------------------------------------
+hiscore:
+  # CLI: --hiscore.enable (default: false)
+  enable: false
+  # Default profile queried when a request does not specify one.
+  # CLI: --hiscore.profile (default: main)
+  profile: main
+  # Cache-Control max-age on API responses. Responses are also ETag'd.
+  # CLI: --hiscore.cache-max-age (default: 1m)
+  cache_max_age: 1m
+  # CLI: --hiscore.default-limit (default: 25)
+  default_limit: 25
+  # CLI: --hiscore.max-limit (default: 100)
+  max_limit: 100
+  # Deepest rank reachable by offset paging. Cursor paging is unbounded
+  # and is the intended mechanism for bulk reads.
+  # CLI: --hiscore.leaderboard-max-rank (default: 500000)
+  leaderboard_max_rank: 500000
+  # Read gateway-supplied X-Consumer-* headers for logging. Nothing is
+  # ever authorized by them; leave false unless a gateway fronts this.
+  # Enabling this WITHOUT a real gateway in front lets any caller set its
+  # own X-Consumer-Username to mint a fresh rate-limit bucket per request,
+  # silently defeating the backstop_rate below (no data/access is at risk
+  # since nothing is authorized by the header — the limiter just stops
+  # limiting, with no signal that it happened).
+  # CLI: --hiscore.trust-gateway-headers (default: false)
+  trust_gateway_headers: false
+  # Coarse in-process requests/minute per caller, for when no gateway
+  # limits apply. 0 disables. CLI: --hiscore.backstop-rate (default: 120)
+  backstop_rate: 120
+
+  # --- HTTP listener (inlined dskit server.Config) ---
+  # CLI: --hiscore.http-listen-network (default: tcp)
+  http_listen_network: tcp
+  # CLI: --hiscore.http-listen-address (default: 127.0.0.1)
+  http_listen_address: 127.0.0.1
+  # CLI: --hiscore.http-listen-port (default: 8082)
+  http_listen_port: 8082
+
+  # --- HTTP server timeouts (inlined dskit server.Config) ---
+  # CLI: --hiscore.graceful-shutdown-timeout (default: 30s)
+  graceful_shutdown_timeout: 30s
+  # CLI: --hiscore.http-read-timeout (default: 30s)
+  http_server_read_timeout: 30s
+  # CLI: --hiscore.http-write-timeout (default: 30s)
+  http_server_write_timeout: 30s
+  # CLI: --hiscore.http-idle-timeout (default: 120s)
+  http_server_idle_timeout: 120s
+
+  # --- Source-IP logging (inlined dskit server.Config) ---
+  # CLI: --hiscore.log-source-ips-enabled (default: true)
+  log_source_ips_enabled: true
+  # Both header and regex blank selects dskit's built-in Forwarded /
+  # X-Real-IP / X-Forwarded-For chain, which is what Kong populates —
+  # deliberately unlike ondemand, which defaults to cf-connecting-ip for
+  # its Cloudflare-fronted deployment.
+  # CLI: --hiscore.log-source-ips-header (default: "")
+  log_source_ips_header: ""
+  # CLI: --hiscore.log-source-ips-regex (default: "")
+  log_source_ips_regex: ""
+  # Log all matched source IPs instead of only the first.
+  # CLI: --hiscore.log-source-ips-full (default: false)
+  log_source_ips_full: false
+  # Per-module log level override (yaml-only; no CLI flag); falls back to the
+  # top-level log_level. Valid levels: trace, debug, info, warn, error.
+  #log_level: info
 
 
 # ----------------------------------------------------------------------------
