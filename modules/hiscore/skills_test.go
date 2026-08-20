@@ -43,9 +43,9 @@ func TestSkillByName(t *testing.T) {
 		{"overall", 0, true},
 		{"attack", objtype.PlayerStatAttack + 1, true},
 		{"runecraft", objtype.PlayerStatRunecraft + 1, true},
-		{"stat18", 0, false},  // disabled reserved slot
-		{"stat19", 0, false},  // disabled reserved slot
-		{"Attack", 0, false},  // case-sensitive: callers normalize
+		{"stat18", 0, false}, // disabled reserved slot
+		{"stat19", 0, false}, // disabled reserved slot
+		{"Attack", 0, false}, // case-sensitive: callers normalize
 		{"nonsense", 0, false},
 		{"", 0, false},
 	}
