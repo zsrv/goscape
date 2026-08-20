@@ -1,6 +1,8 @@
 package app
 
 import (
+	"net"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -82,5 +84,43 @@ func TestConfig_HiscoreDefaults(t *testing.T) {
 	}
 	if cfg.Hiscore.LeaderboardMaxRank != 500000 {
 		t.Errorf("Hiscore.LeaderboardMaxRank: got %d, want 500000", cfg.Hiscore.LeaderboardMaxRank)
+	}
+}
+
+// TestDefaultListenPortsDoNotCollide pins that no two modules claim the
+// same bind address and port by default. account and friends both once
+// defaulted their gRPC listener to 127.0.0.1:2005, so enabling account
+// alongside friends made whichever module started second fail to bind,
+// taking the process down at startup. Nothing caught it: each module's
+// own config test asserts only its own values, and --config.verify
+// never binds a socket.
+//
+// Keyed on address+port, not port alone — two modules on different bind
+// addresses may legitimately share a port number.
+func TestDefaultListenPortsDoNotCollide(t *testing.T) {
+	c := NewDefaultConfig()
+
+	listeners := []struct {
+		name string
+		addr string
+		port int
+	}{
+		{"ondemand HTTP", c.OnDemand.Server.HTTPListenAddress, c.OnDemand.Server.HTTPListenPort},
+		{"world TCP", c.World.TCPListenAddress, c.World.TCPListenPort},
+		{"login gRPC", c.Login.GRPCListenAddress, c.Login.GRPCListenPort},
+		{"friends gRPC", c.Friends.GRPCListenAddress, c.Friends.GRPCListenPort},
+		{"account portal HTTP", c.Account.HTTPListenAddress, c.Account.HTTPListenPort},
+		{"account gRPC", c.Account.GRPCListenAddress, c.Account.GRPCListenPort},
+		{"hiscore HTTP", c.Hiscore.Server.HTTPListenAddress, c.Hiscore.Server.HTTPListenPort},
+	}
+
+	seen := make(map[string]string, len(listeners))
+	for _, l := range listeners {
+		key := net.JoinHostPort(l.addr, strconv.Itoa(l.port))
+		if prev, dup := seen[key]; dup {
+			t.Errorf("%s and %s both default to %s — enabling both fails to bind at startup", prev, l.name, key)
+			continue
+		}
+		seen[key] = l.name
 	}
 }
