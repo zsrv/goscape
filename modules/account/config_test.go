@@ -21,7 +21,7 @@ func TestConfig_Defaults(t *testing.T) {
 	if c.Enable {
 		t.Error("Enable must default false")
 	}
-	if c.HTTPListenPort != 8081 || c.GRPCListenPort != 2005 {
+	if c.HTTPListenPort != 8081 || c.GRPCListenPort != 2006 {
 		t.Errorf("ports: http=%d grpc=%d", c.HTTPListenPort, c.GRPCListenPort)
 	}
 	if c.CharacterLimit != 5 {
