@@ -309,6 +309,7 @@ underlying code hasn't drifted.
 | `modules/world/admin_bridge.go` + `world_events_*.go` | Cross-world admin command relay (RELAY_MUTE, RELAY_KICK) | Slice 5a/5b beyond TS |
 | `modules/world/content_watcher.go` | Dev convenience: fs.watch for hot-reload | Prod-disabled when `ContentPath` empty |
 | `modules/world/tick_recovery.go` | Per-player + per-queue-entry panic recovery (Go-specific, complements TS try/catch) | Defer-based |
+| `modules/hiscore` public JSON read API | TS populates `hiscore`/`hiscore_large` on logout but serves no hiscore endpoint at any pin; nothing to port, purely additive | Full entry in `PORTING.md`; only schema change is additive indexes (migration `000004`); backported from rev-274 |
 
 ---
 
