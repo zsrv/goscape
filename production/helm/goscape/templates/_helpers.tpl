@@ -97,6 +97,13 @@ friends:
   grpc_listen_address: 0.0.0.0
   grpc_listen_port: {{ $g.ports.friendsGRPC }}
   profile: {{ $g.node.profile | quote }}
+hiscore:
+  enable: {{ or (eq $mode "SingleBinary") (eq $mode "Management") }}
+  http_listen_network: tcp
+  http_listen_address: 0.0.0.0
+  http_listen_port: {{ $g.ports.hiscoreHTTP }}
+  profile: {{ $g.node.profile | quote }}
+  trust_gateway_headers: {{ .Values.hiscoreGateway.createGatewayConfig }}
 world:
   enable: {{ or (eq $mode "SingleBinary") (eq $mode "World") }}
   tcp_listen_network: tcp
@@ -195,6 +202,8 @@ spec:
           containerPort: {{ $ctx.Values.goscape.ports.loginGRPC }}
         - name: friends-grpc
           containerPort: {{ $ctx.Values.goscape.ports.friendsGRPC }}
+        - name: hiscore-http
+          containerPort: {{ $ctx.Values.goscape.ports.hiscoreHTTP }}
         {{- end }}
       readinessProbe:
         {{- if eq $mode "Management" }}

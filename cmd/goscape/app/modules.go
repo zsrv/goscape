@@ -7,6 +7,7 @@ import (
 
 	"github.com/zsrv/goscape/modules/account"
 	"github.com/zsrv/goscape/modules/friends"
+	"github.com/zsrv/goscape/modules/hiscore"
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
 	"github.com/zsrv/goscape/modules/world"
@@ -30,6 +31,7 @@ const (
 	World    string = "world"
 	Database string = "database"
 	Account  string = "account"
+	Hiscore  string = "hiscore"
 
 	// Composite targets
 
@@ -199,13 +201,49 @@ func (g *App) initAccount() (services.Service, error) {
 	return g.account, nil
 }
 
+func (g *App) initHiscore() (services.Service, error) {
+	if !g.cfg.Hiscore.Enable {
+		// arch-29.8: see initOnDemand's disabled branch for rationale.
+		g.logger.Info("module disabled", "module", "hiscore")
+		return nil, nil
+	}
+
+	logLevel := slog.Level(g.cfg.LogLevel)
+	if g.cfg.Hiscore.Server.LogLevel != nil {
+		logLevel = *g.cfg.Hiscore.Server.LogLevel
+	}
+	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout, log.WithSourceFormat(g.cfg.LogSource))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create hiscore logger: %w", err)
+	}
+	logger = logger.With("component", "hiscore")
+
+	g.cfg.Hiscore.Server.Log = logger
+	server.DisableSignalHandling(&g.cfg.Hiscore.Server)
+	serv, err := server.New(g.cfg.Hiscore.Server)
+	if err != nil {
+		return nil, err
+	}
+
+	h, err := hiscore.New(g.cfg.Hiscore, g.cfg.Database, logger, serv)
+	if err != nil {
+		// server.New already bound the listener; failing here would
+		// otherwise leak the socket (same posture as initOnDemand).
+		_ = serv.Close()
+		return nil, fmt.Errorf("failed to create hiscore: %w", err)
+	}
+	g.hiscore = h
+
+	return hiscore.NewHiscoreService(h, serv), nil
+}
+
 // initDatabase is the migration anchor: it brings the central-database
-// schema up to date before any DB-using module starts (login, friends, and
-// account all depend on it in the graph). It holds no runtime
-// connection — login, friends, and account each open their own pool
-// (independent-clients model, pkg/gamedb doc).
+// schema up to date before any DB-using module starts (login, friends,
+// account, and hiscore all depend on it in the graph). It holds no runtime
+// connection — login, friends, account, and hiscore each open their own
+// pool (independent-clients model, pkg/gamedb doc).
 func (g *App) initDatabase() (services.Service, error) {
-	if !g.cfg.Login.Enable && !g.cfg.Friends.Enable && !g.cfg.Account.Enable {
+	if !g.cfg.Login.Enable && !g.cfg.Friends.Enable && !g.cfg.Account.Enable && !g.cfg.Hiscore.Enable {
 		// No DB consumer in this target — contribute no service.
 		g.logger.Info("module disabled", "module", "database")
 		return nil, nil
@@ -267,6 +305,7 @@ func (g *App) setupModuleManager(logger *slog.Logger) error {
 	mm.RegisterModule(World, g.initWorld)
 	mm.RegisterModule(Database, g.initDatabase, modules.UserInvisibleModule)
 	mm.RegisterModule(Account, g.initAccount)
+	mm.RegisterModule(Hiscore, g.initHiscore)
 
 	mm.RegisterModule(SingleBinary, nil)
 
@@ -279,8 +318,9 @@ func (g *App) setupModuleManager(logger *slog.Logger) error {
 		Login:    {Common, Database},
 		World:    {Common, Login, Friends},
 		Account:  {Common, Database},
+		Hiscore:  {Common, Database},
 
-		SingleBinary: {OnDemand, Friends, Login, World, Account},
+		SingleBinary: {OnDemand, Friends, Login, World, Account, Hiscore},
 	}
 
 	for mod, targets := range deps {
