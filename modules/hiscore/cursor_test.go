@@ -1,6 +1,8 @@
 package hiscore
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -35,6 +37,28 @@ func TestDecodeCursor_Rejects(t *testing.T) {
 		if _, err := DecodeCursor(in); !errors.Is(err, ErrBadCursor) {
 			t.Errorf("DecodeCursor(%q): err = %v, want ErrBadCursor", in, err)
 		}
+	}
+}
+
+// TestDecodeCursor_RejectsUnknownField proves DisallowUnknownFields is
+// actually wired up: an otherwise well-formed cursor carrying one extra
+// field must be rejected, not silently accepted with the extra field
+// dropped.
+func TestDecodeCursor_RejectsUnknownField(t *testing.T) {
+	raw, err := json.Marshal(map[string]any{
+		"v": 130_344_310,
+		"d": time.Date(2026, 8, 19, 10, 30, 0, 0, time.UTC),
+		"a": 4242,
+		"r": 101,
+		"x": "unexpected field",
+	})
+	if err != nil {
+		t.Fatalf("marshal fixture: %v", err)
+	}
+	encoded := base64.RawURLEncoding.EncodeToString(raw)
+
+	if _, err := DecodeCursor(encoded); !errors.Is(err, ErrBadCursor) {
+		t.Errorf("DecodeCursor with unknown field: err = %v, want ErrBadCursor", err)
 	}
 }
 

@@ -583,3 +583,62 @@ func TestLeaderboardByCursor_TieBoundary(t *testing.T) {
 		t.Errorf("got ranks %d,%d, want 2,3", next[0].Rank, next[1].Rank)
 	}
 }
+
+// TestLeaderboardByCursor_DateOrderWithinTieGroup exercises the h.date > ?
+// arm of the keyset predicate on its own. TestLeaderboardByCursor_TieBoundary
+// gives every row the same date, so only the account_id sub-term ever runs
+// there, and TestLeaderboard_OffsetCursorEquivalence's seedBoard fixture
+// gives every row a distinct value, so the equal-value branch never runs
+// at all. Neither can catch the date operator pointing the wrong way.
+//
+// value descends while date and account_id ascend, so the three operators
+// in the predicate must point in different directions; a flip anywhere
+// silently skips or repeats rows only at a page boundary. account_id
+// assignment is deliberately reversed relative to date order below, so
+// this test can only pass if the date term is doing the ordering work,
+// not a coincidental account_id ordering.
+func TestLeaderboardByCursor_DateOrderWithinTieGroup(t *testing.T) {
+	db := createTestDB(t)
+	store := NewStore(db)
+
+	early := testClock.Add(-48 * time.Hour)
+	mid := testClock.Add(-24 * time.Hour)
+	late := testClock.Add(-1 * time.Hour)
+
+	// Insertion order (and therefore account_id order) is the reverse of
+	// date order: zID gets the smallest account_id but the latest date.
+	zID := insertAccount(t, db, "zzz", 0, nil)
+	mID := insertAccount(t, db, "mmm", 0, nil)
+	aID := insertAccount(t, db, "aaa", 0, nil)
+
+	insertHiscore(t, db, "hiscore", zID, "main", 1, 90, 10_000_000, late)
+	insertHiscore(t, db, "hiscore", mID, "main", 1, 90, 10_000_000, mid)
+	insertHiscore(t, db, "hiscore", aID, "main", 1, 90, 10_000_000, early)
+
+	first, err := store.LeaderboardByCursor(t.Context(), "main", 1, Cursor{}, 1, testClock)
+	if err != nil {
+		t.Fatalf("first page: %v", err)
+	}
+	if len(first) != 1 || first[0].AccountID != aID {
+		t.Fatalf("first page = %+v, want the earliest date of the tie group (aaa)", first)
+	}
+
+	next, err := store.LeaderboardByCursor(t.Context(), "main", 1, Cursor{
+		ValueX10:  first[0].ValueX10,
+		UpdatedAt: first[0].UpdatedAt,
+		AccountID: first[0].AccountID,
+		Rank:      2,
+	}, 10, testClock)
+	if err != nil {
+		t.Fatalf("second page: %v", err)
+	}
+	if len(next) != 2 {
+		t.Fatalf("got %d rows after the date boundary, want 2", len(next))
+	}
+	if next[0].AccountID != mID || next[1].AccountID != zID {
+		t.Errorf("got accounts %d,%d, want %d,%d (mid date, then late date)", next[0].AccountID, next[1].AccountID, mID, zID)
+	}
+	if next[0].Rank != 2 || next[1].Rank != 3 {
+		t.Errorf("got ranks %d,%d, want 2,3", next[0].Rank, next[1].Rank)
+	}
+}

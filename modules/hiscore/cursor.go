@@ -37,7 +37,10 @@ func (c Cursor) IsStart() bool { return c.Rank == 0 }
 func (c Cursor) Encode() string {
 	b, err := json.Marshal(c)
 	if err != nil {
-		// Cursor holds only fixed scalar types; Marshal cannot fail.
+		// json.Marshal only fails here if UpdatedAt's year falls outside
+		// [0,9999] (time.Time.MarshalJSON's own limit). UpdatedAt is
+		// always DB-sourced (see LeaderboardByCursor/scanBoard), never
+		// user-supplied, so that range cannot arise in practice.
 		panic(fmt.Sprintf("hiscore: encoding cursor: %v", err))
 	}
 	return base64.RawURLEncoding.EncodeToString(b)
