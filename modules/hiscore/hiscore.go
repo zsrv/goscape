@@ -44,6 +44,10 @@ func (h *Hiscore) starting(context.Context) error {
 
 	a, err := newAPI(h.cfg, NewStore(db), h.log)
 	if err != nil {
+		// BasicService does not run stoppingFn when startingFn returns an
+		// error (arch-29.8 follow-up, fadbfa6c, worked around this same
+		// gap elsewhere) — anything opened earlier in starting must be
+		// released here, on the spot, or it leaks on every failed start.
 		db.Close()
 		return fmt.Errorf("hiscore: build api: %w", err)
 	}
