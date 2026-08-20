@@ -132,3 +132,156 @@ func TestBackstopLimiter_429(t *testing.T) {
 		t.Error("429 missing Retry-After")
 	}
 }
+
+func TestPlayerEndpoint(t *testing.T) {
+	a, db := newTestAPI(t)
+
+	acct := insertAccount(t, db, "zezima", 0, nil)
+	// 13,034,431 whole XP is stored as 130,344,310 tenths.
+	insertHiscore(t, db, "hiscore_large", acct, "main", 0, 1893, 130_344_310, testClock)
+	insertHiscore(t, db, "hiscore", acct, "main", 1, 99, 130_344_310, testClock)
+
+	rec := doGET(t, a, "/v1/players/Zezima")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body.String())
+	}
+
+	var body playerResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	if body.Name != "Zezima" {
+		t.Errorf("name = %q, want display form Zezima", body.Name)
+	}
+	if body.Profile != "main" {
+		t.Errorf("profile = %q, want main", body.Profile)
+	}
+	if body.Overall == nil {
+		t.Fatal("overall = nil, want the aggregate entry")
+	}
+	if *body.Overall.XP != 13_034_431 {
+		t.Errorf("overall xp = %d, want 13034431 (whole XP, x10 divided out)", *body.Overall.XP)
+	}
+	if len(body.Skills) != 19 {
+		t.Fatalf("got %d skill entries, want all 19 enabled stats", len(body.Skills))
+	}
+
+	var attack, defence *skillEntry
+	for i := range body.Skills {
+		switch body.Skills[i].Name {
+		case "attack":
+			attack = &body.Skills[i]
+		case "defence":
+			defence = &body.Skills[i]
+		}
+	}
+	if attack == nil || defence == nil {
+		t.Fatal("attack and defence entries must both be present")
+	}
+	if !attack.Ranked {
+		t.Error("attack: ranked = false, want true")
+	}
+	if attack.XP == nil || *attack.XP != 13_034_431 {
+		t.Errorf("attack xp = %v, want 13034431", attack.XP)
+	}
+	if defence.Ranked {
+		t.Error("defence: ranked = true, want false — no row below level 15")
+	}
+	if defence.XP != nil || defence.Rank != nil || defence.Level != nil {
+		t.Errorf("defence: got xp=%v rank=%v level=%v, want all null",
+			defence.XP, defence.Rank, defence.Level)
+	}
+}
+
+// Name normalization: base37 safe-name round trip means these all
+// address the same account.
+func TestPlayerEndpoint_NameNormalization(t *testing.T) {
+	a, db := newTestAPI(t)
+	acct := insertAccount(t, db, "ze_zima", 0, nil)
+	insertHiscore(t, db, "hiscore_large", acct, "main", 0, 100, 1_000_000, testClock)
+
+	// A raw unescaped space in the target ("ZE ZIMA") is not usable here:
+	// httptest.NewRequest builds a literal "GET <target> HTTP/1.0" request
+	// line and http.ReadRequest splits it on the first space, so an
+	// in-path space panics with "malformed HTTP version" before the
+	// request ever reaches the mux. Percent-encoded, as any real client
+	// would send it, exercises the same case+space normalization safely.
+	for _, name := range []string{"ze_zima", "Ze_Zima", "Ze%20zima", "ZE%20ZIMA"} {
+		rec := doGET(t, a, "/v1/players/"+name)
+		if rec.Code != http.StatusOK {
+			t.Errorf("GET /v1/players/%s: status %d, want 200", name, rec.Code)
+		}
+	}
+}
+
+func TestPlayerEndpoint_NotFound(t *testing.T) {
+	a, db := newTestAPI(t)
+	future := testClock.Add(24 * time.Hour)
+	insertAccount(t, db, "cheater", 0, &future)
+	insertAccount(t, db, "modash", 2, nil)
+
+	// Unknown, banned, and staff must all be indistinguishable 404s.
+	for _, name := range []string{"nobody", "cheater", "modash"} {
+		rec := doGET(t, a, "/v1/players/"+name)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("GET /v1/players/%s: status %d, want 404", name, rec.Code)
+		}
+	}
+}
+
+func TestPlayerEndpoint_NeverExportedIs404(t *testing.T) {
+	a, db := newTestAPI(t)
+	insertAccount(t, db, "freshman", 0, nil)
+
+	rec := doGET(t, a, "/v1/players/freshman")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 for an account with no exported rows", rec.Code)
+	}
+}
+
+func TestPlayerEndpoint_LastModified(t *testing.T) {
+	a, db := newTestAPI(t)
+	acct := insertAccount(t, db, "zezima", 0, nil)
+	newest := testClock.Add(-2 * time.Hour)
+	insertHiscore(t, db, "hiscore_large", acct, "main", 0, 100, 1_000_000, testClock.Add(-5*time.Hour))
+	insertHiscore(t, db, "hiscore", acct, "main", 1, 99, 900_000, newest)
+
+	rec := doGET(t, a, "/v1/players/zezima")
+	got := rec.Header().Get("Last-Modified")
+	if want := newest.UTC().Format(http.TimeFormat); got != want {
+		t.Errorf("Last-Modified = %q, want %q (newest row in the response)", got, want)
+	}
+}
+
+// A dead database must produce an opaque 500, not a panic and not a
+// leak of SQL or internal identifiers.
+func TestPlayerEndpoint_DatabaseFailure(t *testing.T) {
+	a, db := newTestAPI(t)
+	insertAccount(t, db, "zezima", 0, nil)
+
+	if err := db.Close(); err != nil {
+		t.Fatalf("closing db: %v", err)
+	}
+
+	rec := doGET(t, a, "/v1/players/zezima")
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
+	}
+
+	var body errorEnvelope
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v; body %s", err, rec.Body.String())
+	}
+	if body.Error.Code != codeInternal {
+		t.Errorf("code = %q, want %q", body.Error.Code, codeInternal)
+	}
+	for _, leak := range []string{"SELECT", "hiscore", "account_id", "sql"} {
+		if strings.Contains(body.Error.Message, leak) {
+			t.Errorf("error message %q leaks internals (%q)", body.Error.Message, leak)
+		}
+	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store — errors must not be cached at the edge", cc)
+	}
+}
