@@ -1,6 +1,7 @@
 package hiscore
 
 import (
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -35,6 +36,21 @@ func consumerFromHeaders(r *http.Request, trust bool) caller {
 	}
 	name := r.Header.Get(hdrConsumerUsername)
 	return caller{Consumer: name, Anonymous: name == ""}
+}
+
+// callerAttrs renders the caller's identity as structured slog
+// attributes, for the handful of log lines diagnostic enough to be
+// worth the caller's identity: the rate-limit rejection in guard and
+// the internal-error path in internal. This is the read side of the
+// gateway-header contract described in docs/hiscores-api.md §11 — the
+// consumer name and anonymous flag are for logging only, never for
+// authorization.
+func callerAttrs(c caller) []any {
+	return []any{
+		slog.String("consumer", c.Consumer),
+		slog.Bool("anonymous", c.Anonymous),
+		slog.String("ip", c.IP),
+	}
 }
 
 // limiterKey buckets by gateway consumer when we have one, else by

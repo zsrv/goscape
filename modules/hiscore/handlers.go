@@ -107,6 +107,7 @@ func (a *api) guard(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := a.identify(r)
 		if !a.limiter.allow(c.limiterKey(), a.now()) {
+			a.log.Warn("hiscore: rate limited", callerAttrs(c)...)
 			w.Header().Set("Retry-After", "60")
 			a.writeError(w, http.StatusTooManyRequests, codeRateLimited,
 				"too many requests; retry after 60s")
@@ -210,13 +211,13 @@ func (a *api) handlePlayer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		a.internal(w, "lookup account", err)
+		a.internal(w, r, "lookup account", err)
 		return
 	}
 
 	card, err := a.store.PlayerCard(r.Context(), profile, acct.ID, now)
 	if err != nil {
-		a.internal(w, "player card", err)
+		a.internal(w, r, "player card", err)
 		return
 	}
 	// A visible account that has never been exported is reported the
@@ -275,9 +276,12 @@ func (a *api) profileParam(r *http.Request) string {
 }
 
 // internal logs the real cause and returns an opaque 500. Callers never
-// see SQL, table names, or account ids.
-func (a *api) internal(w http.ResponseWriter, what string, err error) {
-	a.log.Error("hiscore: "+what, slog.Any("err", err))
+// see SQL, table names, or account ids. The caller's identity is logged
+// alongside the error — see callerAttrs — since an internal-error spike
+// tied to one consumer or IP is the diagnostic case this exists for.
+func (a *api) internal(w http.ResponseWriter, r *http.Request, what string, err error) {
+	attrs := append([]any{slog.Any("err", err)}, callerAttrs(a.identify(r))...)
+	a.log.Error("hiscore: "+what, attrs...)
 	a.writeError(w, http.StatusInternalServerError, codeInternal, "internal error")
 }
 
@@ -362,7 +366,7 @@ func (a *api) handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 		rows, err = a.store.LeaderboardByOffset(r.Context(), profile, skill.Type, offset, limit, now)
 	}
 	if err != nil {
-		a.internal(w, "leaderboard", err)
+		a.internal(w, r, "leaderboard", err)
 		return
 	}
 
