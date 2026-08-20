@@ -78,3 +78,27 @@ func insertHiscore(t *testing.T, db *gamedb.DB, table string, accountID int64, p
 		t.Fatalf("insertHiscore(%s, acct=%d, type=%d): %v", table, accountID, typ, err)
 	}
 }
+
+// testGameDBConfig returns a gamedb.Config pointing at a private
+// in-memory sqlite database for this test.
+func testGameDBConfig(t *testing.T) gamedb.Config {
+	t.Helper()
+	var cfg gamedb.Config
+	fs := flag.NewFlagSet("", flag.PanicOnError)
+	cfg.RegisterFlagsAndApplyDefaults(fs)
+	cfg.SQLite.DSN = fmt.Sprintf("file:%s-mod?mode=memory&cache=shared", url.PathEscape(t.Name()))
+
+	// The module opens its own pool but never migrates; bring the schema
+	// up first through a throwaway pool, and hold it open for the test's
+	// duration so the shared-cache in-memory DB survives.
+	db, err := gamedb.Open(cfg, noopLogger())
+	if err != nil {
+		t.Fatalf("testGameDBConfig: open: %v", err)
+	}
+	if err := db.Migrate(t.Context()); err != nil {
+		db.Close()
+		t.Fatalf("testGameDBConfig: migrate: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	return cfg
+}
