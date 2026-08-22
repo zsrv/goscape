@@ -1307,7 +1307,7 @@ func (p *Player) readPacket() (opcode int, ok bool, handled bool, err error) {
 		op := gameclient.Ops[decrypted]
 		if op.Name == "" {
 			c.log.Warn("unknown game opcode", "opcode", decrypted)
-			c.conn.Close()
+			c.closeConn()
 			return -1, false, false, errCloseConn
 		}
 		c.in.Next(1)
@@ -1328,7 +1328,7 @@ func (p *Player) readPacket() (opcode int, ok bool, handled bool, err error) {
 		c.waiting = int(uint16(b[0])<<8 | uint16(b[1]))
 		if c.waiting > 1600 {
 			c.log.Warn("oversized game packet, closing", "opcode", c.opcode, "size", c.waiting)
-			c.conn.Close()
+			c.closeConn()
 			return -1, false, false, errCloseConn
 		}
 	}
