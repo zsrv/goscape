@@ -38,6 +38,12 @@ type Config struct {
 	Port    int  `yaml:"node_port"`
 	Debug   bool `yaml:"node_debug"`
 
+	// DebugStatusEnabled gates GET /debug/status. This endpoint is
+	// unauthenticated and returns load/presence information (current tick,
+	// players online, tick age), making it an oracle for attackers.
+	// Defaults to false (SEC1 M-12).
+	DebugStatusEnabled bool `yaml:"debug_status_enabled"`
+
 	// WebSocket toggles a / WebSocket bridge that accepts WS-framed
 	// connections and hands them off to the world module's TCP connection
 	// handler. Mirrors web.ts:125-127 in Engine-TS.
@@ -101,6 +107,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.BoolVar(&c.Members, "ondemand.node-members", true, "Whether members content is available; emitted by /rs2.cgi.")
 	f.IntVar(&c.Port, "ondemand.node-port", 43594, "World TCP port; /rs2.cgi emits portoff = node-port - 43594 to the Java applet.")
 	f.BoolVar(&c.Debug, "ondemand.node-debug", true, "Whether /rs2.cgi may serve the Java applet template when plugin=1.")
+	f.BoolVar(&c.DebugStatusEnabled, "ondemand.debug-status-enabled", false, "Serve GET /debug/status (players online, tick age) on the public ondemand listener. Off by default: it is an unauthenticated load/presence oracle (SEC1 M-12).")
 
 	// WebSocket bridge (mirrors web.ts:125-127). AllowedOrigins is YAML-only
 	// to match the slice-shape registration pattern used elsewhere; empty

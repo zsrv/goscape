@@ -132,6 +132,12 @@ ondemand:
   # CLI: --ondemand.node-debug (default: true)
   node_debug: true
 
+  # Serve GET /debug/status (players online, current tick, tick age) on the
+  # public ondemand listener. It is unauthenticated, so it doubles as a load /
+  # presence oracle for attackers — leave off unless you front it with auth.
+  # CLI: --ondemand.debug-status-enabled (default: false)
+  debug_status_enabled: false
+
   # --- WebSocket -> world bridge ---
   websocket:
     # Serve a WS bridge at "/" that forwards binary frames to the world module's
