@@ -89,7 +89,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	// during low-activity periods (debug-socket mode at server.go:830 already
 	// bypasses the deadline; this default is for the production read path).
 	f.DurationVar(&c.TCPServerReadTimeout, "world.tcp-read-timeout", 30*time.Second, "Read timeout for TCP server")
-	f.DurationVar(&c.TCPServerWriteTimeout, "world.tcp-write-timeout", 2*time.Second, "Write timeout for TCP server (per-flush budget on the tick goroutine — a stalled client blocks the world tick for at most this long)")
+	f.DurationVar(&c.TCPServerWriteTimeout, "world.tcp-write-timeout", 2*time.Second, "Per-write deadline for the client's outbound socket writer and the drain budget on close. Socket writes never run on the tick goroutine (SEC1 M-2).")
 	f.DurationVar(&c.TCPServerIdleTimeout, "world.tcp-idle-timeout", 120*time.Second, "Idle timeout for TCP server")
 	f.DurationVar(&c.TCPKeepAlivePeriod, "world.tcp-keepalive-period", 30*time.Second,
 		"TCP keepalive idle period before first probe; set to 0 to disable")

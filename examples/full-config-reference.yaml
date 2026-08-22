@@ -265,7 +265,11 @@ world:
   # --- TCP timeouts ---
   # CLI: --world.tcp-read-timeout (default: 30s)
   tcp_server_read_timeout: 30s
-  # CLI: --world.tcp-write-timeout (default: 2s; per-flush budget on tick goroutine)
+  # CLI: --world.tcp-write-timeout (default: 2s)
+  # Per-write deadline for the client's outbound socket writer, and the
+  # budget it gets to drain already-queued frames when the connection is
+  # closed. Socket writes run on a per-client writer goroutine, never on
+  # the world tick goroutine (SEC1 M-2).
   tcp_server_write_timeout: 2s
   # CLI: --world.tcp-idle-timeout (default: 120s)
   tcp_server_idle_timeout: 120s

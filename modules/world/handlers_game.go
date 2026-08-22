@@ -796,7 +796,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 			// removing the player from s.players; the next reconnect hits
 			// this player's slot and runs the onReconnect path.
 			if p.client != nil && p.client.conn != nil {
-				_ = p.client.conn.Close()
+				p.client.closeConn()
 			}
 		case "setstat":
 			// TS L401-414 — setstat <skill> <level> via PlayerStatMap.
