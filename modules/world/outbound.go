@@ -12,7 +12,10 @@ import (
 // Outbound queue caps. A healthy client drains a few KiB per tick; a
 // client that stops reading fills its kernel window within seconds and
 // then hits these. DEVIATION SEC1-D3: TS socket.write buffers without
-// bound and never disconnects; goscape bounds memory and closes.
+// bound and never disconnects; goscape bounds memory and closes. When
+// tcp_server_write_timeout <= 0 turns the per-write deadlines off, Close
+// stamps fallbackDrainTimeout on the socket instead, so teardown stays
+// bounded without discarding the queued bytes the drain exists to deliver.
 //
 // Bytes is the real limiter; the slot count only exists so the channel
 // is bounded. Slots are deliberately generous because the OnDemand pump
