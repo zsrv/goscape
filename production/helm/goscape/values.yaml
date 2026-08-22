@@ -120,6 +120,9 @@ singleBinary:
     runAsUser: 65532
     runAsGroup: 65532
     fsGroup: 65532
+    # Only relabel volume contents when the top-level ownership is wrong,
+    # so a large PVC is not chowned recursively on every pod start.
+    fsGroupChangePolicy: OnRootMismatch
     seccompProfile:
       type: RuntimeDefault
   containerSecurityContext:
@@ -158,6 +161,9 @@ management:
     runAsUser: 65532
     runAsGroup: 65532
     fsGroup: 65532
+    # Only relabel volume contents when the top-level ownership is wrong,
+    # so a large PVC is not chowned recursively on every pod start.
+    fsGroupChangePolicy: OnRootMismatch
     seccompProfile:
       type: RuntimeDefault
   containerSecurityContext:
@@ -196,6 +202,9 @@ world:
     runAsUser: 65532
     runAsGroup: 65532
     fsGroup: 65532
+    # Only relabel volume contents when the top-level ownership is wrong,
+    # so a large PVC is not chowned recursively on every pod start.
+    fsGroupChangePolicy: OnRootMismatch
     seccompProfile:
       type: RuntimeDefault
   containerSecurityContext:

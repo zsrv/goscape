@@ -94,6 +94,26 @@ NetworkPolicy's hiscore rule to the Kong proxy pods when
 `hiscoreGateway.createGatewayConfig` and `networkPolicy.enabled` are both true,
 so in-cluster callers cannot bypass Kong's key-auth and rate limiting.
 
+#### Upgrading from a release before these defaults
+
+- **Volume ownership.** Pods previously ran as root, so everything already on an
+  existing PVC — the sqlite database, `players/*.sav` — is owned by uid 0. The
+  chart now runs as uid `65532` and relies on `fsGroup: 65532` (with
+  `fsGroupChangePolicy: OnRootMismatch`, so the relabel happens once rather than
+  on every start) to make that data writable again. This works on CSI drivers
+  that honour fsGroup. On NFS, or on any driver whose CSIDriver object sets
+  `fsGroupPolicy: None`, the kubelet does **not** apply fsGroup: `chown -R
+  65532:65532` the volume contents before upgrading, or the world process will
+  fail to write saves.
+- **`$` in `extraConfig`.** `--config.expand-env=true` is now always on, so a
+  literal `$` in `goscape.extraConfig` — most often inside a password or an
+  argon2 PHC string — is consumed by the expansion and the value silently
+  changes. Escape every literal `$` as `$$` before upgrading.
+- **`world.content_watch`.** It writes a stamp file into `cache_path`, which is
+  incompatible with the `readOnlyRootFilesystem: true` container default (and
+  with a read-only cache mount). Leave it off in Kubernetes, or mount the cache
+  path writable.
+
 ## Testing
 
 Run the in-cluster connectivity test against a deployed release (requires a live cluster):

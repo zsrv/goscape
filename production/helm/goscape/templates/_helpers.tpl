@@ -158,6 +158,10 @@ metadata:
     {{- end }}
 spec:
   serviceAccountName: {{ include "goscape.serviceAccountName" $ctx }}
+  # Also set at pod level, not just on the ServiceAccount: with
+  # serviceAccount.create=false the chart does not own the SA object, so the
+  # pod-level field is the only thing that keeps the token unmounted.
+  automountServiceAccountToken: {{ $ctx.Values.serviceAccount.automountServiceAccountToken }}
   {{- with $ctx.Values.image.pullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
