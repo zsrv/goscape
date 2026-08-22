@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"runtime/debug"
 	"time"
 
 	"github.com/zsrv/goscape/pkg/friendspb"
@@ -308,7 +309,7 @@ func (s *Server) waitForSaveFlush() {
 	select {
 	case <-done:
 	case <-time.After(playerSaveFlushTimeout):
-		s.log.Warn("timed out waiting for player saves to flush on shutdown")
+		s.log.Warn("timed out waiting for player saves to flush")
 	}
 }
 
@@ -346,5 +347,56 @@ func (s *Server) autosavePlayers() {
 			defer cancel()
 			s.loginClient.PlayerAutosave(ctx, req)
 		}()
+	}
+}
+
+// crashSavePlayers is crashSaveAll's per-player pass: fires a best-effort
+// PlayerAutosave for every online player, but — unlike autosavePlayers —
+// isolates each player behind its own recover. The tick loop is already
+// panicking when this runs, so a SECOND panic (e.g. corrupt in-memory
+// state making p.Save itself panic) must not abort the pass and strand
+// every player behind the offender unsaved; that player is logged and
+// skipped, and the rest still get saved.
+//
+// saveFn defaults to (*Player).Save (bound to s.invTypes/s.varpTypes);
+// tests override it to inject a panicking save for one player while
+// proving the others still land on PlayerAutosave.
+func (s *Server) crashSavePlayers(saveFn func(*Player) []byte) {
+	if s.loginClient == nil {
+		return
+	}
+	// rev-225 iterates s.playerLoop (the tick-goroutine-owned live slice)
+	// exactly as autosavePlayers above does; later revisions range a
+	// PlayerList iterator instead.
+	for _, p := range s.playerLoop {
+		if p == nil {
+			continue
+		}
+		func(p *Player) {
+			defer func() {
+				if r := recover(); r != nil {
+					s.log.Error("crash-save: skipped player after panic in save path",
+						"player", p.username,
+						"err", r,
+						"stack", string(debug.Stack()))
+				}
+			}()
+			if p.username == "" {
+				return
+			}
+			save := saveFn(p)
+			req := &loginpb.PlayerAutosaveRequest{
+				Profile:  s.cfg.NodeProfile,
+				Username: p.username,
+				Save:     save,
+			}
+			s.saveWg.Add(1)
+			go func() {
+				defer s.saveWg.Done()
+				ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
+				defer cancel()
+				s.loginClient.PlayerAutosave(ctx, req)
+			}()
+		}(p)
 	}
 }
