@@ -10,11 +10,17 @@ import (
 	"log/slog"
 	"net/http"
 	"path"
+	"strings"
 	"sync"
 )
 
 //go:embed templates static
 var assetsFS embed.FS
+
+// maxFormBody bounds request bodies: the largest legitimate form is a
+// few hundred bytes; 64 KiB leaves room without letting a client park a
+// multi-megabyte body in memory (SEC1 M-8).
+const maxFormBody = 64 << 10
 
 // portal is the SSR web application. Handlers hang off this struct and
 // are registered in routes(); later tasks add session middleware and
@@ -94,7 +100,27 @@ func (p *portal) render(w http.ResponseWriter, r *http.Request, page string, dat
 	_, _ = buf.WriteTo(w)
 }
 
-func (p *portal) routes() *http.ServeMux {
+// secureHeaders adds the defensive response headers to every reply and
+// caps the request body. HSTS is sent only when public_url is https —
+// the same rule that makes the cookies Secure — so an http-only dev
+// deployment does not pin browsers to TLS it cannot serve.
+func (p *portal) secureHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		https := strings.HasPrefix(p.cfg.PublicURL, "https://")
+		h := w.Header()
+		h.Set("Content-Security-Policy", "default-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "no-referrer")
+		if https {
+			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, maxFormBody)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (p *portal) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -188,7 +214,7 @@ func (p *portal) routes() *http.ServeMux {
 		func(r *http.Request, target *PortalAccount) (string, error) {
 			return "reset link mailed", p.sendResetEmail(r.Context(), target)
 		})))
-	return mux
+	return p.secureHeaders(mux)
 }
 
 func (p *portal) handleHome(w http.ResponseWriter, r *http.Request) {

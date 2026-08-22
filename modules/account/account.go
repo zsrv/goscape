@@ -86,7 +86,14 @@ func (a *Account) starting(ctx context.Context) error {
 	a.portal = p
 	a.grpcSrv = grpcSrv
 	a.grpcLis = grpcLis
-	a.httpSrv = &http.Server{Handler: p.routes(), ReadHeaderTimeout: 10 * time.Second}
+	a.httpSrv = &http.Server{
+		Handler:           p.routes(),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    64 << 10,
+	}
 	a.httpLis = httpLis
 	a.log.Info("account module listening",
 		slog.String("http", httpAddr), slog.String("grpc", grpcAddr))
