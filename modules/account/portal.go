@@ -116,6 +116,15 @@ func (p *portal) secureHeaders(next http.Handler) http.Handler {
 			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, maxFormBody)
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			if err := r.ParseForm(); err != nil {
+				var maxBytesErr *http.MaxBytesError
+				if errors.As(err, &maxBytesErr) {
+					http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+					return
+				}
+			}
+		}
 		next.ServeHTTP(w, r)
 	})
 }

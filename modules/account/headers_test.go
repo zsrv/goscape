@@ -2,6 +2,7 @@ package account
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -43,18 +44,37 @@ func TestSecureHeaders(t *testing.T) {
 	}
 }
 
-// Oversized form bodies are refused instead of being buffered.
+// Oversized form bodies are refused at the middleware layer and return 413.
 func TestBodyLimit(t *testing.T) {
 	p, _ := newTestPortal(t)
 	srv, client := portalClient(t, p)
+
+	// Seed the anonymous CSRF token.
+	tok := csrfFor(t, client, srv.URL+"/login")
+
+	// Test: 70 KiB email field exceeds maxFormBody (64 KiB).
 	big := strings.Repeat("a", 70<<10)
-	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/login", strings.NewReader("email="+big))
+	form := url.Values{"csrf": {tok}, "email": {big}}
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/login", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != http.StatusRequestEntityTooLarge && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("oversized body: got %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized body: got %d, want %d", resp.StatusCode, http.StatusRequestEntityTooLarge)
+	}
+
+	// Control: 1 KiB email field is well under the limit; expect login form re-render (200).
+	small := strings.Repeat("a", 1<<10)
+	form = url.Values{"csrf": {tok}, "email": {small}}
+	req, _ = http.NewRequest(http.MethodPost, srv.URL+"/login", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("small body: got %d, want 200", resp.StatusCode)
 	}
 }
