@@ -42,7 +42,7 @@ RUN ./cmd/goscape-cli/goscape-cli pack \
 FROM gcr.io/distroless/static-debian13:debug-nonroot
 
 # Use numeric IDs for compatibility with runAsNonRoot in Kubernetes
-#USER 65532:65532
+USER 65532:65532
 
 COPY --from=build /go/src/cmd/goscape/goscape /usr/bin/goscape
 COPY --from=build /go/src/cmd/goscape-cli/goscape-cli /usr/bin/goscape-cli

@@ -53,11 +53,12 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{/* Fully qualified image reference */}}
 {{- define "goscape.image" -}}
-{{- $tag := .Values.image.tag | default .Chart.AppVersion -}}
-{{- if .Values.image.registry -}}
-{{- printf "%s/%s:%s" .Values.image.registry .Values.image.repository $tag -}}
+{{- $repo := .Values.image.repository -}}
+{{- if .Values.image.registry -}}{{- $repo = printf "%s/%s" .Values.image.registry $repo -}}{{- end -}}
+{{- if .Values.image.digest -}}
+{{- printf "%s@%s" $repo .Values.image.digest -}}
 {{- else -}}
-{{- printf "%s:%s" .Values.image.repository $tag -}}
+{{- printf "%s:%s" $repo (.Values.image.tag | default .Chart.AppVersion) -}}
 {{- end -}}
 {{- end -}}
 
@@ -157,6 +158,10 @@ metadata:
     {{- end }}
 spec:
   serviceAccountName: {{ include "goscape.serviceAccountName" $ctx }}
+  # Also set at pod level, not just on the ServiceAccount: with
+  # serviceAccount.create=false the chart does not own the SA object, so the
+  # pod-level field is the only thing that keeps the token unmounted.
+  automountServiceAccountToken: {{ $ctx.Values.serviceAccount.automountServiceAccountToken }}
   {{- with $ctx.Values.image.pullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
@@ -171,9 +176,7 @@ spec:
       imagePullPolicy: {{ $ctx.Values.image.pullPolicy }}
       args:
         - "--config.file=/etc/goscape/config.yaml"
-        {{- if $pgActive }}
         - "--config.expand-env=true"
-        {{- end }}
         {{- with $w.extraArgs }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -224,6 +227,18 @@ spec:
         {{- end }}
         initialDelaySeconds: 10
         periodSeconds: 10
+      {{- if $w.livenessProbe.enabled }}
+      livenessProbe:
+        tcpSocket:
+          {{- if eq $mode "Management" }}
+          port: login-grpc
+          {{- else }}
+          port: world-tcp
+          {{- end }}
+        initialDelaySeconds: {{ $w.livenessProbe.initialDelaySeconds }}
+        periodSeconds: {{ $w.livenessProbe.periodSeconds }}
+        failureThreshold: {{ $w.livenessProbe.failureThreshold }}
+      {{- end }}
       {{- with $w.containerSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -235,6 +250,8 @@ spec:
       volumeMounts:
         - name: config
           mountPath: /etc/goscape
+        - name: tmp
+          mountPath: /tmp
         {{- if and $ctx.Values.goscape.loginRsaKey.existingSecret (or (eq $mode "SingleBinary") (eq $mode "World")) }}
         - name: login-rsa
           mountPath: /etc/goscape-login-rsa
@@ -260,6 +277,8 @@ spec:
     - name: config
       configMap:
         name: {{ include "goscape.fullname" $ctx }}
+    - name: tmp
+      emptyDir: {}
     {{- if and $ctx.Values.goscape.loginRsaKey.existingSecret (or (eq $mode "SingleBinary") (eq $mode "World")) }}
     - name: login-rsa
       secret:

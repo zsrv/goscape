@@ -211,7 +211,7 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 				s.logNet.Warn("failed to flush on connection close", "error", err, "remote_addr", conn.RemoteAddr())
 			}
 		}
-		conn.Close()
+		c.closeConn()
 		c.dropConnRef()
 		s.logNet.Debug("connection closed", "remote_addr", conn.RemoteAddr())
 	}()

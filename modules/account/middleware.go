@@ -37,6 +37,12 @@ func csrfToken(rawSessionToken string) string {
 }
 
 // public loads the session account (if any) into the request context.
+// It deliberately does NOT enforce CSRF: every other middleware is built
+// on top of it, and a 403 here would fire before admin()'s group check
+// could answer 404 — advertising the existence of an admin-only route to
+// any anonymous POST. Public forms opt into CSRF via publicForm();
+// authed() and admin() call requireCSRF themselves, after their own
+// authorisation decision.
 func (p *portal) public(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if c, err := r.Cookie(sessionCookieName); err == nil {
@@ -58,15 +64,59 @@ func (p *portal) public(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// requireCSRF checks the CSRF token on state-changing methods, writing
-// a 403 and returning false if it is missing or wrong. GET/HEAD are
-// exempt (and pass).
+// publicForm is public() plus CSRF: the wrapper for anonymous
+// state-changing forms (/register, /login, /forgot-password,
+// /reset-password, /verify-email), whose token comes from the
+// double-submit cookie render() seeds on the GET form page. Their GET
+// siblings stay on plain public().
+func (p *portal) publicForm(h http.HandlerFunc) http.HandlerFunc {
+	return p.public(func(w http.ResponseWriter, r *http.Request) {
+		if !requireCSRF(w, r) {
+			return
+		}
+		h(w, r)
+	})
+}
+
+const csrfCookieName = "goscape_csrf"
+
+// ensureCSRFCookie returns the anonymous double-submit token for this
+// browser, minting and setting the cookie when absent. Used by render()
+// for anonymous pages so every public form carries a token the server
+// can check against a cookie a cross-site attacker cannot read.
+func (p *portal) ensureCSRFCookie(w http.ResponseWriter, r *http.Request) string {
+	if c, err := r.Cookie(csrfCookieName); err == nil && c.Value != "" {
+		return c.Value
+	}
+	raw, err := NewRawToken()
+	if err != nil {
+		p.log.Error("csrf token mint failed", slog.Any("err", err))
+		return ""
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name: csrfCookieName, Value: raw, Path: "/", MaxAge: 24 * 60 * 60,
+		HttpOnly: true, Secure: strings.HasPrefix(p.cfg.PublicURL, "https://"), SameSite: http.SameSiteLaxMode,
+	})
+	return raw
+}
+
+// requireCSRF checks the CSRF token on state-changing methods, writing a
+// 403 and returning false if it is missing or wrong. GET/HEAD are exempt.
+// Logged-in browsers prove the token is derived from their HttpOnly
+// session cookie; anonymous browsers (SEC1 M-8: /login, /register,
+// /forgot-password, /reset-password) prove it matches the HttpOnly
+// double-submit cookie render() seeded on the form page.
 func requireCSRF(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
 		return true
 	}
-	c, err := r.Cookie(sessionCookieName)
-	if err != nil || subtle.ConstantTimeCompare([]byte(r.FormValue("csrf")), []byte(csrfToken(c.Value))) != 1 {
+	var want string
+	if c, err := r.Cookie(sessionCookieName); err == nil {
+		want = csrfToken(c.Value)
+	} else if c, err := r.Cookie(csrfCookieName); err == nil {
+		want = c.Value
+	}
+	if want == "" || subtle.ConstantTimeCompare([]byte(r.FormValue("csrf")), []byte(want)) != 1 {
 		http.Error(w, "invalid csrf token", http.StatusForbidden)
 		return false
 	}
@@ -93,7 +143,10 @@ func (p *portal) authed(h http.HandlerFunc) http.HandlerFunc {
 // authed() would give a logged-out user: the admin surface itself is
 // not advertised. NOTE: this deliberately does not wrap authed(),
 // whose login-redirect would leak the existence of an admin-only route
-// to anonymous requests before the group check ever runs.
+// to anonymous requests before the group check ever runs. For the same
+// reason the CSRF check runs AFTER the group check, and public() (which
+// runs before both) does not check at all — a 403 ahead of the 404
+// would leak just as loudly.
 func (p *portal) admin(h http.HandlerFunc) http.HandlerFunc {
 	return p.public(func(w http.ResponseWriter, r *http.Request) {
 		acct := ctxAccount(r)

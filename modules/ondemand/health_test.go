@@ -12,7 +12,7 @@ func TestHealthzFreshTick(t *testing.T) {
 	mux := http.NewServeMux()
 	RegisterHealthRoutes(mux, func() (HealthSnapshot, bool) {
 		return HealthSnapshot{LastTick: time.Now(), CurrentTick: 42, PlayersOnline: 3, LastCycleMillis: 12}, true
-	})
+	}, true)
 	rr := httptest.NewRecorder()
 	mux.ServeHTTP(rr, httptest.NewRequest("GET", "/healthz", nil))
 	if rr.Code != http.StatusOK {
@@ -24,7 +24,7 @@ func TestHealthzStaleTick(t *testing.T) {
 	mux := http.NewServeMux()
 	RegisterHealthRoutes(mux, func() (HealthSnapshot, bool) {
 		return HealthSnapshot{LastTick: time.Now().Add(-time.Minute)}, true
-	})
+	}, true)
 	rr := httptest.NewRecorder()
 	mux.ServeHTTP(rr, httptest.NewRequest("GET", "/healthz", nil))
 	if rr.Code != http.StatusServiceUnavailable {
@@ -34,7 +34,7 @@ func TestHealthzStaleTick(t *testing.T) {
 
 func TestHealthzNoWorld(t *testing.T) {
 	mux := http.NewServeMux()
-	RegisterHealthRoutes(mux, func() (HealthSnapshot, bool) { return HealthSnapshot{}, false })
+	RegisterHealthRoutes(mux, func() (HealthSnapshot, bool) { return HealthSnapshot{}, false }, true)
 	rr := httptest.NewRecorder()
 	mux.ServeHTTP(rr, httptest.NewRequest("GET", "/healthz", nil))
 	if rr.Code != http.StatusOK {
@@ -52,7 +52,7 @@ func TestHealthzBootGraceBeforeFirstTick(t *testing.T) {
 	mux := http.NewServeMux()
 	RegisterHealthRoutes(mux, func() (HealthSnapshot, bool) {
 		return HealthSnapshot{LastTick: time.Unix(0, 0)}, true
-	})
+	}, true)
 	rr := httptest.NewRecorder()
 	mux.ServeHTTP(rr, httptest.NewRequest("GET", "/healthz", nil))
 	if rr.Code != http.StatusOK {
@@ -90,7 +90,7 @@ func TestDebugStatusJSON(t *testing.T) {
 	mux := http.NewServeMux()
 	RegisterHealthRoutes(mux, func() (HealthSnapshot, bool) {
 		return HealthSnapshot{LastTick: time.Now(), CurrentTick: 7, PlayersOnline: 2, LastCycleMillis: 9}, true
-	})
+	}, true)
 	rr := httptest.NewRecorder()
 	mux.ServeHTTP(rr, httptest.NewRequest("GET", "/debug/status", nil))
 	var got map[string]any
@@ -102,5 +102,24 @@ func TestDebugStatusJSON(t *testing.T) {
 	}
 	if got["ticking"] != true {
 		t.Fatalf("ticking: got %v, want true", got["ticking"])
+	}
+}
+
+// SEC1 M-12: /debug/status is off unless explicitly enabled; /healthz
+// is unaffected.
+func TestDebugStatusDisabledByDefault(t *testing.T) {
+	mux := http.NewServeMux()
+	RegisterHealthRoutes(mux, func() (HealthSnapshot, bool) {
+		return HealthSnapshot{LastTick: time.Now()}, true
+	}, false)
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, httptest.NewRequest("GET", "/debug/status", nil))
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("/debug/status when disabled: got %d, want 404", rr.Code)
+	}
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, httptest.NewRequest("GET", "/healthz", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("/healthz: got %d, want 200", rr.Code)
 	}
 }

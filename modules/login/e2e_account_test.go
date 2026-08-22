@@ -92,8 +92,21 @@ func TestE2E_PortalToGameLogin(t *testing.T) {
 	client := &http.Client{Jar: jar, Timeout: 10 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 
+	// SEC1 M-8: /register and /login are anonymous, double-submit-CSRF
+	// protected. Seed the cookie with a GET of a public form page, then
+	// thread its value back as the "csrf" form field on both POSTs.
+	if resp, err := client.Get(base + "/login"); err != nil {
+		t.Fatal(err)
+	} else {
+		resp.Body.Close()
+	}
+	anonCSRF := account.AnonymousCSRFTokenForTest(jar, base)
+	if anonCSRF == "" {
+		t.Fatal("no anonymous csrf cookie after GET /login")
+	}
+
 	if _, err := client.PostForm(base+"/register", url.Values{
-		"email": {"e2e@example.com"}, "password": {"hunter22!"}, "password2": {"hunter22!"},
+		"email": {"e2e@example.com"}, "password": {"hunter22!"}, "password2": {"hunter22!"}, "csrf": {anonCSRF},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +124,7 @@ func TestE2E_PortalToGameLogin(t *testing.T) {
 	}
 	// Log in and create the character through the real portal.
 	if _, err := client.PostForm(base+"/login", url.Values{
-		"email": {"e2e@example.com"}, "password": {"hunter22!"},
+		"email": {"e2e@example.com"}, "password": {"hunter22!"}, "csrf": {anonCSRF},
 	}); err != nil {
 		t.Fatal(err)
 	}
