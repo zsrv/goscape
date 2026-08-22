@@ -409,6 +409,18 @@ func (a *clientODAdapter) close() {
 	a.c.closeConn()
 }
 
+// backlogged reports whether the connection's outbound queue has passed
+// its soft high-water mark, so the pump should end this client's slice
+// and retry on a later pass (SEC1 M-2 / DEVIATION SEC1-D3). Nil-safe:
+// a client constructed without a writer (unit tests, parse-only paths)
+// is never backlogged.
+func (a *clientODAdapter) backlogged() bool {
+	if a.c == nil || a.c.out == nil {
+		return false
+	}
+	return a.c.out.Backlogged()
+}
+
 // id returns the stable per-connection identity (client.connID). The same
 // underlying *client is wrapped by a fresh clientODAdapter on every
 // onClientData call (server.go), so the identity must come from the

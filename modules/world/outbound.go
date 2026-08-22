@@ -17,16 +17,31 @@ import (
 // stamps fallbackDrainTimeout on the socket instead, so teardown stays
 // bounded without discarding the queued bytes the drain exists to deliver.
 //
-// Bytes is the real limiter; the slot count only exists so the channel
-// is bounded. Slots are deliberately generous because the OnDemand pump
-// is a producer too, and it lost its only backpressure when writes went
-// asynchronous: it emits one ~508-byte cache chunk per send, so a tight
-// slot cap would disconnect a legitimately-downloading client after only
-// a few tens of KiB. At 512 slots the byte cap (1 MiB) is what a stalled
-// peer trips, whatever the frame size.
+// Which cap binds depends on the frame size. A stalled game client, whose
+// frames are large, trips the byte cap (1 MiB) first. The OnDemand pump is
+// the opposite: it emits one ~506-byte cache chunk per send, so 512 slots
+// are exhausted at only ~260 KiB and the SLOT cap is what it would trip.
+// That is why the OnDemand pump no longer relies on the caps at all — it
+// lost its only backpressure when writes went asynchronous (it used to be
+// throttled by the blocking conn.Write inside clientODAdapter.send), so it
+// now consults Backlogged and yields at the soft high-water mark instead.
+// Backpressure, not the hard cap, governs OnDemand; the caps remain the
+// last-resort bound for a peer that has stopped reading altogether.
+//
+// DEVIATION SEC1-D3 (continued): the OnDemand pump yields at the soft
+// high-water mark and retries next pass, so a slow downloader is served
+// slowly instead of disconnected.
 const (
 	maxOutboundQueueSlots = 512
 	maxOutboundQueueBytes = 1 << 20
+
+	// Soft thresholds a producer consults (via Backlogged) to yield
+	// before it reaches the hard caps above. Half of each cap leaves the
+	// same amount of headroom again for producers that cannot yield —
+	// the tick goroutine's own per-player frames, which must never be
+	// dropped just because a cache download is in flight.
+	outboundHighWater      = maxOutboundQueueBytes / 2
+	outboundHighWaterSlots = maxOutboundQueueSlots / 2
 )
 
 // fallbackDrainTimeout bounds teardown when writeTimeout <= 0 has turned
@@ -130,6 +145,17 @@ func (o *outboundWriter) Write(p []byte) (int, error) {
 		go o.run()
 	}
 	return len(p), nil
+}
+
+// Backlogged reports whether the queue has passed its soft high-water
+// mark, i.e. whether a producer that can yield should stop feeding it.
+// It is advisory: Write still accepts frames above the mark, right up to
+// the hard cap. Only optional producers consult it (the OnDemand pump);
+// the tick goroutine's frames are not optional and are never withheld.
+func (o *outboundWriter) Backlogged() bool {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return o.queued >= outboundHighWater || len(o.queue) >= outboundHighWaterSlots
 }
 
 // Close stops accepting writes and lets the writer goroutine drain what

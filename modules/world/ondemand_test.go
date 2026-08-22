@@ -19,6 +19,9 @@ type testODClient struct {
 	closed    *bool
 	sent      [][]byte
 	firstSend chan struct{}
+	// blocked is what backlogged() reports — the fake's stand-in for an
+	// outbound queue past its soft high-water mark.
+	blocked bool
 }
 
 func newTestODClient(closed *bool) *testODClient {
@@ -42,6 +45,20 @@ func (c *testODClient) send(data []byte) error {
 }
 
 func (c *testODClient) close() { *c.closed = true }
+
+// backlogged reports the fake's outbound-backpressure state (SEC1 M-2 /
+// DEVIATION SEC1-D3). Defaults to false; setBacklogged flips it.
+func (c *testODClient) backlogged() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.blocked
+}
+
+func (c *testODClient) setBacklogged(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.blocked = v
+}
 
 func (c *testODClient) id() string { return c.clientID }
 
@@ -676,5 +693,70 @@ func TestOnDemandRunLoopLifecycle(t *testing.T) {
 	case <-done:
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("run loop did not exit within 500ms after stop")
+	}
+}
+
+// TestOnDemandPumpYieldsWhenBacklogged pins DEVIATION SEC1-D3's producer
+// side: a client whose outbound queue is past its soft high-water mark is
+// skipped, not served and not closed, and the pump pass still terminates.
+// Once the queue drains, the very same pending requests flow normally.
+func TestOnDemandPumpYieldsWhenBacklogged(t *testing.T) {
+	const fileLen = 1200 // 3 chunks each (500 + 500 + 200)
+	fs := makeODFS(t)
+	req := make([]byte, 0, 16)
+	for f := range 4 {
+		fs.Write(1, f, bytes.Repeat([]byte{byte(f + 1)}, fileLen), 0) // TS archive 0 → fs index 1
+		req = append(req, 0, byte(f>>8), byte(f), 2)
+	}
+	od := newOnDemand(fs)
+	closed := false
+	c := newTestODClient(&closed)
+	c.setBacklogged(true)
+
+	od.onClientData(c, req)
+	if got := od.pendingCountFor(t, c.id()); got != 4 {
+		t.Fatalf("pendingCount after enqueue = %d, want 4", got)
+	}
+
+	// The pass must return promptly: a re-scheduled client that sends
+	// nothing is exactly what would spin a drain-until-empty loop.
+	done := make(chan bool, 1)
+	go func() { done <- od.pump() }()
+	var yielded bool
+	select {
+	case yielded = <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("pump did not return with a backlogged client (spinning?)")
+	}
+
+	if !yielded {
+		t.Fatal("pump did not report a backlogged yield")
+	}
+	if n := len(c.frames()); n != 0 {
+		t.Fatalf("pump sent %d frames to a backlogged client, want 0", n)
+	}
+	if closed {
+		t.Fatal("pump closed a backlogged client; backpressure must not disconnect")
+	}
+	if !od.hasClient(c.id()) || !od.inRoundRobin(c.id()) {
+		t.Fatal("backlogged client must stay scheduled with its queue intact")
+	}
+	if got := od.pendingCountFor(t, c.id()); got != 4 {
+		t.Fatalf("pendingCount after yield = %d, want 4 (requests must be untouched)", got)
+	}
+
+	// Peer caught up: the same requests are now served.
+	c.setBacklogged(false)
+	od.pump()
+
+	frames := c.frames()
+	if len(frames) != 12 {
+		t.Fatalf("after the backlog cleared: %d frames, want 12", len(frames))
+	}
+	if want := header6(0, 0, fileLen, 0); !bytes.Equal(frames[0][:6], want) {
+		t.Fatalf("first frame header = %v, want %v", frames[0][:6], want)
+	}
+	if closed {
+		t.Fatal("client closed while being served normally")
 	}
 }

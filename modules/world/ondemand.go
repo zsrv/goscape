@@ -28,7 +28,8 @@ package world
 //     In Go there is no shared event loop to starve: the conn goroutines
 //     enqueue concurrently under od.mu while the pump runs, and the pump
 //     picks them up on its next roundRobin pass. So the pump drains the
-//     roundRobin to empty, then blocks on the signal — the per-client slice
+//     roundRobin to empty (or until a whole pass sends nothing — see
+//     adaptation (7)), then blocks on the signal — the per-client slice
 //     cap (MAX_BYTES_PER_CLIENT_SLICE / MAX_CHUNKS_PER_CLIENT_SLICE) is what
 //     preserves round-robin fairness + priority preemption, NOT the time
 //     bound. visitsRemaining (= roundRobin length at the start of a drain
@@ -54,10 +55,27 @@ package world
 //
 //  6. FileStream decompress=false (TS OnDemandThread.ts cache.read(archive+1,
 //     file) passes no decompress arg → false).
+//
+//  7. Outbound backpressure (DEVIATION SEC1-D3):
+//     TS postChunk hands the chunk to socket.write, whose Node buffer is
+//     unbounded, so the pump is never throttled. goscape's writes used to be
+//     synchronous (clientODAdapter.send → blocking conn.Write), which threw
+//     the throttling in for free; once SEC1 M-2 moved writes onto a bounded
+//     per-client queue that throttle disappeared, and a slow-but-alive
+//     downloader would be pushed into the hard cap and disconnected — at only
+//     ~260 KiB, since a ~506-byte chunk occupies a whole slot. serveClient
+//     therefore ends the slice as soon as odClient.backlogged() reports the
+//     soft high-water mark, leaving cq.active and the pending requests
+//     untouched; the client stays scheduled and is retried on a later pass
+//     (pump's per-pass bound guarantees the current pass still terminates,
+//     and run re-arms after backloggedRetryInterval). Slow downloaders are
+//     served slowly rather than dropped. Ordering, priority preemption and
+//     the slice caps are unchanged (OnDemandThread.ts:202-228).
 
 import (
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/zsrv/goscape/pkg/io/filestream"
 )
@@ -68,6 +86,13 @@ const (
 	maxBytesPerClientSlice  = 8000
 	maxChunksPerClientSlice = 16
 )
+
+// backloggedRetryInterval is how long run waits before re-running the pump
+// for a client that yielded on outbound backpressure (adaptation (7)). One
+// server tick: long enough that a still-backlogged client costs one cheap
+// no-op pass per tick, short enough that a draining one resumes promptly.
+// goscape-only — TS has no equivalent, its pump is never throttled.
+const backloggedRetryInterval = 600 * time.Millisecond
 
 // odClient is the writer/closer seam OnDemand needs from a connection.
 // The production adapter wraps *client; tests use fakes.
@@ -80,6 +105,12 @@ type odClient interface {
 	send(data []byte) error
 	close()
 	id() string
+	// backlogged reports that the connection's outbound queue has passed
+	// its soft high-water mark. The pump ends the client's slice when it
+	// is true and retries on a later pass, instead of pushing the queue
+	// into its hard cap (which would disconnect a merely-slow downloader).
+	// See outbound.go and adaptation (7).
+	backlogged() bool
 }
 
 // odRequest mirrors PendingRequest in OnDemandThread.ts:31-38.
@@ -222,18 +253,29 @@ func odKey(archive, file int) string {
 
 // pump drains the round-robin: one visit per scheduled client (as of the start
 // of the pass), serving a bounded slice each. Re-schedules clients with
-// remaining work; deletes those without. Loops until the round-robin is empty.
+// remaining work; deletes those without. Loops until the round-robin is empty
+// or a whole pass made no progress.
 // Mirrors OnDemandThread.ts:168-200 (sans MAX_PUMP_MS — see adaptation (2)).
-func (od *onDemand) pump() {
+//
+// The per-pass bound is what keeps the loop terminating now that a client can
+// end its slice without sending anything (adaptation (7)): such a client is
+// re-scheduled with all its work intact, so "loop until the round-robin is
+// empty" alone would spin on it forever. Each pass visits at most the number
+// of clients that were on the ring when the pass started, and the outer loop
+// only starts another pass if that one actually sent something. yielded
+// reports that at least one client still has work but was backlogged, so the
+// caller knows to re-arm rather than sleep until the next request arrives.
+func (od *onDemand) pump() (yielded bool) {
 	for {
 		od.mu.Lock()
 		visits := len(od.roundRobin)
 		if visits == 0 {
 			od.mu.Unlock()
-			return
+			return yielded
 		}
 		od.mu.Unlock()
 
+		progress := false
 		for ; visits > 0; visits-- {
 			od.mu.Lock()
 			if len(od.roundRobin) == 0 {
@@ -252,15 +294,31 @@ func (od *onDemand) pump() {
 			cq.scheduled = false
 			od.mu.Unlock()
 
-			od.serveClient(cq)
+			sent, backlogged := od.serveClient(cq)
+			if sent > 0 {
+				progress = true
+			}
 
 			od.mu.Lock()
 			if od.hasWork(cq) {
 				od.scheduleClient(cq)
+				// Only a client that is both backlogged AND still holding
+				// work needs a retry; one that merely ran out of requests
+				// will be woken by its next request like any other.
+				if backlogged {
+					yielded = true
+				}
 			} else {
 				delete(od.clients, cq.c.id())
 			}
 			od.mu.Unlock()
+		}
+		if !progress {
+			// Every client on the ring was visited and none of them sent a
+			// byte (all backlogged, or all out of servable work). Another
+			// pass would repeat that verbatim, so stop and let run decide
+			// when to come back.
+			return yielded
 		}
 	}
 }
@@ -271,17 +329,27 @@ func (od *onDemand) pump() {
 //
 // od.mu is acquired per-step to advance the active response / pick the next
 // request, then RELEASED for cache.Read and client.send (slow I/O).
-func (od *onDemand) serveClient(cq *clientQueue) {
-	bytesSent := 0
+//
+// It also ends the slice early when the connection's outbound queue is
+// backlogged (DEVIATION SEC1-D3, adaptation (7)): cq.active and every pending
+// request are left exactly as they are, nothing is sent, and the connection is
+// NOT closed. The second return value tells the caller to keep the client
+// scheduled for a later pass.
+func (od *onDemand) serveClient(cq *clientQueue) (bytesSent int, backlogged bool) {
 	chunks := 0
 
 	for bytesSent < maxBytesPerClientSlice && chunks < maxChunksPerClientSlice {
+		// Checked before anything is popped or read, so yielding costs the
+		// client nothing but a delay.
+		if cq.c.backlogged() {
+			return bytesSent, true
+		}
 		od.mu.Lock()
 		if cq.active == nil {
 			req := od.nextRequest(cq)
 			if req == nil {
 				od.mu.Unlock()
-				return
+				return bytesSent, false
 			}
 			cq.active = &odActive{req: *req}
 			// Read the file under cacheMu (FileStream not concurrency-safe).
@@ -309,11 +377,12 @@ func (od *onDemand) serveClient(cq *clientQueue) {
 			od.mu.Lock()
 			cq.active = nil
 			od.mu.Unlock()
-			return
+			return bytesSent, false
 		}
 		bytesSent += len(frame)
 		chunks++
 	}
+	return bytesSent, false
 }
 
 // nextRequest pops the next non-cancelled request, scanning priority 2→0.
@@ -387,14 +456,27 @@ func (od *onDemand) hasWork(cq *clientQueue) bool {
 //
 // stop is a receive-only signal channel matching Server.quit used throughout
 // the world server.
+//
+// When a pass yielded on outbound backpressure (adaptation (7)) the round-robin
+// still holds work that no incoming request will necessarily wake, so the wait
+// is capped at backloggedRetryInterval instead of blocking on pumpSignal alone.
+// Re-signalling immediately would busy-spin against a client that is still
+// backlogged; one server tick of delay is invisible next to the time the peer
+// needs to drain a queue that is already half a megabyte deep.
 func (od *onDemand) run(stop <-chan struct{}) {
+	yielded := false
 	for {
+		var retry <-chan time.Time
+		if yielded {
+			retry = time.After(backloggedRetryInterval)
+		}
 		select {
 		case <-stop:
 			return
 		case <-od.pumpSignal:
-			od.pump()
+		case <-retry:
 		}
+		yielded = od.pump()
 	}
 }
 

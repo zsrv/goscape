@@ -220,3 +220,53 @@ func TestClientCloseConn_DeliversPendingBytes(t *testing.T) {
 		t.Fatal("pending bytes not delivered before close")
 	}
 }
+
+// SEC1 M-2 / DEVIATION SEC1-D3: Backlogged is the soft high-water signal
+// the OnDemand pump consults so a slow downloader gets served slowly
+// instead of being pushed into the hard cap and disconnected. It must go
+// true well before the cap and back to false once the peer catches up.
+func TestOutboundWriter_Backlogged(t *testing.T) {
+	client, server := net.Pipe() // peer does not read yet
+	t.Cleanup(func() { client.Close(); server.Close() })
+	// A generous deadline so the writer goroutine stays parked in its
+	// first conn.Write: the queue must fill, not fail.
+	o := newOutboundWriter(server, 5*time.Second, discardLogger())
+
+	if o.Backlogged() {
+		t.Fatal("empty writer reports backlogged")
+	}
+
+	frame := bytes.Repeat([]byte{0xCD}, 8<<10) // 8 KiB
+	// Just over the byte high-water and far below both hard caps, so this
+	// pins the soft threshold and not the overflow path. Two frames of
+	// slack cover the one the writer goroutine has already dequeued.
+	frames := outboundHighWater/len(frame) + 2
+	for range frames {
+		if _, err := o.Write(frame); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+	}
+	if frames >= maxOutboundQueueSlots || frames*len(frame) >= maxOutboundQueueBytes {
+		t.Fatalf("test writes %d frames — that reaches a hard cap, not the soft one", frames)
+	}
+	if !o.Backlogged() {
+		t.Fatalf("writer with %d queued bytes is not backlogged (high-water %d)",
+			frames*len(frame), outboundHighWater)
+	}
+
+	// Now let the peer drain; the writer must fall back below the mark.
+	readDone := make(chan struct{})
+	go func() { defer close(readDone); _, _ = io.Copy(io.Discard, client) }()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for o.Backlogged() {
+		if time.Now().After(deadline) {
+			t.Fatal("still backlogged after the peer drained the queue")
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	o.Close()
+	client.Close()
+	<-readDone
+}
