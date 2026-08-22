@@ -7,6 +7,23 @@ import (
 	"github.com/zsrv/goscape/pkg/script"
 )
 
+// crashSaveAll is the tick loop's last act before an unrecovered panic
+// kills the process: log the panic with its stack, fire a best-effort
+// PlayerAutosave for every online player, and wait (bounded by
+// playerSaveFlushTimeout) for the RPCs to flush. The caller re-panics
+// afterwards so crash semantics for supervisors are unchanged.
+//
+// DEVIATION SEC1-D2: TS World.cycle's catch logs and process.exit(1)s
+// without saving — up to NODE_AUTOSAVE_INTERVAL of progress was lost for
+// every player. goscape saves first.
+func (s *Server) crashSaveAll(r any) {
+	s.log.Error("unrecovered panic in tick loop; autosaving all players before exit",
+		"err", r,
+		"stack", string(debug.Stack()))
+	s.autosavePlayers()
+	s.waitForSaveFlush()
+}
+
 // recoverPlayer recovers from panics during a per-player tick step.
 //
 // Mirrors TS World.processClients (World.ts:651-657) and World.processPlayers
