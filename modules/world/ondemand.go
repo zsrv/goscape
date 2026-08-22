@@ -54,6 +54,22 @@ package world
 //     TS FileStream.ts:43: read(archive, file, decompress = false). The TS
 //     OnDemand.ts:88 call site passes only two arguments, so decompress=false.
 //     Go's Read(archive, file, false) matches this exactly.
+//
+//  8. Outbound backpressure (DEVIATION SEC1-D3):
+//     TS send() hands each chunk to socket.write, whose Node buffer is
+//     unbounded, so the cycle is never throttled. goscape's writes used to be
+//     synchronous (clientODAdapter.send → blocking conn.Write), which threw
+//     the throttling in for free; once SEC1 M-2 moved writes onto a bounded
+//     per-client queue that throttle disappeared, and a slow-but-alive
+//     downloader would be pushed into the hard cap and disconnected — at only
+//     ~260 KiB, since a ~506-byte chunk occupies a whole slot. cycle
+//     therefore skips any client whose odClient.backlogged() reports the soft
+//     high-water mark and puts its still-pending requests BACK at the head of
+//     their queue, untouched and in order; the connection is NOT closed and
+//     the 50ms ticker retries them on the next cycle. Slow downloaders are
+//     served slowly rather than dropped. The check is per request (never
+//     mid-file), so no partially-sent file is ever abandoned: this branch's
+//     scheduler has no resumable per-client cursor to yield against.
 
 import (
 	"sync"
@@ -70,6 +86,12 @@ import (
 type odClient interface {
 	send(data []byte) error
 	close()
+	// backlogged reports that the connection's outbound queue has passed
+	// its soft high-water mark. cycle defers the client's requests to a
+	// later cycle when it is true, instead of pushing the queue into its
+	// hard cap (which would disconnect a merely-slow downloader).
+	// See outbound.go and adaptation (8).
+	backlogged() bool
 }
 
 // odRequest mirrors OnDemandRequest in OnDemand.ts:5-9.
@@ -108,33 +130,63 @@ func newOnDemand(cache *filestream.FileStream) *onDemand {
 //
 // All pending entries are popped under mu in a single batch per queue, then
 // sent outside the lock — see adaptation note (4) above.
+//
+// Requests belonging to a client whose outbound queue is backlogged are put
+// back at the head of their queue for the next cycle instead of being sent
+// (DEVIATION SEC1-D3, adaptation note (8)).
 func (od *onDemand) cycle() {
 	// Pop urgent.
 	od.mu.Lock()
 	urgentSnap := od.urgent
 	od.urgent = nil
 	od.mu.Unlock()
-	for _, req := range urgentSnap {
-		od.send(req.client, req.archive, req.file)
-	}
+	od.requeue(&od.urgent, od.sendBatch(urgentSnap))
 
 	// Pop extra.
 	od.mu.Lock()
 	extraSnap := od.extra
 	od.extra = nil
 	od.mu.Unlock()
-	for _, req := range extraSnap {
-		od.send(req.client, req.archive, req.file)
-	}
+	od.requeue(&od.extra, od.sendBatch(extraSnap))
 
 	// Pop ingame.
 	od.mu.Lock()
 	ingameSnap := od.ingame
 	od.ingame = nil
 	od.mu.Unlock()
-	for _, req := range ingameSnap {
+	od.requeue(&od.ingame, od.sendBatch(ingameSnap))
+}
+
+// sendBatch sends every request in reqs whose client can still take bytes and
+// returns, in order, the ones held back because that client's outbound queue
+// is past its soft high-water mark (DEVIATION SEC1-D3). Held-back requests are
+// untouched — nothing was read from the cache and nothing was sent for them —
+// so a later cycle serves them exactly as this one would have.
+//
+// The check is repeated per request, so a client that becomes backlogged part
+// way through its batch has the remainder of that batch deferred too.
+func (od *onDemand) sendBatch(reqs []odRequest) []odRequest {
+	var deferred []odRequest
+	for _, req := range reqs {
+		if req.client.backlogged() {
+			deferred = append(deferred, req)
+			continue
+		}
 		od.send(req.client, req.archive, req.file)
 	}
+	return deferred
+}
+
+// requeue puts deferred requests back at the HEAD of the queue they came
+// from, ahead of anything enqueued while the cycle ran, so per-priority FIFO
+// order survives a backpressure yield.
+func (od *onDemand) requeue(queue *[]odRequest, deferred []odRequest) {
+	if len(deferred) == 0 {
+		return
+	}
+	od.mu.Lock()
+	*queue = append(deferred, *queue...)
+	od.mu.Unlock()
 }
 
 // run executes the 50ms OnDemand cycle loop, mirroring the re-arm chain
