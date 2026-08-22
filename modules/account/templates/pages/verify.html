@@ -1,0 +1,10 @@
+{{define "title"}}Verify email — goscape{{end}}
+{{define "content"}}
+<h1>Verify your email</h1>
+<p>Click the button below to confirm this email address for your goscape account.</p>
+<form class="stack" method="post" action="/verify-email">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <input type="hidden" name="token" value="{{.Data}}">
+  <button type="submit">Confirm my email</button>
+</form>
+{{end}}

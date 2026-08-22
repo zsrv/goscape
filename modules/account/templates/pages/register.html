@@ -3,6 +3,7 @@
 <h1>Create your account</h1>
 {{if .Data}}<p class="flash error">{{.Data}}</p>{{end}}
 <form class="stack" method="post" action="/register">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
   <label>Email <input type="email" name="email" required maxlength="255"></label>
   <label>Password
     <input type="password" name="password" required minlength="8" maxlength="20">
