@@ -544,9 +544,17 @@ func (s *Server) processLogins() {
 		}
 
 		// Fire the LOGIN trigger if the cache has one. Sub-spec RuneScript S3.
+		// DEVIATION SEC1-D1: TS has no per-player catch here (a throw
+		// reaches cycle()'s catch and the process exits). goscape contains
+		// the panic to this player: recoverPlayer logs, flags requestLogout
+		// and closes the socket, so one corrupt save/script cannot take the
+		// world down. Closure so the deferred recover runs per player.
 		if s.scriptProvider != nil {
-			sf := s.scriptProvider.GetByTrigger(script.TriggerLogin, -1, -1)
-			s.runScriptFn(sf, p, nil, script.TriggerLogin, true, nil, nil)
+			func() {
+				defer recoverPlayer(p, "loginTrigger", s.logTick)
+				sf := s.scriptProvider.GetByTrigger(script.TriggerLogin, -1, -1)
+				s.runScriptFn(sf, p, nil, script.TriggerLogin, true, nil, nil)
+			}()
 		}
 
 		// TS Player.ts:511-512 — establish the "imaginary previous step
@@ -664,7 +672,14 @@ func (s *Server) processLogouts() {
 				logoutScript = s.scriptProvider.GetByTriggerSpecific(script.TriggerLogout, -1, -1)
 			}
 			if logoutScript != nil {
-				s.runScript(logoutScript, p, nil, script.TriggerLogout, true, nil, nil)
+				// DEVIATION SEC1-D1 (see login trigger above): contain a
+				// [logout] panic to this player. Removal continues below
+				// regardless — recoverPlayer's requestLogout/close are
+				// no-ops for a player already being torn down.
+				func() {
+					defer recoverPlayer(p, "logoutTrigger", s.logTick)
+					s.runScriptFn(logoutScript, p, nil, script.TriggerLogout, true, nil, nil)
+				}()
 			} else {
 				s.logTick.Warn("no [logout] trigger registered; removing player without it",
 					"player", p.username)
