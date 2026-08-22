@@ -42,20 +42,19 @@ const (
 )
 
 type client struct {
-	conn         net.Conn
-	log          *slog.Logger
-	bufr         *bufio.Reader
-	bufw         *bufio.Writer
-	in           *packet.Packet
-	inMu         sync.Mutex // guards in, opcode, waiting between reader goroutine and tick goroutine
-	player       *Player    // nil until sendLoginOK; owned exclusively by tick goroutine after login
-	encryptor    *io2.Isaac
-	decryptor    *io2.Isaac
-	server       *Server
-	writeTimeout time.Duration
-	state        ClientState
-	opcode       int
-	waiting      int
+	conn      net.Conn
+	log       *slog.Logger
+	bufr      *bufio.Reader
+	bufw      *bufio.Writer
+	in        *packet.Packet
+	inMu      sync.Mutex // guards in, opcode, waiting between reader goroutine and tick goroutine
+	player    *Player    // nil until sendLoginOK; owned exclusively by tick goroutine after login
+	encryptor *io2.Isaac
+	decryptor *io2.Isaac
+	server    *Server
+	state     ClientState
+	opcode    int
+	waiting   int
 	// staffModLevel is the moderator/admin tier set from the login server's
 	// gRPC response (server.go:546 — resp.GetStaffModLevel()). Copied onto
 	// Player at newPlayer(). Read by handleClientCheat for the staff-only
@@ -156,11 +155,10 @@ func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, log
 		log: logger,
 
 		//server: server,
-		conn:         conn,
-		bufr:         getBufioReader64k(conn), // Wrap the connection with a buffered reader
-		bufw:         getBufioWriter64k(out),  // Wrap the outbound writer with a buffered writer
-		out:          out,
-		writeTimeout: writeTimeout,
+		conn: conn,
+		bufr: getBufioReader64k(conn), // Wrap the connection with a buffered reader
+		bufw: getBufioWriter64k(out),  // Wrap the outbound writer with a buffered writer
+		out:  out,
 
 		in: packet.Alloc(65536),
 
@@ -258,6 +256,12 @@ func (c *client) flushWriteOrClose() {
 // safe from any goroutine; it never blocks on the network. The reader
 // goroutine unblocks when the socket finally closes and runs the normal
 // teardown.
+//
+// Writer goroutines are deliberately NOT tracked by tcpWg: at shutdown
+// Server.Shutdown calls closeLiveConns first, which hard-closes every
+// socket, so each writer fails its next write (or its drain) and exits
+// promptly on its own rather than holding the wait group open for one
+// write timeout per connection.
 func (c *client) closeConn() {
 	if c.out != nil {
 		c.out.Close()

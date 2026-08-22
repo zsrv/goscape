@@ -48,6 +48,12 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 	// next sleep computation. Per spec §6: writer (cheat dispatch) and
 	// reader (this loop) both run on the tick goroutine, so no lock.
 	s.tickRate = rate
+	// Tests build &Server{} literals and call this directly, bypassing the
+	// constructor that installs the default body (server.go). Fill it in
+	// here so the loop never dereferences a nil seam.
+	if s.tickBodyFn == nil {
+		s.tickBodyFn = s.tickOnce
+	}
 	nextTick := time.Now()
 	for {
 		// NAI-REBUILD-ASYNC — drain at top-of-body so Reload runs before

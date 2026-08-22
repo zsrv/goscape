@@ -314,7 +314,7 @@ func (s *Server) waitForSaveFlush() {
 	select {
 	case <-done:
 	case <-time.After(playerSaveFlushTimeout):
-		s.log.Warn("timed out waiting for player saves to flush on shutdown")
+		s.log.Warn("timed out waiting for player saves to flush")
 	}
 }
 

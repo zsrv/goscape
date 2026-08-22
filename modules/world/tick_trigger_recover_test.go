@@ -26,19 +26,29 @@ func newPanicTriggerProvider() *script.Provider {
 
 // SEC1 M-1 / DEVIATION SEC1-D1: a panicking [login] trigger must not
 // escape processLogins. The offending player is force-disconnected
-// (recoverPlayer semantics); every other player is untouched.
+// (recoverPlayer semantics) and the next player in the same batch still
+// logs in normally — containment is per player, not per batch.
 func TestProcessLogins_LoginTriggerPanicIsContained(t *testing.T) {
 	s := newTestServer(t)
-	s.scriptProvider = newPanicTriggerProvider() // see Step 1 for the stub to reuse/build
+	s.scriptProvider = newPanicTriggerProvider()
+	// Panic for the first [login] only: the second player exercises the
+	// "everyone else is untouched" half of the claim.
+	logins := 0
 	s.runScriptFn = func(sf *script.ScriptFile, self script.ActivePlayer, target any, trigger script.ServerTriggerType, protect bool, intArgs []int, stringArgs []string) {
 		if trigger == script.TriggerLogin {
-			panic("boom: login trigger")
+			logins++
+			if logins == 1 {
+				panic("boom: login trigger")
+			}
 		}
 	}
 	c, _ := newTestClient(t)
 	p := newPlayer(c)
 	p.username = "alice"
-	s.newPlayers = append(s.newPlayers, p)
+	c2, _ := newTestClient(t)
+	p2 := newPlayer(c2)
+	p2.username = "carol"
+	s.newPlayers = append(s.newPlayers, p, p2)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -49,6 +59,15 @@ func TestProcessLogins_LoginTriggerPanicIsContained(t *testing.T) {
 
 	if !p.requestLogout {
 		t.Fatal("panicking player must be flagged for logout")
+	}
+	if logins != 2 {
+		t.Fatalf("[login] fired %d times, want 2 (the second player must still be processed)", logins)
+	}
+	if p2.requestLogout {
+		t.Fatal("bystander player must not be flagged for logout")
+	}
+	if s.players.get(p2.slot) != p2 {
+		t.Fatal("bystander player must be in the world after the batch")
 	}
 }
 
