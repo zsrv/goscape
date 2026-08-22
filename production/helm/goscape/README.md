@@ -70,6 +70,50 @@ The Secret is mounted read-only at `/etc/goscape-login-rsa` and wired into `worl
 
 > **NetworkPolicy is same-namespace.** When `networkPolicy.enabled=true` in Management mode, only goscape pods carrying `app.kubernetes.io/name: goscape` in the **same namespace** may reach the login/friends gRPC ports. Install World releases in the same namespace as the Management release (or adjust the policy).
 
+### Security defaults
+
+Pods run as uid `65532` with a read-only root filesystem and all capabilities
+dropped; the ServiceAccount token is not mounted (goscape never talks to the
+Kubernetes API). The default memory limit is `2Gi` per workload (the world
+process fills to its GC ceiling at ~1.1–1.3Gi under load). Liveness is a
+`tcpSocket` probe on the primary port (`world-tcp`, or `login-grpc` in
+Management) — `/healthz` is used only for readiness, since it can legitimately
+return 503 during a slow cold-cache boot.
+
+`--config.expand-env=true` is now always on, so `${VAR}` references inside
+`goscape.extraConfig` resolve from the container's environment — set the var
+via `<mode>.extraEnv`, using `secretKeyRef` for secrets such as
+`account.admin_token` or SMTP/Discord credentials rather than a literal value.
+Because expansion is unconditional, a literal `$` anywhere in `extraConfig`
+must be escaped as `$$` per `drone/envsubst` (used to expand the config).
+
+`image.digest` pins the image by digest (`repo@sha256:...`); when set, `image.tag` is ignored.
+
+`hiscoreGateway.proxyNamespace` / `hiscoreGateway.proxyPodSelector` scope the
+NetworkPolicy's hiscore rule to the Kong proxy pods when
+`hiscoreGateway.createGatewayConfig` and `networkPolicy.enabled` are both true,
+so in-cluster callers cannot bypass Kong's key-auth and rate limiting.
+
+#### Upgrading from a release before these defaults
+
+- **Volume ownership.** Pods previously ran as root, so everything already on an
+  existing PVC — the sqlite database, `players/*.sav` — is owned by uid 0. The
+  chart now runs as uid `65532` and relies on `fsGroup: 65532` (with
+  `fsGroupChangePolicy: OnRootMismatch`, so the relabel happens once rather than
+  on every start) to make that data writable again. This works on CSI drivers
+  that honour fsGroup. On NFS, or on any driver whose CSIDriver object sets
+  `fsGroupPolicy: None`, the kubelet does **not** apply fsGroup: `chown -R
+  65532:65532` the volume contents before upgrading, or the world process will
+  fail to write saves.
+- **`$` in `extraConfig`.** `--config.expand-env=true` is now always on, so a
+  literal `$` in `goscape.extraConfig` — most often inside a password or an
+  argon2 PHC string — is consumed by the expansion and the value silently
+  changes. Escape every literal `$` as `$$` before upgrading.
+- **`world.content_watch`.** It writes a stamp file into `cache_path`, which is
+  incompatible with the `readOnlyRootFilesystem: true` container default (and
+  with a read-only cache mount). Leave it off in Kubernetes, or mount the cache
+  path writable.
+
 ## Testing
 
 Run the in-cluster connectivity test against a deployed release (requires a live cluster):
