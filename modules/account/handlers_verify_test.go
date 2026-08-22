@@ -32,13 +32,24 @@ func TestVerifyEmailFlow(t *testing.T) {
 	link := extractLink(t, mailer.last(t).Body, "http://portal.test/verify-email?token=")
 	local := strings.Replace(link, "http://portal.test", srv.URL, 1)
 
-	// Following the link verifies the account.
+	// Following the link only shows a confirm button (SEC1 M-8: no state
+	// change on GET — mail scanners prefetch links).
 	resp, err := client.Get(local)
 	if err != nil || resp.StatusCode != http.StatusOK {
-		t.Fatalf("verify: %v %d", err, resp.StatusCode)
+		t.Fatalf("verify GET: %v %d", err, resp.StatusCode)
 	}
-	if !strings.Contains(readBody(t, resp), "verified") {
-		t.Fatal("verify page must confirm")
+	if !strings.Contains(readBody(t, resp), `name="token"`) {
+		t.Fatal("verify page must offer a confirm form")
+	}
+	if acct, _ := s.AccountByEmail(t.Context(), "v@example.com"); acct.EmailVerified {
+		t.Fatal("GET must not verify")
+	}
+
+	// Confirming verifies the account.
+	tokenVal := strings.TrimPrefix(local, srv.URL+"/verify-email?token=")
+	resp = postForm(t, client, srv.URL+"/verify-email", url.Values{"token": {tokenVal}})
+	if resp.StatusCode != http.StatusOK || !strings.Contains(readBody(t, resp), "verified") {
+		t.Fatal("verify POST must confirm")
 	}
 	acct, _ := s.AccountByEmail(t.Context(), "v@example.com")
 	if !acct.EmailVerified {
@@ -46,7 +57,7 @@ func TestVerifyEmailFlow(t *testing.T) {
 	}
 
 	// Token is single-use.
-	resp, _ = client.Get(local)
+	resp = postForm(t, client, srv.URL+"/verify-email", url.Values{"token": {tokenVal}})
 	if !strings.Contains(readBody(t, resp), "invalid or expired") {
 		t.Fatal("second use must fail")
 	}
@@ -74,7 +85,13 @@ func TestVerifyEmailFlow(t *testing.T) {
 		t.Fatalf("resend: %d mails=%d", resp.StatusCode, len(mailer2.sent))
 	}
 	link2 := extractLink(t, mailer2.last(t).Body, "http://portal.test/verify-email?token=")
-	resp, _ = client2.Get(strings.Replace(link2, "http://portal.test", srv2.URL, 1))
+	local2 := strings.Replace(link2, "http://portal.test", srv2.URL, 1)
+	resp, _ = client2.Get(local2)
+	if !strings.Contains(readBody(t, resp), `name="token"`) {
+		t.Fatal("resent verify page must offer a confirm form")
+	}
+	tokenVal2 := strings.TrimPrefix(local2, srv2.URL+"/verify-email?token=")
+	resp = postForm(t, client2, srv2.URL+"/verify-email", url.Values{"token": {tokenVal2}})
 	if !strings.Contains(readBody(t, resp), "verified") {
 		t.Fatal("resent link must verify")
 	}

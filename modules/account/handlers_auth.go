@@ -135,6 +135,11 @@ func (p *portal) handleLogin(w http.ResponseWriter, r *http.Request) {
 		fail("error: this account is disabled — contact an admin")
 		return
 	}
+	// SEC1 M-8: rotate — any session the browser already holds is
+	// dropped so a login cannot be fixated onto a pre-set cookie.
+	if c, err := r.Cookie(sessionCookieName); err == nil {
+		_ = p.store.DeleteSession(r.Context(), HashToken(c.Value))
+	}
 	raw, err := NewRawToken()
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -157,8 +162,20 @@ func (p *portal) handleLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/?msg=Logged+out", http.StatusFound)
 }
 
-func (p *portal) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
+// handleVerifyEmailForm shows the confirm button. It deliberately
+// changes nothing (SEC1 M-8): mail scanners and link previews GET the
+// link before the user does, which used to burn the single-use token.
+func (p *portal) handleVerifyEmailForm(w http.ResponseWriter, r *http.Request) {
 	raw := r.URL.Query().Get("token")
+	if raw == "" {
+		p.render(w, r, "message.html", "That verification link is invalid or expired.")
+		return
+	}
+	p.render(w, r, "verify.html", raw)
+}
+
+func (p *portal) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
+	raw := r.FormValue("token")
 	if raw == "" {
 		p.render(w, r, "message.html", "That verification link is invalid or expired.")
 		return

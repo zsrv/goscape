@@ -10,11 +10,17 @@ import (
 	"log/slog"
 	"net/http"
 	"path"
+	"strings"
 	"sync"
 )
 
 //go:embed templates static
 var assetsFS embed.FS
+
+// maxFormBody bounds request bodies: the largest legitimate form is a
+// few hundred bytes; 64 KiB leaves room without letting a client park a
+// multi-megabyte body in memory (SEC1 M-8).
+const maxFormBody = 64 << 10
 
 // portal is the SSR web application. Handlers hang off this struct and
 // are registered in routes(); later tasks add session middleware and
@@ -73,8 +79,10 @@ func newPortal(cfg Config, store *Store, mailer Mailer, log *slog.Logger) (*port
 // first.
 func (p *portal) render(w http.ResponseWriter, r *http.Request, page string, data any) {
 	pd := pageData{Account: ctxAccount(r), Msg: r.URL.Query().Get("msg"), Data: data}
-	if c, err := r.Cookie(sessionCookieName); err == nil {
+	if c, err := r.Cookie(sessionCookieName); err == nil && pd.Account != nil {
 		pd.CSRF = csrfToken(c.Value)
+	} else {
+		pd.CSRF = p.ensureCSRFCookie(w, r)
 	}
 	tmpl, ok := p.pages[page]
 	if !ok {
@@ -92,7 +100,35 @@ func (p *portal) render(w http.ResponseWriter, r *http.Request, page string, dat
 	_, _ = buf.WriteTo(w)
 }
 
-func (p *portal) routes() *http.ServeMux {
+// secureHeaders adds the defensive response headers to every reply and
+// caps the request body. HSTS is sent only when public_url is https —
+// the same rule that makes the cookies Secure — so an http-only dev
+// deployment does not pin browsers to TLS it cannot serve.
+func (p *portal) secureHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		https := strings.HasPrefix(p.cfg.PublicURL, "https://")
+		h := w.Header()
+		h.Set("Content-Security-Policy", "default-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "no-referrer")
+		if https {
+			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, maxFormBody)
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			if err := r.ParseForm(); err != nil {
+				if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+					http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+					return
+				}
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (p *portal) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -101,16 +137,17 @@ func (p *portal) routes() *http.ServeMux {
 	mux.Handle("GET /static/", http.FileServerFS(assetsFS))
 	mux.HandleFunc("GET /{$}", p.public(p.handleHome))
 	mux.HandleFunc("GET /register", p.public(p.handleRegisterForm))
-	mux.HandleFunc("POST /register", p.public(p.handleRegister))
+	mux.HandleFunc("POST /register", p.publicForm(p.handleRegister))
 	mux.HandleFunc("GET /login", p.public(p.handleLoginForm))
-	mux.HandleFunc("POST /login", p.public(p.handleLogin))
+	mux.HandleFunc("POST /login", p.publicForm(p.handleLogin))
 	mux.HandleFunc("POST /logout", p.authed(p.handleLogout))
-	mux.HandleFunc("GET /verify-email", p.public(p.handleVerifyEmail))
+	mux.HandleFunc("GET /verify-email", p.public(p.handleVerifyEmailForm))
+	mux.HandleFunc("POST /verify-email", p.publicForm(p.handleVerifyEmail))
 	mux.HandleFunc("POST /resend-verification", p.authed(p.handleResendVerification))
 	mux.HandleFunc("GET /forgot-password", p.public(p.handleForgotForm))
-	mux.HandleFunc("POST /forgot-password", p.public(p.handleForgot))
+	mux.HandleFunc("POST /forgot-password", p.publicForm(p.handleForgot))
 	mux.HandleFunc("GET /reset-password", p.public(p.handleResetForm))
-	mux.HandleFunc("POST /reset-password", p.public(p.handleReset))
+	mux.HandleFunc("POST /reset-password", p.publicForm(p.handleReset))
 	mux.HandleFunc("GET /link/discord", p.authed(p.handleLinkDiscord))
 	mux.HandleFunc("GET /oauth/discord/callback", p.authed(p.handleDiscordCallback))
 	mux.HandleFunc("GET /dashboard", p.authed(p.handleDashboard))
@@ -186,7 +223,7 @@ func (p *portal) routes() *http.ServeMux {
 		func(r *http.Request, target *PortalAccount) (string, error) {
 			return "reset link mailed", p.sendResetEmail(r.Context(), target)
 		})))
-	return mux
+	return p.secureHeaders(mux)
 }
 
 func (p *portal) handleHome(w http.ResponseWriter, r *http.Request) {
