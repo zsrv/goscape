@@ -118,8 +118,7 @@ func (p *portal) secureHeaders(next http.Handler) http.Handler {
 		r.Body = http.MaxBytesReader(w, r.Body, maxFormBody)
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			if err := r.ParseForm(); err != nil {
-				var maxBytesErr *http.MaxBytesError
-				if errors.As(err, &maxBytesErr) {
+				if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 					http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
 					return
 				}
@@ -138,17 +137,17 @@ func (p *portal) routes() http.Handler {
 	mux.Handle("GET /static/", http.FileServerFS(assetsFS))
 	mux.HandleFunc("GET /{$}", p.public(p.handleHome))
 	mux.HandleFunc("GET /register", p.public(p.handleRegisterForm))
-	mux.HandleFunc("POST /register", p.public(p.handleRegister))
+	mux.HandleFunc("POST /register", p.publicForm(p.handleRegister))
 	mux.HandleFunc("GET /login", p.public(p.handleLoginForm))
-	mux.HandleFunc("POST /login", p.public(p.handleLogin))
+	mux.HandleFunc("POST /login", p.publicForm(p.handleLogin))
 	mux.HandleFunc("POST /logout", p.authed(p.handleLogout))
 	mux.HandleFunc("GET /verify-email", p.public(p.handleVerifyEmailForm))
-	mux.HandleFunc("POST /verify-email", p.public(p.handleVerifyEmail))
+	mux.HandleFunc("POST /verify-email", p.publicForm(p.handleVerifyEmail))
 	mux.HandleFunc("POST /resend-verification", p.authed(p.handleResendVerification))
 	mux.HandleFunc("GET /forgot-password", p.public(p.handleForgotForm))
-	mux.HandleFunc("POST /forgot-password", p.public(p.handleForgot))
+	mux.HandleFunc("POST /forgot-password", p.publicForm(p.handleForgot))
 	mux.HandleFunc("GET /reset-password", p.public(p.handleResetForm))
-	mux.HandleFunc("POST /reset-password", p.public(p.handleReset))
+	mux.HandleFunc("POST /reset-password", p.publicForm(p.handleReset))
 	mux.HandleFunc("GET /link/discord", p.authed(p.handleLinkDiscord))
 	mux.HandleFunc("GET /oauth/discord/callback", p.authed(p.handleDiscordCallback))
 	mux.HandleFunc("GET /dashboard", p.authed(p.handleDashboard))

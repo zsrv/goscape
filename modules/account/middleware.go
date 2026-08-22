@@ -36,8 +36,13 @@ func csrfToken(rawSessionToken string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// public loads the session account (if any) into the request context
-// and enforces CSRF on state-changing methods.
+// public loads the session account (if any) into the request context.
+// It deliberately does NOT enforce CSRF: every other middleware is built
+// on top of it, and a 403 here would fire before admin()'s group check
+// could answer 404 — advertising the existence of an admin-only route to
+// any anonymous POST. Public forms opt into CSRF via publicForm();
+// authed() and admin() call requireCSRF themselves, after their own
+// authorisation decision.
 func (p *portal) public(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if c, err := r.Cookie(sessionCookieName); err == nil {
@@ -55,11 +60,22 @@ func (p *portal) public(h http.HandlerFunc) http.HandlerFunc {
 				p.log.Error("session load failed", slog.Any("err", err))
 			}
 		}
+		h(w, r)
+	}
+}
+
+// publicForm is public() plus CSRF: the wrapper for anonymous
+// state-changing forms (/register, /login, /forgot-password,
+// /reset-password, /verify-email), whose token comes from the
+// double-submit cookie render() seeds on the GET form page. Their GET
+// siblings stay on plain public().
+func (p *portal) publicForm(h http.HandlerFunc) http.HandlerFunc {
+	return p.public(func(w http.ResponseWriter, r *http.Request) {
 		if !requireCSRF(w, r) {
 			return
 		}
 		h(w, r)
-	}
+	})
 }
 
 const csrfCookieName = "goscape_csrf"
@@ -127,7 +143,10 @@ func (p *portal) authed(h http.HandlerFunc) http.HandlerFunc {
 // authed() would give a logged-out user: the admin surface itself is
 // not advertised. NOTE: this deliberately does not wrap authed(),
 // whose login-redirect would leak the existence of an admin-only route
-// to anonymous requests before the group check ever runs.
+// to anonymous requests before the group check ever runs. For the same
+// reason the CSRF check runs AFTER the group check, and public() (which
+// runs before both) does not check at all — a 403 ahead of the 404
+// would leak just as loudly.
 func (p *portal) admin(h http.HandlerFunc) http.HandlerFunc {
 	return p.public(func(w http.ResponseWriter, r *http.Request) {
 		acct := ctxAccount(r)

@@ -22,13 +22,56 @@ func TestPublicPOST_RejectsMissingOrWrongCSRF(t *testing.T) {
 		if resp.StatusCode != http.StatusForbidden {
 			t.Fatalf("%s without csrf: got %d, want 403", path, resp.StatusCode)
 		}
+
+		// GET the form first so the jar really holds a goscape_csrf
+		// cookie: without it the forged POST would be rejected by the
+		// `want == ""` arm and never reach the comparison this case is
+		// about. With the cookie present, only the constant-time
+		// mismatch can produce the 403.
+		if _, err := client.Get(srv.URL + path); err != nil {
+			t.Fatal(err)
+		}
+		if tok := csrfFor(t, client, srv.URL+path); tok == "" {
+			t.Fatalf("%s: GET did not seed a csrf cookie", path)
+		} else if tok == "forged" {
+			t.Fatalf("%s: seeded token collides with the forged one", path)
+		}
 		resp, err = client.PostForm(srv.URL+path, url.Values{"email": {"x@example.com"}, "csrf": {"forged"}})
 		if err != nil {
 			t.Fatal(err)
 		}
 		if resp.StatusCode != http.StatusForbidden {
-			t.Fatalf("%s forged csrf: got %d, want 403", path, resp.StatusCode)
+			t.Fatalf("%s forged csrf (real cookie present): got %d, want 403", path, resp.StatusCode)
 		}
+	}
+}
+
+// SEC1 final review: CSRF must never run before an authorisation
+// decision. public() therefore does not check it at all — admin() checks
+// after its group check (so an anonymous admin POST is 404, not the 403
+// that would confirm the route exists) and authed() after its login
+// check (so an anonymous POST /logout is the usual 302 to /login).
+func TestCSRFOrdering_AuthorisationDecidesFirst(t *testing.T) {
+	p, _ := newTestPortal(t)
+	srv, client := portalClient(t, p)
+
+	resp, err := client.PostForm(srv.URL+"/admin/accounts/1/status", url.Values{"status": {StatusDisabled}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("anonymous admin POST without csrf: got %d, want 404", resp.StatusCode)
+	}
+
+	resp, err = client.PostForm(srv.URL+"/logout", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("anonymous POST /logout without csrf: got %d, want 302", resp.StatusCode)
+	}
+	if loc := resp.Header.Get("Location"); !strings.HasPrefix(loc, "/login") {
+		t.Fatalf("anonymous POST /logout redirected to %q, want /login", loc)
 	}
 }
 
