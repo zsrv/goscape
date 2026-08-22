@@ -32,9 +32,20 @@ spec:
           protocol: TCP
     {{- end }}
     {{- if or (eq .Values.deploymentMode "SingleBinary") (eq .Values.deploymentMode "Management") }}
-    # Allow the hiscore API from anywhere — same deployment-mode gating
-    # (SingleBinary || Management) as the Service's hiscore-http port.
-    - ports:
+    # Hiscore API. When Kong config is rendered, only the Kong proxy pods may
+    # reach the port directly (SEC1 M-12: otherwise any in-cluster client can
+    # skip key-auth + rate limits). Without Kong it stays open like the other
+    # client-facing ports.
+    - {{- if .Values.hiscoreGateway.createGatewayConfig }}
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.hiscoreGateway.proxyNamespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.hiscoreGateway.proxyPodSelector | nindent 14 }}
+      {{- end }}
+      ports:
         - port: {{ .Values.goscape.ports.hiscoreHTTP }}
           protocol: TCP
     {{- end }}

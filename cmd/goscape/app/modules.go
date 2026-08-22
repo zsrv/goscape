@@ -112,7 +112,7 @@ func (g *App) initOnDemand() (services.Service, error) {
 			PlayersOnline:   s.PlayersOnline,
 			LastCycleMillis: s.LastCycleMillis,
 		}, true
-	})
+	}, g.cfg.OnDemand.DebugStatusEnabled)
 
 	servicesToWaitFor := func() []services.Service {
 		return []services.Service{}

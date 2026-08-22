@@ -17,6 +17,8 @@ image:
   repository: goscape/goscape
   # -- Image tag. Defaults to the chart appVersion when empty.
   tag: ""
+  # -- Image digest (sha256:...). When set, the image is pinned by digest and tag is ignored.
+  digest: ""
   # -- Image pull policy
   pullPolicy: IfNotPresent
   # -- Image pull secrets
@@ -29,8 +31,8 @@ serviceAccount:
   name: ""
   # -- Annotations for the ServiceAccount
   annotations: {}
-  # -- Automount the ServiceAccount token
-  automountServiceAccountToken: true
+  # -- goscape never talks to the Kubernetes API; keep the token unmounted.
+  automountServiceAccountToken: false
 
 # goscape application config (rendered into config.yaml)
 goscape:
@@ -101,42 +103,123 @@ goscape:
 # Workload knobs for SingleBinary mode
 singleBinary:
   replicas: 1
-  resources: {}
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      # -- The world process fills to its GC ceiling at ~1.1-1.3Gi under load; 2Gi leaves headroom.
+      memory: 2Gi
   podAnnotations: {}
   podLabels: {}
   nodeSelector: {}
   tolerations: []
   affinity: {}
-  podSecurityContext: {}
-  containerSecurityContext: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    # Only relabel volume contents when the top-level ownership is wrong,
+    # so a large PVC is not chowned recursively on every pod start.
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+  # -- Liveness probe: tcpSocket on the primary port (world-tcp, or login-grpc
+  #    in Management). /healthz is deliberately NOT used for liveness — it
+  #    returns 503 during a slow cold-cache boot and must not restart the pod.
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    failureThreshold: 3
   extraEnv: []
   extraArgs: []
 
 # Workload knobs for Management mode
 management:
   replicas: 1
-  resources: {}
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      # -- The world process fills to its GC ceiling at ~1.1-1.3Gi under load; 2Gi leaves headroom.
+      memory: 2Gi
   podAnnotations: {}
   podLabels: {}
   nodeSelector: {}
   tolerations: []
   affinity: {}
-  podSecurityContext: {}
-  containerSecurityContext: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    # Only relabel volume contents when the top-level ownership is wrong,
+    # so a large PVC is not chowned recursively on every pod start.
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+  # -- Liveness probe: tcpSocket on the primary port (world-tcp, or login-grpc
+  #    in Management). /healthz is deliberately NOT used for liveness — it
+  #    returns 503 during a slow cold-cache boot and must not restart the pod.
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    failureThreshold: 3
   extraEnv: []
   extraArgs: []
 
 # Workload knobs for World mode
 world:
   replicas: 1
-  resources: {}
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      # -- The world process fills to its GC ceiling at ~1.1-1.3Gi under load; 2Gi leaves headroom.
+      memory: 2Gi
   podAnnotations: {}
   podLabels: {}
   nodeSelector: {}
   tolerations: []
   affinity: {}
-  podSecurityContext: {}
-  containerSecurityContext: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    # Only relabel volume contents when the top-level ownership is wrong,
+    # so a large PVC is not chowned recursively on every pod start.
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+  # -- Liveness probe: tcpSocket on the primary port (world-tcp, or login-grpc
+  #    in Management). /healthz is deliberately NOT used for liveness — it
+  #    returns 503 during a slow cold-cache boot and must not restart the pod.
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    failureThreshold: 3
   extraEnv: []
   extraArgs: []
 
@@ -184,6 +267,12 @@ hiscoreGateway:
   createGatewayConfig: false
   host: ""
   ingressClassName: kong
+  # When createGatewayConfig is true and networkPolicy.enabled is true, the
+  # hiscore port is reachable only from the Kong proxy pods matched below, so
+  # in-cluster callers cannot bypass key-auth and rate limits.
+  proxyNamespace: kong
+  proxyPodSelector:
+    app.kubernetes.io/name: kong
   # Consumer used for unauthenticated callers (the website, casual
   # users). key-auth falls back to it instead of rejecting, because
   # hiscore data is public — keys exist for quota and accountability.

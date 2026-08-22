@@ -86,7 +86,8 @@ func healthzStatus(s HealthSnapshot, hasWorld bool, sinceBoot time.Duration) (in
 // acceptable: /healthz is wired only as a readiness probe (production/helm),
 // never a liveness probe, so a 503 removes the pod from Service endpoints but
 // never restarts it, and it self-heals the moment the first tick lands.
-func RegisterHealthRoutes(mux *http.ServeMux, snap func() (HealthSnapshot, bool)) {
+// debugStatus gates GET /debug/status (SEC1 M-12 — default off, see ondemand.debug_status_enabled).
+func RegisterHealthRoutes(mux *http.ServeMux, snap func() (HealthSnapshot, bool), debugStatus bool) {
 	bootTime := time.Now()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		s, hasWorld := snap()
@@ -96,16 +97,18 @@ func RegisterHealthRoutes(mux *http.ServeMux, snap func() (HealthSnapshot, bool)
 		}
 		w.WriteHeader(http.StatusOK)
 	})
-	mux.HandleFunc("GET /debug/status", func(w http.ResponseWriter, r *http.Request) {
-		s, hasWorld := snap()
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
-			"world_wired":      hasWorld,
-			"ticking":          s.LastTick.Unix() > 0,
-			"last_tick_age_ms": time.Since(s.LastTick).Milliseconds(),
-			"current_tick":     s.CurrentTick,
-			"players_online":   s.PlayersOnline,
-			"tick_ms":          s.LastCycleMillis,
+	if debugStatus {
+		mux.HandleFunc("GET /debug/status", func(w http.ResponseWriter, r *http.Request) {
+			s, hasWorld := snap()
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"world_wired":      hasWorld,
+				"ticking":          s.LastTick.Unix() > 0,
+				"last_tick_age_ms": time.Since(s.LastTick).Milliseconds(),
+				"current_tick":     s.CurrentTick,
+				"players_online":   s.PlayersOnline,
+				"tick_ms":          s.LastCycleMillis,
+			})
 		})
-	})
+	}
 }
