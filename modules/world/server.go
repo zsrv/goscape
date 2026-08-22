@@ -420,6 +420,10 @@ type Server struct {
 	// TestProcessPlayerQueue_LongStripsArgs0).
 	runScriptFn func(sf *script.ScriptFile, self script.ActivePlayer, target any, trigger script.ServerTriggerType, protect bool, intArgs []int, stringArgs []string)
 
+	// tickBodyFn is the per-tick body seam (SEC1 test hook); defaults to
+	// s.tickOnce.
+	tickBodyFn func()
+
 	// relayActionQueue carries closures enqueued by WorldStateOps
 	// methods (the impl of which lives on *Server, world_state_ops.go).
 	// Drained at the top of the tick loop body so all field mutations
@@ -510,6 +514,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	s.reloadFn = s.Reload
 	s.watchSessionFn = s.runWatchSession
 	s.runScriptFn = s.runScript
+	s.tickBodyFn = s.tickOnce
 	// Arc 18 R3 — bridges parent context; canceled by Shutdown so
 	// in-flight fire-and-forget gRPC calls observe shutdown promptly.
 	s.bridgesCtx, s.bridgesCancel = context.WithCancel(context.Background())
