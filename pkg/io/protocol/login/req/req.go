@@ -2,6 +2,7 @@ package req
 
 import (
 	"errors"
+	"log/slog"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/io/protocol"
@@ -28,6 +29,22 @@ type GameLogin struct {
 	UID              uint32
 	Revision         uint16
 	LowMemory        bool
+}
+
+// LogValue implements slog.LogValuer so that logging a GameLogin (by value
+// or pointer) never emits the cleartext password, the ISAAC seed or the
+// CRC table. SEC1 M-7: server_login.go logs the whole request at Debug;
+// without this a `log_level: debug` world wrote every player's password
+// to its log. Value receiver so `*GameLogin` redacts too (Go promotes the
+// method to the pointer type).
+func (q GameLogin) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("username", q.Username),
+		slog.String("password", "[redacted]"),
+		slog.Uint64("uid", uint64(q.UID)),
+		slog.Int("revision", int(q.Revision)),
+		slog.Bool("low_memory", q.LowMemory),
+	)
 }
 
 func (q *GameLogin) MarshalBinary() ([]byte, error) {
