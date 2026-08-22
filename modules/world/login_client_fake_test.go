@@ -23,8 +23,13 @@ type fakeLoginClient struct {
 
 	autosaveReqs    chan *loginpb.PlayerAutosaveRequest
 	forceLogoutReqs chan *loginpb.PlayerForceLogoutRequest
-	playerBanReqs   chan *loginpb.PlayerBanRequest
-	playerMuteReqs  chan *loginpb.PlayerMuteRequest
+
+	// autosaveGate, when non-nil, blocks each PlayerAutosave call until
+	// the test closes it. Used to pin that a caller (waitForSaveFlush)
+	// actually waits for in-flight saves rather than racing ahead.
+	autosaveGate   chan struct{}
+	playerBanReqs  chan *loginpb.PlayerBanRequest
+	playerMuteReqs chan *loginpb.PlayerMuteRequest
 
 	playerLoginResp  *loginpb.PlayerLoginResponse
 	playerLoginErr   error
@@ -90,6 +95,9 @@ func (f *fakeLoginClient) PlayerLogout(ctx context.Context, req *loginpb.PlayerL
 }
 
 func (f *fakeLoginClient) PlayerAutosave(ctx context.Context, req *loginpb.PlayerAutosaveRequest) {
+	if f.autosaveGate != nil {
+		<-f.autosaveGate
+	}
 	select {
 	case f.autosaveReqs <- req:
 	default:
