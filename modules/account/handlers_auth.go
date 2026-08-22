@@ -135,6 +135,11 @@ func (p *portal) handleLogin(w http.ResponseWriter, r *http.Request) {
 		fail("error: this account is disabled — contact an admin")
 		return
 	}
+	// SEC1 M-8: rotate — any session the browser already holds is
+	// dropped so a login cannot be fixated onto a pre-set cookie.
+	if c, err := r.Cookie(sessionCookieName); err == nil {
+		_ = p.store.DeleteSession(r.Context(), HashToken(c.Value))
+	}
 	raw, err := NewRawToken()
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)

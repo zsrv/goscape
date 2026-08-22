@@ -36,7 +36,8 @@ func csrfToken(rawSessionToken string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// public loads the session account (if any) into the request context.
+// public loads the session account (if any) into the request context
+// and enforces CSRF on state-changing methods.
 func (p *portal) public(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if c, err := r.Cookie(sessionCookieName); err == nil {
@@ -54,19 +55,52 @@ func (p *portal) public(h http.HandlerFunc) http.HandlerFunc {
 				p.log.Error("session load failed", slog.Any("err", err))
 			}
 		}
+		if !requireCSRF(w, r) {
+			return
+		}
 		h(w, r)
 	}
 }
 
-// requireCSRF checks the CSRF token on state-changing methods, writing
-// a 403 and returning false if it is missing or wrong. GET/HEAD are
-// exempt (and pass).
+const csrfCookieName = "goscape_csrf"
+
+// ensureCSRFCookie returns the anonymous double-submit token for this
+// browser, minting and setting the cookie when absent. Used by render()
+// for anonymous pages so every public form carries a token the server
+// can check against a cookie a cross-site attacker cannot read.
+func (p *portal) ensureCSRFCookie(w http.ResponseWriter, r *http.Request) string {
+	if c, err := r.Cookie(csrfCookieName); err == nil && c.Value != "" {
+		return c.Value
+	}
+	raw, err := NewRawToken()
+	if err != nil {
+		p.log.Error("csrf token mint failed", slog.Any("err", err))
+		return ""
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name: csrfCookieName, Value: raw, Path: "/", MaxAge: 24 * 60 * 60,
+		HttpOnly: true, Secure: strings.HasPrefix(p.cfg.PublicURL, "https://"), SameSite: http.SameSiteLaxMode,
+	})
+	return raw
+}
+
+// requireCSRF checks the CSRF token on state-changing methods, writing a
+// 403 and returning false if it is missing or wrong. GET/HEAD are exempt.
+// Logged-in browsers prove the token is derived from their HttpOnly
+// session cookie; anonymous browsers (SEC1 M-8: /login, /register,
+// /forgot-password, /reset-password) prove it matches the HttpOnly
+// double-submit cookie render() seeded on the form page.
 func requireCSRF(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
 		return true
 	}
-	c, err := r.Cookie(sessionCookieName)
-	if err != nil || subtle.ConstantTimeCompare([]byte(r.FormValue("csrf")), []byte(csrfToken(c.Value))) != 1 {
+	var want string
+	if c, err := r.Cookie(sessionCookieName); err == nil {
+		want = csrfToken(c.Value)
+	} else if c, err := r.Cookie(csrfCookieName); err == nil {
+		want = c.Value
+	}
+	if want == "" || subtle.ConstantTimeCompare([]byte(r.FormValue("csrf")), []byte(want)) != 1 {
 		http.Error(w, "invalid csrf token", http.StatusForbidden)
 		return false
 	}

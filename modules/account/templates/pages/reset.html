@@ -3,6 +3,7 @@
 <h1>Choose a new password</h1>
 {{if .Data.Error}}<p class="flash error">{{.Data.Error}}</p>{{end}}
 <form class="stack" method="post" action="/reset-password">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
   <input type="hidden" name="token" value="{{.Data.Token}}">
   <label>New password
     <input type="password" name="password" required minlength="8" maxlength="20">

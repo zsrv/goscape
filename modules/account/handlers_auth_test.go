@@ -23,13 +23,62 @@ func portalClient(t *testing.T, p *portal) (*httptest.Server, *http.Client) {
 	}
 }
 
+// postForm posts a form, attaching the right CSRF token automatically
+// (session-derived when the jar holds a session cookie, otherwise the
+// anonymous double-submit cookie, seeding it with a GET when absent).
+// Tests that deliberately omit/forge the token build their own request.
 func postForm(t *testing.T, c *http.Client, u string, form url.Values) *http.Response {
 	t.Helper()
+	if form.Get("csrf") == "" {
+		form = cloneValues(form)
+		form.Set("csrf", csrfFor(t, c, u))
+	}
 	resp, err := c.PostForm(u, form)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return resp
+}
+
+func cloneValues(v url.Values) url.Values {
+	out := make(url.Values, len(v))
+	for k, vs := range v {
+		out[k] = append([]string(nil), vs...)
+	}
+	return out
+}
+
+func csrfFor(t *testing.T, c *http.Client, u string) string {
+	t.Helper()
+	parsed, err := url.Parse(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lookup := func() (string, bool) {
+		var anon string
+		for _, ck := range c.Jar.Cookies(parsed) {
+			switch ck.Name {
+			case sessionCookieName:
+				return csrfToken(ck.Value), true
+			case csrfCookieName:
+				anon = ck.Value
+			}
+		}
+		return anon, anon != ""
+	}
+	if tok, ok := lookup(); ok {
+		return tok
+	}
+	resp, err := c.Get(u) // any rendered page seeds the anonymous cookie
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	tok, ok := lookup()
+	if !ok {
+		t.Fatalf("no csrf cookie after GET %s", u)
+	}
+	return tok
 }
 
 func TestRegisterFlow(t *testing.T) {
@@ -121,6 +170,16 @@ func TestLoginLogoutFlow(t *testing.T) {
 	}
 	_ = s.SetAccountStatus(t.Context(), id, StatusActive)
 
+	// The disabled-account attempt above already cleared the stale
+	// session cookie (public() drops sessions for non-active accounts),
+	// so re-authenticate before exercising logout.
+	resp = postForm(t, client, srv.URL+"/login", url.Values{
+		"email": {"a@example.com"}, "password": {"hunter22!"},
+	})
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("re-login: %d", resp.StatusCode)
+	}
+
 	// Logout: needs CSRF, clears the session.
 	var raw string
 	u, _ := url.Parse(srv.URL)
@@ -128,6 +187,9 @@ func TestLoginLogoutFlow(t *testing.T) {
 		if c.Name == sessionCookieName {
 			raw = c.Value
 		}
+	}
+	if raw == "" {
+		t.Fatal("no session cookie after re-login")
 	}
 	resp = postForm(t, client, srv.URL+"/logout", url.Values{"csrf": {csrfToken(raw)}})
 	if resp.StatusCode != http.StatusFound {

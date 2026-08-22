@@ -73,8 +73,10 @@ func newPortal(cfg Config, store *Store, mailer Mailer, log *slog.Logger) (*port
 // first.
 func (p *portal) render(w http.ResponseWriter, r *http.Request, page string, data any) {
 	pd := pageData{Account: ctxAccount(r), Msg: r.URL.Query().Get("msg"), Data: data}
-	if c, err := r.Cookie(sessionCookieName); err == nil {
+	if c, err := r.Cookie(sessionCookieName); err == nil && pd.Account != nil {
 		pd.CSRF = csrfToken(c.Value)
+	} else {
+		pd.CSRF = p.ensureCSRFCookie(w, r)
 	}
 	tmpl, ok := p.pages[page]
 	if !ok {
