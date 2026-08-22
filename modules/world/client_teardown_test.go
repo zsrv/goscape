@@ -51,22 +51,52 @@ func TestClientTeardownRefcount(t *testing.T) {
 type errWriteConn struct {
 	net.Conn
 	closed atomic.Bool
+	// closedCh fires on the first Close. Since SEC1 M-2 the socket write
+	// happens on the outbound writer's goroutine, so the close that a
+	// failed write triggers is observed asynchronously — a channel, not a
+	// sleep, is how the test waits for it.
+	closedCh  chan struct{}
+	closeOnce sync.Once
 }
 
-func (c *errWriteConn) Write([]byte) (int, error)      { return 0, errors.New("stalled peer") }
-func (c *errWriteConn) Close() error                   { c.closed.Store(true); return c.Conn.Close() }
+func newErrWriteConn(c net.Conn) *errWriteConn {
+	return &errWriteConn{Conn: c, closedCh: make(chan struct{})}
+}
+
+func (c *errWriteConn) Write([]byte) (int, error) { return 0, errors.New("stalled peer") }
+func (c *errWriteConn) Close() error {
+	c.closed.Store(true)
+	c.closeOnce.Do(func() { close(c.closedCh) })
+	return c.Conn.Close()
+}
 func (*errWriteConn) SetWriteDeadline(time.Time) error { return nil }
 
 func TestFlushWriteOrCloseClosesOnError(t *testing.T) {
 	p1, p2 := net.Pipe()
 	defer p1.Close()
-	ec := &errWriteConn{Conn: p2}
+	ec := newErrWriteConn(p2)
 	c := newClient(ec, time.Second, slog.Default())
 	c.bufw.WriteByte(0xFF) // something to flush
+	// The flush itself now only hands the frame to the outbound writer;
+	// the doomed socket write — and the close it triggers — happen on that
+	// writer's goroutine (SEC1 M-2).
 	c.flushWriteOrClose()
+	select {
+	case <-ec.closedCh:
+	case <-time.After(3 * time.Second):
+		t.Fatal("conn not closed after flush error")
+	}
 	if !ec.closed.Load() {
 		t.Fatal("conn not closed after flush error")
 	}
+	// And the sticky-error path still closes: once the writer is marked
+	// failed, the next flush reports net.ErrClosed and flushWriteOrClose
+	// takes its close branch (idempotent — the conn is already closed).
+	c.bufw.WriteByte(0xFF)
+	if err := c.flushWrite(); !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("flush after socket failure: got %v, want net.ErrClosed", err)
+	}
+	c.flushWriteOrClose()
 }
 
 func TestWriteTimeoutDefault(t *testing.T) {

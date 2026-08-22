@@ -17,6 +17,9 @@ type testODClient struct {
 	closed    *bool
 	sent      [][]byte
 	firstSend chan struct{}
+	// blocked is what backlogged() reports — the fake's stand-in for an
+	// outbound queue past its soft high-water mark.
+	blocked bool
 }
 
 func newTestODClient(closed *bool) *testODClient {
@@ -37,6 +40,27 @@ func (c *testODClient) send(data []byte) error {
 
 func (c *testODClient) close() {
 	*c.closed = true
+}
+
+// backlogged reports the fake's outbound-backpressure state (SEC1 M-2 /
+// DEVIATION SEC1-D3). Defaults to false; setBacklogged flips it.
+func (c *testODClient) backlogged() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.blocked
+}
+
+func (c *testODClient) setBacklogged(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.blocked = v
+}
+
+// frames returns a snapshot of everything sent so far.
+func (c *testODClient) frames() [][]byte {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([][]byte(nil), c.sent...)
 }
 
 func TestOnDemandRequestParsing(t *testing.T) {
@@ -434,5 +458,70 @@ func TestOnDemandRunLoopLifecycle(t *testing.T) {
 	case <-done:
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("run loop did not exit within 500ms after stop")
+	}
+}
+
+// TestOnDemandCycleYieldsWhenBacklogged pins DEVIATION SEC1-D3's producer
+// side on this branch's 50ms-cycle scheduler: a client whose outbound queue
+// is past its soft high-water mark is skipped, not served and not closed, and
+// its requests stay queued in priority order for a later cycle. Once the queue
+// drains, the very same pending requests flow normally.
+func TestOnDemandCycleYieldsWhenBacklogged(t *testing.T) {
+	const fileLen = 1200 // 3 chunks each (500 + 500 + 200)
+	fs := makeODFS(t)
+	for f := range 3 {
+		fs.Write(1, f, bytes.Repeat([]byte{byte(f + 1)}, fileLen), 0) // TS archive 0 → fs index 1
+	}
+	od := newOnDemand(fs)
+	closed := false
+	c := newTestODClient(&closed)
+	c.setBacklogged(true)
+
+	od.mu.Lock()
+	od.urgent = append(od.urgent, odRequest{client: c, archive: 0, file: 0})
+	od.extra = append(od.extra, odRequest{client: c, archive: 0, file: 1})
+	od.ingame = append(od.ingame, odRequest{client: c, archive: 0, file: 2})
+	od.mu.Unlock()
+
+	od.cycle()
+
+	if n := len(c.frames()); n != 0 {
+		t.Fatalf("cycle sent %d frames to a backlogged client, want 0", n)
+	}
+	if closed {
+		t.Fatal("cycle closed a backlogged client; backpressure must not disconnect")
+	}
+	od.mu.Lock()
+	gotU, gotE, gotI := len(od.urgent), len(od.extra), len(od.ingame)
+	od.mu.Unlock()
+	if gotU != 1 || gotE != 1 || gotI != 1 {
+		t.Fatalf("deferred queues: urgent=%d extra=%d ingame=%d, want 1/1/1 (requests must be untouched)",
+			gotU, gotE, gotI)
+	}
+
+	// Peer caught up: the same requests are now served, in priority order.
+	c.setBacklogged(false)
+	od.cycle()
+
+	frames := c.frames()
+	if len(frames) != 9 {
+		t.Fatalf("after the backlog cleared: %d frames, want 9", len(frames))
+	}
+	if want := header6(0, 0, fileLen, 0); !bytes.Equal(frames[0][:6], want) {
+		t.Fatalf("first frame header = %v, want %v", frames[0][:6], want)
+	}
+	// urgent (file 0) → extra (file 1) → ingame (file 2).
+	for i, wantFile := range []int{0, 1, 2} {
+		if got := int(frames[i*3][1])<<8 | int(frames[i*3][2]); got != wantFile {
+			t.Errorf("batch %d starts with file %d, want %d (priority order lost)", i, got, wantFile)
+		}
+	}
+	if closed {
+		t.Fatal("client closed while being served normally")
+	}
+	od.mu.Lock()
+	defer od.mu.Unlock()
+	if len(od.urgent)+len(od.extra)+len(od.ingame) != 0 {
+		t.Fatal("queues not drained after the backlog cleared")
 	}
 }

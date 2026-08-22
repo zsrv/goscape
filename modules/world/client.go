@@ -42,20 +42,19 @@ const (
 )
 
 type client struct {
-	conn         net.Conn
-	log          *slog.Logger
-	bufr         *bufio.Reader
-	bufw         *bufio.Writer
-	in           *packet.Packet
-	inMu         sync.Mutex // guards in, opcode, waiting between reader goroutine and tick goroutine
-	player       *Player    // nil until sendLoginOK; owned exclusively by tick goroutine after login
-	encryptor    *io2.Isaac
-	decryptor    *io2.Isaac
-	server       *Server
-	writeTimeout time.Duration
-	state        ClientState
-	opcode       int
-	waiting      int
+	conn      net.Conn
+	log       *slog.Logger
+	bufr      *bufio.Reader
+	bufw      *bufio.Writer
+	in        *packet.Packet
+	inMu      sync.Mutex // guards in, opcode, waiting between reader goroutine and tick goroutine
+	player    *Player    // nil until sendLoginOK; owned exclusively by tick goroutine after login
+	encryptor *io2.Isaac
+	decryptor *io2.Isaac
+	server    *Server
+	state     ClientState
+	opcode    int
+	waiting   int
 	// staffModLevel is the moderator/admin tier set from the login server's
 	// gRPC response (server.go:546 — resp.GetStaffModLevel()). Copied onto
 	// Player at newPlayer(). Read by handleClientCheat for the staff-only
@@ -127,17 +126,26 @@ type client struct {
 	teardownRefs atomic.Int32
 	connRefOnce  sync.Once
 	tickRefOnce  sync.Once
+	// out is the asynchronous socket writer that bufw drains into
+	// (SEC1 M-2). Nothing but out's own goroutine calls conn.Write, so a
+	// stalled peer can no longer hold the tick goroutine inside a socket
+	// write. Nil only for clients built by hand in tests that never went
+	// through newClient; closeConn tolerates that.
+	out *outboundWriter
 }
 
 func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, logger *slog.Logger) *client {
+	// SEC1 M-2: bufw flushes into the outbound writer, not straight into
+	// the socket, so no flush on the tick goroutine can block on the peer.
+	out := newOutboundWriter(conn, writeTimeout, logger)
 	c := &client{
 		log: logger,
 
 		//server: server,
-		conn:         conn,
-		bufr:         getBufioReader64k(conn), // Wrap the connection with a buffered reader
-		bufw:         getBufioWriter64k(conn), // Wrap the connection with a buffered writer
-		writeTimeout: writeTimeout,
+		conn: conn,
+		bufr: getBufioReader64k(conn), // Wrap the connection with a buffered reader
+		bufw: getBufioWriter64k(out),  // Wrap the outbound writer with a buffered writer
+		out:  out,
 
 		in: packet.Alloc(65536),
 
@@ -203,13 +211,10 @@ func (c *client) write(data []byte) {
 	applog.Trace(c.log, "sent data", "opcode", c.opcode, "num_bytes", len(data), "data", fmt.Sprintf("%v", data))
 }
 
-// flushWrite sets the write deadline and flushes the buffered writer.
+// flushWrite hands bufw's bytes to the outbound writer. Never blocks on
+// the socket (SEC1 M-2): the writer goroutine owns write deadlines, so
+// the only errors here are "queue overflowed" and "already closed".
 func (c *client) flushWrite() error {
-	if c.writeTimeout > 0 {
-		if err := c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout)); err != nil {
-			return err
-		}
-	}
 	return c.bufw.Flush()
 }
 
@@ -218,10 +223,35 @@ func (c *client) flushWrite() error {
 // the normal disconnect path (TS: socket error event → close). bufio's
 // error is sticky, so without the close a dead connection lingered,
 // silently receiving nothing, until the read-side timeout.
+// Since SEC1 M-2 a socket write failure surfaces asynchronously — the
+// writer goroutine closes the conn itself and marks the writer failed, so
+// the *next* flush is the one that reports it here. Either way the
+// connection ends up closed and the read loop tears it down.
 func (c *client) flushWriteOrClose() {
 	if err := c.flushWrite(); err != nil {
-		_ = c.conn.Close()
+		c.closeConn()
 	}
+}
+
+// closeConn is the one way to close a client's connection: it stops new
+// writes, drains already-flushed frames (bounded by writeTimeout) and
+// then closes the socket, so a logout byte flushed just before close is
+// still delivered (DEVIATION SEC1-D3, see outbound.go). Idempotent and
+// safe from any goroutine; it never blocks on the network. The reader
+// goroutine unblocks when the socket finally closes and runs the normal
+// teardown.
+//
+// Writer goroutines are deliberately NOT tracked by tcpWg: at shutdown
+// Server.Shutdown calls closeLiveConns first, which hard-closes every
+// socket, so each writer fails its next write (or its drain) and exits
+// promptly on its own rather than holding the wait group open for one
+// write timeout per connection.
+func (c *client) closeConn() {
+	if c.out != nil {
+		c.out.Close()
+		return
+	}
+	_ = c.conn.Close()
 }
 
 // sendLoginOK queues the player for world registration on the next tick,
@@ -286,9 +316,10 @@ func (c *client) sendLoginError(code byte) error {
 // sends come from the onDemand cycle goroutine via this adapter, making bufw
 // access single-writer and race-safe without additional locking.
 //
-// close calls conn.Close() which causes the read goroutine's bufr.Read to
-// return an error, triggering the deferred cleanup (release, player remove,
-// log). This mirrors TS client.close() → socket.destroy() (TcpServer.ts:57).
+// close calls closeConn(), which drains any already-flushed frames and then
+// closes the socket; that causes the read goroutine's bufr.Read to return an
+// error, triggering the deferred cleanup (release, player remove, log). This
+// mirrors TS client.close() → socket.destroy() (TcpServer.ts:57).
 type clientODAdapter struct {
 	c *client
 }
@@ -307,7 +338,19 @@ func (a *clientODAdapter) send(data []byte) error {
 }
 
 func (a *clientODAdapter) close() {
-	a.c.conn.Close()
+	a.c.closeConn()
+}
+
+// backlogged reports whether the connection's outbound queue has passed
+// its soft high-water mark, so the pump should end this client's slice
+// and retry on a later pass (SEC1 M-2 / DEVIATION SEC1-D3). Nil-safe:
+// a client constructed without a writer (unit tests, parse-only paths)
+// is never backlogged.
+func (a *clientODAdapter) backlogged() bool {
+	if a.c == nil || a.c.out == nil {
+		return false
+	}
+	return a.c.out.Backlogged()
 }
 
 /////////////
