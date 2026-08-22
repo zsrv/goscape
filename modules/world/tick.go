@@ -411,7 +411,7 @@ func (s *Server) processLogins() {
 			// world full — reject cleanly
 			p.writeOut(gameserver.OpLogout, nil)
 			_ = p.client.flushWrite()
-			_ = p.client.conn.Close()
+			p.client.closeConn()
 			continue
 		}
 		p.lastConnected = s.currentTick
@@ -707,7 +707,7 @@ func (s *Server) processLogouts() {
 			p.activeScript = nil
 			p.writeOut(gameserver.OpLogout, nil)
 			_ = p.client.flushWrite()
-			_ = p.client.conn.Close()
+			p.client.closeConn()
 
 			// NAI-30 Bundle 4: per-Buf observer decrement for every NPC this
 			// player tracked is performed inside removePlayerInternal →

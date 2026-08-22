@@ -140,16 +140,26 @@ type client struct {
 	teardownRefs atomic.Int32
 	connRefOnce  sync.Once
 	tickRefOnce  sync.Once
+	// out is the asynchronous socket writer that bufw drains into
+	// (SEC1 M-2). Nothing but out's own goroutine calls conn.Write, so a
+	// stalled peer can no longer hold the tick goroutine inside a socket
+	// write. Nil only for clients built by hand in tests that never went
+	// through newClient; closeConn tolerates that.
+	out *outboundWriter
 }
 
 func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, logger *slog.Logger) *client {
+	// SEC1 M-2: bufw flushes into the outbound writer, not straight into
+	// the socket, so no flush on the tick goroutine can block on the peer.
+	out := newOutboundWriter(conn, writeTimeout, logger)
 	c := &client{
 		log: logger,
 
 		//server: server,
 		conn:         conn,
 		bufr:         getBufioReader64k(conn), // Wrap the connection with a buffered reader
-		bufw:         getBufioWriter64k(conn), // Wrap the connection with a buffered writer
+		bufw:         getBufioWriter64k(out),  // Wrap the outbound writer with a buffered writer
+		out:          out,
 		writeTimeout: writeTimeout,
 
 		in: packet.Alloc(65536),
@@ -218,13 +228,10 @@ func (c *client) write(data []byte) {
 	applog.Trace(c.log, "sent data", "opcode", c.opcode, "num_bytes", len(data), "data", fmt.Sprintf("%v", data))
 }
 
-// flushWrite sets the write deadline and flushes the buffered writer.
+// flushWrite hands bufw's bytes to the outbound writer. Never blocks on
+// the socket (SEC1 M-2): the writer goroutine owns write deadlines, so
+// the only errors here are "queue overflowed" and "already closed".
 func (c *client) flushWrite() error {
-	if c.writeTimeout > 0 {
-		if err := c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout)); err != nil {
-			return err
-		}
-	}
 	return c.bufw.Flush()
 }
 
@@ -233,10 +240,30 @@ func (c *client) flushWrite() error {
 // the normal disconnect path (TS: socket error event → close). bufio's
 // error is sticky, so without the close a dead connection lingered,
 // silently receiving nothing, until the read-side timeout.
+//
+// Since SEC1 M-2 a socket write failure surfaces asynchronously — the
+// writer goroutine closes the conn itself and marks the writer failed, so
+// the *next* flush is the one that reports it here. Either way the
+// connection ends up closed and the read loop tears it down.
 func (c *client) flushWriteOrClose() {
 	if err := c.flushWrite(); err != nil {
-		_ = c.conn.Close()
+		c.closeConn()
 	}
+}
+
+// closeConn is the one way to close a client's connection: it stops new
+// writes, drains already-flushed frames (bounded by writeTimeout) and
+// then closes the socket, so a logout byte flushed just before close is
+// still delivered (DEVIATION SEC1-D3, see outbound.go). Idempotent and
+// safe from any goroutine; it never blocks on the network. The reader
+// goroutine unblocks when the socket finally closes and runs the normal
+// teardown.
+func (c *client) closeConn() {
+	if c.out != nil {
+		c.out.Close()
+		return
+	}
+	_ = c.conn.Close()
 }
 
 // shouldFlushOnTeardown reports whether handleTCPConn's teardown defer
@@ -358,9 +385,10 @@ func (c *client) sendLoginHopTimer(remainingMs int64) error {
 // sends come from the onDemand cycle goroutine via this adapter, making bufw
 // access single-writer and race-safe without additional locking.
 //
-// close calls conn.Close() which causes the read goroutine's bufr.Read to
-// return an error, triggering the deferred cleanup (release, player remove,
-// log). This mirrors TS client.close() → socket.destroy() (TcpServer.ts:57).
+// close calls closeConn(), which drains any already-flushed frames and then
+// closes the socket; that causes the read goroutine's bufr.Read to return an
+// error, triggering the deferred cleanup (release, player remove, log). This
+// mirrors TS client.close() → socket.destroy() (TcpServer.ts:57).
 type clientODAdapter struct {
 	c *client
 }
@@ -378,7 +406,7 @@ func (a *clientODAdapter) send(data []byte) error {
 }
 
 func (a *clientODAdapter) close() {
-	a.c.conn.Close()
+	a.c.closeConn()
 }
 
 // id returns the stable per-connection identity (client.connID). The same

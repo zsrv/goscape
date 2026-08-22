@@ -62,7 +62,7 @@ func recoverPlayer(p *Player, op string, log *slog.Logger) {
 	}
 	p.requestLogout = true
 	if p.client != nil && p.client.conn != nil {
-		_ = p.client.conn.Close()
+		p.client.closeConn()
 	}
 }
 
