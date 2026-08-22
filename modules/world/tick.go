@@ -31,6 +31,13 @@ const (
 const invStockRate = 100
 
 func (s *Server) runTickLoop() {
+	// DEVIATION SEC1-D2: save everyone, then let the panic continue.
+	defer func() {
+		if r := recover(); r != nil {
+			s.crashSaveAll(r)
+			panic(r)
+		}
+	}()
 	s.runTickLoopWithRate(s.tickRate)
 }
 
@@ -41,6 +48,12 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 	// next sleep computation. Per spec §6: writer (cheat dispatch) and
 	// reader (this loop) both run on the tick goroutine, so no lock.
 	s.tickRate = rate
+	// Tests build &Server{} literals and call this directly, bypassing the
+	// constructor that installs the default body (server.go). Fill it in
+	// here so the loop never dereferences a nil seam.
+	if s.tickBodyFn == nil {
+		s.tickBodyFn = s.tickOnce
+	}
 	nextTick := time.Now()
 	for {
 		// NAI-REBUILD-ASYNC — drain at top-of-body so Reload runs before
@@ -95,207 +108,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 			drift = 0
 		}
 
-		// Cycle-stat instrumentation: zero the ten timing entries at tick
-		// start. BANDWIDTH_IN is reset at its own TS-cited point
-		// (World.ts:629). Mirrors the implicit zero that TS achieves by
-		// assigning cycleStats[X] = Date.now() - start once per section.
-		s.resetCycleTimes()
-
-		// PORTING-EXCEPTION (rev244-b4-bwout-reset, BANDWIDTH_OUT reset
-		// moved to tick start): TS resets at World.ts:1111 — the head of
-		// processClientsOut, which is TS's ONLY write pass, so the stat
-		// covers every byte written that cycle. goscape emits packets
-		// incrementally THROUGHOUT the tick (login resync, script-driven
-		// sends, relay-action friends/PM packets), so resetting at the TS
-		// line would silently drop everything written before client-out.
-		// Resetting here preserves the stat's TS-INTENT ("bytes out this
-		// cycle") at the cost of the literal reset-line position. See
-		// docs/PORTING.md §B4.
-		s.cycleStats[statBandwidthOut] = 0
-
-		// ── CLIENT_IN (TS World.ts:626-691) ──────────────────────────────
-		// BANDWIDTH_IN reset matches TS World.ts:629 (before the player
-		// loop that accumulates bytes-read into cycleStats[BANDWIDTH_IN]).
-		t0 := time.Now()
-		s.cycleStats[statBandwidthIn] = 0 // TS World.ts:629
-		s.processClientsIn()
-		s.addCycleTime(statClientIn, t0)
-
-		// ── WORLD (TS World.processWorld, W.ts:558-620) ──────────────────
-		// TS processWorld covers: world-script queue, obj-delayed queue,
-		// and npc-hunt-players. goscape deviates by splitting processWorld
-		// into multiple passes (NAI-37/NAI-122/NAI-134/NAI-217); the WORLD
-		// accumulator is updated after each member pass so the total matches
-		// what TS measures in a single function. processNpcEventQueue and
-		// processActiveScripts have no TS stat bucket of their own and are
-		// folded here as "world-level infrastructure" passes.
-		t0 = time.Now()
-		s.processWorldQueue() // NAI-37: matches TS World.processWorld start-of-cycle ordering
-		s.addCycleTime(statWorld, t0)
-
-		// NAI-122: processNpcEventQueue moved up to mirror TS World.ts:356
-		// (drains BEFORE processPlayers at TS line 376). Closes the
-		// V-PARTIAL where AI_SPAWN-populated npc varns
-		// (%npc_combat_xp_multiplier and friends) were read as zero by
-		// same-tick combat dispatch because the queue drained AFTER
-		// processInteractions. DEVIATION-NAI-122-D3 declared in Bundle 0
-		// findings: NAI-121 audit's "TS sync-inline" claim was a misread
-		// — TS uses a unified queue identical to goscape's, just drained
-		// earlier in the tick.
-		t0 = time.Now()
-		s.processNpcEventQueue()
-		s.addCycleTime(statWorld, t0)
-
-		// ── NPC (TS World.ts:711-722) ─────────────────────────────────────
-		// NAI-217: processNpcs moved up to mirror TS World.cycle order
-		// (Engine-TS/src/engine/World.ts:365 processNpcs → :376
-		// processPlayers). Player-side processInteraction at the post-
-		// pathing call below must see this-tick NPC positions (after
-		// the NPC moved THIS cycle), not the stale end-of-previous-tick
-		// positions that resulted when processNpcs ran later. Pre-NAI-217
-		// symptom: when the player chases a wandering NPC,
-		// inOperableDistance measures against the NPC's last-tick-end
-		// position, so branch-1 OP fire skips even though the NPC will
-		// end this tick visually adjacent. processNpcs internally drives
-		// NPC ai_spawn resume, stat regen, timer, queue, movement, and
-		// modes — all of which must settle before the per-player block
-		// reads NPC state.
-		//
-		// World-level player-hunt pass (TS World.processWorld at
-		// World.ts:577-589) runs immediately before processNpcs so the
-		// huntTarget it sets on aggressive (HuntModePlayer) NPCs is consumed
-		// into an interaction by the same tick's consumeHuntTarget inside
-		// turn() — matching TS processWorld → processNpcs ordering. This is
-		// what makes aggressive NPCs initiate combat instead of only reacting
-		// when attacked.
-		t0 = time.Now()
-		s.processNpcHuntPlayers()
-		s.addCycleTime(statWorld, t0)
-
-		t0 = time.Now()
-		s.processNpcs()
-		s.addCycleTime(statNpc, t0)
-
-		// processActiveScripts has no dedicated TS stat bucket — it fires
-		// world-suspended scripts, which TS drains inside processWorld.
-		// Folded into WORLD accumulator.
-		t0 = time.Now()
-		s.processActiveScripts()
-		s.addCycleTime(statWorld, t0)
-
-		// NAI-134: drain the obj-delayed-spawn queue here, after script-firing,
-		// so a same-tick INV_DROPITEM_DELAYED with delay=0 spawns the obj before
-		// processInfo reads zone state. DEVIATION from TS (L1): TS drains the
-		// objDelayedQueue inside processWorld at cycle START (World.ts:562-574),
-		// BEFORE the same cycle's processNpcs (L365), so a delayed obj is visible
-		// to NPC hunt the SAME tick. goscape drains it AFTER processNpcs, so a
-		// delayed-spawned obj is visible to NPC obj-hunt one tick later. Accepted
-		// LOW: 1-tick latency on the rare HuntModeObj path; the placement is what
-		// gives delay=0 player drops same-tick visibility before processInfo.
-		t0 = time.Now()
-		s.processObjDelayedQueue()
-		s.addCycleTime(statWorld, t0)
-
-		// ── PLAYER (TS World.processPlayers, W.ts:724-776) ───────────────
-		// goscape splits processPlayers into discrete passes; each is timed
-		// and accumulated into statPlayer. The split is the documented
-		// Arc-29/NAI-217 pre-step/post-step deviation; call ORDER is
-		// preserved exactly.
-		t0 = time.Now()
-		s.processPlayerTimers()
-		s.addCycleTime(statPlayer, t0)
-
-		// NAI-144: TS World.ts:725 — engineQueue drains between timers and
-		// movement. processPlayerEngineQueues mirrors TS
-		// Player.processEngineQueue per-player drain semantics.
-		t0 = time.Now()
-		s.processPlayerEngineQueues()
-		s.addCycleTime(statPlayer, t0)
-
-		// "// Update target facing" — TS World.ts:707-708 @2e3bcf43
-		// (ee28c1aa): player.setFaceEntity() runs per player after
-		// processEngineQueue and before processInteraction.
-		t0 = time.Now()
-		s.processPlayerFacing()
-		s.addCycleTime(statPlayer, t0)
-
-		// TS Player.processInteraction interleaves updateMovement between its
-		// pre-step and post-step interact arms (Player.ts:1241). goscape splits
-		// that around the movement pass: the pre-step interact (+ path recompute)
-		// runs at the player's PRE-movement position here, then processPathing
-		// moves, then processInteractions runs the post-step arm + tail. This is
-		// what lets a player who clicks an in-range NPC attack from where they
-		// stand instead of stepping to contact first.
-		t0 = time.Now()
-		s.processInteractionsPreMove()
-		s.addCycleTime(statPlayer, t0)
-
-		t0 = time.Now()
-		s.processPathing()
-		s.addCycleTime(statPlayer, t0)
-
-		t0 = time.Now()
-		s.processInteractions()
-		s.addCycleTime(statPlayer, t0)
-
-		t0 = time.Now()
-		s.processEnergy() // NAI-135: TS World.ts:731 per-player updateEnergy
-		s.addCycleTime(statPlayer, t0)
-
-		// M3: TS World.ts:733-735 — jump-snap any player who moved >2 tiles
-		// this tick (gated by EXACT_MOVE). Runs after movement+energy, before
-		// processInfo serializes the jump bit.
-		t0 = time.Now()
-		s.processValidateDistanceWalked()
-		s.addCycleTime(statPlayer, t0)
-
-		// ── LOGOUT (TS World.ts:778-846) ─────────────────────────────────
-		t0 = time.Now()
-		s.processLogouts()
-		s.addCycleTime(statLogout, t0)
-
-		// ── LOGIN (TS World.ts:848-976) ──────────────────────────────────
-		t0 = time.Now()
-		s.processLogins()
-		s.addCycleTime(statLogin, t0)
-
-		// ── ZONE (TS World.ts:978-1005) ──────────────────────────────────
-		// L2 DEVIATION (accepted, documented NAI-93): TS runs processZones
-		// (W.ts:388) BEFORE processInfo (W.ts:395); goscape runs processInfo
-		// first so rebuildNormal (TS BuildArea slot, W.ts:996) settles before
-		// zone compute. Cost is a 1-tick facing artifact for a just-revealed
-		// zone — see the NAI-93 notes in player.go / processInfo below.
-		// Stat attribution: TS leaves processInfo UNMEASURED (its body,
-		// W.ts:1012-1108, writes no cycleStats entry); goscape attributes
-		// it to CLIENT_OUT — the adjacent phase that consumes its rsbuf
-		// computes — rather than leaving the time invisible. Deviation:
-		// goscape's CLIENT_OUT therefore reads slightly higher than TS's
-		// (which times only processClientsOut, W.ts:1109-1145).
-		t0 = time.Now()
-		s.processInfo()
-		s.addCycleTime(statClientOut, t0)
-
-		t0 = time.Now()
-		s.processZones() // compute ComputeShared before delivery
-		s.addCycleTime(statZone, t0)
-
-		// ── CLIENT_OUT (TS World.ts:1108-1145) ───────────────────────────
-		// BANDWIDTH_OUT reset: moved to tick start — see the
-		// PORTING-EXCEPTION (rev244-b4-bwout-reset) note there (TS resets
-		// at World.ts:1111, but goscape writes throughout the tick).
-		t0 = time.Now()
-		s.processClientsOut()
-		s.addCycleTime(statClientOut, t0)
-
-		// ── CLEANUP (TS World.ts:1147-1219) ──────────────────────────────
-		t0 = time.Now()
-		s.processCleanup()
-		s.addCycleTime(statCleanup, t0)
-
-		// processSessionLogs counts only toward CYCLE (like TS's
-		// session-log block at W.ts:462-485, which runs after CLEANUP and
-		// before the CYCLE measurement).
-		s.processSessionLogs() // NAI-74: TS World.cycle session-log block (W.ts:428-442)
+		s.tickBodyFn()
 
 		// ── CYCLE (TS World.ts:487) + snapshot (W.ts:489-500) ────────────
 		// Measured "before telemetry" — identical placement to TS.
@@ -330,6 +143,216 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		case <-time.After(delay):
 		}
 	}
+}
+
+// tickOnce runs the per-tick game-processing body: client-in, world, npc,
+// player, logout, login, zone, client-out, and cleanup passes, plus the
+// per-tick session-log flush. Extracted from runTickLoopWithRate (SEC1
+// M-1b) as s.tickBodyFn's default so tests can substitute a stub body
+// (e.g. one that panics) without perturbing the surrounding sleep/drift/
+// quit bookkeeping, which stays in the loop.
+func (s *Server) tickOnce() {
+	// Cycle-stat instrumentation: zero the ten timing entries at tick
+	// start. BANDWIDTH_IN is reset at its own TS-cited point
+	// (World.ts:629). Mirrors the implicit zero that TS achieves by
+	// assigning cycleStats[X] = Date.now() - start once per section.
+	s.resetCycleTimes()
+
+	// PORTING-EXCEPTION (rev244-b4-bwout-reset, BANDWIDTH_OUT reset
+	// moved to tick start): TS resets at World.ts:1111 — the head of
+	// processClientsOut, which is TS's ONLY write pass, so the stat
+	// covers every byte written that cycle. goscape emits packets
+	// incrementally THROUGHOUT the tick (login resync, script-driven
+	// sends, relay-action friends/PM packets), so resetting at the TS
+	// line would silently drop everything written before client-out.
+	// Resetting here preserves the stat's TS-INTENT ("bytes out this
+	// cycle") at the cost of the literal reset-line position. See
+	// docs/PORTING.md §B4.
+	s.cycleStats[statBandwidthOut] = 0
+
+	// ── CLIENT_IN (TS World.ts:626-691) ──────────────────────────────
+	// BANDWIDTH_IN reset matches TS World.ts:629 (before the player
+	// loop that accumulates bytes-read into cycleStats[BANDWIDTH_IN]).
+	t0 := time.Now()
+	s.cycleStats[statBandwidthIn] = 0 // TS World.ts:629
+	s.processClientsIn()
+	s.addCycleTime(statClientIn, t0)
+
+	// ── WORLD (TS World.processWorld, W.ts:558-620) ──────────────────
+	// TS processWorld covers: world-script queue, obj-delayed queue,
+	// and npc-hunt-players. goscape deviates by splitting processWorld
+	// into multiple passes (NAI-37/NAI-122/NAI-134/NAI-217); the WORLD
+	// accumulator is updated after each member pass so the total matches
+	// what TS measures in a single function. processNpcEventQueue and
+	// processActiveScripts have no TS stat bucket of their own and are
+	// folded here as "world-level infrastructure" passes.
+	t0 = time.Now()
+	s.processWorldQueue() // NAI-37: matches TS World.processWorld start-of-cycle ordering
+	s.addCycleTime(statWorld, t0)
+
+	// NAI-122: processNpcEventQueue moved up to mirror TS World.ts:356
+	// (drains BEFORE processPlayers at TS line 376). Closes the
+	// V-PARTIAL where AI_SPAWN-populated npc varns
+	// (%npc_combat_xp_multiplier and friends) were read as zero by
+	// same-tick combat dispatch because the queue drained AFTER
+	// processInteractions. DEVIATION-NAI-122-D3 declared in Bundle 0
+	// findings: NAI-121 audit's "TS sync-inline" claim was a misread
+	// — TS uses a unified queue identical to goscape's, just drained
+	// earlier in the tick.
+	t0 = time.Now()
+	s.processNpcEventQueue()
+	s.addCycleTime(statWorld, t0)
+
+	// ── NPC (TS World.ts:711-722) ─────────────────────────────────────
+	// NAI-217: processNpcs moved up to mirror TS World.cycle order
+	// (Engine-TS/src/engine/World.ts:365 processNpcs → :376
+	// processPlayers). Player-side processInteraction at the post-
+	// pathing call below must see this-tick NPC positions (after
+	// the NPC moved THIS cycle), not the stale end-of-previous-tick
+	// positions that resulted when processNpcs ran later. Pre-NAI-217
+	// symptom: when the player chases a wandering NPC,
+	// inOperableDistance measures against the NPC's last-tick-end
+	// position, so branch-1 OP fire skips even though the NPC will
+	// end this tick visually adjacent. processNpcs internally drives
+	// NPC ai_spawn resume, stat regen, timer, queue, movement, and
+	// modes — all of which must settle before the per-player block
+	// reads NPC state.
+	//
+	// World-level player-hunt pass (TS World.processWorld at
+	// World.ts:577-589) runs immediately before processNpcs so the
+	// huntTarget it sets on aggressive (HuntModePlayer) NPCs is consumed
+	// into an interaction by the same tick's consumeHuntTarget inside
+	// turn() — matching TS processWorld → processNpcs ordering. This is
+	// what makes aggressive NPCs initiate combat instead of only reacting
+	// when attacked.
+	t0 = time.Now()
+	s.processNpcHuntPlayers()
+	s.addCycleTime(statWorld, t0)
+
+	t0 = time.Now()
+	s.processNpcs()
+	s.addCycleTime(statNpc, t0)
+
+	// processActiveScripts has no dedicated TS stat bucket — it fires
+	// world-suspended scripts, which TS drains inside processWorld.
+	// Folded into WORLD accumulator.
+	t0 = time.Now()
+	s.processActiveScripts()
+	s.addCycleTime(statWorld, t0)
+
+	// NAI-134: drain the obj-delayed-spawn queue here, after script-firing,
+	// so a same-tick INV_DROPITEM_DELAYED with delay=0 spawns the obj before
+	// processInfo reads zone state. DEVIATION from TS (L1): TS drains the
+	// objDelayedQueue inside processWorld at cycle START (World.ts:562-574),
+	// BEFORE the same cycle's processNpcs (L365), so a delayed obj is visible
+	// to NPC hunt the SAME tick. goscape drains it AFTER processNpcs, so a
+	// delayed-spawned obj is visible to NPC obj-hunt one tick later. Accepted
+	// LOW: 1-tick latency on the rare HuntModeObj path; the placement is what
+	// gives delay=0 player drops same-tick visibility before processInfo.
+	t0 = time.Now()
+	s.processObjDelayedQueue()
+	s.addCycleTime(statWorld, t0)
+
+	// ── PLAYER (TS World.processPlayers, W.ts:724-776) ───────────────
+	// goscape splits processPlayers into discrete passes; each is timed
+	// and accumulated into statPlayer. The split is the documented
+	// Arc-29/NAI-217 pre-step/post-step deviation; call ORDER is
+	// preserved exactly.
+	t0 = time.Now()
+	s.processPlayerTimers()
+	s.addCycleTime(statPlayer, t0)
+
+	// NAI-144: TS World.ts:725 — engineQueue drains between timers and
+	// movement. processPlayerEngineQueues mirrors TS
+	// Player.processEngineQueue per-player drain semantics.
+	t0 = time.Now()
+	s.processPlayerEngineQueues()
+	s.addCycleTime(statPlayer, t0)
+
+	// "// Update target facing" — TS World.ts:707-708 @2e3bcf43
+	// (ee28c1aa): player.setFaceEntity() runs per player after
+	// processEngineQueue and before processInteraction.
+	t0 = time.Now()
+	s.processPlayerFacing()
+	s.addCycleTime(statPlayer, t0)
+
+	// TS Player.processInteraction interleaves updateMovement between its
+	// pre-step and post-step interact arms (Player.ts:1241). goscape splits
+	// that around the movement pass: the pre-step interact (+ path recompute)
+	// runs at the player's PRE-movement position here, then processPathing
+	// moves, then processInteractions runs the post-step arm + tail. This is
+	// what lets a player who clicks an in-range NPC attack from where they
+	// stand instead of stepping to contact first.
+	t0 = time.Now()
+	s.processInteractionsPreMove()
+	s.addCycleTime(statPlayer, t0)
+
+	t0 = time.Now()
+	s.processPathing()
+	s.addCycleTime(statPlayer, t0)
+
+	t0 = time.Now()
+	s.processInteractions()
+	s.addCycleTime(statPlayer, t0)
+
+	t0 = time.Now()
+	s.processEnergy() // NAI-135: TS World.ts:731 per-player updateEnergy
+	s.addCycleTime(statPlayer, t0)
+
+	// M3: TS World.ts:733-735 — jump-snap any player who moved >2 tiles
+	// this tick (gated by EXACT_MOVE). Runs after movement+energy, before
+	// processInfo serializes the jump bit.
+	t0 = time.Now()
+	s.processValidateDistanceWalked()
+	s.addCycleTime(statPlayer, t0)
+
+	// ── LOGOUT (TS World.ts:778-846) ─────────────────────────────────
+	t0 = time.Now()
+	s.processLogouts()
+	s.addCycleTime(statLogout, t0)
+
+	// ── LOGIN (TS World.ts:848-976) ──────────────────────────────────
+	t0 = time.Now()
+	s.processLogins()
+	s.addCycleTime(statLogin, t0)
+
+	// ── ZONE (TS World.ts:978-1005) ──────────────────────────────────
+	// L2 DEVIATION (accepted, documented NAI-93): TS runs processZones
+	// (W.ts:388) BEFORE processInfo (W.ts:395); goscape runs processInfo
+	// first so rebuildNormal (TS BuildArea slot, W.ts:996) settles before
+	// zone compute. Cost is a 1-tick facing artifact for a just-revealed
+	// zone — see the NAI-93 notes in player.go / processInfo below.
+	// Stat attribution: TS leaves processInfo UNMEASURED (its body,
+	// W.ts:1012-1108, writes no cycleStats entry); goscape attributes
+	// it to CLIENT_OUT — the adjacent phase that consumes its rsbuf
+	// computes — rather than leaving the time invisible. Deviation:
+	// goscape's CLIENT_OUT therefore reads slightly higher than TS's
+	// (which times only processClientsOut, W.ts:1109-1145).
+	t0 = time.Now()
+	s.processInfo()
+	s.addCycleTime(statClientOut, t0)
+
+	t0 = time.Now()
+	s.processZones() // compute ComputeShared before delivery
+	s.addCycleTime(statZone, t0)
+
+	// ── CLIENT_OUT (TS World.ts:1108-1145) ───────────────────────────
+	// BANDWIDTH_OUT reset: moved to tick start — see the
+	// PORTING-EXCEPTION (rev244-b4-bwout-reset) note there (TS resets
+	// at World.ts:1111, but goscape writes throughout the tick).
+	t0 = time.Now()
+	s.processClientsOut()
+	s.addCycleTime(statClientOut, t0)
+
+	// ── CLEANUP (TS World.ts:1147-1219) ──────────────────────────────
+	t0 = time.Now()
+	s.processCleanup()
+	s.addCycleTime(statCleanup, t0)
+
+	// processSessionLogs counts only toward CYCLE (like TS's
+	// session-log block at W.ts:462-485, which runs after CLEANUP and
+	// before the CYCLE measurement).
+	s.processSessionLogs() // NAI-74: TS World.cycle session-log block (W.ts:428-442)
 }
 
 // snapshotPlayers returns a stable copy of s.players for one tick pass
@@ -386,7 +409,7 @@ func (s *Server) processLogins() {
 			// world full — reject cleanly
 			p.writeOut(gameserver.OpLogout, nil)
 			_ = p.client.flushWrite()
-			_ = p.client.conn.Close()
+			p.client.closeConn()
 			continue
 		}
 		p.lastConnected = s.currentTick
@@ -536,9 +559,17 @@ func (s *Server) processLogins() {
 		}
 
 		// Fire the LOGIN trigger if the cache has one. Sub-spec RuneScript S3.
+		// DEVIATION SEC1-D1: TS has no per-player catch here (a throw
+		// reaches cycle()'s catch and the process exits). goscape contains
+		// the panic to this player: recoverPlayer logs, flags requestLogout
+		// and closes the socket, so one corrupt save/script cannot take the
+		// world down. Closure so the deferred recover runs per player.
 		if s.scriptProvider != nil {
-			sf := s.scriptProvider.GetByTrigger(script.TriggerLogin, -1, -1)
-			s.runScriptFn(sf, p, nil, script.TriggerLogin, true, nil, nil)
+			func() {
+				defer recoverPlayer(p, "loginTrigger", s.logTick)
+				sf := s.scriptProvider.GetByTrigger(script.TriggerLogin, -1, -1)
+				s.runScriptFn(sf, p, nil, script.TriggerLogin, true, nil, nil)
+			}()
 		}
 
 		// TS Player.ts:511-512 — establish the "imaginary previous step
@@ -656,7 +687,14 @@ func (s *Server) processLogouts() {
 				logoutScript = s.scriptProvider.GetByTriggerSpecific(script.TriggerLogout, -1, -1)
 			}
 			if logoutScript != nil {
-				s.runScript(logoutScript, p, nil, script.TriggerLogout, true, nil, nil)
+				// DEVIATION SEC1-D1 (see login trigger above): contain a
+				// [logout] panic to this player. Removal continues below
+				// regardless — recoverPlayer's requestLogout/close are
+				// no-ops for a player already being torn down.
+				func() {
+					defer recoverPlayer(p, "logoutTrigger", s.logTick)
+					s.runScriptFn(logoutScript, p, nil, script.TriggerLogout, true, nil, nil)
+				}()
 			} else {
 				s.logTick.Warn("no [logout] trigger registered; removing player without it",
 					"player", p.username)
@@ -667,7 +705,7 @@ func (s *Server) processLogouts() {
 			p.activeScript = nil
 			p.writeOut(gameserver.OpLogout, nil)
 			_ = p.client.flushWrite()
-			_ = p.client.conn.Close()
+			p.client.closeConn()
 
 			// NAI-30 Bundle 4: per-Buf observer decrement for every NPC this
 			// player tracked is performed inside removePlayerInternal →
