@@ -13,10 +13,25 @@ import (
 // client that stops reading fills its kernel window within seconds and
 // then hits these. DEVIATION SEC1-D3: TS socket.write buffers without
 // bound and never disconnects; goscape bounds memory and closes.
+//
+// Bytes is the real limiter; the slot count only exists so the channel
+// is bounded. Slots are deliberately generous because the OnDemand pump
+// is a producer too, and it lost its only backpressure when writes went
+// asynchronous: it emits one ~508-byte cache chunk per send, so a tight
+// slot cap would disconnect a legitimately-downloading client after only
+// a few tens of KiB. At 512 slots the byte cap (1 MiB) is what a stalled
+// peer trips, whatever the frame size.
 const (
-	maxOutboundQueueSlots = 64
-	maxOutboundQueueBytes = 256 << 10
+	maxOutboundQueueSlots = 512
+	maxOutboundQueueBytes = 1 << 20
 )
+
+// fallbackDrainTimeout bounds teardown when writeTimeout <= 0 has turned
+// the per-write deadlines off. It is short on purpose: at that point the
+// connection is going away, and all it has to cover is handing an
+// already-queued logout byte or login rejection to a peer that is still
+// reading.
+const fallbackDrainTimeout = 250 * time.Millisecond
 
 var errOutboundFull = errors.New("outbound queue overflow")
 
@@ -119,6 +134,20 @@ func (o *outboundWriter) Write(p []byte) (int, error) {
 // socket. It does not wait for that drain — no caller of Close (least of
 // all the tick goroutine) ever blocks on the network. Idempotent and
 // safe from any goroutine.
+//
+// Teardown is bounded even when writeTimeout <= 0 disables the per-write
+// deadlines, which the config allows (Config.Validate does not constrain
+// tcp_server_write_timeout). Without that bound a writer already parked
+// in a deadline-less conn.Write against a stalled peer would survive
+// closeConn and leak the fd, its goroutine, and the reader-side teardown
+// waiting on the socket. Close therefore stamps a fallbackDrainTimeout
+// deadline on the socket, which applies to the *pending* write as well as
+// to drain's (net.Conn: "the deadline applies to all future and pending
+// I/O"). That both frees the parked write and caps the drain under one
+// absolute budget, after which run's defer closes the socket. Closing the
+// socket outright here instead would be simpler but would silently
+// discard the logout byte or login rejection that the drain exists to
+// deliver.
 func (o *outboundWriter) Close() {
 	o.mu.Lock()
 	if o.state == outboundClosed {
@@ -134,7 +163,13 @@ func (o *outboundWriter) Close() {
 
 	close(o.done)
 	if !started {
+		// Nothing was ever written, so there is nothing to drain and no
+		// goroutine that will ever close the socket.
 		_ = o.conn.Close()
+		return
+	}
+	if o.writeTimeout <= 0 {
+		_ = o.conn.SetWriteDeadline(time.Now().Add(fallbackDrainTimeout))
 	}
 }
 
@@ -144,6 +179,17 @@ func (o *outboundWriter) Close() {
 func (o *outboundWriter) run() {
 	defer func() { _ = o.conn.Close() }()
 	for {
+		// done wins over pending frames. Without this priority check the
+		// select below picks a ready arm at random, so after Close the
+		// queue keeps feeding writeOne — each frame with its own fresh
+		// deadline — and teardown could take slots × writeTimeout instead
+		// of the single budget drain() applies.
+		select {
+		case <-o.done:
+			o.drain()
+			return
+		default:
+		}
 		select {
 		case buf := <-o.queue:
 			if !o.writeOne(buf) {
@@ -162,6 +208,9 @@ func (o *outboundWriter) run() {
 // before closeConn still reaches the peer without letting a dead peer
 // hold the goroutine for one writeTimeout per frame.
 func (o *outboundWriter) drain() {
+	// With deadlines disabled the socket already carries the
+	// fallbackDrainTimeout that Close stamped on it; leave it in force
+	// rather than clearing the only bound teardown has.
 	if o.writeTimeout > 0 {
 		_ = o.conn.SetWriteDeadline(time.Now().Add(o.writeTimeout))
 	}
@@ -191,7 +240,7 @@ func (o *outboundWriter) writeOne(buf []byte) bool {
 	}
 	o.mu.Unlock()
 	if err != nil {
-		o.log.Debug("outbound write failed; closing connection",
+		o.log.Info("outbound write failed; closing connection",
 			"remote_addr", o.conn.RemoteAddr(), "err", err)
 		return false
 	}
