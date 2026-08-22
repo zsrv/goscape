@@ -103,6 +103,7 @@ func (c *client) handleLogin() error {
 		// LOG-1: full req struct (incl. CRC table + password hash + ISAAC
 		// seed) at Info is noisy per-login. Demote to Debug; keep contextual
 		// Info-level success log at the end of handleLogin (line 955-ish).
+		// SEC1 M-7: GameLogin.LogValue redacts password/seed/CRC table.
 		c.log.Debug("unmarshalled OpReqInitGameConnection", "req", req)
 
 		c.decryptor = io2.New(req.ISAACSeed)
