@@ -83,6 +83,13 @@ ondemand:
   http_listen_address: 0.0.0.0
   http_listen_port: {{ $g.ports.ondemandHTTP }}
   cache_path: {{ $g.cachePath | quote }}
+  # ondemand keeps its own copy of the world's identity — the two modules do
+  # not cross-import — and /rs2.cgi advertises it to the Java applet, which
+  # then connects on node_port. Mirror both from one set of values so the
+  # applet is never handed a world id or port the world does not answer on.
+  node_id: {{ $g.node.id }}
+  node_members: {{ $g.node.members }}
+  node_port: {{ $g.ports.worldTCP }}
 {{- if or (eq $mode "SingleBinary") (eq $mode "Management") }}
 database:
 {{- if eq $g.database.backend "postgres" }}
