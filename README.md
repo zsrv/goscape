@@ -4,8 +4,9 @@ A Go rewrite of the [Lost City](https://github.com/LostCityRS) TypeScript RuneSc
 ([Engine-TS](https://github.com/LostCityRS/Engine-TS)), targeting wire-protocol
 **revision 245.2** and compatible with the Lost City Java client.
 
-The server is self-contained: login and friends persist to a central database (SQLite by
-default; PostgreSQL also supported via `database.backend`), and the ondemand
+The server is self-contained: login, friends, account and hiscore persist to a central
+database (SQLite by default; PostgreSQL also supported via `database.backend`), and the
+ondemand
 (HTTP) and world (TCP) modules are plain network listeners — **no external services are
 required to run it** in the default SQLite configuration.
 
@@ -19,12 +20,36 @@ The binary is module-targeted (Grafana dskit-style service lifecycle; see `pkg/d
 | `world`    | TCP game server (RS2 protocol, rev 245.2)     |
 | `login`    | gRPC login service (SQLite/PostgreSQL-backed) |
 | `friends`  | friends/private-message server (SQLite/PostgreSQL) |
+| `account`  | player portal (server-rendered web app) + AccountService gRPC |
+| `hiscore`  | read-only public hiscores JSON API            |
 | `all`      | all of the above (default)                    |
 
 Select with `--target` or `target:` in the config file. Configuration follows a layered
 precedence: defaults → config file → env vars → CLI flags. Verify a config without
 starting: `--config.verify`. Every option is documented at its default in
 `examples/full-config-reference.yaml`.
+
+`account` and `hiscore` are **goscape extensions** — Engine-TS has no counterpart for
+either, so they sit outside the TS fidelity ledger (see `docs/PORTING.md`). Both ship
+disabled (`enable: false`) and are inert until switched on:
+
+- **`account`** (`modules/account/`) introduces a portal account as a container for
+  game characters: registration with email verification, third-party identity linking,
+  a configurable character-creation gate (default: a linked Discord identity or manual
+  approval), role-gated admin pages, and the `AccountService` gRPC surface consumed by
+  the login module and `goscape-cli account`. Game login only delegates to it once
+  `login.auth_mode: account` (with `login.account_grpc_address`) is set; the default
+  `local` mode preserves the standalone login behaviour. Defaults: portal on
+  `127.0.0.1:8081`, gRPC on `127.0.0.1:2006`; `account.public_url` is required.
+- **`hiscore`** (`modules/hiscore/`) serves the `hiscore`/`hiscore_large` tables that
+  `modules/login` writes on logout — it never writes. Responses are ETag'd and
+  `Cache-Control`'d, offset and cursor paged, and hide staff and currently-banned
+  accounts. Staff are filtered on both the write and read paths; bans only on the
+  read path, since this revision's write path deliberately matches the TS engine
+  and exports banned accounts (`modules/login/hiscore.go`). Default listener
+  `127.0.0.1:8082`. The design spec
+  `docs/superpowers/specs/2026-08-19-hiscore-api-design.md`
+  covers the endpoints, parameters and rate-limit knobs.
 
 ## Quick start
 
@@ -54,6 +79,10 @@ For the complete set of tunables, see `examples/full-config-reference.yaml`.
 - `jag` — inspect a `.jag` archive (list | extract | dump)
 - `smoke-pack` — run all PackAll stages best-effort and report per-stage outcomes
 - `worldmap` — build `mapview/worldmap.jag` from packed map output
+- `unpack` — unpack a client cache into Content-tree sources (16 families)
+- `rsa` — generate or inspect RSA login keys (gen | info)
+- `account` — administer portal accounts (search | show | approve | disable |
+  unlink | reset-password | …)
 
 ## Tests
 
@@ -71,6 +100,9 @@ skip automatically when it isn't present.
   reference; `docs/superpowers/audits/` holds the function-level parity audits.
 - Binary I/O lives in `pkg/io/` (`packet` RS2 buffers, `protocol` opcodes/framing,
   `isaac` cipher); the RuneScript toolchain in `pkg/pack/`.
+- The hiscores read API and the account module are specced in
+  `docs/superpowers/specs/2026-08-19-hiscore-api-design.md`
+  and `docs/superpowers/specs/2026-07-19-account-management-design.md`.
 - `CLAUDE.md` documents the architecture (module system, networking, service lifecycle)
   in more detail.
 

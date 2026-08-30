@@ -14,9 +14,16 @@ Installed **once per role**, selected by `deploymentMode`.
 
 | `deploymentMode` | Workload | Modules | State |
 |---|---|---|---|
-| `SingleBinary` | StatefulSet | ondemand + world + login + friends | PVC |
-| `Management` | StatefulSet | login + friends | PVC |
+| `SingleBinary` | StatefulSet | ondemand + world + login + friends + hiscore | PVC |
+| `Management` | StatefulSet | login + friends + hiscore | PVC |
 | `World` | Deployment | ondemand + world (dials Management) | none |
+
+The `account` module has no dedicated values in this chart and is never rendered
+into the generated config, so the portal is off in every mode. To run it, enable
+it through `goscape.extraConfig` (`account.enable`, `account.public_url`, plus
+`admin_token` / SMTP / provider credentials supplied via `<mode>.extraEnv` and
+`secretKeyRef`) — note that its listeners get no Service port, NetworkPolicy rule
+or probe from the chart, so expose them yourself.
 
 ## Install
 
@@ -68,7 +75,7 @@ helm upgrade --install <release> ./goscape \
 
 The Secret is mounted read-only at `/etc/goscape-login-rsa` and wired into `world.rsa_private_key_path`. The matching public key must be baked into the Java client (`Client.java` `LOGIN_RSAN` / `LOGIN_RSAE`), or every login fails. Leave `existingSecret` empty to keep the built-in key.
 
-> **NetworkPolicy is same-namespace.** When `networkPolicy.enabled=true` in Management mode, only goscape pods carrying `app.kubernetes.io/name: goscape` in the **same namespace** may reach the login/friends gRPC ports. Install World releases in the same namespace as the Management release (or adjust the policy).
+> **NetworkPolicy is same-namespace.** When `networkPolicy.enabled=true` in Management mode, only goscape pods carrying `app.kubernetes.io/name: goscape` in the **same namespace** may reach the login/friends gRPC ports. Install World releases in the same namespace as the Management release (or adjust the policy). The hiscore HTTP port has its own rule — see `hiscoreGateway` below.
 
 ### Security defaults
 
