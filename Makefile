@@ -76,7 +76,7 @@ help: ## Display this help
 .PHONY: validate-example-configs
 .PHONY: clean clean-protos
 .PHONY: dev-k3d-goscape dev-k3d-down
-.PHONY: helm-test helm-lint
+.PHONY: helm-test helm-lint helm-test-account
 
 #############
 # Variables #
@@ -152,6 +152,10 @@ helm-lint: ## lint the helm chart against each example values file
 	helm lint $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/world-values.yaml \
 		--set goscape.loginServerAddress=mgmt:2004 \
 		--set goscape.friendsServerAddress=mgmt:2005
+	helm lint $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/management-values.yaml \
+		--set goscape.account.enabled=true \
+		--set goscape.account.publicUrl=https://portal.example.test \
+		--set goscape.account.existingSecret=goscape-account
 
 helm-test: ## render the chart for each example values file (cluster-free smoke)
 	helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml >/dev/null
@@ -159,6 +163,42 @@ helm-test: ## render the chart for each example values file (cluster-free smoke)
 	helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/world-values.yaml \
 		--set goscape.loginServerAddress=mgmt:2004 \
 		--set goscape.friendsServerAddress=mgmt:2005 >/dev/null
+	$(MAKE) helm-test-account
+
+# The account module is opt-in and has guard rails the other modules do not
+# (a required public_url, a database it can only reach in the stateful modes,
+# and a game-login switch that must not be set without it), so each branch is
+# rendered here rather than left to a reviewer's eye.
+helm-test-account: ACCOUNT_ON := --set goscape.account.enabled=true \
+		--set goscape.account.publicUrl=https://portal.example.test \
+		--set goscape.account.existingSecret=goscape-account
+helm-test-account: ## render the account-enabled chart variants, including the guard rails
+	@set -e; \
+	echo "  portal on SingleBinary"; \
+	helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml \
+		$(ACCOUNT_ON) | grep -q 'public_url: https://portal.example.test'; \
+	echo "  portal on Management, with portal-password game login"; \
+	helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/management-values.yaml \
+		$(ACCOUNT_ON) --set goscape.account.gameLogin=true | grep -q 'auth_mode: account'; \
+	echo "  portal Ingress"; \
+	helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml \
+		$(ACCOUNT_ON) --set accountIngress.enabled=true \
+		--set accountIngress.hosts[0].host=portal.example.test \
+		--set accountIngress.hosts[0].paths[0].path=/ \
+		--set accountIngress.hosts[0].paths[0].pathType=Prefix | grep -q 'kind: Ingress'; \
+	echo "  default render still has no account block"; \
+	! helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml \
+		| grep -qE '^ +account:$$'; \
+	echo "  guard: World mode cannot run the portal"; \
+	! helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/world-values.yaml \
+		--set goscape.loginServerAddress=mgmt:2004 --set goscape.friendsServerAddress=mgmt:2005 \
+		$(ACCOUNT_ON) >/dev/null 2>&1; \
+	echo "  guard: public_url is required"; \
+	! helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml \
+		--set goscape.account.enabled=true >/dev/null 2>&1; \
+	echo "  guard: gameLogin needs the portal"; \
+	! helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml \
+		--set goscape.account.gameLogin=true >/dev/null 2>&1
 
 #############
 # Releasing #
