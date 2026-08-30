@@ -55,6 +55,10 @@ goscape:
     friendsGRPC: 2005
     # -- hiscore API HTTP container port
     hiscoreHTTP: 8082
+    # -- account portal HTTP container port
+    accountHTTP: 8081
+    # -- account AccountService gRPC container port
+    accountGRPC: 2006
   node:
     # -- World id (World / SingleBinary modes)
     id: 1
@@ -99,6 +103,53 @@ goscape:
       # supports it and falls back to cleartext otherwise; set `require`
       # (or stricter) for hardened deployments, `disable` to force cleartext.
       sslmode: prefer
+
+  # -- Account module: player portal (HTTP) + AccountService gRPC
+  #    (Management / SingleBinary modes; sets account.*). Off by default:
+  #    unlike the other modules the portal cannot run on defaults alone, since
+  #    publicUrl has no sensible default and the module refuses to start
+  #    without it. Settings without a key here (argon2 cost, session TTLs) go
+  #    in goscape.extraConfig.
+  account:
+    # -- Run the player portal and AccountService
+    enabled: false
+    # -- Externally reachable portal base URL, no trailing slash. Used in
+    # verification/reset email links and as the OAuth redirect base, so it must
+    # be the address players actually reach — required when enabled.
+    publicUrl: ""
+    # -- Maximum characters per portal account
+    characterLimit: 5
+    gate:
+      # -- Character creation requires a linked identity from one of these
+      # providers, or membership of the manually_approved group. Empty means
+      # manual approval is the only route.
+      providers:
+        - discord
+    smtp:
+      # -- SMTP relay host. Empty disables outbound mail and logs the links instead.
+      host: ""
+      # -- SMTP relay port
+      port: 587
+      # -- Envelope From address
+      from: ""
+      # -- SMTP username (an identifier; the password comes from existingSecret)
+      username: ""
+    providers:
+      discord:
+        # -- Discord OAuth2 client id (the client secret comes from existingSecret)
+        clientId: ""
+    # -- Existing Secret holding the portal's secrets. Read keys (each optional,
+    # so one Secret can carry only what you use): `admin-token` guards the admin
+    # gRPC surface, `smtp-password` authenticates the mail relay, and
+    # `discord-client-secret` is the OAuth2 app secret. A key that is absent
+    # leaves that feature off. Empty disables all three.
+    existingSecret: ""
+    # -- Authenticate game logins against portal accounts: sets
+    # login.auth_mode=account, points login at the local AccountService, and
+    # turns off login.auto_register (the two conflict — with the portal in
+    # charge, accounts are created there, not on first game login). Leave false
+    # to keep the standalone login behaviour and run the portal alongside it.
+    gameLogin: false
 
 # Workload knobs for SingleBinary mode
 singleBinary:
@@ -240,6 +291,17 @@ service:
 
 # Ingress for the ondemand HTTP endpoint (SingleBinary / World)
 ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+# Ingress for the account portal (Management / SingleBinary, when
+# goscape.account.enabled). Kept separate from the ondemand Ingress above:
+# the portal is a browser-facing web app on its own hostname, which must match
+# goscape.account.publicUrl.
+accountIngress:
   enabled: false
   className: ""
   annotations: {}

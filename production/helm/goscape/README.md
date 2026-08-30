@@ -18,12 +18,8 @@ Installed **once per role**, selected by `deploymentMode`.
 | `Management` | StatefulSet | login + friends + hiscore | PVC |
 | `World` | Deployment | ondemand + world (dials Management) | none |
 
-The `account` module has no dedicated values in this chart and is never rendered
-into the generated config, so the portal is off in every mode. To run it, enable
-it through `goscape.extraConfig` (`account.enable`, `account.public_url`, plus
-`admin_token` / SMTP / provider credentials supplied via `<mode>.extraEnv` and
-`secretKeyRef`) — note that its listeners get no Service port, NetworkPolicy rule
-or probe from the chart, so expose them yourself.
+The `account` module (player portal + AccountService gRPC) rides on the two
+stateful modes and is off by default — see [Account portal](#account-portal).
 
 ## Install
 
@@ -77,6 +73,54 @@ The Secret is mounted read-only at `/etc/goscape-login-rsa` and wired into `worl
 
 > **NetworkPolicy is same-namespace.** When `networkPolicy.enabled=true` in Management mode, only goscape pods carrying `app.kubernetes.io/name: goscape` in the **same namespace** may reach the login/friends gRPC ports. Install World releases in the same namespace as the Management release (or adjust the policy). The hiscore HTTP port has its own rule — see `hiscoreGateway` below.
 
+### Account portal
+
+The portal is opt-in, because it is the one module that cannot run on defaults
+alone: `publicUrl` has no sensible default and the module refuses to start
+without it. Enable it on a `SingleBinary` or `Management` release:
+
+```bash
+kubectl create secret generic goscape-account \
+  --from-literal=admin-token="$(openssl rand -hex 32)"
+helm upgrade --install <release> ./goscape \
+  --set goscape.account.enabled=true \
+  --set goscape.account.publicUrl=https://portal.example.com \
+  --set goscape.account.existingSecret=goscape-account
+```
+
+That renders the `account:` config block, adds the portal (8081) and
+AccountService (2006) container ports, and publishes the portal on the release's
+Service. `accountIngress` is a separate Ingress from the ondemand one, since the
+portal is browser-facing on its own hostname — which must match `publicUrl`,
+because that value is the base of every emailed verification/reset link and the
+OAuth redirect URI.
+
+`existingSecret` names one Secret read for three optional keys: `admin-token`
+(guards the admin gRPC surface), `smtp-password`, and `discord-client-secret`.
+Only the keys you create are used — an absent key leaves the variable unset,
+which expands to the empty string, which is already each field's "feature off"
+value. **These values are substituted into `config.yaml` before it is parsed, so
+they must be plain scalars**: a value containing `: `, or leading `{`/`[`/`*`/`&`/
+`!`/`%`/`@`, will corrupt the file. Random hex or base64url tokens are safe. The
+same applies to the PostgreSQL password, which is substituted into the DSN.
+
+Settings without a dedicated key — argon2 cost, session TTLs — go in
+`goscape.extraConfig` under `account:`.
+
+`goscape.account.gameLogin=true` additionally points game login at the portal:
+it sets `login.auth_mode: account`, dials AccountService over loopback, and
+turns `login.auto_register` off, which that mode requires (with the portal in
+charge, accounts are created there, not on first game login). It is deliberately
+a separate switch: running the portal is not the same decision as changing how
+every player authenticates. Existing players' saves are unaffected, but the
+credentials they log in with change, so plan that switch with a maintenance
+window.
+
+The AccountService gRPC port is intentionally **not** on the Service: `login`
+reaches it over loopback inside the same pod in both stateful modes, so a
+Service port would widen a bearer-token-guarded admin surface with no in-cluster
+consumer. Use `kubectl port-forward` when running `goscape-cli account`.
+
 ### Security defaults
 
 Pods run as uid `65532` with a read-only root filesystem and all capabilities
@@ -89,8 +133,9 @@ return 503 during a slow cold-cache boot.
 
 `--config.expand-env=true` is now always on, so `${VAR}` references inside
 `goscape.extraConfig` resolve from the container's environment — set the var
-via `<mode>.extraEnv`, using `secretKeyRef` for secrets such as
-`account.admin_token` or SMTP/Discord credentials rather than a literal value.
+via `<mode>.extraEnv`, using `secretKeyRef` for secrets rather than a literal
+value. (The portal's own secrets need none of that; see
+[Account portal](#account-portal).)
 Because expansion is unconditional, a literal `$` anywhere in `extraConfig`
 must be escaped as `$$` per `drone/envsubst` (used to expand the config).
 
@@ -129,4 +174,4 @@ Run the in-cluster connectivity test against a deployed release (requires a live
 helm test <release>
 ```
 
-For a cluster-free render/lint smoke check of all three example values files, use `make helm-test` and `make helm-lint` from the repo root.
+For a cluster-free render/lint smoke check of all three example values files, use `make helm-test` and `make helm-lint` from the repo root. `make helm-test` also runs `helm-test-account`, which renders the portal-enabled variants and asserts each of the account guard rails fires.
