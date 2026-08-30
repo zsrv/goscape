@@ -29,9 +29,12 @@
 # Env-var expansion: with --config.expand-env=true, any ${VAR} in a value is
 # replaced by the environment. Example: dsn: ${GOSCAPE_DB:-data/goscape.db}
 #
-# NOTE: every value below is the built-in DEFAULT, with one exception — the four
-# module `enable:` keys are set to `true` so this file is a coherent "run
-# everything" config (the code default for each is `false`). A module runs only
+# NOTE: every value below is the built-in DEFAULT, with one exception — the
+# `enable:` keys of ondemand, world, login and friends are set to `true` so this
+# file is a coherent "run the game server" config (the code default for each is
+# `false`). The two extension modules, `account` and `hiscore`, are left at their
+# code default of `false`: neither is needed to run the game, and `account`
+# additionally requires `public_url` before it will validate. A module runs only
 # when BOTH its `enable:` is true AND it is included by the active `target`.
 # =============================================================================
 
@@ -45,6 +48,8 @@
 #   world     TCP game server only
 #   login     gRPC login service only
 #   friends   friends server only
+#   account   player portal + AccountService gRPC only
+#   hiscore   read-only hiscores JSON API only
 #   all       run everything (default)
 # CLI: --target
 target: all
@@ -184,11 +189,12 @@ ondemand:
 
 
 # ----------------------------------------------------------------------------
-# database — central database shared by login + friends (independent clients)
+# database — central database shared by login + friends + account + hiscore
 # ----------------------------------------------------------------------------
-# Central database shared by the login and friends services. Both are
-# independent clients of it — with the sqlite backend they must share a
-# filesystem; postgres lifts that to a network database.
+# Central database shared by the login, friends, account and hiscore services.
+# Each is an independent client of it with its own pool — with the sqlite
+# backend they must share a filesystem; postgres lifts that to a network
+# database.
 database:
   # Backend: sqlite | postgres.
   backend: sqlite

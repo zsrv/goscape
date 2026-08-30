@@ -52,11 +52,14 @@ The `--target` flag (or `target:` in the config file) selects which modules to r
 - `login` — gRPC login service only
 - `friends` — friends server only
 - `account` — portal (SSR web app) + AccountService gRPC only
-- `all` (default) — all of the above, now including `account`
+- `hiscore` — read-only hiscores JSON API only
+- `all` (default) — all of the above
 
 Verify a config file without starting: `--config.verify=true`. Expand env vars in config: `--config.expand-env=true`. (Both are value flags and require the `=true`; the bare form errors with `flag needs an argument`.)
 
-The `database:` section selects the central database backend (`sqlite` default or `postgres` via `database.backend`; postgres enables running login and friends on different hosts against one network central DB; both are independent clients of one DB).
+The `database:` section selects the central database backend (`sqlite` default or `postgres` via `database.backend`; postgres enables running login and friends on different hosts against one network central DB). Every DB-using module — `login`, `friends`, `account`, `hiscore` — is an independent client of that one DB with its own pool; the invisible `database` module is only the migration anchor.
+
+`account` and `hiscore` are goscape extensions with no Engine-TS counterpart (outside the TS fidelity ledger). Both default to `enable: false`; `account` additionally requires `public_url` when enabled, and game login only routes through it when `login.auth_mode: account` (plus `login.account_grpc_address`) is set — the default `local` mode is unchanged.
 
 ## Architecture
 
@@ -81,7 +84,8 @@ login     gRPC login service                                   → common, datab
 world     TCP game server (world.Server)                       → common, login, friends
 ondemand  HTTP OnDemand server (dskit server + OnDemand)       → common, world
 account   portal + AccountService gRPC                         → common, database
-all       composite "run everything" target                    → ondemand, friends, login, world, account
+hiscore   read-only hiscores JSON API (dskit server)           → common, database
+all       composite "run everything" target                    → ondemand, friends, login, world, account, hiscore
 ```
 
 Adding a new module: register it in `modules.go`, wire its dependencies, and add its config to `cmd/goscape/app/config.go`.
@@ -98,6 +102,10 @@ Each feature module lives under `modules/<name>/` and contains:
 **OnDemand module** (`modules/ondemand/`): uses `pkg/dskit/server` which wraps `net/http`. Handlers are registered on `server.HTTP` (a `*http.ServeMux`).
 
 **World module** (`modules/world/`): raw TCP server. `server.go` runs `net.Listen` → `Accept` loop → per-connection goroutine. Each connection goes through a `client` state machine starting at `ClientStateLogin`. ISAAC cipher streams are established after the login handshake.
+
+**Hiscore module** (`modules/hiscore/`): like ondemand, an HTTP surface on `pkg/dskit/server` (the caller in `modules.go` owns the `*server.Server`, which supplies request logging, timeouts and source-IP extraction). Read-only over the `hiscore`/`hiscore_large` tables that `modules/login` writes on logout; see `docs/hiscores-api.md`.
+
+**Login / friends / account modules**: gRPC listeners. `account` runs two — the server-rendered portal over HTTP and `AccountService` over gRPC.
 
 ### Binary I/O
 
