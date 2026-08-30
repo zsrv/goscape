@@ -139,6 +139,14 @@ value. (The portal's own secrets need none of that; see
 Because expansion is unconditional, a literal `$` anywhere in `extraConfig`
 must be escaped as `$$` per `drone/envsubst` (used to expand the config).
 
+`goscape.node.debug` is the engine's debug mode (one value, rendered into both
+`world.node_debug` and `ondemand.node_debug`, which the modules keep separately).
+It sends players extra debug information such as missing-trigger messages, and it
+is the gate on `/rs2.cgi` serving the Java applet bootstrap for `plugin=1`. It
+stays `true` — the engine default this chart has always inherited — so pinning it
+changed no behaviour; set it `false` for a public deployment that does not serve
+the applet.
+
 `image.digest` pins the image by digest (`repo@sha256:...`); when set, `image.tag` is ignored.
 
 `hiscoreGateway.proxyNamespace` / `hiscoreGateway.proxyPodSelector` scope the
