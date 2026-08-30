@@ -68,11 +68,11 @@ goscape:
     profile: main
     # -- Engine debug mode (TS Environment.NODE_DEBUG), rendered into both
     # world.node_debug and ondemand.node_debug. It sends players extra debug
-    # info such as missing-trigger messages, and it is what lets /rs2.cgi serve
-    # the Java applet bootstrap for `plugin=1`. Kept true because that is the
-    # engine default this chart has always inherited — set false for a public
-    # deployment that does not serve the applet.
-    debug: true
+    # info such as missing-trigger messages, so this chart turns it off: the
+    # engine's own default is true, which suits development, not a public
+    # server. Set it true if you serve the Java applet — /rs2.cgi only answers
+    # `plugin=1` with the applet bootstrap while debug is on.
+    debug: false
   # -- World mode only: address of the Management login gRPC, e.g. goscape-mgmt:2004
   loginServerAddress: ""
   # -- World mode only: address of the Management friends gRPC, e.g. goscape-mgmt:2005
