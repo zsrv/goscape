@@ -39,6 +39,17 @@ spec:
       port: {{ .Values.goscape.ports.hiscoreHTTP }}
       targetPort: hiscore-http
       protocol: TCP
+    {{- if .Values.goscape.account.enabled }}
+    {{- /* Portal only. AccountService gRPC is deliberately absent: login
+           reaches it over loopback inside this same pod in both stateful
+           modes, so a Service port would widen the admin surface (guarded
+           by a bearer token alone) for no in-cluster consumer. Reach it with
+           `kubectl port-forward` for `goscape-cli account`. */}}
+    - name: account-http
+      port: {{ .Values.goscape.ports.accountHTTP }}
+      targetPort: account-http
+      protocol: TCP
+    {{- end }}
     {{- end }}
 {{- if or (eq $mode "SingleBinary") (eq $mode "Management") }}
 ---
