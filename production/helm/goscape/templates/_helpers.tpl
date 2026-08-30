@@ -89,6 +89,7 @@ ondemand:
   node_id: {{ $g.node.id }}
   node_members: {{ $g.node.members }}
   node_port: {{ $g.ports.worldTCP }}
+  node_debug: {{ $g.node.debug }}
 {{- if or (eq $mode "SingleBinary") (eq $mode "Management") }}
 database:
 {{- if eq $g.database.backend "postgres" }}
@@ -164,6 +165,7 @@ world:
   node_id: {{ $g.node.id }}
   node_members: {{ $g.node.members }}
   node_profile: {{ $g.node.profile | quote }}
+  node_debug: {{ $g.node.debug }}
   cache_path: {{ $g.cachePath | quote }}
 {{- if and $g.loginRsaKey.existingSecret (or (eq $mode "SingleBinary") (eq $mode "World")) }}
   rsa_private_key_path: {{ printf "/etc/goscape-login-rsa/%s" $g.loginRsaKey.key | quote }}
