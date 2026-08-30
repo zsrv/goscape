@@ -1,0 +1,38 @@
+{{- if .Values.accountIngress.enabled -}}
+{{- if not .Values.goscape.account.enabled -}}
+{{- fail "accountIngress.enabled requires goscape.account.enabled: there is no portal behind the Ingress otherwise" -}}
+{{- end -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "goscape.fullname" . }}-account
+  labels:
+    {{- include "goscape.labels" . | nindent 4 }}
+  {{- with .Values.accountIngress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.accountIngress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.accountIngress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.accountIngress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "goscape.fullname" $ }}
+                port:
+                  number: {{ $.Values.goscape.ports.accountHTTP }}
+          {{- end }}
+    {{- end }}
+{{- end }}

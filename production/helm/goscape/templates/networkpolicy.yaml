@@ -49,4 +49,12 @@ spec:
         - port: {{ .Values.goscape.ports.hiscoreHTTP }}
           protocol: TCP
     {{- end }}
+    {{- if and .Values.goscape.account.enabled (or (eq .Values.deploymentMode "SingleBinary") (eq .Values.deploymentMode "Management")) }}
+    # Account portal. Browser-facing like the ondemand port, so it is open;
+    # the AccountService gRPC port needs no rule, because login reaches it
+    # from inside this same pod and same-pod traffic is not subject to policy.
+    - ports:
+        - port: {{ .Values.goscape.ports.accountHTTP }}
+          protocol: TCP
+    {{- end }}
 {{- end }}

@@ -66,6 +66,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "goscape.baseConfig" -}}
 {{- $mode := .Values.deploymentMode -}}
 {{- $g := .Values.goscape -}}
+{{- $acct := $g.account -}}
+{{- $stateful := or (eq $mode "SingleBinary") (eq $mode "Management") -}}
+{{- if and $acct.enabled (not $stateful) -}}
+{{- fail "goscape.account.enabled requires deploymentMode SingleBinary or Management: the portal is a client of the central database, which World mode does not render" -}}
+{{- end -}}
+{{- if and $acct.gameLogin (not $acct.enabled) -}}
+{{- fail "goscape.account.gameLogin requires goscape.account.enabled: login would be pointed at an AccountService that this release does not run" -}}
+{{- end -}}
 target: all
 log_level: {{ $g.logLevel | quote }}
 log_format: {{ $g.logFormat | quote }}
@@ -92,6 +100,14 @@ login:
   grpc_listen_port: {{ $g.ports.loginGRPC }}
   save_path: {{ printf "%s/players" $g.dataPath | quote }}
   node_profile: {{ $g.node.profile | quote }}
+{{- if and $acct.gameLogin $stateful }}
+  # Portal-password game login. auto_register must go off with it: the two are
+  # a validation conflict, because accounts are created in the portal rather
+  # than on first game login.
+  auth_mode: account
+  account_grpc_address: {{ printf "127.0.0.1:%d" (int $g.ports.accountGRPC) | quote }}
+  auto_register: false
+{{- end }}
 friends:
   enable: {{ or (eq $mode "SingleBinary") (eq $mode "Management") }}
   grpc_listen_address: 0.0.0.0
@@ -103,6 +119,36 @@ hiscore:
   http_listen_port: {{ $g.ports.hiscoreHTTP }}
   profile: {{ $g.node.profile | quote }}
   trust_gateway_headers: {{ .Values.hiscoreGateway.createGatewayConfig }}
+{{- if and $acct.enabled $stateful }}
+account:
+  enable: true
+  http_listen_address: 0.0.0.0
+  http_listen_port: {{ $g.ports.accountHTTP }}
+  grpc_listen_address: 0.0.0.0
+  grpc_listen_port: {{ $g.ports.accountGRPC }}
+  public_url: {{ required "goscape.account.publicUrl is required when goscape.account.enabled (it is the base of every emailed link and the OAuth redirect)" $acct.publicUrl | quote }}
+  character_limit: {{ $acct.characterLimit }}
+  gate:
+    providers:
+      {{- toYaml $acct.gate.providers | nindent 6 }}
+  smtp:
+    host: {{ $acct.smtp.host | quote }}
+    port: {{ $acct.smtp.port }}
+    from: {{ $acct.smtp.from | quote }}
+    username: {{ $acct.smtp.username | quote }}
+    {{- if $acct.existingSecret }}
+    password: "${GOSCAPE_ACCOUNT_SMTP_PASSWORD}"
+    {{- end }}
+  providers:
+    discord:
+      client_id: {{ $acct.providers.discord.clientId | quote }}
+      {{- if $acct.existingSecret }}
+      client_secret: "${GOSCAPE_ACCOUNT_DISCORD_CLIENT_SECRET}"
+      {{- end }}
+  {{- if $acct.existingSecret }}
+  admin_token: "${GOSCAPE_ACCOUNT_ADMIN_TOKEN}"
+  {{- end }}
+{{- end }}
 world:
   enable: {{ or (eq $mode "SingleBinary") (eq $mode "World") }}
   tcp_listen_network: tcp
@@ -143,6 +189,9 @@ world:
 {{- $mode := $ctx.Values.deploymentMode -}}
 {{- $g := $ctx.Values.goscape -}}
 {{- $pgActive := and (eq $g.database.backend "postgres") (or (eq $mode "SingleBinary") (eq $mode "Management")) -}}
+{{- $acct := $g.account -}}
+{{- $acctActive := and $acct.enabled (or (eq $mode "SingleBinary") (eq $mode "Management")) -}}
+{{- $acctSecret := and $acctActive $acct.existingSecret -}}
 metadata:
   annotations:
     checksum/config: {{ include "goscape.config" $ctx | sha256sum }}
@@ -178,7 +227,7 @@ spec:
         {{- with $w.extraArgs }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- if or $pgActive $w.extraEnv }}
+      {{- if or $pgActive $acctSecret $w.extraEnv }}
       env:
         {{- if $pgActive }}
         - name: GOSCAPE_DB_PASSWORD
@@ -186,6 +235,30 @@ spec:
             secretKeyRef:
               name: {{ required "goscape.database.postgres.existingSecret is required when backend=postgres" $g.database.postgres.existingSecret }}
               key: {{ $g.database.postgres.secretKey }}
+        {{- end }}
+        {{- if $acctSecret }}
+        {{- /* optional: true is what lets one Secret carry only the keys this
+               deployment actually uses — an absent key leaves the variable
+               unset, config expansion turns it into the empty string, and
+               empty is already each field's "feature off" value. */}}
+        - name: GOSCAPE_ACCOUNT_ADMIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ $acct.existingSecret }}
+              key: admin-token
+              optional: true
+        - name: GOSCAPE_ACCOUNT_SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ $acct.existingSecret }}
+              key: smtp-password
+              optional: true
+        - name: GOSCAPE_ACCOUNT_DISCORD_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ $acct.existingSecret }}
+              key: discord-client-secret
+              optional: true
         {{- end }}
         {{- with $w.extraEnv }}
         {{- toYaml . | nindent 8 }}
@@ -205,6 +278,12 @@ spec:
           containerPort: {{ $ctx.Values.goscape.ports.friendsGRPC }}
         - name: hiscore-http
           containerPort: {{ $ctx.Values.goscape.ports.hiscoreHTTP }}
+        {{- end }}
+        {{- if $acctActive }}
+        - name: account-http
+          containerPort: {{ $ctx.Values.goscape.ports.accountHTTP }}
+        - name: account-grpc
+          containerPort: {{ $ctx.Values.goscape.ports.accountGRPC }}
         {{- end }}
       readinessProbe:
         {{- if eq $mode "Management" }}
