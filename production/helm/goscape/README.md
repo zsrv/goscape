@@ -142,10 +142,9 @@ must be escaped as `$$` per `drone/envsubst` (used to expand the config).
 `goscape.node.debug` is the engine's debug mode (one value, rendered into both
 `world.node_debug` and `ondemand.node_debug`, which the modules keep separately).
 It sends players extra debug information such as missing-trigger messages, and it
-is the gate on `/rs2.cgi` serving the Java applet bootstrap for `plugin=1`. It
-stays `true` — the engine default this chart has always inherited — so pinning it
-changed no behaviour; set it `false` for a public deployment that does not serve
-the applet.
+is the gate on `/rs2.cgi` serving the Java applet bootstrap for `plugin=1`. The
+chart defaults it **off**, unlike the engine, whose `true` default suits
+development rather than a public server. Set it `true` if you serve the applet.
 
 `image.digest` pins the image by digest (`repo@sha256:...`); when set, `image.tag` is ignored.
 
@@ -169,6 +168,13 @@ so in-cluster callers cannot bypass Kong's key-auth and rate limiting.
   literal `$` in `goscape.extraConfig` — most often inside a password or an
   argon2 PHC string — is consumed by the expansion and the value silently
   changes. Escape every literal `$` as `$$` before upgrading.
+- **`goscape.node.debug` now defaults to `false`.** Earlier releases inherited
+  the engine's `true`, so players received debug information such as
+  missing-trigger messages. Two consequences on upgrade: those messages stop
+  (the reason for the change), and `/rs2.cgi` stops serving the **Java applet**
+  bootstrap for `plugin=1`, since the engine gates the applet template on the
+  same flag. If your players use the applet rather than the JS/WebSocket client,
+  set `goscape.node.debug=true` before upgrading.
 - **`world.content_watch`.** It writes a stamp file into `cache_path`, which is
   incompatible with the `readOnlyRootFilesystem: true` container default (and
   with a read-only cache mount). Leave it off in Kubernetes, or mount the cache
