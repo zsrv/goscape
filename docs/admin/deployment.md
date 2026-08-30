@@ -211,9 +211,12 @@ layouts for Kubernetes. You install it **once per role**, choosing the role with
 
 | `deploymentMode` | Workload | Modules | State |
 |---|---|---|---|
-| `SingleBinary` | StatefulSet | ondemand + world + login + friends | PVC |
-| `Management` | StatefulSet | login + friends | PVC |
+| `SingleBinary` | StatefulSet | ondemand + world + login + friends + hiscore | PVC |
+| `Management` | StatefulSet | login + friends + hiscore | PVC |
 | `World` | Deployment | ondemand + world (dials Management) | none |
+
+The `account` module rides on the two stateful modes but is off unless you turn
+it on — see the account portal bullet below.
 
 `SingleBinary` maps to scenario 1 and `Management` + `World` map to scenario 3: a
 single `Management` release (a StatefulSet with a PersistentVolumeClaim for its
@@ -257,6 +260,19 @@ operators:
   label **in the same namespace** may reach the login and friends gRPC ports.
   Install `World` releases in the same namespace as the `Management` release, or
   widen the policy yourself.
+- **The account portal is opt-in.** It is the one module the chart cannot switch
+  on for you: `goscape.account.publicUrl` has no sensible default and the module
+  refuses to start without it. Set `goscape.account.enabled=true` with that URL on
+  a `SingleBinary` or `Management` release, and the chart renders the portal's
+  config, its two container ports, and a Service entry for the portal. The
+  portal's secrets come from one Secret named by `goscape.account.existingSecret`,
+  read for the optional keys `admin-token`, `smtp-password` and
+  `discord-client-secret`; a key you do not create simply leaves that feature off.
+  `accountIngress` publishes the portal on its own hostname, which must match
+  `publicUrl`, since that URL is the base of every emailed link and the OAuth
+  redirect. Switching game login over to portal passwords is a separate flag,
+  `goscape.account.gameLogin` — a change to how every player authenticates, so the
+  chart never implies it from the portal being on.
 - **A custom login RSA key is a mounted Secret.** In `World` and `SingleBinary`
   modes you can replace the built-in login-decryption key: pre-create a Secret
   holding the PEM-encoded private key and reference it with
