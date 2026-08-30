@@ -42,7 +42,8 @@ func consumerFromHeaders(r *http.Request, trust bool) caller {
 // attributes, for the handful of log lines diagnostic enough to be
 // worth the caller's identity: the rate-limit rejection in guard and
 // the internal-error path in internal. This is the read side of the
-// gateway-header contract described in docs/hiscores-api.md §11 — the
+// gateway-header contract described under "Security posture" in the
+// hiscores API guide (main:docs/admin/hiscores-api.md) — the
 // consumer name and anonymous flag are for logging only, never for
 // authorization.
 func callerAttrs(c caller) []any {

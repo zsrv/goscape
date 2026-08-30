@@ -43,9 +43,9 @@ disabled (`enable: false`) and are inert until switched on:
 - **`hiscore`** (`modules/hiscore/`) serves the `hiscore`/`hiscore_large` tables that
   `modules/login` writes on logout — it never writes. Responses are ETag'd and
   `Cache-Control`'d, offset and cursor paged, and filter staff and banned accounts at
-  read time as well as write time. Default listener `127.0.0.1:8082`. The design
-  spec `docs/superpowers/specs/2026-08-19-hiscore-api-design.md`
-  covers the endpoints, parameters and rate-limit knobs.
+  read time as well as write time. Default listener `127.0.0.1:8082`. Endpoints,
+  parameters and rate-limit knobs are documented in the Administrator's Guide's
+  Hiscores API page on the docs site (source: `main:docs/admin/hiscores-api.md`).
 
 ## Quick start
 
@@ -96,9 +96,10 @@ skip automatically when it isn't present.
   reference; `docs/superpowers/audits/` holds the function-level parity audits.
 - Binary I/O lives in `pkg/io/` (`packet` RS2 buffers, `protocol` opcodes/framing,
   `isaac` cipher); the RuneScript toolchain in `pkg/pack/`.
-- The hiscores read API and the account module are specced in
-  `docs/superpowers/specs/2026-08-19-hiscore-api-design.md`
-  and `docs/superpowers/specs/2026-07-19-account-management-design.md`.
+- The hiscores read API is documented for operators on the docs site
+  (`main:docs/admin/hiscores-api.md`); its design spec is
+  `docs/superpowers/specs/2026-08-19-hiscore-api-design.md`, and the account
+  module's is `docs/superpowers/specs/2026-07-19-account-management-design.md`.
 - `CLAUDE.md` documents the architecture (module system, networking, service lifecycle)
   in more detail.
 

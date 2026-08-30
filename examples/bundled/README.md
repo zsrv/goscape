@@ -34,7 +34,7 @@ go run ./cmd/goscape --config.file examples/bundled/goscape.yaml --config.verify
 | 8080 | ondemand | HTTP OnDemand server |
 | 2004 | login  | gRPC login service |
 | 2005 | friends | gRPC friends service |
-| 8082 | hiscore | read-only hiscores JSON API (see `docs/superpowers/specs/2026-08-19-hiscore-api-design.md`) |
+| 8082 | hiscore | read-only hiscores JSON API (guide: docs site, Administrator's Guide → Hiscores API) |
 | 43594 | world | TCP game server |
 
 ## Data

@@ -103,7 +103,7 @@ Each feature module lives under `modules/<name>/` and contains:
 
 **World module** (`modules/world/`): raw TCP server. `server.go` runs `net.Listen` → `Accept` loop → per-connection goroutine. Each connection goes through a `client` state machine starting at `ClientStateLogin`. ISAAC cipher streams are established after the login handshake.
 
-**Hiscore module** (`modules/hiscore/`): like ondemand, an HTTP surface on `pkg/dskit/server` (the caller in `modules.go` owns the `*server.Server`, which supplies request logging, timeouts and source-IP extraction). Read-only over the `hiscore`/`hiscore_large` tables that `modules/login` writes on logout; see `docs/superpowers/specs/2026-08-19-hiscore-api-design.md`.
+**Hiscore module** (`modules/hiscore/`): like ondemand, an HTTP surface on `pkg/dskit/server` (the caller in `modules.go` owns the `*server.Server`, which supplies request logging, timeouts and source-IP extraction). Read-only over the `hiscore`/`hiscore_large` tables that `modules/login` writes on logout. Operator guide: `main:docs/admin/hiscores-api.md` (docs site); design spec: `docs/superpowers/specs/2026-08-19-hiscore-api-design.md`.
 
 **Login / friends / account modules**: gRPC listeners. `account` runs two — the server-rendered portal over HTTP and `AccountService` over gRPC.
 
