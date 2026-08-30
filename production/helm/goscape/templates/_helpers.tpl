@@ -208,8 +208,9 @@ spec:
         {{- end }}
       readinessProbe:
         {{- if eq $mode "Management" }}
-        {{- /* Management runs only login-grpc/friends-grpc — no ondemand
-               HTTP port exists to httpGet /healthz against, so this
+        {{- /* Management runs login-grpc/friends-grpc/hiscore-http — no
+               ondemand HTTP port exists to httpGet /healthz against (the
+               hiscore listener serves the API only, not /healthz), so this
                deployment keeps the coarser tcpSocket check (arch-29.6). */}}
         tcpSocket:
           port: login-grpc

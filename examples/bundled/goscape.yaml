@@ -2,8 +2,12 @@
 # Example config for the standalone goscape game server.
 # Start goscape with: go run ./cmd/goscape --config.file examples/bundled/goscape.yaml
 #
-# The game server is self-contained: login and friends persist to one
-# local SQLite central database, so no external services are required.
+# The game server is self-contained: login, friends and hiscore persist to
+# one local SQLite central database, so no external services are required.
+#
+# target: all also covers the `account` module, but it stays off because its
+# `enable:` defaults to false — the portal needs an account: block (with a
+# public_url) before it will run. See examples/full-config-reference.yaml.
 target: all
 
 database:

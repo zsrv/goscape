@@ -1,5 +1,5 @@
 ---
-# Central management: login + friends only (no world). Worlds dial this release.
+# Central management: login + friends + hiscore (no world). Worlds dial this release.
 deploymentMode: Management
 
 management:

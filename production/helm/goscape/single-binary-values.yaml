@@ -1,5 +1,6 @@
 ---
-# Run all four modules (ondemand + world + login + friends) in one StatefulSet.
+# Run ondemand + world + login + friends + hiscore in one StatefulSet.
+# (The account module is not rendered by this chart; see the chart README.)
 deploymentMode: SingleBinary
 
 singleBinary:
