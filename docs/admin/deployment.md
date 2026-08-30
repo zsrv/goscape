@@ -13,23 +13,24 @@ Two choices shape every layout:
   module's own `enable` key gates it; a module runs only when both include it. The
   [Administrator's Guide overview](index.md#modules-and-the-target-flag) explains
   the modules, the [dependency graph](index.md#module-dependency-graph), and the
-  [four network listeners](index.md#network-surfaces-and-ports) they expose.
-- **Which database backend the central database uses.** `login` and `friends` are
-  the only two modules that read and write the central database; `sqlite` keeps it
-  in a local file, while `postgres` makes it a network service. See
+  [network listeners](index.md#network-surfaces-and-ports) they expose.
+- **Which database backend the central database uses.** `login`, `friends`,
+  `account` and `hiscore` are the modules that use the central database (`hiscore`
+  only reads it, and `account` runs only when you enable it); `sqlite` keeps it in
+  a local file, while `postgres` makes it a network service. See
   [Configuration](configuration.md#choosing-a-database-backend) for the
   `database:` section.
 
 Throughout this page the ports `8080` (OnDemand HTTP), `43594` (world TCP), `2004`
-(login gRPC), and `2005` (friends gRPC) are the values from the overview's
+(login gRPC), `2005` (friends gRPC), and `8082` (hiscores HTTP) are the values from the overview's
 [listener table](index.md#network-surfaces-and-ports); every port and bind address
 is configurable through the [Config reference](config-reference.md).
 
 ## 1. Single binary with SQLite (development and small deployments)
 
 The simplest layout is one process that runs everything. Set `target: all` and the
-process starts all four modules; with the default `sqlite` backend it keeps its
-state in a local database file and needs no external services at all. This is what
+process starts every module you have enabled; with the default `sqlite` backend it
+keeps its state in a local database file and needs no external services at all. This is what
 the bundled example preset does, and it is the layout the [Quick start](quickstart.md)
 walks through step by step.
 
@@ -46,18 +47,21 @@ graph LR
         world["world<br/>TCP :43594"]
         login["login<br/>gRPC :2004"]
         friends["friends<br/>gRPC :2005"]
+        hiscore["hiscore<br/>HTTP :8082"]
         db[("SQLite file<br/>data/goscape.db")]
         world -->|loopback gRPC| login
         world -->|loopback gRPC| friends
         login -->|reads / writes| db
         friends -->|reads / writes| db
+        hiscore -->|reads| db
     end
     client -->|game cache over HTTP| ondemand
     client -->|gameplay over TCP| world
 ```
 
-*Figure 1: one process runs every module; the login/friends gRPC calls never leave
-the host, and both write to a single SQLite file.*
+*Figure 1: one process runs every enabled module; the login/friends gRPC calls
+never leave the host, login and friends write to a single SQLite file, and
+hiscore serves reads from it.*
 
 !!! tip "When this layout is enough"
     A single-binary SQLite server is ideal for development, testing, and small

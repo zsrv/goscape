@@ -40,13 +40,15 @@ A few notes on that command:
   `-trimpath` removes local filesystem paths from the binary. Both are optional
   for a quick local run but match how release binaries are built.
 
-The bundled preset is self-contained: the `login` and `friends` modules persist
-to a local SQLite database file, so **no external services (no separate database
-server) are required** to run it.
+The bundled preset is self-contained: the `login`, `friends` and `hiscore`
+modules persist to a local SQLite database file, so **no external services (no
+separate database server) are required** to run it.
 
 ## What the bundled preset starts
 
-The bundled file sets `target: all`, so a single process runs every module.
+The bundled file sets `target: all`, so a single process runs the whole game
+server. (`all` also covers the `account` module, but the portal stays off: its
+`enable` key defaults to `false` and the bundled file does not set it.)
 It opens the following network listeners:
 
 | Port | Module | Protocol | What it is for |
@@ -55,11 +57,12 @@ It opens the following network listeners:
 | 43594 | `world` | TCP | Carries live gameplay; this is the port a game client connects to. |
 | 2004 | `login` | gRPC | Authenticates players; consumed by the `world` module. |
 | 2005 | `friends` | gRPC | Friends list and private messaging; consumed by the `world` module. |
+| 8082 | `hiscore` | HTTP | Read-only public hiscores JSON API. |
 
 Only the OnDemand port (8080) and the login port (2004) are set explicitly in the
-bundled file; the world port (43594, the classic RuneScape game port) and the
-friends port (2005) come from built-in defaults because the bundled file does not
-override them. Every port and bind address is configurable — see
+bundled file; the world port (43594, the classic RuneScape game port), the
+friends port (2005) and the hiscores port (8082) come from built-in defaults
+because the bundled file does not override them. Every port and bind address is configurable — see
 [Configuration](configuration.md) and the [Config reference](config-reference.md).
 
 On first run the server creates its state under a local `data` directory:

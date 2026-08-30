@@ -36,9 +36,12 @@ Every option at its default, as shipped on `rev-254`.
 # Env-var expansion: with --config.expand-env=true, any ${VAR} in a value is
 # replaced by the environment. Example: dsn: ${GOSCAPE_DB:-data/goscape.db}
 #
-# NOTE: every value below is the built-in DEFAULT, with one exception — the four
-# module `enable:` keys are set to `true` so this file is a coherent "run
-# everything" config (the code default for each is `false`). A module runs only
+# NOTE: every value below is the built-in DEFAULT, with one exception — the
+# `enable:` keys of ondemand, world, login and friends are set to `true` so this
+# file is a coherent "run the game server" config (the code default for each is
+# `false`). The two extension modules, `account` and `hiscore`, are left at their
+# code default of `false`: neither is needed to run the game, and `account`
+# additionally requires `public_url` before it will validate. A module runs only
 # when BOTH its `enable:` is true AND it is included by the active `target`.
 # =============================================================================
 
@@ -52,6 +55,8 @@ Every option at its default, as shipped on `rev-254`.
 #   world     TCP game server only
 #   login     gRPC login service only
 #   friends   friends server only
+#   account   player portal + AccountService gRPC only
+#   hiscore   read-only hiscores JSON API only
 #   all       run everything (default)
 # CLI: --target
 target: all
@@ -138,6 +143,12 @@ ondemand:
   # CLI: --ondemand.node-debug (default: true)
   node_debug: true
 
+  # Serve GET /debug/status (players online, current tick, tick age) on the
+  # public ondemand listener. It is unauthenticated, so it doubles as a load /
+  # presence oracle for attackers — leave off unless you front it with auth.
+  # CLI: --ondemand.debug-status-enabled (default: false)
+  debug_status_enabled: false
+
   # --- WebSocket -> world bridge ---
   websocket:
     # Serve a WS bridge at "/" that forwards binary frames to the world module's
@@ -185,12 +196,12 @@ ondemand:
 
 
 # ----------------------------------------------------------------------------
-# database — central database shared by login + friends (independent clients)
+# database — central database shared by login + friends + account + hiscore
 # ----------------------------------------------------------------------------
-# Central database shared by the login and friends services. Both are
-# independent clients of it — with the sqlite backend they must share a
-# filesystem; postgres lifts that to a network database, letting login and
-# friends run on separate hosts against one database.
+# Central database shared by the login, friends, account and hiscore services.
+# Each is an independent client of it with its own pool — with the sqlite
+# backend they must share a filesystem; postgres lifts that to a network
+# database, letting them run on separate hosts against one database.
 database:
   # Backend: sqlite | postgres.
   backend: sqlite
@@ -289,7 +300,11 @@ world:
   # --- TCP timeouts ---
   # CLI: --world.tcp-read-timeout (default: 30s)
   tcp_server_read_timeout: 30s
-  # CLI: --world.tcp-write-timeout (default: 2s; per-flush budget on tick goroutine)
+  # CLI: --world.tcp-write-timeout (default: 2s)
+  # Per-write deadline for the client's outbound socket writer, and the
+  # budget it gets to drain already-queued frames when the connection is
+  # closed. Socket writes run on a per-client writer goroutine, never on
+  # the world tick goroutine (SEC1 M-2).
   tcp_server_write_timeout: 2s
   # CLI: --world.tcp-idle-timeout (default: 120s)
   tcp_server_idle_timeout: 120s

@@ -8,7 +8,8 @@ Example values files from `rev-244:production/helm/goscape/`.
 
 ```yaml
 ---
-# Run all four modules (ondemand + world + login + friends) in one StatefulSet.
+# Run ondemand + world + login + friends + hiscore in one StatefulSet.
+# (The account module is not rendered by this chart; see the chart README.)
 deploymentMode: SingleBinary
 
 singleBinary:
@@ -33,7 +34,7 @@ service:
 
 ```yaml
 ---
-# Central management: login + friends only (no world). Worlds dial this release.
+# Central management: login + friends + hiscore (no world). Worlds dial this release.
 deploymentMode: Management
 
 management:

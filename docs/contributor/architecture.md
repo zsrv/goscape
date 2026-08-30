@@ -42,8 +42,9 @@ terminal `Failed` state instead of `Terminated`. The key types live in
 
 ## Module system and the registration pattern
 
-The named modules (`ondemand`, `world`, `login`, `friends`, plus the invisible
-`common` and `database`) are wired by `pkg/dskit/modules.Manager`, which resolves
+The named modules (`ondemand`, `world`, `login`, `friends`, `account`, `hiscore`,
+plus the invisible `common` and `database`) are wired by
+`pkg/dskit/modules.Manager`, which resolves
 the dependency graph and initialises modules in topological order. The wiring
 lives in `cmd/goscape/app/modules.go`:
 

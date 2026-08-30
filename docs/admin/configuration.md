@@ -103,22 +103,25 @@ before the server starts.
 ## Choosing which modules run: `target`
 
 The `target` key (or the `--target` flag) selects which modules the process runs:
-`ondemand`, `world`, `login`, `friends`, or `all` (the default). Selecting a
-target pulls in the modules it depends on automatically. The
+`ondemand`, `world`, `login`, `friends`, `account`, `hiscore`, or `all` (the
+default). Selecting a target pulls in the modules it depends on automatically. The
 [Administrator's Guide overview](index.md#modules-and-the-target-flag) explains
 each target and the dependency graph between modules.
 
 `target` interacts with each module's own `enable` key: **a module runs only when
 both its `enable` is set to `true` and it is included by the active `target`.** The
-bundled preset sets `target: all` and `enable: true` on every module, so the whole
-server runs in one process. To split the server across hosts — for example, to run
+bundled preset sets `target: all` and enables `ondemand`, `world`, `login`,
+`friends` and `hiscore`, so the whole game server runs in one process. It leaves
+`account` at its default `enable: false`, so the player portal does not start
+even though `all` covers it — see [the portal's listeners](index.md#network-surfaces-and-ports). To split the server across hosts — for example, to run
 only the login service on its own machine — set `target: login` there and enable
 just that module; see [Deployment scenarios](deployment.md).
 
 ## Choosing a database backend
 
-The `login` and `friends` modules share one **central database**. The `database:`
-section selects its backend with `database.backend`, which is one of:
+The `login`, `friends`, `account` and `hiscore` modules share one **central
+database** — each is an independent client of it with its own connection pool. The
+`database:` section selects the backend with `database.backend`, which is one of:
 
 === "`sqlite` (default)"
 
@@ -129,9 +132,9 @@ section selects its backend with `database.backend`, which is one of:
         dsn: data/goscape.db   # SQLite file path
     ```
 
-    A single local database file. Because both modules must reach the same file,
-    the SQLite backend requires them to share a filesystem — that is, to run on the
-    same host. This is what the bundled preset uses, and it needs no external
+    A single local database file. Because every module using it must reach the
+    same file, the SQLite backend requires them to share a filesystem — that is, to
+    run on the same host. This is what the bundled preset uses, and it needs no external
     services. `sqlite.dsn` must be non-empty.
 
 === "`postgres`"
@@ -152,7 +155,7 @@ section selects its backend with `database.backend`, which is one of:
 
 An invalid backend name is rejected at startup — `database.backend` must be one of
 `[sqlite, postgres]`. See the overview's [network surfaces](index.md#network-surfaces-and-ports)
-for how the shared database sits behind the `login` and `friends` modules, and
+for how the shared database sits behind the database-using modules, and
 [Deployment scenarios](deployment.md) for the multi-host layout that PostgreSQL
 enables.
 
