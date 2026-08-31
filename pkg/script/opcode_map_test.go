@@ -10,13 +10,15 @@ import (
 // pin-advance dee467c8 (adds MAP_LOC, MINIMAP_TOGGLE, SET_SKILL_LEVEL and
 // NPC_DESTINATION; renames SETSKINCOLOUR→SETIDKCOLOUR in place — see
 // opcode_map_274_pin_test.go for the full table).
+// pin-advance 1d25566c (adds P_TEMPRUN, P_TRANSMOGRIFY, DATE_MINUTES and
+// DATE_RUNEDAY: 400 -> 404).
 // History: 413 at 244 pin 9aadcec4; 414 at 245.2 (adds IF_SETSCROLLPOS);
 // 418 at 254 pin 43e02957 (PUSH_VARBIT/POP_VARBIT/STAT_TOTAL/
 // SET_PLAYER_OP); 396 at 254 pin 2e3bcf43 (enum restructure 418 -> 396).
 func TestScriptOpcodeMap_LengthParity(t *testing.T) {
-	const wantLen = 400
+	const wantLen = 404
 	if got := len(ScriptOpcodeMap); got != wantLen {
-		t.Fatalf("len(ScriptOpcodeMap) = %d, want %d (re-verify against TS ScriptOpcode.ts at pin dee467c8)", got, wantLen)
+		t.Fatalf("len(ScriptOpcodeMap) = %d, want %d (re-verify against TS ScriptOpcode.ts at pin 1d25566c)", got, wantLen)
 	}
 }
 

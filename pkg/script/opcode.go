@@ -200,55 +200,57 @@ const (
 	OpPPauseButton        Opcode = 2085
 	OpPPreventLogout      Opcode = 2086
 	OpPRun                Opcode = 2087
-	OpPStopAction         Opcode = 2088
-	OpPTeleJump           Opcode = 2089
-	OpPTeleport           Opcode = 2090
-	OpPWalk               Opcode = 2091
-	OpPlayerMember        Opcode = 2092
-	OpProjAnimPl          Opcode = 2093
-	OpQueue               Opcode = 2094
-	OpQueueVarArg         Opcode = 2095
-	OpReadyAnim           Opcode = 2096
-	OpRunAnim             Opcode = 2097
-	OpRunEnergy           Opcode = 2098
-	OpSay                 Opcode = 2099
-	OpSessionLog          Opcode = 2100
-	OpSetPlayerOp         Opcode = 2101
-	OpSetGender           Opcode = 2102
-	OpSetIdKit            Opcode = 2103
-	OpSetSkillLevel       Opcode = 2104
-	OpSetIdkColour        Opcode = 2105
-	OpSetTimer            Opcode = 2106
-	OpSoftTimer           Opcode = 2107
-	OpSoundSynth          Opcode = 2108
-	OpSpotAnimPl          Opcode = 2109
-	OpStaffModLevel       Opcode = 2110
-	OpStatAdd             Opcode = 2111
-	OpStatAdvance         Opcode = 2112
-	OpStatBase            Opcode = 2113
-	OpStatBoost           Opcode = 2114
-	OpStatDrain           Opcode = 2115
-	OpStatHeal            Opcode = 2116
-	OpStatRandom          Opcode = 2117
-	OpStatSub             Opcode = 2118
-	OpStatTotal           Opcode = 2119
-	OpStat                Opcode = 2120
-	OpStrongQueue         Opcode = 2121
-	OpStrongQueueVarArg   Opcode = 2122
-	OpTurnAnim            Opcode = 2123
-	OpTutClose            Opcode = 2124
-	OpTutFlash            Opcode = 2125
-	OpTutOpen             Opcode = 2126
-	OpUID                 Opcode = 2127
-	OpWalkAnimB           Opcode = 2128
-	OpWalkAnimL           Opcode = 2129
-	OpWalkAnimR           Opcode = 2130
-	OpWalkAnim            Opcode = 2131
-	OpWalkTrigger         Opcode = 2132
-	OpWeakQueue           Opcode = 2133
-	OpWeakQueueVarArg     Opcode = 2134
-	OpWealthEvent         Opcode = 2135
-	OpWeight              Opcode = 2136
+	OpPTempRun            Opcode = 2088 // 8139461a: inserted, shifting P_STOPACTION..WEIGHT
+	OpPStopAction         Opcode = 2089
+	OpPTeleJump           Opcode = 2090
+	OpPTeleport           Opcode = 2091
+	OpPTransmogrify       Opcode = 2092 // 8139461a: inserted, shifting P_WALK..WEIGHT by a further +1
+	OpPWalk               Opcode = 2093
+	OpPlayerMember        Opcode = 2094
+	OpProjAnimPl          Opcode = 2095
+	OpQueue               Opcode = 2096
+	OpQueueVarArg         Opcode = 2097
+	OpReadyAnim           Opcode = 2098
+	OpRunAnim             Opcode = 2099
+	OpRunEnergy           Opcode = 2100
+	OpSay                 Opcode = 2101
+	OpSessionLog          Opcode = 2102
+	OpSetPlayerOp         Opcode = 2103
+	OpSetGender           Opcode = 2104
+	OpSetIdKit            Opcode = 2105
+	OpSetSkillLevel       Opcode = 2106
+	OpSetIdkColour        Opcode = 2107
+	OpSetTimer            Opcode = 2108
+	OpSoftTimer           Opcode = 2109
+	OpSoundSynth          Opcode = 2110
+	OpSpotAnimPl          Opcode = 2111
+	OpStaffModLevel       Opcode = 2112
+	OpStatAdd             Opcode = 2113
+	OpStatAdvance         Opcode = 2114
+	OpStatBase            Opcode = 2115
+	OpStatBoost           Opcode = 2116
+	OpStatDrain           Opcode = 2117
+	OpStatHeal            Opcode = 2118
+	OpStatRandom          Opcode = 2119
+	OpStatSub             Opcode = 2120
+	OpStatTotal           Opcode = 2121
+	OpStat                Opcode = 2122
+	OpStrongQueue         Opcode = 2123
+	OpStrongQueueVarArg   Opcode = 2124
+	OpTurnAnim            Opcode = 2125
+	OpTutClose            Opcode = 2126
+	OpTutFlash            Opcode = 2127
+	OpTutOpen             Opcode = 2128
+	OpUID                 Opcode = 2129
+	OpWalkAnimB           Opcode = 2130
+	OpWalkAnimL           Opcode = 2131
+	OpWalkAnimR           Opcode = 2132
+	OpWalkAnim            Opcode = 2133
+	OpWalkTrigger         Opcode = 2134
+	OpWeakQueue           Opcode = 2135
+	OpWeakQueueVarArg     Opcode = 2136
+	OpWealthEvent         Opcode = 2137
+	OpWeight              Opcode = 2138
 )
 
 // NPC ops (2500–2999)
@@ -492,6 +494,8 @@ const (
 	OpCosDeg           Opcode = 4626
 	OpAtan2Deg         Opcode = 4627
 	OpAbs              Opcode = 4628
+	OpDateMinutes      Opcode = 4629
+	OpDateRuneday      Opcode = 4630
 )
 
 // Struct ops (4700)
@@ -919,6 +923,10 @@ func (o Opcode) String() string {
 		return "WEALTH_EVENT"
 	case OpPRun:
 		return "P_RUN"
+	case OpPTempRun:
+		return "P_TEMPRUN"
+	case OpPTransmogrify:
+		return "P_TRANSMOGRIFY"
 	case OpPlayerMember:
 		return "PLAYERMEMBER"
 	case OpIfSetScrollPos:
@@ -1301,6 +1309,10 @@ func (o Opcode) String() string {
 		return "ATAN2_DEG"
 	case OpAbs:
 		return "ABS"
+	case OpDateMinutes:
+		return "DATE_MINUTES"
+	case OpDateRuneday:
+		return "DATE_RUNEDAY"
 	case OpDbFindWithCount:
 		return "DB_FIND_WITH_COUNT"
 	case OpDbFindNext:

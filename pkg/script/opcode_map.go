@@ -231,6 +231,8 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"SESSION_LOG":          OpSessionLog,
 	"WEALTH_EVENT":         OpWealthEvent,
 	"P_RUN":                OpPRun,
+	"P_TEMPRUN":            OpPTempRun,
+	"P_TRANSMOGRIFY":       OpPTransmogrify,
 	"PLAYERMEMBER":         OpPlayerMember,
 	"SET_PLAYER_OP":        OpSetPlayerOp,
 
@@ -437,6 +439,8 @@ var ScriptOpcodeMap = map[string]Opcode{
 	"COS_DEG":            OpCosDeg,
 	"ATAN2_DEG":          OpAtan2Deg,
 	"ABS":                OpAbs,
+	"DATE_MINUTES":       OpDateMinutes,
+	"DATE_RUNEDAY":       OpDateRuneday,
 
 	// DB ops (7500–7510)
 	"DB_FIND_WITH_COUNT":        OpDbFindWithCount,
