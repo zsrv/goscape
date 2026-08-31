@@ -105,7 +105,11 @@ func Pack(srcDir, outDir string, mapPack *pack.PackFile, cache *filestream.FileS
 	// rebuildWorldmap = !fs.existsSync('data/pack/mapview/worldmap.jag');
 	// :222 sets it on any map rebuild; :383-385 packs it after the loop).
 	// At 244/245.2 the worldmap was a standalone tool outside packAll.
-	rebuildWorldmap := !pack.FileExists(filepath.Join(outDir, "mapview", "worldmap.jag"))
+	// PSG: this gate is presence-only, so unlike the ShouldBuild* helpers it
+	// does not see the format latch on its own — worldmap.jag would survive a
+	// packer-format change untouched. It was one of the artifacts left stale
+	// by the rev-274 sync. See pack.FormatVersion.
+	rebuildWorldmap := pack.ForceRebuild() || !pack.FileExists(filepath.Join(outDir, "mapview", "worldmap.jag"))
 
 	// 254: TS packMaps iterates the MapPack registry in ID order, not the
 	// source directory (Pack.js:179-197 @ 2e3bcf43: for id 0..MapPack.max,
@@ -146,8 +150,13 @@ func Pack(srcDir, outDir string, mapPack *pack.PackFile, cache *filestream.FileS
 		serverObj := filepath.Join(mapsServer, "o"+mapXZ)
 
 		// Per-artifact freshness: any output older than its source triggers rebuild.
-		// TS Pack.js:130: packerUpdated = shouldBuildFile(__filename, mapFile)
-		// Go has no __filename analog; omit packerUpdated (permanent — no script mtime).
+		// TS Pack.js:130: packerUpdated = shouldBuildFile(__filename, mapFile).
+		// goscape has no __filename analog, and this was documented as a
+		// PERMANENT omission ("no script mtime"). PSG closes it: the
+		// ShouldBuildFile calls below consult pack.ForceRebuild(), which the
+		// packer format stamp latches on when the byte layout changes. The
+		// identity differs from TS's (a version, not a source mtime — PSG-D2)
+		// but the effect is the one TS's packerUpdated was reaching for.
 		needLand := pack.ShouldBuildFile(file, clientMap) || pack.ShouldBuildFile(file, serverMap)
 		needLoc := pack.ShouldBuildFile(file, clientLoc) || pack.ShouldBuildFile(file, serverLoc)
 		needNpc := pack.ShouldBuildFile(file, serverNpc)

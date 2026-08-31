@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/pack"
 )
 
 func writeFile(t *testing.T, path, content string) {
@@ -118,6 +120,14 @@ func TestPackAll_TwelveStageSmoke(t *testing.T) {
 	}
 	if err := os.WriteFile(filepath.Join(outDir, "mapview", "worldmap.jag"), []byte{0}, 0o644); err != nil {
 		t.Fatalf("WriteFile worldmap.jag stub: %v", err)
+	}
+	// PSG: the stub above only keeps the worldmap gate closed while the packer
+	// format matches what built this tree. An unstamped tree is treated as
+	// stale and forces a full rebuild — including worldmap, which this fixture
+	// deliberately carries no inputs for. Stamping the current format keeps
+	// this smoke on the incremental path it is written to exercise.
+	if err := pack.WriteFormatStamp(outDir); err != nil {
+		t.Fatalf("WriteFormatStamp: %v", err)
 	}
 	if err := PackAll(dir, outDir, outDir, rawDir); err != nil {
 		t.Fatalf("PackAll: %v", err)

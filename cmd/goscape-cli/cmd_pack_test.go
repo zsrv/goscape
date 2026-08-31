@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/pack"
 )
 
 // writeFile is a test helper mirroring the shape used in pkg/pack tests:
@@ -60,6 +62,11 @@ func seedMinimalPackFixture(t *testing.T, dir string) {
 // and carry none of the worldmap inputs (flo.dat, sprites, fonts,
 // labels.txt), so a worldmap rebuild would fail exactly as the TS
 // toolchain would on the same tree.
+//
+// PSG: the stub alone is no longer sufficient. An output tree with no packer
+// format stamp is treated as stale and forces a full rebuild, which reopens
+// the worldmap gate. Stamping the current format keeps these fixtures on the
+// incremental path they are written to exercise. See pack.FormatVersion.
 func seedWorldmapJagStub(t *testing.T, outDir string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(outDir, "mapview"), 0o755); err != nil {
@@ -67,6 +74,9 @@ func seedWorldmapJagStub(t *testing.T, outDir string) {
 	}
 	if err := os.WriteFile(filepath.Join(outDir, "mapview", "worldmap.jag"), []byte{0}, 0o644); err != nil {
 		t.Fatalf("WriteFile worldmap.jag stub: %v", err)
+	}
+	if err := pack.WriteFormatStamp(outDir); err != nil {
+		t.Fatalf("WriteFormatStamp: %v", err)
 	}
 }
 
