@@ -12,9 +12,9 @@ service FriendsService {
   rpc WorldConnect(WorldConnectRequest) returns (google.protobuf.Empty);
 
   // Player presence. Mirrors TS PLAYER_LOGIN/PLAYER_LOGOUT/PLAYER_CHAT_SETMODE.
-  rpc PlayerLogin(PlayerLoginRequest)     returns (PlayerLoginResponse);
-  rpc PlayerLogout(PlayerLogoutRequest)   returns (google.protobuf.Empty);
-  rpc ChatSetMode(ChatSetModeRequest)     returns (google.protobuf.Empty);
+  rpc PlayerLogin(PlayerLoginRequest) returns (PlayerLoginResponse);
+  rpc PlayerLogout(PlayerLogoutRequest) returns (google.protobuf.Empty);
+  rpc ChatSetMode(ChatSetModeRequest) returns (google.protobuf.Empty);
 
   // Social-list mutations. Mirrors TS FRIENDLIST_ADD/DEL, IGNORELIST_ADD/DEL.
   rpc FriendlistAdd(FriendlistAddRequest) returns (google.protobuf.Empty);
@@ -39,15 +39,15 @@ service FriendsService {
   // TS FriendServer.ts:298-302 `if (typeof this.socketByWorld[nodeId] !== 'undefined')`).
   // NAI-S5A-D-NO-ADMIN-AUTH-AT-SERVER — friends-server is dumb routing;
   // admin checks live on both sender and receiver world.
-  rpc RelayMute(RelayMuteRequest)                 returns (google.protobuf.Empty);
-  rpc RelayKick(RelayKickRequest)                 returns (google.protobuf.Empty);
-  rpc RelayShutdown(RelayShutdownRequest)         returns (google.protobuf.Empty);
-  rpc RelayBroadcast(RelayBroadcastRequest)       returns (google.protobuf.Empty);
-  rpc RelayTrack(RelayTrackRequest)               returns (google.protobuf.Empty);
-  rpc RelayReload(RelayReloadRequest)             returns (google.protobuf.Empty);
-  rpc RelayClearLogins(RelayClearLoginsRequest)   returns (google.protobuf.Empty);
+  rpc RelayMute(RelayMuteRequest) returns (google.protobuf.Empty);
+  rpc RelayKick(RelayKickRequest) returns (google.protobuf.Empty);
+  rpc RelayShutdown(RelayShutdownRequest) returns (google.protobuf.Empty);
+  rpc RelayBroadcast(RelayBroadcastRequest) returns (google.protobuf.Empty);
+  rpc RelayTrack(RelayTrackRequest) returns (google.protobuf.Empty);
+  rpc RelayReload(RelayReloadRequest) returns (google.protobuf.Empty);
+  rpc RelayClearLogins(RelayClearLoginsRequest) returns (google.protobuf.Empty);
   rpc RelayClearLogouts(RelayClearLogoutsRequest) returns (google.protobuf.Empty);
-  rpc RelayQueueScript(RelayQueueScriptRequest)   returns (google.protobuf.Empty);
+  rpc RelayQueueScript(RelayQueueScriptRequest) returns (google.protobuf.Empty);
 
   // Server -> world push for cross-world admin events. One subscriber per
   // world (owned by world.Server); the world-side dispatcher applies
@@ -61,17 +61,17 @@ service FriendsService {
 }
 
 message WorldConnectRequest {
-  int32  world_id = 1;
-  string profile  = 2;
+  int32 world_id = 1;
+  string profile = 2;
 }
 
 message PlayerLoginRequest {
-  int32  world_id     = 1;
-  uint64 username37   = 2;
-  int32  private_chat = 3;
-  int32  staff_lvl    = 4;
+  int32 world_id = 1;
+  uint64 username37 = 2;
+  int32 private_chat = 3;
+  int32 staff_lvl = 4;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile      = 5;
+  string profile = 5;
 }
 
 message PlayerLoginResponse {
@@ -81,75 +81,75 @@ message PlayerLoginResponse {
 }
 
 message PlayerLogoutRequest {
-  int32  world_id   = 1;
+  int32 world_id = 1;
   uint64 username37 = 2;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile    = 3;
+  string profile = 3;
 }
 
 message ChatSetModeRequest {
-  int32  world_id     = 1;
-  uint64 username37   = 2;
-  int32  private_chat = 3;
+  int32 world_id = 1;
+  uint64 username37 = 2;
+  int32 private_chat = 3;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile      = 4;
+  string profile = 4;
 }
 
 message FriendlistAddRequest {
-  int32  world_id          = 1;
-  uint64 username37        = 2;
+  int32 world_id = 1;
+  uint64 username37 = 2;
   uint64 target_username37 = 3;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile           = 4;
+  string profile = 4;
 }
 
 message FriendlistDelRequest {
-  int32  world_id          = 1;
-  uint64 username37        = 2;
+  int32 world_id = 1;
+  uint64 username37 = 2;
   uint64 target_username37 = 3;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile           = 4;
+  string profile = 4;
 }
 
 message IgnorelistAddRequest {
-  int32  world_id          = 1;
-  uint64 username37        = 2;
+  int32 world_id = 1;
+  uint64 username37 = 2;
   uint64 target_username37 = 3;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile           = 4;
+  string profile = 4;
 }
 
 message IgnorelistDelRequest {
-  int32  world_id          = 1;
-  uint64 username37        = 2;
+  int32 world_id = 1;
+  uint64 username37 = 2;
   uint64 target_username37 = 3;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile           = 4;
+  string profile = 4;
 }
 
 message PrivateMessageRequest {
-  int32  world_id          = 1;
-  uint64 username37        = 2;
+  int32 world_id = 1;
+  uint64 username37 = 2;
   uint64 target_username37 = 3;
-  int32  staff_lvl         = 4;
-  uint32 pm_id             = 5;
-  string chat              = 6;
-  int32  coord             = 7;
+  int32 staff_lvl = 4;
+  uint32 pm_id = 5;
+  string chat = 6;
+  int32 coord = 7;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile           = 8;
+  string profile = 8;
 }
 
 message SubscribeUpdatesRequest {
-  int32  world_id   = 1;
+  int32 world_id = 1;
   uint64 username37 = 2;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile    = 3;
+  string profile = 3;
 }
 
 message FriendsUpdate {
   oneof update {
-    FriendlistUpdate       friendlist      = 1;
-    IgnorelistUpdate       ignorelist      = 2;
+    FriendlistUpdate friendlist = 1;
+    IgnorelistUpdate ignorelist = 2;
     PrivateMessageDelivery private_message = 3;
   }
 }
@@ -160,7 +160,7 @@ message FriendlistUpdate {
 }
 
 message FriendEntry {
-  int32  world_id   = 1;
+  int32 world_id = 1;
   uint64 username37 = 2;
 }
 
@@ -170,88 +170,88 @@ message IgnorelistUpdate {
 
 message PrivateMessageDelivery {
   uint64 from_username37 = 1;
-  int32  staff_lvl       = 2;
-  uint32 pm_id           = 3;
-  string chat            = 4;
+  int32 staff_lvl = 2;
+  uint32 pm_id = 3;
+  string chat = 4;
 }
 
 // Slice 5a RELAY_* request messages. Each carries target_world_id (the
 // world that should RECEIVE the event) plus opcode-specific payload.
 
 message RelayMuteRequest {
-  int32  target_world_id = 1;
-  uint64 username37      = 2;
+  int32 target_world_id = 1;
+  uint64 username37 = 2;
   // Mute expiry as epoch milliseconds (matches TS `muted_until: number`).
   // 0 = unmute. Negative = permanent (matches existing modules/login
   // PlayerMute semantics).
-  int64  muted_until_ms  = 3;
+  int64 muted_until_ms = 3;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile         = 4;
+  string profile = 4;
 }
 
 message RelayKickRequest {
-  int32  target_world_id = 1;
-  uint64 username37      = 2;
+  int32 target_world_id = 1;
+  uint64 username37 = 2;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile         = 3;
+  string profile = 3;
 }
 
 message RelayShutdownRequest {
-  int32  target_world_id = 1;
+  int32 target_world_id = 1;
   // Shutdown countdown in ticks (TS `duration`).
-  int32  duration_ticks  = 2;
+  int32 duration_ticks = 2;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile         = 3;
+  string profile = 3;
 }
 
 message RelayBroadcastRequest {
-  int32  target_world_id = 1;
+  int32 target_world_id = 1;
   // Game-wide chat broadcast text (TS `broadcast` → `message`).
-  string message         = 2;
+  string message = 2;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile         = 3;
+  string profile = 3;
 }
 
 message RelayTrackRequest {
-  int32  target_world_id = 1;
-  uint64 username37      = 2;
+  int32 target_world_id = 1;
+  uint64 username37 = 2;
   // TS-faithful `state` (FriendServer.ts:348). Untyped in TS; pinned as
   // int32 so slice 5b can interpret per the anti-cheat tracking subsystem.
-  int32  state           = 3;
+  int32 state = 3;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile         = 4;
+  string profile = 4;
 }
 
 message RelayReloadRequest {
-  int32  target_world_id = 1;
+  int32 target_world_id = 1;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile         = 2;
+  string profile = 2;
 }
 
 message RelayClearLoginsRequest {
-  int32  target_world_id = 1;
+  int32 target_world_id = 1;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile         = 2;
+  string profile = 2;
 }
 
 message RelayClearLogoutsRequest {
-  int32  target_world_id = 1;
+  int32 target_world_id = 1;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile         = 2;
+  string profile = 2;
 }
 
 message RelayQueueScriptRequest {
-  int32  target_world_id = 1;
-  string script_name     = 2;
-  uint64 username37      = 3;
+  int32 target_world_id = 1;
+  string script_name = 2;
+  uint64 username37 = 3;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile         = 4;
+  string profile = 4;
 }
 
 message SubscribeWorldEventsRequest {
-  int32  world_id = 1;
+  int32 world_id = 1;
   // rev-244: per-message profile (multi-profile server, FriendServer.ts:546-722).
-  string profile  = 2;
+  string profile = 2;
 }
 
 // WorldEvent is the inbound push variant pushed to a world's
@@ -260,21 +260,21 @@ message SubscribeWorldEventsRequest {
 // its own ID, and the routing field is irrelevant to the action layer.
 message WorldEvent {
   oneof event {
-    MuteEvent           mute          = 1;
-    KickEvent           kick          = 2;
-    ShutdownEvent       shutdown      = 3;
-    BroadcastEvent      broadcast     = 4;
-    TrackEvent          track         = 5;
-    ReloadEvent         reload        = 6;
-    ClearLoginsEvent    clear_logins  = 7;
-    ClearLogoutsEvent   clear_logouts = 8;
-    QueueScriptEvent    queue_script  = 9;
+    MuteEvent mute = 1;
+    KickEvent kick = 2;
+    ShutdownEvent shutdown = 3;
+    BroadcastEvent broadcast = 4;
+    TrackEvent track = 5;
+    ReloadEvent reload = 6;
+    ClearLoginsEvent clear_logins = 7;
+    ClearLogoutsEvent clear_logouts = 8;
+    QueueScriptEvent queue_script = 9;
   }
 }
 
 message MuteEvent {
-  uint64 username37     = 1;
-  int64  muted_until_ms = 2;
+  uint64 username37 = 1;
+  int64 muted_until_ms = 2;
 }
 
 message KickEvent {
@@ -291,7 +291,7 @@ message BroadcastEvent {
 
 message TrackEvent {
   uint64 username37 = 1;
-  int32  state      = 2;
+  int32 state = 2;
 }
 
 message ReloadEvent {}
@@ -302,5 +302,5 @@ message ClearLogoutsEvent {}
 
 message QueueScriptEvent {
   string script_name = 1;
-  uint64 username37  = 2;
+  uint64 username37 = 2;
 }

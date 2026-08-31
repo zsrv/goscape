@@ -7,69 +7,69 @@ import "google/protobuf/timestamp.proto";
 option go_package = "github.com/zsrv/goscape/pkg/loginpb";
 
 service LoginService {
-  rpc WorldStartup(WorldStartupRequest)               returns (google.protobuf.Empty);
-  rpc PlayerLogin(PlayerLoginRequest)                 returns (PlayerLoginResponse);
-  rpc PlayerLogout(PlayerLogoutRequest)               returns (PlayerLogoutResponse);
-  rpc PlayerAutosave(PlayerAutosaveRequest)           returns (google.protobuf.Empty);
-  rpc PlayerForceLogout(PlayerForceLogoutRequest)     returns (google.protobuf.Empty);
-  rpc PlayerBan(PlayerBanRequest)                     returns (PlayerBanResponse);
-  rpc PlayerMute(PlayerMuteRequest)                   returns (PlayerMuteResponse);
+  rpc WorldStartup(WorldStartupRequest) returns (google.protobuf.Empty);
+  rpc PlayerLogin(PlayerLoginRequest) returns (PlayerLoginResponse);
+  rpc PlayerLogout(PlayerLogoutRequest) returns (PlayerLogoutResponse);
+  rpc PlayerAutosave(PlayerAutosaveRequest) returns (google.protobuf.Empty);
+  rpc PlayerForceLogout(PlayerForceLogoutRequest) returns (google.protobuf.Empty);
+  rpc PlayerBan(PlayerBanRequest) returns (PlayerBanResponse);
+  rpc PlayerMute(PlayerMuteRequest) returns (PlayerMuteResponse);
 }
 
 enum LoginResult {
-  LOGIN_RESULT_UNSPECIFIED         = 0;
-  LOGIN_RESULT_OK                  = 1;
-  LOGIN_RESULT_NEW_PLAYER          = 2;
-  LOGIN_RESULT_RECONNECT_OK        = 3;
+  LOGIN_RESULT_UNSPECIFIED = 0;
+  LOGIN_RESULT_OK = 1;
+  LOGIN_RESULT_NEW_PLAYER = 2;
+  LOGIN_RESULT_RECONNECT_OK = 3;
   LOGIN_RESULT_INVALID_CREDENTIALS = 4;
-  LOGIN_RESULT_ALREADY_LOGGED_IN   = 5;
-  LOGIN_RESULT_ACCOUNT_DISABLED    = 6;
-  LOGIN_RESULT_NOT_A_MEMBER        = 7;
-  LOGIN_RESULT_LOGIN_IN_PROGRESS   = 8;
-  LOGIN_RESULT_IP_BANNED           = 9;
+  LOGIN_RESULT_ALREADY_LOGGED_IN = 5;
+  LOGIN_RESULT_ACCOUNT_DISABLED = 6;
+  LOGIN_RESULT_NOT_A_MEMBER = 7;
+  LOGIN_RESULT_LOGIN_IN_PROGRESS = 8;
+  LOGIN_RESULT_IP_BANNED = 9;
   // rev-244: login-server 3-in-5s same-account+IP rate limit
   // (TS LoginServer.ts:234-253, response 8 -> client byte 16).
-  LOGIN_RESULT_RATE_LIMITED        = 10;
+  LOGIN_RESULT_RATE_LIMITED = 10;
   // rev-244: 45s world-hop timer (TS LoginServer.ts:366-379,
   // response 6 -> client byte 9).
-  LOGIN_RESULT_HOP_TIMER           = 11;
+  LOGIN_RESULT_HOP_TIMER = 11;
 }
 
 message WorldStartupRequest {
-  int32  node_id = 1;
+  int32 node_id = 1;
   string profile = 2;
 }
 
 message PlayerLoginRequest {
-  int32  node_id        = 1;
-  string profile        = 2;
-  bool   node_members   = 3;
-  string username       = 4;
-  string password       = 5;
-  int32  uid            = 6;
+  int32 node_id = 1;
+  string profile = 2;
+  bool node_members = 3;
+  string username = 4;
+  string password = 5;
+  int32 uid = 6;
   reserved 7;
   reserved "socket";
   string remote_address = 8;
-  bool   reconnecting   = 9;
-  bool   has_save       = 10;
+  bool reconnecting = 9;
+  bool has_save = 10;
 }
 
 message PlayerLoginResponse {
-  LoginResult                result        = 1;
-  int32                      account_id    = 2;
-  int32                      staff_mod_level = 3;
-  optional bytes             save          = 4;
+  LoginResult result = 1;
+  int32 account_id = 2;
+  int32 staff_mod_level = 3;
+  optional bytes save = 4;
   optional google.protobuf.Timestamp muted_until = 5;
-  bool                       members       = 6;
-  int32                      message_count = 7;
-  string                     session_uuid  = 8;
+  bool members = 6;
+  int32 message_count = 7;
+  string session_uuid = 8;
 }
 
 message PlayerLogoutRequest {
-  int32  node_id  = 1;
-  string profile  = 2;
+  int32 node_id = 1;
+  string profile = 2;
   string username = 3;
-  bytes  save     = 4;
+  bytes save = 4;
 }
 
 message PlayerLogoutResponse {
@@ -77,29 +77,29 @@ message PlayerLogoutResponse {
 }
 
 message PlayerAutosaveRequest {
-  string profile  = 1;
+  string profile = 1;
   string username = 2;
-  bytes  save     = 3;
+  bytes save = 3;
 }
 
 message PlayerForceLogoutRequest {
-  int32  node_id  = 1;
-  string profile  = 2;
+  int32 node_id = 1;
+  string profile = 2;
   string username = 3;
 }
 
 message PlayerBanRequest {
-  string                    staff    = 1;
-  string                    username = 2;
-  google.protobuf.Timestamp until    = 3;
+  string staff = 1;
+  string username = 2;
+  google.protobuf.Timestamp until = 3;
 }
 
 message PlayerBanResponse {}
 
 message PlayerMuteRequest {
-  string                    staff    = 1;
-  string                    username = 2;
-  google.protobuf.Timestamp until    = 3;
+  string staff = 1;
+  string username = 2;
+  google.protobuf.Timestamp until = 3;
 }
 
 message PlayerMuteResponse {}
