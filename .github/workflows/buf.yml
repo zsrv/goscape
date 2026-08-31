@@ -15,11 +15,13 @@ jobs:
   buf:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # buf breaking needs history
+      # No breaking_against: the action already defaults to the pull request's
+      # base, or to the commit before a push. That is what this repository
+      # wants, because each rev-N branch is an independent port whose schema
+      # evolves on its own — comparing every branch against rev-225, as this
+      # workflow used to, asked "does this differ from the oldest revision?"
+      # rather than "does this pull request break the branch it targets?".
       - uses: bufbuild/buf-action@v1
-        with:
-          # main is the codeless docs hub; the proto schema lives on the
-          # revision branches. Bump this when cutting a new rev-N branch.
-          breaking_against: "https://github.com/${{ github.repository }}.git#branch=rev-225,subdir=."
