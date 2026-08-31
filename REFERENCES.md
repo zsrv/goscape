@@ -43,7 +43,7 @@ Notes:
 
 (Commits captured 2026-06-03 from the local reference checkouts, matching the
 goscape-client `REFERENCES.md` rev-244 pins. Go branch `rev-244` is cut from
-`rev-225` at `21b66635`. Engine (Java) and Server — pinned at `main` for
+`rev-225` at `b1bfd65a`. Engine (Java) and Server — pinned at `main` for
 rev-225 — have no 244-specific checkout yet; record them here if/when a
 244-specific need arises, otherwise the rev-225 pins remain the last-known
 reference.)
@@ -74,7 +74,7 @@ Notes:
 | cloudflare/zlib | gzip byte-parity reference | — | — | unchanged from §rev-244 (`886098f3`) |
 
 (Commits captured 2026-06-09, matching the goscape-client `REFERENCES.md`
-rev-245.2 pins. Go branch `rev-245.2` is cut from `rev-244` at `2ecde050`.)
+rev-245.2 pins. Go branch `rev-245.2` is cut from `rev-244` at `602586fd`.)
 
 Notes:
 
@@ -104,7 +104,7 @@ Notes:
 (Engine pin ADVANCED 2026-06-10 from the original capture `43e02957` — see
 the pin-advance note below. Content/Client-Java/rsbuf match the
 goscape-client `REFERENCES.md` rev-254 pins; their upstream tips have not
-moved. Go branch `rev-254` is cut from `rev-245.2` at `4b4c6106`.)
+moved. Go branch `rev-254` is cut from `rev-245.2` at `17602d17`.)
 
 Notes:
 
@@ -145,11 +145,11 @@ Notes:
 
 (Commits captured 2026-06-12 from the Server274-ref reference worktrees;
 Engine-TS/Content re-pinned 2026-07-16 (see note 5). Go branch `rev-274` is
-cut from `rev-254` at `d5e3234f`.)
+cut from `rev-254` at `39857fbb`.)
 
 Notes:
 
-1. Go branch cut from `rev-254` at `d5e3234f`.
+1. Go branch cut from `rev-254` at `39857fbb`.
 2. Work list = `git -C Engine-TS diff 2e3bcf43..dee467c8` (188 files,
    +13,792/−3,694, merge-base `93b6e557`).
 3. **Toolchain: bun → Node 24** at the 274 pin — `node:zlib` 1.3.1 replaces
