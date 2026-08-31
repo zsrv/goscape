@@ -10,7 +10,7 @@ Lost City — Engine-TS
 -----------------------------------------------------------------------
 
 goscape is a Go rewrite of the Lost City TypeScript RuneScape server
-(https://github.com/LostCityRS/Engine-TS), wire-protocol revision 225. Game
+(https://github.com/LostCityRS/Engine-TS), wire-protocol revision 254. Game
 logic, protocol framing, content-compiler semantics, and data formats are
 ported from that codebase.
 
