@@ -169,6 +169,37 @@ func LoadDirExtFull(path, ext string, cb LoadDirCallback) error {
 	return nil
 }
 
+// LoadFileConfigLines returns the config-relevant lines of path using the TS
+// readConfigs line contract, NOT the loadFileFull one: lines are taken
+// verbatim off the reader with no trimming and no comment stripping, and only
+// fully-empty lines and lines whose first characters are "//" are skipped.
+//
+// TS PackShared.readConfigs (PackShared.ts:217-260 @1d25566c) drives config
+// parsing straight from readline.createInterface — it never calls loadFileFull.
+// That distinction is observable: a config value may legitimately end in
+// whitespace, and loadFileFull's per-line .trim() would silently eat it.
+//
+// Scripts still go through LoadFileFull; only config families use this.
+func LoadFileConfigLines(path string) []string {
+	raw := LoadFile(path)
+	lines := make([]string, 0, len(raw))
+	for _, line := range raw {
+		if len(line) == 0 || strings.HasPrefix(line, "//") {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	return lines
+}
+
+// LoadDirExtConfig is LoadDirExt over LoadFileConfigLines — the config-family
+// counterpart of LoadDirExtFull.
+func LoadDirExtConfig(path, ext string, cb LoadDirCallback) {
+	for _, f := range ListFilesExt(path, ext) {
+		cb(LoadFileConfigLines(f), f)
+	}
+}
+
 // ReadConfigs walks <srcDir>/scripts/*.<ext>, splits each file into
 // [header]-delimited config blocks, and returns the aggregated
 // map[header] = lines. Returns an error on duplicate header keys or on

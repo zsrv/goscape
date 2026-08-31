@@ -2,6 +2,7 @@ package pack
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -153,5 +154,69 @@ func TestReadTypedConfigs_MissingScriptsDirReturnsEmpty(t *testing.T) {
 	}
 	if len(cfgs) != 0 {
 		t.Fatalf("want empty, got %v", cfgs)
+	}
+}
+
+// TestReadTypedConfigs_PreservesTrailingWhitespace pins that a config value's
+// trailing whitespace survives parsing. TS PackShared.readConfigs
+// (PackShared.ts:217-260 @1d25566c) reads raw readline output and slices at the
+// first '=', so `param=name,value ` keeps its trailing space; config files are
+// never routed through loadFileFull's per-line .trim().
+//
+// This closes NAI-192-D-COMMENT-STRIP-EAGER's "harmless" claim, which Content
+// 2b62ae68d falsified: fishing_equipment.struct's fish_equipment_big_net
+// failmessage gained a trailing space, and goscape's trim made
+// server/struct.dat one byte shorter than the reference.
+func TestReadTypedConfigs_PreservesTrailingWhitespace(t *testing.T) {
+	dir := t.TempDir()
+	scripts := filepath.Join(dir, "scripts")
+	if err := os.MkdirAll(scripts, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	src := "[block]\nkey=value with trailing space \n"
+	if err := os.WriteFile(filepath.Join(scripts, "a.tst"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfgs, err := ReadTypedConfigs(dir, ".tst", nil, trivialParse, Constants{})
+	if err != nil {
+		t.Fatalf("ReadTypedConfigs: %v", err)
+	}
+
+	lines := cfgs["block"]
+	if len(lines) != 1 {
+		t.Fatalf("lines: got %d, want 1", len(lines))
+	}
+	got := lines[0].Value.(string)
+	want := "value with trailing space "
+	if got != want {
+		t.Errorf("value: got %q, want %q", got, want)
+	}
+}
+
+// TestReadTypedConfigs_SkipsCommentAndEmptyLines pins the rest of the TS
+// readConfigs line contract: fully-empty lines and lines starting with '//' are
+// skipped, and nothing else is stripped.
+func TestReadTypedConfigs_SkipsCommentAndEmptyLines(t *testing.T) {
+	dir := t.TempDir()
+	scripts := filepath.Join(dir, "scripts")
+	if err := os.MkdirAll(scripts, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	src := "// leading comment\n\n[block]\n// about the next line\nkey=value\n\n"
+	if err := os.WriteFile(filepath.Join(scripts, "a.tst"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfgs, err := ReadTypedConfigs(dir, ".tst", nil, trivialParse, Constants{})
+	if err != nil {
+		t.Fatalf("ReadTypedConfigs: %v", err)
+	}
+	lines := cfgs["block"]
+	if len(lines) != 1 {
+		t.Fatalf("lines: got %d, want 1 (%+v)", len(lines), lines)
+	}
+	if got := lines[0].Value.(string); got != "value" {
+		t.Errorf("value: got %q, want %q", got, "value")
 	}
 }

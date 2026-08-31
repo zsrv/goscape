@@ -23,10 +23,15 @@ type ParseFn func(key, value string) (ConfigValue, bool, error)
 // every value, calls parseFn per key=value line, and enforces
 // required-properties at block close. Returns map[debugname][]ConfigLine.
 //
-// NAI-192-D-COMMENT-STRIP-EAGER: goscape uses LoadDirExtFull which
-// strips // and /* */ comments. TS PackShared.readConfigs uses raw
-// readline (only // line-prefix skip). Harmless for varn/vars whose
-// values cannot contain comment markers.
+// NAI-192-D-COMMENT-STRIP-EAGER: CLOSED by the 289 sync. goscape used to
+// route config files through LoadDirExtFull, which trims each line and strips
+// // and /* */ comments; TS PackShared.readConfigs uses raw readline with only
+// an empty-line and //-prefix skip. The old note called this harmless "for
+// varn/vars whose values cannot contain comment markers" — Content 2b62ae68d
+// falsified it: fishing_equipment.struct gained a param value ending in a
+// space, and the trim cost one byte of server/struct.dat against the
+// reference. Config families now use LoadDirExtConfig, which implements the
+// readConfigs contract exactly. Scripts still use LoadDirExtFull.
 //
 // NAI-192-D-PARSE-ERROR-ENVELOPE: error messages use
 // "<kind> in <file>: <detail>" rather than TS
@@ -41,7 +46,7 @@ func ReadTypedConfigs(srcDir, ext string, required []string, parseFn ParseFn, c 
 		return configs, nil
 	}
 	var outerErr error
-	err := LoadDirExtFull(scriptsDir, ext, func(lines []string, file string) {
+	LoadDirExtConfig(scriptsDir, ext, func(lines []string, file string) {
 		if outerErr != nil {
 			return
 		}
@@ -111,9 +116,6 @@ func ReadTypedConfigs(srcDir, ext string, required []string, parseFn ParseFn, c 
 		}
 		flush()
 	})
-	if err != nil {
-		return nil, err
-	}
 	if outerErr != nil {
 		return nil, outerErr
 	}
