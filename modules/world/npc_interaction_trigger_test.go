@@ -121,8 +121,8 @@ func TestAiOpObjTriggerForOp(t *testing.T) {
 // by the Npc-target fire tests.
 func newNpcWithType(typeId, category int) *Npc {
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: typeId},
-		Category:   category,
+		ID:       typeId,
+		Category: category,
 	}
 	return NewNpc(2, typeId, 101, 100, 0, typ)
 }

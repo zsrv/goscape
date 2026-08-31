@@ -339,7 +339,7 @@ func seedListenerWithItem(t *testing.T, s *Server, p *Player, useCom, useSlot, u
 func seedNpcAtSlot(t *testing.T, s *Server, p *Player, slot int) {
 	t.Helper()
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test"},
+		ID: 0, DebugName: "test",
 		Op:          []string{"Attack", "Talk", "Examine", "Option4", "Option5"},
 		WanderRange: 0,
 		RespawnRate: 50,
@@ -378,8 +378,8 @@ func seedObjAt(t *testing.T, s *Server, p *Player, x, z, objId int) {
 		s.objTypes.Configs = append(s.objTypes.Configs, nil)
 	}
 	s.objTypes.Configs[objId] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: objId, DebugName: "test_obj"},
-		Op:         []string{"op1", "op2", "op3", "op4", "op5"},
+		ID: objId, DebugName: "test_obj",
+		Op: []string{"op1", "op2", "op3", "op4", "op5"},
 	}
 
 	obj := entitypkg.NewObj(0, x, z, entitypkg.LifecycleDespawn, objId, 1)
@@ -410,9 +410,9 @@ func seedLocAt(t *testing.T, s *Server, p *Player, x, z, locId int) {
 		s.locTypes.Configs = append(s.locTypes.Configs, nil)
 	}
 	s.locTypes.Configs[locId] = &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: locId, DebugName: "test_loc"},
-		Category:   7,
-		Op:         []string{"op1", "op2", "op3", "op4", "op5"},
+		ID: locId, DebugName: "test_loc",
+		Category: 7,
+		Op:       []string{"op1", "op2", "op3", "op4", "op5"},
 	}
 
 	loc := entitypkg.NewLoc(0, x, z, 1, 1, entitypkg.LifecycleForever, locId, 10, 0)

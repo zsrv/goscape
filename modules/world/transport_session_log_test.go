@@ -125,7 +125,7 @@ func TestRemovePlayerOnDisconnect_EmitsLoggedOutSessionLog(t *testing.T) {
 	}
 }
 
-// Compile-time guard: errors.As(_, &netErr) in disconnectSessionLogEvent
+// Compile-time guard: errors.AsType[net.Error] in disconnectSessionLogEvent
 // requires fakeNetTimeoutErr to satisfy net.Error; assert it here so the
 // "TCP socket timeout" subtest fails loudly at compile time if the
 // interface contract drifts.

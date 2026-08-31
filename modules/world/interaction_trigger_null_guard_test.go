@@ -94,7 +94,7 @@ func TestTriggerTypeAndCategory_NpcOk(t *testing.T) {
 	defer wait()
 
 	npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
-	npc.typ = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: npc.typeId}, Category: 7}
+	npc.typ = &objtype.NpcType{ID: npc.typeId, Category: 7}
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 
 	typeId, categoryId, ok := triggerTypeAndCategory(p, s)
@@ -177,7 +177,7 @@ func TestGetOpTrigger_TypeKnownResolvesAtCategoryFallback(t *testing.T) {
 	s.scriptProvider = script.NewProvider()
 
 	npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
-	npc.typ = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: npc.typeId}, Category: 0}
+	npc.typ = &objtype.NpcType{ID: npc.typeId, Category: 0}
 
 	categoryScript := &script.ScriptFile{
 		Name:      "[opnpc1,_category0]",

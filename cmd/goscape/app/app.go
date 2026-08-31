@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
-
-	"go.uber.org/atomic"
+	"sync/atomic"
 
 	"github.com/zsrv/goscape/modules/account"
 	"github.com/zsrv/goscape/modules/friends"
@@ -124,7 +123,7 @@ func (g *App) Run() error {
 	}
 
 	// Used to delay shutdown but return "not ready" during this delay
-	shutdownRequested := atomic.NewBool(false)
+	var shutdownRequested atomic.Bool
 
 	// listen for events from this manager and log them
 	healthy := func() { g.logger.Info("goscape started") }

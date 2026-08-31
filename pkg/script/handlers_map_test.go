@@ -361,7 +361,7 @@ func (w *mapBlockedWorld) IsMapBlocked(level, x, z int) bool { return w.mapBlock
 func (w *mapBlockedWorld) IsFreeToPlay(x, z int) bool        { return w.freeToPlay }
 
 func TestMapBlocked_MembersWorldClearTilePushes0(t *testing.T) {
-	w := &mapBlockedWorld{mockWorld: mockWorld{mapMembers: 1}, mapBlocked: false}
+	w := &mapBlockedWorld{mapMembers: 1, mapBlocked: false}
 	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
 
 	if state.ISP != 1 || state.IntStack[0] != 0 {
@@ -371,7 +371,7 @@ func TestMapBlocked_MembersWorldClearTilePushes0(t *testing.T) {
 }
 
 func TestMapBlocked_MembersWorldBlockedTilePushes1(t *testing.T) {
-	w := &mapBlockedWorld{mockWorld: mockWorld{mapMembers: 1}, mapBlocked: true}
+	w := &mapBlockedWorld{mapMembers: 1, mapBlocked: true}
 	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
 
 	if state.ISP != 1 || state.IntStack[0] != 1 {
@@ -384,9 +384,9 @@ func TestMapBlocked_MembersWorldBlockedTilePushes1(t *testing.T) {
 // check. Tests the early-return per TS ServerOps.ts:132-135.
 func TestMapBlocked_F2PWorldNonF2PTilePushes1(t *testing.T) {
 	w := &mapBlockedWorld{
-		mockWorld:  mockWorld{mapMembers: 0}, // F2P world
-		mapBlocked: false,                    // would push 0 if reached
-		freeToPlay: false,                    // tile is NOT F2P
+		mapMembers: 0,     // F2P world
+		mapBlocked: false, // would push 0 if reached
+		freeToPlay: false, // tile is NOT F2P
 	}
 	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
 
@@ -399,7 +399,7 @@ func TestMapBlocked_F2PWorldNonF2PTilePushes1(t *testing.T) {
 // F2P-world F2P tile: passes the gate; falls through to IsMapBlocked.
 func TestMapBlocked_F2PWorldF2PTilePushesIsBlocked(t *testing.T) {
 	w := &mapBlockedWorld{
-		mockWorld:  mockWorld{mapMembers: 0}, // F2P world
+		mapMembers: 0, // F2P world
 		mapBlocked: true,
 		freeToPlay: true, // tile IS F2P
 	}

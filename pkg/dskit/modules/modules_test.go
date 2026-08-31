@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"sort"
+	"slices"
 	"testing"
 	"time"
 
@@ -433,6 +433,6 @@ func getStopDependenciesForModule(module string, services map[string]services.Se
 		deps = append(deps, name)
 	}
 
-	sort.Strings(deps)
+	slices.Sort(deps)
 	return deps
 }

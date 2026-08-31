@@ -49,7 +49,7 @@ func TestOnReconnect_EmitsResyncSequence(t *testing.T) {
 	// (e) Tabs: newTestPlayer initializes tabs to all -1 (non-zero), so
 	// IfSetTab is called for each of the 14 tabs.
 	// Each IF_SETTAB packet: opcode(1) + P2(com)(2) + P1(tab)(1) = 4 bytes.
-	for tab := 0; tab < 14; tab++ {
+	for tab := range 14 {
 		if len(got) < offset+4 {
 			t.Fatalf("stream too short at IF_SETTAB tab=%d: got %d bytes, offset %d", tab, len(got), offset)
 		}
@@ -63,7 +63,7 @@ func TestOnReconnect_EmitsResyncSequence(t *testing.T) {
 	// (f) No invListeners in newTestPlayer, so no packets from refreshInvs.
 
 	// (g) 21 × UPDATE_STAT — 7 bytes each: opcode(1) + stat(1) + exp/10 P4(4) + level(1).
-	for i := 0; i < 21; i++ {
+	for i := range 21 {
 		if len(got) < offset+7 {
 			t.Fatalf("stream too short at UPDATE_STAT[%d]: got %d bytes, offset %d", i, len(got), offset)
 		}

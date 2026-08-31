@@ -15,7 +15,7 @@ func makeOpNpcFixture(t *testing.T) (*Server, *Player, *Npc) {
 	s := newTestServer(t)
 
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test"},
+		ID: 0, DebugName: "test",
 		Op:          []string{"Attack", "Talk", "Examine", "Option4", "Option5"},
 		WanderRange: 0,
 		RespawnRate: 50,
@@ -605,8 +605,8 @@ func TestHandleOpNpcUMembersOnFreeWorldRejected(t *testing.T) {
 		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
 	}
 	s.objTypes.Configs[1511] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
-		Members:    true,
+		ID: 1511, DebugName: "members_item",
+		Members: true,
 	}
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
@@ -636,8 +636,8 @@ func TestHandleOpNpcUMembersOnMembersWorldAllowed(t *testing.T) {
 		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
 	}
 	s.objTypes.Configs[1511] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
-		Members:    true,
+		ID: 1511, DebugName: "members_item",
+		Members: true,
 	}
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
@@ -837,7 +837,7 @@ func TestHandleOpNpcOpIndexOutOfRange(t *testing.T) {
 	s := newTestServer(t)
 
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test"},
+		ID: 0, DebugName: "test",
 		Op:          []string{"Attack"}, // only 1 op
 		WanderRange: 0,
 		RespawnRate: 50,

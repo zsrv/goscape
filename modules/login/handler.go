@@ -11,8 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -73,7 +73,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	// Per-login UUID. Used for the session-table insert and stamped on
 	// every positive response so the world can assign Player.session =
 	// <uuid>. Mirrors TS crypto.randomUUID().
-	sessionUUID := uuid.NewString()
+	sessionUUID := uuid.New().String()
 
 	// 2. IP ban check.
 	ip := extractIP(req.RemoteAddress)

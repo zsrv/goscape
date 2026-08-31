@@ -112,7 +112,7 @@ func TestNAI101_FountainPathAround_RealCache(t *testing.T) {
 		// is ~5-7 tiles around the fountain, so 12 is generous.
 		const maxTicks = 12
 		stepsTotal := 0
-		for tick := 0; tick < maxTicks; tick++ {
+		for range maxTicks {
 			p.resolveMovement()
 			stepsTotal += p.stepsTaken
 			if p.waypointIndex < 0 {

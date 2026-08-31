@@ -128,11 +128,11 @@ func TestConcurrent_NoRace(t *testing.T) {
 	var wg sync.WaitGroup
 	const workers = 16
 	const iters = 500
-	for w := 0; w < workers; w++ {
+	for w := range workers {
 		wg.Add(1)
 		go func(seed int) {
 			defer wg.Done()
-			for i := 0; i < iters; i++ {
+			for i := range iters {
 				k := (seed + i) % 32
 				c.Set(k, i)
 				_, _ = c.Get(k)

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"os"
 	"sync"
+	"uuid"
 
-	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -32,7 +32,7 @@ func InitProviders(ctx context.Context, cfg Config) (shutdown func(context.Conte
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
 			semconv.ServiceName("goscape"),
-			semconv.ServiceInstanceID(uuid.NewString()),
+			semconv.ServiceInstanceID(uuid.New().String()),
 			semconv.HostName(host),
 		),
 	)

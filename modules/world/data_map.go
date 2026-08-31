@@ -76,10 +76,7 @@ func streamLand(p *Player, mapX, mapZ int) {
 	}
 	total := len(data)
 	for off := 0; off < total; off += rebuildGetMapsChunkSize {
-		end := off + rebuildGetMapsChunkSize
-		if end > total {
-			end = total
-		}
+		end := min(off+rebuildGetMapsChunkSize, total)
 		sendDataLand(p, mapX, mapZ, off, total, data[off:end])
 	}
 	sendDataLandDone(p, mapX, mapZ)
@@ -95,10 +92,7 @@ func streamLoc(p *Player, mapX, mapZ int) {
 	}
 	total := len(data)
 	for off := 0; off < total; off += rebuildGetMapsChunkSize {
-		end := off + rebuildGetMapsChunkSize
-		if end > total {
-			end = total
-		}
+		end := min(off+rebuildGetMapsChunkSize, total)
 		sendDataLoc(p, mapX, mapZ, off, total, data[off:end])
 	}
 	sendDataLocDone(p, mapX, mapZ)
@@ -131,7 +125,7 @@ func handleRebuildGetMaps(p *Player, payload []byte) error {
 	}
 
 	r := packet.NewPacket(payload)
-	for i := 0; i < nEntries; i++ {
+	for range nEntries {
 		packed := int(r.G3())
 		mapsquare := uint16(packed & 0xFFFF)
 		if !p.buildArea.mapsquares[mapsquare] {

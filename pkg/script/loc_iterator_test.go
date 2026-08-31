@@ -126,7 +126,7 @@ func TestLocIteratorExhaustionDoesNotClear(t *testing.T) {
 		t.Fatal("second Next: expected exhaustion")
 	}
 	// Subsequent calls must continue to return (nil, false).
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if loc, ok := it.Next(); ok || loc != nil {
 			t.Errorf("post-exhaustion Next #%d: got (%v, %v), want (nil, false)", i, loc, ok)
 		}

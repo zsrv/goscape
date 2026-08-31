@@ -28,7 +28,7 @@ func TestResumeOrFinishNpcReleasesProtectedActivePlayer(t *testing.T) {
 	s.worldVars = worldVarsView{s: s}
 	s.currentTick = 100
 
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"}, Size: 1}
+	typ := &objtype.NpcType{ID: 0, DebugName: "test_npc", Size: 1}
 	npc := NewNpc(1, 0, 3200, 3200, 0, typ)
 	npc.nid = 1
 	npc.server = s

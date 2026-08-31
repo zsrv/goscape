@@ -3,6 +3,7 @@ package world
 import (
 	"fmt"
 	"io"
+	"maps"
 	"testing"
 	"time"
 
@@ -25,12 +26,8 @@ func seedCachedMapCRC(t *testing.T, mx, mz int, mCRC, lCRC uint32) {
 		Data: map[string][]byte{},
 		CRC:  map[string]uint32{},
 	}
-	for k, v := range prior.Data {
-		next.Data[k] = v
-	}
-	for k, v := range prior.CRC {
-		next.CRC[k] = v
-	}
+	maps.Copy(next.Data, prior.Data)
+	maps.Copy(next.CRC, prior.CRC)
 	next.CRC[mKey] = mCRC
 	next.CRC[lKey] = lCRC
 	cache.SetPreloadForTest(next)

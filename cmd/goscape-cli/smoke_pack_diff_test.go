@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"testing"
 )
 
@@ -65,7 +65,7 @@ func TestDeltaFiles_DetectsAddsAndModifications(t *testing.T) {
 	next := stageSnapshot{"unchanged.bin": "aa", "modified.bin": "cc", "added.bin": "dd"}
 	got := deltaFiles(prev, next)
 	want := []string{"added.bin", "modified.bin"}
-	sort.Strings(got) // result is sorted by contract; sort defensively
+	slices.Sort(got) // result is sorted by contract; sort defensively
 	if len(got) != len(want) {
 		t.Fatalf("len got=%d want=%d (got=%v)", len(got), len(want), got)
 	}

@@ -29,8 +29,8 @@ func makeOpObjFixture(t *testing.T) (*Server, *Player, *entitypkg.Obj, net.Conn)
 		Configs: make([]*objtype.ObjType, 43),
 	}
 	s.objTypes.Configs[42] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 42, DebugName: "test_obj"},
-		Op:         []string{"op1", "op2", "op3", "op4", "op5"},
+		ID: 42, DebugName: "test_obj",
+		Op: []string{"op1", "op2", "op3", "op4", "op5"},
 	}
 
 	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleDespawn, 42, 1)
@@ -588,8 +588,8 @@ func TestHandleOpObjUMembersOnFreeWorldClearsPendingAction(t *testing.T) {
 		s.objTypes.Configs = extended
 	}
 	s.objTypes.Configs[1511] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
-		Members:    true,
+		ID: 1511, DebugName: "members_item",
+		Members: true,
 	}
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)

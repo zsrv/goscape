@@ -35,7 +35,7 @@ type SeqType struct {
 // NewSeqType returns a SeqType with TS-faithful defaults.
 func NewSeqType(id int) *SeqType {
 	return &SeqType{
-		ConfigType:       ConfigType{ID: id},
+		ID:               id,
 		Loops:            -1,
 		Priority:         5,
 		ReplaceHeldLeft:  -1,

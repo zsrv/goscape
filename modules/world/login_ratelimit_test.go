@@ -70,7 +70,7 @@ func TestAddressLoginRateLimit_GateDisabledWhenNotProduction(t *testing.T) {
 	s := newRateLimitTestServer(1, 0, false /*production off*/, time.Minute, time.Minute)
 	addr := "203.0.113.7:54321"
 	// Even with limit=1 and many attempts, gate stays open when production=false.
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if s.addressLoginRateLimitExceeded(addr) {
 			t.Fatalf("attempt %d should be allowed when production=false", i)
 		}
@@ -80,7 +80,7 @@ func TestAddressLoginRateLimit_GateDisabledWhenNotProduction(t *testing.T) {
 func TestAddressLoginRateLimit_GateDisabledWhenLimitZero(t *testing.T) {
 	s := newRateLimitTestServer(0 /*limit=0 disables*/, 0, true, time.Minute, time.Minute)
 	addr := "203.0.113.7:54321"
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if s.addressLoginRateLimitExceeded(addr) {
 			t.Fatalf("attempt %d should be allowed when limit=0", i)
 		}
@@ -177,7 +177,7 @@ func TestDeviceLoginRateLimit_KeysOnUidPlusIP(t *testing.T) {
 
 func TestDeviceLoginRateLimit_GateDisabledWhenNotProduction(t *testing.T) {
 	s := newRateLimitTestServer(0, 1, false, time.Minute, time.Minute)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if s.deviceLoginRateLimitExceeded(7, "203.0.113.7:5") {
 			t.Fatalf("device attempt %d should be allowed when production=false", i)
 		}
@@ -186,7 +186,7 @@ func TestDeviceLoginRateLimit_GateDisabledWhenNotProduction(t *testing.T) {
 
 func TestDeviceLoginRateLimit_GateDisabledWhenLimitZero(t *testing.T) {
 	s := newRateLimitTestServer(0, 0, true, time.Minute, time.Minute)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if s.deviceLoginRateLimitExceeded(7, "203.0.113.7:5") {
 			t.Fatalf("device attempt %d should be allowed when device-limit=0", i)
 		}

@@ -718,7 +718,7 @@ func TestPopulateDbColumns_SingleTypeColumn(t *testing.T) {
 	tables := &objtype.DbTableTypeConfigs{
 		Configs: []*objtype.DbTableType{
 			{
-				ConfigType:  objtype.ConfigType{ID: 1, DebugName: "tbl1"},
+				ID: 1, DebugName: "tbl1",
 				ColumnNames: []string{"col0"},
 				Types:       [][]objtype.ScriptVarType{{objtype.ScriptVarTypeInt}},
 			},
@@ -753,7 +753,7 @@ func TestPopulateDbColumns_MultiTypeColumn(t *testing.T) {
 	tables := &objtype.DbTableTypeConfigs{
 		Configs: []*objtype.DbTableType{
 			{
-				ConfigType:  objtype.ConfigType{ID: 1, DebugName: "tbl1"},
+				ID: 1, DebugName: "tbl1",
 				ColumnNames: []string{"col0"},
 				Types: [][]objtype.ScriptVarType{
 					{objtype.ScriptVarTypeInt, objtype.ScriptVarTypeObj},
@@ -797,7 +797,7 @@ func TestPopulateDbColumns_BitfieldEncoding(t *testing.T) {
 		Configs: []*objtype.DbTableType{
 			nil, nil,
 			{
-				ConfigType:  objtype.ConfigType{ID: 2, DebugName: "tbl2"},
+				ID: 2, DebugName: "tbl2",
 				ColumnNames: []string{"a", "b", "c", "d", "e", "col5"},
 				Types: [][]objtype.ScriptVarType{
 					nil, nil, nil, nil, nil,
@@ -825,7 +825,7 @@ func TestPopulateDbColumns_NilColumnTypes(t *testing.T) {
 	tables := &objtype.DbTableTypeConfigs{
 		Configs: []*objtype.DbTableType{
 			{
-				ConfigType:  objtype.ConfigType{ID: 1, DebugName: "tbl1"},
+				ID: 1, DebugName: "tbl1",
 				ColumnNames: []string{"present", "absent"},
 				Types: [][]objtype.ScriptVarType{
 					{objtype.ScriptVarTypeInt},
@@ -856,7 +856,7 @@ func TestPopulateDbColumns_SkipsNilTable(t *testing.T) {
 		Configs: []*objtype.DbTableType{
 			nil,
 			{
-				ConfigType:  objtype.ConfigType{ID: 1, DebugName: "tbl1"},
+				ID: 1, DebugName: "tbl1",
 				ColumnNames: []string{"col0"},
 				Types:       [][]objtype.ScriptVarType{{objtype.ScriptVarTypeInt}},
 			},
@@ -888,8 +888,8 @@ func TestEnrichWriteinvInfo(t *testing.T) {
 
 	invs := &objtype.InvTypeConfigs{
 		Configs: []*objtype.InvType{
-			{ConfigType: objtype.ConfigType{ID: 0}, Protect: true},
-			{ConfigType: objtype.ConfigType{ID: 1}, Protect: false},
+			{ID: 0, Protect: true},
+			{ID: 1, Protect: false},
 		},
 	}
 
@@ -912,9 +912,9 @@ func TestEnrichVarpInfo(t *testing.T) {
 	configs := &objtype.VarpTypeConfigs{
 		Configs: []*objtype.VarPlayerType{
 			{
-				ConfigType: objtype.ConfigType{ID: 0},
-				Type:       objtype.ScriptVarTypeInt,
-				Protect:    true,
+				ID:      0,
+				Type:    objtype.ScriptVarTypeInt,
+				Protect: true,
 			},
 		},
 	}
@@ -941,7 +941,7 @@ func TestEnrichVarnInfo_HappyPath(t *testing.T) {
 
 	configs := &objtype.VarnTypeConfigs{
 		Configs: []*objtype.VarNpcType{
-			{ConfigType: objtype.ConfigType{ID: 0}, Type: objtype.ScriptVarTypeString},
+			{ID: 0, Type: objtype.ScriptVarTypeString},
 		},
 	}
 
@@ -965,8 +965,8 @@ func TestEnrichVarnInfo_VarnOnlyIDSkipped(t *testing.T) {
 		Configs: make([]*objtype.VarNpcType, 10),
 	}
 	configs.Configs[7] = &objtype.VarNpcType{
-		ConfigType: objtype.ConfigType{ID: 7},
-		Type:       objtype.ScriptVarTypeBoolean,
+		ID:   7,
+		Type: objtype.ScriptVarTypeBoolean,
 	}
 
 	enrichVarnInfo(varn, varp, configs)
@@ -983,7 +983,7 @@ func TestEnrichVarsInfo(t *testing.T) {
 
 	configs := &objtype.VarsTypeConfigs{
 		Configs: []*objtype.VarSharedType{
-			{ConfigType: objtype.ConfigType{ID: 0}, Type: objtype.ScriptVarTypeCoord},
+			{ID: 0, Type: objtype.ScriptVarTypeCoord},
 		},
 	}
 
@@ -1004,8 +1004,8 @@ func TestEnrichParamInfo(t *testing.T) {
 	configs := &objtype.ParamTypeConfigs{
 		Configs: []*objtype.ParamType{
 			{
-				ConfigType: objtype.ConfigType{ID: 0},
-				Type:       objtype.ScriptVarTypeNamedObj,
+				ID:   0,
+				Type: objtype.ScriptVarTypeNamedObj,
 			},
 		},
 	}
@@ -1031,8 +1031,8 @@ func TestEnrich_SkipsIdsAbsentFromMap(t *testing.T) {
 	}
 	for i := range invs.Configs {
 		invs.Configs[i] = &objtype.InvType{
-			ConfigType: objtype.ConfigType{ID: i},
-			Protect:    true,
+			ID:      i,
+			Protect: true,
 		}
 	}
 

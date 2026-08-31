@@ -44,7 +44,7 @@ func (is *Isaac) init() {
 	g := goldenRatio
 	h := goldenRatio
 
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		a ^= b << 11
 		d += a
 		b += c
@@ -190,7 +190,7 @@ func (is *Isaac) isaac() {
 	is.c++
 	is.b += is.c
 
-	for i := 0; i < size; i++ {
+	for i := range size {
 		x := is.mem[i]
 
 		switch i & 3 {

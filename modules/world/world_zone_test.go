@@ -95,7 +95,7 @@ func TestServerAddLocAddsCollisionWhenBlockwalk(t *testing.T) {
 	s.gamemap = gamemap.New(discardLogger())
 	s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 200)}
 	s.locTypes.Configs[100] = &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 100},
+		ID:         100,
 		BlockWalk:  true,
 		BlockRange: true,
 	}
@@ -114,8 +114,8 @@ func TestServerAddLocSkipsCollisionWhenNotBlockwalk(t *testing.T) {
 	s.gamemap = gamemap.New(discardLogger())
 	s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 200)}
 	s.locTypes.Configs[100] = &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 100},
-		BlockWalk:  false,
+		ID:        100,
+		BlockWalk: false,
 	}
 	// Pre-allocate the flagmap zone so IsFlagged returns false (not FlagNull = 0x7FFFFFFF)
 	// for an unset flag rather than mis-reporting all flags set.
@@ -132,13 +132,13 @@ func TestServerChangeLocSwapsCollision(t *testing.T) {
 	s.gamemap = gamemap.New(discardLogger())
 	s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 200)}
 	s.locTypes.Configs[100] = &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 100},
+		ID:         100,
 		BlockWalk:  true,
 		BlockRange: true,
 	}
 	s.locTypes.Configs[101] = &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 101},
-		BlockWalk:  false,
+		ID:        101,
+		BlockWalk: false,
 	}
 	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)
 	s.AddLoc(loc, 0)
@@ -159,7 +159,7 @@ func TestServerRemoveLocClearsCollision(t *testing.T) {
 	s.gamemap = gamemap.New(discardLogger())
 	s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 200)}
 	s.locTypes.Configs[100] = &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 100},
+		ID:         100,
 		BlockWalk:  true,
 		BlockRange: true,
 	}
@@ -179,7 +179,7 @@ func TestServerChangeLocOnInactiveDespawnIsNoOp(t *testing.T) {
 	s.gamemap = gamemap.New(discardLogger())
 	s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 200)}
 	s.locTypes.Configs[100] = &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 100},
+		ID:         100,
 		BlockWalk:  true,
 		BlockRange: true,
 	}

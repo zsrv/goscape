@@ -315,9 +315,7 @@ func (t *NpcType) Decode(code uint8, dat *packet2.Packet) error {
 
 func NewNpcType(id int) *NpcType {
 	return &NpcType{
-		ConfigType: ConfigType{
-			ID: id,
-		},
+		ID:        id,
 		Size:      1,
 		ReadyAnim: -1,
 		WalkAnim:  -1,

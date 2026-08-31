@@ -3,6 +3,7 @@ package world
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"slices"
 	"testing"
 	"time"
@@ -1016,12 +1017,8 @@ func seedCachedMidi(t *testing.T, name string, data []byte, crc uint32) {
 		Data: map[string][]byte{},
 		CRC:  map[string]uint32{},
 	}
-	for k, v := range prior.Data {
-		next.Data[k] = v
-	}
-	for k, v := range prior.CRC {
-		next.CRC[k] = v
-	}
+	maps.Copy(next.Data, prior.Data)
+	maps.Copy(next.CRC, prior.CRC)
 	next.Data[name] = data
 	next.CRC[name] = crc
 	cache.SetPreloadForTest(next)
@@ -2159,9 +2156,9 @@ func TestPlayer_InvTotalParamStack(t *testing.T) {
 
 	invConfigs := make([]*objtype.InvType, invID+1)
 	invConfigs[invID] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: invID},
-		Scope:      objtype.InvTypeScopeTemp,
-		Size:       10,
+		ID:    invID,
+		Scope: objtype.InvTypeScopeTemp,
+		Size:  10,
 	}
 	objConfigs := make([]*objtype.ObjType, 21)
 	objConfigs[10] = &objtype.ObjType{
@@ -2201,9 +2198,9 @@ func TestPlayer_InvTotalParamStack_EmptyInv(t *testing.T) {
 
 	invConfigs := make([]*objtype.InvType, invID+1)
 	invConfigs[invID] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: invID},
-		Scope:      objtype.InvTypeScopeTemp,
-		Size:       5,
+		ID:    invID,
+		Scope: objtype.InvTypeScopeTemp,
+		Size:  5,
 	}
 	paramConfigs := make([]*objtype.ParamType, paramID+1)
 	paramConfigs[paramID] = &objtype.ParamType{DefaultInt: 0}
@@ -2284,7 +2281,7 @@ func TestSetStat_OOBStatDropsSilently(t *testing.T) {
 	p.SetStat(-1, 50)
 	p.SetStat(21, 50)
 	// No state mutation expected, no panic.
-	for i := 0; i < objtype.PlayerStatCount; i++ {
+	for i := range objtype.PlayerStatCount {
 		if p.baseLevels[i] != 0 || p.levels[i] != 0 || p.stats[i] != 0 {
 			t.Errorf("stat %d mutated after OOB SetStat", i)
 		}

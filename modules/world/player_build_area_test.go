@@ -2,6 +2,7 @@ package world
 
 import (
 	"net"
+	"slices"
 	"testing"
 	"time"
 
@@ -108,12 +109,7 @@ func buildAreaOpPayloadSize(opcode int) (int, bool) {
 
 // containsOpcode returns true if any element in opcodes equals target.
 func containsOpcode(opcodes []int, target int) bool {
-	for _, op := range opcodes {
-		if op == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(opcodes, target)
 }
 
 // TestUpdateBuildArea_FirstTickMapzoneFires_ExitDoesNot (T5) — fresh

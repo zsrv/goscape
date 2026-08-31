@@ -285,7 +285,7 @@ func TestInvStopListenOnComWritesUpdatePacket(t *testing.T) {
 func TestUpdateInvsLazyAllocSeedsStockTemp(t *testing.T) {
 	// InvType: SCOPE_TEMP, capacity 5, stock=[bronze_dagger=100, bronze_sword=101].
 	cfg := &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: testInvTypeID},
+		ID:         testInvTypeID,
 		Scope:      objtype.InvTypeScopeTemp,
 		Size:       5,
 		StockObj:   []uint16{100, 101, 0, 0, 0},
@@ -343,10 +343,10 @@ func buildRunWeightInvServer(t *testing.T, p *Player, invTypeID, objTypeID, objW
 	t.Helper()
 	invConfigs := make([]*objtype.InvType, testInvTypesLen)
 	invConfigs[invTypeID] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: invTypeID},
-		Scope:      objtype.InvTypeScopeTemp,
-		Size:       1,
-		RunWeight:  true,
+		ID:        invTypeID,
+		Scope:     objtype.InvTypeScopeTemp,
+		Size:      1,
+		RunWeight: true,
 	}
 	objConfigs := make([]*objtype.ObjType, objTypeID+1)
 	objConfigs[objTypeID] = &objtype.ObjType{
@@ -493,10 +493,10 @@ func TestUpdateInvs_SharedInvDoesNotCountToRunWeight(t *testing.T) {
 	// Build server with SCOPE_SHARED inv.
 	invConfigs := make([]*objtype.InvType, testInvTypesLen)
 	invConfigs[invTypeID] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: invTypeID},
-		Scope:      objtype.InvTypeScopeShared, // forces Source=-1 in invListenOnCom
-		Size:       1,
-		RunWeight:  true,
+		ID:        invTypeID,
+		Scope:     objtype.InvTypeScopeShared, // forces Source=-1 in invListenOnCom
+		Size:      1,
+		RunWeight: true,
 	}
 	objConfigs := make([]*objtype.ObjType, objTypeID+1)
 	objConfigs[objTypeID] = &objtype.ObjType{Stackable: false, Weight: 1000}
@@ -580,7 +580,7 @@ func TestUpdateInvs_SkipOnNoNetWeightChange(t *testing.T) {
 func TestUpdateInvsLazyAllocSeedsStockShared(t *testing.T) {
 	// InvType: SCOPE_SHARED, capacity 5, stock=[bronze_dagger=100, bronze_sword=101].
 	cfg := &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: testInvTypeID},
+		ID:         testInvTypeID,
 		Scope:      objtype.InvTypeScopeShared,
 		Size:       5,
 		StockObj:   []uint16{100, 101, 0, 0, 0},

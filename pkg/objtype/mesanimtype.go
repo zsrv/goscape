@@ -23,8 +23,8 @@ type MesanimType struct {
 // (Len init -1, matching TS Array(4).fill(-1)).
 func NewMesanimType(id int) *MesanimType {
 	return &MesanimType{
-		ConfigType: ConfigType{ID: id},
-		Len:        [4]int{-1, -1, -1, -1},
+		ID:  id,
+		Len: [4]int{-1, -1, -1, -1},
 	}
 }
 

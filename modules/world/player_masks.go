@@ -195,10 +195,7 @@ func (p *Player) Damage(amount, dmgType int) {
 	current := int(p.levels[objtype.PlayerStatHitpoints])
 	p.damageAmt = min(amount, current)
 	p.damageType = dmgType
-	next := current - amount
-	if next < 0 {
-		next = 0
-	}
+	next := max(current-amount, 0)
 	p.levels[objtype.PlayerStatHitpoints] = uint8(next)
 	p.masks |= rsbuf.MaskDamage
 }

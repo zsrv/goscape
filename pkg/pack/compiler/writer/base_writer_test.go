@@ -50,7 +50,7 @@ func (r *recorderWriter) WriteMath(codegen.Opcode)                      { r.note
 // CurIndex post-increment.
 func TestWriteScript_DispatchOrder(t *testing.T) {
 	procTrig := &trigger.TriggerType{ID: 0, Identifier: "proc", SubjectMode: trigger.ModeName}
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "foo"}}
+	ss := &symbol.ServerScriptSymbol{Trigger: procTrig, Name: "foo"}
 	script := codegen.NewRuneScript("smoke.rs2", ss, procTrig, "foo", nil)
 
 	la := &codegen.Label{Name: "a"}
@@ -102,7 +102,7 @@ func TestDispatch_LineNumberPanics(t *testing.T) {
 		}
 	}()
 	procTrig := &trigger.TriggerType{ID: 0, Identifier: "proc", SubjectMode: trigger.ModeName}
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "foo"}}
+	ss := &symbol.ServerScriptSymbol{Trigger: procTrig, Name: "foo"}
 	script := codegen.NewRuneScript("smoke.rs2", ss, procTrig, "foo", nil)
 	b := codegen.NewBlock(&codegen.Label{Name: "e"})
 	b.Add(codegen.Instruction{Opcode: codegen.LineNumber, Operand: 1})

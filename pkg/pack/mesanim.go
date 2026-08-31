@@ -50,10 +50,7 @@ func packMesAnimConfigs(configs map[string][]ConfigLine, pf *PackFile) *PackedDa
 					// non-numeric `lenN` suffix → TS isNaN-continue
 					continue
 				}
-				opcode := lenN - 1
-				if opcode < 0 {
-					opcode = 0
-				}
+				opcode := max(lenN-1, 0)
 				opcode++
 				pd.P1(uint8(opcode))
 				pd.P2(uint16(line.Value.(int)))

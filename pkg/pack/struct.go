@@ -23,12 +23,12 @@ func parseStructConfigFor(paramTypes *objtype.ParamTypeConfigs, lk *paramLookups
 		if key != "param" {
 			return nil, false, nil
 		}
-		comma := strings.Index(value, ",")
-		if comma < 0 {
+		before, after, ok0 := strings.Cut(value, ",")
+		if !ok0 {
 			return nil, true, fmt.Errorf("param expects 'name,value': %s", value)
 		}
-		name := value[:comma]
-		raw := value[comma+1:]
+		name := before
+		raw := after
 		id, ok := paramTypes.ConfigNames[name]
 		if !ok {
 			return nil, true, fmt.Errorf("unknown param: %s: %w", name, ErrUnknownParam)

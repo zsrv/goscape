@@ -10,7 +10,7 @@ import (
 func newWanderNpc(t *testing.T) *Npc {
 	t.Helper()
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "wanderer"},
+		ID: 0, DebugName: "wanderer",
 		WanderRange: 5,
 		RespawnRate: 50,
 		// defaultMode reads this stored field (TS Npc.ts:414); a wander NPC
@@ -109,7 +109,7 @@ func TestWanderModeFrequency(t *testing.T) {
 // re-queue.
 func TestWanderMode_ZeroRange_DisplacedNpc_QueuesSpawnReturn(t *testing.T) {
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "zero_range"},
+		ID: 0, DebugName: "zero_range",
 		WanderRange: 0,
 		DefaultMode: objtype.NPCModeWander,
 	}

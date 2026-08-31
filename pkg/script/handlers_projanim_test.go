@@ -325,9 +325,7 @@ func TestProjAnimPl_HappyPath(t *testing.T) {
 	const slot = 4
 	pl := &mockPlayer{slot: slot, x: 500, z: 600}
 	w := &projAnimWorld{
-		mockWorld: mockWorld{
-			playersByUID: map[int]ActivePlayer{uid: pl},
-		},
+		playersByUID: map[int]ActivePlayer{uid: pl},
 	}
 	m := &mockConfigs{spotAnimTypes: map[int]*objtype.SpotanimType{200: objtype.NewSpotanimType(200)}}
 
@@ -397,9 +395,7 @@ func TestProjAnimPl_TargetEncodingPinSlotZero(t *testing.T) {
 	const uid = 1
 	pl := &mockPlayer{slot: 0, x: 100, z: 200}
 	w := &projAnimWorld{
-		mockWorld: mockWorld{
-			playersByUID: map[int]ActivePlayer{uid: pl},
-		},
+		playersByUID: map[int]ActivePlayer{uid: pl},
 	}
 	m := &mockConfigs{spotAnimTypes: map[int]*objtype.SpotanimType{200: objtype.NewSpotanimType(200)}}
 
@@ -424,9 +420,7 @@ func TestProjAnimPl_HeightScaling(t *testing.T) {
 	const uid = 1
 	pl := &mockPlayer{slot: 0, x: 100, z: 200}
 	w := &projAnimWorld{
-		mockWorld: mockWorld{
-			playersByUID: map[int]ActivePlayer{uid: pl},
-		},
+		playersByUID: map[int]ActivePlayer{uid: pl},
 	}
 	m := &mockConfigs{spotAnimTypes: map[int]*objtype.SpotanimType{200: objtype.NewSpotanimType(200)}}
 

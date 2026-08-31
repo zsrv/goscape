@@ -123,7 +123,7 @@ func TestLex_StringPartialTag(t *testing.T) {
 func drainTokens(t *testing.T, l *Lexer) []Token {
 	t.Helper()
 	var out []Token
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		tok := l.NextToken()
 		out = append(out, tok)
 		if tok.Type == EOF {

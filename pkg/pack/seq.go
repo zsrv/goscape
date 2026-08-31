@@ -79,13 +79,13 @@ func parseSeqConfigFor(animPack, objPack *PackFile) ParseFn {
 			parts := strings.Split(value, ",")
 			labels := make([]int, 0, len(parts))
 			for _, part := range parts {
-				underscore := strings.Index(part, "_")
+				_, after, ok := strings.Cut(part, "_")
 				// goscape defensive: TS SeqConfig.ts:88-91 uses indexOf('_')+1 without
 				// validating presence; we reject malformed labels rather than emitting NaN.
-				if underscore == -1 {
+				if !ok {
 					return nil, true, fmt.Errorf("invalid walkmerge label: %s", part)
 				}
-				n, err := strconv.Atoi(part[underscore+1:])
+				n, err := strconv.Atoi(after)
 				if err != nil {
 					return nil, true, fmt.Errorf("invalid walkmerge label: %s", part)
 				}

@@ -32,7 +32,7 @@ func runAndExtractLookupKey(t *testing.T, s *codegen.RuneScript, idp stubIdProvi
 // TestLookupKey_NameMode pins SubjectMode.Name → -1 (TS L65).
 func TestLookupKey_NameMode(t *testing.T) {
 	tr := &trigger.TriggerType{ID: 5, Identifier: "proc", SubjectMode: trigger.ModeName, AllowParameters: true, AllowReturns: true}
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "x", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}}
+	ss := &symbol.ServerScriptSymbol{Trigger: tr, Name: "x", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}
 	s := codegen.NewRuneScript("smoke.rs2", ss, tr, "x", nil)
 	if got := runAndExtractLookupKey(t, s, stubIdProvider{}); got != -1 {
 		t.Errorf("lookupKey = %d, want -1", got)
@@ -46,7 +46,7 @@ func TestLookupKey_NameMode(t *testing.T) {
 func TestLookupKey_TypeMode_NonCategory(t *testing.T) {
 	tm := trigger.NewModeType(typ.PrimitiveInt, false, false)
 	tr := &trigger.TriggerType{ID: 5, Identifier: "opheld1", SubjectMode: tm}
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "x", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}}
+	ss := &symbol.ServerScriptSymbol{Trigger: tr, Name: "x", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}
 	subject := &symbol.BasicSymbol{Name: "weapon1", Type: typ.PrimitiveInt}
 	s := codegen.NewRuneScript("smoke.rs2", ss, tr, "x", subject)
 
@@ -65,7 +65,7 @@ func TestLookupKey_TypeMode_NonCategory(t *testing.T) {
 func TestLookupKey_TypeMode_Category(t *testing.T) {
 	tm := trigger.NewModeType(typ.PrimitiveInt, false, false)
 	tr := &trigger.TriggerType{ID: 5, Identifier: "opheld1", SubjectMode: tm}
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "x", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}}
+	ss := &symbol.ServerScriptSymbol{Trigger: tr, Name: "x", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}
 	subject := &symbol.BasicSymbol{Name: "wooden_bowls", Type: typ.PrimitiveCategory}
 	s := codegen.NewRuneScript("smoke.rs2", ss, tr, "x", subject)
 
@@ -79,7 +79,7 @@ func TestLookupKey_TypeMode_Category(t *testing.T) {
 func TestLookupKey_MapzonePath(t *testing.T) {
 	tm := trigger.NewModeType(typ.PrimitiveMapzone, false, false)
 	tr := &trigger.TriggerType{ID: 5, Identifier: "zone_enter", SubjectMode: tm}
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "x", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}}
+	ss := &symbol.ServerScriptSymbol{Trigger: tr, Name: "x", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}
 	subject := &symbol.BasicSymbol{Name: "12345", Type: typ.PrimitiveMapzone}
 	s := codegen.NewRuneScript("smoke.rs2", ss, tr, "x", subject)
 
@@ -98,7 +98,7 @@ func TestLookupKey_MapzoneInvalidPanics(t *testing.T) {
 	}()
 	tm := trigger.NewModeType(typ.PrimitiveMapzone, false, false)
 	tr := &trigger.TriggerType{ID: 5, Identifier: "zone_enter", SubjectMode: tm}
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "x", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}}
+	ss := &symbol.ServerScriptSymbol{Trigger: tr, Name: "x", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}
 	subject := &symbol.BasicSymbol{Name: "not-a-number", Type: typ.PrimitiveMapzone}
 	s := codegen.NewRuneScript("smoke.rs2", ss, tr, "x", subject)
 	runAndExtractLookupKey(t, s, stubIdProvider{})

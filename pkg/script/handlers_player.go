@@ -340,7 +340,7 @@ func handleStatTotal(s *ScriptState) error {
 		return err
 	}
 	total := 0
-	for i := 0; i < NumStats; i++ {
+	for i := range NumStats {
 		total += s.activePlayer().StatBase(i)
 	}
 	s.PushInt(total)
@@ -381,10 +381,7 @@ func handleStatAdd(s *ScriptState) error {
 	base := s.activePlayer().StatBase(id)
 	cur := s.activePlayer().Stat(id)
 	unclamped := cur + (constant + (base*percent)/100)
-	added := unclamped
-	if added > 255 {
-		added = 255
-	}
+	added := min(unclamped, 255)
 	s.activePlayer().SetCurLevel(id, added)
 	// TS PlayerOps.ts:513-515 — when STAT_ADD targets HITPOINTS and the
 	// post-update HP meets or exceeds base, clear the heroPoints ledger.
@@ -427,10 +424,7 @@ func handleStatSub(s *ScriptState) error {
 	base := s.activePlayer().StatBase(id)
 	cur := s.activePlayer().Stat(id)
 	unclamped := cur - (constant + (base*percent)/100)
-	subbed := unclamped
-	if subbed < 0 {
-		subbed = 0
-	}
+	subbed := max(unclamped, 0)
 	s.activePlayer().SetCurLevel(id, subbed)
 	// TS PlayerOps.ts:534-536 — pre-clamp predicate.
 	if unclamped != cur {
@@ -524,10 +518,7 @@ func handleStatDrain(s *ScriptState) error {
 	}
 	cur := s.activePlayer().Stat(id)
 	unclamped := cur - (constant + (cur*percent)/100)
-	subbed := unclamped
-	if subbed < 0 {
-		subbed = 0
-	}
+	subbed := max(unclamped, 0)
 	s.activePlayer().SetCurLevel(id, subbed)
 	// TS PlayerOps.ts:572-574 — pre-clamp predicate.
 	if unclamped != cur {
@@ -567,10 +558,7 @@ func handleStatHeal(s *ScriptState) error {
 	base := s.activePlayer().StatBase(id)
 	cur := s.activePlayer().Stat(id)
 	unclamped := cur + (constant + (base*percent)/100)
-	healed := unclamped
-	if healed > base {
-		healed = base
-	}
+	healed := min(unclamped, base)
 	if healed < cur {
 		healed = cur
 	}

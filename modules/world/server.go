@@ -833,11 +833,9 @@ func (s *Server) Run() error {
 		}
 	}()
 
-	s.tickWg.Add(1)
-	go func() {
-		defer s.tickWg.Done()
+	s.tickWg.Go(func() {
 		s.runTickLoop()
-	}()
+	})
 
 	select {
 	case err := <-errChan:

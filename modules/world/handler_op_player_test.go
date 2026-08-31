@@ -603,8 +603,8 @@ func TestHandleOpPlayerU_MembersOnNonMembersServer(t *testing.T) {
 		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
 	}
 	s.objTypes.Configs[1511] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
-		Members:    true,
+		ID: 1511, DebugName: "members_item",
+		Members: true,
 	}
 	seedOpPlayerUInv(t, s, clicker, 93, 149, 1511, 3)
 
@@ -638,8 +638,8 @@ func TestHandleOpPlayerU_MembersOnNonMembersServerClearsPendingAction(t *testing
 		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
 	}
 	s.objTypes.Configs[1511] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
-		Members:    true,
+		ID: 1511, DebugName: "members_item",
+		Members: true,
 	}
 	seedOpPlayerUInv(t, s, clicker, 93, 149, 1511, 3)
 

@@ -22,7 +22,7 @@ import (
 func makeInteractionNpc(t *testing.T, s *Server, slot, x, z, level int) *Npc {
 	t.Helper()
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test"},
+		ID: 0, DebugName: "test",
 		Op:          []string{"Attack"},
 		WanderRange: 0,
 		RespawnRate: 50,
@@ -648,7 +648,7 @@ func TestEffectiveApRange_UsesPlayerApRange_NpcTarget(t *testing.T) {
 	p.apRange = 7 // simulates bow apheld → p_aprange(7)
 
 	npcType := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 7, DebugName: "rat"},
+		ID: 7, DebugName: "rat",
 		AttackRange: 1, // melee NPC — IRRELEVANT for player-side AP gating
 	}
 	npc := NewNpc(0, 7, 100, 100, 0, npcType)
@@ -692,7 +692,7 @@ func TestProcessInteraction_NpcInRange_FiresApBranch(t *testing.T) {
 	p.x, p.z, p.level = 100, 100, 0
 
 	npcType := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 7, DebugName: "rat"},
+		ID: 7, DebugName: "rat",
 		AttackRange: 5, // melee NPC — does not gate player AP
 	}
 	npc := NewNpc(0, 7, 106, 100, 0, npcType) // dx=6, within p.apRange=10
@@ -1349,7 +1349,7 @@ func TestTryInteractLocAllowsOpWhenSceneryTrue(t *testing.T) {
 	// is nil (TS Player.ts:986-988 null-type guard). Seed locTypes so the
 	// Loc type 42 resolves and getOpTrigger proceeds to GetByTrigger.
 	locConfigs := make([]*objtype.LocType, 43)
-	locConfigs[42] = &objtype.LocType{ConfigType: objtype.ConfigType{ID: 42}}
+	locConfigs[42] = &objtype.LocType{ID: 42}
 	s.locTypes = &objtype.LocTypeConfigs{Configs: locConfigs}
 
 	// Register an OP script for loc.Type()=42 so getOpTrigger returns non-nil.
@@ -1919,7 +1919,7 @@ func TestTryInteract_AdjacentNpc_NoScripts_Branch4(t *testing.T) {
 	p.x, p.z, p.level = 100, 100, 0
 
 	npcType := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 7, DebugName: "rat"},
+		ID: 7, DebugName: "rat",
 		AttackRange: 0,
 		Category:    0,
 	}
@@ -2003,7 +2003,7 @@ func newInOperableTestServer(t *testing.T) (*Server, *objtype.LocType) {
 	s.locOps = &serverLocOps{s: s}
 	s.gamemap = gamemap.New(discardLogger())
 	s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 200)}
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100, DebugName: "wall_test"}}
+	lt := &objtype.LocType{ID: 100, DebugName: "wall_test"}
 	s.locTypes.Configs[100] = lt
 	return s, lt
 }
@@ -2381,8 +2381,8 @@ func newPathToTargetTestPlayer(t *testing.T, srv *Server, x, z, level int) *Play
 func newPathToTargetTestNpc(t *testing.T, srv *Server, x, z, level, size int) *Npc {
 	t.Helper()
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 0, DebugName: "pttarget"},
-		Size:       byte(size),
+		ID: 0, DebugName: "pttarget",
+		Size: byte(size),
 	}
 	n := NewNpc(0, 0, x, z, level, typ)
 	n.server = srv

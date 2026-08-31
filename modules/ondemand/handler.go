@@ -138,13 +138,13 @@ func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, path.Join(a.cfg.CachePath, "client", "sounds"))
 		return
 	}
-	if strings.HasPrefix(r.URL.Path, "/maps/") { // per-zone map/loc files (m{x}_{z}, l{x}_{z})
+	if after, ok := strings.CutPrefix(r.URL.Path, "/maps/"); ok { // per-zone map/loc files (m{x}_{z}, l{x}_{z})
 		// HTTP cache fallback for per-zone map/loc files: a client's signlink
 		// CacheHTTPFallback fetches missing map/loc cache items here. Live
 		// clients never hit this — they request map data via game opcode 150
 		// over the TCP stream. The name is constrained to ^[ml]\d+_\d+$ to
 		// guarantee the joined path resolves under <cache_path>/client/maps (default data/pack).
-		name := strings.TrimPrefix(r.URL.Path, "/maps/")
+		name := after
 		if !isValidMapName(name) {
 			http.NotFound(w, r)
 			return

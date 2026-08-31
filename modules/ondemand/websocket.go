@@ -3,6 +3,7 @@ package ondemand
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/coder/websocket"
@@ -85,10 +86,5 @@ func (a *OnDemand) originAllowed(origin string) bool {
 	if len(a.cfg.WebSocket.AllowedOrigins) == 0 {
 		return true
 	}
-	for _, allowed := range a.cfg.WebSocket.AllowedOrigins {
-		if origin == allowed {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(a.cfg.WebSocket.AllowedOrigins, origin)
 }

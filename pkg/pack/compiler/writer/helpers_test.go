@@ -18,7 +18,7 @@ import (
 // JumpTable[B.Label] = 3.
 func TestGenerateJumpTable_TwoBlocks(t *testing.T) {
 	procTrig := &trigger.TriggerType{ID: 0, Identifier: "proc", SubjectMode: trigger.ModeName}
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "foo"}}
+	ss := &symbol.ServerScriptSymbol{Trigger: procTrig, Name: "foo"}
 	script := codegen.NewRuneScript("smoke.rs2", ss, procTrig, "foo", nil)
 
 	la := &codegen.Label{Name: "a"}
@@ -46,7 +46,7 @@ func TestGenerateJumpTable_TwoBlocks(t *testing.T) {
 // non-deterministic; consumers iterate via the slice.
 func TestGenerateLineNumberTable_DistinctLines(t *testing.T) {
 	procTrig := &trigger.TriggerType{ID: 0, Identifier: "proc", SubjectMode: trigger.ModeName}
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "foo"}}
+	ss := &symbol.ServerScriptSymbol{Trigger: procTrig, Name: "foo"}
 	script := codegen.NewRuneScript("smoke.rs2", ss, procTrig, "foo", nil)
 
 	mk := func(line int) codegen.Instruction {

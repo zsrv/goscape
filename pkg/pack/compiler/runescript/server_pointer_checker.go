@@ -118,7 +118,7 @@ func (s *ServerPointerChecker) setsPointerTrigger(script *codegen.RuneScript, pt
 		return false
 	}
 	// TS splits on ':' and takes the prefix.
-	prefix := strings.SplitN(name, ":", 2)[0]
+	prefix, _, _ := strings.Cut(name, ":")
 	if prefix == "" {
 		return false
 	}

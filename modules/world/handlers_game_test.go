@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -978,7 +979,7 @@ func TestHandleClientCheat_MinMe_AllStatsSetTo1ExceptHitpoints(t *testing.T) {
 	p, cc, _ := teleTestPlayer(t)
 	p.staffModLevel = 3
 	go io.Copy(io.Discard, cc)
-	for i := 0; i < objtype.PlayerStatCount; i++ {
+	for i := range objtype.PlayerStatCount {
 		p.baseLevels[i] = 99
 		p.levels[i] = 99
 		p.stats[i] = int32(objtype.GetExpByLevel(99))
@@ -986,7 +987,7 @@ func TestHandleClientCheat_MinMe_AllStatsSetTo1ExceptHitpoints(t *testing.T) {
 
 	dispatchTeleCheat(t, p, "minme")
 
-	for i := 0; i < objtype.PlayerStatCount; i++ {
+	for i := range objtype.PlayerStatCount {
 		want := uint8(1)
 		if i == objtype.PlayerStatHitpoints {
 			want = 10
@@ -1159,13 +1160,7 @@ func TestHandleClientCheat_Snapshot_WritesHeapFile(t *testing.T) {
 
 	// Cleanup newly-created files.
 	for _, f := range postFiles {
-		found := false
-		for _, pf := range preFiles {
-			if pf == f {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(preFiles, f)
 		if !found {
 			os.Remove(f)
 		}
@@ -1320,8 +1315,8 @@ func setvarTestFixture(t *testing.T) (*Player, net.Conn, *Server) {
 	p.staffModLevel = 3
 	s.varpTypes = &objtype.VarpTypeConfigs{
 		Configs: []*objtype.VarPlayerType{
-			{ConfigType: objtype.ConfigType{ID: 0, DebugName: "transmit_only"}, Transmit: true, Protect: false},
-			{ConfigType: objtype.ConfigType{ID: 1, DebugName: "protect_var"}, Transmit: true, Protect: true},
+			{ID: 0, DebugName: "transmit_only", Transmit: true, Protect: false},
+			{ID: 1, DebugName: "protect_var", Transmit: true, Protect: true},
 		},
 		ConfigNames: map[string]int{"transmit_only": 0, "protect_var": 1},
 	}
@@ -1748,11 +1743,11 @@ func givecrapFixture(t *testing.T, nodeMembers bool) (*Player, *Server, int) {
 	s.objTypes = &objtype.ObjTypeConfigs{
 		Configs: []*objtype.ObjType{
 			nil,
-			{ConfigType: objtype.ConfigType{ID: 1, DebugName: "pass1"}, CertTemplate: -1},
-			{ConfigType: objtype.ConfigType{ID: 2, DebugName: "pass2"}, CertTemplate: -1},
-			{ConfigType: objtype.ConfigType{ID: 3, DebugName: "members"}, Members: true, CertTemplate: -1},
-			{ConfigType: objtype.ConfigType{ID: 4, DebugName: "dummy"}, DummyItem: 1, CertTemplate: -1},
-			{ConfigType: objtype.ConfigType{ID: 5, DebugName: "cert"}, CertTemplate: 10},
+			{ID: 1, DebugName: "pass1", CertTemplate: -1},
+			{ID: 2, DebugName: "pass2", CertTemplate: -1},
+			{ID: 3, DebugName: "members", Members: true, CertTemplate: -1},
+			{ID: 4, DebugName: "dummy", DummyItem: 1, CertTemplate: -1},
+			{ID: 5, DebugName: "cert", CertTemplate: 10},
 		},
 	}
 	return p, s, invID
@@ -1816,11 +1811,11 @@ func TestHandleClientCheat_GiveCrap_SmallPoolOnePassingItem_NoInfiniteLoop(t *te
 	s.invTypes.Inv = invID
 	s.objTypes = &objtype.ObjTypeConfigs{
 		Configs: []*objtype.ObjType{
-			{ConfigType: objtype.ConfigType{ID: 0, DebugName: "pass"}, CertTemplate: -1},
-			{ConfigType: objtype.ConfigType{ID: 1, DebugName: "members"}, Members: true, CertTemplate: -1},
-			{ConfigType: objtype.ConfigType{ID: 2, DebugName: "dummy"}, DummyItem: 1, CertTemplate: -1},
-			{ConfigType: objtype.ConfigType{ID: 3, DebugName: "cert"}, CertTemplate: 10},
-			{ConfigType: objtype.ConfigType{ID: 4, DebugName: "members2"}, Members: true, CertTemplate: -1},
+			{ID: 0, DebugName: "pass", CertTemplate: -1},
+			{ID: 1, DebugName: "members", Members: true, CertTemplate: -1},
+			{ID: 2, DebugName: "dummy", DummyItem: 1, CertTemplate: -1},
+			{ID: 3, DebugName: "cert", CertTemplate: 10},
+			{ID: 4, DebugName: "members2", Members: true, CertTemplate: -1},
 		},
 	}
 
@@ -1950,9 +1945,9 @@ func TestHandleClientCheat_Locadd_SpawnsLoc(t *testing.T) {
 
 	s.locTypes = &objtype.LocTypeConfigs{
 		Configs: []*objtype.LocType{{
-			ConfigType: objtype.ConfigType{ID: locID, DebugName: locName},
-			Width:      1,
-			Length:     1,
+			ID: locID, DebugName: locName,
+			Width:  1,
+			Length: 1,
 		}},
 		ConfigNames: map[string]int{locName: 0},
 	}
@@ -2034,7 +2029,7 @@ func TestHandleClientCheat_Npcadd_SpawnsNpc(t *testing.T) {
 		ConfigNames: map[string]int{npcName: npcID},
 	}
 	s.npcTypes.Configs[npcID] = &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: npcID, DebugName: npcName},
+		ID: npcID, DebugName: npcName,
 		Size:         1,
 		RespawnRate:  100,
 		Timer:        0,
@@ -2118,8 +2113,8 @@ func TestHandleClientCheat_Openmain_OpensMainModal(t *testing.T) {
 		ConfigNames: map[string]int{comName: comID},
 	}
 	s.componentTypes.Configs[comID] = &objtype.ComponentType{
-		ConfigType: objtype.ConfigType{ID: comID, DebugName: comName},
-		RootLayer:  comID, // root: rootLayer == id passes the gate
+		ID: comID, DebugName: comName,
+		RootLayer: comID, // root: rootLayer == id passes the gate
 	}
 
 	// Seed an open chat/side modal so we can verify OpenMain clears them.
@@ -2162,8 +2157,8 @@ func TestHandleClientCheat_Openmain_NonRoot_NoOp(t *testing.T) {
 		ConfigNames: map[string]int{comName: comID},
 	}
 	s.componentTypes.Configs[comID] = &objtype.ComponentType{
-		ConfigType: objtype.ConfigType{ID: comID, DebugName: comName},
-		RootLayer:  50, // child: rootLayer != id fails the gate
+		ID: comID, DebugName: comName,
+		RootLayer: 50, // child: rootLayer != id fails the gate
 	}
 
 	startMain := p.modalMain
@@ -2215,9 +2210,9 @@ func TestHandleClientCheat_AdminSpawn_StaffGateRejects(t *testing.T) {
 
 	s.locTypes = &objtype.LocTypeConfigs{
 		Configs: []*objtype.LocType{{
-			ConfigType: objtype.ConfigType{ID: locID, DebugName: locName},
-			Width:      1,
-			Length:     1,
+			ID: locID, DebugName: locName,
+			Width:  1,
+			Length: 1,
 		}},
 		ConfigNames: map[string]int{locName: 0},
 	}
@@ -2226,7 +2221,7 @@ func TestHandleClientCheat_AdminSpawn_StaffGateRejects(t *testing.T) {
 		ConfigNames: map[string]int{npcName: npcID},
 	}
 	s.npcTypes.Configs[npcID] = &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: npcID, DebugName: npcName},
+		ID: npcID, DebugName: npcName,
 		Size:        1,
 		RespawnRate: 100,
 		HuntMode:    -1,
@@ -2237,8 +2232,8 @@ func TestHandleClientCheat_AdminSpawn_StaffGateRejects(t *testing.T) {
 		ConfigNames: map[string]int{comName: comID},
 	}
 	s.componentTypes.Configs[comID] = &objtype.ComponentType{
-		ConfigType: objtype.ConfigType{ID: comID, DebugName: comName},
-		RootLayer:  comID,
+		ID: comID, DebugName: comName,
+		RootLayer: comID,
 	}
 
 	startNpcCount := len(s.npcLoop)
@@ -2378,7 +2373,7 @@ func TestMarshalDebugprocArgs_Int_Missing(t *testing.T) {
 func TestMarshalDebugprocArgs_Obj_Hit(t *testing.T) {
 	s := newTestServer(t)
 	s.objTypes = &objtype.ObjTypeConfigs{
-		Configs:     []*objtype.ObjType{{ConfigType: objtype.ConfigType{ID: 946, DebugName: "knife"}}},
+		Configs:     []*objtype.ObjType{{ID: 946, DebugName: "knife"}},
 		ConfigNames: map[string]int{"knife": 0},
 	}
 	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeObj)})
@@ -2404,7 +2399,7 @@ func TestMarshalDebugprocArgs_Obj_Miss(t *testing.T) {
 func TestMarshalDebugprocArgs_Namedobj_Hit(t *testing.T) {
 	s := newTestServer(t)
 	s.objTypes = &objtype.ObjTypeConfigs{
-		Configs:     []*objtype.ObjType{{ConfigType: objtype.ConfigType{ID: 7, DebugName: "knife"}}},
+		Configs:     []*objtype.ObjType{{ID: 7, DebugName: "knife"}},
 		ConfigNames: map[string]int{"knife": 0},
 	}
 	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeNamedObj)})
@@ -2417,7 +2412,7 @@ func TestMarshalDebugprocArgs_Namedobj_Hit(t *testing.T) {
 func TestMarshalDebugprocArgs_Npc_Hit(t *testing.T) {
 	s := newTestServer(t)
 	s.npcTypes = &objtype.NPCTypeConfigs{
-		Configs:     []*objtype.NpcType{{ConfigType: objtype.ConfigType{ID: 11, DebugName: "man"}}},
+		Configs:     []*objtype.NpcType{{ID: 11, DebugName: "man"}},
 		ConfigNames: map[string]int{"man": 0},
 	}
 	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeNPC)})
@@ -2430,7 +2425,7 @@ func TestMarshalDebugprocArgs_Npc_Hit(t *testing.T) {
 func TestMarshalDebugprocArgs_Loc_Hit(t *testing.T) {
 	s := newTestServer(t)
 	s.locTypes = &objtype.LocTypeConfigs{
-		Configs:     []*objtype.LocType{{ConfigType: objtype.ConfigType{ID: 33, DebugName: "table_basic"}}},
+		Configs:     []*objtype.LocType{{ID: 33, DebugName: "table_basic"}},
 		ConfigNames: map[string]int{"table_basic": 0},
 	}
 	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeLoc)})
@@ -2443,7 +2438,7 @@ func TestMarshalDebugprocArgs_Loc_Hit(t *testing.T) {
 func TestMarshalDebugprocArgs_Seq_Hit(t *testing.T) {
 	s := newTestServer(t)
 	s.seqTypes = &objtype.SeqTypeConfigs{
-		Configs:     []*objtype.SeqType{{ConfigType: objtype.ConfigType{ID: 13, DebugName: "human_walk"}}},
+		Configs:     []*objtype.SeqType{{ID: 13, DebugName: "human_walk"}},
 		ConfigNames: map[string]int{"human_walk": 0},
 	}
 	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeSeq)})
@@ -2474,7 +2469,7 @@ func TestMarshalDebugprocArgs_Stat_Miss(t *testing.T) {
 func TestMarshalDebugprocArgs_Inv_Hit(t *testing.T) {
 	s := newTestServer(t)
 	s.invTypes = &objtype.InvTypeConfigs{
-		Configs:     []*objtype.InvType{{ConfigType: objtype.ConfigType{ID: 93, DebugName: "inv"}}},
+		Configs:     []*objtype.InvType{{ID: 93, DebugName: "inv"}},
 		ConfigNames: map[string]int{"inv": 0},
 	}
 	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeInv)})
@@ -2487,7 +2482,7 @@ func TestMarshalDebugprocArgs_Inv_Hit(t *testing.T) {
 func TestMarshalDebugprocArgs_Interface_Hit(t *testing.T) {
 	s := newTestServer(t)
 	s.componentTypes = &objtype.ComponentTypeConfigs{
-		Configs:     []*objtype.ComponentType{{ConfigType: objtype.ConfigType{ID: 137, DebugName: "welcome_screen"}}},
+		Configs:     []*objtype.ComponentType{{ID: 137, DebugName: "welcome_screen"}},
 		ConfigNames: map[string]int{"welcome_screen": 0},
 	}
 	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeInterface)})
@@ -2500,7 +2495,7 @@ func TestMarshalDebugprocArgs_Interface_Hit(t *testing.T) {
 func TestMarshalDebugprocArgs_Spotanim_Hit(t *testing.T) {
 	s := newTestServer(t)
 	s.spotanimTypes = &objtype.SpotanimTypeConfigs{
-		Configs:     []*objtype.SpotanimType{{ConfigType: objtype.ConfigType{ID: 70, DebugName: "air_strike"}}},
+		Configs:     []*objtype.SpotanimType{{ID: 70, DebugName: "air_strike"}},
 		ConfigNames: map[string]int{"air_strike": 0},
 	}
 	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeSpotanim)})
@@ -2513,7 +2508,7 @@ func TestMarshalDebugprocArgs_Spotanim_Hit(t *testing.T) {
 func TestMarshalDebugprocArgs_Idkit_Hit(t *testing.T) {
 	s := newTestServer(t)
 	s.idkTypes = &objtype.IdkTypeConfigs{
-		Configs:     []*objtype.IdkType{{ConfigType: objtype.ConfigType{ID: 256, DebugName: "arms"}}},
+		Configs:     []*objtype.IdkType{{ID: 256, DebugName: "arms"}},
 		ConfigNames: map[string]int{"arms": 0},
 	}
 	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeIdkit)})
@@ -2526,7 +2521,7 @@ func TestMarshalDebugprocArgs_Idkit_Hit(t *testing.T) {
 func TestMarshalDebugprocArgs_MultipleArgsMixed(t *testing.T) {
 	s := newTestServer(t)
 	s.objTypes = &objtype.ObjTypeConfigs{
-		Configs:     []*objtype.ObjType{{ConfigType: objtype.ConfigType{ID: 946, DebugName: "knife"}}},
+		Configs:     []*objtype.ObjType{{ID: 946, DebugName: "knife"}},
 		ConfigNames: map[string]int{"knife": 0},
 	}
 	sf := stageDebugprocScript(t, s, "mix", []byte{

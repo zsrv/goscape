@@ -2,8 +2,8 @@ package script
 
 import (
 	"fmt"
+	"uuid"
 
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/zsrv/goscape/pkg/eventspb"
@@ -228,14 +228,8 @@ func invItemSpaceRemaining(s *ScriptState, inv *inventory.Inventory, obj, count,
 		if total == 0 && free == 0 && !stockObj {
 			return count
 		}
-		room := inventory.StackLimit - total
-		if room < 0 {
-			room = 0
-		}
-		rem := count - room
-		if rem < 0 {
-			rem = 0
-		}
+		room := max(inventory.StackLimit-total, 0)
+		rem := max(count-room, 0)
 		return rem
 	}
 
@@ -243,14 +237,8 @@ func invItemSpaceRemaining(s *ScriptState, inv *inventory.Inventory, obj, count,
 	// capacity, no reservation. If size < capacity, only
 	// (free - (capacity - size)) slots are usable for this obj.
 	free := inv.FreeSlotCount()
-	avail := free - (inv.Capacity - size)
-	if avail < 0 {
-		avail = 0
-	}
-	rem := count - avail
-	if rem < 0 {
-		rem = 0
-	}
+	avail := max(free-(inv.Capacity-size), 0)
+	rem := max(count-avail, 0)
 	return rem
 }
 
@@ -1533,7 +1521,7 @@ func handleInvDropItem(s *ScriptState) error {
 	if o != nil {
 		telemetry.Get().EmitWealth(&eventspb.WealthEnvelope{
 			SchemaVersion: 1,
-			EventId:       uuid.NewString(),
+			EventId:       uuid.New().String(),
 			Ts:            timestamppb.Now(),
 			AccountId:     s.activePlayer().AccountID(),
 			WorldId:       worldID,
@@ -1775,7 +1763,7 @@ func handleBothMoveInv(s *ScriptState) error {
 			}
 			telemetry.Get().EmitWealth(&eventspb.WealthEnvelope{
 				SchemaVersion: 1,
-				EventId:       uuid.NewString(),
+				EventId:       uuid.New().String(),
 				Ts:            timestamppb.Now(),
 				AccountId:     s.activePlayer().AccountID(),
 				WorldId:       tradeWorldID,

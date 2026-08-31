@@ -33,7 +33,7 @@ func init() {
 	charset := []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
 		"abcdefghijklmnopqrstuvwxyz" +
 		"0123456789!\"£$%^&*()-_=+[{]};:'@#~,<.>/?\\| ")
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		slot := byte(74)
 		for j, r := range charset {
 			if int(r) == i {
@@ -96,7 +96,7 @@ func decodeFont(title *jagfile.Jagfile, name string) (*FontType, error) {
 	var charOffsetX [94]int
 	var charAdvance [95]byte
 
-	for c := 0; c < 94; c++ {
+	for c := range 94 {
 		charOffsetX[c] = int(index.G1())
 		_ = index.G1() // charOffsetY — read but unused outside decode
 		wi := int(index.G2())
@@ -112,8 +112,8 @@ func decodeFont(title *jagfile.Jagfile, name string) (*FontType, error) {
 				charMask[j] = data.G1()
 			}
 		case 1:
-			for x := 0; x < wi; x++ {
-				for y := 0; y < hi; y++ {
+			for x := range wi {
+				for y := range hi {
 					charMask[x+y*wi] = data.G1()
 				}
 			}
@@ -153,7 +153,7 @@ func decodeFont(title *jagfile.Jagfile, name string) (*FontType, error) {
 	// FontType.ts:116 — space (index 94) inherits advance from charAdvance[8].
 	charAdvance[94] = charAdvance[8]
 
-	for c := 0; c < 256; c++ {
+	for c := range 256 {
 		slot := CharLookup[c]
 		if int(slot) < len(charAdvance) {
 			f.drawWidth[c] = charAdvance[slot]

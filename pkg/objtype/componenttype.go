@@ -102,7 +102,7 @@ type ComponentType struct {
 // activeAnim=-1, actionTarget=-1.
 func NewComponentType(id int) *ComponentType {
 	return &ComponentType{
-		ConfigType:   ConfigType{ID: id},
+		ID:           id,
 		RootLayer:    -1,
 		ComType:      -1,
 		ButtonType:   -1,

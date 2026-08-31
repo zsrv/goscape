@@ -14,7 +14,7 @@ func TestLex_EmptyInput_ReturnsEOF(t *testing.T) {
 		t.Errorf("EOF source = (line=%d, col=%d), want (1,1)", tok.Source.Line, tok.Source.Column)
 	}
 	// Repeated calls must keep returning EOF (caller-friendly).
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if l.NextToken().Type != EOF {
 			t.Errorf("repeated NextToken at EOF: iter %d not EOF", i)
 		}

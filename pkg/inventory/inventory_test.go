@@ -45,7 +45,7 @@ func TestAddStackingBehavior(t *testing.T) {
 func TestAddNoStackFillsSlots(t *testing.T) {
 	inv := New(1, 28, StackNever)
 	inv.Add(10, 3, AddOpts{})
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if inv.Items[i] == nil || inv.Items[i].Count != 1 {
 			t.Errorf("slot %d: %+v", i, inv.Items[i])
 		}
@@ -364,7 +364,7 @@ func TestAdd_TransactionAddedPopulated(t *testing.T) {
 // Inventory.fromType (Inventory.ts:66-73).
 func TestFromType_SeedsLiteralStockObjAndCount(t *testing.T) {
 	tp := &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: 1},
+		ID:         1,
 		Size:       3,
 		StockObj:   []uint16{0, 7, 0},
 		StockCount: []uint16{5, 0, 0},

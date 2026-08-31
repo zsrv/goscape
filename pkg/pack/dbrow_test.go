@@ -14,7 +14,7 @@ func buildDbTableTypes(t *testing.T, tableID int, types [][]objtype.ScriptVarTyp
 	t.Helper()
 	cfgs := make([]*objtype.DbTableType, tableID+1)
 	cfgs[tableID] = &objtype.DbTableType{
-		ConfigType:  objtype.ConfigType{ID: tableID, DebugName: "t_test"},
+		ID: tableID, DebugName: "t_test",
 		Types:       types,
 		DefaultInts: make([][]int32, len(types)),
 		DefaultStrs: make([][]string, len(types)),

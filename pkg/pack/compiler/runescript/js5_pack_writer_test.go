@@ -24,11 +24,11 @@ func TestJs5PackScriptWriter_HappyPath(t *testing.T) {
 		t.Fatalf("NewJs5PackScriptWriter: %v", err)
 	}
 	w.OutputScript(&codegen.RuneScript{
-		Symbol:  &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "s0"}},
+		Symbol:  &symbol.ServerScriptSymbol{Trigger: procTrig, Name: "s0"},
 		Trigger: procTrig,
 	}, []byte{0xAA, 0xBB})
 	w.OutputScript(&codegen.RuneScript{
-		Symbol:  &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "s1"}},
+		Symbol:  &symbol.ServerScriptSymbol{Trigger: procTrig, Name: "s1"},
 		Trigger: procTrig,
 	}, []byte{0xCC, 0xDD, 0xEE})
 	if err := w.Close(); err != nil {
@@ -88,7 +88,7 @@ func TestJs5PackScriptWriter_OutputScript_ClonesData(t *testing.T) {
 	}
 	data := []byte{0x11, 0x22, 0x33}
 	w.OutputScript(&codegen.RuneScript{
-		Symbol:  &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "s0"}},
+		Symbol:  &symbol.ServerScriptSymbol{Trigger: procTrig, Name: "s0"},
 		Trigger: procTrig,
 	}, data)
 	data[0] = 0xFF // mutate after handoff

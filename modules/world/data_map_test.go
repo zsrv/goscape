@@ -3,6 +3,7 @@ package world
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"net"
 	"testing"
 
@@ -42,12 +43,8 @@ func seedClientMap(t *testing.T, prefix byte, mapX, mapZ int, data []byte) {
 		Data: map[string][]byte{},
 		CRC:  map[string]uint32{},
 	}
-	for k, v := range prior.Data {
-		next.Data[k] = v
-	}
-	for k, v := range prior.CRC {
-		next.CRC[k] = v
-	}
+	maps.Copy(next.Data, prior.Data)
+	maps.Copy(next.CRC, prior.CRC)
 	next.Data[name] = data
 	cache.SetPreloadForTest(next)
 	t.Cleanup(func() {

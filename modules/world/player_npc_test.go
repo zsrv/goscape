@@ -32,7 +32,7 @@ func setupNpcInfoPlayer(t *testing.T, s *Server, slot, x, z, level int) *Player 
 func setupNpc(t *testing.T, s *Server, x, z, level int) *Npc {
 	t.Helper()
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test_npc"},
+		ID: 0, DebugName: "test_npc",
 		WanderRange: 0, // stationary so coords don't drift
 		RespawnRate: 50,
 	}
