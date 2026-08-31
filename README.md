@@ -12,8 +12,10 @@ Because `main` holds no Go code, the module resolves per revision rather than
 from the default branch — `go install github.com/zsrv/goscape/cmd/goscape@rev-274`
 (or any other `rev-N`), not `@latest`.
 
-Security policy, including which listeners are safe to expose:
-[`SECURITY.md`](SECURITY.md).
+How to contribute, including which branch to target and the porting rules that
+govern engine changes: [`CONTRIBUTING.md`](CONTRIBUTING.md). Security policy,
+including which listeners are safe to expose: [`SECURITY.md`](SECURITY.md).
+Third-party attribution: [`NOTICE`](NOTICE).
 
 ## Branch model
 

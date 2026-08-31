@@ -1,0 +1,46 @@
+goscape (documentation hub) — third-party notices and attribution
+=================================================================
+
+This branch carries documentation and the tooling that builds the documentation
+site. The engine itself lives on the `rev-N` branches, each of which has its own
+NOTICE covering the code it ports.
+
+-----------------------------------------------------------------------
+Lost City — Engine-TS
+-----------------------------------------------------------------------
+
+goscape is a Go rewrite of the Lost City TypeScript RuneScape server
+(https://github.com/LostCityRS/Engine-TS). The documentation here describes that
+port and quotes Engine-TS file and line references throughout; the porting
+tracker and lessons are written against it directly.
+
+Engine-TS is licensed under the MIT License, Copyright (c) 2023-2025 Lost City.
+The full text is reproduced in the NOTICE file on each `rev-N` branch.
+
+-----------------------------------------------------------------------
+Zensical
+-----------------------------------------------------------------------
+
+The documentation site is built with Zensical (https://github.com/zensical/
+zensical), MIT licensed. `overrides/main.html` extends a Zensical theme
+template; only the override itself is part of this repository.
+
+-----------------------------------------------------------------------
+mike
+-----------------------------------------------------------------------
+
+Per-revision versioning of the published site uses mike
+(https://github.com/jimporter/mike), by way of the Zensical fork pinned in
+requirements.txt. mike is licensed under the BSD 3-Clause License,
+Copyright (c) 2017-2026, Jim Porter.
+
+-----------------------------------------------------------------------
+Rendered game assets
+-----------------------------------------------------------------------
+
+`overlays/rev-*/player/items/icons/` contains item icons rendered from the
+pinned Lost City content trees by this repository's own rasterizer, and the
+per-revision reference pages are generated from the same content. The underlying
+game data and its visual designs originate with Jagex Ltd.; they are reproduced
+here only to document what each revision of the engine serves. No affiliation
+with or endorsement by Jagex is claimed.
