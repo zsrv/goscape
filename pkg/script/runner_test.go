@@ -379,7 +379,9 @@ type mockPlayer struct {
 
 	// NAI-117 P_RUN: most recent value passed to SetRun(v); -1 sentinel
 	// distinguishes "never called" from a legitimate v=0 walk-mode write.
-	lastSetRun int
+	lastSetRun     int
+	lastSetTempRun int
+	lastSetNpcID   int
 
 	// NAI-137: seeded by tests; mockPlayer.RunVarpID returns this. Default
 	// 0 matches the TS VarPlayerType.RUN placeholder default.
@@ -843,7 +845,9 @@ func (m *mockPlayer) SetWalkAnimR(seqID int) { m.lastWalkAnimR = seqID }
 func (m *mockPlayer) SetRunAnim(seqID int)   { m.lastRunAnim = seqID }
 
 // NAI-117 P_RUN.
-func (m *mockPlayer) SetRun(v int) { m.lastSetRun = v }
+func (m *mockPlayer) SetRun(v int)     { m.lastSetRun = v }
+func (m *mockPlayer) SetTempRun(v int) { m.lastSetTempRun = v }
+func (m *mockPlayer) SetNpcID(id int)  { m.lastSetNpcID = id }
 
 // NAI-117 RUNENERGY.
 func (m *mockPlayer) RunEnergy() int { return m.runenergyValue }

@@ -569,6 +569,21 @@ func (p *Player) SetRun(v int) {
 	p.run = v
 }
 
+// SetTempRun implements script.ActivePlayer.SetTempRun. Raises the one-tick
+// temporary run flag, the same field the ctrl-held move-click path writes
+// (handlers_game.go:312-314). Mirrors TS field write at PlayerOps.ts:1277
+// @1d25566c. Backs the P_TEMPRUN opcode handler.
+func (p *Player) SetTempRun(v int) {
+	p.tempRun = v
+}
+
+// SetNpcID implements script.ActivePlayer.SetNpcID. Sets the
+// transmogrification npc id (-1 = not transmogrified). Mirrors TS field write
+// at PlayerOps.ts:2472 @1d25566c. Backs the P_TRANSMOGRIFY opcode handler.
+func (p *Player) SetNpcID(id int) {
+	p.npcId = id
+}
+
 // Walk implements script.ActivePlayer.Walk. Runs the server pathfinder
 // at the player's current level via the s.pathfinder() test seam and
 // replaces the waypoint queue with the result. Mirrors TS

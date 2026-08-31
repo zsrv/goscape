@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/bits"
 	"math/rand/v2"
+	"time"
 )
 
 // bitMask returns a mask covering bits [start..end] inclusive.
@@ -458,5 +459,33 @@ func handleDistance(s *ScriptState) error {
 	} else {
 		s.PushInt(dz)
 	}
+	return nil
+}
+
+// handleDateMinutes (DATE_MINUTES, opcode 4629) pushes whole minutes elapsed
+// since the Unix epoch. Mirrors TS NumberOps.ts:181-184 @1d25566c:
+//
+//	const currentMs = performance.timeOrigin + performance.now();
+//	state.pushInt(Math.floor(currentMs / 60000));
+//
+// `performance.timeOrigin + performance.now()` is wall-clock milliseconds
+// since the epoch, so time.Now() is the direct equivalent. RuneScript
+// signature `[command,date_minutes]()(int)` (Content engine.rs2 @2b62ae68d).
+func handleDateMinutes(s *ScriptState) error {
+	s.PushInt(int(time.Now().UnixMilli() / 60000))
+	return nil
+}
+
+// handleDateRuneday (DATE_RUNEDAY, opcode 4630) pushes the "runeday": whole
+// days since the epoch, minus the 11745-day offset that anchors day 0 to
+// 2002-02-27 (RuneScape membership launch). Mirrors TS NumberOps.ts:186-189
+// @1d25566c:
+//
+//	const currentMs = performance.timeOrigin + performance.now();
+//	state.pushInt(Math.floor(currentMs / 86400000) - 11745);
+//
+// RuneScript signature `[command,date_runeday]()(int)`.
+func handleDateRuneday(s *ScriptState) error {
+	s.PushInt(int(time.Now().UnixMilli()/86400000) - 11745)
 	return nil
 }

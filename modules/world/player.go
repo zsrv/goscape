@@ -328,7 +328,11 @@ type Player struct {
 	userPath []int
 
 	// === run energy ===
-	run, tempRun             int
+	run, tempRun int
+	// npcId is the transmogrification target: when >= 0 the appearance
+	// block writes p2(-1), p2(npcId) in place of the 12 equipment slots.
+	// -1 means "not transmogrified". TS Player.ts:412 @1d25566c.
+	npcId                    int
 	runenergy, lastRunEnergy int
 	runweight                int
 
@@ -667,15 +671,17 @@ func newPlayer(c *client) *Player {
 		// from the login response after PlayerLoading.load). Feeds the third
 		// byte of UPDATE_PID (Player.ts:501) and the warnMembersInNonMembers
 		// derivation in the LastLoginInfo handler (Player.ts:2196).
-		members:        c.members,
-		username:       c.username,
-		displayName:    util.ToDisplayName(c.username),
-		username37:     util.ToBase37(c.username),
-		staffModLevel:  c.staffModLevel,
-		session:        c.sessionUUID,
-		accountID:      c.accountID,
-		slot:           -1, // TS Player.ts: slot = -1 until login assigns one
-		uid:            -1,
+		members:       c.members,
+		username:      c.username,
+		displayName:   util.ToDisplayName(c.username),
+		username37:    util.ToBase37(c.username),
+		staffModLevel: c.staffModLevel,
+		session:       c.sessionUUID,
+		accountID:     c.accountID,
+		slot:          -1, // TS Player.ts: slot = -1 until login assigns one
+		uid:           -1,
+		npcId:         -1, // TS Player.ts:412 @1d25566c — not transmogrified
+
 		x:              3094,
 		z:              3106,
 		level:          0,

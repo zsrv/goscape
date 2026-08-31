@@ -40,16 +40,19 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpBranchGreaterThanOrEquals: handleBranchGreaterThanOrEquals,
 
 	// S5a: arithmetic.
-	OpMultiply:   handleMultiply,
-	OpDivide:     handleDivide,
-	OpModulo:     handleModulo,
-	OpAbs:        handleAbs,
-	OpAddPercent: handleAddPercent,
-	OpScale:      handleScale,
-	OpMin:        handleMin,
-	OpMax:        handleMax,
-	OpPow:        handlePow,
-	OpInvPow:     handleInvPow,
+	OpMultiply: handleMultiply,
+	OpDivide:   handleDivide,
+	OpModulo:   handleModulo,
+	OpAbs:      handleAbs,
+	// TS 8139461a: wall-clock date ops.
+	OpDateMinutes: handleDateMinutes,
+	OpDateRuneday: handleDateRuneday,
+	OpAddPercent:  handleAddPercent,
+	OpScale:       handleScale,
+	OpMin:         handleMin,
+	OpMax:         handleMax,
+	OpPow:         handlePow,
+	OpInvPow:      handleInvPow,
 
 	// S5a: bitwise.
 	OpAnd:              handleAnd,
@@ -290,6 +293,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPWalk: handlePWalk,
 	// NAI-117 T1: run-mode toggle (gated by ProtectedActivePlayer).
 	OpPRun: handlePRun,
+	// TS 8139461a: one-tick temp-run flag and appearance transmogrification.
+	OpPTempRun:      handlePTempRun,
+	OpPTransmogrify: handlePTransmogrify,
 	// NAI-117 T2: run-energy reader (gated by ActivePlayer).
 	OpRunEnergy: handleRunEnergy,
 	// NAI-149 T5: run-energy healer — add+clamp to [0, 10000].

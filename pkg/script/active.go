@@ -284,6 +284,20 @@ type ActivePlayer interface {
 	// NAI-117.
 	SetRun(value int)
 
+	// SetTempRun sets the one-tick temporary run flag. Mirrors TS field
+	// write `state.activePlayer.tempRun = 1` at PlayerOps.ts:1277
+	// @1d25566c (P_TEMPRUN). The flag is consumed and cleared by the
+	// movement step, exactly like the ctrl-held tempRun the move-click
+	// handler already sets.
+	SetTempRun(value int)
+
+	// SetNpcID sets the transmogrification npc id, or -1 for "not
+	// transmogrified". Mirrors TS field write `state.activePlayer.npcId
+	// = id` at PlayerOps.ts:2472 @1d25566c (P_TRANSMOGRIFY). When set,
+	// the appearance block writes p2(-1), p2(npcId) in place of the 12
+	// equipment slots (TS Player.ts:1390-1395).
+	SetNpcID(id int)
+
 	// RunEnergy returns the player's current run-energy value as an
 	// int (range [0, 10000]). Mirrors TS `state.pushInt(player.runenergy)`
 	// at Engine-TS PlayerOps.ts:1177. NAI-117.

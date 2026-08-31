@@ -2,6 +2,7 @@ package script
 
 import (
 	"testing"
+	"time"
 )
 
 // runSingleOp builds a one-instruction script, pushes `inputs` onto the
@@ -480,5 +481,59 @@ func TestCoordOpsAbortOnInvalidCoord(t *testing.T) {
 				t.Fatalf("%s: Execute returned nil, want abort on invalid coord", tc.name)
 			}
 		})
+	}
+}
+
+// TestDateMinutes verifies DATE_MINUTES (opcode 4629) pushes whole minutes
+// since the Unix epoch. Mirrors TS NumberOps.ts:181-184 @1d25566c
+// (`Math.floor((performance.timeOrigin + performance.now()) / 60000)`).
+// Asserted with a straddling bound, matching the handlers_debug_test.go
+// convention for wall-clock handlers.
+func TestDateMinutes(t *testing.T) {
+	before := time.Now().UnixMilli() / 60000
+	got := runSingleOp(t, OpDateMinutes, nil)
+	after := time.Now().UnixMilli() / 60000
+
+	if int64(got) < before || int64(got) > after {
+		t.Errorf("DATE_MINUTES: got %d, want within [%d, %d]", got, before, after)
+	}
+}
+
+// TestDateRuneday verifies DATE_RUNEDAY (opcode 4630) pushes whole days since
+// the epoch minus the 11745-day membership offset. Mirrors TS
+// NumberOps.ts:186-189 @1d25566c.
+func TestDateRuneday(t *testing.T) {
+	before := time.Now().UnixMilli()/86400000 - 11745
+	got := runSingleOp(t, OpDateRuneday, nil)
+	after := time.Now().UnixMilli()/86400000 - 11745
+
+	if int64(got) < before || int64(got) > after {
+		t.Errorf("DATE_RUNEDAY: got %d, want within [%d, %d]", got, before, after)
+	}
+}
+
+// TestDateRunedayOffsetIsMinutesConsistent pins the two ops against each
+// other: runeday must be the same instant as date_minutes, just at day
+// granularity and shifted by the 11745 anchor. Catches a units slip (e.g. a
+// 60000 divisor left in the runeday handler) that a bounds-only assertion on
+// either op alone would pass.
+func TestDateRunedayOffsetIsMinutesConsistent(t *testing.T) {
+	minutes := runSingleOp(t, OpDateMinutes, nil)
+	runeday := runSingleOp(t, OpDateRuneday, nil)
+
+	// minutes/1440 == days since epoch; runeday == that minus 11745.
+	wantRuneday := minutes/1440 - 11745
+	if runeday != wantRuneday {
+		t.Errorf("DATE_RUNEDAY: got %d, want %d (derived from DATE_MINUTES %d)",
+			runeday, wantRuneday, minutes)
+	}
+}
+
+// TestDateRunedayAnchor pins what the 11745 constant encodes: runeday 0 is
+// 2002-02-27, the RuneScape membership launch date the TS comment cites.
+func TestDateRunedayAnchor(t *testing.T) {
+	anchor := time.Date(2002, 2, 27, 0, 0, 0, 0, time.UTC)
+	if got := anchor.Unix() / 86400; got != 11745 {
+		t.Errorf("2002-02-27 as whole days since epoch: got %d, want 11745", got)
 	}
 }

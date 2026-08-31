@@ -833,6 +833,55 @@ func handlePWalk(s *ScriptState) error {
 // Gate: ProtectedActivePlayer (TS checkedHandler).
 //
 // NAI-117 T1.
+// handlePTempRun (P_TEMPRUN, opcode 2088) raises the one-tick temporary run
+// flag. Mirrors TS PlayerOps.ts:1276-1278 @1d25566c:
+//
+//	[ScriptOpcode.P_TEMPRUN]: state => {
+//	    state.activePlayer.tempRun = 1;
+//	},
+//
+// RuneScript signature `[command,p_temprun]` — no arguments, no return
+// (Content engine.rs2 @2b62ae68d).
+func handlePTempRun(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "P_TEMPRUN"); err != nil {
+		return err
+	}
+	s.activePlayer().SetTempRun(1)
+	return nil
+}
+
+// handlePTransmogrify (P_TRANSMOGRIFY, opcode 2092) transforms the player into
+// an npc for appearance purposes. Mirrors TS PlayerOps.ts:2466-2473 @1d25566c:
+//
+//	const id = state.popInt();
+//	if (id < -1 || id >= NpcType.count) {
+//	    throw new Error('Invalid npc.');
+//	}
+//	state.activePlayer.npcId = id;
+//
+// The gate is a raw bounds check against NpcType.count, NOT the NpcTypeValid
+// validator — and it deliberately admits -1, the "stop transmogrifying"
+// sentinel. goscape's npc registry is dense (LoadNPCTypes allocates one
+// NpcType per id in [0, count)), so `Configs.NpcType(id) == nil` is exactly
+// `id >= count` for id >= 0.
+//
+// RuneScript signature `[command,p_transmogrify](npc $npc)` (Content
+// engine.rs2 @2b62ae68d, promoted out of the commented-out block).
+func handlePTransmogrify(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "P_TRANSMOGRIFY"); err != nil {
+		return err
+	}
+	id := s.PopInt()
+	if id < -1 {
+		return fmt.Errorf("P_TRANSMOGRIFY: Invalid npc.")
+	}
+	if id != -1 && (s.Configs == nil || s.Configs.NpcType(id) == nil) {
+		return fmt.Errorf("P_TRANSMOGRIFY: Invalid npc.")
+	}
+	s.activePlayer().SetNpcID(id)
+	return nil
+}
+
 func handlePRun(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_RUN"); err != nil {
 		return err

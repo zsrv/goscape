@@ -57,10 +57,13 @@ func TestPointers_ZeroValue(t *testing.T) {
 // 274 pin-advance dee467c8 adds MINIMAP_TOGGLE, SET_SKILL_LEVEL and
 // NPC_DESTINATION rows (+3) = 242 (SETSKINCOLOUR→SETIDKCOLOUR is in-place;
 // MAP_LOC has NO pointer row in TS).
+// 274 pin-advance 1d25566c adds P_TEMPRUN, P_TRANSMOGRIFY, PLAYERMEMBER,
+// STAT_TOTAL, SESSION_LOG and WEALTH_EVENT rows (+6) = 248. FINDHERO gains
+// require/require2 and OBJ_FIND gains conditional, both in place.
 func TestScriptOpcodePointers_LengthParity(t *testing.T) {
-	const wantLen = 242
+	const wantLen = 248
 	if got := len(ScriptOpcodePointers); got != wantLen {
-		t.Fatalf("len(ScriptOpcodePointers) = %d, want %d (re-verify against TS ScriptOpcodePointers.ts at pin dee467c8)", got, wantLen)
+		t.Fatalf("len(ScriptOpcodePointers) = %d, want %d (re-verify against TS ScriptOpcodePointers.ts at pin 1d25566c)", got, wantLen)
 	}
 }
 

@@ -441,6 +441,11 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 		Require2: []string{"active_player2"},
 	},
 	OpFindHero: {
+		// TS 8139461a added the require pair: FINDHERO reads the active
+		// player before it sets the hero into the secondary slot
+		// (ScriptOpcodePointers.ts:497-499 @1d25566c).
+		Require:     []string{"active_player"},
+		Require2:    []string{"active_player2"},
 		Set:         []string{"active_player2"},
 		Set2:        []string{"active_player"},
 		Conditional: true,
@@ -472,6 +477,29 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 	OpPRun: {
 		Require:  []string{"p_active_player"},
 		Require2: []string{"p_active_player2"},
+	},
+	// TS 8139461a (ScriptOpcodePointers.ts:530-533,552-555 @1d25566c).
+	OpPTempRun: {
+		Require:  []string{"p_active_player"},
+		Require2: []string{"p_active_player2"},
+	},
+	OpPTransmogrify: {
+		Require:  []string{"p_active_player"},
+		Require2: []string{"p_active_player2"},
+	},
+	// TS 8139461a (ScriptOpcodePointers.ts:556-567 @1d25566c) — these four
+	// read the active player but had no table entry.
+	OpPlayerMember: {
+		Require: []string{"active_player"},
+	},
+	OpStatTotal: {
+		Require: []string{"active_player"},
+	},
+	OpSessionLog: {
+		Require: []string{"active_player"},
+	},
+	OpWealthEvent: {
+		Require: []string{"active_player"},
 	},
 	OpStrongQueue: {
 		Require:  []string{"active_player"},
@@ -795,6 +823,10 @@ var ScriptOpcodePointers = map[Opcode]Pointers{
 	OpObjFind: {
 		Set:  []string{"active_obj"},
 		Set2: []string{"active_obj2"},
+		// TS 8139461a marked OBJ_FIND conditional — it may fail to find an
+		// obj, so the pointer it sets is not guaranteed on every path
+		// (ScriptOpcodePointers.ts:864-866 @1d25566c).
+		Conditional: true,
 	},
 	OpObjFindAllZone: {
 		Set:  []string{"find_obj"},

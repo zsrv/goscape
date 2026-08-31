@@ -7646,3 +7646,122 @@ func TestHuntNext_ConsumesPlayerIterator(t *testing.T) {
 		t.Fatalf("Self: got %v, want target %v", s.Self, target)
 	}
 }
+
+// newTransmogConfigs returns a mockConfigs whose npc registry is dense over
+// [0, count) — matching LoadNPCTypes, which allocates one NpcType per id. That
+// density is what makes `Configs.NpcType(id) == nil` equivalent to TS's
+// `id >= NpcType.count` bound in P_TRANSMOGRIFY.
+func newTransmogConfigs(count int) *mockConfigs {
+	npcs := make(map[int]*objtype.NpcType, count)
+	for id := range count {
+		npcs[id] = objtype.NewNpcType(id)
+	}
+	return &mockConfigs{npcs: npcs}
+}
+
+// TestPTempRunDispatch verifies P_TEMPRUN (opcode 2088) raises the one-tick
+// temp-run flag. Mirrors TS PlayerOps.ts:1276-1278 @1d25566c
+// (`state.activePlayer.tempRun = 1`). RuneScript signature is
+// `[command,p_temprun]` — no arguments, no return (Content engine.rs2
+// @2b62ae68d).
+func TestPTempRunDispatch(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name:             "p_temprun_dispatch",
+		Opcodes:          []Opcode{OpPTempRun, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, mp, true, nil, nil) // protect=true (p_active_player gate)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.lastSetTempRun != 1 {
+		t.Errorf("SetTempRun: got %d, want 1", mp.lastSetTempRun)
+	}
+}
+
+// TestPTempRunRequiresProtectedPlayer pins the ScriptOpcodePointers entry
+// added by 8139461a: P_TEMPRUN requires p_active_player, like P_RUN.
+func TestPTempRunRequiresProtectedPlayer(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "p_temprun_unprotected",
+		Opcodes:          []Opcode{OpPTempRun, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, &mockPlayer{}, false, nil, nil) // protect=false
+	if err := Execute(state); err == nil {
+		t.Error("Execute without ProtectedActivePlayer: got nil error, want pointer error")
+	}
+}
+
+// TestPTransmogrifyDispatch verifies P_TRANSMOGRIFY (opcode 2092) sets the
+// transmogrification npc id. Mirrors TS PlayerOps.ts:2466-2473 @1d25566c.
+// RuneScript signature is `[command,p_transmogrify](npc $npc)` (Content
+// engine.rs2 @2b62ae68d, promoted out of the commented-out block).
+func TestPTransmogrifyDispatch(t *testing.T) {
+	mp := &mockPlayer{lastSetNpcID: -999}
+	sf := &ScriptFile{
+		Name:             "p_transmogrify_dispatch",
+		Opcodes:          []Opcode{OpPushConstantInt, OpPTransmogrify, OpReturn},
+		IntOperands:      []int32{2, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, true, nil, nil)
+	state.Configs = newTransmogConfigs(4)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.lastSetNpcID != 2 {
+		t.Errorf("SetNpcID: got %d, want 2", mp.lastSetNpcID)
+	}
+}
+
+// TestPTransmogrifyBounds pins the validation gate. TS throws `Invalid npc.`
+// for `id < -1 || id >= NpcType.count` (PlayerOps.ts:2467-2470 @1d25566c) — a
+// raw bounds check, not the NpcTypeValid validator, and it deliberately admits
+// -1 as the "stop transmogrifying" sentinel.
+func TestPTransmogrifyBounds(t *testing.T) {
+	const npcCount = 4
+	tests := []struct {
+		id      int32
+		wantErr bool
+	}{
+		{-2, true},
+		{-1, false},
+		{0, false},
+		{npcCount - 1, false},
+		{npcCount, true},
+	}
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("id=%d", tc.id), func(t *testing.T) {
+			mp := &mockPlayer{lastSetNpcID: -999}
+			sf := &ScriptFile{
+				Name:             "p_transmogrify_bounds",
+				Opcodes:          []Opcode{OpPushConstantInt, OpPTransmogrify, OpReturn},
+				IntOperands:      []int32{tc.id, 0, 0},
+				StringOperands:   []string{"", "", ""},
+				InstructionCount: 3,
+			}
+			state := Init(sf, mp, true, nil, nil)
+			state.Configs = newTransmogConfigs(npcCount)
+			err := Execute(state)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("Execute(id=%d): got nil error, want invalid-npc error", tc.id)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Execute(id=%d): %v", tc.id, err)
+			}
+			if mp.lastSetNpcID != int(tc.id) {
+				t.Errorf("SetNpcID: got %d, want %d", mp.lastSetNpcID, tc.id)
+			}
+		})
+	}
+}
