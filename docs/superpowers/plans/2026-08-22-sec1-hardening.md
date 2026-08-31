@@ -770,7 +770,7 @@ func (c *client) closeConn() {
 
 - [ ] **Step 5: Replace the call sites**
 
-Apply exactly these edits (verify each line with `sed -n` first; line numbers are from rev-274 @ d509f14a and may have shifted by Tasks 2–3):
+Apply exactly these edits (verify each line with `sed -n` first; line numbers are from rev-274 @ 60db51ba and may have shifted by Tasks 2–3):
 - `tick.go:397` `_ = p.client.conn.Close()` → `p.client.closeConn()`
 - `tick.go:678` `_ = p.client.conn.Close()` → `p.client.closeConn()`
 - `tick_recovery.go:43` `_ = p.client.conn.Close()` → `p.client.closeConn()` (keep the `p.client != nil && p.client.conn != nil` guard)

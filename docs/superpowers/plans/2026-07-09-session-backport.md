@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Source-of-truth rev-274 commits: wordenc `eee67f039`+`fdef314f1`; PERF-3 `0c55ea7ca` (pkg/script) + `4840bdea1` (call sites) + `7754eb66f` (hardened pin); docs `861b6fb57`+`92c8f0cae`+`af2cd97e4`; client `6e4d708` (ExitFunc) + `71dcce3` (launch). Read them with `git show <sha>` inside any worktree of the same repo — port their content faithfully, adapting ONLY what the task's parameter table names.
+- Source-of-truth rev-274 commits: wordenc `bb17cc947`+`ad4d245ca`; PERF-3 `d6693964e` (pkg/script) + `f59712805` (call sites) + `c4ecddde1` (hardened pin); docs `718bcc07e`+`bf9fabe71`+`6c50a0671`; client `6e4d708` (ExitFunc) + `71dcce3` (launch). Read them with `git show <sha>` inside any worktree of the same repo — port their content faithfully, adapting ONLY what the task's parameter table names.
 - `go` commands: prefix env `GOPATH="${TMPDIR:-/tmp}/go" GOCACHE="${TMPDIR:-/tmp}/go-cache"`. goscape builds CGO=0; `-race` runs and all goscape-client / singleplayer builds need `CGO_ENABLED=1`.
 - Shell writes to any worktree outside the main goscape checkout fail under the sandbox ("Read-only file system") — retry the exact command with the sandbox disabled.
 - Commits: `git commit --no-gpg-sign`; `git status --short` first; stage only files the task names. Never stage `.superpowers/`, stray binaries, or phantom `/dev/null` dotfiles (sandbox mask-mounts).
@@ -30,36 +30,36 @@ Parameters per task: ⟨WT⟩ = worktree dir, ⟨BR⟩ = branch.
 
 Guard, then copy (post-change files from rev-274):
 ```bash
-git diff eee67f039^ ⟨BR⟩ -- pkg/wordenc/encfilter/encfilter.go pkg/wordenc/encfilter/encfilter_test.go
+git diff bb17cc947^ ⟨BR⟩ -- pkg/wordenc/encfilter/encfilter.go pkg/wordenc/encfilter/encfilter_test.go
 # Expected: EMPTY (survey-verified byte-identical). If not empty → STOP, NEEDS_CONTEXT.
 git checkout rev-274 -- pkg/wordenc/encfilter/encfilter.go pkg/wordenc/encfilter/encfilter_test.go
 ```
 
 - [ ] **Step 3: wordenc knob — same-anchor insertions**
 
-Read `git show eee67f039` and apply its `modules/world/config.go`, `modules/world/server.go`, `modules/world/server_wordenc_test.go`, `modules/world/server_lifecycle_test.go`, and `examples/full-config-reference.yaml` hunks to this branch at the SAME anchors (the `RSAPrivateKeyPath` field / `world.rsa-private-key-path` flag / `rsa_private_key_path` yaml key / the `encfilter.Load()` call + its comment). Insertion content is verbatim from the commit; surrounding branch content stays untouched. Branch-specific test note: this branch's `server_wordenc_test.go` uses its own `refNNNCacheDir`-style fixtures — put the added `WordEncPath: filepath.Join("data", "raw", "wordenc")` lines into the branch's existing cfg literals, mirroring what `eee67f039` did on 274. Also apply `fdef314f1` (comment-accuracy follow-up) where its hunks match.
+Read `git show bb17cc947` and apply its `modules/world/config.go`, `modules/world/server.go`, `modules/world/server_wordenc_test.go`, `modules/world/server_lifecycle_test.go`, and `examples/full-config-reference.yaml` hunks to this branch at the SAME anchors (the `RSAPrivateKeyPath` field / `world.rsa-private-key-path` flag / `rsa_private_key_path` yaml key / the `encfilter.Load()` call + its comment). Insertion content is verbatim from the commit; surrounding branch content stays untouched. Branch-specific test note: this branch's `server_wordenc_test.go` uses its own `refNNNCacheDir`-style fixtures — put the added `WordEncPath: filepath.Join("data", "raw", "wordenc")` lines into the branch's existing cfg literals, mirroring what `bb17cc947` did on 274. Also apply `ad4d245ca` (comment-accuracy follow-up) where its hunks match.
 
 - [ ] **Step 4: wordenc gate**
 
 ```bash
 GOPATH=... go test ./pkg/wordenc/... ./modules/world/ -run 'Wordenc|WordEnc|TestLoad' -v && GOPATH=... go build ./...
 ```
-Expected: PASS (the `TestNewServer*` wordenc tests may SKIP without `GOSCAPE_REF*_DIR` — pre-existing gate, fine). Commit 1: `git add` the seven wordenc files → `feat(world): configurable wordenc_path for embedders (default TS-faithful) [port of eee67f039+fdef314f1]`.
+Expected: PASS (the `TestNewServer*` wordenc tests may SKIP without `GOSCAPE_REF*_DIR` — pre-existing gate, fine). Commit 1: `git add` the seven wordenc files → `feat(world): configurable wordenc_path for embedders (default TS-faithful) [port of bb17cc947+ad4d245ca]`.
 
 - [ ] **Step 5: PERF-3 — copy pkg/script**
 
 ```bash
-git diff 0c55ea7ca^ ⟨BR⟩ -- pkg/script/runner.go pkg/script/state.go
+git diff d6693964e^ ⟨BR⟩ -- pkg/script/runner.go pkg/script/state.go
 ```
-If EMPTY for a file → `git checkout rev-274 -- <that file>`. If runner.go/state.go differ from 274's pre-change state (survey says Init is byte-identical but whole files were not certified): apply `0c55ea7ca`'s hunks manually — the Init buffer-source swap and the `buf *scriptBuffers` field appended as the last `ScriptState` field with its doc comment, both verbatim from `git show 0c55ea7ca`. Then always:
+If EMPTY for a file → `git checkout rev-274 -- <that file>`. If runner.go/state.go differ from 274's pre-change state (survey says Init is byte-identical but whole files were not certified): apply `d6693964e`'s hunks manually — the Init buffer-source swap and the `buf *scriptBuffers` field appended as the last `ScriptState` field with its doc comment, both verbatim from `git show d6693964e`. Then always:
 ```bash
 git checkout rev-274 -- pkg/script/pool.go pkg/script/pool_test.go
 ```
-(brings the pool and the `7754eb66f`-hardened tests wholesale — both files are new/self-contained).
+(brings the pool and the `c4ecddde1`-hardened tests wholesale — both files are new/self-contained).
 
 - [ ] **Step 6: PERF-3 — the three Release call sites**
 
-In `modules/world/script.go` (`resumeOrFinish`, `resumeOrFinishWorld`) and `modules/world/npc_script.go` (`resumeOrFinishNpc`): insert `script.Release(state)` as the LAST statement of each `case script.Finished, script.Aborted:` arm, with the exact comments from `git show 4840bdea1` (after `OnScriptFinishedOrAborted(state)` in the player/NPC dispatchers; directly in the comment-only arm in resumeOrFinishWorld). NO suspend arm, NO default arm, NO pre-switch error path. Then:
+In `modules/world/script.go` (`resumeOrFinish`, `resumeOrFinishWorld`) and `modules/world/npc_script.go` (`resumeOrFinishNpc`): insert `script.Release(state)` as the LAST statement of each `case script.Finished, script.Aborted:` arm, with the exact comments from `git show f59712805` (after `OnScriptFinishedOrAborted(state)` in the player/NPC dispatchers; directly in the comment-only arm in resumeOrFinishWorld). NO suspend arm, NO default arm, NO pre-switch error path. Then:
 ```bash
 git checkout rev-274 -- modules/world/script_pool_release_test.go
 ```
@@ -77,11 +77,11 @@ GOPATH=... CGO_ENABLED=1 go test -race -short ./pkg/script/ ./modules/world/ && 
 GOPATH=... go test -run '^$' ./... && gofmt -l pkg/script modules/world
 GOPATH=... go test ./pkg/script/ -run '^$' -bench BenchmarkInitRelease -benchtime 10000x
 ```
-Expected: all PASS / clean compile-all / no gofmt output; record the B/op (⟨BENCH⟩, expect ≤~1000). A FAILURE in any existing world test is real information — STOP and report; never weaken a test or move a Release. Commit 2: pkg/script files + the two modules/world files + the test → `perf(script,world): ScriptState buffer pool + terminal-arm Release (PERF-3) [port of 0c55ea7ca+4840bdea1+7754eb66f]`.
+Expected: all PASS / clean compile-all / no gofmt output; record the B/op (⟨BENCH⟩, expect ≤~1000). A FAILURE in any existing world test is real information — STOP and report; never weaken a test or move a Release. Commit 2: pkg/script files + the two modules/world files + the test → `perf(script,world): ScriptState buffer pool + terminal-arm Release (PERF-3) [port of d6693964e+f59712805+c4ecddde1]`.
 
 - [ ] **Step 8: docs**
 
-In `docs/PORTING-CLOSED.md` §Performance hotspots: (a) append the PERF-3 row — take the FINAL rev-274 row text (`git show af2cd97e4:docs/PORTING-CLOSED.md | grep -A1 'PERF-3'` or read the file on rev-274), then adapt exactly two things: replace the commit SHAs with THIS branch's two port commits, and replace `833 B/op` with ⟨BENCH⟩; append a trailing sentence: `Ported from rev-274 (soak churn numbers measured there; same engine).` (b) replace the stale `⚠ MED` lineroutefinder row with rev-274's final ✅ FIXED version (from `af2cd97e4`) verbatim — survey verified all four branches have `pkg/pathfinder/routefinder/lineroutefinder.go` with `lineRouteCoordsCap = 64` at line 21, so the text is accurate as-is. In `docs/PORTING.md`: replace the "(none — both LOW rows closed…)" pointer line with rev-274's final version (mentions PERF-1/2/3; from `git show 92c8f0cae^:docs/PORTING.md` — the line as updated by `861b6fb57`). Commit 3: both docs → `docs(porting): PERF-3 closure row + lineroutefinder row flip [port]`.
+In `docs/PORTING-CLOSED.md` §Performance hotspots: (a) append the PERF-3 row — take the FINAL rev-274 row text (`git show 6c50a0671:docs/PORTING-CLOSED.md | grep -A1 'PERF-3'` or read the file on rev-274), then adapt exactly two things: replace the commit SHAs with THIS branch's two port commits, and replace `833 B/op` with ⟨BENCH⟩; append a trailing sentence: `Ported from rev-274 (soak churn numbers measured there; same engine).` (b) replace the stale `⚠ MED` lineroutefinder row with rev-274's final ✅ FIXED version (from `6c50a0671`) verbatim — survey verified all four branches have `pkg/pathfinder/routefinder/lineroutefinder.go` with `lineRouteCoordsCap = 64` at line 21, so the text is accurate as-is. In `docs/PORTING.md`: replace the "(none — both LOW rows closed…)" pointer line with rev-274's final version (mentions PERF-1/2/3; from `git show bf9fabe71^:docs/PORTING.md` — the line as updated by `718bcc07e`). Commit 3: both docs → `docs(porting): PERF-3 closure row + lineroutefinder row flip [port]`.
 
 - [ ] **Step 9: Report** — branch tip SHA, ⟨BENCH⟩, gate outputs, any fixture adaptations.
 

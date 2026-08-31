@@ -1,6 +1,6 @@
 # SEC1 — Security hardening batch 1 (M-1, M-2, M-7, M-8, M-12)
 
-Source: goscape security review 2026-08-20 (rev-274 @ d509f14a). This batch
+Source: goscape security review 2026-08-20 (rev-274 @ 60db51ba). This batch
 addresses five Medium findings the user selected. Criticals/Highs are
 deliberately out of scope here and remain open.
 

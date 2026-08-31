@@ -11,12 +11,12 @@ goscape-singleplayer revision branches (not just the enabling seams).
 
 Everything landed on rev-274 during the 2026-07-09 session:
 
-1. goscape `world.wordenc_path` knob (`eee67f039`+`fdef314f1`)
-2. goscape PERF-3 ScriptState buffer pool (`0c55ea7ca`+`4840bdea1`) incl. the
-   identity-hardened stale-leak pin (`7754eb66f`)
+1. goscape `world.wordenc_path` knob (`bb17cc947`+`ad4d245ca`)
+2. goscape PERF-3 ScriptState buffer pool (`d6693964e`+`f59712805`) incl. the
+   identity-hardened stale-leak pin (`c4ecddde1`)
 3. goscape PORTING doc fixes: per-branch PERF-3 closure row (as in
-   `861b6fb57`+`92c8f0cae`) and the stale lineroutefinder row flip
-   (`af2cd97e4`)
+   `718bcc07e`+`bf9fabe71`) and the stale lineroutefinder row flip
+   (`6c50a0671`)
 4. goscape-client `clientextras.ExitFunc` hook (`6e4d708`) and the
    `pkg/jagex2/launch` extraction (`71dcce3`)
 5. goscape-singleplayer: a new revision branch per target rev, replicating the
