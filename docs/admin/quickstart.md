@@ -11,8 +11,8 @@ what the server is and how its parts fit together, start with the
 
 You need three things:
 
-- **Go 1.26 or newer.** goscape is compiled from source with the Go toolchain.
-  The minimum version is the one named in the project's `go.mod` (`go 1.26`); an
+- **Go 1.27 or newer.** goscape is compiled from source with the Go toolchain.
+  The minimum version is the one named in the project's `go.mod` (`go 1.27`); an
   older toolchain refuses to build the module.
 - **A packed game cache.** The `ondemand` module serves the game cache to
   connecting clients, and the `world` module reads map data from it. Both read

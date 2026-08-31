@@ -6,8 +6,8 @@ docs worktree). They are independent — pick whichever you are working on.
 
 ## Engine: toolchain
 
-The engine requires **Go 1.26 or newer** (`go.mod` declares `go 1.26`; the
-release images pin `1.26.3`). No other toolchain is needed to build or test the
+The engine requires **Go 1.27 or newer** (`go.mod` declares `go 1.27`; the
+release images pin `1.27.0`). No other toolchain is needed to build or test the
 server — the binary is statically linkable and its dependencies are pure Go.
 
 Builds set `CGO_ENABLED=0` so the result is a static binary with no libc
