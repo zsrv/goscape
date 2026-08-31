@@ -43,7 +43,7 @@ undocumented divergence is the thing most likely to get a change sent back.
 
 ## Development
 
-Requirements: Go 1.26 or newer. No CGO for a normal build; the race detector
+Requirements: Go 1.27 or newer. No CGO for a normal build; the race detector
 needs it.
 
 ```bash
