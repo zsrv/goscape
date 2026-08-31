@@ -107,6 +107,15 @@ skip automatically when it isn't present.
 - `CLAUDE.md` documents the architecture (module system, networking, service lifecycle)
   in more detail.
 
+## Security
+
+`login`, `friends` and `account` speak gRPC with no authentication between them —
+they assume a trusted network — while `world`, `ondemand`, `hiscore` and the
+account portal are the listeners meant to face players. Every module binds
+`127.0.0.1` by default. [`SECURITY.md`](SECURITY.md) has the full trust model,
+the known weak defaults (including the public built-in login RSA key), and how to
+report a vulnerability.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). goscape is a from-scratch Go port of Lost City's MIT-licensed
