@@ -29,8 +29,8 @@ func (st *StructType) Decode(code uint8, dat *packet2.Packet) error {
 
 func NewStructType(id int) *StructType {
 	return &StructType{
-		ConfigType: ConfigType{ID: id},
-		Params:     make(ParamMap),
+		ID:     id,
+		Params: make(ParamMap),
 	}
 }
 

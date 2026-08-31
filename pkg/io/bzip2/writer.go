@@ -321,7 +321,7 @@ func (zw *Writer) encodePrefix(syms []uint16, numSyms int) {
 	// then recomputes Huffman lengths for the next pass via libbzip2's
 	// heap-with-depth-tie-breaker algorithm (see hbMakeCodeLengths).
 	freqBuf := make([]int32, numSyms)
-	for iter := 0; iter < bzNIters; iter++ {
+	for range bzNIters {
 		for t := 0; t < numTrees; t++ {
 			for v := 0; v < numSyms; v++ {
 				zw.codes2D[t][v].Cnt = 0
@@ -330,10 +330,7 @@ func (zw *Writer) encodePrefix(syms []uint16, numSyms int) {
 
 		selIdx := 0
 		for gs := 0; gs < len(syms); gs += numBlockSyms {
-			ge := gs + numBlockSyms
-			if ge > len(syms) {
-				ge = len(syms)
-			}
+			ge := min(gs+numBlockSyms, len(syms))
 			var bestCost uint32 = math.MaxUint32
 			var bestTree uint8
 			for t := 0; t < numTrees; t++ {

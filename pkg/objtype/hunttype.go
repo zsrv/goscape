@@ -74,9 +74,7 @@ type HuntType struct {
 // NewHuntType returns a HuntType populated with TS defaults.
 func NewHuntType(id int) *HuntType {
 	return &HuntType{
-		ConfigType: ConfigType{
-			ID: id,
-		},
+		ID:                id,
 		Type:              HuntModeOff,
 		CheckVis:          HuntVisOff,
 		CheckNotTooStrong: HuntCheckNotTooStrongOff,

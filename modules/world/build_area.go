@@ -1,7 +1,7 @@
 package world
 
 import (
-	"sort"
+	"slices"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
 )
@@ -178,7 +178,7 @@ func (b *buildArea) rebuildScenery(currentTick int) []uint16 {
 	for m := range b.mapsquares {
 		out = append(out, m)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	slices.Sort(out)
 	return out
 }
 

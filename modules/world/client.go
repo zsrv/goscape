@@ -10,8 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
@@ -276,7 +276,7 @@ func (c *client) sendLoginOK() error {
 	}
 
 	if c.tap != nil && c.tap.Enabled() {
-		c.sessionID = uuid.NewString()
+		c.sessionID = uuid.New().String()
 		c.tap.SessionStarted(c.accountID, c.sessionID, time.Now())
 	}
 

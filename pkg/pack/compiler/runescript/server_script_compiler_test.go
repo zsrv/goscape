@@ -20,13 +20,12 @@ import (
 // shape from cfg.TestPointerChecker_Run_UninitializedReported.
 func scriptWithUnsetActivePlayer() *codegen.RuneScript {
 	tr := &trigger.TriggerType{ID: 0, Identifier: "proc"}
-	sym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "p1"}}
+	sym := &symbol.ServerScriptSymbol{Trigger: tr, Name: "p1"}
 	rs := codegen.NewRuneScript("test.rs2", sym, tr, "p1", nil)
 	b := codegen.NewBlock(&codegen.Label{Name: "entry"})
-	cmd := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{
+	cmd := &symbol.ServerScriptSymbol{
 		Trigger: &trigger.TriggerType{Identifier: "command"},
-		Name:    "p_kickout",
-	}}
+		Name:    "p_kickout"}
 	b.Add(codegen.Instruction{Opcode: codegen.Command, Operand: cmd})
 	b.Add(codegen.Instruction{Opcode: codegen.Return})
 	rs.Blocks = []*codegen.Block{b}
@@ -127,12 +126,11 @@ func TestRun_PointerCheckErrors_ReturnsError(t *testing.T) {
 	// before writePhase; but codegen still emits Command instructions with the
 	// symbol operand, which doesn't need a mapped opcode id).
 	for _, name := range []string{"p_corrupt", "p_kickout"} {
-		sym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{
+		sym := &symbol.ServerScriptSymbol{
 			Trigger:    trigger.CommandTrigger,
 			Name:       name,
 			Parameters: typ.MetaUnit,
-			Returns:    typ.MetaUnit,
-		}}
+			Returns:    typ.MetaUnit}
 		c.RootTable.Insert(symbol.SymbolTypeServerScript(trigger.CommandTrigger), sym)
 	}
 	c.BinaryWriter = NewBinaryScriptWriter(mapper, c.Writer)

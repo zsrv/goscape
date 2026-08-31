@@ -88,14 +88,8 @@ func (h *BaseDiagnosticsHandler) handleShared(d *Diagnostics) {
 		line := lines[lineIdx]
 		lineNoTabs := strings.ReplaceAll(line, "\t", "    ")
 		tabCount := strings.Count(line, "\t")
-		col := loc.Column
-		if col < 1 {
-			col = 1
-		}
-		caretOffset := tabCount*3 + (col - 1)
-		if caretOffset < 0 {
-			caretOffset = 0
-		}
+		col := max(loc.Column, 1)
+		caretOffset := max(tabCount*3+(col-1), 0)
 		fmt.Fprintf(out, "    > %s\n", lineNoTabs)
 		fmt.Fprintf(out, "    > %s^\n", strings.Repeat(" ", caretOffset))
 	}

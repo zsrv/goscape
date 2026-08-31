@@ -38,9 +38,9 @@ func TestOpNpcScriptNpcDelayStoresContinuationOnNpc(t *testing.T) {
 	s.currentTick = 100
 
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 0, DebugName: "macro_triffidseed"},
-		Op:         []string{"Pick"},
-		Size:       1,
+		ID: 0, DebugName: "macro_triffidseed",
+		Op:   []string{"Pick"},
+		Size: 1,
 	}
 	npc := NewNpc(1, 0, 3200, 3200, 0, typ)
 	npc.nid = 1

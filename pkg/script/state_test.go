@@ -71,7 +71,7 @@ func TestPushInt_GrowsBeyondStackCapacity(t *testing.T) {
 			t.Errorf("PushInt past StackCapacity panicked: %v — TS ScriptState.pushInt (ScriptState.ts:333-351) grows JS array unbounded (script-core-3)", r)
 		}
 	}()
-	for i := 0; i < StackCapacity+5; i++ {
+	for i := range StackCapacity + 5 {
 		s.PushInt(i)
 	}
 	if s.ISP != StackCapacity+5 {
@@ -91,7 +91,7 @@ func TestPushString_GrowsBeyondStackCapacity(t *testing.T) {
 			t.Errorf("PushString past StackCapacity panicked: %v — TS ScriptState.pushString grows JS array unbounded (script-core-3)", r)
 		}
 	}()
-	for i := 0; i < StackCapacity+5; i++ {
+	for range StackCapacity + 5 {
 		s.PushString("x")
 	}
 	if s.SSP != StackCapacity+5 {

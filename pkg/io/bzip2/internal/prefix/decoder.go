@@ -83,10 +83,7 @@ func (pd *Decoder) Init(codes PrefixCodes) {
 	const maxChunkBits = 9 // This can be tuned for better performance
 	pd.NumSyms = uint32(len(codes))
 	pd.MinBits = minBits
-	pd.chunkBits = maxBits
-	if pd.chunkBits > maxChunkBits {
-		pd.chunkBits = maxChunkBits
-	}
+	pd.chunkBits = min(maxBits, maxChunkBits)
 	numChunks := 1 << pd.chunkBits
 	pd.chunks = allocUint32s(pd.chunks, numChunks)
 	pd.chunkMask = uint32(numChunks - 1)

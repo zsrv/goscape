@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"uuid"
 
-	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -207,7 +207,7 @@ func (h *handler) PrivateMessage(ctx context.Context, req *friendspb.PrivateMess
 	}
 	telemetry.Get().EmitPlayerInput(&eventspb.PlayerInputEnvelope{
 		SchemaVersion: 1,
-		EventId:       uuid.NewString(),
+		EventId:       uuid.New().String(),
 		Ts:            timestamppb.Now(),
 		AccountId:     fromID,
 		WorldId:       req.WorldId,

@@ -96,8 +96,8 @@ func (m *SymbolMapper) getScript(t *trigger.TriggerType, name string) int {
 	if t == trigger.CommandTrigger {
 		// Trim everything up to and including the first dot (TS substring).
 		key := name
-		if i := strings.IndexByte(name, '.'); i >= 0 {
-			key = name[i+1:]
+		if _, after, ok0 := strings.Cut(name, "."); ok0 {
+			key = after
 		}
 		id, ok := m.commands[key]
 		if !ok {

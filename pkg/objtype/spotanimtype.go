@@ -30,10 +30,10 @@ type SpotanimType struct {
 // TS default: anim=-1, resizeh=128, resizev=128.
 func NewSpotanimType(id int) *SpotanimType {
 	return &SpotanimType{
-		ConfigType: ConfigType{ID: id},
-		Anim:       -1,
-		Resizeh:    128,
-		Resizev:    128,
+		ID:      id,
+		Anim:    -1,
+		Resizeh: 128,
+		Resizev: 128,
 	}
 }
 

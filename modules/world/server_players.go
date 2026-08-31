@@ -192,11 +192,9 @@ func (s *Server) removePlayerOnTick(p *Player) {
 		// saveWg: Shutdown waits for this to flush before bridgesCancel so a
 		// logout-then-stop doesn't lose the save (the RPC is parented to
 		// bridgesCtx, which Shutdown otherwise cancels immediately).
-		s.saveWg.Add(1)
-		go func() {
-			defer s.saveWg.Done()
+		s.saveWg.Go(func() {
 			s.sendPlayerLogoutWithRetry(username, save)
-		}()
+		})
 	}
 	if s.friendsClient != nil && p.username != "" {
 		username37 := p.username37
@@ -318,13 +316,11 @@ func (s *Server) autosavePlayers() {
 			Save:     save,
 		}
 		// Arc 18 R3 — per-call timeout + shutdown-derived parent.
-		s.saveWg.Add(1)
-		go func() {
-			defer s.saveWg.Done()
+		s.saveWg.Go(func() {
 			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
 			defer cancel()
 			s.loginClient.PlayerAutosave(ctx, req)
-		}()
+		})
 	}
 }
 
@@ -362,13 +358,11 @@ func (s *Server) crashSavePlayers(saveFn func(*Player) []byte) {
 				Username: p.username,
 				Save:     save,
 			}
-			s.saveWg.Add(1)
-			go func() {
-				defer s.saveWg.Done()
+			s.saveWg.Go(func() {
 				ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
 				defer cancel()
 				s.loginClient.PlayerAutosave(ctx, req)
-			}()
+			})
 		}(p)
 	}
 }

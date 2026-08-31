@@ -111,7 +111,7 @@ func (f *FileStream) Close() error {
 			lastErr = err
 		}
 	}
-	for i := 0; i < numIdx; i++ {
+	for i := range numIdx {
 		if f.idx[i] != nil {
 			if err := f.idx[i].Close(); err != nil {
 				lastErr = err
@@ -213,10 +213,7 @@ func (f *FileStream) Read(archive, file int, decompress bool) []byte {
 
 		// TS: this.dat.pos = sector * 520;
 		// TS reads available + 8 bytes total: header (8) + payload (available).
-		available := size - pos
-		if available > sectorData {
-			available = sectorData
-		}
+		available := min(size-pos, sectorData)
 
 		hdrAndData := make([]byte, sectorHdrSize+available)
 		if _, err := f.dat.ReadAt(hdrAndData, int64(sector)*sectorSize); err != nil && err != io.EOF {
@@ -370,10 +367,7 @@ func (f *FileStream) Write(archive, file int, data []byte, version int) bool {
 		}
 
 		// TS: write up to 512 payload bytes immediately after the header
-		available := len(data) - written
-		if available > sectorData {
-			available = sectorData
-		}
+		available := min(len(data)-written, sectorData)
 		if _, err := f.dat.WriteAt(data[written:written+available], int64(sector)*sectorSize+sectorHdrSize); err != nil {
 			return false
 		}

@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"sync"
-
-	"go.uber.org/atomic"
+	"sync/atomic"
 )
 
 type managerState int
@@ -251,14 +250,12 @@ func (m *Manager) AddListener(listener ManagerListener) func() {
 	m.listeners = append(m.listeners, listenerCh)
 
 	stop := make(chan struct{})
-	stopClosed := atomic.NewBool(false)
+	var stopClosed atomic.Bool
 
 	wg := sync.WaitGroup{}
-	wg.Add(1)
 
 	// each listener has its own goroutine, processing events.
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			// Process events from service.
@@ -272,7 +269,7 @@ func (m *Manager) AddListener(listener ManagerListener) func() {
 				return
 			}
 		}
-	}()
+	})
 
 	return func() {
 		if stopClosed.CompareAndSwap(false, true) {

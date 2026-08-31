@@ -28,7 +28,7 @@ func hbMakeCodeLengths(freq []int32, alphaSize, maxLen int) []uint8 {
 	var weight [maxAlpha * 2]int32
 	var parent [maxAlpha * 2]int32
 
-	for i := 0; i < alphaSize; i++ {
+	for i := range alphaSize {
 		w := freq[i]
 		if w == 0 {
 			w = 1
@@ -134,9 +134,6 @@ func downHeap(heap *[260]int32, weight *[516]int32, z, nHeap int32) {
 func addWeights(w1, w2 int32) int32 {
 	d1 := w1 & 0xff
 	d2 := w2 & 0xff
-	d := d1
-	if d2 > d {
-		d = d2
-	}
+	d := max(d2, d1)
 	return (w1 & ^int32(0xff)) + (w2 & ^int32(0xff)) | (1 + d)
 }

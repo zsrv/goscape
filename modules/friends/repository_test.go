@@ -568,7 +568,7 @@ func TestRepository_AddFriend_Idempotent_SQL(t *testing.T) {
 	ownerID := seedAccount(t, db, owner)
 	seedAccount(t, db, target)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if err := r.AddFriend(t.Context(), owner, target); err != nil {
 			t.Fatalf("AddFriend iter %d: %v", i, err)
 		}
@@ -668,7 +668,7 @@ func TestRepository_GetFriends_OrderIsStable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFriends 1: %v", err)
 	}
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		again, err := r.GetFriends(t.Context(), owner)
 		if err != nil {
 			t.Fatalf("GetFriends %d: %v", i, err)

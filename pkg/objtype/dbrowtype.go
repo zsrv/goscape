@@ -24,7 +24,7 @@ type DbRowType struct {
 // NewDbRowType returns a zero-valued DbRowType with the given id.
 func NewDbRowType(id int) *DbRowType {
 	return &DbRowType{
-		ConfigType: ConfigType{ID: id},
+		ID: id,
 	}
 }
 

@@ -51,7 +51,7 @@ func (e *EnumType) Decode(code uint8, dat *packet2.Packet) error {
 
 func NewEnumType(id int) *EnumType {
 	return &EnumType{
-		ConfigType:    ConfigType{ID: id},
+		ID:            id,
 		InputType:     ScriptVarTypeInt,
 		OutputType:    ScriptVarTypeInt,
 		DefaultInt:    0,

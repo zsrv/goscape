@@ -180,7 +180,7 @@ func newTestConfigsWithNpcTypes(present map[int]bool) Configs {
 		npcs: make(map[int]*objtype.NpcType),
 	}
 	for id := range present {
-		mc.npcs[id] = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: id}}
+		mc.npcs[id] = &objtype.NpcType{ID: id}
 	}
 	return mc
 }
@@ -675,10 +675,10 @@ func TestNpcUID(t *testing.T) {
 func TestNpcCategory(t *testing.T) {
 	mc := newTestConfigs()
 	mc.npcs[7] = &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7},
-		Name:       "Hans",
-		Category:   99,
-		Op:         []string{"Talk-to", "", ""},
+		ID:       7,
+		Name:     "Hans",
+		Category: 99,
+		Op:       []string{"Talk-to", "", ""},
 	}
 	npc := &mockNpc{typeID: 7}
 	state := runNpcOp(t, npc, mc, OpNpcCategory, nil)
@@ -697,10 +697,10 @@ func TestNpcCategory_UnknownType_ReturnsError(t *testing.T) {
 func TestNpcName(t *testing.T) {
 	mc := newTestConfigs()
 	mc.npcs[7] = &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7},
-		Name:       "Hans",
-		Category:   99,
-		Op:         []string{"Talk-to", "", ""},
+		ID:       7,
+		Name:     "Hans",
+		Category: 99,
+		Op:       []string{"Talk-to", "", ""},
 	}
 	npc := &mockNpc{typeID: 7}
 	state := runNpcOp(t, npc, mc, OpNpcName, nil)
@@ -731,10 +731,10 @@ func TestNpcName_UnknownType_ReturnsError(t *testing.T) {
 func TestNpcHasOpExisting(t *testing.T) {
 	mc := newTestConfigs()
 	mc.npcs[7] = &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7},
-		Name:       "Hans",
-		Category:   99,
-		Op:         []string{"Talk-to", "", ""},
+		ID:       7,
+		Name:     "Hans",
+		Category: 99,
+		Op:       []string{"Talk-to", "", ""},
 	}
 	npc := &mockNpc{typeID: 7}
 	state := runNpcOp(t, npc, mc, OpNpcHasOp, []int{1})
@@ -751,9 +751,9 @@ func TestNpcHasOpExisting(t *testing.T) {
 func TestNpcHasOpHidden(t *testing.T) {
 	mc := newTestConfigs()
 	mc.npcs[7] = &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7},
-		Name:       "Hans",
-		Op:         []string{"hidden", "", ""},
+		ID:   7,
+		Name: "Hans",
+		Op:   []string{"hidden", "", ""},
 	}
 	npc := &mockNpc{typeID: 7}
 	state := runNpcOp(t, npc, mc, OpNpcHasOp, []int{1})
@@ -765,10 +765,10 @@ func TestNpcHasOpHidden(t *testing.T) {
 func TestNpcHasOpMissing(t *testing.T) {
 	mc := newTestConfigs()
 	mc.npcs[7] = &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7},
-		Name:       "Hans",
-		Category:   99,
-		Op:         []string{"Talk-to", "", ""},
+		ID:       7,
+		Name:     "Hans",
+		Category: 99,
+		Op:       []string{"Talk-to", "", ""},
 	}
 	npc := &mockNpc{typeID: 7}
 	state := runNpcOp(t, npc, mc, OpNpcHasOp, []int{2})
@@ -780,8 +780,8 @@ func TestNpcHasOpMissing(t *testing.T) {
 func TestNpcHasOpOutOfRange(t *testing.T) {
 	mc := newTestConfigs()
 	mc.npcs[7] = &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7},
-		Op:         []string{"Talk-to", "", ""},
+		ID: 7,
+		Op: []string{"Talk-to", "", ""},
 	}
 	npc := &mockNpc{typeID: 7}
 	// op=0 is below 1-based range → 0.
@@ -2021,8 +2021,8 @@ func TestNpcFindExact_InvalidNpcType(t *testing.T) {
 func TestHandleNpcHasOpNullRejected(t *testing.T) {
 	mc := newTestConfigs()
 	mc.npcs[7] = &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7},
-		Op:         []string{"Attack", "", "", "", ""},
+		ID: 7,
+		Op: []string{"Attack", "", "", "", ""},
 	}
 	sf := &ScriptFile{
 		Name: "npc_hasop_null",
@@ -4678,7 +4678,7 @@ func TestNpcFindHero_RequiresActiveNpc(t *testing.T) {
 func TestNpcAttackRange(t *testing.T) {
 	mc := newTestConfigs()
 	mc.npcs[7] = &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 7},
+		ID:          7,
 		AttackRange: 5,
 	}
 	npc := &mockNpc{typeID: 7}

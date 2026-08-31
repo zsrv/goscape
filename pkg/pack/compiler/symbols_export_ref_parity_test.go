@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -56,7 +56,7 @@ func TestWriteCompilerSymbols_RefParity(t *testing.T) {
 			refSymFiles = append(refSymFiles, e.Name())
 		}
 	}
-	sort.Strings(refSymFiles)
+	slices.Sort(refSymFiles)
 
 	t.Logf("comparing %d .sym files from %s", len(refSymFiles), refSymDir)
 

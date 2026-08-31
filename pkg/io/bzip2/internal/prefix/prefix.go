@@ -13,11 +13,11 @@ import (
 	"github.com/zsrv/goscape/pkg/io/bzip2/internal/dserrors"
 )
 
-func errorf(c int, f string, a ...interface{}) error {
+func errorf(c int, f string, a ...any) error {
 	return dserrors.Error{Code: c, Pkg: "prefix", Msg: fmt.Sprintf(f, a...)}
 }
 
-func panicf(c int, f string, a ...interface{}) {
+func panicf(c int, f string, a ...any) {
 	dserrors.Panic(errorf(c, f, a...))
 }
 

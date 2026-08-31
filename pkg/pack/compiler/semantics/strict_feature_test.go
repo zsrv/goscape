@@ -40,7 +40,7 @@ func TestStrictFeatureLevel_HasNAI206Fields(t *testing.T) {
 		"DisableOverlayInterfaceProtection", // RuneScriptTS fe0ae0a
 		"DisableStaticLabelArgPropagation",  // RuneScriptTS 50c9bb1
 	}
-	sf := reflect.TypeOf(StrictFeatureLevel{})
+	sf := reflect.TypeFor[StrictFeatureLevel]()
 	for _, name := range want {
 		if _, ok := sf.FieldByName(name); !ok {
 			t.Errorf("StrictFeatureLevel missing field %s", name)

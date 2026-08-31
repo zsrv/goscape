@@ -8,7 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 )
 
 // stageSnapshot maps a forward-slash relpath under outDir to the sha256
@@ -61,7 +61,7 @@ func deltaFiles(prev, next stageSnapshot) []string {
 			out = append(out, rel)
 		}
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }
 
@@ -101,7 +101,7 @@ func diffOneFile(outPath, refPath string) (*fileDiff, error) {
 	if int64(len(outBytes)) != refInfo.Size() {
 		return &fileDiff{Kind: "SIZE", OutSize: int64(len(outBytes)), RefSize: refInfo.Size()}, nil
 	}
-	for i := 0; i < len(outBytes); i++ {
+	for i := range outBytes {
 		if outBytes[i] != refBytes[i] {
 			return &fileDiff{Kind: "DIFF", Offset: int64(i), Got: outBytes[i], Want: refBytes[i]}, nil
 		}

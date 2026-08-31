@@ -179,7 +179,7 @@ func (lt *LocType) PostDecode() {
 
 func NewLocType(id int) *LocType {
 	return &LocType{
-		ConfigType:  ConfigType{ID: id},
+		ID:          id,
 		Width:       1,
 		Length:      1,
 		BlockWalk:   true,

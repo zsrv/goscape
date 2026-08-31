@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"slices"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/script"
@@ -102,8 +103,7 @@ func (o *serverLocOps) AllLocsSafe(level, x, zc int, reverse bool) []script.Acti
 	z := o.s.zoneMap.Get(level, x, zc)
 	out := make([]script.ActiveLoc, 0, len(z.Locs))
 	if reverse {
-		for i := len(z.Locs) - 1; i >= 0; i-- {
-			l := z.Locs[i]
+		for _, l := range slices.Backward(z.Locs) {
 			if l == nil || !l.IsActive {
 				continue
 			}

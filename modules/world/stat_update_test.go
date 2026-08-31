@@ -139,7 +139,7 @@ func TestUpdateStatsFiresOnChange(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	// Match all stats so only the target index diverges from sentinel.
-	for i := 0; i < 21; i++ {
+	for i := range 21 {
 		p.lastStats[i] = p.stats[i]
 		p.lastLevels[i] = p.levels[i]
 	}
@@ -177,7 +177,7 @@ func TestUpdateStats_RunEnergy_EmitsOnAnyChange(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	// Isolate the per-stat loop so only the run-energy gate can emit.
-	for i := 0; i < 21; i++ {
+	for i := range 21 {
 		p.lastStats[i] = p.stats[i]
 		p.lastLevels[i] = p.levels[i]
 	}

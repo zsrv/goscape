@@ -30,8 +30,8 @@ func (v *VarNpcType) Decode(code uint8, dat *packet2.Packet) error {
 
 func NewVarNpcType(id int) *VarNpcType {
 	return &VarNpcType{
-		ConfigType: ConfigType{ID: id},
-		Type:       ScriptVarTypeInt,
+		ID:   id,
+		Type: ScriptVarTypeInt,
 	}
 }
 

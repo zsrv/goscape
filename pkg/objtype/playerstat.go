@@ -157,10 +157,7 @@ const MaxXP = 2_000_000_000
 func GetLevelByExp(xp int) int {
 	for i := 98; i >= 0; i-- {
 		if xp >= levelExperience[i] {
-			level := i + 2
-			if level > 99 {
-				level = 99
-			}
+			level := min(i+2, 99)
 			return level
 		}
 	}

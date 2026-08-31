@@ -16,10 +16,8 @@ import (
 // commandPointers; that satisfies both Command and Gosub/Jump callers.
 func makeCommandSymbol(name string) symbol.Symbol {
 	return &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{
-			Trigger: &trigger.TriggerType{Identifier: "command"},
-			Name:    name,
-		},
+		Trigger: &trigger.TriggerType{Identifier: "command"},
+		Name:    name,
 	}
 }
 

@@ -42,7 +42,7 @@ func TestTryInteract_FollowOp_ShortCircuits(t *testing.T) {
 func TestTryInteract_NotFollowOp_NotShortCircuited(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	npcType := &objtype.NpcType{ID: 7}
 	noopScript := &script.ScriptFile{
 		Name:      "[opnpc1,_]",
 		LookupKey: script.LookupKeyForType(script.TriggerOpNpc1, 7),
@@ -121,7 +121,7 @@ func TestTryInteract_HasInteractionTrue_ProceedsToBranch1(t *testing.T) {
 	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
 	defer wait()
 	npc := makeInteractionNpc(t, s, 1, 101, 100, 0) // adjacent — inOperableDistance requires dx or dz > 0
-	npc.typ = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	npc.typ = &objtype.NpcType{ID: 7}
 	npc.typeId = 7
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 

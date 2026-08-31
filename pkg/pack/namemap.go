@@ -55,18 +55,18 @@ func LoadPack(path string) []string {
 		if line == "" {
 			continue
 		}
-		eq := strings.IndexByte(line, '=')
-		if eq < 0 {
+		before, after, ok := strings.Cut(line, "=")
+		if !ok {
 			continue
 		}
-		id, err := strconv.Atoi(line[:eq])
+		id, err := strconv.Atoi(before)
 		if err != nil {
 			continue
 		}
 		for len(out) <= id {
 			out = append(out, "")
 		}
-		out[id] = line[eq+1:]
+		out[id] = after
 	}
 	return out
 }
@@ -95,8 +95,8 @@ func NameMapLoadDir(path, ext string, cb NameMapCallback) {
 				filtered = append(filtered, l)
 			}
 		}
-		slash := strings.LastIndexByte(f, '/')
-		cb(filtered, f[slash+1:], f[:slash])
+		dir, base, _ := strings.CutLast(f, "/")
+		cb(filtered, base, dir)
 	}
 }
 
@@ -116,7 +116,7 @@ func LoadDirExact(path, ext string, cb NameMapCallback) {
 		if err != nil {
 			continue
 		}
-		slash := strings.LastIndexByte(f, '/')
-		cb(splitLinesCRLF(string(data)), f[slash+1:], f[:slash])
+		dir, base, _ := strings.CutLast(f, "/")
+		cb(splitLinesCRLF(string(data)), base, dir)
 	}
 }

@@ -428,7 +428,7 @@ func TestUnpackLoc_Recol_Threshold100(t *testing.T) {
 func TestUnpackLoc_Recol_LocMode_RetexWhenReverseHslEmpty(t *testing.T) {
 	// Find an HSL value that maps to empty reverseHsl
 	var emptyHSL int = -1
-	for hsl := 0; hsl < 100; hsl++ {
+	for hsl := range 100 {
 		if len(colorconvReverseHsl(hsl)) == 0 {
 			emptyHSL = hsl
 			break

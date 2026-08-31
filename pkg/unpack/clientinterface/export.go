@@ -181,8 +181,8 @@ func ExportSrc(
 		name := interfacePack.GetByID(com.ID)
 		// split on ':' to get optional comName part
 		var comName string
-		if idx := strings.IndexByte(name, ':'); idx >= 0 {
-			comName = name[idx+1:]
+		if _, after, ok := strings.Cut(name, ":"); ok {
+			comName = after
 		}
 
 		// TS line 325: if (name && typeof comName === 'undefined') { printFatalError(...) }
@@ -319,8 +319,8 @@ func exportComponentInner(
 	if com.ID != com.RootLayer {
 		// TS line 363: temp.push(`[${comName.split(':')[1]}]`)
 		comNamePart := comName
-		if idx := strings.IndexByte(comName, ':'); idx >= 0 {
-			comNamePart = comName[idx+1:]
+		if _, after, ok := strings.Cut(comName, ":"); ok {
+			comNamePart = after
 		}
 		temp = append(temp, fmt.Sprintf("[%s]", comNamePart))
 
@@ -752,8 +752,8 @@ func exportComponentInner(
 			if com.ID != com.RootLayer {
 				// comName is already the "parent:child" form; extract child part
 				pn := ifPack.GetByID(com.ID)
-				if idx := strings.IndexByte(pn, ':'); idx >= 0 {
-					parentName = pn[idx+1:]
+				if _, after, ok := strings.Cut(pn, ":"); ok {
+					parentName = after
 				} else {
 					parentName = pn
 				}

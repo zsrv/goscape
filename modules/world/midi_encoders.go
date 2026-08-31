@@ -29,7 +29,7 @@ func loadMidiPack(path string) map[string]int {
 		return map[string]int{}
 	}
 	out := make(map[string]int)
-	for _, line := range strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n") {
 		eq := strings.IndexByte(line, '=')
 		if eq < 1 {
 			continue

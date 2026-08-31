@@ -3,7 +3,7 @@ package world
 import (
 	"context"
 	"log/slog"
-	"sort"
+	"slices"
 	"time"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
@@ -103,10 +103,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		}
 
 		start := time.Now()
-		drift := start.Sub(nextTick)
-		if drift < 0 {
-			drift = 0
-		}
+		drift := max(start.Sub(nextTick), 0)
 
 		s.tickBodyFn()
 
@@ -127,10 +124,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		// plan_var_name_collision.
 		currentRate := s.tickRate
 		nextTick = nextTick.Add(currentRate)
-		delay := currentRate - time.Since(start) - drift
-		if delay < 0 {
-			delay = 0
-		}
+		delay := max(currentRate-time.Since(start)-drift, 0)
 
 		select {
 		case <-s.quit:
@@ -982,7 +976,7 @@ func (s *Server) processPlayerTimersForType(filterType script.PlayerTimerType) {
 			for id := range p.timers {
 				ids = append(ids, id)
 			}
-			sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+			slices.Sort(ids)
 
 			for _, id := range ids {
 				t, ok := p.timers[id]

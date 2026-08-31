@@ -45,11 +45,11 @@ func TestLibbzip2Parity(t *testing.T) {
 		// Graphics/client/models residual).
 		{"multi_block_runs_at_boundary", func() []byte {
 			b := make([]byte, 0, 200000)
-			for i := 0; i < 90000; i++ {
+			for i := range 90000 {
 				b = append(b, byte(i*7))
 			}
 			b = append(b, bytes.Repeat([]byte{'A'}, 50000)...)
-			for i := 0; i < 60000; i++ {
+			for i := range 60000 {
 				b = append(b, byte(i*13+1))
 			}
 			return b

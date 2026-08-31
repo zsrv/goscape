@@ -350,8 +350,7 @@ func disconnectSessionLogEvent(err error) (string, []string) {
 	if err == nil || errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
 		return "TCP socket closed", nil
 	}
-	var netErr net.Error
-	if errors.As(err, &netErr) && netErr.Timeout() {
+	if netErr, ok := errors.AsType[net.Error](err); ok && netErr.Timeout() {
 		return "TCP socket timeout", nil
 	}
 	return "TCP socket error", []string{err.Error()}

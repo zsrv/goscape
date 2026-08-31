@@ -21,7 +21,7 @@ func TestPointerChecker_LabelJump_RequirementPropagates(t *testing.T) {
 	labelTr := &trigger.TriggerType{ID: 1, Identifier: "label", Pointers: pointer.NewPointerSet(pointer.ActivePlayer)}
 
 	// label symbol — body requires ACTIVE_PLAYER
-	labelSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: labelTr, Name: "mylabel"}}
+	labelSym := &symbol.ServerScriptSymbol{Trigger: labelTr, Name: "mylabel"}
 	labelScript := codegen.NewRuneScript("test.rs2", labelSym, labelTr, "mylabel", nil)
 	lb := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	require := makeCommandSymbol("p_kickout")
@@ -32,11 +32,9 @@ func TestPointerChecker_LabelJump_RequirementPropagates(t *testing.T) {
 	// caller proc — body: `gosub label_consumer(.mylabel)`
 	labelMetaType := typ.NewMetaScript("label", typ.PrimitiveInt, typ.PrimitiveInt)
 	consumerSym := &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{
-			Trigger:    procTr,
-			Name:       "consumer",
-			Parameters: labelMetaType,
-		},
+		Trigger:    procTr,
+		Name:       "consumer",
+		Parameters: labelMetaType,
 	}
 	consumerScript := codegen.NewRuneScript("test.rs2", consumerSym, procTr, "consumer", nil)
 	cb := codegen.NewBlock(&codegen.Label{Name: "entry"})
@@ -52,7 +50,7 @@ func TestPointerChecker_LabelJump_RequirementPropagates(t *testing.T) {
 	consumerScript.Blocks = []*codegen.Block{cb}
 
 	// callerProc gosubs consumer with .mylabel as the static arg
-	callerSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTr, Name: "caller"}}
+	callerSym := &symbol.ServerScriptSymbol{Trigger: procTr, Name: "caller"}
 	callerScript := codegen.NewRuneScript("test.rs2", callerSym, procTr, "caller", nil)
 	calb := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	calb.Add(codegen.Instruction{Opcode: codegen.PushConstantSymbol, Operand: labelSym})
@@ -83,7 +81,7 @@ func TestPointerChecker_LabelJump_DisableStaticLabelArgPropagation(t *testing.T)
 	procTr := &trigger.TriggerType{ID: 0, Identifier: "proc"}
 	labelTr := &trigger.TriggerType{ID: 1, Identifier: "label", Pointers: pointer.NewPointerSet(pointer.ActivePlayer)}
 
-	labelSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: labelTr, Name: "mylabel"}}
+	labelSym := &symbol.ServerScriptSymbol{Trigger: labelTr, Name: "mylabel"}
 	labelScript := codegen.NewRuneScript("test.rs2", labelSym, labelTr, "mylabel", nil)
 	lb := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	require := makeCommandSymbol("p_kickout")
@@ -93,11 +91,9 @@ func TestPointerChecker_LabelJump_DisableStaticLabelArgPropagation(t *testing.T)
 
 	labelMetaType := typ.NewMetaScript("label", typ.PrimitiveInt, typ.PrimitiveInt)
 	consumerSym := &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{
-			Trigger:    procTr,
-			Name:       "consumer",
-			Parameters: labelMetaType,
-		},
+		Trigger:    procTr,
+		Name:       "consumer",
+		Parameters: labelMetaType,
 	}
 	consumerScript := codegen.NewRuneScript("test.rs2", consumerSym, procTr, "consumer", nil)
 	cb := codegen.NewBlock(&codegen.Label{Name: "entry"})
@@ -112,7 +108,7 @@ func TestPointerChecker_LabelJump_DisableStaticLabelArgPropagation(t *testing.T)
 	cb.Add(codegen.Instruction{Opcode: codegen.Return})
 	consumerScript.Blocks = []*codegen.Block{cb}
 
-	callerSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTr, Name: "caller"}}
+	callerSym := &symbol.ServerScriptSymbol{Trigger: procTr, Name: "caller"}
 	callerScript := codegen.NewRuneScript("test.rs2", callerSym, procTr, "caller", nil)
 	calb := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	calb.Add(codegen.Instruction{Opcode: codegen.PushConstantSymbol, Operand: labelSym})

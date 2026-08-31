@@ -31,7 +31,7 @@ func (c *CategoryType) Decode(code uint8, dat *packet2.Packet) error {
 }
 
 func NewCategoryType(id int) *CategoryType {
-	return &CategoryType{ConfigType: ConfigType{ID: id}}
+	return &CategoryType{ID: id}
 }
 
 type CategoryTypeConfigs struct {

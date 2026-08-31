@@ -108,7 +108,7 @@ func loadSpriteMeta(srcDir, name string, defaultTileX, defaultTileY int) ([]Spri
 	// TS 244 PixPack.ts:147-151 (9aadcec4): .replace(/\r/g,'').split('\n')
 	// — strip ALL \r before splitting so mid-line \r bytes are removed.
 	lines := []string{}
-	for _, line := range strings.Split(strings.ReplaceAll(string(raw), "\r", ""), "\n") {
+	for line := range strings.SplitSeq(strings.ReplaceAll(string(raw), "\r", ""), "\n") {
 		if line != "" {
 			lines = append(lines, line)
 		}

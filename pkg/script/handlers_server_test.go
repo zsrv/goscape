@@ -179,8 +179,8 @@ func TestServerOpsRequireWorld(t *testing.T) {
 // (NAI-149). state.pushInt(check(popInt(), SeqTypeValid).duration).
 func TestHandleSeqLength_PushesDuration(t *testing.T) {
 	seq := &objtype.SeqType{
-		ConfigType: objtype.ConfigType{ID: 42},
-		Duration:   180, // ticks
+		ID:       42,
+		Duration: 180, // ticks
 	}
 	mc := &mockConfigs{
 		seqs: map[int]*objtype.SeqType{42: seq},
@@ -312,7 +312,6 @@ func TestCountOps(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name+"_pushesTotal", func(t *testing.T) {
 			const canned = 42
 			w := &mockWorld{}
