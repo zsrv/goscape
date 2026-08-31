@@ -1,3 +1,16 @@
 version: v2
 modules:
   - path: proto
+lint:
+  # These three DEFAULT rules describe conventions this schema deliberately
+  # does not follow. They are disabled here rather than ignored per file, so a
+  # new proto inherits the same deliberate layout instead of a fresh failure.
+  except:
+    # Packages are `<service>.v1` in `proto/<service>/`, not
+    # `proto/<service>/v1/`. The wire packages are versioned; the directories
+    # are not, because every generated Go package would otherwise be `v1`.
+    - PACKAGE_DIRECTORY_MATCH
+    # Several admin RPCs legitimately return google.protobuf.Empty. Minting a
+    # distinct empty message per RPC would add types that mean nothing.
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - RPC_RESPONSE_STANDARD_NAME
