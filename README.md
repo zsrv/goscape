@@ -49,7 +49,7 @@ disabled (`enable: false`) and are inert until switched on:
 
 ## Quick start
 
-Requirements: Go ≥ 1.26.
+Requirements: Go ≥ 1.27.
 
 ```bash
 # Build the server and the CLI
