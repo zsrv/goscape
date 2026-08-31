@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.26
+ARG GO_VERSION=1.27
 
 # https://hub.docker.com/_/golang
 FROM docker.io/golang:${GO_VERSION} AS build
