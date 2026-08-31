@@ -39,7 +39,6 @@ var objNumberKeys = map[string]struct{}{
 // objBooleanKeys is the set of keys parsed as IsConfigBoolean-gated
 // booleans. TS source: ObjConfig.ts:23-25.
 var objBooleanKeys = map[string]struct{}{
-	"code9":     {},
 	"stackable": {},
 	"members":   {},
 	"tradeable": {},
@@ -441,10 +440,6 @@ func packObjConfigs(configs map[string][]ConfigLine, objPack *PackFile, modelFla
 				case key == "2dyof":
 					client.P1(8)
 					client.P2(uint16(line.Value.(int)))
-				case key == "code9":
-					if line.Value.(bool) {
-						client.P1(9)
-					}
 				case key == "code10":
 					client.P1(10)
 					client.P2(uint16(line.Value.(int)))

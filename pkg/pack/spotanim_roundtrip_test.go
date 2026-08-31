@@ -48,7 +48,7 @@ func TestPackSpotAnimRoundTrip(t *testing.T) {
 		t.Errorf("Anim: got %d, want 0", spot.Anim)
 	}
 	// angle=180 → Orientation field (opcode 6)
-	if spot.Orientation != 180 {
-		t.Errorf("Orientation: got %d, want 180", spot.Orientation)
+	if spot.Angle != 180 {
+		t.Errorf("Orientation: got %d, want 180", spot.Angle)
 	}
 }

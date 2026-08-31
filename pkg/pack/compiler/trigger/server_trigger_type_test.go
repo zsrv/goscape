@@ -54,3 +54,22 @@ func TestServerTriggerCrossRefIDs(t *testing.T) {
 		}
 	}
 }
+
+// TestServerTriggerLogoutHasNoReturn pins that the logout trigger no longer
+// declares a boolean return. @lostcityrs/runescript 0.9.7 dropped it, and
+// Content 687b6a1a1 ("Compatible with compiler/packer changes") rewrote
+// scripts/login_logout/logout.rs2 from `[logout,_]()(boolean)` + `return(true)`
+// to a bare `[logout,_]`. The old content even carried a
+// "// TODO: Change compiler to remove return value" comment.
+//
+// The engine never read the value: World.ts:780-790 @1d25566c inits and
+// executes the logout script and discards the result at both the old and new
+// Engine-TS pins.
+func TestServerTriggerLogoutHasNoReturn(t *testing.T) {
+	if ServerTriggerLogout.AllowReturns {
+		t.Error("ServerTriggerLogout.AllowReturns: got true, want false")
+	}
+	if ServerTriggerLogout.Returns != nil {
+		t.Errorf("ServerTriggerLogout.Returns: got %v, want nil", ServerTriggerLogout.Returns)
+	}
+}

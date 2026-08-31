@@ -35,8 +35,8 @@ func TestNewSeqTypeDefaults(t *testing.T) {
 	if st.PostanimMove != -1 {
 		t.Errorf("PostanimMove: got %d, want -1", st.PostanimMove)
 	}
-	if st.DuplicateBehavior != 0 {
-		t.Errorf("DuplicateBehavior: got %d, want 0", st.DuplicateBehavior)
+	if st.DuplicateBehaviour != 0 {
+		t.Errorf("DuplicateBehavior: got %d, want 0", st.DuplicateBehaviour)
 	}
 	if st.FrameCount != 0 {
 		t.Errorf("FrameCount: got %d, want 0", st.FrameCount)
@@ -44,7 +44,7 @@ func TestNewSeqTypeDefaults(t *testing.T) {
 	if st.Frames != nil || st.IFrames != nil || st.Delay != nil || st.WalkMerge != nil {
 		t.Error("slice fields should be nil by default")
 	}
-	if st.Stretches {
+	if st.Reachforward {
 		t.Error("Stretches: got true, want false")
 	}
 	if st.Duration != 0 {
@@ -236,7 +236,7 @@ func TestSeqTypeDecode_Stretches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeType: %v", err)
 	}
-	if !st.Stretches {
+	if !st.Reachforward {
 		t.Error("Stretches: got false, want true")
 	}
 }
@@ -308,14 +308,14 @@ func TestSeqTypeDecode_PostanimMove(t *testing.T) {
 }
 
 // TestSeqTypeDecode_DuplicateBehavior verifies code 11 reads g1 into DuplicateBehavior.
-// TS SeqType.ts:143-145: } else if (code === 11) { this.duplicatebehavior = dat.g1(); }
+// TS SeqType.ts:143-145: } else if (code === 11) { this.duplicatebehaviour = dat.g1(); }
 func TestSeqTypeDecode_DuplicateBehavior(t *testing.T) {
 	st, err := decodeSeq(nil, func(p *packet.Packet) { p.P1(11); p.P1(2) })
 	if err != nil {
 		t.Fatalf("DecodeType: %v", err)
 	}
-	if st.DuplicateBehavior != 2 {
-		t.Errorf("DuplicateBehavior: got %d, want 2 (code 11, g1)", st.DuplicateBehavior)
+	if st.DuplicateBehaviour != 2 {
+		t.Errorf("DuplicateBehavior: got %d, want 2 (code 11, g1)", st.DuplicateBehaviour)
 	}
 }
 
@@ -595,5 +595,48 @@ func TestSeqTypeConfigs_ByName_LinearScanWhenConfigNamesEmpty(t *testing.T) {
 	got := c.ByName("scan_me")
 	if got == nil || got.ID != 0 {
 		t.Errorf("ByName(scan_me) with nil ConfigNames = %+v, want non-nil id=0", got)
+	}
+}
+
+// TestSeqTypeReachforwardRename pins the reachforward→reachforward field rename
+// from Engine-TS 8139461a (TS SeqType.ts:79,129 @1d25566c). Opcode 4 is
+// unchanged; only the name moved.
+func TestSeqTypeReachforwardRename(t *testing.T) {
+	st := NewSeqType(0)
+	if st.Reachforward {
+		t.Error("Reachforward default: got true, want false")
+	}
+
+	pkt := packet.NewPacket(nil)
+	pkt.P1(4)
+	pkt.P1(0)
+
+	if err := DecodeType(packet.NewPacket(pkt.Bytes()), st); err != nil {
+		t.Fatalf("DecodeType: %v", err)
+	}
+	if !st.Reachforward {
+		t.Error("Reachforward after opcode 4: got false, want true")
+	}
+}
+
+// TestSeqTypeDuplicateBehaviourRename pins the duplicatebehaviour→
+// duplicatebehaviour rename (TS SeqType.ts:86,143 @1d25566c). Opcode 11 is
+// unchanged.
+func TestSeqTypeDuplicateBehaviourRename(t *testing.T) {
+	st := NewSeqType(0)
+	if st.DuplicateBehaviour != 0 {
+		t.Errorf("DuplicateBehaviour default: got %d, want 0", st.DuplicateBehaviour)
+	}
+
+	pkt := packet.NewPacket(nil)
+	pkt.P1(11)
+	pkt.P1(2)
+	pkt.P1(0)
+
+	if err := DecodeType(packet.NewPacket(pkt.Bytes()), st); err != nil {
+		t.Fatalf("DecodeType: %v", err)
+	}
+	if st.DuplicateBehaviour != 2 {
+		t.Errorf("DuplicateBehaviour: got %d, want 2", st.DuplicateBehaviour)
 	}
 }

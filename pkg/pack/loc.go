@@ -65,7 +65,6 @@ var locBooleanKeys = map[string]struct{}{
 	"hillskew":          {},
 	"sharelight":        {},
 	"occlude":           {},
-	"hasalpha":          {},
 	"mirror":            {},
 	"shadow":            {},
 	"forcedecor":        {},
@@ -392,10 +391,6 @@ func packLocConfigs(configs map[string][]ConfigLine, locPack, modelPack *PackFil
 				case line.Key == "anim":
 					client.P1(24)
 					client.P2(uint16(line.Value.(int)))
-				case line.Key == "hasalpha":
-					if line.Value.(bool) {
-						client.P1(25)
-					}
 				case line.Key == "wallwidth":
 					client.P1(28)
 					client.P1(uint8(line.Value.(int)))

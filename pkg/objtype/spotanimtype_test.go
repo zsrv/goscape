@@ -19,17 +19,14 @@ func TestNewSpotanimTypeDefaults(t *testing.T) {
 	if s.Anim != -1 {
 		t.Errorf("Anim: got %d, want -1", s.Anim)
 	}
-	if s.HasAlpha {
-		t.Error("HasAlpha: got true, want false")
-	}
 	if s.Resizeh != 128 {
 		t.Errorf("Resizeh: got %d, want 128", s.Resizeh)
 	}
 	if s.Resizev != 128 {
 		t.Errorf("Resizev: got %d, want 128", s.Resizev)
 	}
-	if s.Orientation != 0 {
-		t.Errorf("Orientation: got %d, want 0", s.Orientation)
+	if s.Angle != 0 {
+		t.Errorf("Angle: got %d, want 0", s.Angle)
 	}
 	if s.Ambient != 0 {
 		t.Errorf("Ambient: got %d, want 0", s.Ambient)
@@ -79,13 +76,12 @@ func TestSpotanimTypeDecode_Anim(t *testing.T) {
 	}
 }
 
-func TestSpotanimTypeDecode_HasAlpha(t *testing.T) {
-	s, err := decodeSpotanim(func(p *packet.Packet) { p.P1(3) })
-	if err != nil {
-		t.Fatalf("DecodeType: %v", err)
-	}
-	if !s.HasAlpha {
-		t.Error("HasAlpha: got false, want true")
+// TestSpotanimTypeDecode_HasAlphaRetired pins that client opcode 3 is no
+// longer decoded — Engine-TS 8139461a removed hasalpha
+// (TS SpotanimType.ts:81 @1d25566c).
+func TestSpotanimTypeDecode_HasAlphaRetired(t *testing.T) {
+	if _, err := decodeSpotanim(func(p *packet.Packet) { p.P1(3) }); err == nil {
+		t.Error("DecodeType(opcode 3): got nil error, want unrecognized-opcode error")
 	}
 }
 
@@ -114,8 +110,8 @@ func TestSpotanimTypeDecode_Orientation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeType: %v", err)
 	}
-	if s.Orientation != 0x0090 {
-		t.Errorf("Orientation: got %d, want %d", s.Orientation, 0x0090)
+	if s.Angle != 0x0090 {
+		t.Errorf("Orientation: got %d, want %d", s.Angle, 0x0090)
 	}
 }
 
@@ -316,5 +312,36 @@ func TestSpotanimTypeConfigs_ByName_LinearScanWhenConfigNamesEmpty(t *testing.T)
 	got := c.ByName("scan_me")
 	if got == nil || got.ID != 0 {
 		t.Errorf("ByName(scan_me) with nil ConfigNames = %+v, want non-nil id=0", got)
+	}
+}
+
+// TestSpotanimTypeHasalphaRetired pins that client opcode 3 (hasalpha) is no
+// longer decoded — Engine-TS 8139461a removed it (TS SpotanimType.ts:81
+// @1d25566c).
+func TestSpotanimTypeHasalphaRetired(t *testing.T) {
+	pkt := packet.NewPacket(nil)
+	pkt.P1(3)
+	pkt.P1(0)
+
+	st := NewSpotanimType(0)
+	if err := DecodeType(packet.NewPacket(pkt.Bytes()), st); err == nil {
+		t.Error("DecodeType(opcode 3): got nil error, want unrecognized-opcode error")
+	}
+}
+
+// TestSpotanimTypeAngleRename pins the orientation→angle field rename
+// (TS SpotanimType.ts:72,85 @1d25566c). Opcode 6 is unchanged.
+func TestSpotanimTypeAngleRename(t *testing.T) {
+	pkt := packet.NewPacket(nil)
+	pkt.P1(6)
+	pkt.P2(90)
+	pkt.P1(0)
+
+	st := NewSpotanimType(0)
+	if err := DecodeType(packet.NewPacket(pkt.Bytes()), st); err != nil {
+		t.Fatalf("DecodeType: %v", err)
+	}
+	if st.Angle != 90 {
+		t.Errorf("Angle: got %d, want 90", st.Angle)
 	}
 }

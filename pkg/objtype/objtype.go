@@ -154,7 +154,6 @@ type ObjType struct {
 	Zan2D     int
 	Xof2D     int
 	Yof2D     int
-	Code9     bool
 	Code10    int
 	Stackable bool
 	Cost      int
@@ -167,10 +166,10 @@ type ObjType struct {
 	IOp              []string
 	ManWear          int
 	ManWear2         int
-	ManWearOffsetY   int
+	ManWearOffset   int
 	WomanWear        int
 	WomanWear2       int
-	WomanWearOffsetY int
+	WomanWearOffset int
 	ManWear3         int
 	WomanWear3       int
 	ManHead          int
@@ -245,8 +244,6 @@ func (ot *ObjType) Decode(code uint8, dat *packet2.Packet) error {
 		ot.Xof2D = int(dat.G2S())
 	case 8:
 		ot.Yof2D = int(dat.G2S())
-	case 9:
-		ot.Code9 = true
 	case 10:
 		ot.Code10 = int(dat.G2())
 	case 11:
@@ -263,12 +260,12 @@ func (ot *ObjType) Decode(code uint8, dat *packet2.Packet) error {
 		ot.Members = true
 	case 23:
 		ot.ManWear = int(dat.G2())
-		ot.ManWearOffsetY = int(dat.G1B())
+		ot.ManWearOffset = int(dat.G1B())
 	case 24:
 		ot.ManWear2 = int(dat.G2())
 	case 25:
 		ot.WomanWear = int(dat.G2())
-		ot.WomanWearOffsetY = int(dat.G1B())
+		ot.WomanWearOffset = int(dat.G1B())
 	case 26:
 		ot.WomanWear2 = int(dat.G2())
 	case 27:

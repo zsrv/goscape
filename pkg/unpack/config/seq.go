@@ -92,7 +92,7 @@ func unpackSeq(cfg *ConfigIdx, id int, seqPack, animPack, objPack *pack.PackFile
 
 		case 4:
 			// TS line 67-68
-			def = append(def, "stretches=yes")
+			def = append(def, "reachforward=yes")
 
 		case 5:
 			// TS lines 69-71: const priority = dat.g1(); def.push(`priority=${priority}`)
@@ -139,10 +139,10 @@ func unpackSeq(cfg *ConfigIdx, id int, seqPack, animPack, objPack *pack.PackFile
 			def = append(def, fmt.Sprintf("postanim_move=%s", op))
 
 		case 11:
-			// TS lines 113-124: duplicatebehavior enum
+			// TS lines 113-124: duplicatebehaviour enum
 			dup := int(dat.G1())
 			op := seqDupBehavior(dup)
-			def = append(def, fmt.Sprintf("duplicatebehavior=%s", op))
+			def = append(def, fmt.Sprintf("duplicatebehaviour=%s", op))
 
 		case 12:
 			// TS lines 125-127: const code12 = dat.g4s(); def.push(`code12=${code12}`)
@@ -194,7 +194,7 @@ func seqMoveOp10(v int) string {
 	}
 }
 
-// seqDupBehavior maps duplicatebehavior values to strings.
+// seqDupBehavior maps duplicatebehaviour values to strings.
 // TS source: SeqConfig.ts:115-123.
 // NOTE: TS case 0 maps to the string "0" (not "delaymove" etc.), which is
 // intentional — the default branch also calls .toString() giving numeric

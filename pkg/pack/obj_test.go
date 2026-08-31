@@ -255,14 +255,17 @@ func TestPackObjConfigs_Yof2d(t *testing.T) {
 	}
 }
 
-func TestPackObjConfigs_Code9True(t *testing.T) {
+// TestPackObjConfigs_Code9Retired pins that code9 emits nothing — Engine-TS
+// 8139461a dropped the key and the client opcode-9 emission
+// (TS ObjConfig.ts:26,293 @1d25566c).
+func TestPackObjConfigs_Code9Retired(t *testing.T) {
 	objPack := objOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "code9", Value: true}}}
 	_, client, err := packObjConfigs(configs, objPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []byte{0x00, 0x01, 0x09, 0x00}
+	want := []byte{0x00, 0x01, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("got % x, want % x", client.Dat.Data, want)
 	}

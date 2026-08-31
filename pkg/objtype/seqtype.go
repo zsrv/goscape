@@ -20,7 +20,7 @@ type SeqType struct {
 	Delay            []int32 // per-frame delay; 0 → AnimFrame.Delay fallback (TS L105)
 	Loops            int     // -1 default
 	WalkMerge        []int32 // nil = unset; last entry = 9999999 sentinel (TS L116)
-	Stretches        bool
+	Reachforward        bool
 	Priority         int // 5 default
 	ReplaceHeldLeft  int // -1 default
 	ReplaceHeldRight int // -1 default
@@ -28,7 +28,7 @@ type SeqType struct {
 	// New in 244:
 	PreanimMove       int // -1 default; code 9 g1; TS SeqType.ts:83 (Engine-TS 9aadcec4)
 	PostanimMove      int // -1 default; code 10 g1; TS SeqType.ts:84 (Engine-TS 9aadcec4)
-	DuplicateBehavior int // 0 default; code 11 g1; TS SeqType.ts:85 (Engine-TS 9aadcec4)
+	DuplicateBehaviour int // 0 default; code 11 g1; TS SeqType.ts:85 (Engine-TS 9aadcec4)
 
 	// precalculated for seqlength
 	// TS SeqType.ts:88 (Engine-TS 9aadcec4) — "precalculated for seqlength"
@@ -52,7 +52,7 @@ func NewSeqType(id int) *SeqType {
 		MaxLoops:          99,
 		PreanimMove:       -1, // TS SeqType.ts:83 — preanim_move: number = -1
 		PostanimMove:      -1, // TS SeqType.ts:84 — postanim_move: number = -1
-		DuplicateBehavior: 0,  // TS SeqType.ts:85 — duplicatebehavior: number = 0
+		DuplicateBehaviour: 0,  // TS SeqType.ts:85 — duplicatebehaviour: number = 0
 	}
 }
 
@@ -122,7 +122,7 @@ func (t *SeqType) Decode(code uint8, dat *packet.Packet) error {
 		}
 		t.WalkMerge[count] = 9999999 // TS L128
 	case 4:
-		t.Stretches = true
+		t.Reachforward = true
 	case 5:
 		t.Priority = int(dat.G1())
 	case 6:
@@ -138,8 +138,8 @@ func (t *SeqType) Decode(code uint8, dat *packet.Packet) error {
 		// TS SeqType.ts:141 (Engine-TS 9aadcec4) — postanim_move = dat.g1()
 		t.PostanimMove = int(dat.G1())
 	case 11:
-		// TS SeqType.ts:143 (Engine-TS 9aadcec4) — duplicatebehavior = dat.g1()
-		t.DuplicateBehavior = int(dat.G1())
+		// TS SeqType.ts:143 (Engine-TS 9aadcec4) — duplicatebehaviour = dat.g1()
+		t.DuplicateBehaviour = int(dat.G1())
 	case 250:
 		t.DebugName = dat.GJStrLF()
 	default:

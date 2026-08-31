@@ -1048,13 +1048,16 @@ var (
 		Pointers:    pointer.NewPointerSet(pointer.ActivePlayer, pointer.PActivePlayer),
 	}
 
+	// ServerTriggerLogout takes no return value. @lostcityrs/runescript 0.9.7
+	// dropped the boolean return that 0.9.6 required; Content 687b6a1a1
+	// rewrote logout.rs2 from `[logout,_]()(boolean)` + `return(true)` to a
+	// bare `[logout,_]` to match. The engine never read it — World.ts:780-790
+	// @1d25566c executes the script and discards the result.
 	ServerTriggerLogout = &TriggerType{
-		ID:           158,
-		Identifier:   "logout",
-		SubjectMode:  ModeNone,
-		AllowReturns: true,
-		Returns:      typ.PrimitiveBoolean,
-		Pointers:     pointer.NewPointerSet(pointer.ActivePlayer, pointer.PActivePlayer),
+		ID:          158,
+		Identifier:  "logout",
+		SubjectMode: ModeNone,
+		Pointers:    pointer.NewPointerSet(pointer.ActivePlayer, pointer.PActivePlayer),
 	}
 
 	ServerTriggerTutorial = &TriggerType{

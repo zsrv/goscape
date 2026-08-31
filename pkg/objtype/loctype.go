@@ -35,7 +35,6 @@ type LocType struct {
 	ShareLight        bool     // code 22
 	Occlude           bool     // code 23
 	Anim              int      // code 24, 65535 → -1; default -1
-	HasAlpha          bool     // code 25
 	WallWidth         int      // code 28; default 16
 	Ambient           int8     // code 29 (G1B)
 	Contrast          int8     // code 39 (G1B)
@@ -109,8 +108,6 @@ func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 		if lt.Anim == 65535 {
 			lt.Anim = -1
 		}
-	case 25:
-		lt.HasAlpha = true
 	case 28:
 		lt.WallWidth = int(dat.G1())
 	case 29:

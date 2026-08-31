@@ -520,15 +520,6 @@ func TestLocTypeDecodeNewArms(t *testing.T) {
 			},
 		},
 		{
-			name:    "code25_hasalpha_true",
-			payload: []byte{25},
-			assert: func(t *testing.T, lt *LocType) {
-				if !lt.HasAlpha {
-					t.Errorf("HasAlpha: got false, want true")
-				}
-			},
-		},
-		{
 			name:    "code28_wallwidth_g1",
 			payload: []byte{28, 32},
 			assert: func(t *testing.T, lt *LocType) {
@@ -842,5 +833,19 @@ func TestLocTypeConfigs_ByName_LinearScanWhenConfigNamesEmpty(t *testing.T) {
 	got := lc.ByName("scan_me")
 	if got == nil || got.ID != 0 {
 		t.Errorf("ByName(scan_me) with nil ConfigNames = %+v, want non-nil id=0", got)
+	}
+}
+
+// TestLocTypeHasalphaRetired pins that client opcode 25 (hasalpha) is no
+// longer decoded — Engine-TS 8139461a removed it (TS LocType.ts:153
+// @1d25566c).
+func TestLocTypeHasalphaRetired(t *testing.T) {
+	pkt := packet2.NewPacket(nil)
+	pkt.P1(25)
+	pkt.P1(0)
+
+	lt := NewLocType(0)
+	if err := DecodeType(packet2.NewPacket(pkt.Bytes()), lt); err == nil {
+		t.Error("DecodeType(opcode 25): got nil error, want unrecognized-opcode error")
 	}
 }

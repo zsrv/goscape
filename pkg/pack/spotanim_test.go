@@ -94,13 +94,16 @@ func TestPackSpotAnimConfigs_Model(t *testing.T) {
 	}
 }
 
-func TestPackSpotAnimConfigs_HasAlpha_TrueEmits(t *testing.T) {
+// TestPackSpotAnimConfigs_HasAlphaRetired pins that hasalpha emits nothing —
+// Engine-TS 8139461a dropped the key and the client opcode-3 emission
+// (TS SpotAnimConfig.ts:13,108 @1d25566c).
+func TestPackSpotAnimConfigs_HasAlphaRetired(t *testing.T) {
 	pf := spotanimOneSlotPack("flame")
 	configs := map[string][]ConfigLine{
 		"flame": {{Key: "hasalpha", Value: true}},
 	}
 	_, client := packSpotAnimConfigs(configs, pf, nil)
-	want := []byte{0x00, 0x01, 0x03, 0x00}
+	want := []byte{0x00, 0x01, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
 	}

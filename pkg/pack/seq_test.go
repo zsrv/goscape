@@ -350,17 +350,17 @@ func TestParseSeqConfig_PostanimMove_InvalidValue(t *testing.T) {
 	}
 }
 
-// --- duplicatebehavior ---
+// --- duplicatebehaviour ---
 
 func TestParseSeqConfig_DuplicateBehavior_Zero(t *testing.T) {
 	ap, op := seqTestRegistries(t)
 	parse := parseSeqConfigFor(ap, op)
-	val, accepted, err := parse("duplicatebehavior", "0")
+	val, accepted, err := parse("duplicatebehaviour", "0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !accepted {
-		t.Fatal("duplicatebehavior should be accepted")
+		t.Fatal("duplicatebehaviour should be accepted")
 	}
 	if val.(int) != 0 {
 		t.Fatalf("got %#v, want int(0)", val)
@@ -370,12 +370,12 @@ func TestParseSeqConfig_DuplicateBehavior_Zero(t *testing.T) {
 func TestParseSeqConfig_DuplicateBehavior_Reset(t *testing.T) {
 	ap, op := seqTestRegistries(t)
 	parse := parseSeqConfigFor(ap, op)
-	val, accepted, err := parse("duplicatebehavior", "reset")
+	val, accepted, err := parse("duplicatebehaviour", "reset")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !accepted {
-		t.Fatal("duplicatebehavior should be accepted")
+		t.Fatal("duplicatebehaviour should be accepted")
 	}
 	if val.(int) != 1 {
 		t.Fatalf("got %#v, want int(1)", val)
@@ -385,12 +385,12 @@ func TestParseSeqConfig_DuplicateBehavior_Reset(t *testing.T) {
 func TestParseSeqConfig_DuplicateBehavior_ResetLoop(t *testing.T) {
 	ap, op := seqTestRegistries(t)
 	parse := parseSeqConfigFor(ap, op)
-	val, accepted, err := parse("duplicatebehavior", "reset_loop")
+	val, accepted, err := parse("duplicatebehaviour", "reset_loop")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !accepted {
-		t.Fatal("duplicatebehavior should be accepted")
+		t.Fatal("duplicatebehaviour should be accepted")
 	}
 	if val.(int) != 2 {
 		t.Fatalf("got %#v, want int(2)", val)
@@ -400,12 +400,12 @@ func TestParseSeqConfig_DuplicateBehavior_ResetLoop(t *testing.T) {
 func TestParseSeqConfig_DuplicateBehavior_InvalidValue(t *testing.T) {
 	ap, op := seqTestRegistries(t)
 	parse := parseSeqConfigFor(ap, op)
-	_, accepted, err := parse("duplicatebehavior", "badvalue")
+	_, accepted, err := parse("duplicatebehaviour", "badvalue")
 	if !accepted {
-		t.Fatal("duplicatebehavior with invalid value: key should still be claimed (accepted=true)")
+		t.Fatal("duplicatebehaviour with invalid value: key should still be claimed (accepted=true)")
 	}
 	if err == nil {
-		t.Fatal("duplicatebehavior with invalid value should return an error")
+		t.Fatal("duplicatebehaviour with invalid value should return an error")
 	}
 }
 
@@ -446,7 +446,7 @@ func TestPackSeqConfigs_PostanimMove(t *testing.T) {
 func TestPackSeqConfigs_DuplicateBehavior(t *testing.T) {
 	seqPack := seqOneSlotPack("walk")
 	configs := map[string][]ConfigLine{
-		"walk": {{Key: "duplicatebehavior", Value: 1}},
+		"walk": {{Key: "duplicatebehaviour", Value: 1}},
 	}
 	_, client := packSeqConfigs(configs, seqPack, nil)
 	// idx(0x00) len(0x01) op(0x0B) val(0x01) term(0x00)
@@ -457,7 +457,7 @@ func TestPackSeqConfigs_DuplicateBehavior(t *testing.T) {
 }
 
 // TestPackSeqConfigs_AllThreeNewKeys verifies TS emission order:
-// maxloops(8) → preanim_move(9) → postanim_move(10) → duplicatebehavior(11).
+// maxloops(8) → preanim_move(9) → postanim_move(10) → duplicatebehaviour(11).
 // TS SeqConfig.ts:200-211 (Engine-TS 9aadcec4).
 func TestPackSeqConfigs_AllThreeNewKeys(t *testing.T) {
 	seqPack := seqOneSlotPack("walk")
@@ -466,7 +466,7 @@ func TestPackSeqConfigs_AllThreeNewKeys(t *testing.T) {
 			{Key: "maxloops", Value: 3},
 			{Key: "preanim_move", Value: 0},
 			{Key: "postanim_move", Value: 1},
-			{Key: "duplicatebehavior", Value: 2},
+			{Key: "duplicatebehaviour", Value: 2},
 		},
 	}
 	_, client := packSeqConfigs(configs, seqPack, nil)
@@ -475,7 +475,7 @@ func TestPackSeqConfigs_AllThreeNewKeys(t *testing.T) {
 		0x08, 0x03, // maxloops=3
 		0x09, 0x00, // preanim_move=0 (delaymove)
 		0x0A, 0x01, // postanim_move=1 (abortanim)
-		0x0B, 0x02, // duplicatebehavior=2 (reset_loop)
+		0x0B, 0x02, // duplicatebehaviour=2 (reset_loop)
 		0x00,
 	}
 	if !bytes.Equal(client.Dat.Data, want) {

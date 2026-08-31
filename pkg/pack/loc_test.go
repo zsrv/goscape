@@ -301,7 +301,10 @@ func TestPackLocConfigs_Anim(t *testing.T) {
 	}
 }
 
-func TestPackLocConfigs_HasalphaTrue(t *testing.T) {
+// TestPackLocConfigs_HasalphaRetired pins that hasalpha emits nothing —
+// Engine-TS 8139461a dropped the key and the client opcode-25 emission
+// (TS LocConfig.ts:57,247 @1d25566c).
+func TestPackLocConfigs_HasalphaRetired(t *testing.T) {
 	mp, _, _, _, _, _ := locTestRegistries(t)
 	locPack := locOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "hasalpha", Value: true}}}
@@ -309,9 +312,12 @@ func TestPackLocConfigs_HasalphaTrue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []byte{0x00, 0x01, 0x19, 0x00}
+	want := []byte{0x00, 0x01, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("got % x, want % x", client.Dat.Data, want)
+	}
+	if _, ok := locBooleanKeys["hasalpha"]; ok {
+		t.Error("locBooleanKeys still contains hasalpha")
 	}
 }
 

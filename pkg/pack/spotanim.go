@@ -19,7 +19,6 @@ var spotanimNumberKeys = map[string]struct{}{
 
 // spotanimBooleanKeys mirrors TS SpotAnimConfig.ts:14-16 booleanKeys[].
 var spotanimBooleanKeys = map[string]struct{}{
-	"hasalpha": {},
 }
 
 // parseSpotAnimConfigFor returns the per-key=value parser for .spotanim
@@ -124,10 +123,6 @@ func packSpotAnimConfigs(configs map[string][]ConfigLine, spotanimPack *PackFile
 			case key == "anim":
 				client.P1(2)
 				client.P2(uint16(line.Value.(int)))
-			case key == "hasalpha":
-				if line.Value.(bool) {
-					client.P1(3)
-				}
 			case key == "resizeh":
 				client.P1(4)
 				client.P2(uint16(line.Value.(int)))

@@ -116,7 +116,7 @@ func TestUnpackSeq_Opcode4_Stretches(t *testing.T) {
 	body := []byte{4, 0}
 	cfg := buildSeqConfigIdx(body)
 	got := unpackSeq(cfg, 0, nil, nil, nil, captureWarnings(new([]string)))
-	want := []string{"[]", "stretches=yes"}
+	want := []string{"[]", "reachforward=yes"}
 	assertLines(t, want, got)
 }
 
@@ -229,7 +229,7 @@ func TestUnpackSeq_Opcode11_DuplicateBehavior(t *testing.T) {
 		body := []byte{11, tc.val, 0}
 		cfg := buildSeqConfigIdx(body)
 		got := unpackSeq(cfg, 0, nil, nil, nil, captureWarnings(new([]string)))
-		want := []string{"[]", "duplicatebehavior=" + tc.want}
+		want := []string{"[]", "duplicatebehaviour=" + tc.want}
 		assertLines(t, want, got)
 	}
 }

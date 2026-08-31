@@ -16,12 +16,11 @@ type SpotanimType struct {
 	ConfigType
 	Model       int
 	Anim        int // -1 default
-	HasAlpha    bool
 	RecolS      [6]uint16
 	RecolD      [6]uint16
 	Resizeh     int // 128 default
 	Resizev     int // 128 default
-	Orientation int
+	Angle int
 	Ambient     int
 	Contrast    int
 }
@@ -45,14 +44,12 @@ func (t *SpotanimType) Decode(code uint8, dat *packet.Packet) error {
 		t.Model = int(dat.G2())
 	case 2:
 		t.Anim = int(dat.G2())
-	case 3:
-		t.HasAlpha = true
 	case 4:
 		t.Resizeh = int(dat.G2())
 	case 5:
 		t.Resizev = int(dat.G2())
 	case 6:
-		t.Orientation = int(dat.G2())
+		t.Angle = int(dat.G2())
 	case 7:
 		t.Ambient = int(dat.G1())
 	case 8:

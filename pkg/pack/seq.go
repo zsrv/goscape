@@ -15,7 +15,7 @@ var seqNumberKeys = map[string]struct{}{
 
 // seqBooleanKeys mirrors TS SeqConfig.ts:11-13 booleanKeys[].
 var seqBooleanKeys = map[string]struct{}{
-	"stretches": {},
+	"reachforward": {},
 }
 
 // parseSeqConfigFor returns the per-key=value parser for .seq config
@@ -129,7 +129,7 @@ func parseSeqConfigFor(animPack, objPack *PackFile) ParseFn {
 				return nil, true, fmt.Errorf("invalid postanim_move value: %s", value)
 			}
 		}
-		if key == "duplicatebehavior" {
+		if key == "duplicatebehaviour" {
 			switch value {
 			case "0":
 				return 0, true, nil
@@ -138,7 +138,7 @@ func parseSeqConfigFor(animPack, objPack *PackFile) ParseFn {
 			case "reset_loop":
 				return 2, true, nil
 			default:
-				return nil, true, fmt.Errorf("invalid duplicatebehavior value: %s", value)
+				return nil, true, fmt.Errorf("invalid duplicatebehaviour value: %s", value)
 			}
 		}
 		return nil, false, nil
@@ -146,7 +146,7 @@ func parseSeqConfigFor(animPack, objPack *PackFile) ParseFn {
 }
 
 // packSeqConfigs emits the per-id body for .seq configs. For each id:
-//   - loose opcodes (loops/walkmerge/stretches/priority/replaceheld*
+//   - loose opcodes (loops/walkmerge/reachforward/priority/replaceheld*
 //     /maxloops) are written in config-line order;
 //   - the frames block (opcode 1) is appended after the full config scan
 //     when at least one frame{N} key is present;
@@ -212,7 +212,7 @@ func packSeqConfigs(configs map[string][]ConfigLine, seqPack *PackFile, modelFla
 				for _, lab := range labels {
 					client.P1(uint8(lab))
 				}
-			case line.Key == "stretches":
+			case line.Key == "reachforward":
 				if line.Value.(bool) {
 					client.P1(4)
 				}
@@ -235,7 +235,7 @@ func packSeqConfigs(configs map[string][]ConfigLine, seqPack *PackFile, modelFla
 			case line.Key == "postanim_move":
 				client.P1(10)
 				client.P1(uint8(line.Value.(int)))
-			case line.Key == "duplicatebehavior":
+			case line.Key == "duplicatebehaviour":
 				client.P1(11)
 				client.P1(uint8(line.Value.(int)))
 			}
