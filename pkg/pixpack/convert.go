@@ -12,11 +12,23 @@ import (
 )
 
 // ConvertImage reads <srcDir>/<name>.png, optionally reads
-// <srcDir>/meta/<name>.opt for spritesheet metadata, encodes the
-// image into the RS sprite format, and appends frame headers to index.
-// Returns the per-sprite payload Packet (caller must Release).
+// <srcDir>/meta/<name>.opt for the spritesheet tiling, encodes the image into
+// the RS sprite format, and appends frame headers to index. Returns the
+// per-sprite payload Packet (caller must Release).
 //
-// Ports TS PixPack.ts:136-214.
+// Ports TS PixPack.ts:99-146 @1d25566c.
+//
+// Engine-TS 8139461a reduced the .opt sidecar to a single "<tileX>x<tileY>"
+// line: the per-sprite crop/pixel-order rows are gone, because WriteImage now
+// derives both by scanning. Tiling is detected by comparing the tile size
+// against the image size rather than by counting sidecar rows, so a sidecar
+// whose tiling equals the full image is equivalent to having none.
+//
+// The upstream signature also grew optional `source` and `palette`
+// parameters. No caller passes them at this pin (verified across
+// tools/pack/map/Worldmap.ts, sprite/media.ts, sprite/textures.ts and
+// sprite/title.ts @1d25566c), so they are omitted here rather than carried as
+// dead API.
 func ConvertImage(index *packet.Packet, srcDir, name string) (*packet.Packet, error) {
 	data := packet.Alloc(4)
 	// TS: data.p2(index.pos) — record the current write-position of
@@ -30,15 +42,11 @@ func ConvertImage(index *packet.Packet, srcDir, name string) (*packet.Packet, er
 		return nil, err
 	}
 
-	tileX := img.Width
-	tileY := img.Height
-
-	sprites, tileX2, tileY2, err := loadSpriteMeta(srcDir, name, tileX, tileY)
+	tileX, tileY, err := loadTiling(srcDir, name, img.Width, img.Height)
 	if err != nil {
 		data.Release()
 		return nil, fmt.Errorf("ConvertImage(%q): %w", name, err)
 	}
-	tileX, tileY = tileX2, tileY2
 
 	index.P2(uint16(tileX))
 	index.P2(uint16(tileY))
@@ -62,124 +70,64 @@ func ConvertImage(index *packet.Packet, srcDir, name string) (*packet.Packet, er
 		index.P3(uint32(colors[j]))
 	}
 
-	switch {
-	case len(sprites) > 1:
-		for y := 0; y < img.Height/tileY; y++ {
-			for x := 0; x < img.Width/tileX; x++ {
+	// TS: `if (tileX !== img.bitmap.width || tileY !== img.bitmap.height)` —
+	// tiling is inferred from the tile size, not from a sidecar row count.
+	if tileX != img.Width || tileY != img.Height {
+		for y := range img.Height / tileY {
+			for x := range img.Width / tileX {
 				tile := cropBitmap(img, x*tileX, y*tileY, tileX, tileY)
-				WriteImage(tile, data, index, colors, &sprites[x+y*(img.Width/tileX)])
+				WriteImage(tile, data, index, colors)
 			}
 		}
-	case len(sprites) == 1:
-		WriteImage(img, data, index, colors, &sprites[0])
-	default:
-		// TS passes sprites[0] which is undefined; writeImage's meta
-		// param defaults to null. Go: pass nil.
-		WriteImage(img, data, index, colors, nil)
+	} else {
+		WriteImage(img, data, index, colors)
 	}
 
 	return data, nil
 }
 
-// loadSpriteMeta parses <srcDir>/meta/<name>.opt if present.
+// loadTiling parses the tile dimensions from <srcDir>/meta/<name>.opt.
 //
-// Two formats:
+// Ports TS PixPack.ts:110-119 @1d25566c. Since 8139461a the sidecar holds
+// exactly one meaningful line, "<tileX>x<tileY>"; everything after it is
+// ignored (TS passes a limit of 1 to split). Absent sidecar means the whole
+// image is one tile.
 //
-//	single sprite:  "x,y,w,h,row|col"
-//	tiled sheet:    "<tileX>x<tileY>\n<sprite>\n..."
-//
-// If the file is absent, returns (nil, defaultTileX, defaultTileY, nil).
-func loadSpriteMeta(srcDir, name string, defaultTileX, defaultTileY int) ([]SpriteMeta, int, int, error) {
+// The tiling is validated: both values must parse as integers and must divide
+// the image exactly. TS raises `Invalid image metadata: <path>` for any of
+// those failures — including the NaN that a malformed line produces — so a
+// bad sidecar is a hard error, not a silent fallback.
+func loadTiling(srcDir, name string, defaultTileX, defaultTileY int) (int, int, error) {
+	tileX, tileY := defaultTileX, defaultTileY
+
 	path := filepath.Join(srcDir, "meta", name+".opt")
 	raw, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, defaultTileX, defaultTileY, nil
-	}
-	if err != nil {
-		return nil, 0, 0, err
-	}
-	// TS 244 PixPack.ts:147-151 (9aadcec4): .replace(/\r/g,'').split('\n')
-	// — strip ALL \r before splitting so mid-line \r bytes are removed.
-	lines := []string{}
-	for line := range strings.SplitSeq(strings.ReplaceAll(string(raw), "\r", ""), "\n") {
-		if line != "" {
-			lines = append(lines, line)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		// no sidecar: the image is a single tile
+	case err != nil:
+		return 0, 0, err
+	default:
+		// TS: .split(/\r?\n/, 1)[0].trim().split('x').map(Number)
+		first, _, _ := strings.Cut(strings.ReplaceAll(string(raw), "\r\n", "\n"), "\n")
+		xs, ys, ok := strings.Cut(strings.TrimSpace(first), "x")
+		if !ok {
+			return 0, 0, fmt.Errorf("invalid image metadata: %s", path)
 		}
-	}
-	if len(lines) == 0 {
-		return nil, defaultTileX, defaultTileY, nil
-	}
-
-	if !strings.Contains(lines[0], "x") {
-		s, err := parseSpriteLine(lines[0])
+		tileX, err = strconv.Atoi(xs)
 		if err != nil {
-			return nil, 0, 0, err
+			return 0, 0, fmt.Errorf("invalid image metadata: %s", path)
 		}
-		return []SpriteMeta{s}, defaultTileX, defaultTileY, nil
-	}
-
-	parts := strings.SplitN(lines[0], "x", 2)
-	tileX, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return nil, 0, 0, fmt.Errorf("tileX: %w", err)
-	}
-	tileY, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return nil, 0, 0, fmt.Errorf("tileY: %w", err)
-	}
-
-	sprites := make([]SpriteMeta, 0, len(lines)-1)
-	for _, line := range lines[1:] {
-		s, err := parseSpriteLine(line)
+		tileY, err = strconv.Atoi(ys)
 		if err != nil {
-			return nil, 0, 0, err
+			return 0, 0, fmt.Errorf("invalid image metadata: %s", path)
 		}
-		sprites = append(sprites, s)
 	}
-	return sprites, tileX, tileY, nil
-}
 
-// parseSpriteLine parses a single "x,y,w,h[,row|col]" line into a SpriteMeta.
-//
-// TS PixPack.ts:154-162 (9aadcec4): sprite = line.split(','); pixelOrder is
-// sprite[4] === 'row' ? 1 : 0 — sprite[4] is undefined for 4-field lines
-// (JS: undefined !== 'row'), so pixelOrder is 0 with no error. Real 244
-// content (e.g. title/meta/runes.opt) has 4-field lines.
-//
-// Go mirrors: >=4 fields accepted; field 5 absent or != "row" → pixelOrder 0;
-// == "row" → pixelOrder 1. <4 fields remain an error — TS does not guard
-// (parseInt(undefined)=NaN), so the defensive error is a Go deviation
-// (documented below). This applies to BOTH the single-sprite and tiled-sheet
-// parse paths in loadSpriteMeta (both call parseSpriteLine).
-//
-// PORTING-EXCEPTION: <4-field lines return an error in Go where TS would
-// silently use NaN x/y/w/h. Go keeps the guard as a defensive deviation.
-func parseSpriteLine(line string) (SpriteMeta, error) {
-	parts := strings.Split(line, ",")
-	if len(parts) < 4 {
-		return SpriteMeta{}, fmt.Errorf("sprite line %q: want at least 4 fields, got %d", line, len(parts))
+	if tileX <= 0 || tileY <= 0 || defaultTileX%tileX != 0 || defaultTileY%tileY != 0 {
+		return 0, 0, fmt.Errorf("invalid image metadata: %s", path)
 	}
-	x, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return SpriteMeta{}, err
-	}
-	y, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return SpriteMeta{}, err
-	}
-	w, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return SpriteMeta{}, err
-	}
-	h, err := strconv.Atoi(parts[3])
-	if err != nil {
-		return SpriteMeta{}, err
-	}
-	order := 0
-	if len(parts) >= 5 && parts[4] == "row" {
-		order = 1
-	}
-	return SpriteMeta{X: x, Y: y, W: w, H: h, PixelOrder: order}, nil
+	return tileX, tileY, nil
 }
 
 // cropBitmap returns a new Bitmap copying the [x, x+w) by [y, y+h)

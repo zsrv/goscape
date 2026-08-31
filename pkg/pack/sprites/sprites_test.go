@@ -108,9 +108,10 @@ func TestPackMedia_SortsSpritesheetsLast(t *testing.T) {
 
 	writePNG(t, filepath.Join(spritesDir, "plain.png"), 2, 2, color.RGBA{1, 2, 3, 255})
 	writePNG(t, filepath.Join(spritesDir, "sheet.png"), 2, 2, color.RGBA{4, 5, 6, 255})
-	// Single-sprite .opt — triggers len(sprites)==1 branch and marks
-	// "sheet" as a spritesheet for the sort-last comparator.
-	_ = os.WriteFile(filepath.Join(metaDir, "sheet.opt"), []byte("0,0,2,2,row\n"), 0o644)
+	// Tiling .opt — since Engine-TS 8139461a the sidecar holds only a
+	// "<tileX>x<tileY>" line. 1x1 tiles over a 2x2 image make "sheet" a real
+	// spritesheet for the sort-last comparator.
+	_ = os.WriteFile(filepath.Join(metaDir, "sheet.opt"), []byte("1x1\n"), 0o644)
 
 	out := filepath.Join(tmp, "out")
 	if err := PackMedia(src, out, nil); err != nil {

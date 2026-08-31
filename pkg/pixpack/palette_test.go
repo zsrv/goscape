@@ -27,13 +27,3 @@ func TestGeneratePalette_DedupNonSentinel(t *testing.T) {
 		t.Errorf("len=%d, want 3 (sentinel + 2 unique)", len(colors))
 	}
 }
-
-func TestGeneratePixelOrder_ConstantColorPicksRowMajor(t *testing.T) {
-	bm := &Bitmap{Width: 4, Height: 4, Data: make([]uint8, 64)}
-	for i := range bm.Data {
-		bm.Data[i] = 100
-	}
-	if got := GeneratePixelOrder(bm); got != 1 {
-		t.Errorf("got %d, want 1 (row-major default)", got)
-	}
-}

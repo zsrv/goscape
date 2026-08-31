@@ -23,36 +23,46 @@ func generatePalette(img *Bitmap) []int32 {
 	return colors
 }
 
-// GeneratePixelOrder returns 0 for row-major and 1 for column-major
-// based on cumulative absolute RGB-delta minimization (TS PixPack.ts:8-32).
+// GeneratePixelOrder returns 0 for row-major and 1 for column-major by
+// counting colour transitions along each traversal of the cropped rectangle
+// and preferring whichever has fewer.
 //
-// Note: TS iterates j += 4 in the row-major pass (skipping 3 of every
-// 4 pixels) but j++ in the column-major pass. This asymmetry is
-// preserved verbatim for byte-faithful score computation.
-func GeneratePixelOrder(img *Bitmap) int {
-	rowMajorScore := int64(0)
-	columnMajorScore := int64(0)
+// Ports TS PixPack.ts:8-60 @1d25566c. Engine-TS 8139461a replaced the old
+// signed-delta sum with this transition count AND flipped the return polarity
+// (`columnMajorScore < rowMajorScore ? 0 : 1` became
+// `columnTransitions < rowTransitions ? 1 : 0`). Both halves changed: getting
+// only one right yields plausible-looking but wrong output.
+//
+// The old asymmetric sampling (row pass stepping j += 4, column pass j++) is
+// gone too; both traversals now visit every pixel of the rectangle, and the
+// first pixel seeds the "previous" values without scoring a transition.
+func GeneratePixelOrder(img *Bitmap, left, top, width, height int) int {
+	rowTransitions := 0
+	columnTransitions := 0
+	previousRow := int32(-1)
+	previousColumn := int32(-1)
 
-	prev := int64(0)
-	for j := 0; j < img.Width*img.Height; j += 4 {
-		pos := j * 4
-		current := int64(img.Data[pos+0])<<16 | int64(img.Data[pos+1])<<8 | int64(img.Data[pos+2])
-		rowMajorScore += current - prev
-		prev = current
-	}
+	for i := range width * height {
+		rowPos := (left + i%width + (top+i/width)*img.Width) * 4
+		columnPos := (left + i/height + (top+i%height)*img.Width) * 4
 
-	prev = 0
-	for x := range img.Width {
-		for y := range img.Height {
-			pos := (x + y*img.Width) * 4
-			current := int64(img.Data[pos+0])<<16 | int64(img.Data[pos+1])<<8 | int64(img.Data[pos+2])
-			columnMajorScore += current - prev
-			prev = current
+		row := int32(img.Data[rowPos])<<16 | int32(img.Data[rowPos+1])<<8 | int32(img.Data[rowPos+2])
+		column := int32(img.Data[columnPos])<<16 | int32(img.Data[columnPos+1])<<8 | int32(img.Data[columnPos+2])
+
+		if i > 0 {
+			if row != previousRow {
+				rowTransitions++
+			}
+			if column != previousColumn {
+				columnTransitions++
+			}
 		}
+		previousRow = row
+		previousColumn = column
 	}
 
-	if columnMajorScore < rowMajorScore {
-		return 0
+	if columnTransitions < rowTransitions {
+		return 1
 	}
-	return 1
+	return 0
 }
