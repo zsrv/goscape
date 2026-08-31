@@ -1,7 +1,8 @@
 package world
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/zsrv/goscape/pkg/eventspb"
@@ -22,7 +23,7 @@ func (p *Player) updatePlayers() {
 
 	telemetry.Get().EmitWorld(&eventspb.WorldEnvelope{
 		SchemaVersion: 1,
-		EventId:       uuid.NewString(),
+		EventId:       uuid.New().String(),
 		Ts:            timestamppb.Now(),
 		WorldId:       int32(s.cfg.NodeID),
 		AccountId:     p.accountID,

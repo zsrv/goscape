@@ -45,10 +45,10 @@ func TestCalculateRunWeight_SkipsNonRunWeightInv(t *testing.T) {
 	const objTypeID = 5
 	invConfigs := make([]*objtype.InvType, 10)
 	invConfigs[invTypeID] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: invTypeID},
-		Scope:      objtype.InvTypeScopeTemp,
-		Size:       5,
-		RunWeight:  false,
+		ID:        invTypeID,
+		Scope:     objtype.InvTypeScopeTemp,
+		Size:      5,
+		RunWeight: false,
 	}
 	objConfigs := make([]*objtype.ObjType, 10)
 	objConfigs[objTypeID] = &objtype.ObjType{
@@ -79,10 +79,10 @@ func TestCalculateRunWeight_SkipsStackableObj(t *testing.T) {
 	const objTypeID = 5
 	invConfigs := make([]*objtype.InvType, 10)
 	invConfigs[invTypeID] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: invTypeID},
-		Scope:      objtype.InvTypeScopeTemp,
-		Size:       5,
-		RunWeight:  true,
+		ID:        invTypeID,
+		Scope:     objtype.InvTypeScopeTemp,
+		Size:      5,
+		RunWeight: true,
 	}
 	objConfigs := make([]*objtype.ObjType, 10)
 	objConfigs[objTypeID] = &objtype.ObjType{
@@ -112,10 +112,10 @@ func TestCalculateRunWeight_SkipsNilInvOrItem(t *testing.T) {
 	const invTypeID = 1
 	invConfigs := make([]*objtype.InvType, 10)
 	invConfigs[invTypeID] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: invTypeID},
-		Scope:      objtype.InvTypeScopeTemp,
-		Size:       5,
-		RunWeight:  true,
+		ID:        invTypeID,
+		Scope:     objtype.InvTypeScopeTemp,
+		Size:      5,
+		RunWeight: true,
 	}
 	objConfigs := make([]*objtype.ObjType, 10)
 
@@ -145,10 +145,10 @@ func TestCalculateRunWeight_SumsWeightTimesCount(t *testing.T) {
 	const objB = 6 // weight 100
 	invConfigs := make([]*objtype.InvType, 10)
 	invConfigs[invTypeID] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: invTypeID},
-		Scope:      objtype.InvTypeScopeTemp,
-		Size:       5,
-		RunWeight:  true,
+		ID:        invTypeID,
+		Scope:     objtype.InvTypeScopeTemp,
+		Size:      5,
+		RunWeight: true,
 	}
 	objConfigs := make([]*objtype.ObjType, 10)
 	objConfigs[objA] = &objtype.ObjType{Stackable: false, Weight: 32}
@@ -184,16 +184,16 @@ func TestCalculateRunWeight_MultipleInvs(t *testing.T) {
 	const objTypeID = 5
 	invConfigs := make([]*objtype.InvType, 10)
 	invConfigs[invTypeA] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: invTypeA},
-		Scope:      objtype.InvTypeScopeTemp,
-		Size:       3,
-		RunWeight:  true,
+		ID:        invTypeA,
+		Scope:     objtype.InvTypeScopeTemp,
+		Size:      3,
+		RunWeight: true,
 	}
 	invConfigs[invTypeB] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: invTypeB},
-		Scope:      objtype.InvTypeScopePerm,
-		Size:       3,
-		RunWeight:  true,
+		ID:        invTypeB,
+		Scope:     objtype.InvTypeScopePerm,
+		Size:      3,
+		RunWeight: true,
 	}
 	objConfigs := make([]*objtype.ObjType, 10)
 	objConfigs[objTypeID] = &objtype.ObjType{Stackable: false, Weight: 2275}
@@ -241,9 +241,9 @@ func TestCalculateRunWeight_OutOfBoundsTypeIDsSkipped(t *testing.T) {
 	// Inv with valid Type but item with out-of-bounds Id.
 	// We need invConfigs[1] to be a RunWeight inv.
 	invConfigs[1] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: 1},
-		Size:       2,
-		RunWeight:  true,
+		ID:        1,
+		Size:      2,
+		RunWeight: true,
 	}
 	validInv := inventory.New(1, 2, inventory.StackNormal)
 	validInv.Items[0] = &inventory.Item{Id: 10, Count: 1} // objId 10 out of bounds

@@ -13,7 +13,7 @@ import (
 
 func newTestNpc(nid int) *Npc {
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test"},
+		ID: 0, DebugName: "test",
 		WanderRange: 0,
 		RespawnRate: 50,
 	}
@@ -625,7 +625,7 @@ func TestRevertTypeReArmsResetOnRevert(t *testing.T) {
 // NPC back to (startX, startZ) per TS Npc.ts:1083-1085 → World.addNpc:1264.
 func TestRevertTypeHeavyPathTeles(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	typ := &objtype.NpcType{ID: 7, Size: 1}
 	n := NewNpc(0, 7, 100, 100, 0, typ)
 	if err := s.addNpc(n, -1, true); err != nil {
 		t.Fatalf("addNpc: %v", err)
@@ -647,9 +647,9 @@ func TestRevertTypeHeavyPathReseedsStats(t *testing.T) {
 	s := newTestServer(t)
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 9)}
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7},
-		Size:       1,
-		Stats:      []uint16{10, 20, 30, 40, 50, 60},
+		ID:    7,
+		Size:  1,
+		Stats: []uint16{10, 20, 30, 40, 50, 60},
 	}
 	s.npcTypes.Configs[7] = typ
 	n := NewNpc(0, 7, 100, 100, 0, typ)
@@ -677,7 +677,7 @@ func TestRevertTypeHeavyPathReseedsStats(t *testing.T) {
 func TestRevertTypeHeavyPathClearsQueueWaypoints(t *testing.T) {
 	s := newTestServer(t)
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 9)}
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	typ := &objtype.NpcType{ID: 7, Size: 1}
 	s.npcTypes.Configs[7] = typ
 	n := NewNpc(0, 7, 100, 100, 0, typ)
 	if err := s.addNpc(n, -1, true); err != nil {
@@ -709,9 +709,9 @@ func TestRevertTypeHeavyPathRunsCollisionToggles(t *testing.T) {
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 9)}
 	s.gamemap = gamemap.New(discardLogger())
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7},
-		Size:       1,
-		BlockWalk:  objtype.BlockWalkNPC,
+		ID:        7,
+		Size:      1,
+		BlockWalk: objtype.BlockWalkNPC,
 	}
 	s.npcTypes.Configs[7] = typ
 	n := NewNpc(0, 7, 100, 100, 0, typ)
@@ -734,7 +734,7 @@ func TestRevertTypeHeavyPathRunsCollisionToggles(t *testing.T) {
 // no stats reseed, no queue clear.
 func TestRevertTypeLightPathUnchanged(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	typ := &objtype.NpcType{ID: 7, Size: 1}
 	n := NewNpc(0, 7, 100, 100, 0, typ)
 	n.server = s
 	// Simulate KEEPALL changetype: typeId moved, resetOnRevert=false.
@@ -818,7 +818,7 @@ func TestNewNpcSnapshotsBlockWalkAndSize(t *testing.T) {
 func TestRevertTypeUsesScaledRespawnDuration(t *testing.T) {
 	s := newTestServer(t)
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 9)}
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	typ := &objtype.NpcType{ID: 7, Size: 1}
 	s.npcTypes.Configs[7] = typ
 	n := NewNpc(0, 7, 100, 100, 0, typ)
 	if err := s.addNpc(n, -1, true); err != nil {
@@ -1010,7 +1010,8 @@ func TestNpc_GetCollisionStrategy_PerMoveRestrict(t *testing.T) {
 	}
 }
 
-func ptrTypeNpc(t collision.Type) *collision.Type { return &t }
+//go:fix inline
+func ptrTypeNpc(t collision.Type) *collision.Type { return new(t) }
 
 // TestNpcCleanup pins the (n *Npc) Cleanup() field-zeroing contract.
 // Mirrors TS Npc.cleanup at Engine-TS/src/engine/entity/Npc.ts:187-193:

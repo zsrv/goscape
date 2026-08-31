@@ -343,9 +343,7 @@ func (ot *ObjType) Decode(code uint8, dat *packet2.Packet) error {
 
 func NewObjType(id int) *ObjType {
 	return &ObjType{
-		ConfigType: ConfigType{
-			ID: id,
-		},
+		ID:           id,
 		Zoom2D:       2000,
 		Code10:       -1,
 		Cost:         1,

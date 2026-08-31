@@ -129,7 +129,7 @@ func TestNPCModeFullEnum(t *testing.T) {
 
 func TestNPCTypeConfigs_ByName_HitViaConfigNames(t *testing.T) {
 	nc := &NPCTypeConfigs{
-		Configs:     []*NpcType{{ConfigType: ConfigType{ID: 0, DebugName: "first"}}, {ConfigType: ConfigType{ID: 1, DebugName: "second"}}},
+		Configs:     []*NpcType{{ID: 0, DebugName: "first"}, {ID: 1, DebugName: "second"}},
 		ConfigNames: map[string]int{"first": 0, "second": 1},
 	}
 	got := nc.ByName("second")
@@ -143,7 +143,7 @@ func TestNPCTypeConfigs_ByName_HitViaConfigNames(t *testing.T) {
 
 func TestNPCTypeConfigs_ByName_MissReturnsNil(t *testing.T) {
 	nc := &NPCTypeConfigs{
-		Configs:     []*NpcType{{ConfigType: ConfigType{ID: 0, DebugName: "only"}}},
+		Configs:     []*NpcType{{ID: 0, DebugName: "only"}},
 		ConfigNames: map[string]int{"only": 0},
 	}
 	if got := nc.ByName("absent"); got != nil {
@@ -160,7 +160,7 @@ func TestNPCTypeConfigs_ByName_NilReceiverReturnsNil(t *testing.T) {
 
 func TestNPCTypeConfigs_ByName_StaleIndexFallsThroughToLinearScan(t *testing.T) {
 	nc := &NPCTypeConfigs{
-		Configs:     []*NpcType{{ConfigType: ConfigType{ID: 0, DebugName: "other"}}, {ConfigType: ConfigType{ID: 1, DebugName: "fresh"}}},
+		Configs:     []*NpcType{{ID: 0, DebugName: "other"}, {ID: 1, DebugName: "fresh"}},
 		ConfigNames: map[string]int{"fresh": 5},
 	}
 	got := nc.ByName("fresh")
@@ -174,7 +174,7 @@ func TestNPCTypeConfigs_ByName_StaleIndexFallsThroughToLinearScan(t *testing.T) 
 
 func TestNPCTypeConfigs_ByName_LinearScanWhenConfigNamesEmpty(t *testing.T) {
 	nc := &NPCTypeConfigs{
-		Configs:     []*NpcType{{ConfigType: ConfigType{ID: 0, DebugName: "scan_me"}}},
+		Configs:     []*NpcType{{ID: 0, DebugName: "scan_me"}},
 		ConfigNames: nil,
 	}
 	got := nc.ByName("scan_me")

@@ -106,10 +106,7 @@ func TestPackAll_Ref245FullTreeParity(t *testing.T) {
 		}
 	}
 	if len(mismatches) > 0 {
-		limit := 10
-		if len(mismatches) < limit {
-			limit = len(mismatches)
-		}
+		limit := min(len(mismatches), 10)
 		t.Errorf("%d manifest file(s) failed parity (showing first %d):\n%s",
 			len(mismatches), limit, strings.Join(mismatches[:limit], "\n"))
 	}
@@ -276,10 +273,7 @@ func checkOndemandZip(t *testing.T, zipPath string) {
 	}
 
 	if len(errs) > 0 {
-		limit := 10
-		if len(errs) < limit {
-			limit = len(errs)
-		}
+		limit := min(len(errs), 10)
 		t.Errorf("ondemand.zip parity failures (showing first %d of %d):\n%s",
 			limit, len(errs), strings.Join(errs[:limit], "\n"))
 	}

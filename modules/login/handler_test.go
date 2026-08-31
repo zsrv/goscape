@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"testing"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -696,8 +696,10 @@ func TestPlayerLogin_SessionUUID_FormatOnAccept(t *testing.T) {
 	if err != nil {
 		t.Fatalf("uuid.Parse(%q): %v", resp.SessionUuid, err)
 	}
-	if u.Version() != 4 {
-		t.Errorf("uuid version: got %d, want 4", u.Version())
+	// RFC 9562 4.2: the version is the high nibble of octet 6. The stdlib
+	// uuid.UUID is a [16]byte with no Version accessor.
+	if v := u[6] >> 4; v != 4 {
+		t.Errorf("uuid version: got %d, want 4", v)
 	}
 }
 
@@ -1124,7 +1126,7 @@ func TestPlayerLogin_RateLimit_ScopedToAccountAndIP(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if _, err := h.PlayerLogin(t.Context(), mk("1.2.3.4:5")); err != nil {
 			t.Fatal(err)
 		}
@@ -1158,7 +1160,7 @@ func TestPlayerLogin_RateLimit_WindowExpiry(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if _, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
 			NodeId: 10, Profile: "main", Username: "bob", Password: "wrong",
 			RemoteAddress: "1.2.3.4:5", Uid: 1,

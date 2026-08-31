@@ -210,7 +210,7 @@ func TestFriendsMutationDispatcher_DepthWarnThreshold_LogsOncePerThreshold(t *te
 	// No worker started: the queue only grows, exercising enqueue's
 	// depth-warn logic in isolation without any dequeue racing it.
 	const wantThreshold = 256
-	for i := 0; i < wantThreshold; i++ {
+	for range wantThreshold {
 		d.enqueue(func(context.Context) {})
 	}
 
@@ -224,7 +224,7 @@ func TestFriendsMutationDispatcher_DepthWarnThreshold_LogsOncePerThreshold(t *te
 
 	// Enqueue past the threshold again (still below the next one, 1024) —
 	// must NOT log a second time for the same threshold.
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		d.enqueue(func(context.Context) {})
 	}
 	got = strings.Count(buf.String(), "friends dispatch queue depth crossed threshold")

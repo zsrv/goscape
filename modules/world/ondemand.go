@@ -240,10 +240,7 @@ func (od *onDemand) send(c odClient, archive, file int) {
 		pos := 0
 		part := 0
 		for pos < totalLen {
-			remaining := totalLen - pos
-			if remaining > 500 {
-				remaining = 500
-			}
+			remaining := min(totalLen-pos, 500)
 			frame := make([]byte, 6+remaining)
 			frame[0] = byte(archive)
 			frame[1] = byte(file >> 8)

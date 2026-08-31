@@ -382,9 +382,8 @@ func unpackModelNames(jag *jagfile.Jagfile, env *Env, srcDir string) error {
 			if strings.HasSuffix(debugname, LocShapeSuffix[shape]) {
 				// TS line 233: debugname.substring(0, debugname.lastIndexOf('_'))
 				//               + debugname.substring(debugname.length - 1)
-				lastUnderscore := strings.LastIndex(debugname, "_")
-				if lastUnderscore >= 0 {
-					debugname = debugname[:lastUnderscore] + debugname[len(debugname)-1:]
+				if before, _, ok := strings.CutLast(debugname, "_"); ok {
+					debugname = before + debugname[len(debugname)-1:]
 				}
 				break
 			}

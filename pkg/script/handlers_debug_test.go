@@ -242,7 +242,6 @@ func TestDebugWorldStatOps_NilWorldReject(t *testing.T) {
 		OpMapLastBandwidthOut,
 	}
 	for _, op := range ops {
-		op := op
 		t.Run(op.String(), func(t *testing.T) {
 			sf := &ScriptFile{
 				Name:             "nil_world",

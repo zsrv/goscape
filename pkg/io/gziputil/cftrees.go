@@ -56,7 +56,7 @@ func init() {
 func trStaticInit() {
 	// Initialize length_code / base_length
 	length := 0
-	for code := 0; code < lengthCodes-1; code++ {
+	for code := range lengthCodes - 1 {
 		baseLength[code] = length
 		for n := 0; n < 1<<extraLBits[code]; n++ {
 			lengthCode[length] = uint8(code)
@@ -68,7 +68,7 @@ func trStaticInit() {
 
 	// Initialize dist_code / base_dist
 	dist := 0
-	for code := 0; code < 16; code++ {
+	for code := range 16 {
 		baseDist[code] = dist
 		for n := 0; n < 1<<extraDBits[code]; n++ {
 			distCode[dist] = uint8(code)
@@ -111,7 +111,7 @@ func trStaticInit() {
 	genCodes(staticLTree[:], lCodes+1, blCount[:])
 
 	// Static distance tree — cf-zlib trees.c:269-273
-	for n := 0; n < dCodes; n++ {
+	for n := range dCodes {
 		staticDTree[n].Len = 5
 		staticDTree[n].Code = uint16(biReverse(uint(n), 5))
 	}
@@ -355,7 +355,7 @@ func buildTree(s *deflateState, desc *treeDesc) {
 	s.heapMax = heapSize
 
 	maxCode := -1
-	for n := 0; n < elems; n++ {
+	for n := range elems {
 		if tree[n].Code != 0 { // freq != 0
 			s.heapLen++
 			s.heap[s.heapLen] = n
@@ -557,7 +557,7 @@ func sendAllTrees(s *deflateState, lcodes, dcodes, blcodes int) {
 	sendBits(s, uint64(lcodes-257), 5)
 	sendBits(s, uint64(dcodes-1), 5)
 	sendBits(s, uint64(blcodes-4), 4)
-	for rank := 0; rank < blcodes; rank++ {
+	for rank := range blcodes {
 		sendBits(s, uint64(s.blTree[blOrder[rank]].Len), 3)
 	}
 	sendTree(s, s.dynLTree[:], lcodes-1)

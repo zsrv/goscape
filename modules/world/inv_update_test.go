@@ -23,9 +23,9 @@ func newInvListenerTestPlayer(t *testing.T, s *Server, slot int) (*Player, net.C
 	if s.invTypes == nil {
 		configs := make([]*objtype.InvType, invUpdateTestInvTypesLen)
 		// type 0 — world-source listeners (SCOPE_SHARED); SCOPE_SHARED=2.
-		configs[0] = &objtype.InvType{ConfigType: objtype.ConfigType{ID: 0}, Scope: objtype.InvTypeScopeShared, Size: 1}
+		configs[0] = &objtype.InvType{ID: 0, Scope: objtype.InvTypeScopeShared, Size: 1}
 		// type 93 — per-player listeners (SCOPE_TEMP=0, default).
-		configs[93] = &objtype.InvType{ConfigType: objtype.ConfigType{ID: 93}, Scope: objtype.InvTypeScopeTemp, Size: 28}
+		configs[93] = &objtype.InvType{ID: 93, Scope: objtype.InvTypeScopeTemp, Size: 28}
 		s.invTypes = &objtype.InvTypeConfigs{Configs: configs}
 		s.invLookup = invLookupView{s: s}
 	}

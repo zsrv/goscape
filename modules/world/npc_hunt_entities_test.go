@@ -24,8 +24,8 @@ func addNpcToServerAt(t *testing.T, s *Server, nid, typeId, category, x, z, leve
 	}
 	if typeId < len(s.npcTypes.Configs) && s.npcTypes.Configs[typeId] == nil {
 		s.npcTypes.Configs[typeId] = &objtype.NpcType{
-			ConfigType: objtype.ConfigType{ID: typeId},
-			Category:   category,
+			ID:       typeId,
+			Category: category,
 		}
 	}
 	n := NewNpc(nid, typeId, x, z, level, s.npcTypes.Configs[typeId])
@@ -160,8 +160,8 @@ func TestHuntNpcsMissingTypeConfigSkipsOnCategoryFilter(t *testing.T) {
 	// Create an NPC whose typeId exceeds the Configs length.
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 3)}
 	s.npcTypes.Configs[1] = &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 1},
-		Category:   -1,
+		ID:       1,
+		Category: -1,
 	}
 	// Create NPC with a type that exists (for NewNpc), but set its typeId
 	// to something out of bounds.
@@ -211,8 +211,8 @@ func addObjToZone(t *testing.T, s *Server, level, x, z, typeId, category int) *e
 	}
 	if typeId < len(s.objTypes.Configs) && s.objTypes.Configs[typeId] == nil {
 		s.objTypes.Configs[typeId] = &objtype.ObjType{
-			ConfigType: objtype.ConfigType{ID: typeId},
-			Category:   category,
+			ID:       typeId,
+			Category: category,
 		}
 	}
 	o := entitypkg.NewObj(level, x, z, entitypkg.LifecycleDespawn, typeId, 1)
@@ -383,8 +383,8 @@ func addLocToZone(t *testing.T, s *Server, level, x, z, typeId, category int) *e
 	}
 	if typeId < len(s.locTypes.Configs) && s.locTypes.Configs[typeId] == nil {
 		s.locTypes.Configs[typeId] = &objtype.LocType{
-			ConfigType: objtype.ConfigType{ID: typeId},
-			Category:   category,
+			ID:       typeId,
+			Category: category,
 		}
 	}
 	l := entitypkg.NewLoc(level, x, z, 1, 1, entitypkg.LifecycleForever, typeId, 10, 0)
@@ -694,8 +694,8 @@ func addObjToZoneAt(t *testing.T, s *Server, objType, x, z, level int) *entitypk
 	}
 	if objType < len(s.objTypes.Configs) && s.objTypes.Configs[objType] == nil {
 		s.objTypes.Configs[objType] = &objtype.ObjType{
-			ConfigType: objtype.ConfigType{ID: objType},
-			Category:   -1,
+			ID:       objType,
+			Category: -1,
 		}
 	}
 	o := entitypkg.NewObj(level, x, z, entitypkg.LifecycleDespawn, objType, 1)
@@ -760,8 +760,8 @@ func addLocToZoneAt(t *testing.T, s *Server, locType, x, z, level int) *entitypk
 	}
 	if locType < len(s.locTypes.Configs) && s.locTypes.Configs[locType] == nil {
 		s.locTypes.Configs[locType] = &objtype.LocType{
-			ConfigType: objtype.ConfigType{ID: locType},
-			Category:   -1,
+			ID:       locType,
+			Category: -1,
 		}
 	}
 	l := entitypkg.NewLoc(level, x, z, 1, 1, entitypkg.LifecycleForever, locType, 0, 0)

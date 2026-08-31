@@ -525,7 +525,7 @@ func TestRealCacheSmoke(t *testing.T) {
 
 	s := New()
 	decoded := 0
-	for id := 0; id < count; id++ {
+	for id := range count {
 		data := fs.Read(1, id, true)
 		s.Unpack(id, data)
 		if len(data) > 0 {

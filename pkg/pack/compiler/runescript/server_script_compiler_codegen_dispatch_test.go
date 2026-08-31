@@ -85,12 +85,10 @@ func TestRun_HandleCodeGenerationDispatchedBeforeHalt(t *testing.T) {
 	c.RootTable.Insert(
 		symbol.SymbolTypeServerScript(trigger.CommandTrigger),
 		&symbol.ServerScriptSymbol{
-			ScriptSymbolFields: symbol.ScriptSymbolFields{
-				Trigger:    trigger.CommandTrigger,
-				Name:       "_codegen_err_inject",
-				Parameters: typ.MetaUnit,
-				Returns:    typ.MetaUnit,
-			},
+			Trigger:    trigger.CommandTrigger,
+			Name:       "_codegen_err_inject",
+			Parameters: typ.MetaUnit,
+			Returns:    typ.MetaUnit,
 		},
 	)
 	// Install the codegen-phase error injector AFTER Setup. Setup populates

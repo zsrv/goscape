@@ -35,12 +35,11 @@ func (r *recOutput) OutputScript(s *codegen.RuneScript, data []byte) {
 func minimalScript(t *testing.T, name string, blocks ...*codegen.Block) *codegen.RuneScript {
 	t.Helper()
 	procTrig := &trigger.TriggerType{ID: 5, Identifier: "proc", SubjectMode: trigger.ModeName, AllowParameters: true, AllowReturns: true}
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{
+	ss := &symbol.ServerScriptSymbol{
 		Trigger:    procTrig,
 		Name:       name,
 		Parameters: typ.MetaUnit,
-		Returns:    typ.MetaUnit,
-	}}
+		Returns:    typ.MetaUnit}
 	s := codegen.NewRuneScript("smoke.rs2", ss, procTrig, name, nil)
 	if len(blocks) == 0 {
 		blocks = []*codegen.Block{codegen.NewBlock(&codegen.Label{Name: "e"})}
@@ -164,10 +163,9 @@ func TestWriteBranch(t *testing.T) {
 
 // TestWriteCommand pins InstructionRaw with secondary=1 for dot-prefixed names.
 func TestWriteCommand(t *testing.T) {
-	cmd := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{
+	cmd := &symbol.ServerScriptSymbol{
 		Trigger: trigger.CommandTrigger,
-		Name:    ".mes",
-	}}
+		Name:    ".mes"}
 	b := codegen.NewBlock(&codegen.Label{Name: "e"})
 	b.Add(codegen.Instruction{Opcode: codegen.Command, Operand: cmd})
 	s := minimalScript(t, "x", b)
@@ -206,7 +204,7 @@ func TestWriteSwitch_OneCase(t *testing.T) {
 	bb := codegen.NewBlock(lb)
 
 	procTrig := &trigger.TriggerType{ID: 5, Identifier: "proc", SubjectMode: trigger.ModeName}
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "x", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}}
+	ss := &symbol.ServerScriptSymbol{Trigger: procTrig, Name: "x", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}
 	s := codegen.NewRuneScript("smoke.rs2", ss, procTrig, "x", nil)
 	st := s.GenerateSwitchTable()
 	st.AddCase(codegen.SwitchCase{Label: lb, Keys: []any{int(1)}})

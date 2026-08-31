@@ -13,8 +13,8 @@ import (
 func newNpcForScriptTest(t *testing.T) *Npc {
 	t.Helper()
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
-		Size:       1, // match production NewNpcType default (NAI-18).
+		ID: 0, DebugName: "test_npc",
+		Size: 1, // match production NewNpcType default (NAI-18).
 	}
 	return NewNpc(1, 0, 3094, 3106, 0, typ)
 }
@@ -236,8 +236,8 @@ func buildNpcForIntegration(t *testing.T) (*Server, *Npc) {
 	s := newServerForScriptTest(t)
 	s.currentTick = 100
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
-		Category:   -1,
+		ID: 0, DebugName: "test_npc",
+		Category: -1,
 	}
 	n := NewNpc(1, 0, 3094, 3106, 0, typ)
 	n.server = s
@@ -413,8 +413,8 @@ func TestNpcSetTimer(t *testing.T) {
 
 func TestNewNpcSeedsTimerIntervalFromType(t *testing.T) {
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
-		Timer:      7,
+		ID: 0, DebugName: "test_npc",
+		Timer: 7,
 	}
 	n := NewNpc(1, 0, 3094, 3106, 0, typ)
 
@@ -572,8 +572,8 @@ func TestNpcRetaliation_EndToEnd_EngineChain(t *testing.T) {
 	// Read it AFTER addPlayer (composeUID overrides any pre-set value).
 
 	npcType := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7, DebugName: "rat"},
-		Category:   0,
+		ID: 7, DebugName: "rat",
+		Category: 0,
 	}
 	npc := NewNpc(0, 7, 101, 100, 0, npcType)
 	npc.server = s
@@ -752,9 +752,9 @@ func TestNpcRegenIteratesAllSixStats(t *testing.T) {
 	t.Run("drain-converges-up", func(t *testing.T) {
 		s := newServerForScriptTest(t)
 		typ := &objtype.NpcType{
-			ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
-			Stats:      []uint16{10, 10, 10, 10, 10, 10},
-			RegenRate:  1,
+			ID: 0, DebugName: "test_npc",
+			Stats:     []uint16{10, 10, 10, 10, 10, 10},
+			RegenRate: 1,
 		}
 		n := NewNpc(1, 0, 3094, 3106, 0, typ)
 		n.server = s
@@ -780,9 +780,9 @@ func TestNpcRegenIteratesAllSixStats(t *testing.T) {
 	t.Run("boost-converges-down", func(t *testing.T) {
 		s := newServerForScriptTest(t)
 		typ := &objtype.NpcType{
-			ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
-			Stats:      []uint16{10, 10, 10, 10, 10, 10},
-			RegenRate:  1,
+			ID: 0, DebugName: "test_npc",
+			Stats:     []uint16{10, 10, 10, 10, 10, 10},
+			RegenRate: 1,
 		}
 		n := NewNpc(1, 0, 3094, 3106, 0, typ)
 		n.server = s

@@ -319,8 +319,7 @@ func TestServiceName(t *testing.T) {
 	s := NewIdleService(nil, nil).WithName("test name")
 	require.Equal(t, "test name", DescribeService(s))
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	require.NoError(t, s.StartAsync(ctx))
 
 	// once service has started, BasicService will not allow changing the name
@@ -334,7 +333,7 @@ func TestListenerCancellationUnstartedService(t *testing.T) {
 	s := NewIdleService(nil, nil)
 
 	sl := newServiceListener()
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		stop := s.AddListener(sl)
 		stop()
 		// multiple stop() calls are ignored
@@ -349,7 +348,7 @@ func TestListenerCancellationTerminatedService(t *testing.T) {
 	require.NoError(t, StopAndAwaitTerminated(context.Background(), s))
 
 	sl := newServiceListener()
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		stop := s.AddListener(sl)
 		stop()
 		// multiple stop() calls are ignored
@@ -377,7 +376,7 @@ func TestListenerCancellationRunningService(t *testing.T) {
 	// so it won't receive any notifications.
 
 	var stopFns []func()
-	for i := 0; i < count; i++ {
+	for range count {
 		stop := s.AddListener(sl)
 		stopFns = append(stopFns, stop)
 	}

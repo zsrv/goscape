@@ -16,8 +16,8 @@ import (
 func newNpcForLifecycleTest(t *testing.T) *Npc {
 	t.Helper()
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
-		Size:       1, // match production NewNpcType default (npctype.go:310);
+		ID: 0, DebugName: "test_npc",
+		Size: 1, // match production NewNpcType default (npctype.go:310);
 		// NAI-18: fixture was silently Size=0 (uint8 zero value), which would
 		// collide with HasLineOfSight's lineCoordinate(a, b, 0) → a-1 off-by-one
 		// in inApproachDistance's LoS gate. Production NPCs always have Size>=1.
@@ -28,7 +28,7 @@ func newNpcForLifecycleTest(t *testing.T) *Npc {
 }
 
 func TestNewNpcSeedsBaseType(t *testing.T) {
-	n := NewNpc(1, 42, 3094, 3106, 0, &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 42}})
+	n := NewNpc(1, 42, 3094, 3106, 0, &objtype.NpcType{ID: 42})
 	if n.baseType != 42 {
 		t.Errorf("baseType: got %d, want 42 (seeded from typeId)", n.baseType)
 	}
@@ -117,7 +117,7 @@ func TestNpcTurnEventsRespawnPathAfterKill(t *testing.T) {
 	n.Kill() // sets n.dead=true, n.lifecycleTick=respawnRate=5
 
 	// Tick respawnRate times; lifecycleTick goes 5→4→3→2→1→0 on the 5th call.
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		n.turn(s)
 	}
 
@@ -142,7 +142,7 @@ func TestNpcTurnEventsDoesNotFireWhileDelayed(t *testing.T) {
 	n.lifecycleTick = 1
 	n.lifecycle = NpcLifecycleRespawn
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		n.turn(s)
 	}
 
@@ -177,8 +177,8 @@ func TestNpcTurnEventsDespawnEnqueuesEvent(t *testing.T) {
 // Verify the NPC holds the type pointer with the expected RegenRate.
 func TestNewNpcHoldsTypRegenRate(t *testing.T) {
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
-		RegenRate:  7,
+		ID: 0, DebugName: "test_npc",
+		RegenRate: 7,
 	}
 	n := NewNpc(1, 0, 3094, 3106, 0, typ)
 
@@ -265,7 +265,7 @@ func TestProcessNpcRegenClampsAtBaseHP(t *testing.T) {
 	n.regenClock = 0
 	n.levels[objtype.NpcStatHitpoints], n.baseLevels[objtype.NpcStatHitpoints] = 10, 10
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		s.processNpcRegen(n)
 	}
 
@@ -285,7 +285,7 @@ func TestProcessNpcRegenDecrementsWhenAboveBase(t *testing.T) {
 
 	// Call 1: first-turn proc (regenClock 0→-1→0≤0), HP 12→11.
 	// Calls 2-3: countdown 3→2→1 (no proc).
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		s.processNpcRegen(n)
 	}
 
@@ -378,7 +378,7 @@ func TestProcessNpcRegen244RegenRateZeroDisables(t *testing.T) {
 	n.levels[objtype.NpcStatHitpoints] = 5
 	n.baseLevels[objtype.NpcStatHitpoints] = 10
 
-	for i := 0; i < 150; i++ {
+	for range 150 {
 		s.processNpcRegen(n)
 	}
 
@@ -414,7 +414,7 @@ func TestProcessNpcRegen244LiveTypeRate(t *testing.T) {
 
 	// Count down 5 ticks to next proc: regenClock goes 5→4→3→2→1→0.
 	// The 5th call (regenClock 1→0) fires: HP 6→7, regenClock resets to 20.
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		s.processNpcRegen(n)
 	}
 
@@ -428,9 +428,9 @@ func TestProcessNpcRegen244LiveTypeRate(t *testing.T) {
 
 func TestNewNpcSeedsHuntFromType(t *testing.T) {
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
-		HuntMode:   3,
-		HuntRange:  5,
+		ID: 0, DebugName: "test_npc",
+		HuntMode:  3,
+		HuntRange: 5,
 	}
 	n := NewNpc(1, 0, 3094, 3106, 0, typ)
 
@@ -467,11 +467,11 @@ func TestNpcRevertTypeResetsHuntFields(t *testing.T) {
 	// verify the reset brings fields BACK to those values after
 	// scripts mutate them.
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
-		Stats:      []uint16{0, 0, 0, 10, 0, 0},
-		Category:   -1,
-		HuntMode:   2,
-		HuntRange:  4,
+		ID: 0, DebugName: "test_npc",
+		Stats:     []uint16{0, 0, 0, 10, 0, 0},
+		Category:  -1,
+		HuntMode:  2,
+		HuntRange: 4,
 	}
 	n := NewNpc(1, 0, 3094, 3106, 0, typ)
 	n.server = newTestServer(t) // NAI-19 Task 5e: heavy path needs server.

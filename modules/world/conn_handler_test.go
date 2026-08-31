@@ -103,12 +103,10 @@ func TestHandleConn_ShutdownRace(t *testing.T) {
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for range conns {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			<-start
 			s.HandleConn(eofConn{})
-		}()
+		})
 	}
 
 	shutdownDone := make(chan struct{})

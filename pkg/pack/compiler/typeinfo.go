@@ -128,7 +128,7 @@ func Load(path string) (*TypeInfo, error) {
 	p := newTypeInfo()
 	// TS splits on /\r?\n/. strings.Split with "\n" handles \n; we strip
 	// trailing \r per-line to match the regex.
-	for _, raw := range strings.Split(string(data), "\n") {
+	for raw := range strings.SplitSeq(string(data), "\n") {
 		line := strings.TrimSuffix(raw, "\r")
 		if len(line) == 0 {
 			continue

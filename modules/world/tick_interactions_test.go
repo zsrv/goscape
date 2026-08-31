@@ -13,7 +13,7 @@ func TestProcessInteractionsRunsPerPlayer(t *testing.T) {
 	s := newTestServer(t)
 
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test"},
+		ID: 0, DebugName: "test",
 		Op:          []string{"Attack"},
 		WanderRange: 0,
 		RespawnRate: 50,

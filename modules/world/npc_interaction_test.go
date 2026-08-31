@@ -490,7 +490,7 @@ func TestNpcUpdateMovement_WalktriggerFiresThenSteps(t *testing.T) {
 	s.scriptProvider = script.NewProvider()
 	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiQueue1, 42, "wt-npc"))
 
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 42}, Category: 0}
+	typ := &objtype.NpcType{ID: 42, Category: 0}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 	n.server = s
 	n.moveSpeed = MoveSpeedWalk
@@ -524,7 +524,7 @@ func TestNpcUpdateMovement_WalktriggerSentinelSkipsLookup(t *testing.T) {
 	// scriptProvider to nil so any reach into provider would panic.
 	s.scriptProvider = nil
 
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 42}}
+	typ := &objtype.NpcType{ID: 42}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 	n.server = s
 	n.moveSpeed = MoveSpeedWalk
@@ -550,7 +550,7 @@ func TestNpcUpdateMovement_WalktriggerMissingScriptStillClears(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider() // empty
 
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 42}}
+	typ := &objtype.NpcType{ID: 42}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 	n.server = s
 	n.moveSpeed = MoveSpeedWalk
@@ -610,7 +610,7 @@ func TestNpcUpdateMovement_WalktriggerArgPassthrough(t *testing.T) {
 	}
 	s.scriptProvider.Register(sf)
 
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 42}}
+	typ := &objtype.NpcType{ID: 42}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 	n.server = s
 	n.moveSpeed = MoveSpeedWalk
@@ -643,7 +643,7 @@ func TestNpcUpdateMovement_WalktriggerNilTypNoOp(t *testing.T) {
 	// prove the consumer never hits this.
 	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiQueue1, 42, "should-not-fire"))
 
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 42}}
+	typ := &objtype.NpcType{ID: 42}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 	n.server = s
 	n.moveSpeed = MoveSpeedWalk
@@ -1726,16 +1726,16 @@ func TestInApproachDistanceUsesSelfSizeSnapshotNotTyp(t *testing.T) {
 	s.gamemap = gamemap.New(discardLogger())
 
 	baseTyp := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 1, DebugName: "base_size2"},
-		Size:       2,
-		BlockWalk:  objtype.BlockWalkAll,
-		Category:   -1,
+		ID: 1, DebugName: "base_size2",
+		Size:      2,
+		BlockWalk: objtype.BlockWalkAll,
+		Category:  -1,
 	}
 	morphTyp := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 2, DebugName: "morph_size1"},
-		Size:       1,
-		BlockWalk:  objtype.BlockWalkAll,
-		Category:   -1,
+		ID: 2, DebugName: "morph_size1",
+		Size:      1,
+		BlockWalk: objtype.BlockWalkAll,
+		Category:  -1,
 	}
 	s.npcTypes = &objtype.NPCTypeConfigs{
 		Configs: []*objtype.NpcType{nil, baseTyp, morphTyp},
@@ -1793,16 +1793,16 @@ func TestApproachEntitySizeUsesNpcSizeSnapshotNotTyp(t *testing.T) {
 	s := newServerForScriptTest(t)
 
 	baseTyp := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 1, DebugName: "base_size2"},
-		Size:       2,
-		BlockWalk:  objtype.BlockWalkAll,
-		Category:   -1,
+		ID: 1, DebugName: "base_size2",
+		Size:      2,
+		BlockWalk: objtype.BlockWalkAll,
+		Category:  -1,
 	}
 	morphTyp := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 2, DebugName: "morph_size1"},
-		Size:       1,
-		BlockWalk:  objtype.BlockWalkAll,
-		Category:   -1,
+		ID: 2, DebugName: "morph_size1",
+		Size:      1,
+		BlockWalk: objtype.BlockWalkAll,
+		Category:  -1,
 	}
 	s.npcTypes = &objtype.NPCTypeConfigs{
 		Configs: []*objtype.NpcType{nil, baseTyp, morphTyp},
@@ -1906,7 +1906,7 @@ func TestPatrolMode_PreservesDestLevel(t *testing.T) {
 	// PatrolCoord packs (level, x, z) via coordgrid.PackCoord.
 	patrolPacked := uint32(coordgrid.PackCoord(1, 3210, 3310))
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "patrol_test"},
+		ID: 0, DebugName: "patrol_test",
 		Size:        1,
 		PatrolCoord: []uint32{patrolPacked},
 		PatrolDelay: []uint8{5},
@@ -1962,7 +1962,7 @@ func TestPatrolMode_FreshNpcDoesNotForceTeleportOnFirstTick(t *testing.T) {
 	s := newTestServer(t)
 	patrolPacked := uint32(coordgrid.PackCoord(0, 3210, 3310))
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "patrol_test"},
+		ID: 0, DebugName: "patrol_test",
 		Size:        1,
 		PatrolCoord: []uint32{patrolPacked},
 		PatrolDelay: []uint8{5},
@@ -2050,7 +2050,7 @@ func newNpcInOperableTestServer(t *testing.T) *Server {
 	s.locOps = &serverLocOps{s: s}
 	s.gamemap = gamemap.New(discardLogger())
 	s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 200)}
-	s.locTypes.Configs[100] = &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100, DebugName: "wall_test"}}
+	s.locTypes.Configs[100] = &objtype.LocType{ID: 100, DebugName: "wall_test"}
 	return s
 }
 
@@ -2376,7 +2376,7 @@ func TestNpcStepOnce_BlockedNpcStepsOntoWaterTile(t *testing.T) {
 	s.gamemap.Pathfinder.Flags.Add(3222, 3220, 0, collision.FlagBlockWalk)
 
 	typ := &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "duck"},
+		ID: 1, DebugName: "duck",
 		WanderRange:  35,
 		MoveRestrict: int(MoveRestrictBlocked),
 		Size:         1,
@@ -2404,7 +2404,7 @@ func TestNpcStepOnce_AxisFallback_X(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	typ := &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "diag"},
+		ID: 1, DebugName: "diag",
 		WanderRange:  5,
 		MoveRestrict: int(MoveRestrictNormal),
 		Size:         1,
@@ -2433,7 +2433,7 @@ func TestNpcStepOnce_AxisFallback_Z(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	typ := &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "diag"},
+		ID: 1, DebugName: "diag",
 		WanderRange:  5,
 		MoveRestrict: int(MoveRestrictNormal),
 		Size:         1,
@@ -2473,7 +2473,7 @@ func TestNpcStepOnce_TransientBlock_PreservesWaypointIndex(t *testing.T) {
 	s.gamemap.Pathfinder.Flags.Add(3221, 3221, 0, collision.FlagBlockWalk)
 
 	typ := &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "blocked"},
+		ID: 1, DebugName: "blocked",
 		WanderRange:  5,
 		MoveRestrict: int(MoveRestrictNormal),
 		Size:         1,
@@ -2520,7 +2520,7 @@ func TestNpcValidateAndAdvanceStep_DoneCascade_TriesNextWaypoint(t *testing.T) {
 	// zones return FlagNull=0x7FFFFFFF → CanTravel=false even with no obstacles set).
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3222, 3220, 0)
 	typ := &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "twohop"},
+		ID: 1, DebugName: "twohop",
 		MoveRestrict: int(MoveRestrictNormal),
 		Size:         1,
 	}
@@ -2567,7 +2567,7 @@ func TestNpcUpdateMovement_RunSpeed_RecursesThroughDoneWaypoint(t *testing.T) {
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3222, 3220, 0)
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3223, 3220, 0)
 	typ := &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "runner"},
+		ID: 1, DebugName: "runner",
 		MoveRestrict: int(MoveRestrictNormal),
 		Size:         1,
 	}
@@ -2624,7 +2624,7 @@ func TestNpcStepOnce_WidthGt1_PrefersXAxis(t *testing.T) {
 	s.gamemap.Pathfinder.Flags.Add(3221, 3222, 0, collision.FlagBlockWalk)
 
 	typ := &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "wide"},
+		ID: 1, DebugName: "wide",
 		MoveRestrict: int(MoveRestrictNormal),
 		Size:         2,
 	}
@@ -2662,7 +2662,7 @@ func TestNpcStepOnce_WidthGt1_FallsThroughToZ(t *testing.T) {
 	s.gamemap.Pathfinder.Flags.Add(3222, 3221, 0, collision.FlagBlockWalk)
 
 	typ := &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "wide"},
+		ID: 1, DebugName: "wide",
 		MoveRestrict: int(MoveRestrictNormal),
 		Size:         2,
 	}
@@ -2700,7 +2700,7 @@ func TestNpcStepOnce_WidthGt1_BothBlocked(t *testing.T) {
 	s.gamemap.Pathfinder.Flags.Add(3221, 3222, 0, collision.FlagBlockWalk)
 
 	typ := &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "wide"},
+		ID: 1, DebugName: "wide",
 		MoveRestrict: int(MoveRestrictNormal),
 		Size:         2,
 	}

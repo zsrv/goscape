@@ -35,7 +35,7 @@ func LoadFileFull(path string) ([]string, error) {
 	multiCommentStart := 0
 	multiLineComments := 0
 
-	for i := 0; i < len(text); i++ {
+	for i := range text {
 		line := strings.TrimSpace(text[i])
 
 		if multiLineComments > 0 {

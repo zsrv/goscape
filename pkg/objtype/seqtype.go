@@ -44,7 +44,7 @@ type SeqType struct {
 // TS SeqType.ts:70-88 (Engine-TS 9aadcec4)
 func NewSeqType(id int) *SeqType {
 	return &SeqType{
-		ConfigType:        ConfigType{ID: id},
+		ID:                id,
 		Loops:             -1,
 		Priority:          5,
 		ReplaceHeldLeft:   -1,

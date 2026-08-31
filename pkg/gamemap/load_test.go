@@ -612,7 +612,7 @@ func TestLoadObjs_MultiTile(t *testing.T) {
 func TestLoadObjs_LevelEncoding(t *testing.T) {
 	const mapX, mapZ = 50, 50
 	const localX, localZ = 0, 0
-	for level := 0; level < 4; level++ {
+	for level := range 4 {
 		t.Run(fmt.Sprintf("level=%d", level), func(t *testing.T) {
 			gm := newTestGameMap()
 			gm.SetMembers(false)
@@ -814,8 +814,8 @@ func TestLoadGround_EmptyZones_AreAllocatedForOpenMovement(t *testing.T) {
 	// Every zone in every level should be allocated even though no tile
 	// flag triggered an explicit ChangeFloor / ChangeRoof.
 	for level := range mapLevels {
-		for zx := 0; zx < 8; zx++ {
-			for zz := 0; zz < 8; zz++ {
+		for zx := range 8 {
+			for zz := range 8 {
 				absX := mapX*mapSquareSize + zx*8
 				absZ := mapZ*mapSquareSize + zz*8
 				if !gm.Pathfinder.Flags.IsZoneAllocated(absX, absZ, level) {

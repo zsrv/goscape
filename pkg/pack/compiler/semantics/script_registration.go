@@ -222,12 +222,10 @@ func (sr *ScriptRegistration) visitScript(script *ast.Script) {
 	// being present + not disabled).
 	if trig != nil && !sr.isDisabledTrigger(trig) {
 		ssym := &symbol.ServerScriptSymbol{
-			ScriptSymbolFields: symbol.ScriptSymbolFields{
-				Trigger:    trig,
-				Name:       script.NameString(),
-				Parameters: typeRefAsType(script.ParameterType),
-				Returns:    typeRefAsType(script.ReturnType),
-			},
+			Trigger:    trig,
+			Name:       script.NameString(),
+			Parameters: typeRefAsType(script.ParameterType),
+			Returns:    typeRefAsType(script.ReturnType),
 		}
 		inserted := sr.rootTable.Insert(symbol.SymbolTypeServerScript(trig), ssym)
 		if !inserted {

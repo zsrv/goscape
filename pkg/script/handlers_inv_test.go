@@ -129,7 +129,7 @@ func newTestInvConfigs() *mockConfigs {
 	// 20 arrows). Range 0..31 subsumes any category id touched by tests in
 	// this file and lets the post-port checkCategoryType bound check pass for
 	// those ids; tests using id>=32 exercise the OOB-reject path.
-	for id := 0; id < 32; id++ {
+	for id := range 32 {
 		mc.categories[id] = objtype.NewCategoryType(id)
 	}
 
@@ -364,7 +364,7 @@ func TestInvFreeSpace(t *testing.T) {
 		t.Errorf("INV_FREESPACE empty: got %d, want 28", got)
 	}
 	// Fill 5 slots via SETSLOT.
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		runInvOp(t, OpInvSetSlot, []int{testInvMain, i, testObjCoin, 1}, lookup, mc)
 	}
 	state = runInvOp(t, OpInvFreeSpace, []int{testInvMain}, lookup, mc)
@@ -396,7 +396,7 @@ func TestInvItemSpace_NoSpace(t *testing.T) {
 	sword.Stackable = false
 	mc.objs[3] = sword
 	// Fill all 28 slots of main.
-	for i := 0; i < 28; i++ {
+	for i := range 28 {
 		runInvOp(t, OpInvSetSlot, []int{testInvMain, i, 3, 1}, lookup, mc)
 	}
 	// ITEMSPACE main, sword, 1, size=28 — no slots free.
@@ -414,7 +414,7 @@ func TestInvItemSpace2_Overflow(t *testing.T) {
 	sword.Stackable = false
 	mc.objs[3] = sword
 	// Fill 27 of 28 slots → 1 free.
-	for i := 0; i < 27; i++ {
+	for i := range 27 {
 		runInvOp(t, OpInvSetSlot, []int{testInvMain, i, 3, 1}, lookup, mc)
 	}
 	// ITEMSPACE2 main, sword, 2, size=28 — overflow = 1.
@@ -1884,7 +1884,7 @@ func TestInvMoveItemUncert_NearFullDest_AssuresFullInsertion(t *testing.T) {
 	mc := newTestInvConfigs()
 	lookup := newTestInvLookup()
 	main := lookup.Get(nil, testInvMain)
-	for i := 0; i < 26; i++ {
+	for i := range 26 {
 		main.Set(i, &inventory.Item{Id: testObjSword, Count: 1})
 	}
 	bank := lookup.Get(nil, testInvBank)

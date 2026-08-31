@@ -88,7 +88,7 @@ func TestContentWatcher_BurstCoalesces(t *testing.T) {
 		t.Fatal("boot replay dispatch did not fire")
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		target := filepath.Join(root, "scripts", "foo.rs2")
 		if err := os.WriteFile(target, []byte{byte(i)}, 0o644); err != nil {
 			t.Fatalf("write %d: %v", i, err)
@@ -303,7 +303,7 @@ func TestContentWatcher_SessionExitsRestart_RetriesUntilQuit(t *testing.T) {
 
 	// Wait for stub to be entered (wantRestarts+1) times in total.
 	deadline := time.After(2 * time.Second)
-	for i := 0; i < wantRestarts+1; i++ {
+	for range wantRestarts + 1 {
 		select {
 		case <-stubEntered:
 			// good
@@ -364,7 +364,7 @@ func TestContentWatcher_BackoffDoubles(t *testing.T) {
 	}()
 
 	deadline := time.After(2 * time.Second)
-	for i := 0; i < wantCalls; i++ {
+	for range wantCalls {
 		select {
 		case <-stubEntered:
 		case <-deadline:

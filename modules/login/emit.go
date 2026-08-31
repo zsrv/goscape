@@ -1,7 +1,8 @@
 package login
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/zsrv/goscape/pkg/eventspb"
@@ -16,7 +17,7 @@ import (
 func emitLogin(accountID int64, worldID int32, ip string, uid int32) {
 	telemetry.Get().EmitAuth(&eventspb.AuthEnvelope{
 		SchemaVersion: 1,
-		EventId:       uuid.NewString(),
+		EventId:       uuid.New().String(),
 		Ts:            timestamppb.Now(),
 		AccountId:     accountID,
 		WorldId:       worldID,

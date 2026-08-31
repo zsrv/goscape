@@ -31,11 +31,11 @@ func TestJagFileScriptWriter_HappyPath(t *testing.T) {
 		t.Fatalf("NewJagFileScriptWriter: %v", err)
 	}
 	w.OutputScript(&codegen.RuneScript{
-		Symbol:  &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "s0"}},
+		Symbol:  &symbol.ServerScriptSymbol{Trigger: procTrig, Name: "s0"},
 		Trigger: procTrig,
 	}, []byte{0xAA, 0xBB})
 	w.OutputScript(&codegen.RuneScript{
-		Symbol:  &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "s2"}},
+		Symbol:  &symbol.ServerScriptSymbol{Trigger: procTrig, Name: "s2"},
 		Trigger: procTrig,
 	}, []byte{0xCC, 0xDD, 0xEE})
 

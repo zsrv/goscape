@@ -15,7 +15,7 @@ import (
 func npcWithHP(t *testing.T, maxHP, curHP int) *Npc {
 	t.Helper()
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7, DebugName: "rat"},
+		ID: 7, DebugName: "rat",
 	}
 	typ.Stats = []uint16{0, 0, 0, uint16(maxHP), 0, 0}
 	npc := NewNpc(0, 7, 3222, 3218, 0, typ)
@@ -71,7 +71,7 @@ func TestNpcDamageNegativeAmountClampsToZero(t *testing.T) {
 }
 
 func TestNewNpcSeedsHPFromStats(t *testing.T) {
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	typ := &objtype.NpcType{ID: 7}
 	typ.Stats = []uint16{0, 0, 0, 20, 0, 0} // NpcStatHitpoints = 3
 	npc := NewNpc(0, 7, 3222, 3218, 0, typ)
 	if npc.CurHP() != 20 {
@@ -85,7 +85,7 @@ func TestNewNpcSeedsHPFromStats(t *testing.T) {
 func TestNewNpcWithEmptyStatsSeedsZeroHP(t *testing.T) {
 	// &NpcType{} has nil Stats, so the NAI-17 seeding loop runs zero
 	// iterations and levels[HP]/baseLevels[HP] stay zero-valued.
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	typ := &objtype.NpcType{ID: 7}
 	npc := NewNpc(0, 7, 3222, 3218, 0, typ)
 	if npc.CurHP() != 0 || npc.BaseHP() != 0 {
 		t.Errorf("curHP/baseHP: got %d/%d, want 0/0", npc.CurHP(), npc.BaseHP())
@@ -556,8 +556,8 @@ func TestNpc_StepsTakenResetEnablesReorientGate_AcrossTicks(t *testing.T) {
 // *Npc.typ snapshot after changetype").
 func TestChangeTypeRefreshesTypSnapshot(t *testing.T) {
 	s := newTestServer(t)
-	sourceTyp := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
-	morphTyp := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 8}, Size: 2}
+	sourceTyp := &objtype.NpcType{ID: 7, Size: 1}
+	morphTyp := &objtype.NpcType{ID: 8, Size: 2}
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 9)}
 	s.npcTypes.Configs[7] = sourceTyp
 	s.npcTypes.Configs[8] = morphTyp
@@ -585,8 +585,8 @@ func TestChangeTypeRefreshesTypSnapshot(t *testing.T) {
 // reset-orthogonal.
 func TestChangeTypeKeepAllRefreshesTypSnapshot(t *testing.T) {
 	s := newTestServer(t)
-	sourceTyp := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
-	morphTyp := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 8}, Size: 3}
+	sourceTyp := &objtype.NpcType{ID: 7, Size: 1}
+	morphTyp := &objtype.NpcType{ID: 8, Size: 3}
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 9)}
 	s.npcTypes.Configs[7] = sourceTyp
 	s.npcTypes.Configs[8] = morphTyp

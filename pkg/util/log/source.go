@@ -74,8 +74,8 @@ var moduleRoot = func() string {
 		return ""
 	}
 	const self = "pkg/util/log/source.go"
-	if i := strings.LastIndex(file, self); i >= 0 {
-		return file[:i]
+	if before, _, ok := strings.CutLast(file, self); ok {
+		return before
 	}
 	return ""
 }()

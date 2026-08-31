@@ -871,20 +871,16 @@ func (s *Server) Run() error {
 		}
 	}()
 
-	s.tickWg.Add(1)
-	go func() {
-		defer s.tickWg.Done()
+	s.tickWg.Go(func() {
 		s.runTickLoop()
-	}()
+	})
 
 	// OnDemand.ts:357 (World.ts): OnDemand.cycle() is started once when the
 	// world is ready, alongside the tick loop. Go uses a dedicated goroutine
 	// running a 50ms ticker (onDemand.run) stopped by the same s.quit signal.
-	s.odWg.Add(1)
-	go func() {
-		defer s.odWg.Done()
+	s.odWg.Go(func() {
 		s.onDemand.run(s.quit)
-	}()
+	})
 
 	select {
 	case err := <-errChan:

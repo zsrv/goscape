@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"strings"
+
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/lexer"
 )
@@ -137,13 +139,14 @@ func (p *Parser) parseScriptName() *ast.Identifier {
 		return first
 	}
 	last := first
-	text := first.Text
+	var text strings.Builder
+	text.WriteString(first.Text)
 	for isIdentifierStart(p.ts.LA(1)) {
 		nxt := p.parseIdentifier()
 		if nxt == nil {
 			return nil
 		}
-		text += " " + nxt.Text
+		text.WriteString(" " + nxt.Text)
 		last = nxt
 	}
 	return &ast.Identifier{
@@ -154,7 +157,7 @@ func (p *Parser) parseScriptName() *ast.Identifier {
 			EndLine:   last.SrcLoc.EndLine,
 			EndColumn: last.SrcLoc.EndColumn,
 		},
-		Text: text,
+		Text: text.String(),
 	}
 }
 

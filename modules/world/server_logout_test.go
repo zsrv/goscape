@@ -182,7 +182,7 @@ func TestSaveAllOnShutdown_SavesEveryOnlinePlayer(t *testing.T) {
 		t.Errorf("players remaining after saveAllOnShutdown: %d, want 0", got)
 	}
 	// Two PlayerLogout (with-save) RPCs must fire — one per online player.
-	for got := 0; got < 2; got++ {
+	for got := range 2 {
 		select {
 		case <-fake.playerLogoutFired:
 		case <-time.After(2 * time.Second):
