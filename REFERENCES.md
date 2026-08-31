@@ -137,15 +137,15 @@ Notes:
 
 | Repo | Role | URL | Branch | Pinned commit |
 |---|---|---|---|---|
-| Engine-TS | **primary** — authoritative translation source | https://github.com/LostCityRS/Engine-TS | `274` | `4c95f87efe00b068cadbd229d94736626907bd1a` |
-| Content | game content packed and served by the server | https://github.com/LostCityRS/Content | `274` | `376072662e78a314bf35bb18815be39521491a6b` |
+| Engine-TS | **primary** — authoritative translation source | https://github.com/LostCityRS/Engine-TS | `274` | `1d25566cb53e7af1b1cb18ade8af996316c19614` |
+| Content | game content packed and served by the server | https://github.com/LostCityRS/Content | `274` | `2b62ae68dfed02b441bae47987a01d6bcbaeb358` |
 | Client-Java | the client this server speaks to; wire-protocol cross-check | https://github.com/LostCityRS/Client-Java | `274` | `32f30626156783de9f142306eb73a2243909dacf` |
 | rsbuf | cross-check reference only; the crate dependency is DROPPED at 274 (ported into Engine-TS `src/network/rsbuf/`) | https://github.com/2004scape/rsbuf | `274` | `669116109588ab5f5d9de8c24aace1d335da5399` |
-| RuneScriptTS | RuneScript compiler | — | — | unchanged from §rev-254 (`@lostcityrs/runescript` `0.9.6`) |
+| RuneScriptTS | RuneScript compiler | — | — | `@lostcityrs/runescript` `0.9.7` (advanced from `0.9.6` — see note 6) |
 
 (Commits captured 2026-06-12 from the Server274-ref reference worktrees;
-Engine-TS/Content re-pinned 2026-07-16 (see note 5). Go branch `rev-274` is
-cut from `rev-254` at `39857fbb`.)
+Engine-TS/Content re-pinned 2026-07-16 (see note 5) and again 2026-08-31
+(see note 6). Go branch `rev-274` is cut from `rev-254` at `39857fbb`.)
 
 Notes:
 
@@ -165,6 +165,25 @@ Notes:
    (31 content commits). Superseding work list =
    `git -C Engine-TS diff dee467c8..4c95f87e`. Note 2's work list above
    remains the historical record of the original 274 cut.
+6. **Re-pinned 2026-08-31**: Engine-TS advanced `4c95f87e` → `1d25566c`
+   (2 engine commits); Content advanced `37607266` → `2b62ae68d`.
+   Superseding work list = `git -C Engine-TS diff 4c95f87e 1d25566c`, which
+   is effectively the single commit `8139461a` "Synced engine with 289
+   improvements" (94 files, +2,455/−6,716) — the other commit, `1d25566c`
+   itself, touches only `public/client/*.js` and is a no-op for goscape.
+   Notes 2 and 5 remain the historical record of the earlier work lists.
+
+   `@lostcityrs/runescript` advanced `0.9.6` → `0.9.7` with this sync. The
+   one behavioural delta found: the `logout` trigger no longer declares a
+   boolean return, and Content `687b6a1a1` rewrote `logout.rs2` to match.
+   Byte parity of `server/script.dat` against the 0.9.7-built reference is
+   the evidence that no further codegen delta exists.
+
+   **Caution for the next porter:** the `274-GOSCAPE` bookmarks in the
+   Engine-TS and Content checkouts were 4 commits stale between 2026-07-16
+   and this sync, which made the apparent work list four commits larger than
+   it really was. This file — not the bookmark — is the authority on the
+   porting baseline.
 
 ## Future revisions
 
