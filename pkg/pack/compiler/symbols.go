@@ -107,10 +107,12 @@ func populateCommandInfo(info *TypeInfo) {
 // populateCommandInfoFrom is the testable seam under populateCommandInfo.
 // Mirrors TS Compiler.ts:110-150 (allCommands sort + commandInfo build).
 //
-// TS Compiler.ts:147 writes the corrupt2 arm to commandInfo.corrupt[opcode]
-// (overwriting the corrupt arm assigned one line above) rather than to
-// commandInfo.corrupt2[opcode]. Goscape preserves this behavior for
-// TS parity — info.Corrupt2 is never populated.
+// Engine-TS 8139461a fixed a one-line bug at Compiler.ts:144: the corrupt2 arm
+// was written to commandInfo.corrupt[opcode], overwriting the corrupt arm
+// assigned one line above, instead of to commandInfo.corrupt2[opcode].
+// goscape had faithfully reproduced the bug (info.Corrupt2 was never
+// populated); it now follows the fix, so an opcode with distinct corrupt and
+// corrupt2 pointer sets reports both.
 func populateCommandInfoFrom(
 	info *TypeInfo,
 	opmap map[string]script.Opcode,
@@ -157,7 +159,7 @@ func populateCommandInfoFrom(
 		if len(ptrs.Corrupt) > 0 {
 			info.Corrupt[op] = strings.Join(ptrs.Corrupt, ",")
 			if len(ptrs.Corrupt2) > 0 {
-				info.Corrupt[op] = strings.Join(ptrs.Corrupt2, ",")
+				info.Corrupt2[op] = strings.Join(ptrs.Corrupt2, ",")
 			}
 		}
 	}

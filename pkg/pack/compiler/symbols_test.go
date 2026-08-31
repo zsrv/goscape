@@ -310,7 +310,13 @@ func TestPopulateCommandInfoFrom_Conditional(t *testing.T) {
 // behavior at TS Compiler.ts:147: the corrupt2 arm assigns to
 // commandInfo.corrupt[opcode], overwriting the value written by the
 // corrupt arm one line above. commandInfo.corrupt2 is never populated.
-func TestPopulateCommandInfoFrom_Corrupt2OverwritesCorrupt(t *testing.T) {
+// TestPopulateCommandInfoFrom_Corrupt2WritesCorrupt2 pins the one-line fix
+// Engine-TS 8139461a made at Compiler.ts:144. The corrupt2 arm used to be
+// written to commandInfo.corrupt[opcode], clobbering the corrupt arm assigned
+// one line above and leaving corrupt2 permanently empty; it now lands in
+// corrupt2. goscape had reproduced the bug faithfully, so this test is the
+// inverse of the one it replaces.
+func TestPopulateCommandInfoFrom_Corrupt2WritesCorrupt2(t *testing.T) {
 	op := script.Opcode(7)
 	opmap := map[string]script.Opcode{"OP": op}
 	pointers := map[script.Opcode]script.Pointers{
@@ -323,11 +329,11 @@ func TestPopulateCommandInfoFrom_Corrupt2OverwritesCorrupt(t *testing.T) {
 	info := newTypeInfo()
 	populateCommandInfoFrom(info, opmap, pointers)
 
-	if got, want := info.Corrupt[7], "corrupt2_x,corrupt2_y"; got != want {
-		t.Errorf("Corrupt[7] = %q, want %q (TS-faithful: corrupt2 arm overwrites Corrupt)", got, want)
+	if got, want := info.Corrupt[7], "corrupt_a,corrupt_b"; got != want {
+		t.Errorf("Corrupt[7] = %q, want %q (must survive the corrupt2 assignment)", got, want)
 	}
-	if _, present := info.Corrupt2[7]; present {
-		t.Errorf("Corrupt2[7] present; want absent (TS-faithful: Corrupt2 is never written)")
+	if got, want := info.Corrupt2[7], "corrupt2_x,corrupt2_y"; got != want {
+		t.Errorf("Corrupt2[7] = %q, want %q", got, want)
 	}
 }
 
