@@ -52,7 +52,6 @@ var npcNumberKeys = map[string]struct{}{
 // npcBooleanKeys is the set of keys parsed as IsConfigBoolean-gated
 // booleans. TS source: NpcConfig.ts:28-33.
 var npcBooleanKeys = map[string]struct{}{
-	"hasalpha":    {},
 	"minimap":     {},
 	"members":     {},
 	"givechase":   {},
@@ -331,7 +330,7 @@ func parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack *PackFile, lk 
 // into separate server + client PackedData buffers per NpcConfig.ts:267-510.
 //
 // Server gets: opcodes 18 (category), 74-79 (attack/defence/strength/
-// hitpoints/ranged/magic), 200-204 (wanderrange/maxrange/huntrange/timer/
+// hitpoints/ranged/magic), 26-27 (wanderrange/maxrange), 202-204 (huntrange/timer/
 // respawnrate), 206 (moverestrict), 207 (attackrange), 208 (blockwalk),
 // 209 (huntmode), 210 (defaultmode), 211 (members), 212 (patrol trailer),
 // 213 (givechase), 214 (regenrate), 249 (params), 250 (debugname).
@@ -445,12 +444,16 @@ func packNpcConfigs(configs map[string][]ConfigLine, npcPack *PackFile, modelFla
 						client.P1(14)
 						client.P2(uint16(line.Value.(int)))
 					}
-				case key == "hasalpha":
-					if line.Value.(bool) {
-						client.P1(16)
-					}
 				case key == "category":
 					server.P1(18)
+					server.P2(uint16(line.Value.(int)))
+				// Moved from server opcodes 200/201 by Engine-TS 8139461a
+				// (TS NpcConfig.ts:334-341 @1d25566c).
+				case key == "wanderrange":
+					server.P1(26)
+					server.P2(uint16(line.Value.(int)))
+				case key == "maxrange":
+					server.P1(27)
 					server.P2(uint16(line.Value.(int)))
 				case strings.HasPrefix(key, "op"):
 					n, perr := strconv.Atoi(key[2:])
@@ -520,12 +523,6 @@ func packNpcConfigs(configs map[string][]ConfigLine, npcPack *PackFile, modelFla
 					// NEW at rev-254. TS NpcConfig.ts:394-396 @ 2e3bcf43.
 					client.P1(103)
 					client.P2(uint16(line.Value.(int)))
-				case key == "wanderrange":
-					server.P1(200)
-					server.P2(uint16(line.Value.(int)))
-				case key == "maxrange":
-					server.P1(201)
-					server.P2(uint16(line.Value.(int)))
 				case key == "huntrange":
 					// TS L384-386: emits p1, not p2 (mirrored verbatim).
 					server.P1(202)

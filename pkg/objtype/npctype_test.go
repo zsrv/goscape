@@ -1,6 +1,7 @@
 package objtype
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -284,5 +285,91 @@ func TestNpcTypeDecodeCode103TurnSpeed(t *testing.T) {
 	}
 	if typ.TurnSpeed != 64 {
 		t.Errorf("TurnSpeed after 0x00 0x40: got %d, want 64", typ.TurnSpeed)
+	}
+}
+
+// TestNpcTypePostDecodeMaxRange pins the maxrange default introduced by
+// Engine-TS 8139461a (TS NpcType.ts:118-126 @1d25566c). maxrange now defaults
+// to -1 in the struct and is resolved by postDecode: unset means
+// wanderrange + 2, and a maxrange below wanderrange is clamped up to it.
+func TestNpcTypePostDecodeMaxRange(t *testing.T) {
+	tests := []struct {
+		name        string
+		wanderRange int
+		maxRange    int
+		want        int
+	}{
+		{"unset derives wanderrange+2", 5, -1, 7},
+		{"unset with larger wanderrange", 9, -1, 11},
+		{"unset with zero wanderrange", 0, -1, 2},
+		{"explicit below wanderrange clamps up", 5, 3, 5},
+		{"explicit equal to wanderrange", 5, 5, 5},
+		{"explicit above wanderrange untouched", 5, 8, 8},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			nt := NewNpcType(0)
+			nt.WanderRange = tc.wanderRange
+			nt.MaxRange = tc.maxRange
+			nt.PostDecode()
+			if nt.MaxRange != tc.want {
+				t.Errorf("MaxRange: got %d, want %d (wanderrange=%d, maxrange in=%d)",
+					nt.MaxRange, tc.want, tc.wanderRange, tc.maxRange)
+			}
+		})
+	}
+}
+
+// TestNpcTypeDefaultMaxRangeIsUnset pins that the struct default is the -1
+// sentinel, not the old flat 7 (TS NpcType.ts:102 @1d25566c).
+func TestNpcTypeDefaultMaxRangeIsUnset(t *testing.T) {
+	nt := NewNpcType(0)
+	if nt.MaxRange != -1 {
+		t.Errorf("MaxRange default: got %d, want -1 (unset sentinel)", nt.MaxRange)
+	}
+	if nt.WanderRange != 5 {
+		t.Errorf("WanderRange default: got %d, want 5", nt.WanderRange)
+	}
+}
+
+// TestNpcTypeDecodeWanderMaxRangeOpcodes pins the server opcode move from
+// 200/201 to 26/27 (TS NpcType.ts:153-156 @1d25566c).
+func TestNpcTypeDecodeWanderMaxRangeOpcodes(t *testing.T) {
+	pkt := packet2.NewPacket(nil)
+	pkt.P1(26)
+	pkt.P2(9) // wanderrange
+	pkt.P1(27)
+	pkt.P2(14) // maxrange
+	pkt.P1(0)
+
+	nt := NewNpcType(0)
+	if err := DecodeType(packet2.NewPacket(pkt.Bytes()), nt); err != nil {
+		t.Fatalf("DecodeType: %v", err)
+	}
+	if nt.WanderRange != 9 {
+		t.Errorf("WanderRange: got %d, want 9", nt.WanderRange)
+	}
+	if nt.MaxRange != 14 {
+		t.Errorf("MaxRange: got %d, want 14", nt.MaxRange)
+	}
+}
+
+// TestNpcTypeDecodeRetiredOpcodes pins that the opcodes upstream removed are
+// no longer accepted: 16 (hasanim) and the old 200/201 wanderrange/maxrange
+// slots (TS NpcType.ts @1d25566c).
+func TestNpcTypeDecodeRetiredOpcodes(t *testing.T) {
+	for _, code := range []uint8{16, 200, 201} {
+		t.Run(fmt.Sprintf("opcode_%d", code), func(t *testing.T) {
+			pkt := packet2.NewPacket(nil)
+			pkt.P1(code)
+			pkt.P2(1)
+			pkt.P1(0)
+
+			nt := NewNpcType(0)
+			if err := DecodeType(packet2.NewPacket(pkt.Bytes()), nt); err == nil {
+				t.Errorf("DecodeType(opcode %d): got nil error, want unrecognized-opcode error", code)
+			}
+		})
 	}
 }

@@ -137,13 +137,11 @@ type NpcType struct {
 	Size        uint8
 	Models      []uint16
 	Heads       []uint16
-	HasAnim     bool
 	ReadyAnim   int
 	WalkAnim    int
 	WalkAnimB   int
 	WalkAnimR   int
 	WalkAnimL   int
-	HasAlpha    bool
 	RecolS      []uint16
 	RecolD      []uint16
 	Op          []string
@@ -161,10 +159,12 @@ type NpcType struct {
 	TurnSpeed   int // code 103, new in 254; default 32 (TS NpcType.ts:97,202-203 @43e02957)
 
 	// server-side
-	RegenRate    int
-	Category     int
-	WanderRange  uint16
-	MaxRange     uint16
+	RegenRate   int
+	Category    int
+	WanderRange int
+	// MaxRange defaults to -1 (unset) and is resolved by PostDecode to
+	// WanderRange+2 — TS NpcType.ts:102,118-126 @1d25566c.
+	MaxRange     int
 	HuntRange    uint8
 	Timer        int
 	RespawnRate  uint16
@@ -179,6 +179,25 @@ type NpcType struct {
 	PatrolCoord  []uint32
 	PatrolDelay  []uint8
 	GiveChase    bool
+}
+
+// PostDecode resolves the derived defaults that cannot be expressed as struct
+// literals because they depend on other decoded fields. Mirrors TS
+// NpcType.postDecode at Engine-TS/src/cache/config/NpcType.ts:118-126
+// @1d25566c.
+//
+// Must run AFTER BOTH the server and client decode passes (TS NpcType.ts:40
+// calls it once, after decodeType(server) and decodeType(client)) — running it
+// between the two would resolve MaxRange against a WanderRange that the second
+// pass could still overwrite.
+func (t *NpcType) PostDecode() {
+	if t.MaxRange == -1 {
+		t.MaxRange = t.WanderRange + 2
+	}
+
+	if t.MaxRange < t.WanderRange {
+		t.MaxRange = t.WanderRange
+	}
 }
 
 func (t *NpcType) Decode(code uint8, dat *packet2.Packet) error {
@@ -200,13 +219,15 @@ func (t *NpcType) Decode(code uint8, dat *packet2.Packet) error {
 		t.ReadyAnim = int(dat.G2())
 	case 14:
 		t.WalkAnim = int(dat.G2())
-	case 16:
-		t.HasAnim = true
 	case 17:
 		t.WalkAnim = int(dat.G2())
 		t.WalkAnimB = int(dat.G2())
 		t.WalkAnimR = int(dat.G2())
 		t.WalkAnimL = int(dat.G2())
+	case 26:
+		t.WanderRange = int(dat.G2())
+	case 27:
+		t.MaxRange = int(dat.G2())
 	case 18:
 		t.Category = int(dat.G2())
 	case 30, 31, 32, 33, 34, 35, 36, 37, 38, 39:
@@ -286,10 +307,6 @@ func (t *NpcType) Decode(code uint8, dat *packet2.Packet) error {
 	case 103:
 		// TS NpcType.ts:202-203, new in 254
 		t.TurnSpeed = int(dat.G2())
-	case 200:
-		t.WanderRange = dat.G2()
-	case 201:
-		t.MaxRange = dat.G2()
 	case 202:
 		t.HuntRange = dat.G1()
 	case 203:
@@ -356,7 +373,7 @@ func NewNpcType(id int) *NpcType {
 		RegenRate:    100,
 		Category:     -1,
 		WanderRange:  5,
-		MaxRange:     7,
+		MaxRange:     -1, // unset; PostDecode derives WanderRange+2
 		Timer:        -1,
 		RespawnRate:  100, // 1 minute
 		Stats:        []uint16{1, 1, 1, 1, 1, 1},
@@ -416,6 +433,7 @@ func parseNPCTypes(server *packet2.Packet, clientJag *io.Jagfile) (*NPCTypeConfi
 		if err := DecodeType(client, config); err != nil {
 			return nil, err
 		}
+		config.PostDecode()
 
 		configs[id] = config
 

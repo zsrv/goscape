@@ -383,15 +383,23 @@ func TestPackNpcConfigs_WalkanimList(t *testing.T) {
 	}
 }
 
-func TestPackNpcConfigs_HasalphaTrue(t *testing.T) {
+// TestPackNpcConfigs_HasalphaRetired pins that the hasalpha key is gone.
+// Engine-TS 8139461a dropped it from booleanKeys and removed the client
+// opcode-16 emission (TS NpcConfig.ts:32,331 @1d25566c); the decoder no longer
+// accepts opcode 16 either.
+func TestPackNpcConfigs_HasalphaRetired(t *testing.T) {
+	if _, ok := npcBooleanKeys["hasalpha"]; ok {
+		t.Error("npcBooleanKeys still contains hasalpha")
+	}
+
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "hasalpha", Value: true}}}
 	_, client, err := packNpcConfigs(configs, npcPack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// opcode 16 only.
-	want := expectClient("x", 0x10)
+	// No opcode is emitted for the retired key.
+	want := expectClient("x")
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
 	}
@@ -648,8 +656,9 @@ func TestPackNpcConfigs_Wanderrange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// opcode 200 + p2(5)
-	want := expectServer("x", 0xC8, 0x00, 0x05)
+	// opcode 26 + p2(5) — moved from 200 by Engine-TS 8139461a
+	// (TS NpcConfig.ts:336-338 @1d25566c).
+	want := expectServer("x", 0x1A, 0x00, 0x05)
 	if !bytes.Equal(server.Dat.Data, want) {
 		t.Fatalf("server:\n got % x\nwant % x", server.Dat.Data, want)
 	}
@@ -662,8 +671,9 @@ func TestPackNpcConfigs_Maxrange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// opcode 201 + p2(10)
-	want := expectServer("x", 0xC9, 0x00, 0x0A)
+	// opcode 27 + p2(10) — moved from 201 by Engine-TS 8139461a
+	// (TS NpcConfig.ts:339-341 @1d25566c).
+	want := expectServer("x", 0x1B, 0x00, 0x0A)
 	if !bytes.Equal(server.Dat.Data, want) {
 		t.Fatalf("server:\n got % x\nwant % x", server.Dat.Data, want)
 	}
