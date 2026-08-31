@@ -55,16 +55,38 @@ func handleMapPlayerCount(s *ScriptState) error {
 	return nil
 }
 
-// handleMapFindSquare (MAP_FINDSQUARE, opcode 1015) finds a free walkable
-// square near origin, optionally gated by line-of-walk or line-of-sight.
-// Mirrors TS ServerOps.ts:254-374.
+// mapFindSquareMaxTiles caps how many eligible tiles the scan collects before
+// it stops looking. TS MAX_TILES (ServerOps.ts @1d25566c).
+const mapFindSquareMaxTiles = 100
+
+// handleMapFindSquare (MAP_FINDSQUARE, opcode 1015) picks a random walkable
+// tile in the square ring [minRadius, maxRadius] (Chebyshev distance) around
+// origin, optionally gated by line-of-walk or line-of-sight.
+//
+// Mirrors TS ServerOps.ts @1d25566c, which Engine-TS 8139461a rewrote
+// wholesale. The old shape was two strategies triplicated across the three
+// find-square types: random sampling with up to 50 attempts when
+// maxRadius < 10, and a west-biased column scan otherwise. Both are gone,
+// along with the isWithinDistanceSW term the west-biased branch applied.
+//
+// The new shape is one scan that collects eligible tiles, capped at
+// mapFindSquareMaxTiles, followed by a uniform roll among them. Two
+// consequences worth stating, because neither is a free implementation
+// choice:
+//
+//   - The filter ORDER is load-bearing. Reachability is checked LAST because
+//     line-of-walk/sight tracing is far more expensive than the ring, f2p and
+//     blocked tests, so only tiles that already passed the cheap checks pay
+//     for it.
+//   - The scan ORDER is load-bearing too. It is x-outer / z-inner and breaks
+//     out of both loops at the cap, so WHICH 100 tiles get collected depends
+//     on the traversal; a transposed loop would sample a different set.
 //
 // Pop order (top-of-stack first): type, maxRadius, minRadius, coord.
-// TS popInts(4) returns [coord, minRadius, maxRadius, type] so type is
-// at top of stack. Validation order matches TS line 256-259:
-// NumberPositive(min), NumberPositive(max), FindSquareValid(type),
-// CoordValid(coord). On hit: pushes packed coord. On exhaustion: pushes
-// the input coord (TS line 373 fall-through).
+// Validation order matches TS: NumberPositive(min), NumberPositive(max),
+// FindSquareValid(type), CoordValid(coord). On no eligible tile, the input
+// coord is pushed back so the caller can detect the failure as
+// "result == input".
 //
 // NAI-35-D4: uses math/rand/v2 (TS uses Math.random); behaviorally
 // equivalent for non-deterministic per-call random.
@@ -95,71 +117,57 @@ func handleMapFindSquare(s *ScriptState) error {
 	freeWorld := s.World.MapMembers() == 0
 	findType := MapFindSquareType(typeArg)
 
-	if maxRadius < 10 {
-		// Random-50-attempts branch (TS lines 261-316).
-		for range 50 {
-			distX := rand.IntN(2*maxRadius+1) - maxRadius
-			distZ := rand.IntN(2*maxRadius+1) - maxRadius
-			distance := absMax(distX, distZ)
-			if distance < minRadius || distance > maxRadius {
-				continue
-			}
-			randomX := originX + distX
-			randomZ := originZ + distZ
-			if freeWorld && !s.World.IsFreeToPlay(randomX, randomZ) {
-				continue
-			}
-			ok := false
-			switch findType {
-			case MapFindSquareNone:
-				ok = !s.World.IsMapBlocked(level, randomX, randomZ)
-			case MapFindSquareLineOfWalk:
-				ok = isLineOfWalk(s, level, randomX, randomZ, originX, originZ) &&
-					!s.World.IsMapBlocked(level, randomX, randomZ)
-			case MapFindSquareLineOfSight:
-				ok = isLineOfSight(s, level, randomX, randomZ, originX, originZ) &&
-					!s.World.IsMapBlocked(level, randomX, randomZ)
-			}
-			if ok {
-				s.PushInt(coordgrid.PackCoord(level, randomX, randomZ))
-				return nil
-			}
+	// passesType is the reachability gate for a candidate tile back to the
+	// origin. TS defines it as a closure for the same reason: it is the
+	// expensive check, so it runs only after the cheap filters.
+	passesType := func(x, z int) bool {
+		switch findType {
+		case MapFindSquareLineOfWalk:
+			return isLineOfWalk(s, level, x, z, originX, originZ)
+		case MapFindSquareLineOfSight:
+			return isLineOfSight(s, level, x, z, originX, originZ)
+		default:
+			return true // MapFindSquareNone: no reachability requirement
 		}
-	} else {
-		// West-bias iteration branch (imps; TS lines 317-370).
-		for x := originX - maxRadius; x <= originX+maxRadius; x++ {
-			distX := x - originX
-			distZ := rand.IntN(2*maxRadius+1) - maxRadius
-			distance := absMax(distX, distZ)
-			if distance < minRadius || distance > maxRadius {
+	}
+
+	eligible := make([]int, 0, mapFindSquareMaxTiles)
+outer:
+	for x := originX - maxRadius; x <= originX+maxRadius; x++ {
+		for z := originZ - maxRadius; z <= originZ+maxRadius; z++ {
+			// Restrict the bounding box to the ring: skip the inner hole and
+			// anything past maxRadius.
+			if distance := absMax(x-originX, z-originZ); distance < minRadius || distance > maxRadius {
 				continue
 			}
-			randomZ := originZ + distZ
-			if freeWorld && !s.World.IsFreeToPlay(x, randomZ) {
+			// F2P node: discard members-only tiles.
+			if freeWorld && !s.World.IsFreeToPlay(x, z) {
 				continue
 			}
-			ok := false
-			switch findType {
-			case MapFindSquareNone:
-				ok = !s.World.IsMapBlocked(level, x, randomZ) &&
-					!coordgrid.IsWithinDistanceSW(x, randomZ, originX, originZ, minRadius)
-			case MapFindSquareLineOfWalk:
-				ok = isLineOfWalk(s, level, x, randomZ, originX, originZ) &&
-					!s.World.IsMapBlocked(level, x, randomZ) &&
-					!coordgrid.IsWithinDistanceSW(x, randomZ, originX, originZ, minRadius)
-			case MapFindSquareLineOfSight:
-				ok = isLineOfSight(s, level, x, randomZ, originX, originZ) &&
-					!s.World.IsMapBlocked(level, x, randomZ) &&
-					!coordgrid.IsWithinDistanceSW(x, randomZ, originX, originZ, minRadius)
+			// Must be a standable tile.
+			if s.World.IsMapBlocked(level, x, z) {
+				continue
 			}
-			if ok {
-				s.PushInt(coordgrid.PackCoord(level, x, randomZ))
-				return nil
+			// Finally the costly reachability requirement.
+			if !passesType(x, z) {
+				continue
+			}
+			eligible = append(eligible, coordgrid.PackCoord(level, x, z))
+			if len(eligible) >= mapFindSquareMaxTiles {
+				break outer
 			}
 		}
 	}
 
-	s.PushInt(coord)
+	// No qualifying tile: hand back the original coord so the caller can
+	// detect the failure.
+	if len(eligible) == 0 {
+		s.PushInt(coord)
+		return nil
+	}
+
+	// Uniform roll among the collected candidates.
+	s.PushInt(eligible[rand.IntN(len(eligible))])
 	return nil
 }
 

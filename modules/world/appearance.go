@@ -65,6 +65,25 @@ func (p *Player) generateAppearance(objs *objtype.ObjTypeConfigs, invs *objtype.
 	buf.P1(uint8(p.headicons))
 
 	for slot := range 12 {
+		// Transmogrification: when npcId is set the whole 12-slot equipment
+		// region is replaced by a single -1 sentinel followed by the npc id,
+		// and the loop stops. TS Player.ts:1390-1395 @1d25566c:
+		//
+		//	if (this.npcId != -1) {
+		//	    stream.p2(-1);
+		//	    stream.p2(this.npcId);
+		//	    break;
+		//	}
+		//
+		// Engine-TS 8139461a implemented this in place of the long-standing
+		// `// todo: transmog support` comment. The write sits INSIDE the loop
+		// and breaks immediately, so exactly one pair is emitted — not one
+		// per slot.
+		if p.npcId != -1 {
+			buf.P2(0xffff)
+			buf.P2(uint16(p.npcId))
+			break
+		}
 		if skipped[slot] {
 			buf.P1(0)
 			continue

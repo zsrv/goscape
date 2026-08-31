@@ -1550,3 +1550,144 @@ func TestMapMultiway_NoWorld(t *testing.T) {
 		t.Error("MAP_MULTIWAY with nil World: want error")
 	}
 }
+
+// runFindSquare is a small driver for the rewritten MAP_FINDSQUARE.
+func runFindSquare(t *testing.T, w *mapFindSquareWorld, level, x, z, minR, maxR int, ft MapFindSquareType) int {
+	t.Helper()
+	sf := newSingleOp("map_findsquare", OpMapFindSquare)
+	state := Init(sf, nil, false, nil, nil)
+	state.World = w
+	state.PushInt(coordgrid.PackCoord(level, x, z))
+	state.PushInt(minR)
+	state.PushInt(maxR)
+	state.PushInt(int(ft))
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	return state.PopInt()
+}
+
+// TestHandleMapFindSquare_RingBoundsHonoured pins the ring filter over many
+// rolls: every result must satisfy minRadius <= chebyshev <= maxRadius. The
+// pre-8139461a code enforced the same bounds, but through two different
+// sampling strategies; this pins the invariant against the single new scan.
+func TestHandleMapFindSquare_RingBoundsHonoured(t *testing.T) {
+	w := newMapFindSquareWorld()
+	w.members = 1
+	const originX, originZ, minR, maxR = 3200, 3200, 2, 4
+
+	for range 200 {
+		got := coordgrid.UnpackCoord(runFindSquare(t, w, 0, originX, originZ, minR, maxR, MapFindSquareNone))
+		dx, dz := abs(got.X-originX), abs(got.Z-originZ)
+		if d := max(dx, dz); d < minR || d > maxR {
+			t.Fatalf("chebyshev distance %d outside [%d, %d] (dx=%d dz=%d)", d, minR, maxR, dx, dz)
+		}
+	}
+}
+
+// TestHandleMapFindSquare_NoExplicitWestBias pins the removal of the
+// west-biased column scan. Engine-TS 8139461a deleted the `maxRadius >= 10`
+// branch that walked x ascending picking one random z per column, which
+// skewed results toward low x, along with its isWithinDistanceSW term.
+//
+// The radius here is deliberately small enough that the whole ring fits under
+// MAX_TILES (a 4-radius ring is 80 tiles), so the cap cannot confine the
+// sample and any surviving bias would be the deleted one. See
+// TestHandleMapFindSquare_CapConfinesLargeRadius for what happens above the
+// cap — which IS still x-skewed, but as a consequence of the cap rather than
+// a deliberate bias, and faithfully so.
+func TestHandleMapFindSquare_NoExplicitWestBias(t *testing.T) {
+	w := newMapFindSquareWorld()
+	w.members = 1
+	const originX, originZ = 3200, 3200
+
+	var west, east int
+	for range 400 {
+		got := coordgrid.UnpackCoord(runFindSquare(t, w, 0, originX, originZ, 1, 4, MapFindSquareNone))
+		switch {
+		case got.X < originX:
+			west++
+		case got.X > originX:
+			east++
+		}
+	}
+	if west == 0 || east == 0 {
+		t.Fatalf("results confined to one side: west=%d east=%d", west, east)
+	}
+}
+
+// TestHandleMapFindSquare_CapConfinesLargeRadius pins the flip side, which is
+// easy to mistake for a bug. Above MAX_TILES the x-outer scan fills its
+// hundred candidates from the westmost columns and stops, so a large radius
+// over open terrain never samples the eastern half at all. TS behaves
+// identically — `outer:` breaks both loops at the cap — so this is faithful,
+// not a regression, and pinning it stops a future reader from "fixing" it.
+func TestHandleMapFindSquare_CapConfinesLargeRadius(t *testing.T) {
+	w := newMapFindSquareWorld()
+	w.members = 1
+	const originX, originZ, maxR = 3200, 3200, 12
+
+	for range 200 {
+		got := coordgrid.UnpackCoord(runFindSquare(t, w, 0, originX, originZ, 1, maxR, MapFindSquareNone))
+		if got.X > originX {
+			t.Fatalf("result x=%d east of origin; the cap should have stopped the scan in the western columns", got.X)
+		}
+	}
+}
+
+// TestHandleMapFindSquare_CapStopsAtMaxTiles pins the MAX_TILES cap and the
+// scan order that decides WHICH tiles are collected. The scan is
+// x-outer/z-inner and breaks out of both loops at 100, so with a large radius
+// and no blocked tiles every result must come from the first few x columns —
+// a transposed loop would sample a visibly different set.
+func TestHandleMapFindSquare_CapStopsAtMaxTiles(t *testing.T) {
+	w := newMapFindSquareWorld()
+	w.members = 1
+	const originX, originZ, maxR = 3200, 3200, 20
+
+	// The ring at minRadius 0 gives 41 z-values per column, so 100 tiles are
+	// collected within the first three x columns: 3180, 3181, 3182.
+	maxX := originX - maxR + 2
+	for range 200 {
+		got := coordgrid.UnpackCoord(runFindSquare(t, w, 0, originX, originZ, 0, maxR, MapFindSquareNone))
+		if got.X > maxX {
+			t.Fatalf("result x=%d beyond the capped scan window (max %d); scan order or cap is wrong", got.X, maxX)
+		}
+	}
+}
+
+// TestHandleMapFindSquare_UniformAcrossCandidates pins the uniform roll. With
+// only two eligible tiles both must appear over many calls; the old code
+// returned the first candidate that passed, so a fixed scan would always
+// yield the same one.
+func TestHandleMapFindSquare_UniformAcrossCandidates(t *testing.T) {
+	w := newMapFindSquareWorld()
+	w.members = 1
+	const originX, originZ = 3200, 3200
+
+	// Block the whole ring except two tiles.
+	free := map[[2]int]bool{{originX - 1, originZ}: true, {originX + 1, originZ}: true}
+	for x := originX - 1; x <= originX+1; x++ {
+		for z := originZ - 1; z <= originZ+1; z++ {
+			if !free[[2]int{x, z}] {
+				w.blockedTiles[blockKey{0, x, z}] = true
+			}
+		}
+	}
+
+	seen := map[int]int{}
+	for range 300 {
+		got := coordgrid.UnpackCoord(runFindSquare(t, w, 0, originX, originZ, 1, 1, MapFindSquareNone))
+		seen[got.X]++
+	}
+	if len(seen) != 2 {
+		t.Fatalf("expected both eligible tiles to appear, got %v", seen)
+	}
+}
+
+func abs(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
+}

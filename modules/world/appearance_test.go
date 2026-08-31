@@ -360,3 +360,86 @@ func TestGenerateAppearance_SetsLastAppearanceToCurrentTick(t *testing.T) {
 		t.Errorf("after generateAppearance(_,_,100): got %d, want 100", p.lastAppearance)
 	}
 }
+
+// TestGenerateAppearanceTransmogrified pins the transmogrification write
+// Engine-TS 8139461a added to the appearance block (Player.ts:1390-1395
+// @1d25566c). When npcId is set the entire 12-slot equipment region collapses
+// to one p2(-1), p2(npcId) pair — the write is inside the loop and breaks
+// immediately, so a single pair is emitted, not one per slot.
+//
+// Wire-visible: the sentinel is what tells the client to render an npc in
+// place of the player's equipment.
+func TestGenerateAppearanceTransmogrified(t *testing.T) {
+	objs, invs := synthesizeTypes(t)
+	p, _ := newTestPlayer(t)
+	p.invs = map[int]*inventory.Inventory{
+		invs.Worn: inventory.FromType(invs.Configs[invs.Worn]),
+	}
+	// Equip something so the untransmogrified block would be non-trivial.
+	p.invs[invs.Worn].Items[4] = &inventory.Item{Id: 1, Count: 1}
+
+	p.generateAppearance(objs, invs, 0)
+	plain := append([]byte(nil), p.appearanceBuf...)
+
+	p.npcId = 42
+	p.generateAppearance(objs, invs, 0)
+	transmog := p.appearanceBuf
+
+	// Bytes 0 and 1 are gender and headicons; the equipment region starts at 2.
+	if len(transmog) < 6 {
+		t.Fatalf("appearanceBuf too short: %d bytes", len(transmog))
+	}
+	if transmog[0] != plain[0] || transmog[1] != plain[1] {
+		t.Errorf("gender/headicons changed: got %v, want %v", transmog[:2], plain[:2])
+	}
+
+	// p2(-1) then p2(42), immediately after the two header bytes.
+	if transmog[2] != 0xff || transmog[3] != 0xff {
+		t.Errorf("transmog sentinel: got %#x %#x, want 0xff 0xff", transmog[2], transmog[3])
+	}
+	if transmog[4] != 0x00 || transmog[5] != 42 {
+		t.Errorf("transmog npc id: got %#x %#x, want 0x00 0x2a", transmog[4], transmog[5])
+	}
+
+	// Exactly one pair: the equipment region must be 4 bytes, so the
+	// transmogrified buffer is shorter than the equipped one by the
+	// difference between 4 and the full 12-slot encoding.
+	if len(transmog) >= len(plain) {
+		t.Errorf("transmogrified buffer (%d bytes) should be shorter than the equipped one (%d)",
+			len(transmog), len(plain))
+	}
+}
+
+// TestGenerateAppearanceNotTransmogrifiedIsUnchanged pins that the default
+// npcId of -1 leaves the equipment encoding byte-identical to what it was
+// before transmogrification existed.
+func TestGenerateAppearanceNotTransmogrifiedIsUnchanged(t *testing.T) {
+	objs, invs := synthesizeTypes(t)
+	p, _ := newTestPlayer(t)
+	p.invs = map[int]*inventory.Inventory{
+		invs.Worn: inventory.FromType(invs.Configs[invs.Worn]),
+	}
+	p.invs[invs.Worn].Items[4] = &inventory.Item{Id: 1, Count: 1}
+
+	if p.npcId != -1 {
+		t.Fatalf("npcId default: got %d, want -1", p.npcId)
+	}
+
+	p.generateAppearance(objs, invs, 0)
+
+	// The transmog write is the FIRST thing the loop emits, so the two bytes
+	// immediately after the gender/headicons header are the discriminator.
+	// (Scanning further would false-positive on the anim fields below, where
+	// 0xffff legitimately encodes a -1 seq id.)
+	if len(p.appearanceBuf) < 4 {
+		t.Fatalf("appearanceBuf too short: %d bytes", len(p.appearanceBuf))
+	}
+	if p.appearanceBuf[2] == 0xff && p.appearanceBuf[3] == 0xff {
+		t.Error("equipment region opens with the transmog sentinel despite npcId=-1")
+	}
+
+	// Slot 0 is empty for this fixture, so the region opens with a P1(0).
+	if p.appearanceBuf[2] != 0 {
+		t.Errorf("slot 0: got %#x, want 0x00 (empty)", p.appearanceBuf[2])
+	}
+}
