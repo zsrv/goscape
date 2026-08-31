@@ -1,0 +1,27 @@
+# Normalise line endings on the way into the repository, so a checkout on
+# Windows can be CRLF locally without every file coming back as modified.
+# No tracked file currently contains CRLF, so this changes nothing today; it
+# exists to keep it that way.
+* text=auto
+
+# Shell scripts and the tools they run must stay LF even on a Windows
+# checkout — CRLF in a script breaks its shebang line.
+*.sh text eol=lf
+tools/image-tag text eol=lf
+
+# Byte-exact fixtures and blobs git must never touch. The gzip testdata backs
+# a byte-parity gate against the reference pack pipeline, and the player saves
+# are binary format fixtures: line-ending translation on any of these would
+# corrupt the thing under test.
+data/raw/wordenc binary
+*.sav binary
+*.gz binary
+*.jag binary
+pkg/io/gziputil/testdata/*.raw binary
+
+# Generated Go — still diffable, just collapsed by default in reviews.
+*.pb.go linguist-generated=true
+
+# Keep the language statistics about the engine, not its documentation or its
+# vendored reference material.
+docs/** linguist-documentation=true
