@@ -1,0 +1,138 @@
+# Release builds for goscape.
+#
+# Triggered by revision-namespaced tags of the form rev<N>-v<semver>, e.g.
+# `rev274-v1.0.0`, matching the convention goscape-client already uses. The
+# revision lives in the tag name and the tag points at a commit on that
+# revision's branch, so releases across revisions never collide and every
+# artifact name carries its revision.
+#
+# Unlike the client — whose native GLFW backend forces CGO and therefore a
+# matrix of native runners — goscape builds CGO-free, so every target
+# cross-compiles from one Linux runner. The target list mirrors `make dist`.
+#
+# Each archive carries BOTH binaries: goscape-cli is what packs the game cache
+# the server needs, so shipping the server alone would be shipping half a
+# working install.
+#
+# Not built here, deliberately: container images (cmd/goscape/Dockerfile bakes
+# a packed cache built from the pinned Content tree, which is not in this
+# repository and not available to CI) and the Helm chart (its image reference
+# would point at images this workflow does not publish).
+#
+# Security: github.ref_name is passed via env, never inlined into a run:
+# script. The only other ${{ }} uses are matrix.* and workflow-defined values.
+name: Release
+
+on:
+  push:
+    tags: ['rev*-v*']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # The normal CI gate, reused. A tag that cannot pass fmt/vet/test/race
+    # never reaches the build job.
+    uses: ./.github/workflows/go.yml
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build every target
+        shell: bash
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          # Mirrors the Makefile's GO_LDFLAGS block — keep the two in sync, or
+          # a released binary prints "unknown" for every -version field. The
+          # branch comes from the tag prefix (rev274-v1.0.0 -> rev-274, and
+          # rev245.2-v1.0.0 -> rev-245.2) because a tag is checked out
+          # detached, so rev-parse --abbrev-ref HEAD would only say "HEAD".
+          vprefix=github.com/zsrv/goscape/pkg/util/build
+          revision=$(git rev-parse --short HEAD)
+          branch=$(sed -E 's/^rev([0-9][0-9.]*)-v.*/rev-\1/' <<<"$VERSION")
+          build_user="${GITHUB_ACTOR:-ci}@github-actions"
+          build_date=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          ldflags="-s -w"
+          ldflags="$ldflags -X $vprefix.Version=$VERSION"
+          ldflags="$ldflags -X $vprefix.Revision=$revision"
+          ldflags="$ldflags -X $vprefix.Branch=$branch"
+          ldflags="$ldflags -X $vprefix.BuildUser=$build_user"
+          ldflags="$ldflags -X $vprefix.BuildDate=$build_date"
+
+          # 64-bit only. The collision flag set runs past bit 31
+          # (pkg/pathfinder/collision/flag.go), so a 32-bit `int` cannot hold
+          # it and the package does not compile for GOARCH=arm or 386. The
+          # world process also fills to a ~1.1-1.3 GiB GC ceiling under load,
+          # which a 32-bit address space could not host anyway.
+          for target in linux/amd64 linux/arm64 darwin/amd64 \
+                        darwin/arm64 windows/amd64 freebsd/amd64; do
+            goos=${target%/*}
+            goarch=${target#*/}
+            name="$goos-$goarch"
+            out="dist/$name"
+            mkdir -p "$out"
+
+            ext=""
+            [ "$goos" = windows ] && ext=".exe"
+            for cmd in goscape goscape-cli; do
+              echo "building $cmd for $name"
+              CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
+                go build -trimpath -ldflags "$ldflags" \
+                  -o "$out/$cmd$ext" "./cmd/$cmd"
+            done
+
+            cp LICENSE NOTICE README.md "$out/"
+            if [ "$goos" = windows ]; then
+              (cd dist && zip -qr "goscape-$VERSION-$name.zip" "$name")
+            else
+              tar -C dist -czf "dist/goscape-$VERSION-$name.tar.gz" "$name"
+            fi
+            rm -rf "$out"
+          done
+
+          (cd dist && sha256sum goscape-* > SHA256SUMS && cat SHA256SUMS)
+
+      - name: Upload archives
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-archives
+          path: |
+            dist/goscape-*
+            dist/SHA256SUMS
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release
+    steps:
+      - name: Download archives
+        uses: actions/download-artifact@v8
+        with:
+          name: release-archives
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          files: |
+            artifacts/goscape-*
+            artifacts/SHA256SUMS
+          fail_on_unmatched_files: true
+          generate_release_notes: true
