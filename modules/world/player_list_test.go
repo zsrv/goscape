@@ -94,9 +94,12 @@ func TestPlayerLoopKeyDerivation(t *testing.T) {
 		// IPv4-mapped form: "::ffff:127" fails to parse → 0, matching JS
 		// parseInt → NaN coercing to 0 under <<. Key = last octet.
 		{"::ffff:127.0.0.1", 0x00000001, 1},
-		// IPv6: hextets[2] = "a1" = 161; 161 % 256 = 161; bucket 161&7 = 1.
-		{"[2001:db8:a1::1]:5", 161, 1},
-		// IPv6 loopback "::1": split(":") = ["", "", "1"] → hextets[2]="1".
+		// IPv6 since Engine-TS 8139461a: the whole address is left-packed
+		// 16 bits at a time (World.ts:913-925 @1d25566c), so the key is the
+		// trailing groups rather than "third hextet mod 256". 2001:db8:a1::1
+		// elides five groups, leaving 1 in the low bits; bucket 1&7 = 1.
+		{"[2001:db8:a1::1]:5", 1, 1},
+		// IPv6 loopback "::1": all but the final group are elided.
 		{"[::1]:43594", 1, 1},
 		// headless (no client): 127.0.0.1 → bucket 1. TS World.ts:914-917.
 		{"", 2130706433, 1},
@@ -117,14 +120,19 @@ func TestPlayerLoopKeyDerivation(t *testing.T) {
 }
 
 // TestPlayerLoopKeyZeroStillProcessed pins the documented deviation on
-// playerLoopKey: a derived key of 0 (IPv6 third hextet 0, IPv4 0.0.0.0)
-// collides with TS HashTable's key-0 sentinel, so TS iteration would
-// never yield the player and would hide later bucket-0 logins behind
-// it — an upstream container bug goscape does NOT replicate. Both the
-// key-0 player and a later bucket-0 login must be iterated.
+// playerLoopKey: a derived key of 0 collides with TS HashTable's key-0
+// sentinel, so TS iteration would never yield the player and would hide later
+// bucket-0 logins behind it — an upstream container bug goscape does NOT
+// replicate, because the Go port keys buckets by slice rather than by a
+// sentinel-terminated list. Both the key-0 player and a later bucket-0 login
+// must be iterated.
+//
+// The IPv6 probe changed with Engine-TS 8139461a: under the old "third hextet
+// mod 256" rule a zero third group produced key 0, but the key is now the
+// left-packed address, so a trailing "::" is what zeroes the low bits.
 func TestPlayerLoopKeyZeroStillProcessed(t *testing.T) {
-	if k := playerLoopKey("[2001:db8:0:1::5]:43594"); k != 0 {
-		t.Fatalf("IPv6 third-hextet-0 key = %#x, want 0", k)
+	if k := playerLoopKey("[2001:db8::]:43594"); k != 0 {
+		t.Fatalf("IPv6 trailing-:: key = %#x, want 0", k)
 	}
 	if k := playerLoopKey("0.0.0.0:1"); k != 0 {
 		t.Fatalf("0.0.0.0 key = %#x, want 0", k)
@@ -190,5 +198,72 @@ func TestPlayerLoopIterationOrder(t *testing.T) {
 	want = []*Player{b1b, b7a, b7b, b0a}
 	if got := collect(); !slices.Equal(got, want) {
 		t.Fatalf("iteration after re-add: got %v, want %v", got, want)
+	}
+}
+
+// TestIPv6LoopKey pins the full left-packed IPv6 key Engine-TS 8139461a
+// introduced (World.ts:913-925 @1d25566c), replacing "third hextet mod 256".
+//
+// Expected values are computed the same way TS does — shift each present
+// hextet in by 16 bits, expanding a "::" run to the number of groups it
+// elides — then truncated to 64 bits, which is exact for the low 3 bits the
+// bucket index actually consumes.
+func TestIPv6LoopKey(t *testing.T) {
+	tests := []struct {
+		name string
+		host string
+		want uint64
+	}{
+		// 8 explicit groups: the low 64 bits are the last four hextets.
+		{"full address", "2001:0db8:0000:0000:0000:ff00:0042:8329",
+			0x0000_ff00_0042_8329},
+		// "::" elides six groups; only ::1 contributes, so the key is 1.
+		{"loopback", "::1", 1},
+		// 2001:db8::1 -> 2001,0db8 then six elided groups then 1.
+		{"compressed middle", "2001:db8::1", 1},
+		// A zone suffix must be stripped before parsing.
+		{"zone suffix stripped", "fe80::1%eth0", 1},
+		// Trailing "::" contributes nothing after the shift, so the low bits
+		// are zero.
+		{"trailing double colon", "2001:db8::", 0},
+		// Unparseable groups coerce to 0, matching JS parseInt -> NaN.
+		{"garbage group", "zzzz::1", 1},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ipv6LoopKey(tc.host); got != tc.want {
+				t.Errorf("ipv6LoopKey(%q) = %#x, want %#x", tc.host, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestIPv6LoopKeyDistinguishesAddresses pins the point of the rewrite. Under
+// the old "third hextet mod 256" rule every address below shared hextet index
+// 2, so all three landed in one bucket regardless of how unrelated they were.
+func TestIPv6LoopKeyDistinguishesAddresses(t *testing.T) {
+	hosts := []string{
+		"2001:db8:0:0:0:0:0:1",
+		"2001:db8:0:0:0:0:0:2",
+		"2001:db8:0:0:0:0:0:3",
+	}
+	seen := map[uint64]string{}
+	for _, h := range hosts {
+		k := ipv6LoopKey(h)
+		if prev, dup := seen[k]; dup {
+			t.Errorf("%q and %q collide on key %#x", prev, h, k)
+		}
+		seen[k] = h
+	}
+}
+
+// TestIPv4LoopKeyIsUnsigned pins the >>> 0 half of the same upstream change: a
+// leading octet >= 128 must not produce a sign-extended key.
+func TestIPv4LoopKeyIsUnsigned(t *testing.T) {
+	got := playerLoopKey("255.0.0.1")
+	want := uint64(0xff00_0001)
+	if got != want {
+		t.Errorf("playerLoopKey(255.0.0.1) = %#x, want %#x", got, want)
 	}
 }

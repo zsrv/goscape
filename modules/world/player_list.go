@@ -49,6 +49,55 @@ type playerList struct {
 // bucket index is key & (playerLoopBuckets - 1) (TS HashTable.ts:35).
 const playerLoopBuckets = 8
 
+// ipv6LoopKey packs an IPv6 address into a loop key, mirroring TS
+// World.ts:913-925 @1d25566c:
+//
+//	const hextets = remote.split('%', 1)[0].split(':');
+//	let omitted = 8 - hextets.filter(Boolean).length;
+//	let key = 0n;
+//	for (const hextet of hextets) {
+//	    if (hextet) { key = (key << 16n) | BigInt(parseInt(hextet, 16)); }
+//	    else if (omitted) { key <<= BigInt(omitted * 16); omitted = 0; }
+//	}
+//
+// Engine-TS 8139461a replaced "third hextet mod 256", which collapsed most of
+// an address into 8 bits and put unrelated clients in one bucket, with this
+// full left-packed key: a zone suffix is stripped, a "::" run is expanded to
+// the number of hextets it elides, and each group shifts in 16 bits.
+//
+// TS accumulates into a BigInt, so the full 128 bits survive; Go uses uint64
+// and lets the high half fall off the top. That is exactly equivalent for the
+// only consumer: the key is used solely as `key & (playerLoopBuckets - 1)`,
+// i.e. the low 3 bits, which are contributed by the final hextet and are
+// preserved identically under truncation.
+func ipv6LoopKey(host string) uint64 {
+	// TS `split('%', 1)[0]` — everything before a zone suffix.
+	addr, _, _ := strings.Cut(host, "%")
+	hextets := strings.Split(addr, ":")
+
+	present := 0
+	for _, h := range hextets {
+		if h != "" {
+			present++
+		}
+	}
+	omitted := 8 - present
+
+	var key uint64
+	for _, h := range hextets {
+		if h != "" {
+			// parse failure -> 0, matching JS parseInt -> NaN -> 0 in the
+			// BigInt coercion TS relies on.
+			v, _ := strconv.ParseUint(h, 16, 64)
+			key = key<<16 | v
+		} else if omitted > 0 {
+			key <<= uint(omitted * 16)
+			omitted = 0
+		}
+	}
+	return key
+}
+
 // playerLoopHeadlessKey is the loop key for logins with no attached
 // client socket: 2130706433 = 127.0.0.1 (TS World.ts:914-917).
 const playerLoopHeadlessKey uint64 = 2130706433
@@ -214,18 +263,15 @@ func playerLoopKey(remoteAddr string) uint64 {
 			n, _ := strconv.Atoi(octets[i]) // parse failure → 0 (JS NaN)
 			return uint32(int32(n))
 		}
-		// TS: (o0 << 24) | (o1 << 16) | (o2 << 8) | o3, through signed
-		// int32 — uint32 arithmetic yields the same low 32 bits.
+		// TS: ((o0 << 24) | (o1 << 16) | (o2 << 8) | o3) >>> 0. Engine-TS
+		// 8139461a added the >>> 0 so a leading octet >= 128 no longer
+		// produces a negative bucket key; goscape already computed in uint32,
+		// which yields the same bits, so this half is unchanged.
 		key := octet(0)<<24 | octet(1)<<16 | octet(2)<<8 | octet(3)
 		return uint64(key)
 	}
 	if strings.Contains(host, ":") {
-		if hextets := strings.Split(host, ":"); len(hextets) > 2 {
-			if v, err := strconv.ParseUint(hextets[2], 16, 64); err == nil {
-				return v % 256
-			}
-		}
-		return 0
+		return ipv6LoopKey(host)
 	}
 	return playerLoopHeadlessKey
 }
