@@ -937,21 +937,17 @@ func (s *Server) Run() error {
 		}
 	}()
 
-	s.tickWg.Add(1)
-	go func() {
-		defer s.tickWg.Done()
+	s.tickWg.Go(func() {
 		s.runTickLoop()
-	}()
+	})
 
 	// rev-274 Task 22a: the OnDemand pump goroutine is started once when the
 	// world is ready, alongside the tick loop. It blocks on a signal channel
 	// (woken per enqueue) and drains the per-client round-robin — the 254 50ms
 	// ticker is gone (TS OnDemandThread.ts @dee467c8). Stopped by s.quit.
-	s.odWg.Add(1)
-	go func() {
-		defer s.odWg.Done()
+	s.odWg.Go(func() {
 		s.onDemand.run(s.quit)
-	}()
+	})
 
 	select {
 	case err := <-errChan:

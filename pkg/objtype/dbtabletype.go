@@ -39,7 +39,7 @@ type DbTableType struct {
 // NewDbTableType returns a zero-valued DbTableType with the given id.
 func NewDbTableType(id int) *DbTableType {
 	return &DbTableType{
-		ConfigType: ConfigType{ID: id},
+		ID: id,
 	}
 }
 

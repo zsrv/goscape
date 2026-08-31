@@ -37,7 +37,7 @@ func newCollisionFollowServer(t *testing.T) *Server {
 // pathing respects other NPC-blocking tiles — the Hans shape needs this).
 func blockingNpcType(blockWalk int) *objtype.NpcType {
 	return &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: 1},
+		ID:           1,
 		MoveRestrict: int(MoveRestrictNormal),
 		Size:         1,
 		BlockWalk:    blockWalk,

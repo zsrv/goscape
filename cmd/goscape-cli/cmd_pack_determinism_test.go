@@ -67,10 +67,7 @@ func TestRunPack_DeterministicOutput(t *testing.T) {
 }
 
 func firstDiffOffsetDeterminism(a, b []byte) int {
-	n := len(a)
-	if len(b) < n {
-		n = len(b)
-	}
+	n := min(len(b), len(a))
 	for i := 0; i < n; i++ {
 		if a[i] != b[i] {
 			return i

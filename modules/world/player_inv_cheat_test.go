@@ -115,8 +115,8 @@ func mustSetupTestObj(t *testing.T, s *Server, objTypeID int, stackable bool) in
 		s.objTypes.Configs = append(s.objTypes.Configs, nil)
 	}
 	s.objTypes.Configs[objTypeID] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: objTypeID},
-		Stackable:  stackable,
+		ID:        objTypeID,
+		Stackable: stackable,
 	}
 	return objTypeID
 }

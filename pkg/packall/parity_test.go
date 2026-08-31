@@ -10,7 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 
@@ -124,10 +124,7 @@ func TestPackAll_Ref274FullTreeParity(t *testing.T) {
 		}
 	}
 	if len(mismatches) > 0 {
-		limit := 10
-		if len(mismatches) < limit {
-			limit = len(mismatches)
-		}
+		limit := min(len(mismatches), 10)
 		t.Errorf("%d manifest file(s) failed parity (showing first %d):\n%s",
 			len(mismatches), limit, strings.Join(mismatches[:limit], "\n"))
 	}
@@ -255,7 +252,7 @@ func assertLooseMapsMatchZip(t *testing.T, zipPath, looseDir, label string) {
 		}
 	}
 	if len(orphan) > 0 {
-		sort.Strings(orphan)
+		slices.Sort(orphan)
 		t.Errorf("%s: %d loose map file(s) with no reference zip entry: %v", label, len(orphan), orphan)
 	}
 }
@@ -352,10 +349,7 @@ func TestPackAll_OrigCacheParity(t *testing.T) {
 	for arch := 1; arch <= 4; arch++ {
 		oc := of.Count(arch)
 		gc := gf.Count(arch)
-		maxc := oc
-		if gc > maxc {
-			maxc = gc
-		}
+		maxc := max(gc, oc)
 		for f := 0; f < maxc; f++ {
 			ob := stripVer(of.Read(arch, f, false))
 			gb := stripVer(gf.Read(arch, f, false))

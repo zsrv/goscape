@@ -3,11 +3,11 @@ package services
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 	"go.uber.org/goleak"
 )
 
@@ -49,7 +49,7 @@ func TestTimerService(t *testing.T) {
 	var iterations atomic.Uint64
 
 	s := NewTimerService(100*time.Millisecond, nil, func(context.Context) error {
-		iterations.Inc()
+		iterations.Add(1)
 		return nil
 	}, nil)
 	defer s.StopAsync()

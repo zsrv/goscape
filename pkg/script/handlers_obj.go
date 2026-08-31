@@ -3,8 +3,8 @@ package script
 
 import (
 	"fmt"
+	"uuid"
 
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
@@ -315,7 +315,7 @@ func handleObjTakeItem(s *ScriptState) error {
 	x, z, level := s.activeObj().Coords()
 	telemetry.Get().EmitWealth(&eventspb.WealthEnvelope{
 		SchemaVersion: 1,
-		EventId:       uuid.NewString(),
+		EventId:       uuid.New().String(),
 		Ts:            timestamppb.Now(),
 		AccountId:     s.activePlayer().AccountID(),
 		WorldId:       worldID,

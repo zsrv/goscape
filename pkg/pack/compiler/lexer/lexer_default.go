@@ -490,7 +490,7 @@ func matchMapzone(input string, pos int) int {
 // Each group must contain at least one digit.
 func matchUnderscoreGroups(input string, pos int, n int) int {
 	p := pos
-	for i := 0; i < n; i++ {
+	for i := range n {
 		groupStart := p
 		for p < len(input) && isDigit(input[p]) {
 			p++

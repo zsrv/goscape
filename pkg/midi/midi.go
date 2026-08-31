@@ -71,7 +71,7 @@ func Load(store Store, warnf func(format string, args ...any)) *Cache {
 		return c
 	}
 	c.lengths = make([]int, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		data := store.Read(midiArchive, i, true)
 		if data == nil {
 			warnf("Missing midi id=%d", i)
@@ -142,7 +142,7 @@ func readChunkID(data []byte, offset int) string {
 // variable-length quantity. Returns (value, nextOffset, ok).
 func readVarLen(data []byte, offset, limit int) (int, int, bool) {
 	value := 0
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		if offset >= limit {
 			return 0, 0, false
 		}
@@ -196,7 +196,7 @@ func ParseLength(src []byte) (int, bool) {
 	var tempos []tempoEvent
 	tempoOrder := 0
 
-	for track := 0; track < trackCount; track++ {
+	for range trackCount {
 		if offset+8 > len(data) {
 			return 0, false
 		}

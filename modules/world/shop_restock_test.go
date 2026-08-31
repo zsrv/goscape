@@ -118,8 +118,8 @@ func TestProcessCleanup_ShopRestock_NonStackallStackableObj(t *testing.T) {
 		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, objID+1)}
 	}
 	s.objTypes.Configs[objID] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: objID, DebugName: "stackable_stock"},
-		Stackable:  true,
+		ID: objID, DebugName: "stackable_stock",
+		Stackable: true,
 	}
 
 	inv := inventory.FromType(it)

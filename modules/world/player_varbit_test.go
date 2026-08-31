@@ -22,7 +22,7 @@ func newVarbitTestPlayer(t *testing.T) (*Player, *Server) {
 	}
 	s.varbitTypes = &objtype.VarBitTypeConfigs{
 		Configs: []*objtype.VarBitType{
-			{ConfigType: objtype.ConfigType{ID: 0}, Basevar: 0, Startbit: 4, Endbit: 7},
+			{ID: 0, Basevar: 0, Startbit: 4, Endbit: 7},
 		},
 	}
 	p.client.server = s
@@ -112,7 +112,7 @@ func TestVarBit_UnconfiguredGuard(t *testing.T) {
 	p, s := newVarbitTestPlayer(t)
 	s.varbitTypes = &objtype.VarBitTypeConfigs{
 		Configs: []*objtype.VarBitType{
-			{ConfigType: objtype.ConfigType{ID: 0, DebugName: "name_only"}, Basevar: -1, Startbit: -1, Endbit: -1},
+			{ID: 0, DebugName: "name_only", Basevar: -1, Startbit: -1, Endbit: -1},
 		},
 	}
 	p.varps[0] = 0xF0F

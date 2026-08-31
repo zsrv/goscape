@@ -876,18 +876,16 @@ func makeTestRuneScriptForCse(sym symbol.Symbol, tr *trigger.TriggerType) (*Code
 func TestCodeGenerator_ClientScript_NoTransmit_HandConstructed(t *testing.T) {
 	tr := makeClientScriptTrigger()
 	cs := &symbol.ClientScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{
-			Trigger:    tr,
-			Name:       "foo",
-			Parameters: typ.PrimitiveInt,
-		},
+		Trigger:    tr,
+		Name:       "foo",
+		Parameters: typ.PrimitiveInt,
 	}
 	cse := &ast.ClientScriptExpression{
 		Name: &ast.Identifier{Text: "foo"},
 		Arguments: []ast.Expression{
 			&ast.IntegerLiteral{
-				Value:          42,
-				ExpressionBase: ast.ExpressionBase{Type: typ.PrimitiveInt},
+				Value: 42,
+				Type:  typ.PrimitiveInt,
 			},
 		},
 		TransmitList: []ast.Expression{},
@@ -924,25 +922,23 @@ func TestCodeGenerator_ClientScript_NoTransmit_HandConstructed(t *testing.T) {
 func TestCodeGenerator_ClientScript_WithTransmit_HandConstructed(t *testing.T) {
 	tr := makeClientScriptTrigger()
 	cs := &symbol.ClientScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{
-			Trigger:    tr,
-			Name:       "bar",
-			Parameters: typ.PrimitiveInt,
-		},
+		Trigger:    tr,
+		Name:       "bar",
+		Parameters: typ.PrimitiveInt,
 	}
 	cse := &ast.ClientScriptExpression{
 		Name: &ast.Identifier{Text: "bar"},
 		Arguments: []ast.Expression{
 			&ast.IntegerLiteral{
-				Value:          42,
-				ExpressionBase: ast.ExpressionBase{Type: typ.PrimitiveInt},
+				Value: 42,
+				Type:  typ.PrimitiveInt,
 			},
 		},
 		TransmitList: []ast.Expression{
 			// A coord literal as the transmit element (int-typed for the push).
 			&ast.IntegerLiteral{
-				Value:          0,
-				ExpressionBase: ast.ExpressionBase{Type: typ.PrimitiveInt},
+				Value: 0,
+				Type:  typ.PrimitiveInt,
 			},
 		},
 		Symbol: cs,

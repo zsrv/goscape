@@ -56,7 +56,7 @@ func TestCompressSZGz_OrigCorpus(t *testing.T) {
 	for _, idx := range szArchives {
 		cnt := fs.Count(idx)
 		aOK, aFail := 0, 0
-		for f := 0; f < cnt; f++ {
+		for f := range cnt {
 			member := fs.Read(idx, f, false)
 			if member == nil || len(member) < 2 {
 				continue

@@ -240,8 +240,8 @@ func dumpRequest(req *http.Request, httpHeadersToExclude map[string]bool) ([]byt
 func IsWSHandshakeRequest(req *http.Request) bool {
 	if strings.ToLower(req.Header.Get("Upgrade")) == "websocket" {
 		// Connection header values can be of form "foo, bar, ..."
-		parts := strings.Split(strings.ToLower(req.Header.Get("Connection")), ",")
-		for _, part := range parts {
+		parts := strings.SplitSeq(strings.ToLower(req.Header.Get("Connection")), ",")
+		for part := range parts {
 			if strings.TrimSpace(part) == "upgrade" {
 				return true
 			}

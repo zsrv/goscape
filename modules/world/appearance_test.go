@@ -17,13 +17,13 @@ func synthesizeTypes(t *testing.T) (*objtype.ObjTypeConfigs, *objtype.InvTypeCon
 	}
 	// id=1: platebody (wearPos=4, wearPos2=6, wearPos3=-1) - hides arms
 	objs.Configs[1] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 1, DebugName: "platebody"},
-		WearPos:    4, WearPos2: 6, WearPos3: -1,
+		ID: 1, DebugName: "platebody",
+		WearPos: 4, WearPos2: 6, WearPos3: -1,
 	}
 	// id=2: full helm (wearPos=8, wearPos2=0, wearPos3=1)
 	objs.Configs[2] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 2, DebugName: "full_helm"},
-		WearPos:    8, WearPos2: 0, WearPos3: 1,
+		ID: 2, DebugName: "full_helm",
+		WearPos: 8, WearPos2: 0, WearPos3: 1,
 	}
 
 	invs := &objtype.InvTypeConfigs{
@@ -32,8 +32,8 @@ func synthesizeTypes(t *testing.T) (*objtype.ObjTypeConfigs, *objtype.InvTypeCon
 		Worn:        0,
 	}
 	invs.Configs[0] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: 0, DebugName: "worn"},
-		Size:       14,
+		ID: 0, DebugName: "worn",
+		Size: 14,
 	}
 	return objs, invs
 }
@@ -160,8 +160,8 @@ func TestGenerateAppearanceCustomInvIdHonored(t *testing.T) {
 	// Populate slot [1] in place (don't append, which would push to index 2).
 	customInvId := 1
 	invs.Configs[customInvId] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: customInvId, DebugName: "custom"},
-		Size:       14,
+		ID: customInvId, DebugName: "custom",
+		Size: 14,
 	}
 
 	p, _ := newTestPlayer(t)
@@ -218,8 +218,8 @@ func TestGenerateAppearanceHighItemIdAdditive(t *testing.T) {
 	objs.Configs = bigger
 	// id=600: wearPos=4, no hides (wearPos2/3 = -1).
 	objs.Configs[600] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 600, DebugName: "high_id_torso"},
-		WearPos:    4, WearPos2: -1, WearPos3: -1,
+		ID: 600, DebugName: "high_id_torso",
+		WearPos: 4, WearPos2: -1, WearPos3: -1,
 	}
 
 	p, _ := newTestPlayer(t)

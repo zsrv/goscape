@@ -142,8 +142,8 @@ func TestCheckLocType(t *testing.T) {
 // Op-slot string.
 func TestHandleLocOpHappyPath(t *testing.T) {
 	lt := &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 42},
-		Op:         []string{"Chop", "Examine", "", "", ""},
+		ID: 42,
+		Op: []string{"Chop", "Examine", "", "", ""},
 	}
 	s := newLocOpState(42, 1, lt)
 
@@ -180,8 +180,8 @@ func TestHandleLocOpRequiresActiveLoc(t *testing.T) {
 // TestHandleLocOpOutOfRangeLow verifies op=0 (below 1) pushes "".
 func TestHandleLocOpOutOfRangeLow(t *testing.T) {
 	lt := &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 42},
-		Op:         []string{"Chop", "", "", "", ""},
+		ID: 42,
+		Op: []string{"Chop", "", "", "", ""},
 	}
 	s := newLocOpState(42, 0, lt)
 
@@ -196,8 +196,8 @@ func TestHandleLocOpOutOfRangeLow(t *testing.T) {
 // TestHandleLocOpOutOfRangeHigh verifies op=6 (above 5) pushes "".
 func TestHandleLocOpOutOfRangeHigh(t *testing.T) {
 	lt := &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 42},
-		Op:         []string{"Chop", "", "", "", ""},
+		ID: 42,
+		Op: []string{"Chop", "", "", "", ""},
 	}
 	s := newLocOpState(42, 6, lt)
 
@@ -214,8 +214,8 @@ func TestHandleLocOpOutOfRangeHigh(t *testing.T) {
 // and would push "hidden", matching TS truthy reads).
 func TestHandleLocOpEmptySlot(t *testing.T) {
 	lt := &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 42},
-		Op:         []string{"Chop", "", "", "", ""},
+		ID: 42,
+		Op: []string{"Chop", "", "", "", ""},
 	}
 	s := newLocOpState(42, 2, lt) // Op[1] == ""
 
@@ -354,8 +354,8 @@ func TestHandleLocAngleRequiresActiveLoc(t *testing.T) {
 
 func TestHandleLocCategoryHappyPath(t *testing.T) {
 	lt := &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 42},
-		Category:   17,
+		ID:       42,
+		Category: 17,
 	}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
@@ -379,8 +379,8 @@ func TestHandleLocCategoryHappyPath(t *testing.T) {
 // LocType.Category when the config-file omits the `category=` line.
 func TestHandleLocCategoryUnsetDefault(t *testing.T) {
 	lt := &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 42},
-		Category:   -1,
+		ID:       42,
+		Category: -1,
 	}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
@@ -434,7 +434,7 @@ func TestHandleLocCategoryUnknownID(t *testing.T) {
 
 func TestHandleLocTypeHappyPath(t *testing.T) {
 	lt := &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 42},
+		ID: 42,
 	}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
@@ -492,8 +492,8 @@ func TestHandleLocTypeUnknownID(t *testing.T) {
 
 func TestHandleLocNameHappyPath(t *testing.T) {
 	lt := &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 42},
-		Name:       "door",
+		ID:   42,
+		Name: "door",
 	}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
@@ -516,7 +516,7 @@ func TestHandleLocNameHappyPath(t *testing.T) {
 
 func TestHandleLocNameNullFallback(t *testing.T) {
 	lt := &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 42},
+		ID: 42,
 		// Name left empty — verifies "null" fallback per TS `name ?? 'null'`.
 	}
 	s := &ScriptState{
@@ -591,8 +591,8 @@ func TestHandleLocShapeRequiresActiveLoc(t *testing.T) {
 
 func TestHandleLocParamHappyPathInt(t *testing.T) {
 	lt := &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 42},
-		Params:     objtype.ParamMap{1: uint32(7)},
+		ID:     42,
+		Params: objtype.ParamMap{1: uint32(7)},
 	}
 	pInt := objtype.NewParamType(1)
 	pInt.Type = objtype.ScriptVarTypeInt
@@ -623,8 +623,8 @@ func TestHandleLocParamHappyPathInt(t *testing.T) {
 
 func TestHandleLocParamHappyPathString(t *testing.T) {
 	lt := &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 42},
-		Params:     objtype.ParamMap{2: "hello"},
+		ID:     42,
+		Params: objtype.ParamMap{2: "hello"},
 	}
 	pStr := objtype.NewParamType(2)
 	pStr.Type = objtype.ScriptVarTypeString
@@ -686,8 +686,8 @@ func newLocChangeState(activeLoc ActiveLoc, locTypes map[int]*objtype.LocType) *
 
 func TestLocChangeCallsLocOpsWithPoppedArgs(t *testing.T) {
 	loc := fakeActiveLoc{id: 100, shape: 0, angle: 0}
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
-	lt200 := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 200}}
+	lt := &objtype.LocType{ID: 100}
+	lt200 := &objtype.LocType{ID: 200}
 	s := newLocChangeState(loc, map[int]*objtype.LocType{100: lt, 200: lt200})
 
 	// stack: [..., id=200, duration=3]
@@ -725,7 +725,7 @@ func TestLocChangeRequiresActiveLoc(t *testing.T) {
 func TestLocChangeRejectsZeroOrNegativeDuration(t *testing.T) {
 	for _, dur := range []int{0, -1, -100} {
 		loc := fakeActiveLoc{id: 100}
-		lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+		lt := &objtype.LocType{ID: 100}
 		s := newLocChangeState(loc, map[int]*objtype.LocType{100: lt})
 		s.PushInt(100)
 		s.PushInt(dur)
@@ -737,7 +737,7 @@ func TestLocChangeRejectsZeroOrNegativeDuration(t *testing.T) {
 
 func TestLocChangeRejectsUnknownType(t *testing.T) {
 	loc := fakeActiveLoc{id: 100}
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	lt := &objtype.LocType{ID: 100}
 	s := newLocChangeState(loc, map[int]*objtype.LocType{100: lt})
 	s.PushInt(9999) // unknown
 	s.PushInt(3)
@@ -751,7 +751,7 @@ func TestLocChangeRejectsUnknownType(t *testing.T) {
 func TestLocAddSameLayerCallsChangeOnExisting(t *testing.T) {
 	// existing loc on layer 0 (wall); LOC_ADD with shape=0 (also wall layer 0)
 	existing := fakeActiveLoc{id: 50, shape: 0, angle: 0, layer: 0}
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	lt := &objtype.LocType{ID: 100}
 	s := &ScriptState{
 		Script:      &ScriptFile{IntOperands: []int32{0}},
 		IntStack:    make([]int, StackCapacity),
@@ -789,7 +789,7 @@ func TestLocAddNoSameLayerCallsAddOnNew(t *testing.T) {
 	// existing is on a DIFFERENT layer (groundDecor=3 vs wall=0)
 	existing := fakeActiveLoc{id: 50, layer: 3}
 	created := fakeActiveLoc{id: 100, shape: 0, angle: 0, layer: 0}
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	lt := &objtype.LocType{ID: 100}
 	s := &ScriptState{
 		Script:      &ScriptFile{IntOperands: []int32{0}},
 		IntStack:    make([]int, StackCapacity),
@@ -823,7 +823,7 @@ func TestLocAddNoSameLayerCallsAddOnNew(t *testing.T) {
 // state.pointerAdd(ActiveLoc[state.intOperand]) at LocOps.ts:34.
 func TestLocAddChangeBranchSlot0(t *testing.T) {
 	existing := fakeActiveLoc{id: 50, shape: 0, angle: 0, layer: 0}
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	lt := &objtype.LocType{ID: 100}
 	s := &ScriptState{
 		Script:      &ScriptFile{IntOperands: []int32{0}},
 		IntStack:    make([]int, StackCapacity),
@@ -859,7 +859,7 @@ func TestLocAddChangeBranchSlot0(t *testing.T) {
 // leaves ActiveLoc/PtrActiveLoc untouched.
 func TestLocAddChangeBranchSlot1(t *testing.T) {
 	existing := fakeActiveLoc{id: 50, shape: 0, angle: 0, layer: 0}
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	lt := &objtype.LocType{ID: 100}
 	s := &ScriptState{
 		Script:      &ScriptFile{IntOperands: []int32{1}},
 		IntStack:    make([]int, StackCapacity),
@@ -896,7 +896,7 @@ func TestLocAddChangeBranchSlot1(t *testing.T) {
 func TestLocAddCreateBranchSlot0(t *testing.T) {
 	existing := fakeActiveLoc{id: 50, layer: 3}
 	created := fakeActiveLoc{id: 100, shape: 0, angle: 0, layer: 0}
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	lt := &objtype.LocType{ID: 100}
 	s := &ScriptState{
 		Script:      &ScriptFile{IntOperands: []int32{0}},
 		IntStack:    make([]int, StackCapacity),
@@ -932,7 +932,7 @@ func TestLocAddCreateBranchSlot0(t *testing.T) {
 func TestLocAddCreateBranchSlot1(t *testing.T) {
 	existing := fakeActiveLoc{id: 50, layer: 3}
 	created := fakeActiveLoc{id: 100, shape: 0, angle: 0, layer: 0}
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	lt := &objtype.LocType{ID: 100}
 	s := &ScriptState{
 		Script:      &ScriptFile{IntOperands: []int32{1}},
 		IntStack:    make([]int, StackCapacity),
@@ -964,7 +964,7 @@ func TestLocAddCreateBranchSlot1(t *testing.T) {
 }
 
 func TestLocAddRejectsBadDuration(t *testing.T) {
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	lt := &objtype.LocType{ID: 100}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
@@ -982,7 +982,7 @@ func TestLocAddRejectsBadDuration(t *testing.T) {
 }
 
 func TestLocAddRejectsUnknownType(t *testing.T) {
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	lt := &objtype.LocType{ID: 100}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
@@ -1000,7 +1000,7 @@ func TestLocAddRejectsUnknownType(t *testing.T) {
 }
 
 func TestLocAddRejectsBadShape(t *testing.T) {
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	lt := &objtype.LocType{ID: 100}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
@@ -1018,7 +1018,7 @@ func TestLocAddRejectsBadShape(t *testing.T) {
 }
 
 func TestLocAddRejectsBadAngle(t *testing.T) {
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	lt := &objtype.LocType{ID: 100}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
@@ -1044,7 +1044,7 @@ func TestLocAddRejectsBadAngle(t *testing.T) {
 // through to AddLoc on a bogus position. This guard mirrors the
 // existing checkCoord usage at handlers_dialog.go:190 and elsewhere.
 func TestLocAddRejectsBadCoord(t *testing.T) {
-	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	lt := &objtype.LocType{ID: 100}
 	s := &ScriptState{
 		Script:      &ScriptFile{IntOperands: []int32{0}},
 		IntStack:    make([]int, StackCapacity),
@@ -1120,7 +1120,7 @@ func TestLocDelRejectsBadDuration(t *testing.T) {
 
 func TestLocAnimCallsLocOps(t *testing.T) {
 	loc := fakeActiveLoc{id: 100}
-	seq := &objtype.SeqType{ConfigType: objtype.ConfigType{ID: 42}}
+	seq := &objtype.SeqType{ID: 42}
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),

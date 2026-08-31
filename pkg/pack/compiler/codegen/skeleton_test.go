@@ -139,7 +139,7 @@ func TestSwitchTable_AddsCases(t *testing.T) {
 func TestRuneScript_FullNameAndSwitchTable(t *testing.T) {
 	tr := &trigger.TriggerType{Identifier: "proc"}
 	sym := &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "foo"},
+		Trigger: tr, Name: "foo",
 	}
 	rs := NewRuneScript("foo.rs2", sym, tr, sym.Name, nil)
 	if rs.FullName != "[proc,foo]" {

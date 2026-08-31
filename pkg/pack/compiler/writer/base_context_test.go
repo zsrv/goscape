@@ -15,7 +15,7 @@ import (
 // the static helpers — both tables non-nil and CurIndex zero.
 func TestNewBaseContext_PopulatesJumpAndLineTables(t *testing.T) {
 	procTrig := &trigger.TriggerType{ID: 0, Identifier: "proc", SubjectMode: trigger.ModeName}
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "foo"}}
+	ss := &symbol.ServerScriptSymbol{Trigger: procTrig, Name: "foo"}
 	script := codegen.NewRuneScript("smoke.rs2", ss, procTrig, "foo", nil)
 	b := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	b.Add(codegen.Instruction{

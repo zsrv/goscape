@@ -325,7 +325,7 @@ func TestRunSmokePack_StopOnError(t *testing.T) {
 	// --stop-on-error must produce K >= 1 (every stage after the
 	// RunServerCompiler ERR — 10 downstream stages at rev-274 — should SKIP).
 	var resultLine string
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		if strings.HasPrefix(line, "Result:") {
 			resultLine = line
 			break
@@ -343,7 +343,7 @@ func TestRunSmokePack_StopOnError(t *testing.T) {
 	// stage rendered as SKIP. We look for "SKIP" preceded by a stage name
 	// other than the result-line context.
 	skipRowFound := false
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		if strings.HasPrefix(line, "Result:") {
 			continue
 		}
@@ -550,7 +550,7 @@ func TestRunSmokePack_RefDir_PerturbedReferenceSurfacesDiff(t *testing.T) {
 // firstHeaderLine returns the first stdout line that begins with "STAGE"
 // (i.e., the table header). Returns empty string if absent.
 func firstHeaderLine(stdout string) string {
-	for _, line := range strings.Split(stdout, "\n") {
+	for line := range strings.SplitSeq(stdout, "\n") {
 		if strings.HasPrefix(line, "STAGE") {
 			return line
 		}
@@ -563,13 +563,13 @@ func firstHeaderLine(stdout string) string {
 // returns the path. Fails the test if no such line is present.
 func extractOutDirPath(t *testing.T, stdout string) string {
 	t.Helper()
-	for _, line := range strings.Split(stdout, "\n") {
+	for line := range strings.SplitSeq(stdout, "\n") {
 		const prefix = "out-dir:"
-		idx := strings.Index(line, prefix)
-		if idx < 0 {
+		_, after, ok := strings.Cut(line, prefix)
+		if !ok {
 			continue
 		}
-		rest := strings.TrimSpace(line[idx+len(prefix):])
+		rest := strings.TrimSpace(after)
 		// Strip optional " (kept; --keep)" or " (auto-deleted)" suffix.
 		if paren := strings.Index(rest, " ("); paren >= 0 {
 			rest = rest[:paren]

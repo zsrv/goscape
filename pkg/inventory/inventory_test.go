@@ -368,7 +368,7 @@ func TestResetTrackingClearsFlagAndSet(t *testing.T) {
 
 func TestFromTypeSeedsLiteralStockObjAndCount(t *testing.T) {
 	tp := &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: 1},
+		ID:         1,
 		Size:       3,
 		StockObj:   []uint16{0, 7, 0},
 		StockCount: []uint16{5, 0, 0},

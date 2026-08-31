@@ -110,7 +110,7 @@ func decodeFont(title *jagfile.Jagfile, name string, quill bool) (*FontType, err
 	f := &FontType{}
 
 	// FontType.ts:46-99 — all 256 glyphs, direct char-code index.
-	for c := 0; c < 256; c++ {
+	for c := range 256 {
 		_ = index.G1() // charOffsetX — read but unused in this width-only port
 		_ = index.G1() // charOffsetY — likewise
 		wi := int(index.G2())
@@ -124,8 +124,8 @@ func decodeFont(title *jagfile.Jagfile, name string, quill bool) (*FontType, err
 				mask[j] = data.G1()
 			}
 		case 1:
-			for x := 0; x < wi; x++ {
-				for y := 0; y < hi; y++ {
+			for x := range wi {
+				for y := range hi {
 					mask[x+y*wi] = data.G1()
 				}
 			}

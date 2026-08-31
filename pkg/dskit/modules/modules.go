@@ -3,7 +3,7 @@ package modules
 import (
 	"fmt"
 	"log/slog"
-	"sort"
+	"slices"
 
 	"github.com/zsrv/goscape/pkg/dskit/services"
 )
@@ -84,10 +84,8 @@ func (m *Manager) AddDependency(name string, dependsOn ...string) error {
 			return fmt.Errorf("no such module: %s", newDep)
 		}
 
-		for _, prevDep := range m.DependenciesForModule(newDep) {
-			if prevDep == name {
-				return fmt.Errorf("found a circular dependency: %s depends on %s", newDep, name)
-			}
+		if slices.Contains(m.DependenciesForModule(newDep), name) {
+			return fmt.Errorf("found a circular dependency: %s depends on %s", newDep, name)
 		}
 	}
 
@@ -163,7 +161,7 @@ func (m *Manager) UserVisibleModuleNames() []string {
 		}
 	}
 
-	sort.Strings(result)
+	slices.Sort(result)
 
 	return result
 }
@@ -250,15 +248,12 @@ func (m *Manager) inverseDependenciesForModule(mod string) []string {
 	result := []string(nil)
 
 	for n := range m.modules {
-		for _, d := range m.DependenciesForModule(n) {
-			if d == mod {
-				result = append(result, n)
-				break
-			}
+		if slices.Contains(m.DependenciesForModule(n), mod) {
+			result = append(result, n)
 		}
 	}
 
-	sort.Strings(result)
+	slices.Sort(result)
 	return result
 }
 
@@ -273,6 +268,6 @@ func (m *Manager) DependenciesForModule(module string) []string {
 	for d := range dedup {
 		result = append(result, d)
 	}
-	sort.Strings(result)
+	slices.Sort(result)
 	return result
 }

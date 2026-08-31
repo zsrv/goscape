@@ -55,7 +55,7 @@ func TestNAI206_DeferredFieldsExist(t *testing.T) {
 		{"ArrayDeclarationStatement.Symbol", &ArrayDeclarationStatement{}, "Symbol", reflect.Interface},
 
 		// SwitchStatement
-		{"SwitchStatement.DefaultCase", &SwitchStatement{}, "DefaultCase", reflect.Ptr},
+		{"SwitchStatement.DefaultCase", &SwitchStatement{}, "DefaultCase", reflect.Pointer},
 		{"SwitchStatement.Type", &SwitchStatement{}, "Type", reflect.Interface},
 	}
 	for _, c := range cases {

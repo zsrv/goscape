@@ -35,7 +35,7 @@ func TestDefaultOp_NoTriggerEmitsDebug_NodeDebugTrue(t *testing.T) {
 	s.cfg.NodeDebug = true
 
 	npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
-	npc.typ = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: npc.typeId, DebugName: "test_npc"}}
+	npc.typ = &objtype.NpcType{ID: npc.typeId, DebugName: "test_npc"}
 	p.SetInteraction(InteractionEngine, npc, 1, -1) // targetOp=1 → ApNpc1; +7 → OpNpc1
 
 	defaultOp(p, nil, nil)
@@ -60,7 +60,7 @@ func TestDefaultOp_NoTriggerSuppressed_NodeDebugFalse(t *testing.T) {
 	s.cfg.NodeDebug = false
 
 	npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
-	npc.typ = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: npc.typeId, DebugName: "test_npc"}}
+	npc.typ = &objtype.NpcType{ID: npc.typeId, DebugName: "test_npc"}
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 
 	defaultOp(p, nil, nil)
@@ -80,7 +80,7 @@ func TestDefaultOp_DebugSuppressed_OpTriggerPresent(t *testing.T) {
 	s.cfg.NodeDebug = true
 
 	npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
-	npc.typ = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: npc.typeId, DebugName: "test_npc"}}
+	npc.typ = &objtype.NpcType{ID: npc.typeId, DebugName: "test_npc"}
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 
 	stub := &script.ScriptFile{Name: "[opnpc1,test_npc]"}
@@ -98,7 +98,7 @@ func TestDefaultOp_DebugSuppressed_ApTriggerPresent(t *testing.T) {
 	s.cfg.NodeDebug = true
 
 	npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
-	npc.typ = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: npc.typeId, DebugName: "test_npc"}}
+	npc.typ = &objtype.NpcType{ID: npc.typeId, DebugName: "test_npc"}
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 
 	stub := &script.ScriptFile{Name: "[apnpc1,test_npc]"}
@@ -116,7 +116,7 @@ func TestDefaultOp_DebugnameNpc_FallbackToTypeId(t *testing.T) {
 	s.cfg.NodeDebug = true
 
 	npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
-	npc.typ = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: npc.typeId, DebugName: ""}} // empty
+	npc.typ = &objtype.NpcType{ID: npc.typeId, DebugName: ""} // empty
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 
 	defaultOp(p, nil, nil)
@@ -134,7 +134,7 @@ func TestDefaultOp_DebugnameLoc(t *testing.T) {
 	s.cfg.NodeDebug = true
 
 	s.locTypes.Configs[42] = &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 42, DebugName: "newbie_door1"},
+		ID: 42, DebugName: "newbie_door1",
 	}
 	loc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 42, 10, 0)
 	p.SetInteraction(InteractionEngine, loc, 1, -1)
@@ -153,7 +153,7 @@ func TestDefaultOp_DebugnameObj(t *testing.T) {
 	s.cfg.NodeDebug = true
 
 	s.objTypes.Configs[42] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 42, DebugName: "bones"},
+		ID: 42, DebugName: "bones",
 	}
 	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleForever, 42, 1)
 	p.SetInteraction(InteractionEngine, obj, 1, -1)
@@ -238,7 +238,7 @@ func TestDefaultOp_DebugnameSubjectTypeOverride(t *testing.T) {
 	s.cfg.NodeDebug = true
 
 	s.objTypes.Configs[42] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 42, DebugName: "bones"},
+		ID: 42, DebugName: "bones",
 	}
 	other, otherWait := makeInteractionPlayer(t, s, 101, 100, 0)
 	defer otherWait()
@@ -279,7 +279,7 @@ func TestDefaultOp_ClearWaypointsAlwaysFires(t *testing.T) {
 	s.cfg.NodeDebug = false
 
 	npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
-	npc.typ = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: npc.typeId, DebugName: "test_npc"}}
+	npc.typ = &objtype.NpcType{ID: npc.typeId, DebugName: "test_npc"}
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.waypointIndex = 5
 
@@ -292,13 +292,12 @@ func TestDefaultOp_ClearWaypointsAlwaysFires(t *testing.T) {
 
 func TestDefaultOp_NothingInteresting_AlwaysFires(t *testing.T) {
 	for _, debug := range []bool{true, false} {
-		debug := debug
 		t.Run(strconv.FormatBool(debug), func(t *testing.T) {
 			s, p, received := makeDefaultOpFixture(t)
 			s.cfg.NodeDebug = debug
 
 			npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
-			npc.typ = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: npc.typeId, DebugName: "test_npc"}}
+			npc.typ = &objtype.NpcType{ID: npc.typeId, DebugName: "test_npc"}
 			p.SetInteraction(InteractionEngine, npc, 1, -1)
 
 			defaultOp(p, nil, nil)

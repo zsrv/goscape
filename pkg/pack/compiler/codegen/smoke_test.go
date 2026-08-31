@@ -159,17 +159,15 @@ require_player;
 
 	root := symbol.NewSymbolTable(nil)
 	requireSym := &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{
-			Trigger: trigger.CommandTrigger,
-			Name:    "require_player",
-			// Parameters must equal typ.MetaUnit (no params); TypeChecker
-			// checks Parameters != MetaUnit and calls .Representation() on it,
-			// panicking on nil.
-			Parameters: typ.MetaUnit,
-			// Returns must be non-nil so symbolToType returns a non-nil
-			// typ.Type; a nil Returns causes resolveSymbol to skip the symbol.
-			Returns: typ.MetaUnit,
-		},
+		Trigger: trigger.CommandTrigger,
+		Name:    "require_player",
+		// Parameters must equal typ.MetaUnit (no params); TypeChecker
+		// checks Parameters != MetaUnit and calls .Representation() on it,
+		// panicking on nil.
+		Parameters: typ.MetaUnit,
+		// Returns must be non-nil so symbolToType returns a non-nil
+		// typ.Type; a nil Returns causes resolveSymbol to skip the symbol.
+		Returns: typ.MetaUnit,
 	}
 	root.Insert(symbol.SymbolTypeServerScript(trigger.CommandTrigger), requireSym)
 

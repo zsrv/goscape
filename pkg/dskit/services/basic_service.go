@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"sync"
-
-	"go.uber.org/atomic"
+	"sync/atomic"
 )
 
 // StartingFn is called when service enters Starting state. If StartingFn returns
@@ -343,14 +342,12 @@ func (b *BasicService) AddListener(listener Listener) func() {
 	b.listeners = append(b.listeners, listenerCh)
 
 	stop := make(chan struct{})
-	stopClosed := atomic.NewBool(false)
+	var stopClosed atomic.Bool
 
 	wg := sync.WaitGroup{}
-	wg.Add(1)
 
 	// each listener has its own goroutine, processing events.
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			// Process events from service.
@@ -364,7 +361,7 @@ func (b *BasicService) AddListener(listener Listener) func() {
 				return
 			}
 		}
-	}()
+	})
 
 	return func() {
 		if stopClosed.CompareAndSwap(false, true) {

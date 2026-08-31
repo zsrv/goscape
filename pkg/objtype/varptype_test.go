@@ -203,7 +203,7 @@ func TestParseVarpTypes_DiscoversRunIDFromClientStream(t *testing.T) {
 
 func TestVarpTypeConfigs_ByName_HitViaConfigNames(t *testing.T) {
 	vtc := &VarpTypeConfigs{
-		Configs:     []*VarPlayerType{{ConfigType: ConfigType{ID: 0, DebugName: "first"}}, {ConfigType: ConfigType{ID: 1, DebugName: "second"}}},
+		Configs:     []*VarPlayerType{{ID: 0, DebugName: "first"}, {ID: 1, DebugName: "second"}},
 		ConfigNames: map[string]int{"first": 0, "second": 1},
 	}
 	got := vtc.ByName("second")
@@ -217,7 +217,7 @@ func TestVarpTypeConfigs_ByName_HitViaConfigNames(t *testing.T) {
 
 func TestVarpTypeConfigs_ByName_MissReturnsNil(t *testing.T) {
 	vtc := &VarpTypeConfigs{
-		Configs:     []*VarPlayerType{{ConfigType: ConfigType{ID: 0, DebugName: "only"}}},
+		Configs:     []*VarPlayerType{{ID: 0, DebugName: "only"}},
 		ConfigNames: map[string]int{"only": 0},
 	}
 	if got := vtc.ByName("absent"); got != nil {
@@ -237,7 +237,7 @@ func TestVarpTypeConfigs_ByName_StaleIndexFallsThroughToLinearScan(t *testing.T)
 	// Lookup must NOT panic and must fall through to the linear scan,
 	// which finds "fresh" at id=1 by DebugName equality.
 	vtc := &VarpTypeConfigs{
-		Configs:     []*VarPlayerType{{ConfigType: ConfigType{ID: 0, DebugName: "other"}}, {ConfigType: ConfigType{ID: 1, DebugName: "fresh"}}},
+		Configs:     []*VarPlayerType{{ID: 0, DebugName: "other"}, {ID: 1, DebugName: "fresh"}},
 		ConfigNames: map[string]int{"fresh": 5},
 	}
 	got := vtc.ByName("fresh")
@@ -253,7 +253,7 @@ func TestVarpTypeConfigs_ByName_LinearScanWhenConfigNamesEmpty(t *testing.T) {
 	// Some test fixtures construct Configs without populating ConfigNames.
 	// ByName must still resolve by DebugName.
 	vtc := &VarpTypeConfigs{
-		Configs:     []*VarPlayerType{{ConfigType: ConfigType{ID: 0, DebugName: "scan_me"}}},
+		Configs:     []*VarPlayerType{{ID: 0, DebugName: "scan_me"}},
 		ConfigNames: nil,
 	}
 	got := vtc.ByName("scan_me")

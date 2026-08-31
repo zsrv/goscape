@@ -75,10 +75,10 @@ func BenchmarkHuntPlayers(b *testing.B) {
 		b.Run(map[int]string{8: "players8", 40: "players40"}[count], func(b *testing.B) {
 			s := &Server{log: discardLogger(), players: newPlayerList(2048)}
 			typ := &objtype.NpcType{
-				ConfigType: objtype.ConfigType{ID: 0, DebugName: "bench_npc"},
-				Size:       1,
-				Stats:      []uint16{0, 0, 0, 10, 0, 0},
-				Category:   -1,
+				ID: 0, DebugName: "bench_npc",
+				Size:     1,
+				Stats:    []uint16{0, 0, 0, 10, 0, 0},
+				Category: -1,
 			}
 			n := NewNpc(1, 0, 3094, 3106, 0, typ)
 			n.server = s

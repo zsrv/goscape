@@ -21,9 +21,9 @@ func TestRemoveNpcCollisionTogglesOff(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7},
-		Size:       1,
-		BlockWalk:  objtype.BlockWalkNPC,
+		ID:        7,
+		Size:      1,
+		BlockWalk: objtype.BlockWalkNPC,
 	}
 	n := NewNpc(0, 7, 100, 100, 0, typ)
 	n.nid = 1
@@ -51,7 +51,7 @@ func TestRemoveNpcCollisionTogglesOff(t *testing.T) {
 func TestRemoveNpcRespawnLifecycleSetsLifecycleTick(t *testing.T) {
 	s := newTestServer(t)
 	setPlayerCountForTest(t, s, 0) // empty world: scale factor 1.0
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	typ := &objtype.NpcType{ID: 7}
 	n := NewNpc(0, 7, 100, 100, 0, typ)
 	n.nid = 1
 	n.server = s
@@ -73,7 +73,7 @@ func TestRemoveNpcRespawnLifecycleSetsLifecycleTick(t *testing.T) {
 // by the NAI-19 test suite below; this test focuses on lifecycleTick.)
 func TestRemoveNpcDespawnLifecycleSkipsLifecycleTick(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	typ := &objtype.NpcType{ID: 7}
 	n := NewNpc(0, 7, 100, 100, 0, typ)
 	n.nid = 1
 	n.server = s
@@ -147,7 +147,7 @@ func TestAddNpcRespawnSpawnSkipsSlotAlloc(t *testing.T) {
 // the same pointer (no fresh allocation).
 func TestRsbufLifecycle_FirstSpawnRegistersOnly(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	typ := &objtype.NpcType{ID: 7, Size: 1}
 	n := newRegisteredNpc(t, s, typ, true)
 
 	firstEntry := s.rsbuf.NpcForTest(int32(n.nid))
@@ -176,7 +176,7 @@ func TestRsbufLifecycle_FirstSpawnRegistersOnly(t *testing.T) {
 // clears it.
 func TestRsbufLifecycle_RespawnRemoveNpcPreservesEntry(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	typ := &objtype.NpcType{ID: 7, Size: 1}
 	n := newRegisteredNpc(t, s, typ, true)
 	n.lifecycle = NpcLifecycleRespawn
 
@@ -201,7 +201,7 @@ func TestRsbufLifecycle_RespawnRemoveNpcPreservesEntry(t *testing.T) {
 // branch refactor didn't accidentally skip the clear.
 func TestRsbufLifecycle_DespawnRemoveNpcUnregisters(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	typ := &objtype.NpcType{ID: 7, Size: 1}
 	n := newRegisteredNpc(t, s, typ, true)
 	n.lifecycle = NpcLifecycleDespawn
 
@@ -222,7 +222,7 @@ func TestRsbufLifecycle_DespawnRemoveNpcUnregisters(t *testing.T) {
 // at World.ts:1264-1265.
 func TestAddNpcTeleportsToStart(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	typ := &objtype.NpcType{ID: 7, Size: 1}
 	n := NewNpc(0, 7, 100, 100, 0, typ)
 	if err := s.addNpc(n, -1, true); err != nil {
 		t.Fatalf("first addNpc: %v", err)
@@ -522,7 +522,7 @@ func TestResetEntityForRespawn_SeedsIntToZero(t *testing.T) {
 		{Type: objtype.ScriptVarTypeInt, Name: "int_var"},
 	})
 
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	npcType := &objtype.NpcType{ID: 0}
 	n := NewNpc(1, 0, 100, 100, 0, npcType)
 	n.varns = []int32{42} // pre-write to verify reset overwrites
 	s.resetEntityForRespawn(n)
@@ -541,7 +541,7 @@ func TestResetEntityForRespawn_SeedsPlayerUidToMinusOne(t *testing.T) {
 		{Type: objtype.ScriptVarTypePlayerUid, Name: "npc_macro_event_target"},
 	})
 
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	npcType := &objtype.NpcType{ID: 0}
 	n := NewNpc(1, 0, 100, 100, 0, npcType)
 	s.resetEntityForRespawn(n)
 
@@ -559,7 +559,7 @@ func TestResetEntityForRespawn_SeedsCoordToMinusOne(t *testing.T) {
 		{Type: objtype.ScriptVarTypeCoord, Name: "npc_start_coord"},
 	})
 
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	npcType := &objtype.NpcType{ID: 0}
 	n := NewNpc(1, 0, 100, 100, 0, npcType)
 	s.resetEntityForRespawn(n)
 
@@ -577,7 +577,7 @@ func TestResetEntityForRespawn_SeedsNpcUidToMinusOne(t *testing.T) {
 		{Type: objtype.ScriptVarTypeNpcUid, Name: "rantz_attacking_chompy"},
 	})
 
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	npcType := &objtype.NpcType{ID: 0}
 	n := NewNpc(1, 0, 100, 100, 0, npcType)
 	s.resetEntityForRespawn(n)
 
@@ -595,7 +595,7 @@ func TestResetEntityForRespawn_SeedsStringToEmpty(t *testing.T) {
 		{Type: objtype.ScriptVarTypeString, Name: "string_var"},
 	})
 
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	npcType := &objtype.NpcType{ID: 0}
 	n := NewNpc(1, 0, 100, 100, 0, npcType)
 	// Note: NpcVarNString accessor lands in T5; test reads field
 	// directly here. After T5, this can switch to NpcVarNString.
@@ -613,7 +613,7 @@ func TestResetEntityForRespawn_NilVarnTypes_NoOp(t *testing.T) {
 	s := newTestServer(t)
 	// Do NOT seed varnTypes; leave nil.
 
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	npcType := &objtype.NpcType{ID: 0}
 	n := NewNpc(1, 0, 100, 100, 0, npcType)
 	s.resetEntityForRespawn(n)
 
@@ -637,7 +637,7 @@ func TestAddNpc_FreshSpawn_PlayerUidVarnReadsMinusOne(t *testing.T) {
 		{Type: objtype.ScriptVarTypePlayerUid, Name: "npc_macro_event_target"},
 	})
 
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	npcType := &objtype.NpcType{ID: 0}
 	n := NewNpc(1, 0, 100, 100, 0, npcType)
 	// addNpc(n, duration, firstSpawn). firstSpawn=true allocates nid.
 	if err := s.addNpc(n, -1, true); err != nil {
@@ -660,7 +660,7 @@ func TestAddNpc_RespawnAfterChangeType_ReseedsVarns(t *testing.T) {
 		{Type: objtype.ScriptVarTypePlayerUid, Name: "npc_macro_event_target"},
 	})
 
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	npcType := &objtype.NpcType{ID: 0}
 	n := NewNpc(1, 0, 100, 100, 0, npcType)
 	if err := s.addNpc(n, -1, true); err != nil {
 		t.Fatalf("addNpc(firstSpawn=true): %v", err)
@@ -688,7 +688,7 @@ func TestAddNpc_RespawnAfterChangeType_ReseedsVarns(t *testing.T) {
 // Mirrors TS World.ts:1314: this.npcs.remove(npc.nid).
 func TestRemoveNpc_DespawnLifecycle_ClearsRegistrySlot(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	typ := &objtype.NpcType{ID: 7}
 	n := NewNpc(0, 7, 100, 100, 0, typ)
 	n.nid = 1
 	n.server = s
@@ -710,7 +710,7 @@ func TestRemoveNpc_DespawnLifecycle_ClearsRegistrySlot(t *testing.T) {
 // queue. Mirrors TS World.ts:1315: npc.cleanup().
 func TestRemoveNpc_DespawnLifecycle_RunsCleanup(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	typ := &objtype.NpcType{ID: 7}
 	n := NewNpc(0, 7, 100, 100, 0, typ)
 	n.nid = 1
 	n.server = s
@@ -741,7 +741,7 @@ func TestRemoveNpc_DespawnLifecycle_RunsCleanup(t *testing.T) {
 // the NPC will respawn in place at lifecycleTick==0 (see npc_ai.go:31-45).
 func TestRemoveNpc_RespawnLifecycle_PreservesRegistry(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	typ := &objtype.NpcType{ID: 7}
 	n := NewNpc(0, 7, 100, 100, 0, typ)
 	n.nid = 1
 	n.uid = (7 << 16) | 1
@@ -815,7 +815,7 @@ func TestCompactNpcLoop_TailNilledForGC(t *testing.T) {
 // Moved here from T2 because compactNpcLoop is defined in T3.
 func TestRemoveNpc_DespawnLifecycle_SlotReusable(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	typ := &objtype.NpcType{ID: 7}
 	n1 := NewNpc(0, 7, 100, 100, 0, typ)
 	n1.nid = 1
 	n1.server = s
@@ -849,7 +849,7 @@ func newServerForAddNpcAt(t *testing.T, typ *objtype.NpcType) *Server {
 }
 
 func TestAddNpcAt_AllocsNidAndRegisters(t *testing.T) {
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1}
+	typ := &objtype.NpcType{ID: 1, Size: 1}
 	s := newServerForAddNpcAt(t, typ)
 	w := worldVarsView{s: s}
 	npc, err := w.AddNpcAt(0, 3200, 3300, 1, -1)
@@ -872,7 +872,7 @@ func TestAddNpcAt_AllocsNidAndRegisters(t *testing.T) {
 }
 
 func TestAddNpcAt_SetsDespawnLifecycle(t *testing.T) {
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1}
+	typ := &objtype.NpcType{ID: 1, Size: 1}
 	s := newServerForAddNpcAt(t, typ)
 	w := worldVarsView{s: s}
 	npc, err := w.AddNpcAt(0, 3200, 3300, 1, -1)
@@ -886,7 +886,7 @@ func TestAddNpcAt_SetsDespawnLifecycle(t *testing.T) {
 }
 
 func TestAddNpcAt_WritesLifecycleTick(t *testing.T) {
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1}
+	typ := &objtype.NpcType{ID: 1, Size: 1}
 	s := newServerForAddNpcAt(t, typ)
 	w := worldVarsView{s: s}
 	npc, err := w.AddNpcAt(0, 3200, 3300, 1, 50)
@@ -900,7 +900,7 @@ func TestAddNpcAt_WritesLifecycleTick(t *testing.T) {
 }
 
 func TestAddNpcAt_RegistryFull_ReturnsErrNpcsFull(t *testing.T) {
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1}
+	typ := &objtype.NpcType{ID: 1, Size: 1}
 	s := newServerForAddNpcAt(t, typ)
 	// Fill all slots 1..N-1 (slot 0 stays nil per allocator convention).
 	for i := 1; i < len(s.npcs); i++ {
@@ -915,7 +915,7 @@ func TestAddNpcAt_RegistryFull_ReturnsErrNpcsFull(t *testing.T) {
 
 func TestAddNpcAt_PopulatesSizeBlockWalkMoveRestrict(t *testing.T) {
 	typ := &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: 1},
+		ID:           1,
 		Size:         2,
 		BlockWalk:    objtype.BlockWalkNPC,
 		MoveRestrict: 1, // any non-zero MoveRestrict for the test
@@ -955,14 +955,14 @@ func TestSpawnLoopNidGap(t *testing.T) {
 	s := newTestServer(t)
 
 	f2pTyp := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 1},
-		Size:       1,
-		Members:    false,
+		ID:      1,
+		Size:    1,
+		Members: false,
 	}
 	membersTyp := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 2},
-		Size:       1,
-		Members:    true,
+		ID:      2,
+		Size:    1,
+		Members: true,
 	}
 
 	worldMembers := false

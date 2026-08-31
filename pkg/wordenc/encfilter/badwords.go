@@ -3,6 +3,8 @@ package encfilter
 // badwords.go mirrors TS WordEncBadWords (Engine-TS/src/cache/wordenc/
 // WordEncBadWords.ts).
 
+import "slices"
+
 // badWords holds the bad word list, per-word combo lists, and a back-reference
 // to fragments for the substring-validity check.
 type badWords struct {
@@ -15,8 +17,8 @@ type badWords struct {
 // loop 0..1 in WordEncBadWords.ts:14-19). Walks bad words from len-1 down to 0.
 func (b *badWords) filter(chars []rune) {
 	for range 2 {
-		for i := len(b.bads) - 1; i >= 0; i-- {
-			b.filterBadCombinations(b.combos[i], chars, b.bads[i])
+		for i, v := range slices.Backward(b.bads) {
+			b.filterBadCombinations(b.combos[i], chars, v)
 		}
 	}
 }

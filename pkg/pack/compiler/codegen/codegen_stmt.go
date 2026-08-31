@@ -4,6 +4,7 @@ package codegen
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
@@ -212,8 +213,7 @@ func (g *CodeGenerator) visitAssignment(as *ast.AssignmentStatement) {
 	g.visitExpressions(as.Expressions)
 
 	// Reverse-iterate so pops match RHS push order.
-	for i := len(vars) - 1; i >= 0; i-- {
-		variable := vars[i]
+	for _, variable := range slices.Backward(vars) {
 		ref := referenceOf(variable)
 		if ref == nil {
 			diagnostics.ReportErrorAt(g.diagnostics, variable, diagnostics.MessageSymbolIsNull)

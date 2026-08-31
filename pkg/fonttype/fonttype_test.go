@@ -94,7 +94,7 @@ func TestDrawWidth_PerCharCode(t *testing.T) {
 func TestQuillSpaceRule(t *testing.T) {
 	fonts := load274(t)
 	// Non-quill: space == advance of 'i' (105).
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if got, want := fonts[i].DrawWidth(' '), fonts[i].DrawWidth('i'); got != want {
 			t.Errorf("non-quill font %d: space advance %d, want == 'i' advance %d", i, got, want)
 		}

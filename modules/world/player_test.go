@@ -1246,7 +1246,8 @@ func TestPlayer_GetCollisionStrategy_PerMoveRestrict(t *testing.T) {
 	}
 }
 
-func ptrType(t collision.Type) *collision.Type { return &t }
+//go:fix inline
+func ptrType(t collision.Type) *collision.Type { return new(t) }
 
 // TestPlayerSetVisibilityDefault pins TS Player.setVisibility(DEFAULT) at
 // Engine-TS/src/engine/entity/Player.ts:1875-1891. DEFAULT arm sets

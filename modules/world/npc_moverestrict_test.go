@@ -69,7 +69,7 @@ func TestNpcMoveRestrictBehavior(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			typ := &objtype.NpcType{
-				ConfigType:   objtype.ConfigType{ID: 0, DebugName: "mr"},
+				ID: 0, DebugName: "mr",
 				MoveRestrict: c.raw,
 				RespawnRate:  50,
 			}

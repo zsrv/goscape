@@ -2075,7 +2075,7 @@ func TestGDataNoAlloc(t *testing.T) {
 func BenchmarkG1(b *testing.B) {
 	p := &Packet{Data: []byte{0x42}}
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		p.Pos = 0
 		_ = p.G1()
 	}
@@ -2084,7 +2084,7 @@ func BenchmarkG1(b *testing.B) {
 func BenchmarkG2(b *testing.B) {
 	p := &Packet{Data: []byte{0x01, 0x02}}
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		p.Pos = 0
 		_ = p.G2()
 	}
@@ -2093,7 +2093,7 @@ func BenchmarkG2(b *testing.B) {
 func BenchmarkG4(b *testing.B) {
 	p := &Packet{Data: []byte{0x01, 0x02, 0x03, 0x04}}
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		p.Pos = 0
 		_ = p.G4()
 	}
@@ -2103,7 +2103,7 @@ func BenchmarkGData(b *testing.B) {
 	p := &Packet{Data: []byte{1, 2, 3, 4, 5, 6, 7, 8}}
 	dest := make([]byte, 8)
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		p.Pos = 0
 		p.GData(dest, 8)
 	}
@@ -2149,7 +2149,7 @@ func TestPJStrNoAlloc(t *testing.T) {
 func BenchmarkP1(b *testing.B) {
 	p := NewPacket(make([]byte, 0, 64))
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		p.Reset()
 		p.P1(0x42)
 	}
@@ -2158,7 +2158,7 @@ func BenchmarkP1(b *testing.B) {
 func BenchmarkP4(b *testing.B) {
 	p := NewPacket(make([]byte, 0, 64))
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		p.Reset()
 		p.P4(0xDEADBEEF)
 	}
@@ -2167,7 +2167,7 @@ func BenchmarkP4(b *testing.B) {
 func BenchmarkPJStr(b *testing.B) {
 	p := NewPacket(make([]byte, 0, 64))
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		p.Reset()
 		p.PJStr("username", 0)
 	}

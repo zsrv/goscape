@@ -930,7 +930,7 @@ func TestNewComponentTypeDefaults(t *testing.T) {
 
 func TestComponentTypeConfigs_ByName_HitViaConfigNames(t *testing.T) {
 	cc := &ComponentTypeConfigs{
-		Configs:     []*ComponentType{{ConfigType: ConfigType{ID: 0, DebugName: "first"}}, {ConfigType: ConfigType{ID: 1, DebugName: "second"}}},
+		Configs:     []*ComponentType{{ID: 0, DebugName: "first"}, {ID: 1, DebugName: "second"}},
 		ConfigNames: map[string]int{"first": 0, "second": 1},
 	}
 	got := cc.ByName("second")
@@ -944,7 +944,7 @@ func TestComponentTypeConfigs_ByName_HitViaConfigNames(t *testing.T) {
 
 func TestComponentTypeConfigs_ByName_MissReturnsNil(t *testing.T) {
 	cc := &ComponentTypeConfigs{
-		Configs:     []*ComponentType{{ConfigType: ConfigType{ID: 0, DebugName: "only"}}},
+		Configs:     []*ComponentType{{ID: 0, DebugName: "only"}},
 		ConfigNames: map[string]int{"only": 0},
 	}
 	if got := cc.ByName("absent"); got != nil {
@@ -961,7 +961,7 @@ func TestComponentTypeConfigs_ByName_NilReceiverReturnsNil(t *testing.T) {
 
 func TestComponentTypeConfigs_ByName_StaleIndexFallsThroughToLinearScan(t *testing.T) {
 	cc := &ComponentTypeConfigs{
-		Configs:     []*ComponentType{{ConfigType: ConfigType{ID: 0, DebugName: "other"}}, {ConfigType: ConfigType{ID: 1, DebugName: "fresh"}}},
+		Configs:     []*ComponentType{{ID: 0, DebugName: "other"}, {ID: 1, DebugName: "fresh"}},
 		ConfigNames: map[string]int{"fresh": 5},
 	}
 	got := cc.ByName("fresh")
@@ -975,7 +975,7 @@ func TestComponentTypeConfigs_ByName_StaleIndexFallsThroughToLinearScan(t *testi
 
 func TestComponentTypeConfigs_ByName_LinearScanWhenConfigNamesEmpty(t *testing.T) {
 	cc := &ComponentTypeConfigs{
-		Configs:     []*ComponentType{{ConfigType: ConfigType{ID: 0, DebugName: "scan_me"}}},
+		Configs:     []*ComponentType{{ID: 0, DebugName: "scan_me"}},
 		ConfigNames: nil,
 	}
 	got := cc.ByName("scan_me")

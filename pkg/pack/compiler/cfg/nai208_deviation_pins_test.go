@@ -25,7 +25,7 @@ import (
 // struct (not a numeric typedef) and the singletons are accessed via
 // package-level *PointerType vars.
 func TestPin_NAI208_D_POINTERTYPE_PTR_SINGLETON(t *testing.T) {
-	v := reflect.TypeOf(pointer.PointerType{})
+	v := reflect.TypeFor[pointer.PointerType]()
 	if v.Kind() != reflect.Struct {
 		t.Errorf("PointerType.Kind() = %v, want Struct", v.Kind())
 	}
@@ -51,13 +51,13 @@ func TestPin_NAI208_D_POINTERSET_MAP_STRUCT(t *testing.T) {
 // TestPin_NAI208_D_POINTERHOLDER_PTRSET pins that PointerHolder fields are
 // *PointerSet (not bare maps).
 func TestPin_NAI208_D_POINTERHOLDER_PTRSET(t *testing.T) {
-	ty := reflect.TypeOf(pointer.PointerHolder{})
+	ty := reflect.TypeFor[pointer.PointerHolder]()
 	for _, fname := range []string{"Required", "Set", "Corrupted"} {
 		f, ok := ty.FieldByName(fname)
 		if !ok {
 			t.Fatalf("PointerHolder.%s missing", fname)
 		}
-		if f.Type != reflect.TypeOf((*pointer.PointerSet)(nil)) {
+		if f.Type != reflect.TypeFor[*pointer.PointerSet]() {
 			t.Errorf("PointerHolder.%s type = %v, want *pointer.PointerSet", fname, f.Type)
 		}
 	}
@@ -66,7 +66,7 @@ func TestPin_NAI208_D_POINTERHOLDER_PTRSET(t *testing.T) {
 // TestPin_NAI208_D_SYMBOL_NO_METHOD_CYCLE_AVOID pins that GetPointers lives
 // on cfg.PointerChecker (not on symbol.ScriptSymbol).
 func TestPin_NAI208_D_SYMBOL_NO_METHOD_CYCLE_AVOID(t *testing.T) {
-	ty := reflect.TypeOf((*PointerChecker)(nil))
+	ty := reflect.TypeFor[*PointerChecker]()
 	if _, ok := ty.MethodByName("GetPointers"); !ok {
 		t.Error("cfg.PointerChecker.GetPointers missing — symbol-cycle-avoidance broken")
 	}
@@ -76,7 +76,7 @@ func TestPin_NAI208_D_SYMBOL_NO_METHOD_CYCLE_AVOID(t *testing.T) {
 // SetSetsPointerTriggerFn + DefaultSetsPointerTrigger so subclasses can
 // install + delegate to the base.
 func TestPin_NAI208_D_VIRTUAL_VIA_FNFIELD(t *testing.T) {
-	ty := reflect.TypeOf((*PointerChecker)(nil))
+	ty := reflect.TypeFor[*PointerChecker]()
 	if _, ok := ty.MethodByName("SetSetsPointerTriggerFn"); !ok {
 		t.Error("PointerChecker.SetSetsPointerTriggerFn missing")
 	}
@@ -89,12 +89,12 @@ func TestPin_NAI208_D_VIRTUAL_VIA_FNFIELD(t *testing.T) {
 // []Instruction (by-value), so &block.Instructions[i] is a stable map key
 // post-codegen.
 func TestPin_NAI208_D_INSTRUCTION_POINTER_KEY(t *testing.T) {
-	ty := reflect.TypeOf(codegen.Block{})
+	ty := reflect.TypeFor[codegen.Block]()
 	f, ok := ty.FieldByName("Instructions")
 	if !ok {
 		t.Fatal("Block.Instructions missing")
 	}
-	if f.Type.Kind() != reflect.Slice || f.Type.Elem() != reflect.TypeOf(codegen.Instruction{}) {
+	if f.Type.Kind() != reflect.Slice || f.Type.Elem() != reflect.TypeFor[codegen.Instruction]() {
 		t.Errorf("Block.Instructions type = %v, want []Instruction (by-value)", f.Type)
 	}
 }

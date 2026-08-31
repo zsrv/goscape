@@ -53,14 +53,14 @@ func setupLookupServer(t *testing.T) *Server {
 		Configs: make([]*objtype.NpcType, 100),
 	}
 	s.npcTypes.Configs[7] = &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7, DebugName: "hans"},
-		Name:       "Hans",
-		Category:   5,
+		ID: 7, DebugName: "hans",
+		Name:     "Hans",
+		Category: 5,
 	}
 	s.npcTypes.Configs[8] = &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 8, DebugName: "other"},
-		Name:       "Other",
-		Category:   9,
+		ID: 8, DebugName: "other",
+		Name:     "Other",
+		Category: 9,
 	}
 	return s
 }

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/zsrv/goscape/pkg/pack"
 	"github.com/zsrv/goscape/pkg/unpack/internal/model"
@@ -171,10 +172,8 @@ func unpackLocModels(cfg *ConfigIdx, id int, warnf func(string, ...any)) LocMode
 //
 // TS source: LocConfig.ts:157-161 @2e3bcf43.
 func exclusiveAdd(collection []string, value string) []string {
-	for _, v := range collection {
-		if v == value {
-			return collection
-		}
+	if slices.Contains(collection, value) {
+		return collection
 	}
 	return append(collection, value)
 }

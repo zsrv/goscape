@@ -18,10 +18,8 @@ import (
 func newReturnOnlyScript(name string) *codegen.RuneScript {
 	tr := &trigger.TriggerType{ID: 0, Identifier: "proc"}
 	sym := &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{
-			Trigger: tr,
-			Name:    name,
-		},
+		Trigger: tr,
+		Name:    name,
 	}
 	rs := codegen.NewRuneScript("test.rs2", sym, tr, name, nil)
 	b := codegen.NewBlock(&codegen.Label{Name: "entry"})
@@ -80,7 +78,7 @@ func TestPointerChecker_GetGraphCaches(t *testing.T) {
 func TestPointerChecker_CommandRequiresPropagates(t *testing.T) {
 	tr := &trigger.TriggerType{ID: 0, Identifier: "proc"}
 	sym := &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "p1"},
+		Trigger: tr, Name: "p1",
 	}
 	rs := codegen.NewRuneScript("test.rs2", sym, tr, "p1", nil)
 	b := codegen.NewBlock(&codegen.Label{Name: "entry"})
@@ -105,8 +103,8 @@ func TestPointerChecker_CommandRequiresPropagates(t *testing.T) {
 // gosubs B which gosubs A — both calls must terminate without recursing.
 func TestPointerChecker_RecursiveGosubHandled(t *testing.T) {
 	tr := &trigger.TriggerType{ID: 0, Identifier: "proc"}
-	symA := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "a"}}
-	symB := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "b"}}
+	symA := &symbol.ServerScriptSymbol{Trigger: tr, Name: "a"}
+	symB := &symbol.ServerScriptSymbol{Trigger: tr, Name: "b"}
 
 	rsA := codegen.NewRuneScript("test.rs2", symA, tr, "a", nil)
 	bA := codegen.NewBlock(&codegen.Label{Name: "entry"})

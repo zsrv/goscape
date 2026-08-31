@@ -67,18 +67,18 @@ func (rle *runLengthEncoding) EmitPending(c *crc) {
 	n := rle.lastCnt
 	if c != nil {
 		var tmp [256]byte
-		for i := 0; i < n; i++ {
+		for i := range n {
 			tmp[i] = rle.lastVal
 		}
 		c.update(tmp[:n])
 	}
 	if n < 4 {
-		for k := 0; k < n; k++ {
+		for range n {
 			rle.buf[rle.idx] = rle.lastVal
 			rle.idx++
 		}
 	} else {
-		for k := 0; k < 4; k++ {
+		for range 4 {
 			rle.buf[rle.idx] = rle.lastVal
 			rle.idx++
 		}

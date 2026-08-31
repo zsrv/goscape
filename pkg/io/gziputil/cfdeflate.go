@@ -225,7 +225,7 @@ func insertString(s *deflateState, str uint32) uint16 {
 // bulkInsertStr inserts count strings starting at startpos.
 // cf-zlib deflate.c:167-174
 func bulkInsertStr(s *deflateState, startpos uint32, count uint32) {
-	for idx := uint32(0); idx < count; idx++ {
+	for idx := range count {
 		h := hashFunc(s.window[:], startpos+idx)
 		s.prev[(startpos+idx)&wMask] = s.head[h]
 		s.head[h] = uint16(startpos + idx)
@@ -384,10 +384,7 @@ func fillWindow(s *deflateState, src []byte, srcOff *int) {
 		}
 
 		// Read input — cf-zlib deflate.c:1370-1371
-		avail := len(src) - *srcOff
-		if avail > int(more) {
-			avail = int(more)
-		}
+		avail := min(len(src)-*srcOff, int(more))
 		copy(s.window[s.strstart+s.lookahead:], src[*srcOff:*srcOff+avail])
 		*srcOff += avail
 		s.lookahead += uint32(avail)
@@ -417,19 +414,13 @@ func fillWindow(s *deflateState, src []byte, srcOff *int) {
 	// Zero WIN_INIT bytes past end for valgrind-clean reads — cf-zlib deflate.c:1401-1426
 	curr := uint64(s.strstart) + uint64(s.lookahead)
 	if s.highWater < curr {
-		initN := s.windowSize - curr
-		if initN > maxMatch {
-			initN = maxMatch
-		}
+		initN := min(s.windowSize-curr, maxMatch)
 		for i := uint64(0); i < initN; i++ {
 			s.window[curr+i] = 0
 		}
 		s.highWater = curr + initN
 	} else if s.highWater < curr+maxMatch {
-		initN := curr + maxMatch - s.highWater
-		if initN > s.windowSize-s.highWater {
-			initN = s.windowSize - s.highWater
-		}
+		initN := min(curr+maxMatch-s.highWater, s.windowSize-s.highWater)
 		for i := uint64(0); i < initN; i++ {
 			s.window[s.highWater+i] = 0
 		}
@@ -557,12 +548,8 @@ func deflateSlow(s *deflateState, src []byte, srcOff *int) {
 		trTallyLit(s, s.window[s.strstart-1])
 		s.matchAvail = false
 	}
-	s.insert = s.strstart
-	if s.strstart < actualMin-1 {
-		s.insert = s.strstart
-	} else {
-		s.insert = actualMin - 1
-	}
+	// cf-zlib deflate.c:1735 — s->insert = MIN(s->strstart, MIN_MATCH-1)
+	s.insert = min(s.strstart, actualMin-1)
 	flushBlock(s, true)
 }
 

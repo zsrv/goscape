@@ -69,9 +69,7 @@ func (t *InvType) Decode(code uint8, dat *packet2.Packet) error {
 
 func NewInvType(id int) *InvType {
 	return &InvType{
-		ConfigType: ConfigType{
-			ID: id,
-		},
+		ID:         id,
 		Scope:      0,
 		Size:       1,
 		StackAll:   false,

@@ -169,7 +169,7 @@ func TestInitPlayerVarps_LengthMatchesRegistry(t *testing.T) {
 // NPC pre-seeded in s.npcLoop is gone after one processCleanup call.
 func TestProcessCleanup_RunsCompactNpcLoop(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	typ := &objtype.NpcType{ID: 7}
 	n := NewNpc(0, 7, 100, 100, 0, typ)
 	n.nid = 1
 	n.server = s
@@ -196,7 +196,7 @@ func TestProcessCleanup_RunsCompactNpcLoop(t *testing.T) {
 // on one of the entries, then running processCleanup.
 func TestRemoveNpcDuringTickIteration_NoPanic(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	typ := &objtype.NpcType{ID: 7}
 	target := NewNpc(0, 7, 100, 100, 0, typ)
 	target.nid = 1
 	target.server = s

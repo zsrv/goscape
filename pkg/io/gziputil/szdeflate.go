@@ -208,10 +208,7 @@ func szFillWindow(s *deflateState, src []byte, srcOff *int) {
 		}
 
 		// read_buf
-		avail := len(src) - *srcOff
-		if avail > int(more) {
-			avail = int(more)
-		}
+		avail := min(len(src)-*srcOff, int(more))
 		copy(s.window[s.strstart+s.lookahead:], src[*srcOff:*srcOff+avail])
 		*srcOff += avail
 		n := uint32(avail)
@@ -246,19 +243,13 @@ func szFillWindow(s *deflateState, src []byte, srcOff *int) {
 	if s.highWater < s.windowSize {
 		curr := uint64(s.strstart) + uint64(s.lookahead)
 		if s.highWater < curr {
-			initN := s.windowSize - curr
-			if initN > maxMatch {
-				initN = maxMatch
-			}
+			initN := min(s.windowSize-curr, maxMatch)
 			for i := uint64(0); i < initN; i++ {
 				s.window[curr+i] = 0
 			}
 			s.highWater = curr + initN
 		} else if s.highWater < curr+maxMatch {
-			initN := curr + maxMatch - s.highWater
-			if initN > s.windowSize-s.highWater {
-				initN = s.windowSize - s.highWater
-			}
+			initN := min(curr+maxMatch-s.highWater, s.windowSize-s.highWater)
 			for i := uint64(0); i < initN; i++ {
 				s.window[s.highWater+i] = 0
 			}
@@ -358,11 +349,7 @@ func szDeflateSlow(s *deflateState, src []byte, srcOff *int) {
 		trTallyLit(s, s.window[s.strstart-1])
 		s.matchAvail = false
 	}
-	if s.strstart < szMinMatch-1 {
-		s.insert = s.strstart
-	} else {
-		s.insert = szMinMatch - 1
-	}
+	s.insert = min(s.strstart, szMinMatch-1)
 	flushBlock(s, true)
 }
 

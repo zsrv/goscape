@@ -414,10 +414,7 @@ func nextChunk(a *odActive) []byte {
 	if a.data == nil {
 		return encodeChunk(a.req.archive, a.req.file, 0, 0, nil)
 	}
-	remaining := len(a.data) - a.pos
-	if remaining > 500 {
-		remaining = 500
-	}
+	remaining := min(len(a.data)-a.pos, 500)
 	frame := encodeChunk(a.req.archive, a.req.file, len(a.data), a.part, a.data[a.pos:a.pos+remaining])
 	a.pos += remaining
 	a.part++

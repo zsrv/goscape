@@ -20,7 +20,7 @@ package compiler
 import (
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 
@@ -121,9 +121,9 @@ func TestWriteCompilerSymbols_SelfConsistency(t *testing.T) {
 			got = append(got, e.Name())
 		}
 	}
-	sort.Strings(got)
+	slices.Sort(got)
 	want := append([]string(nil), wantSymCensus...)
-	sort.Strings(want)
+	slices.Sort(want)
 	if len(got) != len(want) {
 		t.Fatalf("census: got %d .sym files %v, want %d", len(got), got, len(want))
 	}
@@ -184,15 +184,15 @@ func TestWriteVarbitSym_Format(t *testing.T) {
 
 	varbits := &objtype.VarBitTypeConfigs{
 		Configs: []*objtype.VarBitType{
-			{ConfigType: objtype.ConfigType{ID: 0, DebugName: "run_low"}, Basevar: 1, Startbit: 0, Endbit: 3},
+			{ID: 0, DebugName: "run_low", Basevar: 1, Startbit: 0, Endbit: 3},
 			nil,
-			{ConfigType: objtype.ConfigType{ID: 2, DebugName: "chat_hidden"}, Basevar: 0, Startbit: 4, Endbit: 4},
+			{ID: 2, DebugName: "chat_hidden", Basevar: 0, Startbit: 4, Endbit: 4},
 		},
 	}
 	varps := &objtype.VarpTypeConfigs{
 		Configs: []*objtype.VarPlayerType{
-			{ConfigType: objtype.ConfigType{ID: 0}, Type: objtype.ScriptVarTypeBoolean, Protect: false},
-			{ConfigType: objtype.ConfigType{ID: 1}, Type: objtype.ScriptVarTypeInt, Protect: true},
+			{ID: 0, Type: objtype.ScriptVarTypeBoolean, Protect: false},
+			{ID: 1, Type: objtype.ScriptVarTypeInt, Protect: true},
 		},
 	}
 

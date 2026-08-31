@@ -3,6 +3,7 @@ package world
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -106,12 +107,7 @@ func (od *onDemand) hasClient(id string) bool {
 func (od *onDemand) inRoundRobin(id string) bool {
 	od.mu.Lock()
 	defer od.mu.Unlock()
-	for _, r := range od.roundRobin {
-		if r == id {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(od.roundRobin, id)
 }
 
 // ---------------------------------------------------------------------------
@@ -391,8 +387,7 @@ func TestOnDemandImmediatePump(t *testing.T) {
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() { defer wg.Done(); od.run(stop) }()
+	wg.Go(func() { ; od.run(stop) })
 	t.Cleanup(func() { close(stop); wg.Wait() })
 
 	od.onClientData(c, []byte{0, 0, 7, 2}) // archive=0 file=7 priority=2
@@ -675,8 +670,7 @@ func TestOnDemandRunLoopLifecycle(t *testing.T) {
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() { defer wg.Done(); od.run(stop) }()
+	wg.Go(func() { ; od.run(stop) })
 
 	od.onClientData(c, []byte{0, 0, 9, 2})
 

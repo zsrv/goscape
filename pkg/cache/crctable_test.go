@@ -288,7 +288,7 @@ func TestMakeCRCsEmptyCache(t *testing.T) {
 		t.Errorf("Table len = %d, want 0 for empty cache", len(snap.Table))
 	}
 	// First 36 bytes are zero (no CRC slots written).
-	for i := 0; i < 36; i++ {
+	for i := range 36 {
 		if snap.Bytes[i] != 0 {
 			t.Errorf("Bytes[%d] = 0x%02x, want 0 for empty cache", i, snap.Bytes[i])
 		}

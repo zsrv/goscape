@@ -10,8 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
@@ -166,7 +166,7 @@ func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, log
 
 		opcode: -1,
 
-		connID: uuid.NewString(),
+		connID: uuid.New().String(),
 	}
 	// The conn goroutine is always an owner of the pooled buffers, from
 	// construction until its handleTCPConn defer runs (arch-28.4b).
@@ -315,7 +315,7 @@ func (c *client) sendLoginOK() error {
 	}
 
 	if c.tap != nil && c.tap.Enabled() {
-		c.sessionID = uuid.NewString()
+		c.sessionID = uuid.New().String()
 		c.tap.SessionStarted(c.accountID, c.sessionID, time.Now())
 	}
 
@@ -366,10 +366,7 @@ func (c *client) sendLoginError(code byte) error {
 // (LoginServer.ts:334 only sends response 10 when remaining > 0) but
 // keeps a zero/unset RemainingMs from wrapping to 255 via byte(-1).
 func (c *client) sendLoginHopTimer(remainingMs int64) error {
-	secs := remainingMs / 1000
-	if secs > 255 {
-		secs = 255
-	}
+	secs := min(remainingMs/1000, 255)
 	if secs < 0 {
 		secs = 0
 	}

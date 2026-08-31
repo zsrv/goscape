@@ -361,7 +361,7 @@ func (w *mapBlockedWorld) IsMapBlocked(level, x, z int) bool { return w.mapBlock
 func (w *mapBlockedWorld) IsFreeToPlay(x, z int) bool        { return w.freeToPlay }
 
 func TestMapBlocked_MembersWorldClearTilePushes0(t *testing.T) {
-	w := &mapBlockedWorld{mockWorld: mockWorld{mapMembers: 1}, mapBlocked: false}
+	w := &mapBlockedWorld{mapMembers: 1, mapBlocked: false}
 	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
 
 	if state.ISP != 1 || state.IntStack[0] != 0 {
@@ -371,7 +371,7 @@ func TestMapBlocked_MembersWorldClearTilePushes0(t *testing.T) {
 }
 
 func TestMapBlocked_MembersWorldBlockedTilePushes1(t *testing.T) {
-	w := &mapBlockedWorld{mockWorld: mockWorld{mapMembers: 1}, mapBlocked: true}
+	w := &mapBlockedWorld{mapMembers: 1, mapBlocked: true}
 	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
 
 	if state.ISP != 1 || state.IntStack[0] != 1 {
@@ -388,9 +388,9 @@ func TestMapBlocked_MembersWorldBlockedTilePushes1(t *testing.T) {
 // discriminating regression test.
 func TestMapBlocked_F2PWorldNonF2PTilePushes1(t *testing.T) {
 	w := &mapBlockedWorld{
-		mockWorld:  mockWorld{mapMembers: 0}, // free world
-		mapBlocked: false,                    // tile is NOT blocked → isMapBlocked=false
-		freeToPlay: false,                    // tile is NOT F2P (old gate would have fired)
+		mapMembers: 0,     // free world
+		mapBlocked: false, // tile is NOT blocked → isMapBlocked=false
+		freeToPlay: false, // tile is NOT F2P (old gate would have fired)
 	}
 	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
 
@@ -407,8 +407,8 @@ func TestMapBlocked_F2PWorldNonF2PTilePushes1(t *testing.T) {
 // re-pointed rev-244 B4.
 func TestMapBlocked_F2PWorldF2PTilePushesIsBlocked(t *testing.T) {
 	w := &mapBlockedWorld{
-		mockWorld:  mockWorld{mapMembers: 0}, // free world
-		mapBlocked: true,                     // tile IS blocked → isMapBlocked=true
+		mapMembers: 0,    // free world
+		mapBlocked: true, // tile IS blocked → isMapBlocked=true
 		freeToPlay: true,
 	}
 	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
@@ -425,9 +425,9 @@ func TestMapBlocked_F2PWorldF2PTilePushesIsBlocked(t *testing.T) {
 // Discriminating condition: 225 code pushes 1 (gate fires); 244 must push 0.
 func TestMapBlocked_NoF2PGate244(t *testing.T) {
 	w := &mapBlockedWorld{
-		mockWorld:  mockWorld{mapMembers: 0}, // free world (members==0)
-		mapBlocked: false,                    // tile is NOT blocked → isMapBlocked returns false
-		freeToPlay: false,                    // tile is NOT F2P → old gate would have fired
+		mapMembers: 0,     // free world (members==0)
+		mapBlocked: false, // tile is NOT blocked → isMapBlocked returns false
+		freeToPlay: false, // tile is NOT F2P → old gate would have fired
 	}
 	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
 

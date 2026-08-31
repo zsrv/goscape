@@ -106,10 +106,9 @@ func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 	// /maps/ — goscape-specific HTTP cache fallback for per-zone map/loc files.
 	// No analog in 244 web.ts; kept as-is for the goscape-client CacheHTTPFallback
 	// arrangement. Revisit at B6 when the client arrangement changes.
-	if strings.HasPrefix(r.URL.Path, "/maps/") {
-		// The name is constrained to ^[ml]\d+_\d+$ to guarantee the joined path
-		// resolves under data/pack/client/maps.
-		name := strings.TrimPrefix(r.URL.Path, "/maps/")
+	// The name is constrained to ^[ml]\d+_\d+$ to guarantee the joined path
+	// resolves under data/pack/client/maps.
+	if name, ok := strings.CutPrefix(r.URL.Path, "/maps/"); ok {
 		if !isValidMapName(name) {
 			http.NotFound(w, r)
 			return

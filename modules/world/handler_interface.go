@@ -1,6 +1,8 @@
 package world
 
 import (
+	"slices"
+
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -51,14 +53,12 @@ func (s *Server) handleIfButton(p *Player, payload []byte) error {
 
 	p.lastCom = comId
 
-	for _, b := range p.resumeButtons {
-		if b == comId {
-			if p.activeScript != nil && p.activeScript.Execution == script.PauseButton {
-				p.activeScript.Execution = script.Running
-				s.resumeOrFinish(p.activeScript, p)
-			}
-			return nil
+	if slices.Contains(p.resumeButtons, comId) {
+		if p.activeScript != nil && p.activeScript.Execution == script.PauseButton {
+			p.activeScript.Execution = script.Running
+			s.resumeOrFinish(p.activeScript, p)
 		}
+		return nil
 	}
 
 	if s.scriptProvider == nil {

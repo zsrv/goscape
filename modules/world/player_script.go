@@ -1019,10 +1019,7 @@ func (p *Player) AddXP(id int, xp int, allowMulti bool) {
 	if allowMulti {
 		xp *= p.xpRate()
 	}
-	next := min(int64(p.stats[id])+int64(xp), int64(objtype.MaxXP))
-	if next < 0 {
-		next = 0
-	}
+	next := max(min(int64(p.stats[id])+int64(xp), int64(objtype.MaxXP)), 0)
 	beforeBase := int(p.baseLevels[id])
 	p.stats[id] = int32(next)
 	newBase := objtype.GetLevelByExp(int(p.stats[id]))

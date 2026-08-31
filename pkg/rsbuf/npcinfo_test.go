@@ -723,7 +723,7 @@ func TestNpcInfo_FaceEntity_PreservedAcrossEncode(t *testing.T) {
 // assertions where GBit's uint8 return doesn't fit a 14-bit value.
 func readBitsRange(data []byte, start, n int) int {
 	v := 0
-	for i := 0; i < n; i++ {
+	for i := range n {
 		bitIdx := start + i
 		byteIdx := bitIdx >> 3
 		bitInByte := 7 - (bitIdx & 7)

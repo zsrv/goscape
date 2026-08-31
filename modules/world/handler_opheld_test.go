@@ -42,9 +42,9 @@ func setupOpHeldServer(t *testing.T) (*Server, *Player) {
 		Configs: make([]*objtype.ObjType, 600),
 	}
 	s.objTypes.Configs[555] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 555, DebugName: "test_held"},
-		IOp:        []string{"op1", "", "", "", ""},
-		Category:   -1,
+		ID: 555, DebugName: "test_held",
+		IOp:      []string{"op1", "", "", "", ""},
+		Category: -1,
 	}
 
 	p, _ := newTestPlayer(t)
@@ -733,9 +733,9 @@ func TestHandleOpHeldT_NoScript_NothingInteresting(t *testing.T) {
 	s.invs[93] = inv
 	s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 600)}
 	s.objTypes.Configs[555] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 555},
-		IOp:        []string{"op1", "", "", "", ""},
-		Category:   -1,
+		ID:       555,
+		IOp:      []string{"op1", "", "", "", ""},
+		Category: -1,
 	}
 
 	p.client.server = s
@@ -782,9 +782,9 @@ func setupOpHeldUServer(t *testing.T) (*Server, *Player) {
 	s.objTypes.Configs = grown
 	s.invs[93].Items[5] = &inventory.Item{Id: 777, Count: 1}
 	s.objTypes.Configs[777] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 777, DebugName: "test_held2"},
-		IOp:        []string{"op1", "", "", "", ""},
-		Category:   -1,
+		ID: 777, DebugName: "test_held2",
+		IOp:      []string{"op1", "", "", "", ""},
+		Category: -1,
 	}
 	return s, p
 }
@@ -1103,14 +1103,14 @@ func TestHandleOpHeldU_AllMiss_NothingInteresting(t *testing.T) {
 	s.invs[93] = inv
 	s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 800)}
 	s.objTypes.Configs[555] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 555},
-		IOp:        []string{"op1", "", "", "", ""},
-		Category:   -1,
+		ID:       555,
+		IOp:      []string{"op1", "", "", "", ""},
+		Category: -1,
 	}
 	s.objTypes.Configs[777] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 777},
-		IOp:        []string{"op1", "", "", "", ""},
-		Category:   -1,
+		ID:       777,
+		IOp:      []string{"op1", "", "", "", ""},
+		Category: -1,
 	}
 
 	p.client.server = s
@@ -1299,15 +1299,15 @@ func TestHandleOpHeldU_MembersOnFreeWorld_Rejects(t *testing.T) {
 	s.invs[93] = inv
 	s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 800)}
 	s.objTypes.Configs[555] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 555},
-		IOp:        []string{"op1", "", "", "", ""},
-		Category:   -1,
-		Members:    true, // triggers members gate
+		ID:       555,
+		IOp:      []string{"op1", "", "", "", ""},
+		Category: -1,
+		Members:  true, // triggers members gate
 	}
 	s.objTypes.Configs[777] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 777},
-		IOp:        []string{"op1", "", "", "", ""},
-		Category:   -1,
+		ID:       777,
+		IOp:      []string{"op1", "", "", "", ""},
+		Category: -1,
 	}
 
 	p.client.server = s

@@ -213,12 +213,10 @@ func (c *ServerScriptCompiler) registerSecondaryCommands() {
 			continue
 		}
 		alias := &symbol.ServerScriptSymbol{
-			ScriptSymbolFields: symbol.ScriptSymbolFields{
-				Trigger:    trigger.CommandTrigger,
-				Name:       name,
-				Parameters: base.Parameters,
-				Returns:    base.Returns,
-			},
+			Trigger:    trigger.CommandTrigger,
+			Name:       name,
+			Parameters: base.Parameters,
+			Returns:    base.Returns,
 		}
 		c.RootTable.Insert(commandType, alias)
 	}

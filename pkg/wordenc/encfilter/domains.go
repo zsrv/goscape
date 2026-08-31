@@ -3,6 +3,8 @@ package encfilter
 // domains.go mirrors TS WordEncDomains (Engine-TS/src/cache/wordenc/
 // WordEncDomains.ts). filter is called by Filter.Filter after badWords.filter.
 
+import "slices"
+
 // domains mirrors TS WordEncDomains (WordEncDomains.ts:4-11). It holds the
 // domain list and a back-reference to badWords for filterBadCombinations.
 type domains struct {
@@ -19,8 +21,8 @@ func (d *domains) filter(chars []rune) {
 	period := append([]rune(nil), chars...)
 	d.bads.filterBadCombinations(nil, ampersat, constAmpersat)
 	d.bads.filterBadCombinations(nil, period, constPeriod)
-	for i := len(d.domains) - 1; i >= 0; i-- {
-		d.filterDomain(period, ampersat, d.domains[i], chars)
+	for _, v := range slices.Backward(d.domains) {
+		d.filterDomain(period, ampersat, v, chars)
 	}
 }
 
