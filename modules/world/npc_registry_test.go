@@ -285,7 +285,7 @@ func TestSizeMorphRevertRestoresBaseFootprint(t *testing.T) {
 	}
 
 	// Verify size=1 footprint at (3200, 3200): SW corner flagged, neighbors NOT.
-	flagMask := collision.FlagBlockNPCs | collision.FlagBlockPlayers
+	flagMask := collision.FlagNpcOcc | collision.FlagBlockNpcAndPlayers
 	if !s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, flagMask) {
 		t.Errorf("(3200, 3200) should have NPC+Player flags after revert, got none")
 	}

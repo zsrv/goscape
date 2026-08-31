@@ -375,8 +375,8 @@ func TestStepFollowsDirectionChangePoints(t *testing.T) {
 }
 
 // TestPlayerStep_PlumbsBlockWalkFlag pins NAI-176 D4. TS Player.blockWalkFlag
-// (Player.ts:706-708) is unconditional FlagBlockPlayers, so a tile carrying
-// only FlagBlockPlayers (e.g., one occupied by another player or a BlockWalkAll
+// (Player.ts:706-708) is unconditional FlagBlockNpcAndPlayers, so a tile carrying
+// only FlagBlockNpcAndPlayers (e.g., one occupied by another player or a BlockWalkAll
 // NPC) blocks the step. rev-254 (f0ccbe8a): a fully-blocked attempt makes
 // validateAndAdvanceStep return -1 with the waypoint queue PRESERVED and the
 // position unchanged (takeStep yields delta (0,0); the waypoint-reached check
@@ -392,16 +392,16 @@ func TestPlayerStep_PlumbsBlockWalkFlag(t *testing.T) {
 		t.Fatalf("addPlayer: %v", err)
 	}
 	// Allocate start + dest tiles so FlagMap defaults to FlagOpen (otherwise
-	// FlagNull degenerate-blocks). Plant FlagBlockPlayers on the dest.
+	// FlagNull degenerate-blocks). Plant FlagBlockNpcAndPlayers on the dest.
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3200, 0)
-	s.gamemap.Pathfinder.Flags.Add(3201, 3200, 0, collision.FlagBlockPlayers)
+	s.gamemap.Pathfinder.Flags.Add(3201, 3200, 0, collision.FlagBlockNpcAndPlayers)
 	p.queueWaypoint(3201, 3200)
 
 	wantWaypointIndex := p.waypointIndex
 	dir := p.validateAndAdvanceStep()
 
 	if dir != -1 {
-		t.Fatalf("player step over FlagBlockPlayers tile: got dir=%d, want -1 (blocked)", dir)
+		t.Fatalf("player step over FlagBlockNpcAndPlayers tile: got dir=%d, want -1 (blocked)", dir)
 	}
 	if p.waypointIndex != wantWaypointIndex {
 		t.Fatalf("waypointIndex after blocked step: got %d, want %d (must NOT clear)",
@@ -429,7 +429,7 @@ func TestPlayerBlockedStep_ReanchorsLastStep(t *testing.T) {
 		t.Fatalf("addPlayer: %v", err)
 	}
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3200, 0)
-	s.gamemap.Pathfinder.Flags.Add(3201, 3200, 0, collision.FlagBlockPlayers)
+	s.gamemap.Pathfinder.Flags.Add(3201, 3200, 0, collision.FlagBlockNpcAndPlayers)
 	p.queueWaypoint(3201, 3200)
 	p.lastStepX, p.lastStepZ = -999, -999
 

@@ -26,10 +26,10 @@ func TestLineRouteFinderLineOfSightValidWhenOnTopOfBlockingCollisionFlagIfTarget
 
 func TestLineRouteFinderLineOfSightValidWhenTargetCoordinateIsMarkedWithExtraFlagCollisionFlag(t *testing.T) {
 	m := collision.NewFlagMap()
-	m.Add(3200, 3200, 0, collision.FlagBlockPlayers)
+	m.Add(3200, 3200, 0, collision.FlagBlockNpcAndPlayers)
 
 	rf := NewLineRouteFinder(m)
-	rayCast := rf.LineOfSight(0, 3200, 3202, 3200, 3200, 1, 1, 1, collision.FlagBlockPlayers)
+	rayCast := rf.LineOfSight(0, 3200, 3202, 3200, 3200, 1, 1, 1, collision.FlagBlockNpcAndPlayers)
 
 	if len(rayCast.Coordinates) != 2 {
 		t.Fatalf("len(rayCast.Coordinates) == %d, expected %d", len(rayCast.Coordinates), 2)
@@ -50,10 +50,10 @@ func TestLineRouteFinderLineOfSightValidWhenTargetCoordinateIsMarkedWithExtraFla
 
 func TestLineRouteFinderLineOfSightFailWhenBlockedByExtraFlagBeforeReachingTarget(t *testing.T) {
 	m := collision.NewFlagMap()
-	m.Add(3200, 3200, 0, collision.FlagBlockPlayers)
+	m.Add(3200, 3200, 0, collision.FlagBlockNpcAndPlayers)
 
 	rf := NewLineRouteFinder(m)
-	rayCast := rf.LineOfSight(0, 3200, 3202, 3200, 3199, 1, 1, 1, collision.FlagBlockPlayers)
+	rayCast := rf.LineOfSight(0, 3200, 3202, 3200, 3199, 1, 1, 1, collision.FlagBlockNpcAndPlayers)
 
 	if len(rayCast.Coordinates) == 0 {
 		t.Fatal("len(rayCast.Coordinates) == 0")
@@ -89,10 +89,10 @@ func TestLineRouteFinderLineOfSightFailWhenOnTopOfBlockingCollisionFlag(t *testi
 
 func TestLineRouteFinderLineOfSightFailWhenOnTopOfExtraFlagCollisionFlag(t *testing.T) {
 	m := collision.NewFlagMap()
-	m.Add(3200, 3200, 0, collision.FlagBlockPlayers)
+	m.Add(3200, 3200, 0, collision.FlagBlockNpcAndPlayers)
 
 	rf := NewLineRouteFinder(m)
-	rayCast := rf.LineOfSight(0, 3200, 3200, 3200, 3201, 1, 0, 0, collision.FlagBlockPlayers)
+	rayCast := rf.LineOfSight(0, 3200, 3200, 3200, 3201, 1, 0, 0, collision.FlagBlockNpcAndPlayers)
 
 	if len(rayCast.Coordinates) != 0 {
 		t.Fatalf("len(rayCast.Coordinates) == %d, expected 0", len(rayCast.Coordinates))
@@ -215,9 +215,9 @@ func TestLineRouteFinderLineOfSightFailWhenBlockedByLoc(t *testing.T) {
 
 func TestLineRouteFinderLineOfSightFailWhenBlockedByExtraFlagCollisionFlag(t *testing.T) {
 	extraFlags := []int{
-		collision.FlagBlockPlayers,
-		collision.FlagBlockNPCs,
-		collision.FlagBlockPlayers | collision.FlagBlockNPCs,
+		collision.FlagBlockNpcAndPlayers,
+		collision.FlagNpcOcc,
+		collision.FlagBlockNpcAndPlayers | collision.FlagNpcOcc,
 	}
 
 	for _, f := range extraFlags {
@@ -329,9 +329,9 @@ func TestLineRouteFinderLineOfWalkFailWhenPathBlockedByLoc(t *testing.T) {
 
 func TestLineRouteFinderLineOfWalkFailWhenPathBlockedByExtraFlagCollisionFlag(t *testing.T) {
 	extraFlags := []int{
-		collision.FlagBlockPlayers,
-		collision.FlagBlockNPCs,
-		collision.FlagBlockPlayers | collision.FlagBlockNPCs,
+		collision.FlagBlockNpcAndPlayers,
+		collision.FlagNpcOcc,
+		collision.FlagBlockNpcAndPlayers | collision.FlagNpcOcc,
 	}
 
 	for _, f := range extraFlags {

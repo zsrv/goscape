@@ -282,26 +282,37 @@ func (n *Npc) liveMoveRestrict() MoveRestrict {
 	return MoveRestrict(n.typ.MoveRestrict)
 }
 
-// blockWalkFlag returns the CollisionFlag this NPC imposes on its
-// occupied tile during pathfinding. Mirrors TS Npc.blockWalkFlag at the
-// rev-254 pin (Npc.ts:383-401, 2787f1fb): reads moverestrict live from
-// NpcType instead of the removed PathingEntity field.
+// blockWalkFlag returns the CollisionFlag this NPC imposes on its occupied
+// tile during pathfinding. Mirrors TS Npc.blockWalkFlag (Npc.ts:395-418
+// @1d25566c); reads moverestrict live from NpcType instead of the removed
+// PathingEntity field.
+//
+// Engine-TS 8139461a rewrote this. Hard blocks (locs, walls, blockwalk=all
+// npcs) always apply; on top of that sit two ORTHOGONAL opt-outs:
+//
+//   - an npc that sets no collision of its own (blockwalk=none) does not
+//     respect npc-occupancy, so it walks through other npcs;
+//   - a passthru npc does not respect player-occupancy, so it walks through
+//     players.
+//
+// The two are independent: an npc can opt out of either, both, or neither.
 func (n *Npc) blockWalkFlag() int {
 	switch n.liveMoveRestrict() {
-	case MoveRestrictNormal:
-		return collision.FlagBlockNPCs
 	case MoveRestrictBlocked:
 		return collision.FlagOpen
-	case MoveRestrictBlockedNormal:
-		return collision.FlagBlockNPCs
-	case MoveRestrictIndoors:
-		return collision.FlagBlockNPCs
-	case MoveRestrictOutdoors:
-		return collision.FlagBlockNPCs
 	case MoveRestrictNoMove:
 		return collision.FlagNull
-	case MoveRestrictPassthru:
-		return collision.FlagOpen
+	case MoveRestrictNormal, MoveRestrictBlockedNormal, MoveRestrictIndoors,
+		MoveRestrictOutdoors, MoveRestrictPassthru:
+		npcOcc := collision.FlagNpcOcc
+		if n.blockWalk == int(objtype.BlockWalkNone) {
+			npcOcc = collision.FlagOpen
+		}
+		playerOcc := collision.FlagPlayerOcc
+		if n.liveMoveRestrict() == MoveRestrictPassthru {
+			playerOcc = collision.FlagOpen
+		}
+		return collision.FlagBlockNpcAndPlayers | npcOcc | playerOcc
 	default:
 		return collision.FlagNull
 	}

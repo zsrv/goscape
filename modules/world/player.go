@@ -699,7 +699,7 @@ func newPlayer(c *client) *Player {
 		lastRunEnergy:  -1,
 		moveSpeed:      MoveSpeedInstant,
 		moveStrategy:   playerMoveStrategy(c),
-		blockWalk:      BlockWalkNpc,
+		blockWalk:      BlockWalkPlayer, // TS Player.ts:422 @1d25566c
 		combatLevel:    3,
 		colors:         [5]int{0, 0, 0, 0, 0},
 		body:           [7]int{0, 10, 18, 26, 33, 36, 42},
@@ -821,22 +821,27 @@ func (p *Player) SetVisibility(v rsbuf.Visibility) {
 	}
 	p.visibility = v
 	s := p.client.server
+	// TS Player.setVisibility (Player.ts:1965-1975 @1d25566c): the default
+	// arm now restores PLAYER_OCC rather than npc collision, and the hidden
+	// arm clears both markers.
 	if v == rsbuf.VisibilityDefault {
-		p.blockWalk = BlockWalkNpc
-		s.gamemap.ChangeNPCCollision(1, p.x, p.z, p.level, true)
+		p.blockWalk = BlockWalkPlayer
+		s.gamemap.ChangePlayerOccCollision(1, p.x, p.z, p.level, true)
 	} else {
 		p.blockWalk = BlockWalkNone
 		s.gamemap.ChangeNPCCollision(1, p.x, p.z, p.level, false)
-		s.gamemap.ChangePlayerCollision(1, p.x, p.z, p.level, false)
+		s.gamemap.ChangePlayerOccCollision(1, p.x, p.z, p.level, false)
 	}
 	p.MessageGame(fmt.Sprintf("vis: %d", int(v)))
 }
 
 // blockWalkFlag returns the CollisionFlag this player imposes on its
 // occupied tile during pathfinding. Mirrors TS Player.blockWalkFlag
-// (Player.ts:706-708) — unconditional return regardless of moveRestrict.
+// (Player.ts:725-727 @1d25566c) — unconditional return regardless of
+// moveRestrict. 8139461a renamed the flag PLAYER -> BLOCK_NPC_AND_PLAYERS;
+// the bit is unchanged.
 func (p *Player) blockWalkFlag() int {
-	return collision.FlagBlockPlayers
+	return collision.FlagBlockNpcAndPlayers
 }
 
 // getCollisionStrategy returns the collision search type for this player.

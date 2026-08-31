@@ -958,27 +958,44 @@ func TestSetAnimEqualPriorityOverwrites_Npc(t *testing.T) {
 }
 
 func TestNpc_BlockWalkFlag_PerMoveRestrict(t *testing.T) {
-	// Mirrors TS Npc.blockWalkFlag at the rev-254 pin (Npc.ts:383-401,
-	// 2787f1fb): reads moverestrict LIVE from NpcType (the PathingEntity
-	// field is gone). Full-fidelity enum incl. BLOCKED_NORMAL (the prior
-	// HIGH bug pathing-1 dropped that value from the runtime enum).
+	// Mirrors TS Npc.blockWalkFlag (Npc.ts:395-418 @1d25566c), which
+	// Engine-TS 8139461a rewrote around two ORTHOGONAL opt-outs on top of an
+	// always-present hard block:
+	//
+	//   blockwalk=none        -> no NPC_OCC    (walks through npcs)
+	//   moverestrict=passthru -> no PLAYER_OCC (walks through players)
+	//
+	// Both dimensions are covered here; the pre-8139461a test only varied
+	// moverestrict, which would leave the blockwalk opt-out unpinned.
+	const hard = collision.FlagBlockNpcAndPlayers
 	cases := []struct {
-		mr   MoveRestrict
-		want int
+		mr        MoveRestrict
+		blockWalk int
+		want      int
 	}{
-		{MoveRestrictNormal, collision.FlagBlockNPCs},
-		{MoveRestrictBlocked, collision.FlagOpen},
-		{MoveRestrictBlockedNormal, collision.FlagBlockNPCs},
-		{MoveRestrictIndoors, collision.FlagBlockNPCs},
-		{MoveRestrictOutdoors, collision.FlagBlockNPCs},
-		{MoveRestrictNoMove, collision.FlagNull},
-		{MoveRestrictPassthru, collision.FlagOpen},
+		// blockwalk=none: npc occupancy opted out.
+		{MoveRestrictNormal, objtype.BlockWalkNone, hard | collision.FlagPlayerOcc},
+		{MoveRestrictBlockedNormal, objtype.BlockWalkNone, hard | collision.FlagPlayerOcc},
+		{MoveRestrictIndoors, objtype.BlockWalkNone, hard | collision.FlagPlayerOcc},
+		{MoveRestrictOutdoors, objtype.BlockWalkNone, hard | collision.FlagPlayerOcc},
+		// blockwalk set: npc occupancy applies.
+		{MoveRestrictNormal, objtype.BlockWalkNPC, hard | collision.FlagNpcOcc | collision.FlagPlayerOcc},
+		{MoveRestrictBlockedNormal, objtype.BlockWalkAll, hard | collision.FlagNpcOcc | collision.FlagPlayerOcc},
+		// passthru: player occupancy opted out, independently of blockwalk.
+		{MoveRestrictPassthru, objtype.BlockWalkNone, hard},
+		{MoveRestrictPassthru, objtype.BlockWalkNPC, hard | collision.FlagNpcOcc},
+		// early-return arms are unaffected by either opt-out.
+		{MoveRestrictBlocked, objtype.BlockWalkNPC, collision.FlagOpen},
+		{MoveRestrictNoMove, objtype.BlockWalkNPC, collision.FlagNull},
 	}
 	for _, tc := range cases {
-		t.Run(fmt.Sprintf("MR%d", tc.mr), func(t *testing.T) {
-			n := &Npc{typ: &objtype.NpcType{MoveRestrict: int(tc.mr)}}
+		t.Run(fmt.Sprintf("MR%d_BW%d", tc.mr, tc.blockWalk), func(t *testing.T) {
+			n := &Npc{
+				typ:       &objtype.NpcType{MoveRestrict: int(tc.mr)},
+				blockWalk: tc.blockWalk,
+			}
 			if got := n.blockWalkFlag(); got != tc.want {
-				t.Errorf("blockWalkFlag(%v) = %d, want %d", tc.mr, got, tc.want)
+				t.Errorf("blockWalkFlag(mr=%v, blockwalk=%v) = %d, want %d", tc.mr, tc.blockWalk, got, tc.want)
 			}
 		})
 	}

@@ -1320,16 +1320,16 @@ func TestNpcInApproachDistanceNpcBackwardArgsQuirk(t *testing.T) {
 
 // TestNpcInApproachDistancePlayerFlagIsRespected guards the
 // CollisionFlag.PLAYER extraFlag wiring at GameMap.ts:433-435. Places
-// only FlagBlockPlayers at a mid-tile (no wall, no proj-blocker). The
-// ray would PASS if extraFlag=0, but BLOCK if extraFlag=FlagBlockPlayers.
-// Proves inApproachDistance actually passes FlagBlockPlayers through.
+// only FlagBlockNpcAndPlayers at a mid-tile (no wall, no proj-blocker). The
+// ray would PASS if extraFlag=0, but BLOCK if extraFlag=FlagBlockNpcAndPlayers.
+// Proves inApproachDistance actually passes FlagBlockNpcAndPlayers through.
 func TestNpcInApproachDistancePlayerFlagIsRespected(t *testing.T) {
 	s, n, p := approachDistanceFixture(t)
-	s.gamemap.Pathfinder.Flags.Add(3094, 3107, 0, collision.FlagBlockPlayers)
+	s.gamemap.Pathfinder.Flags.Add(3094, 3107, 0, collision.FlagBlockNpcAndPlayers)
 
 	if n.inApproachDistance(5, p) {
-		t.Error("inApproachDistance: got true, want false — FlagBlockPlayers " +
-			"mid-tile; if true, extraFlag=FlagBlockPlayers is not wired (bug)")
+		t.Error("inApproachDistance: got true, want false — FlagBlockNpcAndPlayers " +
+			"mid-tile; if true, extraFlag=FlagBlockNpcAndPlayers is not wired (bug)")
 	}
 }
 
@@ -1445,7 +1445,7 @@ func TestNpcInApproachDistanceMultiTileTargetShiftsLoSStartTile(t *testing.T) {
 // FlagWallNorthProjBlocker placed at (3094, 3106). Travelling south
 // (dest is south of src), the zFlags mask is LineSightBlockedNorth =
 // FlagLocProjBlocker | FlagWallNorthProjBlocker. Only `FlagLocProjBlocker`
-// (and the `FlagBlockPlayers` extraFlag) are cleared at the end tile
+// (and the `FlagBlockNpcAndPlayers` extraFlag) are cleared at the end tile
 // (linevalidator.go:141-142); `FlagWallNorthProjBlocker` is not.
 // FlagWallNorthProjBlocker blocks traversal when the ray enters 3106.
 // Size=2 ray stops at 3107 → passes. Size=1 ray enters 3106 → blocked.
@@ -2356,7 +2356,7 @@ func TestNpc_PathToTarget_NoTarget_NoOp(t *testing.T) {
 
 // TestNpc_PathToTarget_NaiveStrategy_NullBlockWalkFlag_NoOp pins the
 // FlagNull guard in pathToTargetNaive on the NPC side. Unlike Player
-// (where blockWalkFlag is unconditional FlagBlockPlayers), Npc.blockWalkFlag
+// (where blockWalkFlag is unconditional FlagBlockNpcAndPlayers), Npc.blockWalkFlag
 // returns FlagNull for MoveRestrictNoMove. NewNpc defaults moveStrategy
 // to Naive.
 func TestNpc_PathToTarget_NaiveStrategy_NullBlockWalkFlag_NoOp(t *testing.T) {

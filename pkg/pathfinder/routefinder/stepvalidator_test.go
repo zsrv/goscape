@@ -65,9 +65,9 @@ func TestFailWhenPathBlocked(t *testing.T) {
 
 func TestWhenPathBlockedByDynamicExtraFlagParameter(t *testing.T) {
 	extraFlags := []int{
-		collision.FlagBlockPlayers,
-		collision.FlagBlockNPCs,
-		collision.FlagBlockPlayers | collision.FlagBlockNPCs,
+		collision.FlagBlockNpcAndPlayers,
+		collision.FlagNpcOcc,
+		collision.FlagBlockNpcAndPlayers | collision.FlagNpcOcc,
 	}
 
 	for _, f := range extraFlags {

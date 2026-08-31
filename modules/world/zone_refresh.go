@@ -51,11 +51,21 @@ func refreshPlayerZonePresence(p *Player, prevX, prevZ, prevLevel int) {
 			gm.ChangeNPCCollision(1, prevX, prevZ, prevLevel, false)
 			gm.ChangeNPCCollision(1, p.x, p.z, p.level, true)
 		case BlockWalkAll:
-			// TS PathingEntity.ts:171-176.
+			// TS PathingEntity.ts:169-174 @1d25566c.
 			gm.ChangeNPCCollision(1, prevX, prevZ, prevLevel, false)
 			gm.ChangeNPCCollision(1, p.x, p.z, p.level, true)
-			gm.ChangePlayerCollision(1, prevX, prevZ, prevLevel, false)
-			gm.ChangePlayerCollision(1, p.x, p.z, p.level, true)
+			gm.ChangeBlockCollision(1, prevX, prevZ, prevLevel, false)
+			gm.ChangeBlockCollision(1, p.x, p.z, p.level, true)
+		case BlockWalkPlayer:
+			// TS PathingEntity.ts:175-180 @1d25566c. Deliberately
+			// asymmetric: the player owns PLAYER_OCC, so BOTH markers are
+			// cleared on the old tile but only PLAYER_OCC is set on the new
+			// one. The npc-collision clear is what retires the shared flag a
+			// player used to leave behind under the old BlockWalk.NPC
+			// posture.
+			gm.ChangeNPCCollision(1, prevX, prevZ, prevLevel, false)
+			gm.ChangePlayerOccCollision(1, prevX, prevZ, prevLevel, false)
+			gm.ChangePlayerOccCollision(1, p.x, p.z, p.level, true)
 		}
 	}
 	// TS PathingEntity.ts:178-179.
@@ -93,11 +103,11 @@ func refreshNpcZonePresence(s *Server, n *Npc, prevX, prevZ, prevLevel int) {
 			s.gamemap.ChangeNPCCollision(n.size, prevX, prevZ, prevLevel, false)
 			s.gamemap.ChangeNPCCollision(n.size, n.x, n.z, n.level, true)
 		case objtype.BlockWalkAll:
-			// TS PathingEntity.ts:171-176.
+			// TS PathingEntity.ts:169-174 @1d25566c.
 			s.gamemap.ChangeNPCCollision(n.size, prevX, prevZ, prevLevel, false)
 			s.gamemap.ChangeNPCCollision(n.size, n.x, n.z, n.level, true)
-			s.gamemap.ChangePlayerCollision(n.size, prevX, prevZ, prevLevel, false)
-			s.gamemap.ChangePlayerCollision(n.size, n.x, n.z, n.level, true)
+			s.gamemap.ChangeBlockCollision(n.size, prevX, prevZ, prevLevel, false)
+			s.gamemap.ChangeBlockCollision(n.size, n.x, n.z, n.level, true)
 		}
 	}
 	refreshNpcZone(s, n, prevX, prevZ, prevLevel)

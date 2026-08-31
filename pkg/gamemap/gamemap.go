@@ -111,12 +111,12 @@ func (gm *GameMap) ChangeLocCollision(shape, angle int, blocksRange bool, length
 	layer := loc.LayerOf(loc.Shape(shape))
 	switch layer {
 	case loc.LayerWall:
-		gm.Pathfinder.ChangeWall(x, z, level, angle, shape, blocksRange, false, add)
+		gm.Pathfinder.ChangeWall(x, z, level, angle, shape, blocksRange, add)
 	case loc.LayerGround:
 		if angle == loc.AngleNorth || angle == loc.AngleSouth {
-			gm.Pathfinder.ChangeLoc(x, z, level, length, width, blocksRange, false, add)
+			gm.Pathfinder.ChangeLoc(x, z, level, length, width, blocksRange, add)
 		} else {
-			gm.Pathfinder.ChangeLoc(x, z, level, width, length, blocksRange, false, add)
+			gm.Pathfinder.ChangeLoc(x, z, level, width, length, blocksRange, add)
 		}
 	case loc.LayerGroundDecor:
 		if active == 1 {
@@ -131,9 +131,18 @@ func (gm *GameMap) ChangeNPCCollision(size, x, z, level int, add bool) {
 	gm.Pathfinder.ChangeNPC(x, z, level, size, add)
 }
 
-// ChangePlayerCollision marks or clears a player's occupied tile.
-func (gm *GameMap) ChangePlayerCollision(size, x, z, level int, add bool) {
-	gm.Pathfinder.ChangePlayer(x, z, level, size, add)
+// ChangeBlockCollision marks or clears the hard npc-and-player block an
+// entity writes. Renamed from ChangePlayerCollision by TS 8139461a
+// (GameMap.ts:389-391 @1d25566c) — the flag stops both npcs and players.
+func (gm *GameMap) ChangeBlockCollision(size, x, z, level int, add bool) {
+	gm.Pathfinder.ChangeBlock(x, z, level, size, add)
+}
+
+// ChangePlayerOccCollision marks or clears a player's occupancy, the
+// counterpart of ChangeNPCCollision. New at TS 8139461a
+// (GameMap.ts:399-401 @1d25566c).
+func (gm *GameMap) ChangePlayerOccCollision(size, x, z, level int, add bool) {
+	gm.Pathfinder.ChangePlayerOcc(x, z, level, size, add)
 }
 
 // ChangeRoofCollision marks or clears a roof.
@@ -145,8 +154,9 @@ func (gm *GameMap) ChangeRoofCollision(x, z, level int, add bool) {
 // (offsetX, offsetZ) to an adjacent tile is allowed under the given
 // per-entity collision strategy. offsetX/offsetZ must be in {-1, 0, 1}.
 // size is the entity's tile footprint width (1 for players and 1-tile NPCs).
-// extraFlag is the entity's blockWalkFlag() (e.g. FlagBlockPlayers for
-// players, FlagBlockNPCs for normal NPCs, FlagOpen for blocked NPCs).
+// extraFlag is the entity's blockWalkFlag() (e.g. FlagBlockNpcAndPlayers
+// combined with the occupancy flags for players and normal NPCs, FlagOpen for
+// blocked NPCs).
 // collisionType is the entity's getCollisionStrategy() (TypeNormal,
 // TypeBlocked, TypeIndoors, TypeOutdoors).
 func (gm *GameMap) CanTravel(level, x, z, offsetX, offsetZ, size, extraFlag int, collisionType collision.Type) bool {

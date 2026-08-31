@@ -1226,8 +1226,8 @@ func TestPlayer_BlockWalkFlag_Unconditional(t *testing.T) {
 	// returns CollisionFlag.PLAYER. (2787f1fb removed the PathingEntity
 	// moveRestrict field, so there is nothing left to vary.)
 	p := &Player{}
-	if got := p.blockWalkFlag(); got != collision.FlagBlockPlayers {
-		t.Errorf("blockWalkFlag() = %d, want FlagBlockPlayers (%d)", got, collision.FlagBlockPlayers)
+	if got := p.blockWalkFlag(); got != collision.FlagBlockNpcAndPlayers {
+		t.Errorf("blockWalkFlag() = %d, want FlagBlockNpcAndPlayers (%d)", got, collision.FlagBlockNpcAndPlayers)
 	}
 }
 
@@ -1279,11 +1279,13 @@ func TestPlayerSetVisibilityDefault(t *testing.T) {
 	if p.visibility != rsbuf.VisibilityDefault {
 		t.Errorf("visibility: got %d, want VisibilityDefault", p.visibility)
 	}
-	if p.blockWalk != BlockWalkNpc {
-		t.Errorf("blockWalk: got %v, want BlockWalkNpc", p.blockWalk)
+	// TS Player.setVisibility (Player.ts:1965-1970 @1d25566c): the default arm
+	// restores the player's OWN occupancy flag, not the shared npc one.
+	if p.blockWalk != BlockWalkPlayer {
+		t.Errorf("blockWalk: got %v, want BlockWalkPlayer", p.blockWalk)
 	}
-	if !s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagBlockNPCs) {
-		t.Error("FlagBlockNPCs: must be set at player tile after SetVisibility(Default)")
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagPlayerOcc) {
+		t.Error("FlagPlayerOcc: must be set at player tile after SetVisibility(Default)")
 	}
 	if !bytes.Contains(out, []byte("vis: 0")) {
 		t.Errorf("MessageGame: out missing 'vis: 0'; got %q", out)
@@ -1307,13 +1309,13 @@ func TestPlayerSetVisibilitySoftStub(t *testing.T) {
 	p.x, p.z, p.level = 3200, 3201, 0
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(p.x, p.z, p.level)
 
-	// Initial state: defaults (visibility=Default, blockWalk=BlockWalkNpc per
-	// modules/world/player.go:556+523).
+	// Initial state: defaults (visibility=Default, blockWalk=BlockWalkPlayer
+	// per TS Player.ts:422 @1d25566c).
 	if p.visibility != rsbuf.VisibilityDefault {
 		t.Fatalf("preflight: visibility should default to Default")
 	}
-	if p.blockWalk != BlockWalkNpc {
-		t.Fatalf("preflight: blockWalk should default to BlockWalkNpc")
+	if p.blockWalk != BlockWalkPlayer {
+		t.Fatalf("preflight: blockWalk should default to BlockWalkPlayer")
 	}
 
 	received := drainConn(t, cc)
@@ -1325,8 +1327,8 @@ func TestPlayerSetVisibilitySoftStub(t *testing.T) {
 	if p.visibility != rsbuf.VisibilityDefault {
 		t.Errorf("visibility: got %d, want unchanged (Default)", p.visibility)
 	}
-	if p.blockWalk != BlockWalkNpc {
-		t.Errorf("blockWalk: got %v, want unchanged (BlockWalkNpc)", p.blockWalk)
+	if p.blockWalk != BlockWalkPlayer {
+		t.Errorf("blockWalk: got %v, want unchanged (BlockWalkPlayer)", p.blockWalk)
 	}
 
 	// Message pin: includes "vis: 1 (not implemented - you are still on vis: 0)".
@@ -1351,8 +1353,8 @@ func TestPlayerSetVisibilityHard(t *testing.T) {
 	p.x, p.z, p.level = 3200, 3202, 0
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(p.x, p.z, p.level)
 
-	// Seed FlagBlockNPCs at the tile so we can observe the clear.
-	s.gamemap.Pathfinder.Flags.Add(p.x, p.z, p.level, collision.FlagBlockNPCs|collision.FlagBlockPlayers)
+	// Seed FlagNpcOcc at the tile so we can observe the clear.
+	s.gamemap.Pathfinder.Flags.Add(p.x, p.z, p.level, collision.FlagNpcOcc|collision.FlagBlockNpcAndPlayers)
 
 	received := drainConn(t, cc)
 	p.SetVisibility(rsbuf.VisibilityHard)
@@ -1365,12 +1367,15 @@ func TestPlayerSetVisibilityHard(t *testing.T) {
 	if p.blockWalk != BlockWalkNone {
 		t.Errorf("blockWalk: got %v, want BlockWalkNone", p.blockWalk)
 	}
-	// After HARD: both FlagBlockNPCs and FlagBlockPlayers must be cleared.
-	if s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagBlockNPCs) {
-		t.Error("FlagBlockNPCs: must be cleared at player tile after SetVisibility(Hard)")
+	// After HARD both occupancy markers must be gone. TS clears npc collision
+	// AND player occupancy (Player.ts:1971-1974 @1d25566c); the npc clear
+	// retires whatever a pre-8139461a player left behind under the old shared
+	// flag, and the player-occ clear removes the marker it plants now.
+	if s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagNpcOcc) {
+		t.Error("FlagNpcOcc: must be cleared at player tile after SetVisibility(Hard)")
 	}
-	if s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagBlockPlayers) {
-		t.Error("FlagBlockPlayers: must be cleared at player tile after SetVisibility(Hard)")
+	if s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagPlayerOcc) {
+		t.Error("FlagPlayerOcc: must be cleared at player tile after SetVisibility(Hard)")
 	}
 	if !bytes.Contains(out, []byte("vis: 2")) {
 		t.Errorf("MessageGame: missing 'vis: 2'; got %q", out)

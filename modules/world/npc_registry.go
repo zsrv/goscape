@@ -133,7 +133,7 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
 			s.gamemap.ChangeNPCCollision(n.size, n.x, n.z, n.level, true)
 		case objtype.BlockWalkAll:
 			s.gamemap.ChangeNPCCollision(n.size, n.x, n.z, n.level, true)
-			s.gamemap.ChangePlayerCollision(n.size, n.x, n.z, n.level, true)
+			s.gamemap.ChangeBlockCollision(n.size, n.x, n.z, n.level, true)
 		}
 	}
 	s.resetEntityForRespawn(n)
@@ -275,7 +275,7 @@ func (s *Server) removeNpc(n *Npc, duration int) {
 			s.gamemap.ChangeNPCCollision(n.size, n.x, n.z, n.level, false)
 		case objtype.BlockWalkAll:
 			s.gamemap.ChangeNPCCollision(n.size, n.x, n.z, n.level, false)
-			s.gamemap.ChangePlayerCollision(n.size, n.x, n.z, n.level, false)
+			s.gamemap.ChangeBlockCollision(n.size, n.x, n.z, n.level, false)
 		}
 	}
 	if n.lifecycle == NpcLifecycleDespawn {

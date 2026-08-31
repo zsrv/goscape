@@ -10,15 +10,6 @@ const lineOfSightBlockMovement = FlagWallNorthWest |
 	FlagWallWest |
 	FlagLoc
 
-const lineOfSightBlockRoute = FlagWallNorthWestRouteBlocker |
-	FlagWallNorthRouteBlocker |
-	FlagWallNorthEastRouteBlocker |
-	FlagWallEastRouteBlocker |
-	FlagWallSouthEastRouteBlocker |
-	FlagWallSouthRouteBlocker |
-	FlagWallSouthWestRouteBlocker |
-	FlagWallWestRouteBlocker |
-	FlagLocRouteBlocker
 
 func CanMove(tileFlag int, blockFlag int, collisionType Type) bool {
 	switch collisionType {
@@ -32,10 +23,12 @@ func CanMove(tileFlag int, blockFlag int, collisionType Type) bool {
 	case TypeOutdoors:
 		return (tileFlag & (blockFlag | FlagRoof)) == FlagOpen
 	case TypeLineOfSight:
+		// TS 8139461a dropped the route-blocker term: LINE_OF_SIGHT used to OR
+		// in `(blockFlag & LINE_OF_SIGHT_ROUTE) >>> 13`, but nothing ever set
+		// those bits, so the term was always zero (CollisionStrategy.ts:26-29
+		// @1d25566c).
 		movementFlags := (blockFlag & lineOfSightBlockMovement) << 9
-		routeFlags := (blockFlag & lineOfSightBlockRoute) >> 13
-		finalBlockFlag := movementFlags | routeFlags
-		return (tileFlag & finalBlockFlag) == FlagOpen
+		return (tileFlag & movementFlags) == FlagOpen
 	default:
 		panic("unknown collision type")
 	}

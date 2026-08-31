@@ -79,13 +79,10 @@ func (pf PathFinderAPI) ChangeFloor(x, z, level int, add bool) {
 	}
 }
 
-func (pf PathFinderAPI) ChangeLoc(x, z, level, width, length int, blockRange, breakRouteFinding, add bool) {
+func (pf PathFinderAPI) ChangeLoc(x, z, level, width, length int, blockRange, add bool) {
 	mask := collision.FlagLoc
 	if blockRange {
 		mask |= collision.FlagLocProjBlocker
-	}
-	if breakRouteFinding {
-		mask |= collision.FlagLocRouteBlocker
 	}
 	for index := 0; index < width*length; index++ {
 		deltaX := x + (index % width)
@@ -99,7 +96,7 @@ func (pf PathFinderAPI) ChangeLoc(x, z, level, width, length int, blockRange, br
 }
 
 func (pf PathFinderAPI) ChangeNPC(x, z, level, size int, add bool) {
-	mask := collision.FlagBlockNPCs
+	mask := collision.FlagNpcOcc
 	for index := 0; index < size*size; index++ {
 		deltaX := x + (index % size)
 		deltaZ := z + index/size
@@ -111,8 +108,27 @@ func (pf PathFinderAPI) ChangeNPC(x, z, level, size int, add bool) {
 	}
 }
 
-func (pf PathFinderAPI) ChangePlayer(x, z, level, size int, add bool) {
-	mask := collision.FlagBlockPlayers
+// ChangeBlock writes the hard npc-and-player block. Renamed from ChangePlayer
+// by TS 8139461a (CollisionEngine.ts:82-84 @1d25566c) — the flag it writes
+// stops both npcs and players, so the old name was misleading.
+func (pf PathFinderAPI) ChangeBlock(x, z, level, size int, add bool) {
+	mask := collision.FlagBlockNpcAndPlayers
+	for index := 0; index < size*size; index++ {
+		deltaX := x + (index % size)
+		deltaZ := z + index/size
+		if add {
+			pf.Flags.Add(deltaX, deltaZ, level, mask)
+		} else {
+			pf.Flags.Remove(deltaX, deltaZ, level, mask)
+		}
+	}
+}
+
+// ChangePlayerOcc marks player occupancy, the counterpart of ChangeNPC. New
+// at TS 8139461a (CollisionEngine.ts:90-92 @1d25566c): players now write their
+// own occupancy flag instead of sharing the npc one.
+func (pf PathFinderAPI) ChangePlayerOcc(x, z, level, size int, add bool) {
+	mask := collision.FlagPlayerOcc
 	for index := 0; index < size*size; index++ {
 		deltaX := x + (index % size)
 		deltaZ := z + index/size
@@ -132,27 +148,22 @@ func (pf PathFinderAPI) ChangeRoof(x, z, level int, add bool) {
 	}
 }
 
-func (pf PathFinderAPI) ChangeWall(x, z, level, angle, shape int, blockRange, breakRouteFinding, add bool) {
+func (pf PathFinderAPI) ChangeWall(x, z, level, angle, shape int, blockRange, add bool) {
 	switch loc.Shape(shape) {
 	case loc.ShapeWallStraight:
-		pf.changeWallStraight(x, z, level, angle, blockRange, breakRouteFinding, add)
+		pf.changeWallStraight(x, z, level, angle, blockRange, add)
 	case loc.ShapeWallDiagonalCorner, loc.ShapeWallSquareCorner:
-		pf.changeWallCorner(x, z, level, angle, blockRange, breakRouteFinding, add)
+		pf.changeWallCorner(x, z, level, angle, blockRange, add)
 	case loc.ShapeWallL:
-		pf.changeWallL(x, z, level, angle, blockRange, breakRouteFinding, add)
+		pf.changeWallL(x, z, level, angle, blockRange, add)
 	default:
 		panic("unsupported Shape")
 	}
 }
 
-func (pf PathFinderAPI) changeWallStraight(x, z, level, angle int, blockRange, breakRouteFinding, add bool) {
+func (pf PathFinderAPI) changeWallStraight(x, z, level, angle int, blockRange, add bool) {
 	var west, east, north, south int
-	if breakRouteFinding {
-		west = collision.FlagWallWestRouteBlocker
-		east = collision.FlagWallEastRouteBlocker
-		north = collision.FlagWallNorthRouteBlocker
-		south = collision.FlagWallSouthRouteBlocker
-	} else if blockRange {
+	if blockRange {
 		west = collision.FlagWallWestProjBlocker
 		east = collision.FlagWallEastProjBlocker
 		north = collision.FlagWallNorthProjBlocker
@@ -199,25 +210,16 @@ func (pf PathFinderAPI) changeWallStraight(x, z, level, angle int, blockRange, b
 		}
 	}
 
-	if breakRouteFinding {
-		pf.changeWallStraight(x, z, level, angle, blockRange, false, add)
-		return
-	}
 	if blockRange {
 		// If just blocked projectiles, then block normally next
-		pf.changeWallStraight(x, z, level, angle, false, false, add)
+		pf.changeWallStraight(x, z, level, angle, false, add)
 		return
 	}
 }
 
-func (pf PathFinderAPI) changeWallCorner(x, z, level, angle int, blockRange, breakRouteFinding, add bool) {
+func (pf PathFinderAPI) changeWallCorner(x, z, level, angle int, blockRange, add bool) {
 	var northwest, southeast, northeast, southwest int
-	if breakRouteFinding {
-		northwest = collision.FlagWallNorthWestRouteBlocker
-		southeast = collision.FlagWallSouthEastRouteBlocker
-		northeast = collision.FlagWallNorthEastRouteBlocker
-		southwest = collision.FlagWallSouthWestRouteBlocker
-	} else if blockRange {
+	if blockRange {
 		northwest = collision.FlagWallNorthWestProjBlocker
 		southeast = collision.FlagWallSouthEastProjBlocker
 		northeast = collision.FlagWallNorthEastProjBlocker
@@ -264,25 +266,16 @@ func (pf PathFinderAPI) changeWallCorner(x, z, level, angle int, blockRange, bre
 		}
 	}
 
-	if breakRouteFinding {
-		pf.changeWallCorner(x, z, level, angle, blockRange, false, add)
-		return
-	}
 	if blockRange {
 		// If just blocked projectiles, then block normally next
-		pf.changeWallCorner(x, z, level, angle, false, false, add)
+		pf.changeWallCorner(x, z, level, angle, false, add)
 		return
 	}
 }
 
-func (pf PathFinderAPI) changeWallL(x, z, level, angle int, blockRange, breakRouteFinding, add bool) {
+func (pf PathFinderAPI) changeWallL(x, z, level, angle int, blockRange, add bool) {
 	var west, east, north, south int
-	if breakRouteFinding {
-		west = collision.FlagWallWestRouteBlocker
-		east = collision.FlagWallEastRouteBlocker
-		north = collision.FlagWallNorthRouteBlocker
-		south = collision.FlagWallSouthRouteBlocker
-	} else if blockRange {
+	if blockRange {
 		west = collision.FlagWallWestProjBlocker
 		east = collision.FlagWallEastProjBlocker
 		north = collision.FlagWallNorthProjBlocker
@@ -337,13 +330,9 @@ func (pf PathFinderAPI) changeWallL(x, z, level, angle int, blockRange, breakRou
 		}
 	}
 
-	if breakRouteFinding {
-		pf.changeWallL(x, z, level, angle, blockRange, false, add)
-		return
-	}
 	if blockRange {
 		// If just blocked projectiles, then block normally next
-		pf.changeWallL(x, z, level, angle, false, false, add)
+		pf.changeWallL(x, z, level, angle, false, add)
 		return
 	}
 }

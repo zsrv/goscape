@@ -988,7 +988,7 @@ func approachEntitySize(e entity) (width, length int) {
 // types" — source is target, dest is self. TS's isApproached
 // (GameMap.ts:433-435) dispatches to hasLineOfSight with
 // CollisionFlag.PLAYER as extraFlag — Go equivalent
-// collision.FlagBlockPlayers.
+// collision.FlagBlockNpcAndPlayers.
 //
 // FIDELITY: LoS sizing uses approachEntitySize per target concrete
 // type (*Player → 1, *Npc → typ.Size; all current pathing entities
@@ -1033,7 +1033,7 @@ func (n *Npc) inApproachDistance(rng int, target entity) bool {
 	if n.server != nil && n.server.gamemap != nil &&
 		!n.server.gamemap.Pathfinder.LineValidator.HasLineOfSight(
 			n.level, tx, tz, n.x, n.z, targetSize, selfSize, selfSize,
-			collision.FlagBlockPlayers) {
+			collision.FlagBlockNpcAndPlayers) {
 		return false
 	}
 	return true

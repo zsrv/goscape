@@ -58,13 +58,13 @@ func TestNpcMoveRestrictBehavior(t *testing.T) {
 		wantFlag  int
 		wantStrat *collision.Type // nil => getCollisionStrategy returns nil
 	}{
-		{"NORMAL", objtype.MoveRestrictNormal, collision.FlagBlockNPCs, &normal},
+		{"NORMAL", objtype.MoveRestrictNormal, collision.FlagBlockNpcAndPlayers | collision.FlagPlayerOcc, &normal},
 		{"BLOCKED", objtype.MoveRestrictBlocked, collision.FlagOpen, &blocked},
-		{"BLOCKED_NORMAL", objtype.MoveRestrictBlockedNormal, collision.FlagBlockNPCs, &los},
-		{"INDOORS", objtype.MoveRestrictIndoors, collision.FlagBlockNPCs, &indoors},
-		{"OUTDOORS", objtype.MoveRestrictOutdoors, collision.FlagBlockNPCs, &outdoors},
+		{"BLOCKED_NORMAL", objtype.MoveRestrictBlockedNormal, collision.FlagBlockNpcAndPlayers | collision.FlagPlayerOcc, &los},
+		{"INDOORS", objtype.MoveRestrictIndoors, collision.FlagBlockNpcAndPlayers | collision.FlagPlayerOcc, &indoors},
+		{"OUTDOORS", objtype.MoveRestrictOutdoors, collision.FlagBlockNpcAndPlayers | collision.FlagPlayerOcc, &outdoors},
 		{"NOMOVE", objtype.MoveRestrictNoMove, collision.FlagNull, nil},
-		{"PASSTHRU", objtype.MoveRestrictPassthru, collision.FlagOpen, &normal},
+		{"PASSTHRU", objtype.MoveRestrictPassthru, collision.FlagBlockNpcAndPlayers, &normal},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

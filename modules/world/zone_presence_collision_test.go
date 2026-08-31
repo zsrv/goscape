@@ -2,7 +2,8 @@ package world
 
 // Collision-follow pin tests for the TS PathingEntity.refreshZonePresence
 // port (Engine-TS@3c16994c PathingEntity.ts:163-188): an entity's collision
-// footprint (FlagBlockNPCs, plus FlagBlockPlayers for blockWalk=ALL) must
+// footprint (FlagNpcOcc for npcs / FlagPlayerOcc for players, plus
+// FlagBlockNpcAndPlayers for blockWalk=ALL) must
 // MOVE with the entity on every step and teleport — switch (this.blockWalk):
 //
 //	case NPC: changeNpcCollision(width, prev..., false) +
@@ -33,7 +34,7 @@ func newCollisionFollowServer(t *testing.T) *Server {
 }
 
 // blockingNpcType returns a synthetic 1x1 NpcType with the given blockWalk
-// and a NORMAL moveRestrict (blockWalkFlag → FlagBlockNPCs, so the NPC's own
+// and a NORMAL moveRestrict (blockWalkFlag → FlagNpcOcc, so the NPC's own
 // pathing respects other NPC-blocking tiles — the Hans shape needs this).
 func blockingNpcType(blockWalk int) *objtype.NpcType {
 	return &objtype.NpcType{
@@ -44,15 +45,15 @@ func blockingNpcType(blockWalk int) *objtype.NpcType {
 	}
 }
 
-// --- 1. NPC step moves FlagBlockNPCs ---------------------------------------
+// --- 1. NPC step moves FlagNpcOcc ---------------------------------------
 
 func TestNpcStep_CollisionFlagFollows(t *testing.T) {
 	s := newCollisionFollowServer(t)
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3200, 0)
 	n := newRegisteredNpc(t, s, blockingNpcType(objtype.BlockWalkNPC), true) // spawns at (3200,3200,0)
 
-	if !s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagBlockNPCs) {
-		t.Fatalf("setup: spawn tile (3200,3200) missing FlagBlockNPCs after addNpc seed")
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagNpcOcc) {
+		t.Fatalf("setup: spawn tile (3200,3200) missing FlagNpcOcc after addNpc seed")
 	}
 
 	n.queueWaypoints([]int{coordgrid.PackCoord(0, 3201, 3200)})
@@ -63,11 +64,11 @@ func TestNpcStep_CollisionFlagFollows(t *testing.T) {
 		t.Fatalf("setup: NPC at (%d,%d), want (3201,3200)", n.x, n.z)
 	}
 
-	if s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagBlockNPCs) {
-		t.Errorf("old tile (3200,3200) still carries FlagBlockNPCs after step; footprint must follow (TS PathingEntity.ts:170)")
+	if s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagNpcOcc) {
+		t.Errorf("old tile (3200,3200) still carries FlagNpcOcc after step; footprint must follow (TS PathingEntity.ts:170)")
 	}
-	if !s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagBlockNPCs) {
-		t.Errorf("new tile (3201,3200) missing FlagBlockNPCs after step (TS PathingEntity.ts:171)")
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagNpcOcc) {
+		t.Errorf("new tile (3201,3200) missing FlagNpcOcc after step (TS PathingEntity.ts:171)")
 	}
 }
 
@@ -84,15 +85,15 @@ func TestNpcTeleport_CollisionFlagFollows_AcrossLevels(t *testing.T) {
 		t.Fatalf("setup: NPC at (%d,%d,%d), want (3232,3232,2)", n.x, n.z, n.level)
 	}
 
-	if s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagBlockNPCs) {
-		t.Errorf("source tile (3200,3200,0) still carries FlagBlockNPCs after teleport; removal must use prevX/prevZ/prevLevel (TS PathingEntity.ts:170,293)")
+	if s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagNpcOcc) {
+		t.Errorf("source tile (3200,3200,0) still carries FlagNpcOcc after teleport; removal must use prevX/prevZ/prevLevel (TS PathingEntity.ts:170,293)")
 	}
-	if !s.gamemap.Pathfinder.Flags.IsFlagged(3232, 3232, 2, collision.FlagBlockNPCs) {
-		t.Errorf("dest tile (3232,3232,2) missing FlagBlockNPCs after teleport (TS PathingEntity.ts:171)")
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(3232, 3232, 2, collision.FlagNpcOcc) {
+		t.Errorf("dest tile (3232,3232,2) missing FlagNpcOcc after teleport (TS PathingEntity.ts:171)")
 	}
 }
 
-// --- 3. Player step moves FlagBlockNPCs (players block NPCs) ---------------
+// --- 3. Player step moves FlagPlayerOcc ---------------------------------
 
 func TestPlayerStep_CollisionFlagFollows(t *testing.T) {
 	s := newCollisionFollowServer(t)
@@ -105,7 +106,7 @@ func TestPlayerStep_CollisionFlagFollows(t *testing.T) {
 	}
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3200, 0)
 	// Emulate the carried state of a player who already moved at least once
-	// (or SetVisibility(Default)): FlagBlockNPCs at the current tile. The
+	// (or SetVisibility(Default)): FlagPlayerOcc at the current tile. The
 	// step must move it (Player constructs with BlockWalk.NPC, Player.ts:416).
 	s.gamemap.ChangeNPCCollision(1, 3200, 3200, 0, true)
 
@@ -117,18 +118,18 @@ func TestPlayerStep_CollisionFlagFollows(t *testing.T) {
 		t.Fatalf("setup: player at (%d,%d), want (3201,3200)", p.x, p.z)
 	}
 
-	if s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagBlockNPCs) {
-		t.Errorf("old tile (3200,3200) still carries FlagBlockNPCs after player step (TS PathingEntity.ts:170)")
+	if s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagPlayerOcc) {
+		t.Errorf("old tile (3200,3200) still carries FlagPlayerOcc after player step (TS PathingEntity.ts:176 @1d25566c)")
 	}
-	if !s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagBlockNPCs) {
-		t.Errorf("new tile (3201,3200) missing FlagBlockNPCs after player step (TS PathingEntity.ts:171)")
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagPlayerOcc) {
+		t.Errorf("new tile (3201,3200) missing FlagPlayerOcc after player step (TS PathingEntity.ts:177 @1d25566c)")
 	}
 }
 
 // --- 4. The Hans shape: NPC can WALK back onto its own spawn tile ----------
 
 // TestNpcCanWalkBackOntoOwnSpawnTile: spawn an NPC at T, walk it off T, path
-// it back onto T, and assert it arrives by walking. Pre-fix the FlagBlockNPCs
+// it back onto T, and assert it arrives by walking. Pre-fix the FlagNpcOcc
 // seeded at T never moved, so the NPC's own frozen flag blocked the final
 // step home (wandering NPCs like Hans could only return via the stuck-tele).
 func TestNpcCanWalkBackOntoOwnSpawnTile(t *testing.T) {
@@ -152,7 +153,7 @@ func TestNpcCanWalkBackOntoOwnSpawnTile(t *testing.T) {
 	n.queueWaypoints([]int{coordgrid.PackCoord(0, 3200, 3200)})
 	for range 2 {
 		if dir := n.validateAndAdvanceStep(s); dir == -1 {
-			t.Fatalf("walk-home: NPC blocked at (%d,%d) walking back onto its own spawn tile — frozen own FlagBlockNPCs (the Hans shape)", n.x, n.z)
+			t.Fatalf("walk-home: NPC blocked at (%d,%d) walking back onto its own spawn tile — frozen own FlagNpcOcc (the Hans shape)", n.x, n.z)
 		}
 	}
 	if n.x != 3200 || n.z != 3200 {
@@ -170,7 +171,7 @@ func TestNpcBlockWalkNone_StepMovesNoFlags(t *testing.T) {
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3200, 0)
 	n := newRegisteredNpc(t, s, blockingNpcType(objtype.BlockWalkNone), true)
 
-	both := collision.FlagBlockNPCs | collision.FlagBlockPlayers
+	both := collision.FlagNpcOcc | collision.FlagBlockNpcAndPlayers
 	if s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, both) {
 		t.Fatalf("setup: blockwalk=none spawn tile must carry no entity flags")
 	}
@@ -193,9 +194,9 @@ func TestNpcBlockWalkAll_StepMovesBothFlagFamilies(t *testing.T) {
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3200, 0)
 	n := newRegisteredNpc(t, s, blockingNpcType(objtype.BlockWalkAll), true)
 
-	both := collision.FlagBlockNPCs | collision.FlagBlockPlayers
-	if !s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagBlockNPCs) ||
-		!s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagBlockPlayers) {
+	both := collision.FlagNpcOcc | collision.FlagBlockNpcAndPlayers
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagNpcOcc) ||
+		!s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagBlockNpcAndPlayers) {
 		t.Fatalf("setup: blockwalk=all spawn tile must carry BOTH flag families (addNpc seed)")
 	}
 
@@ -207,8 +208,8 @@ func TestNpcBlockWalkAll_StepMovesBothFlagFamilies(t *testing.T) {
 	if s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, both) {
 		t.Errorf("blockwalk=all: old tile still carries entity flags after step (TS PathingEntity.ts:174-176)")
 	}
-	if !s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagBlockNPCs) ||
-		!s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagBlockPlayers) {
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagNpcOcc) ||
+		!s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagBlockNpcAndPlayers) {
 		t.Errorf("blockwalk=all: new tile missing one or both flag families after step (TS PathingEntity.ts:175,177)")
 	}
 }
@@ -233,7 +234,7 @@ func TestPlayerBlockWalkNone_StepMovesNoFlags(t *testing.T) {
 		t.Fatal("setup: player step east did not move")
 	}
 
-	both := collision.FlagBlockNPCs | collision.FlagBlockPlayers
+	both := collision.FlagNpcOcc | collision.FlagBlockNpcAndPlayers
 	if s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, both) {
 		t.Errorf("blockwalk=none player: new tile gained entity flags after step")
 	}
@@ -250,8 +251,8 @@ func TestNpcSpawnDespawnCollisionSeedBalance(t *testing.T) {
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3200, 0)
 	n := newRegisteredNpc(t, s, blockingNpcType(objtype.BlockWalkNPC), true)
 
-	if !s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagBlockNPCs) {
-		t.Fatalf("spawn: tile missing FlagBlockNPCs after addNpc")
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagNpcOcc) {
+		t.Fatalf("spawn: tile missing FlagNpcOcc after addNpc")
 	}
 
 	// Walk one tile so the despawn-side removal exercises the CURRENT
@@ -265,8 +266,8 @@ func TestNpcSpawnDespawnCollisionSeedBalance(t *testing.T) {
 	s.removeNpc(n, -1)
 
 	for _, tile := range [][2]int{{3200, 3200}, {3201, 3200}} {
-		if s.gamemap.Pathfinder.Flags.IsFlagged(tile[0], tile[1], 0, collision.FlagBlockNPCs) {
-			t.Errorf("despawn: tile (%d,%d) still carries FlagBlockNPCs after removeNpc", tile[0], tile[1])
+		if s.gamemap.Pathfinder.Flags.IsFlagged(tile[0], tile[1], 0, collision.FlagNpcOcc) {
+			t.Errorf("despawn: tile (%d,%d) still carries FlagNpcOcc after removeNpc", tile[0], tile[1])
 		}
 	}
 }
@@ -288,21 +289,26 @@ func TestPlayerStepThenLogout_CollisionSeedBalance(t *testing.T) {
 
 	// No login-time seed: addPlayer must NOT have planted the flag (TS has
 	// no changeNpcCollision in its player-add path at 3c16994c).
-	if s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagBlockNPCs) {
-		t.Fatalf("login: tile (3200,3200) carries FlagBlockNPCs before the first move — TS has no login-time seed")
+	if s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagPlayerOcc) {
+		t.Fatalf("login: tile (3200,3200) carries FlagPlayerOcc before the first move — TS has no login-time seed")
 	}
 
 	p.queueWaypoint(3201, 3200)
 	if dir := p.validateAndAdvanceStep(); dir == -1 {
 		t.Fatal("setup: player step east did not move")
 	}
-	if !s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagBlockNPCs) {
-		t.Fatalf("step: tile (3201,3200) missing FlagBlockNPCs (first move materialises the flag, TS PathingEntity.ts:171)")
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagPlayerOcc) {
+		t.Fatalf("step: tile (3201,3200) missing FlagPlayerOcc (first move materialises the flag, TS PathingEntity.ts:177 @1d25566c)")
 	}
 
 	s.removePlayerInternal(p)
 
-	if s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagBlockNPCs) {
-		t.Errorf("logout: tile (3201,3200) still carries FlagBlockNPCs after removePlayerInternal (TS World.ts:1642)")
+	// TS World.removePlayer clears BOTH markers (World.ts:1615-1617
+	// @1d25566c), so neither may survive logout.
+	if s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagPlayerOcc) {
+		t.Errorf("logout: tile (3201,3200) still carries FlagPlayerOcc after removePlayerInternal (TS World.ts:1617)")
+	}
+	if s.gamemap.Pathfinder.Flags.IsFlagged(3201, 3200, 0, collision.FlagNpcOcc) {
+		t.Errorf("logout: tile (3201,3200) still carries FlagNpcOcc after removePlayerInternal (TS World.ts:1616)")
 	}
 }

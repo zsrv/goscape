@@ -45,6 +45,10 @@ const (
 	BlockWalkNone BlockWalk = iota
 	BlockWalkNpc
 	BlockWalkAll
+	// BlockWalkPlayer is the player posture, new at TS 8139461a
+	// (BlockWalk.ts:5 @1d25566c). Players own PLAYER_OCC rather than
+	// sharing the npc occupancy flag.
+	BlockWalkPlayer
 )
 
 // entity is implemented by all targetable game objects.

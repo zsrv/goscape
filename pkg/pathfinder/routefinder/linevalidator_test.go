@@ -24,18 +24,18 @@ func TestLineValidatorLineOfSightValidWhenOnTopOfBlockingCollisionFlagIfTargetOn
 
 func TestLineValidatorLineOfSightValidWhenTargetCoordinateIsMarkedWithExtraFlagCollisionFlag(t *testing.T) {
 	m := collision.NewFlagMap()
-	m.Add(3200, 3200, 0, collision.FlagBlockPlayers)
+	m.Add(3200, 3200, 0, collision.FlagBlockNpcAndPlayers)
 	lv := NewLineValidator(m)
-	if !lv.HasLineOfSight(0, 3200, 3202, 3200, 3200, 1, 1, 1, collision.FlagBlockPlayers) {
+	if !lv.HasLineOfSight(0, 3200, 3202, 3200, 3200, 1, 1, 1, collision.FlagBlockNpcAndPlayers) {
 		t.Fatal("expected to have line of sight")
 	}
 }
 
 func TestLineValidatorLineOfSightFailWhenBlockedByExtraFlagBeforeReachingTarget(t *testing.T) {
 	m := collision.NewFlagMap()
-	m.Add(3200, 3200, 0, collision.FlagBlockPlayers)
+	m.Add(3200, 3200, 0, collision.FlagBlockNpcAndPlayers)
 	lv := NewLineValidator(m)
-	if lv.HasLineOfSight(0, 3200, 3202, 3200, 3199, 1, 1, 1, collision.FlagBlockPlayers) {
+	if lv.HasLineOfSight(0, 3200, 3202, 3200, 3199, 1, 1, 1, collision.FlagBlockNpcAndPlayers) {
 		t.Fatal("expected not to have line of sight")
 	}
 }
@@ -51,9 +51,9 @@ func TestLineValidatorLineOfSightFailWhenOnTopOfBlockingCollisionFlag(t *testing
 
 func TestLineValidatorLineOfSightFailWhenOnTopOfExtraFlagCollisionFlag(t *testing.T) {
 	m := collision.NewFlagMap()
-	m.Add(3200, 3200, 0, collision.FlagBlockPlayers)
+	m.Add(3200, 3200, 0, collision.FlagBlockNpcAndPlayers)
 	lv := NewLineValidator(m)
-	if lv.HasLineOfSight(0, 3200, 3200, 3200, 3201, 1, 0, 0, collision.FlagBlockPlayers) {
+	if lv.HasLineOfSight(0, 3200, 3200, 3200, 3201, 1, 0, 0, collision.FlagBlockNpcAndPlayers) {
 		t.Fatal("expected not to have line of sight")
 	}
 }
@@ -126,9 +126,9 @@ func TestLineValidatorLineOfSightFailWhenBlockedByLoc(t *testing.T) {
 
 func TestLineValidatorLineOfSightFailWhenBlockedByExtraFlagCollisionFlag(t *testing.T) {
 	extraFlags := []int{
-		collision.FlagBlockPlayers,
-		collision.FlagBlockNPCs,
-		collision.FlagBlockPlayers | collision.FlagBlockNPCs,
+		collision.FlagBlockNpcAndPlayers,
+		collision.FlagNpcOcc,
+		collision.FlagBlockNpcAndPlayers | collision.FlagNpcOcc,
 	}
 
 	for _, f := range extraFlags {
@@ -215,9 +215,9 @@ func TestLineValidatorLineOfWalkFailWhenPathBlockedByLoc(t *testing.T) {
 
 func TestLineValidatorLineOfWalkFailWhenPathBlockedByExtraFlagCollisionFlag(t *testing.T) {
 	extraFlags := []int{
-		collision.FlagBlockPlayers,
-		collision.FlagBlockNPCs,
-		collision.FlagBlockPlayers | collision.FlagBlockNPCs,
+		collision.FlagBlockNpcAndPlayers,
+		collision.FlagNpcOcc,
+		collision.FlagBlockNpcAndPlayers | collision.FlagNpcOcc,
 	}
 
 	for _, f := range extraFlags {

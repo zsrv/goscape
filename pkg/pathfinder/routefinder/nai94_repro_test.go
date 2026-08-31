@@ -53,93 +53,53 @@ func TestNAI94_HansCheb2_StraightLineMustReach(t *testing.T) {
 	}
 }
 
-// TestNAI94_RouteBlockerFlag_Consulted is the H2 reproducer for NAI-94 / NAI-95.
-// Uses FlagLocRouteBlocker on the destination tile as a clean discriminator:
-// that bit appears in every FlagBlock*RouteBlocker mask but in none of the
-// regular FlagBlock* masks (see collision/flag.go), so a route-blocker-aware
-// pathfinder refuses entry from all 8 directions while a regular pathfinder
-// is unaffected.
+// TestSYNC289_RouteBlockerSubsystemRemoved replaces
+// TestNAI94_RouteBlockerFlag_Consulted, the NAI-94/NAI-95 reproducer that
+// pinned useRouteBlockerFlags being honoured.
 //
-// With useRouteBlockerFlags=true (NPC pathing in TS), the destination is
-// unreachable and moveNear=false forces a clean Route{} (Success=false).
-// With useRouteBlockerFlags=false (player pathing in TS), the route steps
-// directly onto the destination.
+// Engine-TS 8139461a deleted the route-blocker flags outright
+// (WALL_*_ROUTE_BLOCKER, LOC_ROUTE_BLOCKER and the twelve composite masks),
+// so there is nothing left to discriminate on. The subsystem was write-only
+// on both sides: TS changeLocCollision hardcoded breakroutefinding=false and
+// goscape's pkg/gamemap did the same, so no code path ever set those bits.
+// Upstream never had the routeBlockerFind* pathfinder variants at all —
+// PathFinder.ts has no such branch at 4c95f87e or 1d25566c — and goscape only
+// reached them from this test, since production builds exclusively through
+// NewRouteFinderDefault (useRouteBlockerFlags=false).
 //
-// If useRouteBlockerFlags is unconsulted by RouteFinder (the prior // TODO
-// at routefinder.go:44), both subtests behave identically.
-func TestNAI94_RouteBlockerFlag_Consulted(t *testing.T) {
+// What remains worth pinning is that the toggle no longer changes anything:
+// both settings must now produce the same route, so a future reader cannot
+// mistake the vestigial constructor parameter for live behaviour.
+func TestSYNC289_RouteBlockerSubsystemRemoved(t *testing.T) {
 	const (
 		level = 0
-		// Synthetic local coords away from real mapsquares. dst is one tile
-		// east of src so the regular-pathfinder case has a trivial 1-step route.
-		srcX = 3000
-		srcZ = 3000
-		dstX = 3001
-		dstZ = 3000
+		srcX  = 3000
+		srcZ  = 3000
+		dstX  = 3001
+		dstZ  = 3000
 	)
 
-	for _, tc := range []struct {
-		name                 string
-		useRouteBlockerFlags bool
-		wantSuccess          bool
-		wantReachesDest      bool
-	}{
-		{name: "BlockerHonored_RefusesToCross", useRouteBlockerFlags: true, wantSuccess: false, wantReachesDest: false},
-		{name: "BlockerIgnored_PassesThrough", useRouteBlockerFlags: false, wantSuccess: true, wantReachesDest: true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			// Allocate zones around src/dst so empty-FlagMap degeneracy
-			// (FlagNull=0x7FFFFFFF → CanMove returns false everywhere) doesn't
-			// confound the H2 signal. See TestNAI94_AllocatedZones_PathfinderWorks
-			// for the same setup convention.
-			flags := internal.BuildCollisionMap(2995, 2995, 3010, 3010)
-			// Plant a route-blocker on the destination tile. FlagLocRouteBlocker
-			// appears in all FlagBlock*RouteBlocker masks but not in regular
-			// FlagBlock* masks, so it blocks entry from every direction iff
-			// useRouteBlockerFlags is honored.
-			flags.Add(dstX, dstZ, level, collision.FlagLocRouteBlocker)
+	var routes []Route
+	for _, useRouteBlockerFlags := range []bool{true, false} {
+		flags := internal.BuildCollisionMap(2995, 2995, 3010, 3010)
+		rf := NewRouteFinder(flags, routefinderDefaultSearchMapSize, routefinderDefaultRingBufferSize, useRouteBlockerFlags)
+		routes = append(routes, rf.FindRoute(level, srcX, srcZ, dstX, dstZ, 1, 1, 1, 0, -1, false, 0, 25, collision.TypeNormal))
+	}
 
-			rf := NewRouteFinder(flags, routefinderDefaultSearchMapSize, routefinderDefaultRingBufferSize, tc.useRouteBlockerFlags)
-
-			// moveNear=false forces Route{} (Success=false) when the destination
-			// can't be reached, rather than falling through to the closest-approach
-			// branch which always yields Success=true.
-			route := rf.FindRoute(level, srcX, srcZ, dstX, dstZ, 1, 1, 1, 0, -1, false, 0, 25, collision.TypeNormal)
-
-			if route.Success != tc.wantSuccess {
-				t.Errorf("Route.Success = %v; want %v. Route=%+v", route.Success, tc.wantSuccess, route)
-			}
-			if tc.wantReachesDest {
-				if len(route.Waypoints) == 0 {
-					t.Fatalf("Route.Waypoints empty; want path reaching (%d, %d). Route=%+v", dstX, dstZ, route)
-				}
-				last := route.Waypoints[len(route.Waypoints)-1]
-				if last.X() != dstX || last.Z() != dstZ {
-					t.Errorf("last waypoint = (%d, %d); want (%d, %d) [BlockerIgnored expects passage]", last.X(), last.Z(), dstX, dstZ)
-				}
-			} else {
-				if len(route.Waypoints) != 0 {
-					t.Errorf("Route.Waypoints non-empty (%d) but blocker should refuse passage. Route=%+v", len(route.Waypoints), route)
-				}
-			}
-		})
+	if !routes[0].Success || !routes[1].Success {
+		t.Fatalf("both routes should succeed; got %+v and %+v", routes[0], routes[1])
+	}
+	if len(routes[0].Waypoints) != len(routes[1].Waypoints) {
+		t.Fatalf("useRouteBlockerFlags changed the route: %d waypoints vs %d",
+			len(routes[0].Waypoints), len(routes[1].Waypoints))
+	}
+	for i := range routes[0].Waypoints {
+		if routes[0].Waypoints[i] != routes[1].Waypoints[i] {
+			t.Errorf("waypoint %d differs: %+v vs %+v", i, routes[0].Waypoints[i], routes[1].Waypoints[i])
+		}
 	}
 }
 
-// TestNAI94_SurvivalExpert_BlockedPassage is the H3 reproducer. Smoke shape
-// from 2026-05-05 NAI-92 run: player at (3101, 3103) → NPC typeId=943 at
-// (3103, 3095). Cheb=8. Real-game observation: player gets within ~6 tiles,
-// no closer.
-//
-// This unit test uses an EMPTY FlagMap to isolate the question: does the
-// pathfinder return a clean reaching path when there's no obstacle? If yes,
-// the "gets within 6 tiles" symptom is downstream of FlagMap state (real
-// cabin wall flags); if no, the truncation/algo issue reproduces even
-// without walls. A second subtest plants a synthetic minimal cabin-wall to
-// see whether moveNear closest-approach matches the in-game ~6-tile result.
-//
-// Real-mapsquare m48_50 fixture loading is OUT of scope for this plan
-// (would drag world wiring into a unit test). NAI-95 may revisit this.
 func TestNAI94_SurvivalExpert_BlockedPassage(t *testing.T) {
 	const (
 		level = 0

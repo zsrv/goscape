@@ -469,7 +469,7 @@ func TestRemovePlayerClearsSlot(t *testing.T) {
 // TestRemovePlayerClearsNpcCollisionFootprint pins world-ops-2.
 // TS World.removePlayer (World.ts:1601) unconditionally calls
 // changeNpcCollision(width, x, z, level, false) on logout. goscape's
-// removePlayerInternal must do the same, otherwise the FlagBlockNPCs
+// removePlayerInternal must do the same, otherwise the FlagNpcOcc
 // set at the logout tile (e.g. by SetVisibility(Default)) remains
 // stuck on the map after the player is gone.
 func TestRemovePlayerClearsNpcCollisionFootprint(t *testing.T) {
@@ -479,18 +479,18 @@ func TestRemovePlayerClearsNpcCollisionFootprint(t *testing.T) {
 	p := newPlayer(c)
 
 	_ = s.addPlayer(p)
-	// Seed FlagBlockNPCs at the player's tile, matching what
+	// Seed FlagNpcOcc at the player's tile, matching what
 	// SetVisibility(Default) (player.go:674) would have left there.
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(p.x, p.z, p.level)
 	s.gamemap.ChangeNPCCollision(1, p.x, p.z, p.level, true)
-	if !s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagBlockNPCs) {
-		t.Fatal("seed: FlagBlockNPCs must be set before removePlayerInternal")
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagNpcOcc) {
+		t.Fatal("seed: FlagNpcOcc must be set before removePlayerInternal")
 	}
 
 	s.removePlayerInternal(p)
 
-	if s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagBlockNPCs) {
-		t.Error("TS World.removePlayer (World.ts:1601) calls changeNpcCollision(false); FlagBlockNPCs must be cleared after removePlayerInternal")
+	if s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagNpcOcc) {
+		t.Error("TS World.removePlayer (World.ts:1601) calls changeNpcCollision(false); FlagNpcOcc must be cleared after removePlayerInternal")
 	}
 }
 

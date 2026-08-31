@@ -891,7 +891,7 @@ func (p *Player) approachHasLineOfSight(tx, tz, tw, tl int) bool {
 		return true
 	}
 	return p.client.server.gamemap.Pathfinder.LineValidator.HasLineOfSight(
-		p.level, p.x, p.z, tx, tz, p.Width(), tw, tl, collision.FlagBlockPlayers)
+		p.level, p.x, p.z, tx, tz, p.Width(), tw, tl, collision.FlagBlockNpcAndPlayers)
 }
 
 // approachTargetSize returns the target's tile footprint for approach-distance
