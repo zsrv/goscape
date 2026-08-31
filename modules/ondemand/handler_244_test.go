@@ -30,9 +30,11 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/io/filestream"
 )
 
@@ -60,6 +62,13 @@ func newTestOnDemandWithCache(t *testing.T) (*OnDemand, map[int][]byte) {
 		fixtures[file] = data
 	}
 
+	// Since Engine-TS 8139461a the archive routes are CRC-gated
+	// (web.ts:164-250 @1d25566c), so the CRC table must reflect this
+	// fixture's cache for a request to be served.
+	if err := cache.MakeCRCs(dir); err != nil {
+		t.Fatalf("cache.MakeCRCs: %v", err)
+	}
+
 	a := &OnDemand{
 		log:     discardLogger(),
 		cache:   fs,
@@ -68,11 +77,23 @@ func newTestOnDemandWithCache(t *testing.T) (*OnDemand, map[int][]byte) {
 	return a, fixtures
 }
 
+// archiveURL builds the CRC-gated URL for an archive-0 file, e.g.
+// "/title-1234567". The client appends the CRC it holds; a request without
+// one, or with the wrong one, now 404s.
+func archiveURL(t *testing.T, prefix string, file int) string {
+	t.Helper()
+	snap := cache.CRC()
+	if file >= len(snap.Table) {
+		t.Fatalf("archiveURL: no CRC for archive file %d (table has %d entries)", file, len(snap.Table))
+	}
+	return prefix + strconv.FormatInt(int64(int32(snap.Table[file])), 10)
+}
+
 // --- Archive route pins ---
 
 func TestRootHandler244_Title(t *testing.T) {
 	a, fix := newTestOnDemandWithCache(t)
-	req := httptest.NewRequest(http.MethodGet, "/title", nil)
+	req := httptest.NewRequest(http.MethodGet, archiveURL(t, "/title", 1), nil)
 	rr := httptest.NewRecorder()
 	a.RootHandler(rr, req)
 	if rr.Code != http.StatusOK {
@@ -86,7 +107,7 @@ func TestRootHandler244_Title(t *testing.T) {
 
 func TestRootHandler244_Config(t *testing.T) {
 	a, fix := newTestOnDemandWithCache(t)
-	req := httptest.NewRequest(http.MethodGet, "/config", nil)
+	req := httptest.NewRequest(http.MethodGet, archiveURL(t, "/config", 2), nil)
 	rr := httptest.NewRecorder()
 	a.RootHandler(rr, req)
 	if rr.Code != http.StatusOK {
@@ -100,7 +121,7 @@ func TestRootHandler244_Config(t *testing.T) {
 
 func TestRootHandler244_Interface(t *testing.T) {
 	a, fix := newTestOnDemandWithCache(t)
-	req := httptest.NewRequest(http.MethodGet, "/interface", nil)
+	req := httptest.NewRequest(http.MethodGet, archiveURL(t, "/interface", 3), nil)
 	rr := httptest.NewRecorder()
 	a.RootHandler(rr, req)
 	if rr.Code != http.StatusOK {
@@ -114,7 +135,7 @@ func TestRootHandler244_Interface(t *testing.T) {
 
 func TestRootHandler244_Media(t *testing.T) {
 	a, fix := newTestOnDemandWithCache(t)
-	req := httptest.NewRequest(http.MethodGet, "/media", nil)
+	req := httptest.NewRequest(http.MethodGet, archiveURL(t, "/media", 4), nil)
 	rr := httptest.NewRecorder()
 	a.RootHandler(rr, req)
 	if rr.Code != http.StatusOK {
@@ -128,7 +149,7 @@ func TestRootHandler244_Media(t *testing.T) {
 
 func TestRootHandler244_VersionlistNew(t *testing.T) {
 	a, fix := newTestOnDemandWithCache(t)
-	req := httptest.NewRequest(http.MethodGet, "/versionlist", nil)
+	req := httptest.NewRequest(http.MethodGet, archiveURL(t, "/versionlist", 5), nil)
 	rr := httptest.NewRecorder()
 	a.RootHandler(rr, req)
 	if rr.Code != http.StatusOK {
@@ -142,7 +163,7 @@ func TestRootHandler244_VersionlistNew(t *testing.T) {
 
 func TestRootHandler244_Textures(t *testing.T) {
 	a, fix := newTestOnDemandWithCache(t)
-	req := httptest.NewRequest(http.MethodGet, "/textures", nil)
+	req := httptest.NewRequest(http.MethodGet, archiveURL(t, "/textures", 6), nil)
 	rr := httptest.NewRecorder()
 	a.RootHandler(rr, req)
 	if rr.Code != http.StatusOK {
@@ -156,7 +177,7 @@ func TestRootHandler244_Textures(t *testing.T) {
 
 func TestRootHandler244_Wordenc(t *testing.T) {
 	a, fix := newTestOnDemandWithCache(t)
-	req := httptest.NewRequest(http.MethodGet, "/wordenc", nil)
+	req := httptest.NewRequest(http.MethodGet, archiveURL(t, "/wordenc", 7), nil)
 	rr := httptest.NewRecorder()
 	a.RootHandler(rr, req)
 	if rr.Code != http.StatusOK {
@@ -170,7 +191,7 @@ func TestRootHandler244_Wordenc(t *testing.T) {
 
 func TestRootHandler244_Sounds(t *testing.T) {
 	a, fix := newTestOnDemandWithCache(t)
-	req := httptest.NewRequest(http.MethodGet, "/sounds", nil)
+	req := httptest.NewRequest(http.MethodGet, archiveURL(t, "/sounds", 8), nil)
 	rr := httptest.NewRecorder()
 	a.RootHandler(rr, req)
 	if rr.Code != http.StatusOK {
@@ -285,7 +306,7 @@ func TestRootHandler244_NilCacheFallsThrough404(t *testing.T) {
 // application/octet-stream, matching the existing posture in handler.go.
 func TestRootHandler244_ArchiveContentType(t *testing.T) {
 	a, _ := newTestOnDemandWithCache(t)
-	req := httptest.NewRequest(http.MethodGet, "/title", nil)
+	req := httptest.NewRequest(http.MethodGet, archiveURL(t, "/title", 1), nil)
 	rr := httptest.NewRecorder()
 	a.RootHandler(rr, req)
 	if got := rr.Header().Get("Content-Type"); got != "application/octet-stream" {
@@ -319,5 +340,75 @@ func TestRootHandler244_MapsRouteUnchanged(t *testing.T) {
 	got, _ := io.ReadAll(rr.Body)
 	if !bytes.Equal(got, want) {
 		t.Fatalf("body = %v, want %v", got, want)
+	}
+}
+
+// --- CRC gate (Engine-TS 8139461a) ---
+
+// TestArchiveRouteRejectsWrongCRC pins the gate added at TS web.ts:164-250
+// @1d25566c: an archive request whose trailing CRC does not match the
+// archive's current CRC must 404 rather than be served.
+func TestArchiveRouteRejectsWrongCRC(t *testing.T) {
+	a, _ := newTestOnDemandWithCache(t)
+
+	for _, tc := range []struct {
+		name string
+		path string
+	}{
+		{"wrong crc", "/title-12345"},
+		{"no crc", "/title"},
+		{"empty suffix after prefix", "/title"},
+		{"non-numeric crc", "/titleabc"},
+		{"crc of a different archive", archiveURL(t, "/title", 2)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			rr := httptest.NewRecorder()
+			a.RootHandler(rr, req)
+			if rr.Code != http.StatusNotFound {
+				t.Errorf("GET %s: status = %d, want 404", tc.path, rr.Code)
+			}
+		})
+	}
+}
+
+// TestArchiveRouteAcceptsCorrectCRC is the positive counterpart, asserted for
+// every archive so a per-archive off-by-one in the CRC table index cannot
+// hide.
+func TestArchiveRouteAcceptsCorrectCRC(t *testing.T) {
+	a, fix := newTestOnDemandWithCache(t)
+
+	for _, tc := range []struct {
+		prefix string
+		file   int
+	}{
+		{"/title", 1}, {"/config", 2}, {"/interface", 3}, {"/media", 4},
+		{"/versionlist", 5}, {"/textures", 6}, {"/wordenc", 7}, {"/sounds", 8},
+	} {
+		t.Run(tc.prefix, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, archiveURL(t, tc.prefix, tc.file), nil)
+			rr := httptest.NewRecorder()
+			a.RootHandler(rr, req)
+			if rr.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", rr.Code)
+			}
+			got, _ := io.ReadAll(rr.Body)
+			if !bytes.Equal(got, fix[tc.file]) {
+				t.Errorf("body = %v, want %v", got, fix[tc.file])
+			}
+		})
+	}
+}
+
+// TestCRCRouteStaysUngated pins that /crc itself is NOT gated — it is how the
+// client learns the CRCs it must then present, so gating it would deadlock
+// the handshake.
+func TestCRCRouteStaysUngated(t *testing.T) {
+	a, _ := newTestOnDemandWithCache(t)
+	req := httptest.NewRequest(http.MethodGet, "/crc", nil)
+	rr := httptest.NewRecorder()
+	a.RootHandler(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /crc: status = %d, want 200", rr.Code)
 	}
 }

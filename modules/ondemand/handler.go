@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/cache"
@@ -50,6 +51,26 @@ var archiveRoutes = []struct {
 	{"/sounds", 8},
 }
 
+// archiveCRCMatches reports whether the trailing portion of an archive route
+// parses as the CRC that archive currently has.
+//
+// TS parses with tryParseInt(crc, -1) and compares against CrcTable[file], so
+// an absent or unparseable suffix yields -1 and can never match a real CRC.
+// The CRC is a signed int32 on the wire (CrcTable holds getcrc output), so the
+// comparison is done in int32 space; parsing into uint32 and comparing would
+// reject every negative CRC.
+func archiveCRCMatches(suffix string, file int) bool {
+	snap := cache.CRC()
+	if snap == nil || file < 0 || file >= len(snap.Table) {
+		return false
+	}
+	got, err := strconv.ParseInt(suffix, 10, 64)
+	if err != nil {
+		return false
+	}
+	return int32(got) == int32(snap.Table[file])
+}
+
 // isValidMapName matches the m{x}_{z} / l{x}_{z} cache-key convention used
 // by goscape-client (see client.go:9479 / 9496). Anything else is rejected
 // so the path joined under data/pack/client/maps cannot escape that dir
@@ -92,6 +113,19 @@ func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 	// 500 via Bun non-null assertion on cache.read(0, N)! — decision row).
 	for _, ar := range archiveRoutes {
 		if strings.HasPrefix(r.URL.Path, ar.prefix) {
+			// CRC gate — TS web.ts:164-250 @1d25566c. Engine-TS 8139461a
+			// moved these routes from unconditional prefix matches to
+			// `/<name>:crc` handlers that 404 unless the trailing value
+			// equals CrcTable[n]. The client always appends the CRC it holds,
+			// so a stale request now fails fast instead of being served an
+			// archive the client will reject anyway.
+			//
+			// /crc itself stays ungated (handled above): it is how the client
+			// learns the CRCs in the first place.
+			if !archiveCRCMatches(r.URL.Path[len(ar.prefix):], ar.file) {
+				http.NotFound(w, r)
+				return
+			}
 			a.serveArchive(w, r, 0, ar.file)
 			return
 		}

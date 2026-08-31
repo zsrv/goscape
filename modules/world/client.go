@@ -262,6 +262,14 @@ func (c *client) flushWriteOrClose() {
 // socket, so each writer fails its next write (or its drain) and exits
 // promptly on its own rather than holding the wait group open for one
 // write timeout per connection.
+// DEVIATION SYNC289-D1: Engine-TS 8139461a deleted the 1000 ms setTimeout
+// that TcpClientSocket.close / WSClientSocket.close used to wait out before
+// ending the socket (TcpClientSocket.ts:20 @1d25566c). goscape does NOT
+// follow. That timeout was a crude stand-in for the flush guarantee the
+// SEC1-D3 bounded outbound writer provides properly: Close hands the socket
+// to the drain path rather than cutting it, so a final packet still lands.
+// Adopting the TS shape would reintroduce the truncated-final-packet bug
+// SEC1-D3 fixed. See docs/PORTING.md, rev-274 engine sync entry.
 func (c *client) closeConn() {
 	if c.out != nil {
 		c.out.Close()
