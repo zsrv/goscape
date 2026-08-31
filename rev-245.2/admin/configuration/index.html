@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://goscape.invalid/rev-245.2/admin/configuration/">
+        <link rel="canonical" href="https://zsrv.github.io/goscape/rev-245.2/admin/configuration/">
       
       
         <link rel="prev" href="../quickstart/">
@@ -191,6 +191,8 @@
       
         
           
+        
+      
         
       
         
@@ -451,6 +453,8 @@
       
         
           
+        
+      
         
       
         
@@ -805,6 +809,33 @@
     
   
   Operations runbook
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hiscores-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Hiscores API
 
     
   </span>
@@ -2652,19 +2683,22 @@ registered as value flags, so the <code>=true</code> is not optional. A bare
 </div>
 <h2 id="choosing-which-modules-run-target">Choosing which modules run: <code>target</code><a class="headerlink" href="#choosing-which-modules-run-target" title="Permanent link">&para;</a></h2>
 <p>The <code>target</code> key (or the <code>--target</code> flag) selects which modules the process runs:
-<code>ondemand</code>, <code>world</code>, <code>login</code>, <code>friends</code>, or <code>all</code> (the default). Selecting a
-target pulls in the modules it depends on automatically. The
+<code>ondemand</code>, <code>world</code>, <code>login</code>, <code>friends</code>, <code>account</code>, <code>hiscore</code>, or <code>all</code> (the
+default). Selecting a target pulls in the modules it depends on automatically. The
 <a href="../#modules-and-the-target-flag">Administrator's Guide overview</a> explains
 each target and the dependency graph between modules.</p>
 <p><code>target</code> interacts with each module's own <code>enable</code> key: <strong>a module runs only when
 both its <code>enable</code> is set to <code>true</code> and it is included by the active <code>target</code>.</strong> The
-bundled preset sets <code>target: all</code> and <code>enable: true</code> on every module, so the whole
-server runs in one process. To split the server across hosts — for example, to run
+bundled preset sets <code>target: all</code> and enables <code>ondemand</code>, <code>world</code>, <code>login</code>,
+<code>friends</code> and <code>hiscore</code>, so the whole game server runs in one process. It leaves
+<code>account</code> at its default <code>enable: false</code>, so the player portal does not start
+even though <code>all</code> covers it — see <a href="../#network-surfaces-and-ports">the portal's listeners</a>. To split the server across hosts — for example, to run
 only the login service on its own machine — set <code>target: login</code> there and enable
 just that module; see <a href="../deployment/">Deployment scenarios</a>.</p>
 <h2 id="choosing-a-database-backend">Choosing a database backend<a class="headerlink" href="#choosing-a-database-backend" title="Permanent link">&para;</a></h2>
-<p>The <code>login</code> and <code>friends</code> modules share one <strong>central database</strong>. The <code>database:</code>
-section selects its backend with <code>database.backend</code>, which is one of:</p>
+<p>The <code>login</code>, <code>friends</code>, <code>account</code> and <code>hiscore</code> modules share one <strong>central
+database</strong> — each is an independent client of it with its own connection pool. The
+<code>database:</code> section selects the backend with <code>database.backend</code>, which is one of:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="choosing-a-database-backend-sqlite-default" name="__tabbed_1" type="radio" /><input id="choosing-a-database-backend-postgres" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="choosing-a-database-backend-sqlite-default"><code>sqlite</code> (default)</label><label for="choosing-a-database-backend-postgres"><code>postgres</code></label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
@@ -2673,9 +2707,9 @@ section selects its backend with <code>database.backend</code>, which is one of:
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">sqlite</span><span class="p">:</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">dsn</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data/goscape.db</span><span class="w">   </span><span class="c1"># SQLite file path</span>
 </span></code></pre></div>
-<p>A single local database file. Because both modules must reach the same file,
-the SQLite backend requires them to share a filesystem — that is, to run on the
-same host. This is what the bundled preset uses, and it needs no external
+<p>A single local database file. Because every module using it must reach the
+same file, the SQLite backend requires them to share a filesystem — that is, to
+run on the same host. This is what the bundled preset uses, and it needs no external
 services. <code>sqlite.dsn</code> must be non-empty.</p>
 </div>
 <div class="tabbed-block">
@@ -2695,7 +2729,7 @@ must be at least <code>1</code>.</p>
 </div>
 <p>An invalid backend name is rejected at startup — <code>database.backend</code> must be one of
 <code>[sqlite, postgres]</code>. See the overview's <a href="../#network-surfaces-and-ports">network surfaces</a>
-for how the shared database sits behind the <code>login</code> and <code>friends</code> modules, and
+for how the shared database sits behind the database-using modules, and
 <a href="../deployment/">Deployment scenarios</a> for the multi-host layout that PostgreSQL
 enables.</p>
 <h2 id="logging-and-per-module-log-levels">Logging and per-module log levels<a class="headerlink" href="#logging-and-per-module-log-levels" title="Permanent link">&para;</a></h2>

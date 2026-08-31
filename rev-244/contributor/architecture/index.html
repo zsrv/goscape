@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://goscape.invalid/rev-244/contributor/architecture/">
+        <link rel="canonical" href="https://zsrv.github.io/goscape/rev-244/contributor/architecture/">
       
       
         <link rel="prev" href="../dev-setup/">
@@ -189,6 +189,8 @@
       
         
           
+        
+      
         
       
         
@@ -463,6 +465,8 @@
       
         
       
+        
+      
     
     
     
@@ -665,6 +669,33 @@
     
   
   Operations runbook
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/hiscores-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Hiscores API
 
     
   </span>
@@ -2529,8 +2560,9 @@ terminal <code>Failed</code> state instead of <code>Terminated</code>. The key t
   "one failure stops everything" behaviour described in the admin guide.</li>
 </ul>
 <h2 id="module-system-and-the-registration-pattern">Module system and the registration pattern<a class="headerlink" href="#module-system-and-the-registration-pattern" title="Permanent link">&para;</a></h2>
-<p>The named modules (<code>ondemand</code>, <code>world</code>, <code>login</code>, <code>friends</code>, plus the invisible
-<code>common</code> and <code>database</code>) are wired by <code>pkg/dskit/modules.Manager</code>, which resolves
+<p>The named modules (<code>ondemand</code>, <code>world</code>, <code>login</code>, <code>friends</code>, <code>account</code>, <code>hiscore</code>,
+plus the invisible <code>common</code> and <code>database</code>) are wired by
+<code>pkg/dskit/modules.Manager</code>, which resolves
 the dependency graph and initialises modules in topological order. The wiring
 lives in <code>cmd/goscape/app/modules.go</code>:</p>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nx">mm</span><span class="p">.</span><span class="nx">RegisterModule</span><span class="p">(</span><span class="nx">Common</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">modules</span><span class="p">.</span><span class="nx">UserInvisibleModule</span><span class="p">)</span>

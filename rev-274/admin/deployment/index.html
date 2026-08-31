@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://goscape.invalid/rev-274/admin/deployment/">
+        <link rel="canonical" href="https://zsrv.github.io/goscape/rev-274/admin/deployment/">
       
       
         <link rel="prev" href="../config-reference/">
@@ -191,6 +191,8 @@
       
         
           
+        
+      
         
       
         
@@ -451,6 +453,8 @@
       
         
           
+        
+      
         
       
         
@@ -772,6 +776,33 @@
     
   
   Operations runbook
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hiscores-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Hiscores API
 
     
   </span>
@@ -2616,21 +2647,22 @@ needs.</p>
   module's own <code>enable</code> key gates it; a module runs only when both include it. The
   <a href="../#modules-and-the-target-flag">Administrator's Guide overview</a> explains
   the modules, the <a href="../#module-dependency-graph">dependency graph</a>, and the
-  <a href="../#network-surfaces-and-ports">four network listeners</a> they expose.</li>
-<li><strong>Which database backend the central database uses.</strong> <code>login</code> and <code>friends</code> are
-  the only two modules that read and write the central database; <code>sqlite</code> keeps it
-  in a local file, while <code>postgres</code> makes it a network service. See
+  <a href="../#network-surfaces-and-ports">network listeners</a> they expose.</li>
+<li><strong>Which database backend the central database uses.</strong> <code>login</code>, <code>friends</code>,
+  <code>account</code> and <code>hiscore</code> are the modules that use the central database (<code>hiscore</code>
+  only reads it, and <code>account</code> runs only when you enable it); <code>sqlite</code> keeps it in
+  a local file, while <code>postgres</code> makes it a network service. See
   <a href="../configuration/#choosing-a-database-backend">Configuration</a> for the
   <code>database:</code> section.</li>
 </ul>
 <p>Throughout this page the ports <code>8080</code> (OnDemand HTTP), <code>43594</code> (world TCP), <code>2004</code>
-(login gRPC), and <code>2005</code> (friends gRPC) are the values from the overview's
+(login gRPC), <code>2005</code> (friends gRPC), and <code>8082</code> (hiscores HTTP) are the values from the overview's
 <a href="../#network-surfaces-and-ports">listener table</a>; every port and bind address
 is configurable through the <a href="../config-reference/">Config reference</a>.</p>
 <h2 id="1-single-binary-with-sqlite-development-and-small-deployments">1. Single binary with SQLite (development and small deployments)<a class="headerlink" href="#1-single-binary-with-sqlite-development-and-small-deployments" title="Permanent link">&para;</a></h2>
 <p>The simplest layout is one process that runs everything. Set <code>target: all</code> and the
-process starts all four modules; with the default <code>sqlite</code> backend it keeps its
-state in a local database file and needs no external services at all. This is what
+process starts every module you have enabled; with the default <code>sqlite</code> backend it
+keeps its state in a local database file and needs no external services at all. This is what
 the bundled example preset does, and it is the layout the <a href="../quickstart/">Quick start</a>
 walks through step by step.</p>
 <p>Inside that single process the world module still reaches login and friends over
@@ -2644,16 +2676,19 @@ gRPC, but those calls stay on the loopback interface (<code>127.0.0.1:2004</code
         world["world&lt;br/&gt;TCP :43594"]
         login["login&lt;br/&gt;gRPC :2004"]
         friends["friends&lt;br/&gt;gRPC :2005"]
+        hiscore["hiscore&lt;br/&gt;HTTP :8082"]
         db[("SQLite file&lt;br/&gt;data/goscape.db")]
         world --&gt;|loopback gRPC| login
         world --&gt;|loopback gRPC| friends
         login --&gt;|reads / writes| db
         friends --&gt;|reads / writes| db
+        hiscore --&gt;|reads| db
     end
     client --&gt;|game cache over HTTP| ondemand
     client --&gt;|gameplay over TCP| world</code></pre>
-<p><em>Figure 1: one process runs every module; the login/friends gRPC calls never leave
-the host, and both write to a single SQLite file.</em></p>
+<p><em>Figure 1: one process runs every enabled module; the login/friends gRPC calls
+never leave the host, login and friends write to a single SQLite file, and
+hiscore serves reads from it.</em></p>
 <div class="admonition tip">
 <p class="admonition-title">When this layout is enough</p>
 <p>A single-binary SQLite server is ideal for development, testing, and small
@@ -2791,13 +2826,13 @@ layouts for Kubernetes. You install it <strong>once per role</strong>, choosing 
 <tr>
 <td><code>SingleBinary</code></td>
 <td>StatefulSet</td>
-<td>ondemand + world + login + friends</td>
+<td>ondemand + world + login + friends + hiscore</td>
 <td>PVC</td>
 </tr>
 <tr>
 <td><code>Management</code></td>
 <td>StatefulSet</td>
-<td>login + friends</td>
+<td>login + friends + hiscore</td>
 <td>PVC</td>
 </tr>
 <tr>
@@ -2808,6 +2843,8 @@ layouts for Kubernetes. You install it <strong>once per role</strong>, choosing 
 </tr>
 </tbody>
 </table>
+<p>The <code>account</code> module rides on the two stateful modes but is off unless you turn
+it on — see the account portal bullet below.</p>
 <p><code>SingleBinary</code> maps to scenario 1 and <code>Management</code> + <code>World</code> map to scenario 3: a
 single <code>Management</code> release (a StatefulSet with a PersistentVolumeClaim for its
 database) is dialed by any number of stateless <code>World</code> releases (a Deployment you
@@ -2851,6 +2888,19 @@ behaves and how to catch a bad key before you deploy.</p>
   Install <code>World</code> releases in the same namespace as the <code>Management</code> release, or
   widen the policy yourself.</p>
 </li>
+<li><strong>The account portal is opt-in.</strong> It is the one module the chart cannot switch
+  on for you: <code>goscape.account.publicUrl</code> has no sensible default and the module
+  refuses to start without it. Set <code>goscape.account.enabled=true</code> with that URL on
+  a <code>SingleBinary</code> or <code>Management</code> release, and the chart renders the portal's
+  config, its two container ports, and a Service entry for the portal. The
+  portal's secrets come from one Secret named by <code>goscape.account.existingSecret</code>,
+  read for the optional keys <code>admin-token</code>, <code>smtp-password</code> and
+  <code>discord-client-secret</code>; a key you do not create simply leaves that feature off.
+  <code>accountIngress</code> publishes the portal on its own hostname, which must match
+  <code>publicUrl</code>, since that URL is the base of every emailed link and the OAuth
+  redirect. Switching game login over to portal passwords is a separate flag,
+  <code>goscape.account.gameLogin</code> — a change to how every player authenticates, so the
+  chart never implies it from the portal being on.</li>
 <li><strong>A custom login RSA key is a mounted Secret.</strong> In <code>World</code> and <code>SingleBinary</code>
   modes you can replace the built-in login-decryption key: pre-create a Secret
   holding the PEM-encoded private key and reference it with

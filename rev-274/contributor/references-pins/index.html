@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://goscape.invalid/rev-274/contributor/references-pins/">
+        <link rel="canonical" href="https://zsrv.github.io/goscape/rev-274/contributor/references-pins/">
       
       
         <link rel="prev" href="../branches/">
@@ -189,6 +189,8 @@
       
         
           
+        
+      
         
       
         
@@ -463,6 +465,8 @@
       
         
       
+        
+      
     
     
     
@@ -665,6 +669,33 @@
     
   
   Operations runbook
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin/hiscores-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Hiscores API
 
     
   </span>
@@ -2751,7 +2782,7 @@ regardless of where those branches point now.)</p>
 </table>
 <p>(Commits captured 2026-06-03 from the local reference checkouts, matching the
 goscape-client <code>REFERENCES.md</code> rev-244 pins. Go branch <code>rev-244</code> is cut from
-<code>rev-225</code> at <code>21b66635</code>. Engine (Java) and Server — pinned at <code>main</code> for
+<code>rev-225</code> at <code>b1bfd65a</code>. Engine (Java) and Server — pinned at <code>main</code> for
 rev-225 — have no 244-specific checkout yet; record them here if/when a
 244-specific need arises, otherwise the rev-225 pins remain the last-known
 reference.)</p>
@@ -2820,7 +2851,7 @@ reference.)</p>
 </tbody>
 </table>
 <p>(Commits captured 2026-06-09, matching the goscape-client <code>REFERENCES.md</code>
-rev-245.2 pins. Go branch <code>rev-245.2</code> is cut from <code>rev-244</code> at <code>2ecde050</code>.)</p>
+rev-245.2 pins. Go branch <code>rev-245.2</code> is cut from <code>rev-244</code> at <code>602586fd</code>.)</p>
 <p>Notes:</p>
 <ul>
 <li><strong>Lineage:</strong> the upstream <code>245.2</code> branch diverged from the <code>244</code> lineage at
@@ -2894,7 +2925,7 @@ rev-245.2 pins. Go branch <code>rev-245.2</code> is cut from <code>rev-244</code
 <p>(Engine pin ADVANCED 2026-06-10 from the original capture <code>43e02957</code> — see
 the pin-advance note below. Content/Client-Java/rsbuf match the
 goscape-client <code>REFERENCES.md</code> rev-254 pins; their upstream tips have not
-moved. Go branch <code>rev-254</code> is cut from <code>rev-245.2</code> at <code>4b4c6106</code>.)</p>
+moved. Go branch <code>rev-254</code> is cut from <code>rev-245.2</code> at <code>17602d17</code>.)</p>
 <p>Notes:</p>
 <ul>
 <li><strong>Pin advance (2026-06-10, user decision):</strong> the original capture pinned
@@ -2939,14 +2970,14 @@ moved. Go branch <code>rev-254</code> is cut from <code>rev-245.2</code> at <cod
 <td><strong>primary</strong> — authoritative translation source</td>
 <td><a href="https://github.com/LostCityRS/Engine-TS">https://github.com/LostCityRS/Engine-TS</a></td>
 <td><code>274</code></td>
-<td><code>dee467c868e694a2d5a931e3d19e580c83666cb2</code></td>
+<td><code>4c95f87efe00b068cadbd229d94736626907bd1a</code></td>
 </tr>
 <tr>
 <td>Content</td>
 <td>game content packed and served by the server</td>
 <td><a href="https://github.com/LostCityRS/Content">https://github.com/LostCityRS/Content</a></td>
 <td><code>274</code></td>
-<td><code>7f97b0a535a885bff9846631ca78438b6a731274</code></td>
+<td><code>376072662e78a314bf35bb18815be39521491a6b</code></td>
 </tr>
 <tr>
 <td>Client-Java</td>
@@ -2971,11 +3002,12 @@ moved. Go branch <code>rev-254</code> is cut from <code>rev-245.2</code> at <cod
 </tr>
 </tbody>
 </table>
-<p>(Commits captured 2026-06-12 from the Server274-ref reference worktrees. Go
-branch <code>rev-274</code> is cut from <code>rev-254</code> at <code>d5e3234f</code>.)</p>
+<p>(Commits captured 2026-06-12 from the Server274-ref reference worktrees;
+Engine-TS/Content re-pinned 2026-07-16 (see note 5). Go branch <code>rev-274</code> is
+cut from <code>rev-254</code> at <code>39857fbb</code>.)</p>
 <p>Notes:</p>
 <ol>
-<li>Go branch cut from <code>rev-254</code> at <code>d5e3234f</code>.</li>
+<li>Go branch cut from <code>rev-254</code> at <code>39857fbb</code>.</li>
 <li>Work list = <code>git -C Engine-TS diff 2e3bcf43..dee467c8</code> (188 files,
    +13,792/−3,694, merge-base <code>93b6e557</code>).</li>
 <li><strong>Toolchain: bun → Node 24</strong> at the 274 pin — <code>node:zlib</code> 1.3.1 replaces
@@ -2986,6 +3018,11 @@ branch <code>rev-274</code> is cut from <code>rev-254</code> at <code>d5e3234f</
    both internalized into TS (<code>src/network/rsbuf/</code>,
    <code>src/engine/routefinder/</code>); the TS files at the Engine-TS pin are the
    authoritative reference from 274 on.</li>
+<li><strong>Re-pinned 2026-07-16</strong>: Engine-TS advanced <code>dee467c8</code> → <code>4c95f87e</code>
+   (4 engine commits); Content advanced <code>7f97b0a5</code> → <code>37607266</code>
+   (31 content commits). Superseding work list =
+   <code>git -C Engine-TS diff dee467c8..4c95f87e</code>. Note 2's work list above
+   remains the historical record of the original 274 cut.</li>
 </ol>
 <h2 id="future-revisions">Future revisions<a class="headerlink" href="#future-revisions" title="Permanent link">&para;</a></h2>
 <p>When porting revision <em>N</em>:</p>

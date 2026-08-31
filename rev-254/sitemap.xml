@@ -1,162 +1,165 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
       <url>
-        <loc>https://goscape.invalid/rev-254/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/admin/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/admin/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/admin/quickstart/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/admin/quickstart/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/admin/configuration/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/admin/configuration/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/admin/config-reference/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/admin/config-reference/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/admin/deployment/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/admin/deployment/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/admin/helm-values/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/admin/helm-values/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/admin/operations/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/admin/operations/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/admin/hiscores-api/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/commands/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/items/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/commands/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/items/page-001/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/items/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/items/page-002/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/items/page-001/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/items/page-003/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/items/page-002/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/items/page-004/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/items/page-003/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/items/page-005/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/items/page-004/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/items/page-006/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/items/page-005/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/items/page-007/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/items/page-006/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/npcs/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/items/page-007/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/npcs/page-001/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/npcs/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/npcs/page-002/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/npcs/page-001/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/npcs/page-003/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/npcs/page-002/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/locs/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/npcs/page-003/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/locs/page-001/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/locs/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/locs/page-002/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/locs/page-001/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/locs/page-003/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/locs/page-002/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/locs/page-004/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/locs/page-003/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/locs/page-005/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/locs/page-004/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/locs/page-006/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/locs/page-005/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/locs/page-007/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/locs/page-006/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/locs/page-008/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/locs/page-007/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/music/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/locs/page-008/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/places/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/music/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/player/revision-comparison/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/places/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/runescript/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/player/revision-comparison/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/runescript/language/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/runescript/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/runescript/writing-scripts/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/runescript/language/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/runescript/examples/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/runescript/writing-scripts/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/runescript/toolchain/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/runescript/examples/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/runescript/deploying/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/runescript/toolchain/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/runescript/varps/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/runescript/deploying/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/contributor/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/runescript/varps/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/contributor/branches/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/contributor/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/contributor/references-pins/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/contributor/branches/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/contributor/porting-lessons/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/contributor/references-pins/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/contributor/dev-setup/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/contributor/porting-lessons/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/contributor/architecture/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/contributor/dev-setup/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/contributor/porting/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/contributor/architecture/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/protocol/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/contributor/porting/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/protocol/login/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/protocol/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/protocol/framing/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/protocol/login/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/protocol/isaac/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/protocol/framing/</loc>
       </url>
       <url>
-        <loc>https://goscape.invalid/rev-254/protocol/ondemand/</loc>
+        <loc>https://zsrv.github.io/goscape/rev-254/protocol/isaac/</loc>
+      </url>
+      <url>
+        <loc>https://zsrv.github.io/goscape/rev-254/protocol/ondemand/</loc>
       </url>
 </urlset>

@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://goscape.invalid/rev-245.2/admin/">
+        <link rel="canonical" href="https://zsrv.github.io/goscape/rev-245.2/admin/">
       
       
         <link rel="prev" href="./..">
@@ -191,6 +191,8 @@
       
         
           
+        
+      
         
       
         
@@ -465,6 +467,8 @@
       
         
       
+        
+      
     
     
     
@@ -670,6 +674,33 @@
     
   
   Operations runbook
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./hiscores-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Hiscores API
 
     
   </span>
@@ -2422,6 +2453,14 @@ file). The selectable targets are:</p>
 <td>Friends server only</td>
 </tr>
 <tr>
+<td><code>account</code></td>
+<td>Player portal (SSR web app) + AccountService gRPC only</td>
+</tr>
+<tr>
+<td><code>hiscore</code></td>
+<td>HTTP hiscores API only</td>
+</tr>
+<tr>
 <td><code>all</code></td>
 <td>All of the above (this is the default)</td>
 </tr>
@@ -2442,6 +2481,8 @@ dependencies exactly as they are declared in the source. <strong>An arrow from A
     all --&gt; friends
     all --&gt; login
     all --&gt; world
+    all --&gt; account
+    all --&gt; hiscore
 
     ondemand[ondemand] --&gt; world
     ondemand --&gt; common
@@ -2455,6 +2496,12 @@ dependencies exactly as they are declared in the source. <strong>An arrow from A
 
     friends[friends] --&gt; database
     friends --&gt; common
+
+    account[account] --&gt; database
+    account --&gt; common
+
+    hiscore[hiscore] --&gt; database
+    hiscore --&gt; common
 
     database[database] --&gt; common
 
@@ -2504,10 +2551,10 @@ startup, rather than leaving a degraded server running. Check the logs of the
 module named in the failure message.</p>
 </div>
 <h2 id="network-surfaces-and-ports">Network surfaces and ports<a class="headerlink" href="#network-surfaces-and-ports" title="Permanent link">&para;</a></h2>
-<p>A full <code>all</code> deployment exposes four network listeners. The ports below are the ones
-the bundled example config ends up with — the OnDemand and login ports are set
-explicitly in it, while the world and friends ports come from built-in defaults.
-Every port and bind address is configurable.</p>
+<p>A full <code>all</code> deployment exposes five network listeners with the shipped defaults. The
+ports below are the ones the bundled example config ends up with — the OnDemand and
+login ports are set explicitly in it, while the world, friends, and hiscore ports come
+from built-in defaults. Every port and bind address is configurable.</p>
 <table>
 <thead>
 <tr>
@@ -2542,8 +2589,43 @@ Every port and bind address is configurable.</p>
 <td>TCP</td>
 <td>43594</td>
 </tr>
+<tr>
+<td>Hiscores API</td>
+<td><code>hiscore</code></td>
+<td>HTTP</td>
+<td>8082</td>
+</tr>
 </tbody>
 </table>
+<p>The <code>account</code> module is part of the <code>all</code> target but ships <strong>disabled</strong>
+(<code>account.enable</code> defaults to <code>false</code>), so it is not in the bundled example and adds
+no listener until you turn it on. When enabled it opens two:</p>
+<table>
+<thead>
+<tr>
+<th>Listener</th>
+<th>Module</th>
+<th>Protocol</th>
+<th>Default port</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Player portal</td>
+<td><code>account</code></td>
+<td>HTTP</td>
+<td>8081</td>
+</tr>
+<tr>
+<td>AccountService</td>
+<td><code>account</code></td>
+<td>gRPC</td>
+<td>2006</td>
+</tr>
+</tbody>
+</table>
+<p>Both are safe to enable alongside everything else: <code>2006</code> was chosen so the account
+module does not collide with the friends server on <code>2005</code>.</p>
 <p>The OnDemand HTTP server delivers the game cache to connecting clients. The login
 service is a gRPC endpoint that authenticates players. The friends service is a
 second gRPC endpoint serving friends and ignore lists; the world module consults it —

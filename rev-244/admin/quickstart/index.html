@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://goscape.invalid/rev-244/admin/quickstart/">
+        <link rel="canonical" href="https://zsrv.github.io/goscape/rev-244/admin/quickstart/">
       
       
         <link rel="prev" href="../">
@@ -191,6 +191,8 @@
       
         
           
+        
+      
         
       
         
@@ -451,6 +453,8 @@
       
         
           
+        
+      
         
       
         
@@ -783,6 +787,33 @@
     
   
   Operations runbook
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hiscores-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Hiscores API
 
     
   </span>
@@ -2515,11 +2546,13 @@ what the server is and how its parts fit together, start with the
   <code>-trimpath</code> removes local filesystem paths from the binary. Both are optional
   for a quick local run but match how release binaries are built.</li>
 </ul>
-<p>The bundled preset is self-contained: the <code>login</code> and <code>friends</code> modules persist
-to a local SQLite database file, so <strong>no external services (no separate database
-server) are required</strong> to run it.</p>
+<p>The bundled preset is self-contained: the <code>login</code>, <code>friends</code> and <code>hiscore</code>
+modules persist to a local SQLite database file, so <strong>no external services (no
+separate database server) are required</strong> to run it.</p>
 <h2 id="what-the-bundled-preset-starts">What the bundled preset starts<a class="headerlink" href="#what-the-bundled-preset-starts" title="Permanent link">&para;</a></h2>
-<p>The bundled file sets <code>target: all</code>, so a single process runs every module.
+<p>The bundled file sets <code>target: all</code>, so a single process runs the whole game
+server. (<code>all</code> also covers the <code>account</code> module, but the portal stays off: its
+<code>enable</code> key defaults to <code>false</code> and the bundled file does not set it.)
 It opens the following network listeners:</p>
 <table>
 <thead>
@@ -2555,12 +2588,18 @@ It opens the following network listeners:</p>
 <td>gRPC</td>
 <td>Friends list and private messaging; consumed by the <code>world</code> module.</td>
 </tr>
+<tr>
+<td>8082</td>
+<td><code>hiscore</code></td>
+<td>HTTP</td>
+<td>Read-only public hiscores JSON API.</td>
+</tr>
 </tbody>
 </table>
 <p>Only the OnDemand port (8080) and the login port (2004) are set explicitly in the
-bundled file; the world port (43594, the classic RuneScape game port) and the
-friends port (2005) come from built-in defaults because the bundled file does not
-override them. Every port and bind address is configurable — see
+bundled file; the world port (43594, the classic RuneScape game port), the
+friends port (2005) and the hiscores port (8082) come from built-in defaults
+because the bundled file does not override them. Every port and bind address is configurable — see
 <a href="../configuration/">Configuration</a> and the <a href="../config-reference/">Config reference</a>.</p>
 <p>On first run the server creates its state under a local <code>data</code> directory:
 <code>data/goscape.db</code> (the SQLite database) and <code>data/players/</code> (player save files).
