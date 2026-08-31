@@ -154,12 +154,42 @@ lives in the login/world loop; it is behavioural but not wire-visible.
 
 | # | Change | TS |
 |---|---|---|
-| D1 | Four new opcodes, each needing enum slot + `ScriptOpcodeMap` name + handler: `P_TEMPRUN`, `P_TRANSMOGRIFY`, `DATE_MINUTES`, `DATE_RUNEDAY` | `ScriptOpcode.ts:156,160,430` |
+| **D0** | **Opcode renumbering — 49 existing opcodes shift.** `P_TEMPRUN` and `P_TRANSMOGRIFY` are inserted *into the middle* of the `const enum`, not appended. See below | `ScriptOpcode.ts:156,160` |
+| D1 | Four new opcodes, each needing enum slot + `ScriptOpcodeMap` name + handler: `P_TEMPRUN` (2088), `P_TRANSMOGRIFY` (2092), `DATE_MINUTES` (4629), `DATE_RUNEDAY` (4630) | `ScriptOpcode.ts:156,160,430` |
 | D2 | **Transmogrification.** New `Player.npcId = -1`. In the appearance block, when `npcId != -1` the 12-slot equipment loop writes `p2(-1); p2(npcId)` and breaks. Removes the long-standing `// todo: transmog support` comment. **Wire-visible.** | `Player.ts:412,1390` |
 | D3 | `ScriptOpcodePointers`: `FINDHERO` gains `require`/`require2` `active_player`; `P_TEMPRUN` and `P_TRANSMOGRIFY` require `p_active_player`; `PLAYERMEMBER`/`STAT_TOTAL`/`SESSION_LOG`/`WEALTH_EVENT` gain `require: active_player`; `OBJ_FIND` becomes `conditional: true` | `ScriptOpcodePointers.ts` |
 | D4 | `checkedHandler` wrapper deleted along with `ScriptState.pointerCheck`, `pointerPrint`, `ScriptPointerNameMap`, and the `_LAST` enum member — the declarative pointer table is now the single enforcement point | `ScriptPointer.ts`, `ScriptState.ts:182`, all five `*Ops.ts` |
 | D5 | **`map_findsquare` rewritten.** Old: two strategies (random-sampling ≤50 attempts when `maxRadius < 10`; a west-biased column scan otherwise), each triplicated per `MapFindSquareType`. New: one scan collecting up to `MAX_TILES = 100` eligible tiles, then a uniform roll; returns the input coord when none qualify. The west bias and the `isWithinDistanceSW` term are **gone**; filter order is now ring → f2p → blocked → reachability | `ServerOps.ts` |
 | D6 | `Compiler.ts` bug fix: `commandInfo.corrupt2[opcode]` was assigning into `corrupt[opcode]` | `Compiler.ts:144` |
+
+**D0 in detail.** `ScriptOpcode` is a TS `const enum` with implicit numbering.
+`P_TEMPRUN` lands between `P_RUN` and `P_STOPACTION`, and `P_TRANSMOGRIFY`
+between `P_TELEPORT` and `P_WALK` — so every player op from `P_STOPACTION`
+onward shifts, by +1 after the first insert and +2 after the second:
+
+```
+P_TEMPRUN       = 2088  (new; was P_STOPACTION)
+P_STOPACTION    2088 → 2089      P_TELEJUMP   2089 → 2090
+P_TELEPORT      2090 → 2091
+P_TRANSMOGRIFY  = 2092  (new; was PLAYERMEMBER)
+P_WALK          2091 → 2093      PLAYERMEMBER 2092 → 2094
+… every opcode through WEIGHT 2136 → 2138 shifts by +2 …
+```
+
+49 opcodes renumber, all within the 2088–2138 player-op block.
+`DATE_MINUTES`/`DATE_RUNEDAY` append at 4629/4630 and renumber nothing.
+
+Consequences, and why D0 is its own task landing before D1:
+
+- `pkg/script/opcode.go` constants change value for 49 entries, and
+  `pkg/script/opcode_map_274_pin_test.go` pins every one of them.
+- goscape's compiler (`pkg/pack/compiler`) emits these numbers, so **every
+  compiled script in the cache changes bytes**. The `RunServerCompiler`
+  smoke-pack stage output changes wholesale — a large expected byte diff that
+  must not be mistaken for a regression.
+- Any opcode number persisted or hardcoded outside the enum (tests, fixtures,
+  golden files) must be swept. `memory:consume_reserved_constant` and
+  `memory:enumerate_all_sites` both apply.
 
 D4 is mechanical in TS (≈340 of the ~800 changed handler lines are pure
 `checkedHandler(X, state => {…})` → `state => {…}` unwrapping across
@@ -335,6 +365,9 @@ commits; the earlier branches' upstreams have not moved. Their pins stay put.
 
 ## 10. Open risks
 
+0. **D0 opcode renumbering** — 49 shifted opcodes rewrite every compiled script
+   in the cache. Highest blast radius in the sync; it is the reason bundle D
+   cannot be treated as "four new opcodes".
 1. **E1 `PixPack`** — a sprite-packing rewrite whose output feeds three CRC-gated
    archives. Highest chance of a long byte-diff loop.
 2. **H2 compiler 0.9.7** — unknown codegen delta against four documented
