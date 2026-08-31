@@ -35,6 +35,15 @@ func NewEntity(level, x, z, width, length int, lc Lifecycle) Entity {
 // SetLifecycle schedules the next transition at `transitionTick`, recording
 // `currentTick` as the tick on which the transition was scheduled.
 func (e *Entity) SetLifecycle(transitionTick, currentTick int) {
-	e.LifecycleTick = transitionTick
+	// TS Entity.setLifeCycle (Entity.ts:36-42 @1d25566c) clamps every
+	// non-sentinel tick to at least 1. Engine-TS 8139461a added the clamp:
+	// tick 0 would make an entity look due for transition on the very first
+	// cycle, since currentTick starts at 1. -1 stays as-is; it is the
+	// "no transition scheduled" sentinel, not a tick.
+	if transitionTick == -1 {
+		e.LifecycleTick = transitionTick
+	} else {
+		e.LifecycleTick = max(1, transitionTick)
+	}
 	e.LastLifecycleTick = currentTick
 }

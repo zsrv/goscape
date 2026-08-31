@@ -41,7 +41,13 @@ func (p *Player) writeFullFollows(z *zone.Zone, currentTick int) {
 	}
 
 	for _, obj := range z.Objs {
-		if obj.LastLifecycleTick == currentTick {
+		// TS Zone.writeFullFollows (Zone.ts:160-166 @1d25566c). Engine-TS
+		// 8139461a replaced the `obj.lastLifecycleTick === currentTick` test
+		// with an inspection of the tick's queued obj events for this viewer:
+		// the lifecycle tick only says "something happened this tick", not
+		// what or to whom, so an obj added and removed in the same tick — or
+		// one whose add targeted a different player — was misjudged.
+		if z.UpdatedThisTick(obj, p.uid) {
 			continue
 		}
 		if obj.ReceiverID != zone.PublicReceiver && obj.ReceiverID != p.uid {

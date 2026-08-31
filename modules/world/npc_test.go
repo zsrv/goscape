@@ -1072,3 +1072,27 @@ func TestNpcCleanup(t *testing.T) {
 		t.Errorf("queue: got %v, want nil", n.queue)
 	}
 }
+
+// TestNpcCleanupClearsDelayPair pins the fields Engine-TS 8139461a added to
+// Npc.cleanup (Npc.ts:198-199 @1d25566c). The Npc struct is reused across
+// respawn cycles, so an npc removed mid-delay must not come back still
+// delayed until a tick number from its previous life.
+func TestNpcCleanupClearsDelayPair(t *testing.T) {
+	n := &Npc{
+		nid:          5,
+		uid:          9,
+		delayed:      true,
+		delayedUntil: 1234,
+	}
+	n.Cleanup()
+
+	if n.delayed {
+		t.Error("delayed: got true, want false after Cleanup")
+	}
+	if n.delayedUntil != -1 {
+		t.Errorf("delayedUntil: got %d, want -1 after Cleanup", n.delayedUntil)
+	}
+	if n.activeScript != nil {
+		t.Error("activeScript: got non-nil, want nil after Cleanup")
+	}
+}

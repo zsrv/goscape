@@ -28,3 +28,38 @@ func TestNewEntitySetsSpawnFields(t *testing.T) {
 		t.Error("runtime tick fields should be zero after NewEntity")
 	}
 }
+
+// TestSetLifecycleClampsToOne pins the clamp Engine-TS 8139461a added to
+// Entity.setLifeCycle (Entity.ts:36-42 @1d25566c):
+//
+//	if (tick === -1) { this.lifecycleTick = tick; }
+//	else { this.lifecycleTick = Math.max(1, tick); }
+//
+// -1 is the "no transition scheduled" sentinel and must survive unchanged;
+// every real tick floors at 1, because World.currentTick starts at 1 and a
+// stored 0 would read as already-due on the very first cycle.
+func TestSetLifecycleClampsToOne(t *testing.T) {
+	tests := []struct {
+		name           string
+		transitionTick int
+		want           int
+	}{
+		{"sentinel survives", -1, -1},
+		{"zero clamps up", 0, 1},
+		{"negative below sentinel clamps up", -5, 1},
+		{"one is unchanged", 1, 1},
+		{"positive is unchanged", 42, 42},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var e Entity
+			e.SetLifecycle(tc.transitionTick, 7)
+			if e.LifecycleTick != tc.want {
+				t.Errorf("LifecycleTick: got %d, want %d", e.LifecycleTick, tc.want)
+			}
+			if e.LastLifecycleTick != 7 {
+				t.Errorf("LastLifecycleTick: got %d, want 7", e.LastLifecycleTick)
+			}
+		})
+	}
+}

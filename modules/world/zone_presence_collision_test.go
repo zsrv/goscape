@@ -312,3 +312,31 @@ func TestPlayerStepThenLogout_CollisionSeedBalance(t *testing.T) {
 		t.Errorf("logout: tile (3201,3200) still carries FlagNpcOcc after removePlayerInternal (TS World.ts:1616)")
 	}
 }
+
+// TestRemoveNpcIsIdempotent pins the early return Engine-TS 8139461a added to
+// World.removeNpc (World.ts:1308-1310 @1d25566c). Without it, a second call
+// re-runs the zone leave and clears collision again — which would strip
+// occupancy flags a re-added npc has since planted on the same tile.
+func TestRemoveNpcIsIdempotent(t *testing.T) {
+	s := newCollisionFollowServer(t)
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3200, 0)
+	n := newRegisteredNpc(t, s, blockingNpcType(objtype.BlockWalkNPC), true)
+
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagNpcOcc) {
+		t.Fatalf("setup: spawn tile missing FlagNpcOcc after addNpc")
+	}
+
+	s.removeNpc(n, 0)
+	if s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagNpcOcc) {
+		t.Fatalf("first removeNpc did not clear FlagNpcOcc")
+	}
+
+	// Re-plant the flag as if another entity had claimed the tile, then remove
+	// again. The guard must make the second call a no-op rather than clearing
+	// the new occupant's flag.
+	s.gamemap.Pathfinder.Flags.Add(3200, 3200, 0, collision.FlagNpcOcc)
+	s.removeNpc(n, 0)
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, collision.FlagNpcOcc) {
+		t.Error("second removeNpc cleared a flag it no longer owns; the !isActive guard is missing")
+	}
+}

@@ -123,6 +123,56 @@ func (z *Zone) queueEvent(np *entity.NonPathing, e ZoneEvent) {
 	}
 }
 
+// UpdatedThisTick reports whether this tick already queued an obj event that
+// makes the obj's state ambiguous for viewerUID, in which case a full-zone
+// refresh must skip it and let the queued event speak instead.
+//
+// Ports TS Zone.updatedThisTick (Zone.ts:124-146 @1d25566c). Engine-TS
+// 8139461a introduced it to replace a plain `obj.lastLifecycleTick ===
+// currentTick` test, which was too coarse: an obj added and removed within the
+// same tick, or one whose add targeted a different player, was misjudged
+// because the lifecycle tick says only "something happened", not what or to
+// whom.
+//
+// The three arms, and note the deliberate polarity flip on the last one:
+//
+//	ObjDel                                    -> always ambiguous
+//	ObjAdd    to everyone, or to this viewer  -> ambiguous
+//	ObjReveal to anyone OTHER than this viewer -> ambiguous
+//
+// The event kind is read from Bytes[0]: encodeNested writes the rsbuf zone
+// opcode as the first byte of every queued event. Tombstoned events (nil
+// Bytes, from clearQueuedEvents) are skipped.
+func (z *Zone) UpdatedThisTick(obj *entity.Obj, viewerUID int) bool {
+	if obj == nil {
+		return false
+	}
+	idxs, ok := z.entityEvents[&obj.NonPathing]
+	if !ok {
+		return false
+	}
+
+	for _, idx := range idxs {
+		e := z.events[idx]
+		if len(e.Bytes) == 0 {
+			continue
+		}
+		switch e.Bytes[0] {
+		case rsbuf.ZoneOpObjDel:
+			return true
+		case rsbuf.ZoneOpObjAdd:
+			if e.ReceiverID == PublicReceiver || e.ReceiverID == viewerUID {
+				return true
+			}
+		case rsbuf.ZoneOpObjReveal:
+			if e.ReceiverID != viewerUID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // clearQueuedEvents tombstones every event indexed by np. ComputeShared
 // skips tombstones. Per-player Follows iteration must also skip nil-Bytes.
 func (z *Zone) clearQueuedEvents(np *entity.NonPathing) {

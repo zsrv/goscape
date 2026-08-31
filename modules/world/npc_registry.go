@@ -200,6 +200,13 @@ func (s *Server) resetEntityForRespawn(n *Npc) {
 	// follow-up.
 	n.heroPoints.Clear()
 	n.queue = nil
+	// TS Npc.resetEntity (Npc.ts:303-305 @1d25566c) clears the script/delay
+	// trio on respawn as well as in cleanup. Added by 8139461a for the same
+	// struct-reuse reason: a respawned npc must not resume the script, or the
+	// delay, that its previous life was suspended on.
+	n.activeScript = nil
+	n.delayed = false
+	n.delayedUntil = -1
 	n.waypointIndex = -1
 	n.tele = true
 	n.huntClock = 0
@@ -262,6 +269,16 @@ func (s *Server) resetEntityForRespawn(n *Npc) {
 //     IMMEDIATE-SPLICE (mid-iteration splice unsafe on append-only slice).
 //   - RESPAWN+duration>-1: writes n.lifecycleTick = scaledDuration.
 func (s *Server) removeNpc(n *Npc, duration int) {
+	// TS World.removeNpc (World.ts:1308-1310 @1d25566c) early-returns on an
+	// already-removed npc. Engine-TS 8139461a added the guard, making removal
+	// idempotent: without it a second call re-runs the zone leave and clears
+	// collision a second time, which can strip flags a re-added npc has since
+	// planted on the same tile. goscape's `dead` is the isActive counterpart —
+	// it is set below and is what npc_ai.go's despawn path already tests.
+	if n.dead {
+		return
+	}
+
 	// Zone leave — mirrors TS World.removeNpc at World.ts:1297-1299.
 	if s.zoneMap != nil && n.zoneListElement != nil {
 		z := s.zoneMap.Get(n.level, n.x, n.z)

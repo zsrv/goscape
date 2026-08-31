@@ -90,10 +90,12 @@ func logWorldScriptPanic(state *script.ScriptState, r any, log *slog.Logger) {
 
 // recoverNpc recovers from panics during a per-NPC tick step.
 //
-// Mirrors TS World.processNpcs (World.ts:681-690) catch action: structured
-// log + `removeNpc(npc, -1)`. The TS catch evicts the offending NPC with
-// the -1 duration sentinel so the despawn/respawn branch in removeNpc
-// keys off the npc's existing lifecycle field (no caller-imposed scaling).
+// Mirrors TS World.processNpcs (World.ts:667-672 @1d25566c) catch action:
+// structured log + `removeNpc(npc, 0)`. Engine-TS 8139461a changed the
+// duration from -1 to 0 here: -1 is the "no transition scheduled" sentinel,
+// so a panicking respawn-lifecycle npc was being evicted with no respawn
+// scheduled at all. 0 schedules the transition for the next cycle instead
+// (and the clamp in Entity.setLifeCycle floors it at tick 1).
 //
 // Must be called from inside a `defer recoverNpc(...)` registered as the
 // FIRST deferred call in a per-iteration closure — Go semantics require
@@ -121,7 +123,7 @@ func recoverNpc(n *Npc, s *Server, op string, log *slog.Logger) {
 	if s == nil || n == nil {
 		return
 	}
-	s.removeNpc(n, -1)
+	s.removeNpc(n, 0)
 }
 
 // recoverObjDelayed recovers from panics during objDelayedQueue fire

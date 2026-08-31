@@ -376,6 +376,12 @@ func (n *Npc) Cleanup() {
 	n.nid = -1
 	n.uid = -1
 	n.activeScript = nil
+	// TS Npc.cleanup (Npc.ts:198-199 @1d25566c) clears the delay pair too.
+	// Engine-TS 8139461a added it: the Npc struct is reused across respawn
+	// cycles, so a npc removed mid-delay would come back still delayed until
+	// a tick number from its previous life.
+	n.delayed = false
+	n.delayedUntil = -1
 	n.huntTarget = nil
 	n.queue = nil
 }
