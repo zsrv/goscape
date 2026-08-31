@@ -1,11 +1,11 @@
 # SEC1 — Security hardening batch 1 (M-1, M-2, M-7, M-8, M-12)
 
-Source: goscape security review 2026-08-20 (rev-274 @ d509f14a). This batch
+Source: goscape security review 2026-08-20 (rev-274 @ 60db51ba). This batch
 addresses five Medium findings the user selected. Criticals/Highs are
 deliberately out of scope here and remain open.
 
 **rev-244 back-port note.** This branch carries the same batch (commits
-`541bcf65`, `88e1565c`, `d5192ab2`, `bc20d566`, `1eb9ebc9`), user-directed,
+`b5a4f74d`, `e96f7909`, `70d9c210`, `fdcbbde3`, `e18a359f`), user-directed,
 with one adaptation: rev-244's OnDemand is the pre-274 scheduler
 (`OnDemand.ts` @9aadcec4 — a fixed 50 ms cycle that drains all three
 priority queues) rather than 274's round-robin pump, so SEC1-D3's
