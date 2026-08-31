@@ -5,7 +5,7 @@ import tempfile
 import tomllib
 from pathlib import Path
 
-from . import commands, configtext, contenttree, families, icons, snapshots, unpack
+from . import commands, configtext, contenttree, families, icons, paths, snapshots, unpack
 from .extras import parse_labels, render_music_page, render_places_page
 from .render import GENERATED
 
@@ -40,9 +40,25 @@ ICON_SPOT_CHECKS_BY_NAME = {
 }
 
 
+# Keys in revisions.toml whose values are filesystem paths relative to the
+# source root (see paths.SRC_ROOT and the file's own header).
+PATH_KEYS = ("content_dir", "cache_dir", "jag_dir", "client_worktree")
+
+
+def _resolve_paths(table: dict) -> None:
+    """Rewrite every PATH_KEYS value in place to an absolute path."""
+    for key, value in table.items():
+        if key in PATH_KEYS and isinstance(value, str):
+            table[key] = str(paths.SRC_ROOT / value)
+        elif isinstance(value, dict):
+            _resolve_paths(value)
+
+
 def load() -> dict:
     with open(ROOT / "tools" / "docsgen" / "revisions.toml", "rb") as f:
-        return tomllib.load(f)
+        data = tomllib.load(f)
+    _resolve_paths(data)
+    return data
 
 
 def run_revision(rev: str, cfg: dict, steps: list[str]) -> dict[str, int]:

@@ -1,0 +1,40 @@
+name: docs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+
+jobs:
+  # Validates the docs tooling and that every revision's site still assembles.
+  # Deliberately does NOT deploy: publishing to gh-pages runs `mike`, which
+  # needs the per-revision overlays regenerated from checkouts that only exist
+  # on a maintainer's machine (see tools/docsgen/paths.py). Assembly, by
+  # contrast, reads nothing outside this repository, so it is worth gating.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install test dependencies
+        run: pip install pytest
+      - name: Unit tests
+        run: python -m pytest tools/docsgen/tests -q
+      - name: Assemble every revision's site
+        run: |
+          set -e
+          for rev in 225 244 245.2 254 274; do
+            echo "::group::assemble rev-$rev"
+            python tools/build.py assemble --revision "$rev"
+            echo "::endgroup::"
+          done

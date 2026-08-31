@@ -4,7 +4,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path("/home/owner/Code/github.com/zsrv/goscape")
+from . import paths
+
+# The goscape repository docsgen reads rev-branch files from. Same source root
+# as everything else in revisions.toml; GOSCAPE_REPO overrides it outright for
+# a checkout that does not sit at <src root>/zsrv/goscape.
+REPO = Path(os.environ.get("GOSCAPE_REPO") or paths.SRC_ROOT / "zsrv" / "goscape")
 
 
 def _go_env() -> dict:

@@ -8,6 +8,13 @@ This repository hosts **one Go port per game revision, one branch per
 revision**. `main` carries no engine code — only the cross-revision
 documentation below and the tooling for the documentation site.
 
+Because `main` holds no Go code, the module resolves per revision rather than
+from the default branch — `go install github.com/zsrv/goscape/cmd/goscape@rev-274`
+(or any other `rev-N`), not `@latest`.
+
+Security policy, including which listeners are safe to expose:
+[`SECURITY.md`](SECURITY.md).
+
 ## Branch model
 
 Every `rev-N` branch is a **complete, self-contained port** of that game

@@ -1,4 +1,11 @@
-# Per-revision inputs for docsgen and build.py. Paths are host-absolute.
+# Per-revision inputs for docsgen and build.py.
+#
+# content_dir / cache_dir / jag_dir / client_worktree are resolved against the
+# SOURCE ROOT: the directory holding the `zsrv/` and `LostCityRS/` checkouts.
+# It defaults to two levels above this repository (so a standard
+# <root>/zsrv/goscape layout needs no configuration) and can be pointed
+# anywhere with the GOSCAPE_SRC_ROOT environment variable. Keeping these
+# relative is what lets docsgen run on a machine that is not the author's.
 order = ["225", "244", "245.2", "254", "274"]
 latest = "274"
 
@@ -13,31 +20,31 @@ unpack_revision = 225
 # together cover the full config space).
 config_source = "content-tree"
 note = "Item/NPC/location/varp data parsed from the pinned rev-225 content tree (no rev-225 client cache exists and the unpack tooling postdates this revision); counts include every *.obj/*.npc/*.loc/*.varp file under the content tree's scripts/ directory, including the scripts/_unpack staging dumps, whereas later revisions count every entry decoded from the packed client cache."
-content_dir = "/home/owner/Code/github.com/LostCityRS/Server225_2/content"
+content_dir = "LostCityRS/Server225_2/content"
 
 [revisions.244]
 branch = "rev-244"
 unpack_revision = 244
-content_dir = "/home/owner/Code/github.com/LostCityRS/Server244-ref/content"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server244-ref/unpack-ref/cache"
+content_dir = "LostCityRS/Server244-ref/content"
+cache_dir = "LostCityRS/Server244-ref/unpack-ref/cache"
 
 [revisions."245.2"]
 branch = "rev-245.2"
 unpack_revision = 245
-content_dir = "/home/owner/Code/github.com/LostCityRS/Server245.2-ref/content"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server245.2-ref/unpack-ref/cache"
+content_dir = "LostCityRS/Server245.2-ref/content"
+cache_dir = "LostCityRS/Server245.2-ref/unpack-ref/cache"
 
 [revisions.254]
 branch = "rev-254"
 unpack_revision = 254
-content_dir = "/home/owner/Code/github.com/LostCityRS/Server254-ref/content"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server254-ref/unpack-ref/cache"
+content_dir = "LostCityRS/Server254-ref/content"
+cache_dir = "LostCityRS/Server254-ref/unpack-ref/cache"
 
 [revisions.274]
 branch = "rev-274"
 unpack_revision = 274
-content_dir = "/home/owner/Code/github.com/LostCityRS/Server274-ref/content"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache"
+content_dir = "LostCityRS/Server274-ref/content"
+cache_dir = "LostCityRS/Server274-ref/unpack-ref/cache"
 
 # Item-icon rasterizer, all five revisions. client_worktree/client_branch
 # are declarative: each points at the persistent sibling goscape-client
@@ -48,30 +55,30 @@ cache_dir = "/home/owner/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cac
 # instead (-jag-dir) — icons.render_icons requires exactly one of the two.
 [revisions.225.icons]
 enabled = true
-client_worktree = "/home/owner/Code/github.com/zsrv/goscape-client-rev225"
+client_worktree = "zsrv/goscape-client-rev225"
 client_branch = "rev-225"
-jag_dir = "/home/owner/Code/github.com/LostCityRS/Server225_2/engine/data/pack/client"
+jag_dir = "LostCityRS/Server225_2/engine/data/pack/client"
 
 [revisions.244.icons]
 enabled = true
-client_worktree = "/home/owner/Code/github.com/zsrv/goscape-client-rev244"
+client_worktree = "zsrv/goscape-client-rev244"
 client_branch = "rev-244"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server244-ref/unpack-ref/cache"
+cache_dir = "LostCityRS/Server244-ref/unpack-ref/cache"
 
 [revisions."245.2".icons]
 enabled = true
-client_worktree = "/home/owner/Code/github.com/zsrv/goscape-client-rev245.2"
+client_worktree = "zsrv/goscape-client-rev245.2"
 client_branch = "rev-245.2"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server245.2-ref/unpack-ref/cache"
+cache_dir = "LostCityRS/Server245.2-ref/unpack-ref/cache"
 
 [revisions.254.icons]
 enabled = true
-client_worktree = "/home/owner/Code/github.com/zsrv/goscape-client-rev254"
+client_worktree = "zsrv/goscape-client-rev254"
 client_branch = "rev-254"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server254-ref/unpack-ref/cache"
+cache_dir = "LostCityRS/Server254-ref/unpack-ref/cache"
 
 [revisions.274.icons]
 enabled = true
-client_worktree = "/home/owner/Code/github.com/zsrv/goscape-client"
+client_worktree = "zsrv/goscape-client"
 client_branch = "rev-274"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache"
+cache_dir = "LostCityRS/Server274-ref/unpack-ref/cache"
