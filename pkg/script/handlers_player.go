@@ -81,6 +81,25 @@ func requireActivePlayer(s *ScriptState, op string) error {
 // Used by opcodes that TS wraps in checkedHandler(ProtectedActivePlayer, ...)
 // at intOperand=0. Chains through requireActivePlayer first so the
 // "no active player" error message matches the unprotected variant.
+// DEVIATION SYNC289-D5: goscape KEEPS its runtime pointer checks. Engine-TS
+// 8139461a deleted checkedHandler, ScriptState.pointerCheck, pointerPrint and
+// ScriptPointerNameMap, unwrapping ~340 handler lines across the five *Ops.ts
+// files and leaving ScriptOpcodePointers — a COMPILE-TIME table — as the only
+// enforcement.
+//
+// goscape's ScriptOpcodePointers is likewise compile-time only: its sole
+// consumers are pkg/pack/compiler (symbols.go, symbols_export.go,
+// run_server_compiler.go), feeding the bytecode typechecker. The require*
+// helpers here are a separate RUNTIME layer with no TS counterpart left.
+//
+// Dropping them to match upstream would mean trusting that every executed
+// script was produced by this compiler. Bytecode is read from the cache at
+// startup, so a hand-edited or corrupt script.dat would reach a handler with
+// an unset active player and nil-deref instead of returning a clean script
+// error — turning a contained failure into a panic that SEC1-D1's
+// recoverPlayer then has to catch. The checks are cheap (a bitmask test) and
+// are what the NAI-53-T3 regression guards in modules/world assert against.
+// Recorded in docs/PORTING.md rather than silently retained.
 func requireProtectedActivePlayer(s *ScriptState, op string) error {
 	if err := requireActivePlayer(s, op); err != nil {
 		return err
