@@ -243,8 +243,10 @@ ifeq ($(SKIP_ARM),true)
 	CGO_ENABLED=0 $(GOX) -osarch="linux/amd64 darwin/amd64 windows/amd64 freebsd/amd64" ./cmd/goscape
 	CGO_ENABLED=0 $(GOX) -osarch="linux/amd64 darwin/amd64 windows/amd64 freebsd/amd64" ./cmd/goscape-cli
 else
-	CGO_ENABLED=0 $(GOX) -osarch="linux/amd64 linux/arm64 linux/arm darwin/amd64 darwin/arm64 windows/amd64 freebsd/amd64" ./cmd/goscape
-	CGO_ENABLED=0 $(GOX) -osarch="linux/amd64 linux/arm64 linux/arm darwin/amd64 darwin/arm64 windows/amd64 freebsd/amd64" ./cmd/goscape-cli
+	# 64-bit only: the collision flag set runs past bit 31, so
+	# pkg/pathfinder/collision does not compile for GOARCH=arm or 386.
+	CGO_ENABLED=0 $(GOX) -osarch="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 freebsd/amd64" ./cmd/goscape
+	CGO_ENABLED=0 $(GOX) -osarch="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 freebsd/amd64" ./cmd/goscape-cli
 endif
 	for i in dist/*; do zip -j -m $$i.zip $$i; done
 	pushd dist && sha256sum * > SHA256SUMS && popd
