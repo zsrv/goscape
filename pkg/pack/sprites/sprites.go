@@ -38,13 +38,17 @@ func PackTitle(srcDir, outDir string, cache *filestream.FileStream) error {
 	}
 	index := packet.Alloc(3)
 
+	// Conversion order determines the layout of the shared index packet, so
+	// it is part of the output bytes, not a free choice. Engine-TS 8139461a
+	// reordered it to fonts-then-title-art (title.ts:24-31 @1d25566c).
+	//
+	// rev-274 (title.ts @ dee467c8) renamed the four font assets + their
+	// .dat jagfile entries to *_full (both the convertImage source lookup
+	// and the title.write entry name use e.name).
 	type entry struct{ name, subdir string }
 	all := []entry{
-		{"logo", "title"}, {"runes", "title"}, {"titlebox", "title"}, {"titlebutton", "title"},
-		// rev-274 (title.ts @ dee467c8) renamed the four font assets +
-		// their .dat jagfile entries to *_full (both the convertImage
-		// source lookup and the title.write entry name use e.name).
-		{"b12_full", "fonts"}, {"p11_full", "fonts"}, {"p12_full", "fonts"}, {"q8_full", "fonts"},
+		{"p11_full", "fonts"}, {"p12_full", "fonts"}, {"b12_full", "fonts"}, {"q8_full", "fonts"},
+		{"logo", "title"}, {"titlebox", "title"}, {"titlebutton", "title"}, {"runes", "title"},
 	}
 	results := make([]*packet.Packet, len(all))
 	for i, e := range all {
@@ -62,11 +66,18 @@ func PackTitle(srcDir, outDir string, cache *filestream.FileStream) error {
 	}
 	titleDat := packet.Alloc(len(jpg) + 8)
 	titleDat.PData(jpg)
-	jag.Write("title.dat", titleDat)
-	jag.Write("index.dat", index)
+
+	// Jagfile member order is byte-visible. Engine-TS 8139461a writes
+	// p11/p12/b12/q8, logo, title, titlebox, titlebutton, runes, index —
+	// title.jpg is interleaved after logo and index.dat goes LAST
+	// (title.ts:33-43 @1d25566c).
 	for i, e := range all {
 		jag.Write(e.name+".dat", results[i])
+		if e.name == "logo" {
+			jag.Write("title.dat", titleDat)
+		}
 	}
+	jag.Write("index.dat", index)
 
 	dest := filepath.Join(outDir, "client", "title")
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
@@ -186,14 +197,16 @@ func PackTexture(reg *pack.Registry, srcDir, outDir string, cache *filestream.Fi
 		results[id] = p
 	}
 
+	// Engine-TS 8139461a moved index.dat to LAST (textures.ts:30-34
+	// @1d25566c); jagfile member order is byte-visible.
 	jag := jagfile.NewEmptyJagfile(false)
-	jag.Write("index.dat", index)
 	for id, p := range results {
 		if p == nil {
 			continue
 		}
 		jag.Write(strconv.Itoa(id)+".dat", p)
 	}
+	jag.Write("index.dat", index)
 
 	dest := filepath.Join(outDir, "client", "textures")
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {

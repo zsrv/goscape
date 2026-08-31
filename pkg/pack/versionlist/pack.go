@@ -108,24 +108,64 @@ func Pack(reg *pack.Registry, srcDir, outDir string, modelFlags []int, cache *fi
 	// ---- anim_version / anim_crc / anim_index ----
 	// TS lines 43-62: AnimSetPack loop for version/crc; AnimPack loop for index.
 	//
-	// anim_index: AnimPack.max × p2(0) — TS todo posture:
-	//   // todo: i think this is each frame's animset file
+	// anim_index: for each frame id, the 1-based animset file that contains
+	// it (0 = not referenced by any packed animset). Engine-TS 8139461a
+	// resolved the old `// todo: i think this is each frame's animset file`
+	// posture — the field really is the frame's owning animset, and it is now
+	// computed by parsing each .anim source (versionlist/pack.ts:101-121
+	// @1d25566c):
+	//
+	//	const anim = new Packet(fs.readFileSync(animFiles.get(name)!));
+	//	const frameCount = anim.g2();
+	//	for (let frame = 0; frame < frameCount; frame++) {
+	//	    frameBase[anim.g2()] = id + 1;
+	//	    anim.pos++; // group count
+	//	}
+	//
+	// The scan runs only for animsets actually present in the cache, so a
+	// frame belonging to an absent animset keeps its 0.
 	animVersion := packet.Alloc(3)
 	animCrc := packet.Alloc(4)
 	animIndex := packet.Alloc(3)
+
+	animFiles := map[string]string{}
+	for _, f := range pack.ListFilesExt(filepath.Join(srcDir, "models"), ".anim") {
+		animFiles[strings.TrimSuffix(filepath.Base(f), ".anim")] = f
+	}
+	frameBase := make([]uint16, animPack.Max)
+
 	for id := range animSetPack.Max {
 		data := cache.Read(2, id, false)
 		if data != nil {
 			animVersion.P2(1)
 			animCrc.P4(packet.GetCRC(data, 0, len(data)-2))
+
+			name := animSetPack.GetByID(id)
+			path, ok := animFiles[name]
+			if !ok {
+				return fmt.Errorf("versionlist: animset %q (id %d) has no .anim source", name, id)
+			}
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("versionlist: read %s: %w", path, err)
+			}
+			anim := packet.NewPacket(raw)
+			frameCount := int(anim.G2())
+			for range frameCount {
+				frame := int(anim.G2())
+				if frame < 0 || frame >= len(frameBase) {
+					return fmt.Errorf("versionlist: animset %q frame id %d out of range [0,%d)", name, frame, len(frameBase))
+				}
+				frameBase[frame] = uint16(id + 1)
+				anim.Pos++ // group count
+			}
 		} else {
 			animVersion.P2(0)
 			animCrc.P4(0)
 		}
 	}
-	for range animPack.Max {
-		// TODO: i think this is each frame's animset file (TS line 57-59)
-		animIndex.P2(0)
+	for id := range animPack.Max {
+		animIndex.P2(frameBase[id])
 	}
 	versionlist.Write("anim_version", animVersion)
 	versionlist.Write("anim_crc", animCrc)

@@ -73,6 +73,22 @@ func buildRegistry(t *testing.T, srcDir string) *pack.Registry {
 		}
 	}
 
+	// Since Engine-TS 8139461a, anim_index is derived by parsing each packed
+	// animset's .anim source, so every animset present in the cache needs one
+	// (versionlist/pack.ts:101-121 @1d25566c uses a non-null assertion on the
+	// lookup, so a missing source is a hard error there too).
+	//
+	// anim0 declares one frame, frame id 0: p2(frameCount=1), p2(frame=0),
+	// p1(groupCount) — the group byte is skipped, not read.
+	modelsDir := filepath.Join(srcDir, "models")
+	if err := os.MkdirAll(modelsDir, 0o755); err != nil {
+		t.Fatalf("mkdir models: %v", err)
+	}
+	anim0 := []byte{0x00, 0x01, 0x00, 0x00, 0x00}
+	if err := os.WriteFile(filepath.Join(modelsDir, "anim0.anim"), anim0, 0o644); err != nil {
+		t.Fatalf("write anim0.anim: %v", err)
+	}
+
 	return &pack.Registry{SrcDir: srcDir}
 }
 
@@ -272,6 +288,15 @@ func TestPack_CRCExcludesTrailer(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// anim_index needs the animset's .anim source (see buildRegistry).
+	modelsDir := filepath.Join(srcDir, "models")
+	if err := os.MkdirAll(modelsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modelsDir, "anim0.anim"), []byte{0x00, 0x01, 0x00, 0x00, 0x00}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
 	reg := &pack.Registry{SrcDir: srcDir}
 	mapsDir := filepath.Join(srcDir, "maps")
 	if err := os.MkdirAll(mapsDir, 0o755); err != nil {
@@ -315,7 +340,7 @@ func TestPack_CRCExcludesTrailer(t *testing.T) {
 }
 
 // TestPack_AnimSection verifies anim_version/anim_crc have 1 entry and
-// anim_index is AnimPack.max p2(0) entries (todo posture from TS).
+// anim_index is AnimPack.max p2 entries carrying the 1-based owning animset.
 func TestPack_AnimSection(t *testing.T) {
 	dir := t.TempDir()
 	cacheDir := filepath.Join(dir, "cache")
@@ -372,7 +397,8 @@ func TestPack_AnimSection(t *testing.T) {
 		t.Errorf("anim_crc: got %d bytes, want 4", len(acPkt.Data))
 	}
 
-	// anim_index: AnimPack.max=1 × p2(0) = [0x00, 0x00]
+	// anim_index: AnimPack.max=1 entry. Frame 0 is declared by animset 0
+	// (anim0.anim), so the value is the 1-based animset id = 1.
 	aiPkt, err := jag.Read("anim_index")
 	if err != nil {
 		t.Fatalf("anim_index: %v", err)
@@ -380,8 +406,8 @@ func TestPack_AnimSection(t *testing.T) {
 	if len(aiPkt.Data) != 2 {
 		t.Errorf("anim_index: got %d bytes, want 2 (AnimPack.max×p2)", len(aiPkt.Data))
 	}
-	if aiPkt.Data[0] != 0 || aiPkt.Data[1] != 0 {
-		t.Errorf("anim_index: got %v, want [0x00, 0x00]", aiPkt.Data)
+	if aiPkt.Data[0] != 0 || aiPkt.Data[1] != 1 {
+		t.Errorf("anim_index: got %v, want [0x00, 0x01]", aiPkt.Data)
 	}
 }
 
