@@ -162,29 +162,29 @@ type ObjType struct {
 	// @2e3bcf43): op = [null, null, 'Take', null, null] and
 	// iop = [null, null, null, null, 'Drop'] — "" is the Go encoding of
 	// TS null. NewObjType seeds them via DefaultObjOps/DefaultObjIOps.
-	Op               []string
-	IOp              []string
-	ManWear          int
-	ManWear2         int
+	Op              []string
+	IOp             []string
+	ManWear         int
+	ManWear2        int
 	ManWearOffset   int
-	WomanWear        int
-	WomanWear2       int
+	WomanWear       int
+	WomanWear2      int
 	WomanWearOffset int
-	ManWear3         int
-	WomanWear3       int
-	ManHead          int
-	ManHead2         int
-	WomanHead        int
-	WomanHead2       int
-	CountObj         []uint16
-	CountCo          []uint16
-	CertLink         int
-	CertTemplate     int
-	ResizeX          int
-	ResizeY          int
-	ResizeZ          int
-	Ambient          int8
-	Contrast         int8
+	ManWear3        int
+	WomanWear3      int
+	ManHead         int
+	ManHead2        int
+	WomanHead       int
+	WomanHead2      int
+	CountObj        []uint16
+	CountCo         []uint16
+	CertLink        int
+	CertTemplate    int
+	ResizeX         int
+	ResizeY         int
+	ResizeZ         int
+	Ambient         int8
+	Contrast        int8
 
 	// server-side
 	WearPos     int

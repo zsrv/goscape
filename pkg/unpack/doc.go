@@ -3,7 +3,7 @@
 // the `goscape-cli unpack` subcommand and covers 16 families (config, sprite,
 // model, anim, midi, sound, map, interface, versionlist, worldmap, …).
 //
-// PORTING-EXCEPTION (unpack-tools-go-only) — DEVIATION SYNC289-D2
+// # PORTING-EXCEPTION (unpack-tools-go-only) — DEVIATION SYNC289-D2
 //
 // This package no longer has an upstream counterpart. Engine-TS 8139461a
 // ("Synced engine with 289 improvements", the rev-274 sync landed 2026-08-31)

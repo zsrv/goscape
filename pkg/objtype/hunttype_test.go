@@ -465,7 +465,6 @@ func TestHuntTypeCheckHuntCondition(t *testing.T) {
 	}
 }
 
-
 // TestHuntTypeDecodeCheckObjCat pins the new server opcode 18 introduced by
 // Engine-TS 8139461a (TS HuntType.ts:142-147 @1d25566c): check_invcat carries
 // inv, category, condition, val — the category variant of opcode 17's param

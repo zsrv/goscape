@@ -18,8 +18,7 @@ var spotanimNumberKeys = map[string]struct{}{
 }
 
 // spotanimBooleanKeys mirrors TS SpotAnimConfig.ts:14-16 booleanKeys[].
-var spotanimBooleanKeys = map[string]struct{}{
-}
+var spotanimBooleanKeys = map[string]struct{}{}
 
 // parseSpotAnimConfigFor returns the per-key=value parser for .spotanim
 // config blocks. Closure-captures modelPack + seqPack.

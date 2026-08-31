@@ -20,14 +20,14 @@ type SeqType struct {
 	Delay            []int32 // per-frame delay; 0 → AnimFrame.Delay fallback (TS L105)
 	Loops            int     // -1 default
 	WalkMerge        []int32 // nil = unset; last entry = 9999999 sentinel (TS L116)
-	Reachforward        bool
+	Reachforward     bool
 	Priority         int // 5 default
 	ReplaceHeldLeft  int // -1 default
 	ReplaceHeldRight int // -1 default
 	MaxLoops         int // 99 default
 	// New in 244:
-	PreanimMove       int // -1 default; code 9 g1; TS SeqType.ts:83 (Engine-TS 9aadcec4)
-	PostanimMove      int // -1 default; code 10 g1; TS SeqType.ts:84 (Engine-TS 9aadcec4)
+	PreanimMove        int // -1 default; code 9 g1; TS SeqType.ts:83 (Engine-TS 9aadcec4)
+	PostanimMove       int // -1 default; code 10 g1; TS SeqType.ts:84 (Engine-TS 9aadcec4)
 	DuplicateBehaviour int // 0 default; code 11 g1; TS SeqType.ts:85 (Engine-TS 9aadcec4)
 
 	// precalculated for seqlength
@@ -44,14 +44,14 @@ type SeqType struct {
 // TS SeqType.ts:70-88 (Engine-TS 9aadcec4)
 func NewSeqType(id int) *SeqType {
 	return &SeqType{
-		ID:                id,
-		Loops:             -1,
-		Priority:          5,
-		ReplaceHeldLeft:   -1,
-		ReplaceHeldRight:  -1,
-		MaxLoops:          99,
-		PreanimMove:       -1, // TS SeqType.ts:83 — preanim_move: number = -1
-		PostanimMove:      -1, // TS SeqType.ts:84 — postanim_move: number = -1
+		ID:                 id,
+		Loops:              -1,
+		Priority:           5,
+		ReplaceHeldLeft:    -1,
+		ReplaceHeldRight:   -1,
+		MaxLoops:           99,
+		PreanimMove:        -1, // TS SeqType.ts:83 — preanim_move: number = -1
+		PostanimMove:       -1, // TS SeqType.ts:84 — postanim_move: number = -1
 		DuplicateBehaviour: 0,  // TS SeqType.ts:85 — duplicatebehaviour: number = 0
 	}
 }

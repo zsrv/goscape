@@ -78,4 +78,3 @@ func TestConvertImage_PalPngIgnored(t *testing.T) {
 		t.Errorf("index[4]=%d, want 5 (palette from source image; pal.png ignored at 254)", idxBytes[4])
 	}
 }
-

@@ -20,9 +20,9 @@ const (
 )
 
 type RouteFinder struct {
-	flags                collision.FlagMap
-	searchMapSize        int
-	ringBufferSize       int
+	flags          collision.FlagMap
+	searchMapSize  int
+	ringBufferSize int
 	// useRouteBlockerFlags is retained on the struct and in the constructor
 	// signature for call-site compatibility, but is no longer consulted:
 	// SYNC289-D4 removed the branch it selected. See FindRoute.

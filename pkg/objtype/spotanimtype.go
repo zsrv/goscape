@@ -14,15 +14,15 @@ import (
 // Mirrors Engine-TS/src/cache/config/SpotanimType.ts.
 type SpotanimType struct {
 	ConfigType
-	Model       int
-	Anim        int // -1 default
-	RecolS      [6]uint16
-	RecolD      [6]uint16
-	Resizeh     int // 128 default
-	Resizev     int // 128 default
-	Angle int
-	Ambient     int
-	Contrast    int
+	Model    int
+	Anim     int // -1 default
+	RecolS   [6]uint16
+	RecolD   [6]uint16
+	Resizeh  int // 128 default
+	Resizev  int // 128 default
+	Angle    int
+	Ambient  int
+	Contrast int
 }
 
 // NewSpotanimType returns a SpotanimType with TS-faithful defaults.

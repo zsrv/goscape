@@ -10,7 +10,6 @@ const lineOfSightBlockMovement = FlagWallNorthWest |
 	FlagWallWest |
 	FlagLoc
 
-
 func CanMove(tileFlag int, blockFlag int, collisionType Type) bool {
 	switch collisionType {
 	case TypeNormal:
