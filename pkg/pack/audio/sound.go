@@ -18,8 +18,9 @@ import (
 // (Engine-TS@dee467c8, sound/pack.ts:58). History: -1570057128 (225
 // placeholder = 245.2 value via 3c16994c) → -1415586973 (244 via 9aadcec4)
 // → back to -1570057128 (245.2) → 831919863 (254 @ 2e3bcf43) → the value
-// below (274 @ dee467c8).
-const soundCRCMagic int32 = 2127412105
+// The synth build-verify constant lives in pkg/pack as pack.SoundCRCMagic
+// now. Engine-TS 8139461a moved the check from the pre-save out packet (magic
+// 2127412105) to the saved file bytes (-759577225).
 
 // PackSound ports TS sound/pack.ts:packClientSound at revision 244.
 //
@@ -80,37 +81,9 @@ func PackSound(reg *pack.Registry, srcDir, outDir string, cache *filestream.File
 	out.P2(0xffff) // TS out.p2(-1) terminator
 
 	// Build-verify: TS sound/pack.ts:47-49 at 9aadcec4.
-	if err := pack.BuildVerify(out.Data, out.Length(), soundCRCMagic); err != nil {
-		// NAI-213-D-BUILDVERIFY-SOUND-MAY-DIVERGE — CONFIRMED-EXCEPTION
-		// (pack-media-compiler-13, rev-244 B6 audit closure):
-		//
-		// TS sound/pack.ts:47-49 hard-throws on CRC mismatch when the
-		// TS environment's build-verify toggle is set. goscape downgrades to an
-		// informational stderr log and continues writing. The downgrade
-		// is INTENTIONAL and STRUCTURAL — not a transient defer:
-		//
-		//   1. The soundCRCMagic constant is a hash of TS's synth pack
-		//      at a specific build moment. goscape's synth set derives
-		//      from the content tree being packed (which may be stock
-		//      LostCity, a custom content tree, or a synthetic test
-		//      fixture). Any name-id divergence — by design or accident
-		//      — produces a different CRC than the TS-stored magic.
-		//   2. Aborting on mismatch would make goscape unable to pack
-		//      ANY content tree whose synth set doesn't byte-match
-		//      LostCity's at the build that generated the magic. Custom
-		//      content trees and synthetic test fixtures are first-class
-		//      use cases in goscape's design; the log lets the operator
-		//      see the mismatch without breaking the pipeline.
-		//   3. The magic constant is retained so it CAN re-engage if
-		//      upstream pack consumers ever become TS-byte-faithful
-		//      end-to-end (an env-gate could promote the log to a throw
-		//      then), but that activation is not in scope for the
-		//      current 1:1 parity arc.
-		//
-		// Audit row pack-media-compiler-13 closed as ✅ EXCEPTION-
-		// DOCUMENTED — see docs/PORTING-CLOSED.md.
-		fmt.Fprintf(os.Stderr, "packClientSound: %v (NAI-213-D-BUILDVERIFY-SOUND-MAY-DIVERGE)\n", err)
-	}
+	// The synth CRC gate moved to the saved file bytes at the cache-write site
+	// below (TS sound/pack.ts:63-68 @1d25566c). It used to run here against
+	// the pre-save out packet with magic 2127412105.
 
 	jag.Write("sounds.dat", out)
 
@@ -127,6 +100,10 @@ func PackSound(reg *pack.Registry, srcDir, outDir string, cache *filestream.File
 		if err != nil {
 			return fmt.Errorf("PackSound: read client/sounds for cache: %w", err)
 		}
+		// TS sound/pack.ts:63-68 @1d25566c moved this gate off the pre-save
+		// out packet and onto the saved file bytes, which is why the magic
+		// changed 2127412105 -> -759577225.
+		pack.VerifyArchive("packClientSound", data, pack.SoundCRCMagic)
 		cache.Write(0, 8, data, 0)
 	}
 	return nil

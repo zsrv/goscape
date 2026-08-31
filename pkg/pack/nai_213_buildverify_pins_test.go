@@ -6,12 +6,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/io/packet"
 )
 
-// TestBuildVerifyMagicNumbers_AppearExactlyOnce pins that the two CRC
-// magic numbers from TS PackClient.ts and sound/pack.ts appear exactly
-// once each, in their expected locations. Guards against silent removal
-// or duplication.
+// TestBuildVerifyMagicNumbers_AppearExactlyOnce pins that each archive CRC
+// magic is declared exactly once, in pkg/pack/build_verify.go. Guards against
+// silent removal or a stray duplicate literal drifting out of sync.
 //
 // Rev-244 (9aadcec4): interface CRC updated from -2146838800 (225) →
 // 316858560 (PackClient.ts:21). Sound CRC updated from -1570057128 (225
@@ -26,25 +27,66 @@ import (
 // Rev-274 (dee467c8): interface CRC updated from 1728499832 → 2041671134
 // (PackClient.ts:36) alongside the *_full font renames. Sound CRC
 // updated from 831919863 → 2127412105 (sound/pack.ts:58 @ dee467c8).
+// Rev-274 (8139461a): every gate moved off the pre-save packet and onto the
+// saved FILE bytes, so interface went 2041671134 → 2135735991 and sound
+// 2127412105 → -759577225. Title (410306098), textures (915347346) and
+// wordenc (1386621111) gained gates they never had. All five constants moved
+// into pkg/pack/build_verify.go so they sit together with the shared
+// VerifyArchive helper.
 func TestBuildVerifyMagicNumbers_AppearExactlyOnce(t *testing.T) {
-	tests := []struct {
-		file    string
-		literal string
-	}{
-		{"clientinterface/pack.go", "2041671134"},
-		{"audio/sound.go", "2127412105"},
+	raw, err := os.ReadFile("build_verify.go")
+	if err != nil {
+		t.Fatalf("ReadFile build_verify.go: %v", err)
 	}
-	for _, tc := range tests {
-		path := filepath.Join(tc.file)
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			t.Errorf("ReadFile %q: %v", path, err)
-			continue
+	src := string(raw)
+
+	for _, literal := range []string{
+		"410306098",  // title
+		"2135735991", // interface
+		"915347346",  // textures
+		"1386621111", // wordenc
+		"-759577225", // sounds
+	} {
+		if count := strings.Count(src, literal); count != 1 {
+			t.Errorf("%q in build_verify.go: count=%d, want 1", literal, count)
 		}
-		count := strings.Count(string(raw), tc.literal)
-		if count != 1 {
-			t.Errorf("%q in %q: count=%d, want 1", tc.literal, path, count)
+	}
+}
+
+// TestArchiveCRCMagicsAreDistinct guards the copy-paste failure mode: two
+// archives sharing a constant would make one of the gates vacuous.
+func TestArchiveCRCMagicsAreDistinct(t *testing.T) {
+	magics := map[string]int32{
+		"title":     TitleCRCMagic,
+		"interface": InterfaceCRCMagic,
+		"textures":  TextureCRCMagic,
+		"wordenc":   WordencCRCMagic,
+		"sounds":    SoundCRCMagic,
+	}
+	seen := map[int32]string{}
+	for name, v := range magics {
+		if prev, dup := seen[v]; dup {
+			t.Errorf("%s and %s share CRC magic %d", prev, name, v)
 		}
+		seen[v] = name
+	}
+}
+
+// TestVerifyArchiveDetectsCorruption pins that the gate is not vacuous: a
+// single flipped byte must be reported. BuildVerify is the failing half of
+// VerifyArchive (which logs rather than returns), so it is asserted directly.
+func TestVerifyArchiveDetectsCorruption(t *testing.T) {
+	data := []uint8{1, 2, 3, 4, 5, 6, 7, 8}
+	good := int32(packet.GetCRC(data, 0, len(data)))
+
+	if err := BuildVerify(data, len(data), good); err != nil {
+		t.Fatalf("BuildVerify on intact data: %v", err)
+	}
+
+	corrupt := append([]uint8(nil), data...)
+	corrupt[3] ^= 0x01
+	if err := BuildVerify(corrupt, len(corrupt), good); err == nil {
+		t.Error("BuildVerify on corrupted data: got nil error, want CRC mismatch")
 	}
 }
 

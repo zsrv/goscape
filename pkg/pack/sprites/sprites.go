@@ -92,6 +92,9 @@ func PackTitle(srcDir, outDir string, cache *filestream.FileStream) error {
 		if err != nil {
 			return fmt.Errorf("PackTitle: read client/title for cache: %w", err)
 		}
+		// TS sprite/title.ts:45-50 @1d25566c — gate the FILE bytes, not the
+		// pre-save packet. New at 8139461a; title had no gate before.
+		pack.VerifyArchive("packClientTitle", data, pack.TitleCRCMagic)
 		cache.Write(0, 1, data, 0)
 	}
 	return nil
@@ -221,6 +224,8 @@ func PackTexture(reg *pack.Registry, srcDir, outDir string, cache *filestream.Fi
 		if err != nil {
 			return fmt.Errorf("PackTexture: read client/textures for cache: %w", err)
 		}
+		// TS sprite/textures.ts:35-40 @1d25566c — new gate at 8139461a.
+		pack.VerifyArchive("packClientTexture", data, pack.TextureCRCMagic)
 		cache.Write(0, 6, data, 0)
 	}
 	return nil

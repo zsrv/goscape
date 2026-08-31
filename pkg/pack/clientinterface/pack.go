@@ -15,15 +15,10 @@ import (
 	"github.com/zsrv/goscape/pkg/pack"
 )
 
-// interfaceCRCMagic is the TS PackClient.ts build-verify constant.
-// Rev-244 (9aadcec4) PackClient.ts:21: updated from the rev-225 value
-// (-2146838800) to the rev-244 value. Rev-245.2 (3c16994c) PackClient.ts:19:
-// updated again (587792799) to reflect the new swappable +
-// activeovercolour fields. Rev-254 (2e3bcf43) PackClient.ts:19: updated
-// from 587792799 to 1728499832 alongside the new script ops 14-20.
-// Rev-274 (dee467c8) PackClient.ts:36: updated from 1728499832 to the
-// value below (font renames p11→p11_full etc. + content drift).
-const interfaceCRCMagic int32 = 2041671134
+// The interface build-verify constant lives in pkg/pack as
+// pack.InterfaceCRCMagic now. Engine-TS 8139461a moved the check from the
+// pre-save client packet (magic 2041671134) to the saved file bytes
+// (2135735991), so the constant belongs with the other four archive magics.
 
 // component mirrors the TS Component type (PackShared.ts:156-160).
 //
@@ -101,6 +96,10 @@ func Pack(reg *pack.Registry, srcDir, outDir string, modelFlags []int, cache *fi
 		if err != nil {
 			return fmt.Errorf("Pack: read client/interface for cache: %w", err)
 		}
+		// TS interface/PackClient.ts:44-48 @1d25566c moved this gate off the
+		// pre-save client packet and onto the saved file bytes, which is why
+		// the magic changed 2041671134 -> 2135735991.
+		pack.VerifyArchive("packClientInterface", data, pack.InterfaceCRCMagic)
 		cache.Write(0, 3, data, 0)
 	}
 	return nil
@@ -117,37 +116,9 @@ func buildInterfaceIntermediates(reg *pack.Registry, srcDir, clientOut, serverOu
 	defer client.Release()
 	defer server.Release()
 
-	if err := pack.BuildVerify(client.Data, client.Length(), interfaceCRCMagic); err != nil {
-		// NAI-213-D-BUILDVERIFY-INTERFACE-MAY-DIVERGE — CONFIRMED-EXCEPTION
-		// (pack-media-compiler-12, 2026-05-28 audit closure):
-		//
-		// TS PackClient.ts:16-18 hard-throws on CRC mismatch when the
-		// TS environment's build-verify toggle is set. goscape downgrades to an
-		// informational stderr log and continues writing. The downgrade
-		// is INTENTIONAL and STRUCTURAL — not a transient defer:
-		//
-		//   1. The interfaceCRCMagic constant is a hash of TS's stored
-		//      name-id maps + script ordering. goscape's name-id maps
-		//      derive from the cache being packed (which may be stock
-		//      LostCity, a custom content tree, or a synthetic test
-		//      fixture). Any name-id divergence — by design or accident
-		//      — produces a different CRC than the TS-stored magic.
-		//   2. Aborting on mismatch would make goscape unable to pack
-		//      ANY content tree whose name-id map doesn't byte-match
-		//      LostCity's at the build that generated the magic. Custom
-		//      content trees and synthetic test fixtures are first-class
-		//      use cases in goscape's design; the log lets the operator
-		//      see the mismatch without breaking the pipeline.
-		//   3. The magic constant is retained so it CAN re-engage if
-		//      upstream pack consumers ever become TS-byte-faithful
-		//      end-to-end (an env-gate could promote the log to a throw
-		//      then), but that activation is not in scope for the
-		//      current 1:1 parity arc.
-		//
-		// Audit row pack-media-compiler-12 closed as ✅ EXCEPTION-
-		// DOCUMENTED — see docs/PORTING-CLOSED.md.
-		fmt.Fprintf(os.Stderr, "clientinterface: %v (NAI-213-D-BUILDVERIFY-INTERFACE-MAY-DIVERGE)\n", err)
-	}
+	// The interface CRC gate moved to the saved file bytes at the cache-write
+	// site below (TS interface/PackClient.ts:44-48 @1d25566c). It used to run
+	// here against the pre-save client packet with magic 2041671134.
 
 	// TS PackClient.ts:40-42: jag.write('data', client); jag.save('data/pack/client/interface').
 	if err := os.MkdirAll(filepath.Dir(clientOut), 0o755); err != nil {

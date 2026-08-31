@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/zsrv/goscape/pkg/pack"
+
 	"github.com/zsrv/goscape/pkg/io/filestream"
 )
 
@@ -35,6 +37,9 @@ func Pack(rawDir string, cache *filestream.FileStream) error {
 		return fmt.Errorf("wordenc.Pack: read %q: %w", blobPath, err)
 	}
 	if cache != nil {
+		// TS chat/pack.ts:8-11 @1d25566c — new gate at 8139461a, over the raw
+		// data/raw/wordenc blob.
+		pack.VerifyArchive("packClientWordenc", data, pack.WordencCRCMagic)
 		cache.Write(0, 7, data, 0)
 	}
 	return nil
