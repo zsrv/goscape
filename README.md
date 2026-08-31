@@ -107,6 +107,14 @@ skip automatically when it isn't present.
 - `CLAUDE.md` documents the architecture (module system, networking, service lifecycle)
   in more detail.
 
+## Contributing
+
+goscape is a port: each `rev-N` branch reproduces Engine-TS's behaviour at one
+wire-protocol revision, so a change that improves on the reference usually needs
+a documented reason. [`CONTRIBUTING.md`](CONTRIBUTING.md) covers which branch to
+target, how to record a deliberate divergence in `docs/PORTING.md`, and the
+checks to run before opening a pull request.
+
 ## Security
 
 `login`, `friends` and `account` speak gRPC with no authentication between them —
