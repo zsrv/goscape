@@ -4,6 +4,8 @@ package encfilter
 // wordenc/WordEnc.ts:97-188). All operate on []rune to match TS character
 // semantics over the ASCII + £/€ charset.
 
+import "slices"
+
 func isLowercaseAlpha(c rune) bool { return c >= 'a' && c <= 'z' }
 func isUppercaseAlpha(c rune) bool { return c >= 'A' && c <= 'Z' }
 func isNumerical(c rune) bool      { return c >= '0' && c <= '9' }
@@ -95,10 +97,8 @@ func prefixSymbolStatus(offset int, chars []rune, length int, symbolChars []rune
 		return 2
 	}
 	for i := offset - 1; i >= 0 && isSymbol(chars[i]); i-- {
-		for _, s := range symbols {
-			if chars[i] == s {
-				return 3
-			}
+		if slices.Contains(symbols, chars[i]) {
+			return 3
 		}
 	}
 	return maskedCharsStatus(chars, symbolChars, offset, length, true)
@@ -110,10 +110,8 @@ func suffixSymbolStatus(offset int, chars []rune, length int, symbolChars []rune
 		return 2
 	}
 	for i := offset + 1; i < len(chars) && isSymbol(chars[i]); i++ {
-		for _, s := range symbols {
-			if chars[i] == s {
-				return 3
-			}
+		if slices.Contains(symbols, chars[i]) {
+			return 3
 		}
 	}
 	return maskedCharsStatus(chars, symbolChars, offset, length, false)

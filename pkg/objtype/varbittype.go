@@ -43,10 +43,10 @@ func (v *VarBitType) Decode(code uint8, dat *packet2.Packet) error {
 // defaults (VarBitType.ts:68-70: basevar/startbit/endbit = -1).
 func NewVarBitType(id int) *VarBitType {
 	return &VarBitType{
-		ConfigType: ConfigType{ID: id},
-		Basevar:    -1,
-		Startbit:   -1,
-		Endbit:     -1,
+		ID:       id,
+		Basevar:  -1,
+		Startbit: -1,
+		Endbit:   -1,
 	}
 }
 

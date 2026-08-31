@@ -30,8 +30,8 @@ func (v *VarSharedType) Decode(code uint8, dat *packet2.Packet) error {
 
 func NewVarSharedType(id int) *VarSharedType {
 	return &VarSharedType{
-		ConfigType: ConfigType{ID: id},
-		Type:       ScriptVarTypeInt,
+		ID:   id,
+		Type: ScriptVarTypeInt,
 	}
 }
 

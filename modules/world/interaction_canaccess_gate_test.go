@@ -86,7 +86,7 @@ func TestProcessInteraction_CanAccessGate_HappyPath_OpFires(t *testing.T) {
 	defer wait()
 	npc := makeInteractionNpc(t, s, 1, 101, 100, 0) // cheb=1 adjacent
 	npc.typeId = 7
-	npc.typ = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	npc.typ = &objtype.NpcType{ID: 7}
 
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 

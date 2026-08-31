@@ -20,7 +20,7 @@ import (
 // retreat-range semantics; the player is free to roam arbitrarily far.
 func TestTargetWithinMaxRangePlayerFollowAlwaysTrue(t *testing.T) {
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "follow_npc"},
+		ID: 0, DebugName: "follow_npc",
 		MaxRange:    2, // deliberately tiny
 		AttackRange: 1,
 	}
@@ -45,7 +45,7 @@ func TestTargetWithinMaxRangePlayerFollowAlwaysTrue(t *testing.T) {
 // versa.
 func TestTargetWithinMaxRangePlayerEscapeRejectsOnlyWhenBothExceed(t *testing.T) {
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "escape_npc"},
+		ID: 0, DebugName: "escape_npc",
 		MaxRange:    5,
 		AttackRange: 1,
 	}
@@ -71,7 +71,7 @@ func TestTargetWithinMaxRangePlayerEscapeRejectsOnlyWhenBothExceed(t *testing.T)
 // branches which reject on EITHER side exceeding.
 func TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyTargetExceeds(t *testing.T) {
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "escape_npc"},
+		ID: 0, DebugName: "escape_npc",
 		MaxRange:    5,
 		AttackRange: 1,
 	}
@@ -93,7 +93,7 @@ func TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyTargetExceeds(t *testing.
 // is still nearby. AND-gate keeps the interaction alive.
 func TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyNpcExceeds(t *testing.T) {
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "escape_npc"},
+		ID: 0, DebugName: "escape_npc",
 		MaxRange:    5,
 		AttackRange: 1,
 	}
@@ -117,7 +117,7 @@ func TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyNpcExceeds(t *testing.T) 
 // Chebyshev shape still works.
 func TestTargetWithinMaxRangeOpTriggerUnchanged(t *testing.T) {
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "op_npc"},
+		ID: 0, DebugName: "op_npc",
 		MaxRange:    5,
 		AttackRange: 1,
 	}
@@ -144,7 +144,7 @@ func playerModeFixture(t *testing.T) (*Server, *Npc, *Player) {
 	t.Helper()
 	s := newServerForScriptTest(t)
 	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test_npc"},
+		ID: 0, DebugName: "test_npc",
 		Size:        1, // minimum valid NPC size; required for size-aware DistanceTo
 		MaxRange:    10,
 		AttackRange: 1,

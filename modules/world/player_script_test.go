@@ -189,7 +189,6 @@ func TestOpenModalClearsSuspendedDialogAndResumeButtons(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			p, _ := newTestPlayer(t)
 			p.activeScript = &script.ScriptState{Execution: tc.exec}
@@ -2152,9 +2151,9 @@ func TestPlayer_InvTotalParamStack(t *testing.T) {
 
 	invConfigs := make([]*objtype.InvType, invID+1)
 	invConfigs[invID] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: invID},
-		Scope:      objtype.InvTypeScopeTemp,
-		Size:       10,
+		ID:    invID,
+		Scope: objtype.InvTypeScopeTemp,
+		Size:  10,
 	}
 	objConfigs := make([]*objtype.ObjType, 21)
 	objConfigs[10] = &objtype.ObjType{
@@ -2194,9 +2193,9 @@ func TestPlayer_InvTotalParamStack_EmptyInv(t *testing.T) {
 
 	invConfigs := make([]*objtype.InvType, invID+1)
 	invConfigs[invID] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: invID},
-		Scope:      objtype.InvTypeScopeTemp,
-		Size:       5,
+		ID:    invID,
+		Scope: objtype.InvTypeScopeTemp,
+		Size:  5,
 	}
 	paramConfigs := make([]*objtype.ParamType, paramID+1)
 	paramConfigs[paramID] = &objtype.ParamType{DefaultInt: 0}
@@ -2277,7 +2276,7 @@ func TestSetStat_OOBStatDropsSilently(t *testing.T) {
 	p.SetStat(-1, 50)
 	p.SetStat(21, 50)
 	// No state mutation expected, no panic.
-	for i := 0; i < objtype.PlayerStatCount; i++ {
+	for i := range objtype.PlayerStatCount {
 		if p.baseLevels[i] != 0 || p.levels[i] != 0 || p.stats[i] != 0 {
 			t.Errorf("stat %d mutated after OOB SetStat", i)
 		}

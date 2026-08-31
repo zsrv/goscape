@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
@@ -389,10 +389,7 @@ func handleMessagePublic(p *Player, payload []byte) error {
 	// TS-DRIFT-1: clamp rights to min(staffModLevel, 2) per
 	// MessagePublicHandler.ts:31 — Rev 244 mod-crown visibility caps the
 	// rendered crown level at 2 (any staff level >2 still displays as 2).
-	rights := int(p.staffModLevel)
-	if rights > 2 {
-		rights = 2
-	}
+	rights := min(int(p.staffModLevel), 2)
 	p.Chat(color, effect, rights, out.Bytes())
 
 	// Chat is Kafka-only (documented TS divergence, spec
@@ -410,7 +407,7 @@ func handleMessagePublic(p *Player, payload []byte) error {
 		coord := coordgrid.PackCoord(p.level, p.x, p.z)
 		telemetry.Get().EmitWorld(&eventspb.WorldEnvelope{
 			SchemaVersion: 1,
-			EventId:       uuid.NewString(),
+			EventId:       uuid.New().String(),
 			Ts:            timestamppb.Now(),
 			WorldId:       int32(s.cfg.NodeID),
 			AccountId:     p.accountID,
@@ -1324,10 +1321,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 				return nil
 			}
 			username := sub[0]
-			minutes := parseIntOr(sub[1], 60)
-			if minutes < 0 {
-				minutes = 0
-			}
+			minutes := max(parseIntOr(sub[1], 60), 0)
 			p.client.server.loginBridgeMod.NotifyPlayerBan(p.username, username, time.Now().Add(time.Duration(minutes)*time.Minute))
 			p.MessageGame(fmt.Sprintf("Player '%s' has been banned for %d minutes.", username, minutes))
 		case "mute":
@@ -1343,10 +1337,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 				return nil
 			}
 			username := sub[0]
-			minutes := parseIntOr(sub[1], 60)
-			if minutes < 0 {
-				minutes = 0
-			}
+			minutes := max(parseIntOr(sub[1], 60), 0)
 			p.client.server.loginBridgeMod.NotifyPlayerMute(p.username, username, time.Now().Add(time.Duration(minutes)*time.Minute))
 			p.MessageGame(fmt.Sprintf("Player '%s' has been muted for %d minutes.", username, minutes))
 
@@ -1400,10 +1391,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 func clampCount(sub []string, idx int) int {
 	count := 1
 	if len(sub) > idx {
-		count = parseIntOr(sub[idx], 1)
-		if count < 1 {
-			count = 1
-		}
+		count = max(parseIntOr(sub[idx], 1), 1)
 		if count > 0x7fffffff {
 			count = 0x7fffffff
 		}
@@ -1420,10 +1408,7 @@ func clampCount(sub []string, idx int) int {
 // index differs between the two callers (setvar reads sub[1], setvarother
 // reads sub[2]), hence idx is a parameter rather than hardcoded.
 func clampInt32(sub []string, idx int) int {
-	value := parseIntOr(sub[idx], 0)
-	if value > 0x7fffffff {
-		value = 0x7fffffff
-	}
+	value := min(parseIntOr(sub[idx], 0), 0x7fffffff)
 	if value < -0x80000000 {
 		value = -0x80000000
 	}

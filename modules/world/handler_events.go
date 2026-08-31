@@ -1,7 +1,8 @@
 package world
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/zsrv/goscape/pkg/eventspb"
@@ -50,7 +51,7 @@ func handleEventMouseMove(p *Player, payload []byte) error {
 	if p.input.Active && p.client != nil && p.client.server != nil {
 		telemetry.Get().EmitPlayerInput(&eventspb.PlayerInputEnvelope{
 			SchemaVersion: 1,
-			EventId:       uuid.NewString(),
+			EventId:       uuid.New().String(),
 			Ts:            timestamppb.Now(),
 			WorldId:       int32(p.client.server.cfg.NodeID),
 			AccountId:     p.accountID,

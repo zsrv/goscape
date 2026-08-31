@@ -786,7 +786,7 @@ func TestLocTypeDecodeCode5AfterCode1ClearsShapes(t *testing.T) {
 
 func TestLocTypeConfigs_ByName_HitViaConfigNames(t *testing.T) {
 	lc := &LocTypeConfigs{
-		Configs:     []*LocType{{ConfigType: ConfigType{ID: 0, DebugName: "first"}}, {ConfigType: ConfigType{ID: 1, DebugName: "second"}}},
+		Configs:     []*LocType{{ID: 0, DebugName: "first"}, {ID: 1, DebugName: "second"}},
 		ConfigNames: map[string]int{"first": 0, "second": 1},
 	}
 	got := lc.ByName("second")
@@ -800,7 +800,7 @@ func TestLocTypeConfigs_ByName_HitViaConfigNames(t *testing.T) {
 
 func TestLocTypeConfigs_ByName_MissReturnsNil(t *testing.T) {
 	lc := &LocTypeConfigs{
-		Configs:     []*LocType{{ConfigType: ConfigType{ID: 0, DebugName: "only"}}},
+		Configs:     []*LocType{{ID: 0, DebugName: "only"}},
 		ConfigNames: map[string]int{"only": 0},
 	}
 	if got := lc.ByName("absent"); got != nil {
@@ -820,7 +820,7 @@ func TestLocTypeConfigs_ByName_StaleIndexFallsThroughToLinearScan(t *testing.T) 
 	// Lookup must NOT panic and must fall through to the linear scan,
 	// which finds "fresh" at id=1 by DebugName equality.
 	lc := &LocTypeConfigs{
-		Configs:     []*LocType{{ConfigType: ConfigType{ID: 0, DebugName: "other"}}, {ConfigType: ConfigType{ID: 1, DebugName: "fresh"}}},
+		Configs:     []*LocType{{ID: 0, DebugName: "other"}, {ID: 1, DebugName: "fresh"}},
 		ConfigNames: map[string]int{"fresh": 5},
 	}
 	got := lc.ByName("fresh")
@@ -836,7 +836,7 @@ func TestLocTypeConfigs_ByName_LinearScanWhenConfigNamesEmpty(t *testing.T) {
 	// Some test fixtures construct Configs without populating ConfigNames.
 	// ByName must still resolve by DebugName.
 	lc := &LocTypeConfigs{
-		Configs:     []*LocType{{ConfigType: ConfigType{ID: 0, DebugName: "scan_me"}}},
+		Configs:     []*LocType{{ID: 0, DebugName: "scan_me"}},
 		ConfigNames: nil,
 	}
 	got := lc.ByName("scan_me")

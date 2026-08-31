@@ -42,7 +42,7 @@ func TestResetCycleTimes_ZerosTimingButNotBandwidth(t *testing.T) {
 	s := newTestServer(t)
 
 	// Seed all 12 entries.
-	for i := 0; i < numWorldStats; i++ {
+	for i := range numWorldStats {
 		s.cycleStats[i] = uint16(100 + i)
 	}
 
@@ -69,14 +69,14 @@ func TestResetCycleTimes_ZerosTimingButNotBandwidth(t *testing.T) {
 func TestSnapshotCycleStats_Copies(t *testing.T) {
 	s := newTestServer(t)
 
-	for i := 0; i < numWorldStats; i++ {
+	for i := range numWorldStats {
 		s.cycleStats[i] = uint16(200 + i)
 		s.lastCycleStats[i] = 0
 	}
 
 	s.snapshotCycleStats()
 
-	for i := 0; i < numWorldStats; i++ {
+	for i := range numWorldStats {
 		want := uint16(200 + i)
 		if got := s.lastCycleStats[i]; got != want {
 			t.Errorf("lastCycleStats[%d] = %d after snapshot, want %d", i, got, want)

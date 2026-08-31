@@ -52,10 +52,10 @@ func (v *VarPlayerType) Decode(code uint8, dat *packet2.Packet) error {
 
 func NewVarPlayerType(id int) *VarPlayerType {
 	return &VarPlayerType{
-		ConfigType: ConfigType{ID: id},
-		Scope:      VarpScopeTemp,
-		Type:       ScriptVarTypeInt,
-		Protect:    true,
+		ID:      id,
+		Scope:   VarpScopeTemp,
+		Type:    ScriptVarTypeInt,
+		Protect: true,
 	}
 }
 

@@ -3,7 +3,6 @@
 // license that can be found in the LICENSE.md file.
 
 //go:build !gofuzz
-// +build !gofuzz
 
 // This file exists to suppress fuzzing details from release builds.
 

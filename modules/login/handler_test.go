@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"testing"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -697,8 +697,10 @@ func TestPlayerLogin_SessionUUID_FormatOnAccept(t *testing.T) {
 	if err != nil {
 		t.Fatalf("uuid.Parse(%q): %v", resp.SessionUuid, err)
 	}
-	if u.Version() != 4 {
-		t.Errorf("uuid version: got %d, want 4", u.Version())
+	// RFC 9562 4.2: the version is the high nibble of octet 6. The stdlib
+	// uuid.UUID is a [16]byte with no Version accessor.
+	if v := u[6] >> 4; v != 4 {
+		t.Errorf("uuid version: got %d, want 4", v)
 	}
 }
 

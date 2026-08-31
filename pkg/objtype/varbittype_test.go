@@ -244,8 +244,8 @@ func TestVarBitTypeConfigs_Get_NilAndOOBSafe(t *testing.T) {
 func TestVarBitTypeConfigs_ByName(t *testing.T) {
 	cfgs := &VarBitTypeConfigs{
 		Configs: []*VarBitType{
-			{ConfigType: ConfigType{ID: 0, DebugName: "alpha"}, Basevar: 0, Startbit: 0, Endbit: 3},
-			{ConfigType: ConfigType{ID: 1, DebugName: "beta"}, Basevar: 1, Startbit: 4, Endbit: 7},
+			{ID: 0, DebugName: "alpha", Basevar: 0, Startbit: 0, Endbit: 3},
+			{ID: 1, DebugName: "beta", Basevar: 1, Startbit: 4, Endbit: 7},
 		},
 		ConfigNames: map[string]int{"alpha": 0, "beta": 1},
 	}
@@ -259,7 +259,7 @@ func TestVarBitTypeConfigs_ByName(t *testing.T) {
 	// Linear-scan fallback when ConfigNames is unpopulated (test fixtures).
 	unindexed := &VarBitTypeConfigs{
 		Configs: []*VarBitType{
-			{ConfigType: ConfigType{ID: 0, DebugName: "gamma"}, Basevar: 0, Startbit: 0, Endbit: 3},
+			{ID: 0, DebugName: "gamma", Basevar: 0, Startbit: 0, Endbit: 3},
 		},
 	}
 	if got := unindexed.ByName("gamma"); got == nil || got.ID != 0 {

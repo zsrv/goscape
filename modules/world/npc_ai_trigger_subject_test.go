@@ -38,8 +38,8 @@ func newActingNpcForAiTest(t *testing.T, s *Server, op int) *Npc {
 	n.targetOp = op
 	n.typeId = aiActingType
 	n.typ = &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: aiActingType},
-		Category:   aiActingCategory,
+		ID:       aiActingType,
+		Category: aiActingCategory,
 	}
 	return n
 }

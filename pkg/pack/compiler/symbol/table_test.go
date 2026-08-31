@@ -10,9 +10,8 @@ import (
 func TestSymbolTable_InsertAndFind(t *testing.T) {
 	tg := makeTriggerStub("proc")
 	st := NewSymbolTable(nil)
-	sym := &ServerScriptSymbol{ScriptSymbolFields: ScriptSymbolFields{
-		Trigger: tg, Name: "foo", Parameters: typ.MetaUnit, Returns: typ.MetaUnit,
-	}}
+	sym := &ServerScriptSymbol{
+		Trigger: tg, Name: "foo", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}
 	if !st.Insert(SymbolTypeServerScript(tg), sym) {
 		t.Fatal("first Insert returned false")
 	}
@@ -25,12 +24,10 @@ func TestSymbolTable_InsertAndFind(t *testing.T) {
 func TestSymbolTable_Insert_DuplicateReturnsFalse(t *testing.T) {
 	tg := makeTriggerStub("proc")
 	st := NewSymbolTable(nil)
-	first := &ServerScriptSymbol{ScriptSymbolFields: ScriptSymbolFields{
-		Trigger: tg, Name: "foo",
-	}}
-	second := &ServerScriptSymbol{ScriptSymbolFields: ScriptSymbolFields{
-		Trigger: tg, Name: "foo",
-	}}
+	first := &ServerScriptSymbol{
+		Trigger: tg, Name: "foo"}
+	second := &ServerScriptSymbol{
+		Trigger: tg, Name: "foo"}
 	if !st.Insert(SymbolTypeServerScript(tg), first) {
 		t.Fatal("first Insert returned false")
 	}
@@ -51,7 +48,7 @@ func TestSymbolTable_ChildLookupWalksParent(t *testing.T) {
 	tg := makeTriggerStub("proc")
 	root := NewSymbolTable(nil)
 	root.Insert(SymbolTypeServerScript(tg), &ServerScriptSymbol{
-		ScriptSymbolFields: ScriptSymbolFields{Trigger: tg, Name: "foo"},
+		Trigger: tg, Name: "foo",
 	})
 	child := root.CreateSubTable()
 	got := child.Find(SymbolTypeServerScript(tg), "foo")
@@ -65,7 +62,7 @@ func TestSymbolTable_ParentDoesNotWalkChild(t *testing.T) {
 	root := NewSymbolTable(nil)
 	child := root.CreateSubTable()
 	child.Insert(SymbolTypeServerScript(tg), &ServerScriptSymbol{
-		ScriptSymbolFields: ScriptSymbolFields{Trigger: tg, Name: "child_only"},
+		Trigger: tg, Name: "child_only",
 	})
 	if root.Find(SymbolTypeServerScript(tg), "child_only") != nil {
 		t.Fatal("root.Find found child-table entry")
@@ -78,11 +75,11 @@ func TestSymbolTable_ChildInsertBlocksOnParent(t *testing.T) {
 	tg := makeTriggerStub("proc")
 	root := NewSymbolTable(nil)
 	root.Insert(SymbolTypeServerScript(tg), &ServerScriptSymbol{
-		ScriptSymbolFields: ScriptSymbolFields{Trigger: tg, Name: "foo"},
+		Trigger: tg, Name: "foo",
 	})
 	child := root.CreateSubTable()
 	if child.Insert(SymbolTypeServerScript(tg), &ServerScriptSymbol{
-		ScriptSymbolFields: ScriptSymbolFields{Trigger: tg, Name: "foo"},
+		Trigger: tg, Name: "foo",
 	}) {
 		t.Fatal("child.Insert succeeded despite parent having same entry")
 	}
@@ -104,7 +101,7 @@ func TestSymbolTable_ServerScriptNameNotNormalised(t *testing.T) {
 	tg := makeTriggerStub("proc")
 	st := NewSymbolTable(nil)
 	st.Insert(SymbolTypeServerScript(tg), &ServerScriptSymbol{
-		ScriptSymbolFields: ScriptSymbolFields{Trigger: tg, Name: "PascalCase"},
+		Trigger: tg, Name: "PascalCase",
 	})
 	if got := st.Find(SymbolTypeServerScript(tg), "pascalcase"); got != nil {
 		t.Fatal("server-script name lookup case-insensitive; want case-sensitive")
@@ -128,7 +125,7 @@ func TestSymbolTable_FindAll_AcrossKinds(t *testing.T) {
 	st := NewSymbolTable(nil)
 	// Two symbols share name "foo" across different kinds.
 	st.Insert(SymbolTypeServerScript(tg), &ServerScriptSymbol{
-		ScriptSymbolFields: ScriptSymbolFields{Trigger: tg, Name: "foo"},
+		Trigger: tg, Name: "foo",
 	})
 	st.Insert(SymbolTypeLocalVariable(), &LocalVariableSymbol{Name: "foo"})
 
@@ -142,7 +139,7 @@ func TestSymbolTable_FindAll_WalksParent(t *testing.T) {
 	tg := makeTriggerStub("proc")
 	root := NewSymbolTable(nil)
 	root.Insert(SymbolTypeServerScript(tg), &ServerScriptSymbol{
-		ScriptSymbolFields: ScriptSymbolFields{Trigger: tg, Name: "x"},
+		Trigger: tg, Name: "x",
 	})
 	child := root.CreateSubTable()
 	child.Insert(SymbolTypeLocalVariable(), &LocalVariableSymbol{Name: "x"})
@@ -182,7 +179,7 @@ func TestSymbolTable_FindAll_DeterministicOrder(t *testing.T) {
 	// different outer-map keys but match the same FindAll name. Goal: maximise
 	// outer-map iteration sensitivity to Go's map randomisation.
 	st.Insert(SymbolTypeServerScript(tg), &ServerScriptSymbol{
-		ScriptSymbolFields: ScriptSymbolFields{Trigger: tg, Name: "foo"},
+		Trigger: tg, Name: "foo",
 	})
 	st.Insert(SymbolTypeLocalVariable(), &LocalVariableSymbol{Name: "foo"})
 	st.Insert(SymbolTypeConstant(), &ConstantSymbol{Name: "foo", Value: "1"})
@@ -204,7 +201,7 @@ func TestSymbolTable_FindAll_DeterministicOrder(t *testing.T) {
 		t.Fatalf("FindAll(\"foo\") returned %d symbols; need >=2 to test ordering", len(first))
 	}
 
-	for i := 0; i < N; i++ {
+	for i := range N {
 		got := st.FindAll("foo")
 		if len(got) != len(first) {
 			t.Fatalf("iteration %d: len mismatch: first=%d got=%d", i, len(first), len(got))
@@ -229,7 +226,7 @@ func TestSymbolTable_FindAll_DeterministicOrder_AcrossParents(t *testing.T) {
 	tg := makeTriggerStub("proc")
 	root := NewSymbolTable(nil)
 	root.Insert(SymbolTypeServerScript(tg), &ServerScriptSymbol{
-		ScriptSymbolFields: ScriptSymbolFields{Trigger: tg, Name: "x"},
+		Trigger: tg, Name: "x",
 	})
 	root.Insert(SymbolTypeBasic(typ.PrimitiveInt), &BasicSymbol{
 		Name: "x", Type: typ.PrimitiveInt,
@@ -253,7 +250,7 @@ func TestSymbolTable_FindAll_DeterministicOrder_AcrossParents(t *testing.T) {
 		t.Fatalf("FindAll(\"x\") returned %d symbols; need >=2 to test ordering", len(first))
 	}
 
-	for i := 0; i < N; i++ {
+	for i := range N {
 		got := child.FindAll("x")
 		if len(got) != len(first) {
 			t.Fatalf("iteration %d: len mismatch: first=%d got=%d", i, len(first), len(got))

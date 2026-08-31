@@ -1442,10 +1442,9 @@ func handleNpcStatHeal(s *ScriptState) error {
 	}
 	base := s.activeNpc().NpcBaseStat(stat)
 	cur := s.activeNpc().NpcStat(stat)
-	healed := cur + (constant + (base*percent)/100) // TS `| 0` ≡ Go int truncation
-	if healed > base {
-		healed = base
-	}
+	healed := min(
+		// TS `| 0` ≡ Go int truncation
+		cur+(constant+(base*percent)/100), base)
 	s.activeNpc().SetNpcStat(stat, healed)
 	// TS NpcOps.ts:251-253 @2e3bcf43:
 	//

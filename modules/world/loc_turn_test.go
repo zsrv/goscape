@@ -16,10 +16,10 @@ func newLocTurnTestServer(t *testing.T) *Server {
 	s.gamemap = gamemap.New(discardLogger())
 	s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 200)}
 	s.locTypes.Configs[100] = &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 100}, BlockWalk: true, BlockRange: true,
+		ID: 100, BlockWalk: true, BlockRange: true,
 	}
 	s.locTypes.Configs[101] = &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 101}, BlockWalk: false,
+		ID: 101, BlockWalk: false,
 	}
 	return s
 }
@@ -151,7 +151,7 @@ func TestProcessZonesSnapshotsBeforeIterating(t *testing.T) {
 	// to avoid undefined iteration over the modified list.
 	s := newLocTurnTestServer(t)
 	s.currentTick = 100
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		loc := entitypkg.NewLoc(0, 3094+i, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)
 		s.AddLoc(loc, 1) // all schedule despawn at tick 101
 	}

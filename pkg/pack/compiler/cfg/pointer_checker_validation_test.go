@@ -20,7 +20,7 @@ import (
 // exactly one MessagePointerUninitialized.
 func TestPointerChecker_Run_UninitializedReported(t *testing.T) {
 	tr := &trigger.TriggerType{ID: 0, Identifier: "proc"}
-	sym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "p1"}}
+	sym := &symbol.ServerScriptSymbol{Trigger: tr, Name: "p1"}
 	rs := codegen.NewRuneScript("test.rs2", sym, tr, "p1", nil)
 	b := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	cmd := makeCommandSymbol("p_kickout")
@@ -53,7 +53,7 @@ func TestPointerChecker_Run_TriggerSetsPointerNoDiagnostic(t *testing.T) {
 		Identifier: "opheld",
 		Pointers:   pointer.NewPointerSet(pointer.ActivePlayer),
 	}
-	sym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "h"}}
+	sym := &symbol.ServerScriptSymbol{Trigger: tr, Name: "h"}
 	rs := codegen.NewRuneScript("test.rs2", sym, tr, "h", nil)
 	b := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	cmd := makeCommandSymbol("p_kickout")
@@ -82,7 +82,7 @@ func TestPointerChecker_Run_CorruptedReported(t *testing.T) {
 		Identifier: "opheld",
 		Pointers:   pointer.NewPointerSet(pointer.ActivePlayer),
 	}
-	sym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "h"}}
+	sym := &symbol.ServerScriptSymbol{Trigger: tr, Name: "h"}
 	rs := codegen.NewRuneScript("test.rs2", sym, tr, "h", nil)
 	b := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	corrupter := makeCommandSymbol("p_finduid")
@@ -118,7 +118,7 @@ func TestPointerChecker_Run_ProtectedPopRequiresP(t *testing.T) {
 		Identifier: "opheld",
 		Pointers:   pointer.NewPointerSet(pointer.ActivePlayer), // sets ACTIVE_PLAYER only
 	}
-	sym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "h"}}
+	sym := &symbol.ServerScriptSymbol{Trigger: tr, Name: "h"}
 	rs := codegen.NewRuneScript("test.rs2", sym, tr, "h", nil)
 	b := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	vp := &symbol.BasicSymbol{Name: "score", Type: makeVarPlayerType(), IsProtected: true}
@@ -159,7 +159,7 @@ func TestPointerChecker_Run_LogProcRequirement_DirectProcChain(t *testing.T) {
 
 	// callee — body: `p_kickout` (requires ACTIVE_PLAYER); trigger DOES set it
 	// (so the callee itself is clean; only the caller will error).
-	calleeSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procWithActive, Name: "callee"}}
+	calleeSym := &symbol.ServerScriptSymbol{Trigger: procWithActive, Name: "callee"}
 	callee := codegen.NewRuneScript("test.rs2", calleeSym, procWithActive, "callee", nil)
 	cb := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	require := makeCommandSymbol("p_kickout")
@@ -168,7 +168,7 @@ func TestPointerChecker_Run_LogProcRequirement_DirectProcChain(t *testing.T) {
 	callee.Blocks = []*codegen.Block{cb}
 
 	// caller — body: `~callee` (Gosub callee); trigger does NOT set ACTIVE_PLAYER.
-	callerSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTr, Name: "caller"}}
+	callerSym := &symbol.ServerScriptSymbol{Trigger: procTr, Name: "caller"}
 	caller := codegen.NewRuneScript("test.rs2", callerSym, procTr, "caller", nil)
 	ab := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	ab.Add(codegen.Instruction{Opcode: codegen.Gosub, Operand: calleeSym})
@@ -242,7 +242,7 @@ func TestPointerChecker_Run_LogProcRequirement_RecursesAcrossTwoHops(t *testing.
 	// (so leaf's own validation is clean; the caller still errors at the gosub site
 	// because the holder-level required computation inspects body requirements,
 	// not trigger sets).
-	leafSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procWithActive, Name: "leaf"}}
+	leafSym := &symbol.ServerScriptSymbol{Trigger: procWithActive, Name: "leaf"}
 	leaf := codegen.NewRuneScript("test.rs2", leafSym, procWithActive, "leaf", nil)
 	lb := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	require := makeCommandSymbol("p_kickout")
@@ -251,7 +251,7 @@ func TestPointerChecker_Run_LogProcRequirement_RecursesAcrossTwoHops(t *testing.
 	leaf.Blocks = []*codegen.Block{lb}
 
 	// mid — body: `~leaf`; trigger does NOT set ACTIVE_PLAYER.
-	midSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTr, Name: "mid"}}
+	midSym := &symbol.ServerScriptSymbol{Trigger: procTr, Name: "mid"}
 	mid := codegen.NewRuneScript("test.rs2", midSym, procTr, "mid", nil)
 	mb := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	mb.Add(codegen.Instruction{Opcode: codegen.Gosub, Operand: leafSym})
@@ -259,7 +259,7 @@ func TestPointerChecker_Run_LogProcRequirement_RecursesAcrossTwoHops(t *testing.
 	mid.Blocks = []*codegen.Block{mb}
 
 	// caller — body: `~mid`; trigger does NOT set ACTIVE_PLAYER.
-	callerSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTr, Name: "caller"}}
+	callerSym := &symbol.ServerScriptSymbol{Trigger: procTr, Name: "caller"}
 	caller := codegen.NewRuneScript("test.rs2", callerSym, procTr, "caller", nil)
 	ab := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	ab.Add(codegen.Instruction{Opcode: codegen.Gosub, Operand: midSym})
@@ -308,7 +308,7 @@ func TestPointerChecker_Run_LogProcRequirement_StaticLabelArgFallback(t *testing
 	labelTr := &trigger.TriggerType{ID: 1, Identifier: "label", Pointers: pointer.NewPointerSet(pointer.ActivePlayer)}
 
 	// label script — requires ACTIVE_PLAYER; trigger DOES set it (clean leaf validation).
-	labelSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: labelTr, Name: "mylabel"}}
+	labelSym := &symbol.ServerScriptSymbol{Trigger: labelTr, Name: "mylabel"}
 	labelScript := codegen.NewRuneScript("test.rs2", labelSym, labelTr, "mylabel", nil)
 	lb := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	require := makeCommandSymbol("p_kickout")
@@ -319,11 +319,9 @@ func TestPointerChecker_Run_LogProcRequirement_StaticLabelArgFallback(t *testing
 	// consumer — accepts a label parameter, jumps to it.
 	labelMetaType := typ.NewMetaScript("label", typ.PrimitiveInt, typ.PrimitiveInt)
 	consumerSym := &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{
-			Trigger:    procTr,
-			Name:       "consumer",
-			Parameters: labelMetaType,
-		},
+		Trigger:    procTr,
+		Name:       "consumer",
+		Parameters: labelMetaType,
 	}
 	consumer := codegen.NewRuneScript("test.rs2", consumerSym, procTr, "consumer", nil)
 	cb := codegen.NewBlock(&codegen.Label{Name: "entry"})
@@ -339,7 +337,7 @@ func TestPointerChecker_Run_LogProcRequirement_StaticLabelArgFallback(t *testing
 	consumer.Blocks = []*codegen.Block{cb}
 
 	// caller — gosubs consumer with .mylabel as the static arg.
-	callerSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTr, Name: "caller"}}
+	callerSym := &symbol.ServerScriptSymbol{Trigger: procTr, Name: "caller"}
 	caller := codegen.NewRuneScript("test.rs2", callerSym, procTr, "caller", nil)
 	calb := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	calb.Add(codegen.Instruction{Opcode: codegen.PushConstantSymbol, Operand: labelSym})

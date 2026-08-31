@@ -94,7 +94,7 @@ func handleCompare(s *ScriptState) error {
 // non-BMP input is the separate L26 concern.
 func javaStringCompare(a, b string) int {
 	lim := min(len(a), len(b))
-	for k := 0; k < lim; k++ {
+	for k := range lim {
 		if a[k] != b[k] {
 			return int(a[k]) - int(b[k])
 		}
@@ -241,10 +241,7 @@ func handleSplitInit(s *ScriptState) error {
 	}
 	pages := make([][]string, 0, (len(lines)+linesPerPage-1)/linesPerPage)
 	for i := 0; i < len(lines); i += linesPerPage {
-		end := i + linesPerPage
-		if end > len(lines) {
-			end = len(lines)
-		}
+		end := min(i+linesPerPage, len(lines))
 		pages = append(pages, lines[i:end])
 	}
 	s.SplitPages = pages

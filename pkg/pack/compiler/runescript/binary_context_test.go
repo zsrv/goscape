@@ -17,12 +17,11 @@ import (
 func newEmptyScript(t *testing.T) *codegen.RuneScript {
 	t.Helper()
 	procTrig := &trigger.TriggerType{ID: 0, Identifier: "proc", SubjectMode: trigger.ModeName, AllowParameters: true, AllowReturns: true}
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{
+	ss := &symbol.ServerScriptSymbol{
 		Trigger:    procTrig,
 		Name:       "foo",
 		Parameters: typ.MetaUnit,
-		Returns:    typ.MetaUnit,
-	}}
+		Returns:    typ.MetaUnit}
 	s := codegen.NewRuneScript("smoke.rs2", ss, procTrig, "foo", nil)
 	s.Blocks = []*codegen.Block{codegen.NewBlock(&codegen.Label{Name: "e"})}
 	return s
@@ -213,12 +212,11 @@ func TestBinaryContext_FinishHeaderLayout(t *testing.T) {
 func TestBinaryContext_FinishDebugproc(t *testing.T) {
 	debugproc := &trigger.TriggerType{ID: 1, Identifier: "debugproc", SubjectMode: trigger.ModeName, AllowParameters: true}
 	tup, _ := typ.NewTupleType(typ.PrimitiveInt, typ.PrimitiveString)
-	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{
+	ss := &symbol.ServerScriptSymbol{
 		Trigger:    debugproc,
 		Name:       "x",
 		Parameters: tup,
-		Returns:    typ.MetaUnit,
-	}}
+		Returns:    typ.MetaUnit}
 	s := codegen.NewRuneScript("smoke.rs2", ss, debugproc, "x", nil)
 	s.Blocks = []*codegen.Block{codegen.NewBlock(&codegen.Label{Name: "e"})}
 	ctx := runescript.NewBinaryScriptWriterContext(s, 0)

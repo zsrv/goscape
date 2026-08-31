@@ -199,7 +199,7 @@ func TestLoadSave_CombatLevelFlowsToHuntTooStrongGate(t *testing.T) {
 	zn := s.zoneMap.Get(dst.level, dst.x, dst.z)
 	dst.zoneListElement = zn.EnterPlayer(dst, nil)
 
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1, VisLevel: 30}
+	npcType := &objtype.NpcType{ID: 1, Size: 1, Category: -1, VisLevel: 30}
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
 	n := NewNpc(1, 1, dst.x, dst.z, dst.level, npcType)
 	n.server = s

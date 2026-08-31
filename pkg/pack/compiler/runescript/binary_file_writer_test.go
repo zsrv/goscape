@@ -18,7 +18,7 @@ func TestBinaryFileScriptWriter_OutputScript_WritesFile(t *testing.T) {
 
 	procTrig := &trigger.TriggerType{ID: 0, Identifier: "proc", SubjectMode: trigger.ModeName}
 	scriptSym := &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "hello"},
+		Trigger: procTrig, Name: "hello",
 	}
 	mapper.PutScript(42, "[proc,hello]")
 

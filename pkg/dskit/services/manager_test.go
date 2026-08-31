@@ -360,7 +360,7 @@ func TestManagerListenerCancellationUnstartedManager(t *testing.T) {
 	}))
 
 	gl := NewManagerListener(nil, nil, nil)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		stop := m.AddListener(gl)
 		stop()
 		// multiple stop() calls are ignored
@@ -383,7 +383,7 @@ func TestManagerListenerCancellationStoppedManager(t *testing.T) {
 	require.NoError(t, StopManagerAndAwaitStopped(context.Background(), m))
 
 	gl := NewManagerListener(nil, nil, nil)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		stop := m.AddListener(gl)
 		stop()
 		// multiple stop() calls are ignored
@@ -418,7 +418,7 @@ func TestManagerListenerCancellationHealthyManager(t *testing.T) {
 	// so it won't receive any notifications.
 
 	var stopFns []func()
-	for i := 0; i < count; i++ {
+	for range count {
 		stop := m.AddListener(gl)
 		stopFns = append(stopFns, stop)
 	}

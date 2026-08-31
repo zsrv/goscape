@@ -2,6 +2,8 @@
 package writer
 
 import (
+	"slices"
+
 	"github.com/zsrv/goscape/pkg/pack/compiler/codegen"
 	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
 	typ "github.com/zsrv/goscape/pkg/pack/compiler/type"
@@ -137,10 +139,5 @@ func GetVariableId(locals *codegen.LocalTable, local *symbol.LocalVariableSymbol
 }
 
 func containsLocal(xs []*symbol.LocalVariableSymbol, target *symbol.LocalVariableSymbol) bool {
-	for _, x := range xs {
-		if x == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(xs, target)
 }

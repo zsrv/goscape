@@ -431,11 +431,9 @@ func TestOnDemandRunLoopLifecycle(t *testing.T) {
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		od.run(stop)
-	}()
+	})
 
 	// Enqueue a request (missing file → rejection frame).
 	od.mu.Lock()

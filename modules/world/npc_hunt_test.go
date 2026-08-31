@@ -24,7 +24,7 @@ func newConsumeHuntTargetFixture(t *testing.T) (*Server, *Npc, *objtype.HuntType
 	n := newNpcForLifecycleTest(t)
 	n.server = s
 	hunt := &objtype.HuntType{
-		ConfigType:      objtype.ConfigType{ID: 0},
+		ID:              0,
 		Type:            objtype.HuntModeNpc,
 		Rate:            1,
 		FindKeepHunting: true,
@@ -943,15 +943,15 @@ func TestHuntPlayersCheckInvObjParamPasses(t *testing.T) {
 
 	// Wire ParamType: DefaultInt = 0 (zero-value matches uint32 default).
 	s.paramTypes.Configs[paramID] = &objtype.ParamType{
-		ConfigType: objtype.ConfigType{ID: paramID},
+		ID:         paramID,
 		DefaultInt: 0,
 	}
 	// Wire 3 ObjTypes each with Params[paramID]=10. Mirrors handle-side
 	// shape at pkg/script/handlers_inv.go:247-252 (uint32 value).
 	for _, id := range []int{objA, objB, objC} {
 		s.objTypes.Configs[id] = &objtype.ObjType{
-			ConfigType: objtype.ConfigType{ID: id},
-			Params:     objtype.ParamMap{uint32(paramID): uint32(10)},
+			ID:     id,
+			Params: objtype.ParamMap{uint32(paramID): uint32(10)},
 		}
 	}
 
@@ -986,12 +986,12 @@ func TestHuntPlayersCheckInvObjParamFails(t *testing.T) {
 	objA := 100
 
 	s.paramTypes.Configs[paramID] = &objtype.ParamType{
-		ConfigType: objtype.ConfigType{ID: paramID},
+		ID:         paramID,
 		DefaultInt: 0,
 	}
 	s.objTypes.Configs[objA] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: objA},
-		Params:     objtype.ParamMap{uint32(paramID): uint32(10)},
+		ID:     objA,
+		Params: objtype.ParamMap{uint32(paramID): uint32(10)},
 	}
 
 	inv := inventory.New(invID, 28, inventory.StackNormal)
@@ -1048,7 +1048,7 @@ func TestHuntPlayersCheckInvMissingInvDefensive(t *testing.T) {
 // Npc.ts:931-933.
 func TestHuntPlayersCheckNotBusyFiltersBusyPlayer(t *testing.T) {
 	s := newTestServer(t)
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1}
+	npcType := &objtype.NpcType{ID: 1, Size: 1, Category: -1}
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
 	n := NewNpc(1, 1, 3200, 3200, 0, npcType)
 	n.server = s
@@ -1083,7 +1083,7 @@ func TestHuntPlayersCheckNotBusyFiltersBusyPlayer(t *testing.T) {
 // is gated on the bool flag).
 func TestHuntPlayersCheckNotBusyDisabled(t *testing.T) {
 	s := newTestServer(t)
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1}
+	npcType := &objtype.NpcType{ID: 1, Size: 1, Category: -1}
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
 	n := NewNpc(1, 1, 3200, 3200, 0, npcType)
 	n.server = s
@@ -1116,7 +1116,7 @@ func TestHuntPlayersCheckNotBusyDisabled(t *testing.T) {
 // starts at z=3520) and within huntRange=5 of each other.
 func TestHuntPlayersCheckNotTooStrongFiltersStrongPlayerOutsideWilderness(t *testing.T) {
 	s := newTestServer(t)
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1, VisLevel: 30}
+	npcType := &objtype.NpcType{ID: 1, Size: 1, Category: -1, VisLevel: 30}
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
 	n := NewNpc(1, 1, 3200, 3500, 0, npcType)
 	n.server = s
@@ -1142,7 +1142,7 @@ func TestHuntPlayersCheckNotTooStrongFiltersStrongPlayerOutsideWilderness(t *tes
 
 func TestHuntPlayersCheckNotTooStrongIgnoresStrongPlayerInWilderness(t *testing.T) {
 	s := newTestServer(t)
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1, VisLevel: 30}
+	npcType := &objtype.NpcType{ID: 1, Size: 1, Category: -1, VisLevel: 30}
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
 	n := NewNpc(1, 1, 3000, 5000, 0, npcType) // NPC inside south wilderness
 	n.server = s
@@ -1168,7 +1168,7 @@ func TestHuntPlayersCheckNotTooStrongIgnoresStrongPlayerInWilderness(t *testing.
 
 func TestHuntPlayersCheckNotTooStrongAllowsWeakPlayer(t *testing.T) {
 	s := newTestServer(t)
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1, VisLevel: 30}
+	npcType := &objtype.NpcType{ID: 1, Size: 1, Category: -1, VisLevel: 30}
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
 	n := NewNpc(1, 1, 3200, 3500, 0, npcType)
 	n.server = s
@@ -1194,7 +1194,7 @@ func TestHuntPlayersCheckNotTooStrongAllowsWeakPlayer(t *testing.T) {
 
 func TestHuntPlayersCheckNotTooStrongDisabled(t *testing.T) {
 	s := newTestServer(t)
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1, VisLevel: 30}
+	npcType := &objtype.NpcType{ID: 1, Size: 1, Category: -1, VisLevel: 30}
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
 	n := NewNpc(1, 1, 3200, 3500, 0, npcType)
 	n.server = s
@@ -1223,7 +1223,7 @@ func TestHuntPlayersCheckNotTooStrongDisabled(t *testing.T) {
 // not `>=`).
 func TestHuntPlayersCheckNotTooStrongBoundaryComparison(t *testing.T) {
 	s := newTestServer(t)
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1, VisLevel: 30}
+	npcType := &objtype.NpcType{ID: 1, Size: 1, Category: -1, VisLevel: 30}
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
 	n := NewNpc(1, 1, 3200, 3500, 0, npcType)
 	n.server = s

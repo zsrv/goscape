@@ -602,8 +602,8 @@ func TestOcNameViaScript(t *testing.T) {
 		Configs:     make([]*objtype.ObjType, 996),
 	}
 	s.objTypes.Configs[995] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 995, DebugName: "coins"},
-		Name:       "Coins",
+		ID: 995, DebugName: "coins",
+		Name: "Coins",
 	}
 	s.configsView = serverConfigsView{s: s}
 
@@ -660,10 +660,10 @@ func TestInvAddGrantsItemsViaScript(t *testing.T) {
 		Worn:        -1,
 	}
 	s.invTypes.Configs[mainID] = &objtype.InvType{
-		ConfigType: objtype.ConfigType{ID: mainID, DebugName: "inv"},
-		Scope:      objtype.InvTypeScopeTemp,
-		Size:       28,
-		StackAll:   true,
+		ID: mainID, DebugName: "inv",
+		Scope:    objtype.InvTypeScopeTemp,
+		Size:     28,
+		StackAll: true,
 	}
 	// Seed a fake ObjType at id 995 ("coins") so checkObjType (NAI-131 T1
 	// gate) resolves it. StackAll on the InvType makes the single-stack
@@ -673,8 +673,8 @@ func TestInvAddGrantsItemsViaScript(t *testing.T) {
 		Configs:     make([]*objtype.ObjType, 996),
 	}
 	s.objTypes.Configs[995] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 995, DebugName: "coins"},
-		Name:       "Coins",
+		ID: 995, DebugName: "coins",
+		Name: "Coins",
 	}
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
@@ -997,7 +997,7 @@ func TestSetTimerFiresAfterInterval(t *testing.T) {
 	received := drainConn(t, cc)
 
 	// Tick 0..4: no fire.
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		s.processPlayerTimers()
 		s.currentTick++
 	}
@@ -1208,7 +1208,7 @@ func TestClearTimerStopsFiring(t *testing.T) {
 	p.ClearTimer(0xC3)
 
 	received := drainConn(t, cc)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		s.currentTick++
 		s.processPlayerTimers()
 	}
@@ -1240,8 +1240,8 @@ func TestNpcNameViaScript(t *testing.T) {
 		Configs: make([]*objtype.NpcType, 8),
 	}
 	s.npcTypes.Configs[7] = &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7, DebugName: "hans"},
-		Name:       "Hans",
+		ID: 7, DebugName: "hans",
+		Name: "Hans",
 	}
 
 	p, cc := newTestPlayer(t)
@@ -1345,8 +1345,8 @@ func TestOpNpc1FiresScriptAndEmitsSay(t *testing.T) {
 
 	// Place an NPC of type 7 adjacent to the player so reach is immediate.
 	npcType := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7, DebugName: "chicken"},
-		Op:         []string{"Talk-to", "", "", "", ""},
+		ID: 7, DebugName: "chicken",
+		Op: []string{"Talk-to", "", "", "", ""},
 	}
 	npc := NewNpc(0, 7, p.x+1, p.z, p.level, npcType)
 	// s.npcs is a fixed-size array; slot 0 is always valid.
@@ -1413,8 +1413,8 @@ func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
 	p.client.server = s
 
 	npcType := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7, DebugName: "chicken"},
-		Op:         []string{"Talk-to", "", "", "", ""},
+		ID: 7, DebugName: "chicken",
+		Op: []string{"Talk-to", "", "", "", ""},
 	}
 	npc := NewNpc(0, 7, p.x+1, p.z, p.level, npcType)
 	npc.server = s // wire server so Animate gate can reach s.seqTypes

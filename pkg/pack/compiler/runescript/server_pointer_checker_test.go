@@ -18,7 +18,7 @@ func newIfButtonScript(subjectInterface string, modIdent string) *codegen.RuneSc
 	// IF_BUTTON id pinned by the partial-port (T7's stub); use the same id
 	// constant from server_pointer_checker.go.
 	tr := &trigger.TriggerType{ID: IDIfButton, Identifier: modIdent}
-	sym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "b"}}
+	sym := &symbol.ServerScriptSymbol{Trigger: tr, Name: "b"}
 	rs := codegen.NewRuneScript("test.rs2", sym, tr, "b", &symbol.BasicSymbol{Name: subjectInterface + ":btn", Type: typ.PrimitiveInt})
 	b := codegen.NewBlock(&codegen.Label{Name: "entry"})
 	b.Add(codegen.Instruction{Opcode: codegen.Return})

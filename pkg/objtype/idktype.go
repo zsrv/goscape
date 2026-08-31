@@ -26,9 +26,9 @@ type IdkType struct {
 // TS default: type=-1, heads=Uint16Array(5).fill(-1), recol_s/recol_d zeroed.
 func NewIdkType(id int) *IdkType {
 	return &IdkType{
-		ConfigType: ConfigType{ID: id},
-		Type:       -1,
-		Heads:      [5]uint16{0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF},
+		ID:    id,
+		Type:  -1,
+		Heads: [5]uint16{0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF},
 	}
 }
 

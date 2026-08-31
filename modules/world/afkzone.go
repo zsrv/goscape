@@ -43,7 +43,7 @@ func (p *Player) updateAfkZones() {
 // either of the two tracked 21×21 AFK windows.
 func (p *Player) withinAfkZone() bool {
 	const size = 21
-	for i := 0; i < len(p.afkZones); i++ {
+	for i := range len(p.afkZones) {
 		zx, zz := unpackAfkCoord(p.afkZones[i])
 		if rectsIntersect(p.x, p.z, 1, 1, zx, zz, size, size) {
 			return true

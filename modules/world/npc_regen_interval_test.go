@@ -27,8 +27,8 @@ func newRegenNpc(t *testing.T, regenRate int) (*Server, *Npc) {
 	t.Helper()
 	s := newTestServer(t)
 	typ := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 1, DebugName: "regen"},
-		RegenRate:  regenRate,
+		ID: 1, DebugName: "regen",
+		RegenRate: regenRate,
 	}
 	n := newRegisteredNpc(t, s, typ, false)
 	return s, n
@@ -55,7 +55,7 @@ func TestNpcRegenFirstTurnProcsAndCachesInterval(t *testing.T) {
 	}
 
 	// Next 4 calls (clock 1..4 < interval 5): no proc.
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		s.processNpcRegen(n)
 	}
 	if n.levels[0] != 8 {
@@ -80,12 +80,12 @@ func TestNpcRegenIntervalRefreshOnlyAtExpiry(t *testing.T) {
 
 	// Simulate changeType: live type now regens every 2 ticks.
 	n.typ = &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 2, DebugName: "regen-fast"},
-		RegenRate:  2,
+		ID: 2, DebugName: "regen-fast",
+		RegenRate: 2,
 	}
 
 	// Old interval (5) still governs: calls 1..4 no proc.
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		s.processNpcRegen(n)
 		if n.levels[0] != 2 {
 			t.Fatalf("levels[0]: got %d, want 2 (old interval must keep governing, call %d)", n.levels[0], i+1)
@@ -117,7 +117,7 @@ func TestNpcRegenZeroRateConvergesEveryTick(t *testing.T) {
 	n.baseLevels[0] = 10
 	n.levels[0] = 5
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		s.processNpcRegen(n)
 	}
 	if n.levels[0] != 8 {

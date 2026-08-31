@@ -29,10 +29,10 @@ func makeOpLocFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc, net.Conn)
 		Configs: make([]*objtype.LocType, 43),
 	}
 	s.locTypes.Configs[42] = &objtype.LocType{
-		ConfigType: objtype.ConfigType{ID: 42, DebugName: "test_loc"},
-		Category:   7,
-		Width:      1,
-		Length:     1,
+		ID: 42, DebugName: "test_loc",
+		Category: 7,
+		Width:    1,
+		Length:   1,
 		// All 5 slots populated so pre-S6k tests (delayed, viewport,
 		// boundary, etc.) don't regress under the S6k op-validation gate.
 		// Tests that want to exercise the gate override individual slots.
@@ -799,7 +799,7 @@ func TestHandleOpLocClearsExistingInteraction(t *testing.T) {
 	s, p, loc, _ := makeOpLocFixture(t)
 
 	// Pre-set an interaction with a fake npc at slot 1.
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0, DebugName: "test"}}
+	typ := &objtype.NpcType{ID: 0, DebugName: "test"}
 	npc := NewNpc(1, 0, 100, 100, 0, typ)
 	npc.nid = 1
 	s.npcs[1] = npc
@@ -996,8 +996,8 @@ func TestHandleOpLocUMembersOnFreeWorldRejected(t *testing.T) {
 		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
 	}
 	s.objTypes.Configs[1511] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
-		Members:    true,
+		ID: 1511, DebugName: "members_item",
+		Members: true,
 	}
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
@@ -1036,8 +1036,8 @@ func TestHandleOpLocUMembersOnFreeWorldClearsPendingAction(t *testing.T) {
 		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
 	}
 	s.objTypes.Configs[1511] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
-		Members:    true,
+		ID: 1511, DebugName: "members_item",
+		Members: true,
 	}
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
@@ -1095,8 +1095,8 @@ func TestHandleOpLocUMembersOnMembersWorldAllowed(t *testing.T) {
 		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
 	}
 	s.objTypes.Configs[1511] = &objtype.ObjType{
-		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
-		Members:    true,
+		ID: 1511, DebugName: "members_item",
+		Members: true,
 	}
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)

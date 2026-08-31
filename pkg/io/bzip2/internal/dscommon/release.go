@@ -3,7 +3,6 @@
 // license that can be found in the LICENSE.md file.
 
 //go:build !debug && !gofuzz
-// +build !debug,!gofuzz
 
 package dscommon
 

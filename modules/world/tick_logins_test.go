@@ -55,7 +55,7 @@ func TestProcessLoginsSeedsAllSkillsToDefaults(t *testing.T) {
 	s.processLogins()
 
 	// All non-Hitpoints skills: level 1, base level 1, XP 0.
-	for i := 0; i < objtype.PlayerStatCount; i++ {
+	for i := range objtype.PlayerStatCount {
 		if i == objtype.PlayerStatHitpoints {
 			continue
 		}

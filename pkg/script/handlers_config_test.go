@@ -112,7 +112,7 @@ func newTestConfigs() *mockConfigs {
 	// referenced by existing fixtures (cat=7 coins, cat=1 hat/door,
 	// cat=3 man, etc.). Lets the post-port full-bound checkCategoryType
 	// pass for those ids; tests using id>=32 exercise the OOB-reject path.
-	for id := 0; id < 32; id++ {
+	for id := range 32 {
 		mc.categories[id] = objtype.NewCategoryType(id)
 	}
 

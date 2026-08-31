@@ -34,12 +34,10 @@ func TestSymbol_ConstantShape(t *testing.T) {
 func TestServerScriptSymbol_Shape(t *testing.T) {
 	tg := makeTriggerStub("proc")
 	s := &ServerScriptSymbol{
-		ScriptSymbolFields: ScriptSymbolFields{
-			Trigger:    tg,
-			Name:       "foo",
-			Parameters: typ.MetaUnit,
-			Returns:    typ.MetaUnit,
-		},
+		Trigger:    tg,
+		Name:       "foo",
+		Parameters: typ.MetaUnit,
+		Returns:    typ.MetaUnit,
 	}
 	if s.SymbolName() != "foo" {
 		t.Fatalf("SymbolName = %q", s.SymbolName())

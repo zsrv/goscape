@@ -19,20 +19,16 @@ func TestSymbolMapper_PutGetCommand(t *testing.T) {
 	m := runescript.NewSymbolMapper(d)
 	m.PutCommand(42, "mes")
 	cmd := &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{
-			Trigger: trigger.CommandTrigger,
-			Name:    "mes",
-		},
+		Trigger: trigger.CommandTrigger,
+		Name:    "mes",
 	}
 	if got := m.Get(cmd); got != 42 {
 		t.Errorf("Get(mes) = %d, want 42", got)
 	}
 	// Dot-prefixed name: TS strips everything up to and including the first dot.
 	dot := &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{
-			Trigger: trigger.CommandTrigger,
-			Name:    ".mes",
-		},
+		Trigger: trigger.CommandTrigger,
+		Name:    ".mes",
 	}
 	if got := m.Get(dot); got != 42 {
 		t.Errorf("Get(.mes) = %d, want 42 (dot stripped)", got)
@@ -47,7 +43,7 @@ func TestSymbolMapper_PutGetScript(t *testing.T) {
 	procTrig := &trigger.TriggerType{ID: 0, Identifier: "proc", SubjectMode: trigger.ModeName}
 	m.PutScript(7, "[proc,foo]")
 	sym := &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "foo"},
+		Trigger: procTrig, Name: "foo",
 	}
 	if got := m.Get(sym); got != 7 {
 		t.Errorf("Get([proc,foo]) = %d, want 7", got)
@@ -71,10 +67,8 @@ func TestSymbolMapper_MissingCommand(t *testing.T) {
 	d := &diagnostics.Diagnostics{}
 	m := runescript.NewSymbolMapper(d)
 	cmd := &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{
-			Trigger: trigger.CommandTrigger,
-			Name:    "ghost",
-		},
+		Trigger: trigger.CommandTrigger,
+		Name:    "ghost",
 	}
 	if got := m.Get(cmd); got != -1 {
 		t.Errorf("Get(ghost) = %d, want -1", got)
@@ -90,7 +84,7 @@ func TestSymbolMapper_MissingScript(t *testing.T) {
 	m := runescript.NewSymbolMapper(d)
 	procTrig := &trigger.TriggerType{ID: 0, Identifier: "proc", SubjectMode: trigger.ModeName}
 	sym := &symbol.ServerScriptSymbol{
-		ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTrig, Name: "ghost"},
+		Trigger: procTrig, Name: "ghost",
 	}
 	if got := m.Get(sym); got != -1 {
 		t.Errorf("Get([proc,ghost]) = %d, want -1", got)

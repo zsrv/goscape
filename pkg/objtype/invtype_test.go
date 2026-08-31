@@ -5,8 +5,8 @@ import "testing"
 func TestInvTypeConfigs_ByName_HitViaConfigNames(t *testing.T) {
 	c := &InvTypeConfigs{
 		Configs: []*InvType{
-			{ConfigType: ConfigType{ID: 0, DebugName: "first"}},
-			{ConfigType: ConfigType{ID: 1, DebugName: "second"}},
+			{ID: 0, DebugName: "first"},
+			{ID: 1, DebugName: "second"},
 		},
 		ConfigNames: map[string]int{"first": 0, "second": 1},
 	}
@@ -21,7 +21,7 @@ func TestInvTypeConfigs_ByName_HitViaConfigNames(t *testing.T) {
 
 func TestInvTypeConfigs_ByName_MissReturnsNil(t *testing.T) {
 	c := &InvTypeConfigs{
-		Configs:     []*InvType{{ConfigType: ConfigType{ID: 0, DebugName: "only"}}},
+		Configs:     []*InvType{{ID: 0, DebugName: "only"}},
 		ConfigNames: map[string]int{"only": 0},
 	}
 	if got := c.ByName("absent"); got != nil {
@@ -39,8 +39,8 @@ func TestInvTypeConfigs_ByName_NilReceiverReturnsNil(t *testing.T) {
 func TestInvTypeConfigs_ByName_StaleIndexFallsThroughToLinearScan(t *testing.T) {
 	c := &InvTypeConfigs{
 		Configs: []*InvType{
-			{ConfigType: ConfigType{ID: 0, DebugName: "other"}},
-			{ConfigType: ConfigType{ID: 1, DebugName: "fresh"}},
+			{ID: 0, DebugName: "other"},
+			{ID: 1, DebugName: "fresh"},
 		},
 		ConfigNames: map[string]int{"fresh": 5},
 	}
@@ -55,7 +55,7 @@ func TestInvTypeConfigs_ByName_StaleIndexFallsThroughToLinearScan(t *testing.T) 
 
 func TestInvTypeConfigs_ByName_LinearScanWhenConfigNamesEmpty(t *testing.T) {
 	c := &InvTypeConfigs{
-		Configs:     []*InvType{{ConfigType: ConfigType{ID: 0, DebugName: "scan_me"}}},
+		Configs:     []*InvType{{ID: 0, DebugName: "scan_me"}},
 		ConfigNames: nil,
 	}
 	got := c.ByName("scan_me")

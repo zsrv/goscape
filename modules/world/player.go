@@ -7,8 +7,8 @@ import (
 	"math/rand/v2"
 	"strings"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
@@ -1354,7 +1354,7 @@ func (p *Player) readPacket() (opcode int, ok bool, handled bool, err error) {
 	if c.server != nil {
 		telemetry.Get().EmitWorld(&eventspb.WorldEnvelope{
 			SchemaVersion: 1,
-			EventId:       uuid.NewString(),
+			EventId:       uuid.New().String(),
 			Ts:            timestamppb.Now(),
 			WorldId:       int32(c.server.cfg.NodeID),
 			AccountId:     p.accountID,

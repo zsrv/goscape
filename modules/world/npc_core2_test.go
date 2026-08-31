@@ -17,7 +17,7 @@ import (
 func TestUpdateMovement_LiveMoveRestrict(t *testing.T) {
 	// Construct with MoveRestrict=Normal: NewNpc sets n.moveRestrict=Normal.
 	typ := &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: 42},
+		ID:           42,
 		MoveRestrict: int(MoveRestrictNormal),
 	}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
@@ -50,7 +50,7 @@ func TestUpdateMovement_LiveMoveRestrict(t *testing.T) {
 // frozen n.moveRestrict snapshot still says Normal.
 func TestWanderMode_LiveMoveRestrict(t *testing.T) {
 	typ := &objtype.NpcType{
-		ConfigType:   objtype.ConfigType{ID: 1},
+		ID:           1,
 		MoveRestrict: int(MoveRestrictNormal),
 		WanderRange:  3,
 		DefaultMode:  objtype.NPCModeWander,

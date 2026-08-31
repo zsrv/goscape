@@ -196,12 +196,10 @@ func packInterface(reg *pack.Registry, srcDir string, modelFlags []int) (client,
 				components[ifId].children = append(components[ifId].children, comId)
 				continue
 			}
-			eq := strings.IndexByte(line, '=')
-			if eq < 0 {
+			key, value, ok := strings.Cut(line, "=")
+			if !ok {
 				continue
 			}
-			key := line[:eq]
-			value := line[eq+1:]
 
 			if key == "layer" {
 				layerId := interfacePack.GetByName(ifName + ":" + value)

@@ -80,7 +80,7 @@ func TestRectsIntersect(t *testing.T) {
 func TestAfkZoneIncrementsWhileStill(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 3094, 3106, 0
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		p.updateAfkZones()
 	}
 	if p.lastAfkZone != 5 {
@@ -110,7 +110,7 @@ func TestAfkZoneRecentersOnLeave(t *testing.T) {
 func TestAfkZoneSaturatesAt1000(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 3094, 3106, 0
-	for i := 0; i < 1500; i++ {
+	for range 1500 {
 		p.updateAfkZones()
 	}
 	if p.lastAfkZone != 1000 {

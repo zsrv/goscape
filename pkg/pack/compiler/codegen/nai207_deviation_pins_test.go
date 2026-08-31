@@ -43,7 +43,7 @@ func TestPin_NAI207_D_OPCODE_UNTYPED(t *testing.T) {
 // DynamicCommandHandler.GenerateCode returns bool. NAI-207-D-DYNCOMMAND-BOOLRESULT:
 // TS returns void; goscape returns bool so callers can apply a default fallback.
 func TestPin_NAI207_D_DYNCOMMAND_BOOLRESULT(t *testing.T) {
-	iface := reflect.TypeOf((*semantics.DynamicCommandHandler)(nil)).Elem()
+	iface := reflect.TypeFor[semantics.DynamicCommandHandler]()
 	m, ok := iface.MethodByName("GenerateCode")
 	if !ok {
 		t.Fatalf("DynamicCommandHandler.GenerateCode method missing")

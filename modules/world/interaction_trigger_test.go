@@ -36,9 +36,9 @@ func newTriggerFixture(t *testing.T) (*Server, *Player, *Npc) {
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	npcType := &objtype.NpcType{
-		ConfigType: objtype.ConfigType{ID: 7, DebugName: "rat"},
-		Op:         []string{"Talk-to", "", "", "", ""},
-		Category:   0,
+		ID: 7, DebugName: "rat",
+		Op:       []string{"Talk-to", "", "", "", ""},
+		Category: 0,
 	}
 	npc := NewNpc(0, 7, p.x, p.z, p.level, npcType)
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
@@ -64,7 +64,7 @@ func TestTryFireOpTrigger_NoScript(t *testing.T) {
 	s.scriptProvider = script.NewProvider() // empty
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Op: []string{"Talk-to"}}
+	npcType := &objtype.NpcType{ID: 7, Op: []string{"Talk-to"}}
 	npc := NewNpc(0, 7, p.x, p.z, p.level, npcType)
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.interacted = true
@@ -130,7 +130,7 @@ func TestTryFireOpTrigger_ScriptSuspends(t *testing.T) {
 	s.scriptProvider.Register(suspendScript)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Op: []string{"Talk-to"}}
+	npcType := &objtype.NpcType{ID: 7, Op: []string{"Talk-to"}}
 	npc := NewNpc(0, 7, p.x, p.z, p.level, npcType)
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.interacted = true
@@ -156,7 +156,7 @@ func TestTryFireOpTrigger_PlayerDelayed(t *testing.T) {
 func TestTryFireOpTrigger_ReClickResetsFired(t *testing.T) {
 	_, p, _ := newTriggerFixture(t)
 	tryFireOpTrigger(p)
-	npc2Type := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 8}, Op: []string{"Talk-to"}}
+	npc2Type := &objtype.NpcType{ID: 8, Op: []string{"Talk-to"}}
 	npc2 := NewNpc(1, 8, p.x, p.z, p.level, npc2Type)
 	p.SetInteraction(InteractionEngine, npc2, 1, -1)
 }
@@ -177,7 +177,7 @@ func TestTryFireOpTrigger_CategoryFallback(t *testing.T) {
 	s.scriptProvider.Register(catScript)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Op: []string{"Talk-to"}, Category: 3}
+	npcType := &objtype.NpcType{ID: 7, Op: []string{"Talk-to"}, Category: 3}
 	npc := NewNpc(0, 7, p.x, p.z, p.level, npcType)
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.interacted = true
@@ -206,7 +206,7 @@ func TestTryFireOpTrigger_GlobalFallback(t *testing.T) {
 	s.scriptProvider.Register(globalScript)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Op: []string{"Talk-to"}}
+	npcType := &objtype.NpcType{ID: 7, Op: []string{"Talk-to"}}
 	npc := NewNpc(0, 7, p.x, p.z, p.level, npcType)
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.interacted = true
@@ -739,7 +739,7 @@ func newApTriggerNpcFixture(t *testing.T) (*Server, *Player, *Npc) {
 	p.x, p.z, p.level = 100, 100, 0
 
 	npcType := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 7, DebugName: "rat"},
+		ID: 7, DebugName: "rat",
 		AttackRange: 5,
 		Category:    0,
 		Op:          []string{"op1", "op2", "op3", "op4", "op5"},

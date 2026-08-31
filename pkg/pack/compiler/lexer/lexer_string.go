@@ -54,7 +54,7 @@ func (lx *Lexer) consumeQuoteClose() Token {
 func (lx *Lexer) emitStringMode(tt TokenType, n int) Token {
 	start := lx.pos
 	startLn, startCol := lx.line, lx.col
-	for i := 0; i < n; i++ {
+	for range n {
 		lx.advance(1)
 	}
 	stop := lx.pos - 1
