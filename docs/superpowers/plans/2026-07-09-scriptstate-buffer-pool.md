@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Repo: `/home/owner/Code/github.com/zsrv/goscape`, branch `rev-274` only. Verify with `git branch --show-current` before starting.
+- Repo: `~/Code/github.com/zsrv/goscape`, branch `rev-274` only. Verify with `git branch --show-current` before starting.
 - `go` commands: prefix env `GOPATH="${TMPDIR:-/tmp}/go" GOCACHE="${TMPDIR:-/tmp}/go-cache"`; the repo builds with `CGO_ENABLED=0` except `-race` runs, which need `CGO_ENABLED=1`.
 - Commits: `git commit --no-gpg-sign`; run `git status --short` first and stage only files this plan names. Pre-existing untracked entries (`.superpowers/`, `goscape`, `audit-274/` if present) are never staged. A sandboxed `git status` may show phantom `/dev/null` dotfiles (`.bashrc`, `.gitconfig`, …) — sandbox mask-mounts, not real files; never stage them.
 - Behavior invariance is the hard requirement: observable script behavior must be byte-identical. `Release` may be called ONLY at the three terminal arms named in Task 2 — never in a suspend arm, never on the error-handling early-return paths (a missed release is safe; a premature one aliases a live script).
@@ -179,7 +179,7 @@ Field-name notes (verified against rev-274 source): `ScriptFile{Name, Opcodes, I
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd ~/Code/github.com/zsrv/goscape
 GOPATH="${TMPDIR:-/tmp}/go" GOCACHE="${TMPDIR:-/tmp}/go-cache" go test ./pkg/script/ -run 'TestRelease|TestInitReuses|TestRecycled|TestInitRelease' -v
 ```
 
@@ -321,7 +321,7 @@ Same command as Step 2. Expected: all PASS (including `TestInitReleaseAllocBytes
 - [ ] **Step 6: Run the full script package + vet + race**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd ~/Code/github.com/zsrv/goscape
 GOPATH="${TMPDIR:-/tmp}/go" GOCACHE="${TMPDIR:-/tmp}/go-cache" go test ./pkg/script/... && \
 GOPATH="${TMPDIR:-/tmp}/go" GOCACHE="${TMPDIR:-/tmp}/go-cache" go vet ./pkg/script/... && \
 GOPATH="${TMPDIR:-/tmp}/go" GOCACHE="${TMPDIR:-/tmp}/go-cache" CGO_ENABLED=1 go test -race ./pkg/script/ -run 'TestRelease|TestInitReuses|TestRecycled' && \
@@ -333,7 +333,7 @@ Expected: PASS / clean / PASS / no output.
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape && git status --short
+cd ~/Code/github.com/zsrv/goscape && git status --short
 git add pkg/script/pool.go pkg/script/pool_test.go pkg/script/runner.go pkg/script/state.go
 git commit --no-gpg-sign -m "perf(script): pool ScriptState stack buffers (PERF-3); Release seam"
 ```
@@ -418,7 +418,7 @@ tests in the same file already use — do not invent new fixture machinery.
 - [ ] **Step 2: Run to verify the new tests fail**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd ~/Code/github.com/zsrv/goscape
 GOPATH="${TMPDIR:-/tmp}/go" GOCACHE="${TMPDIR:-/tmp}/go-cache" go test ./modules/world/ -run 'PoolRelease|ReleasesTerminal|RetainsBuffers|RetainsSuspended' -v
 ```
 
@@ -478,7 +478,7 @@ Same command as Step 2. Expected: ALL PASS.
 - [ ] **Step 5: Behavior-invariance gate — full world + script suites, then race**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd ~/Code/github.com/zsrv/goscape
 GOPATH="${TMPDIR:-/tmp}/go" GOCACHE="${TMPDIR:-/tmp}/go-cache" go test ./pkg/script/... ./modules/world/... && \
 GOPATH="${TMPDIR:-/tmp}/go" GOCACHE="${TMPDIR:-/tmp}/go-cache" CGO_ENABLED=1 go test -race ./modules/world/ && \
 GOPATH="${TMPDIR:-/tmp}/go" GOCACHE="${TMPDIR:-/tmp}/go-cache" go build ./... && gofmt -l modules/world
@@ -493,7 +493,7 @@ Confirm each resume site re-enters one of the three dispatchers, so suspended st
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape && git status --short
+cd ~/Code/github.com/zsrv/goscape && git status --short
 git add modules/world/script.go modules/world/npc_script.go modules/world/script_pool_release_test.go
 git commit --no-gpg-sign -m "perf(world): release ScriptState buffers at the three terminal dispatch arms (PERF-3)"
 ```
@@ -505,14 +505,14 @@ git commit --no-gpg-sign -m "perf(world): release ScriptState buffers at the thr
 **Files:**
 - Modify: `docs/PORTING-CLOSED.md` (§Performance hotspots — add PERF-3 row)
 - Modify: `docs/PORTING.md` (§Performance hotspots pointer line, currently ~line 41)
-- Temporary (create, run, DELETE — never commit): `/home/owner/Code/github.com/zsrv/goscape-singleplayer/internal/server/soak_diag_test.go`
+- Temporary (create, run, DELETE — never commit): `~/Code/github.com/zsrv/goscape-singleplayer/internal/server/soak_diag_test.go`
 
 **Interfaces:**
 - Consumes: Tasks 1-2 committed on goscape rev-274; the goscape-singleplayer repo's `internal/server` harness (sibling checkout, `replace ../goscape` picks up the pool automatically).
 
 - [ ] **Step 1: Re-run the 4-minute server-only soak against the pooled build**
 
-Recreate the diagnostic harness (verbatim; it existed during the 2026-07-09 memory investigation) at `/home/owner/Code/github.com/zsrv/goscape-singleplayer/internal/server/soak_diag_test.go`:
+Recreate the diagnostic harness (verbatim; it existed during the 2026-07-09 memory investigation) at `~/Code/github.com/zsrv/goscape-singleplayer/internal/server/soak_diag_test.go`:
 
 ```go
 package server
@@ -621,7 +621,7 @@ Run it (sandbox note: writes to the goscape-singleplayer repo and binding loopba
 
 ```bash
 mkdir -p "${TMPDIR:-/tmp}/perf3-soak"
-cd /home/owner/Code/github.com/zsrv/goscape-singleplayer
+cd ~/Code/github.com/zsrv/goscape-singleplayer
 GOPATH="${TMPDIR:-/tmp}/go" GOCACHE="${TMPDIR:-/tmp}/go-cache" \
 GOSCAPE_SP_SOAK_OUT="${TMPDIR:-/tmp}/perf3-soak" \
 go test ./internal/server/ -run TestServerSoakMemory -v -count=1 -timeout 420s
@@ -632,15 +632,15 @@ Compute the idle churn rate from the CSV: `(total_alloc[last] − total_alloc[fi
 - [ ] **Step 2: Delete the temporary harness**
 
 ```bash
-rm /home/owner/Code/github.com/zsrv/goscape-singleplayer/internal/server/soak_diag_test.go
-cd /home/owner/Code/github.com/zsrv/goscape-singleplayer && git status --short
+rm ~/Code/github.com/zsrv/goscape-singleplayer/internal/server/soak_diag_test.go
+cd ~/Code/github.com/zsrv/goscape-singleplayer && git status --short
 ```
 
 Expected: goscape-singleplayer tree clean (no staged/unstaged changes).
 
 - [ ] **Step 3: Add the PERF-3 closure row**
 
-In `/home/owner/Code/github.com/zsrv/goscape/docs/PORTING-CLOSED.md`, §Performance hotspots (line ~176), append after the PERF-2 row, matching the existing column format (`| ✅ FIXED | location | issue | Size | note |`):
+In `~/Code/github.com/zsrv/goscape/docs/PORTING-CLOSED.md`, §Performance hotspots (line ~176), append after the PERF-2 row, matching the existing column format (`| ✅ FIXED | location | issue | Size | note |`):
 
 ```markdown
 | ✅ FIXED | `pkg/script/runner.go` `Init` + `pkg/script/pool.go` | Fresh `make` of IntStack (8 KB) + StringStack (16 KB) + Frames per Init, ~26.5 KB/run; 71% of idle-server alloc churn (~3.3 MB/s with zero players — singleplayer memory investigation 2026-07-09). | S | PERF-3, `<TASK1_COMMIT>`+`<TASK2_COMMIT>` (2026-07-09). `sync.Pool`'d `scriptBuffers` bundle recycled via `script.Release` at exactly the three terminal dispatch arms (`resumeOrFinish` / `resumeOrFinishNpc` / `resumeOrFinishWorld`), after `OnScriptFinishedOrAborted`'s identity guard; suspend/error paths never release (missed release = GC, as before). `stringStack`+`frames` cleared at release; `intStack` left dirty — SP-discipline makes stale slots unobservable (pops only read slots pushed in the same run). Locals/Arrays/state struct stay freshly allocated (read-before-write zero-init preserved). **TS allocates fresh per init (`ScriptRunner.ts:66-119`, `ScriptState.ts:39-146`) — Go-only deviation**, spec `docs/superpowers/specs/2026-07-09-scriptstate-buffer-pool-design.md`. BenchmarkInitRelease: ~26500→`<MEASURED>` B/op. Idle soak churn: 3.3 MB/s→`<MEASURED>` MB/s (4-min server-only soak). Pins: `TestRecycledStateLeaksNothing` / `TestReleaseClearsAndNils` / `TestInitReleaseAllocBytes` (pkg/script/pool_test.go), `TestProcessWorldQueueReleasesTerminalState` + player/NPC dispatcher tests (modules/world/script_pool_release_test.go). `-race` pkg/script + modules/world clean. |
@@ -648,7 +648,7 @@ In `/home/owner/Code/github.com/zsrv/goscape/docs/PORTING-CLOSED.md`, §Performa
 
 Replace `<TASK1_COMMIT>`/`<TASK2_COMMIT>` with the real short SHAs (`git log --oneline -3`) and both `<MEASURED>` values with the numbers from Step 1 and Task 1's benchmark output.
 
-In `/home/owner/Code/github.com/zsrv/goscape/docs/PORTING.md`, the §Performance hotspots table body (~line 41) currently reads:
+In `~/Code/github.com/zsrv/goscape/docs/PORTING.md`, the §Performance hotspots table body (~line 41) currently reads:
 
 ```markdown
 | _(none — both LOW rows closed 2026-06-03: PERF-1 tick player-snapshot scratch + PERF-2 hunt zone-iteration scratch/iterator; benchmarks + closure rows in [`docs/PORTING-CLOSED.md`](docs/PORTING-CLOSED.md) §Performance hotspots)_ |
@@ -663,7 +663,7 @@ Replace with:
 - [ ] **Step 4: Commit the docs**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape && git status --short
+cd ~/Code/github.com/zsrv/goscape && git status --short
 git add docs/PORTING-CLOSED.md docs/PORTING.md
 git commit --no-gpg-sign -m "docs(porting): PERF-3 closure row — ScriptState buffer pool, soak + benchmark evidence"
 ```

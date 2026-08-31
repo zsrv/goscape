@@ -18,18 +18,18 @@
 - **Fidelity gate:** this project has a hard "true-to-TS behavior" contract. Every task here is behavior-preserving. If any step would change observable behavior, STOP and flag it — do not proceed.
 - **Do NOT push.** Leave all branches local; the user pushes when ready. Do not touch `main` (codeless docs hub).
 - **Branch/worktree map** (each rev branch has a dedicated worktree):
-  - rev-274 → `/home/owner/Code/github.com/zsrv/goscape` (tip `c8fcba5b`)
-  - rev-254 → `/home/owner/Code/github.com/zsrv/goscape-rev254` (tip `1f393f75`)
-  - rev-245.2 → `/home/owner/Code/github.com/zsrv/goscape-rev245.2` (tip `73bcfdc3`)
-  - rev-244 → `/home/owner/Code/github.com/zsrv/goscape-rev244` (tip `a07a44da`)
-  - rev-225 → `/home/owner/Code/github.com/zsrv/goscape-rev225` (tip `253b17d4`)
+  - rev-274 → `~/Code/github.com/zsrv/goscape` (tip `c8fcba5b`)
+  - rev-254 → `~/Code/github.com/zsrv/goscape-rev254` (tip `1f393f75`)
+  - rev-245.2 → `~/Code/github.com/zsrv/goscape-rev245.2` (tip `73bcfdc3`)
+  - rev-244 → `~/Code/github.com/zsrv/goscape-rev244` (tip `a07a44da`)
+  - rev-225 → `~/Code/github.com/zsrv/goscape-rev225` (tip `253b17d4`)
 - **DO NOT TOUCH (fidelity-locked, verified deliberate by the audit):** `queue_handler.go`/`longqueue_handler.go` (separate TS classes), `pathToTarget*` Player/Npc fork (R2 risk-register mitigation), cross-family stat-arg merge, WS-transport TODO (scoped unported feature — leave the `// TODO: WS support` marker), routefinder `panic`→`error` conversion (rsmod-faithful, already contained by `recoverPlayer`/`recoverNpc`).
 
 ---
 
 ## PHASE A — Implement & verify on rev-274
 
-All Phase-A work happens in `/home/owner/Code/github.com/zsrv/goscape` on a single feature branch off `rev-274`, matching the established `fix/<name>-batch` pattern (precedent: `fix/followups-batch` merged `--no-ff` at `c0e482dc`).
+All Phase-A work happens in `~/Code/github.com/zsrv/goscape` on a single feature branch off `rev-274`, matching the established `fix/<name>-batch` pattern (precedent: `fix/followups-batch` merged `--no-ff` at `c0e482dc`).
 
 ### Task A0: Create the Phase-A feature branch
 
@@ -38,7 +38,7 @@ All Phase-A work happens in `/home/owner/Code/github.com/zsrv/goscape` on a sing
 - [ ] **Step 1: Branch off rev-274**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd ~/Code/github.com/zsrv/goscape
 git checkout rev-274
 git checkout -b fix/tech-debt-cleanup
 git status   # expect clean tracked tree (untracked ./goscape binary + .superpowers may be present; ignore)
@@ -698,7 +698,7 @@ Per the cross-rev methodology, port the **same set of changes** to each other br
 
 ### Task B-<branch>: repeat for branch ∈ {rev-254, rev-245.2, rev-244, rev-225}
 
-Run this whole block once per branch, in that branch's worktree (`/home/owner/Code/github.com/zsrv/goscape-rev254`, `-rev245.2`, `-rev244`, `-rev225`).
+Run this whole block once per branch, in that branch's worktree (`~/Code/github.com/zsrv/goscape-rev254`, `-rev245.2`, `-rev244`, `-rev225`).
 
 - [ ] **Step 1: Branch + baseline**
 

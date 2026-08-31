@@ -13,8 +13,8 @@
 ## Global Constraints
 
 - **Porting-task code convention:** for ported routines, the authoritative "code to write" is the pinned reference client source cited in the task (this repo's established port methodology). The plan gives exact reference file:line at the pin, the Go signature, and the gating golden test; the implementer transliterates the reference, never invents. Every ported function carries a provenance comment: `// Ported from <Repo> <path>:<lines> @<pin>` (PORTING-LESSONS §4).
-- **Branches & pins (from `main:REFERENCES.md`):** rev-274 ↔ Client-TS branch `274` (primary) + Client-Java `32f30626` (cross-check); rev-254 ↔ Client-Java `2e629784`; rev-245.2 ↔ `176a85f7`; rev-244 ↔ `01f16088`; rev-225 ↔ `cc3781de` (`225-clean`). Reference repos: `/home/owner/Code/github.com/LostCityRS/Client-TS`, `/home/owner/Code/github.com/LostCityRS/Client-Java` — READ-ONLY; use `git -C <repo> show <pin>:<path>` or add temp worktrees at pins under `$TMPDIR`.
-- **Worktrees:** rev-274 work in `/home/owner/Code/github.com/zsrv/goscape` (primary checkout; never stage its unrelated untracked files). Other branches in their existing worktrees `/home/owner/Code/github.com/zsrv/goscape-rev{225,244,245.2,254}`. Commits land directly on each rev branch (port-arc convention, no feature branches).
+- **Branches & pins (from `main:REFERENCES.md`):** rev-274 ↔ Client-TS branch `274` (primary) + Client-Java `32f30626` (cross-check); rev-254 ↔ Client-Java `2e629784`; rev-245.2 ↔ `176a85f7`; rev-244 ↔ `01f16088`; rev-225 ↔ `cc3781de` (`225-clean`). Reference repos: `~/Code/github.com/LostCityRS/Client-TS`, `~/Code/github.com/LostCityRS/Client-Java` — READ-ONLY; use `git -C <repo> show <pin>:<path>` or add temp worktrees at pins under `$TMPDIR`.
+- **Worktrees:** rev-274 work in `~/Code/github.com/zsrv/goscape` (primary checkout; never stage its unrelated untracked files). Other branches in their existing worktrees `~/Code/github.com/zsrv/goscape-rev{225,244,245.2,254}`. Commits land directly on each rev branch (port-arc convention, no feature branches).
 - **Argument-order trap:** TS `getSprite(id, count, outlineRgb)` vs Java-274 `getSprite(id, outline, count)` — match by call site, never positionally.
 - **`render3ZClip` is out of scope** (unreachable: `objRender` → `render2(false, …)`); leave a comment at the `render3` port saying exactly this.
 - **Icons variant:** outline=0 (silhouette + `0x301820` drop-shadow), count=1 per obj record; cert composition per client; true-alpha NRGBA PNG (palette 0 → transparent). 32×32.
@@ -28,7 +28,7 @@
 
 ---
 
-## Phase 1 — rev-274 renderer (Tasks 1–10, in /home/owner/Code/github.com/zsrv/goscape)
+## Phase 1 — rev-274 renderer (Tasks 1–10, in ~/Code/github.com/zsrv/goscape)
 
 ### Task 1: Implementation-start verifications (spec gate)
 
@@ -36,10 +36,10 @@
 
 **Interfaces:** Produces GO/NO-GO facts every later task relies on.
 
-- [ ] **Step 1:** Verify content obj configs carry raw recolour lines: `grep -rn "recol1s=" /home/owner/Code/github.com/LostCityRS/Server274-ref/content/scripts --include='*.obj' | head -5` and same for `Server225_2`. Expected: hits with paired `recol1d=`. Record 3 sample stanzas.
-- [ ] **Step 2:** Verify 225-era content models decode with the existing self-contained decoder: write `$TMPDIR/probe/main.go` importing `github.com/zsrv/goscape/pkg/unpack/internal/model` — cannot import `internal` from outside; instead add a temporary Go test in-tree (do NOT commit): `pkg/unpack/internal/model/probe_test.go` that reads `/home/owner/Code/github.com/LostCityRS/Server225_2/content/models/obj/<first .ob2>` and a rev-274 one, decodes both, asserts `VertexCount > 0 && FaceCount > 0` and prints counts. Run it; then `git checkout -- .`/delete the probe file. Expected: both decode.
+- [ ] **Step 1:** Verify content obj configs carry raw recolour lines: `grep -rn "recol1s=" ~/Code/github.com/LostCityRS/Server274-ref/content/scripts --include='*.obj' | head -5` and same for `Server225_2`. Expected: hits with paired `recol1d=`. Record 3 sample stanzas.
+- [ ] **Step 2:** Verify 225-era content models decode with the existing self-contained decoder: write `$TMPDIR/probe/main.go` importing `github.com/zsrv/goscape/pkg/unpack/internal/model` — cannot import `internal` from outside; instead add a temporary Go test in-tree (do NOT commit): `pkg/unpack/internal/model/probe_test.go` that reads `~/Code/github.com/LostCityRS/Server225_2/content/models/obj/<first .ob2>` and a rev-274 one, decodes both, asserts `VertexCount > 0 && FaceCount > 0` and prints counts. Run it; then `git checkout -- .`/delete the probe file. Expected: both decode.
 - [ ] **Step 3:** Render-type census: extend the same throwaway probe to walk BOTH content trees' `models/obj/*.ob2`, decode, and tally `FaceInfo[i]&3` values (0/1/2/3) + models with `TexturedFaceCount>0`. Record the counts per revision (this tells us how much the flat/texture paths matter in practice; full tier is ported regardless).
-- [ ] **Step 4:** Verify texture PNG shape: `file /home/owner/Code/github.com/LostCityRS/Server274-ref/content/textures/*.png | head -3` — record dimensions (expect 64×64 or 128×128) and confirm 50 files in both 274 and 225 trees.
+- [ ] **Step 4:** Verify texture PNG shape: `file ~/Code/github.com/LostCityRS/Server274-ref/content/textures/*.png | head -3` — record dimensions (expect 64×64 or 128×128) and confirm 50 files in both 274 and 225 trees.
 - [ ] **Step 5:** Report findings (no commit). If Step 2 fails for 225, flag it loudly — Task 16's approach depends on it.
 
 ### Task 2: Promote the ob2 decoder to `pkg/render/model`
@@ -64,16 +64,16 @@
 
 **Interfaces:**
 - Produces: the goldens every rasterizer task tests against, and `sample.json` (the curated ~40-item list: `[{"debugname":"bronze_dagger","id":1205}, …]` — chosen in Step 3 to cover: untextured gouraud, flat faces, textured faces, recoloured, resized, ambient/contrast≠0, certtemplate (noted), countobj stack-variant, a model with alpha faces).
-- Consumes: Client-TS at branch `274` (vendored), reference cache `/home/owner/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache/`.
+- Consumes: Client-TS at branch `274` (vendored), reference cache `~/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache/`.
 
-- [ ] **Step 1:** Vendor the pinned TS sources: from `/home/owner/Code/github.com/LostCityRS/Client-TS` (branch 274, commit b678942 — record exact SHA) copy verbatim into `tools/iconref/vendor/`: `src/config/ObjType.ts`, `src/dash3d/Model.ts`, `src/dash3d/Pix3D.ts`, `src/dash3d/PointNormal.ts`, `src/graphics/Pix2D.ts`, `src/graphics/Pix32.ts`, `src/graphics/Pix8.ts`, `src/datastruct/LruCache.ts` + its `Linkable`/`DoublyLinkable`/`Hashable` deps, `src/io/Packet.ts`, `src/jagfile/Jagfile.ts` (adjust import paths inside vendor only; add a one-line provenance header to each file; if a file drags in browser-only deps, stub ONLY those imports and document each stub in README.md).
+- [ ] **Step 1:** Vendor the pinned TS sources: from `~/Code/github.com/LostCityRS/Client-TS` (branch 274, commit b678942 — record exact SHA) copy verbatim into `tools/iconref/vendor/`: `src/config/ObjType.ts`, `src/dash3d/Model.ts`, `src/dash3d/Pix3D.ts`, `src/dash3d/PointNormal.ts`, `src/graphics/Pix2D.ts`, `src/graphics/Pix32.ts`, `src/graphics/Pix8.ts`, `src/datastruct/LruCache.ts` + its `Linkable`/`DoublyLinkable`/`Hashable` deps, `src/io/Packet.ts`, `src/jagfile/Jagfile.ts` (adjust import paths inside vendor only; add a one-line provenance header to each file; if a file drags in browser-only deps, stub ONLY those imports and document each stub in README.md).
 - [ ] **Step 2:** `package.json` with `tsx` + `typescript` devDependencies; `npm install` (network → sandbox override).
 - [ ] **Step 3:** Write `dump.ts`:
   - loads the reference cache: minimal `main_file_cache.dat/idx` reader (~60 lines: 520-byte blocks, 6-byte index entries — port from Client-TS's cache/`FileStore` if vendored, else implement per the format and validate by CRC against a known archive);
   - reads archive 0 (config jag → `ObjType.unpack`), archive 1 models on demand (feed `Model` the per-file bytes), textures jag (archive 0 file 6) → `Pix3D.unpackTextures` + `Pix3D.initColourTable(0.8)`;
   - dumps: (a) `palette.bin` — the 65536-entry `colourTable` as little-endian int32; (b) synthetic triangle goldens: for each case in a hardcoded list (gouraud small/large/degenerate, flat, textured with texture 1, alpha 128), set up a 32×32 `Pix2D` buffer, call the `Pix3D` routine directly with fixed coordinates/colors, dump RGBA; (c) `lit/dagger.json` — for `bronze_dagger`: the post-`calculateNormals` `faceColourA/B/C` arrays as JSON; (d) the ~40 sample icons via `ObjType.getSprite(id, 1, 0)` (TS arg order!), converting `Pix32.data` (0 ⇒ transparent) to RGBA.
   - Selection of the 40: query loaded ObjTypes programmatically (has recol / has certtemplate / model has TexturedFaceCount>0 etc.) and print the chosen list to `sample.json`.
-- [ ] **Step 4:** Run `npx tsx dump.ts --cache /home/owner/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache --out ../../pkg/render/testdata`. Eyeball 5 PNGs (open or `feh`; note in report). Sanity: `palette.bin` is 262144 bytes; icons look like the real items.
+- [ ] **Step 4:** Run `npx tsx dump.ts --cache ~/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache --out ../../pkg/render/testdata`. Eyeball 5 PNGs (open or `feh`; note in report). Sanity: `palette.bin` is 262144 bytes; icons look like the real items.
 - [ ] **Step 5:** Commit harness + goldens: `test(render): TS reference harness + rev-274 golden pixels`.
   Troubleshooting: if vendoring drags in half the client, STOP per the fallback rule and report — don't build a browser.
 
@@ -212,7 +212,7 @@ func TestIconsMatchReference(t *testing.T) {
 - Produces: `goscape-cli icons -src-dir <content> -out-dir <dir> [-obj <debugname>] [-log.level ...]` → `<out-dir>/<debugname>.png` per renderable obj record; prints `rendered=N skipped=M total=T` summary; exit 0 (some skips OK), 1 on runtime error, 2 on usage.
 
 - [ ] **Step 1:** Write `cmd_icons.go` following `cmd_rsa.go`'s shape (flagset, exit codes); iterate `ParseContentConfigs` output sorted by debugname (determinism); skip+log records with no/missing model; `-obj` renders one.
-- [ ] **Step 2:** Full run: `goscape-cli icons -src-dir /home/owner/Code/github.com/LostCityRS/Server274-ref/content -out-dir $TMPDIR/icons274`. Expected: rendered ≥ 95% of records; paste the summary; eyeball 6 PNGs across categories. Re-run → byte-identical (hash the dir twice).
+- [ ] **Step 2:** Full run: `goscape-cli icons -src-dir ~/Code/github.com/LostCityRS/Server274-ref/content -out-dir $TMPDIR/icons274`. Expected: rendered ≥ 95% of records; paste the summary; eyeball 6 PNGs across categories. Re-run → byte-identical (hash the dir twice).
 - [ ] **Step 3:** PORTING.md: one EXTENSION row (goscape-only tool; cite pinned reference sources; note render3ZClip exclusion).
 - [ ] **Step 4:** Gates (pkg + cmd tests, compile-all). Commit.
 
@@ -247,7 +247,7 @@ Each of these three tasks has the same shape (differences are cosmetic per the s
 
 **Interfaces:** same as Tasks 2–10 produce on rev-274.
 
-- [ ] **Step 1 — pin delta audit:** diff the icon closure between this branch's Client-Java pin and the 274 pin: `git -C /home/owner/Code/github.com/LostCityRS/Client-Java diff <pin>..32f30626 -- '*ObjType.java' '*Model.java' '*Pix3D.java' '*Pix2D.java' '*Pix32.java' '*Pix8.java'` (paths differ per lineage — locate by filename first). Record every SEMANTIC difference (expect: none for 254 beyond naming; none for 245.2/244; the deob lineages differ textually — compare logic, not text). If a semantic difference appears, STOP and report before porting.
+- [ ] **Step 1 — pin delta audit:** diff the icon closure between this branch's Client-Java pin and the 274 pin: `git -C ~/Code/github.com/LostCityRS/Client-Java diff <pin>..32f30626 -- '*ObjType.java' '*Model.java' '*Pix3D.java' '*Pix2D.java' '*Pix32.java' '*Pix8.java'` (paths differ per lineage — locate by filename first). Record every SEMANTIC difference (expect: none for 254 beyond naming; none for 245.2/244; the deob lineages differ textually — compare logic, not text). If a semantic difference appears, STOP and report before porting.
 - [ ] **Step 2 — Java harness:** `tools/iconref/java/IconDump.java` — a `main()` compiled against the pinned client sources in a `$TMPDIR` worktree of the pin (`javac -d out $(worktree)/src/main/java/jagex2/**/*.java IconDump.java`); it replicates the client's startup subset: load config jag + textures jag from this branch's reference cache (`Server<rev>-ref/unpack-ref/cache`), `Pix3D.initColourTable(0.8)`, then for the sample list call `getSprite`/`getIcon` per THIS pin's signature and dump RGBA+PNG. Reuse rev-274's `sample.json` items filtered to ids existing at this revision, topped up to cover all categories (write the branch's own `sample.json`). If the pinned client can't compile headlessly (AWT deps etc.), stub the minimum and document; if truly impractical → STOP (user sign-off rule).
 - [ ] **Step 3 — copy-adapt:** run the Task-2 promotion on this branch; copy `pkg/render/**` + `cmd_icons.go` from rev-274 (`git -C <this-worktree> checkout rev-274 -- pkg/render cmd/goscape-cli/cmd_icons.go` is WRONG here — rev-274's tree may reference newer helpers; instead `cp -r` from the rev-274 worktree and fix imports/build errors); update provenance comments to THIS branch's pin; apply any Step-1 semantic deltas.
 - [ ] **Step 4 — gates:** golden test vs this branch's `testdata/icons<rev>/` (content dir = this revision's pinned content), full pkg tests, compile-all, `-race pkg/render`. Full-content `icons` run ≥95% + determinism rerun.
@@ -257,7 +257,7 @@ Each of these three tasks has the same shape (differences are cosmetic per the s
 
 ### Task 15: rev-225 renderer (2-arg `getIcon` semantics)
 
-**Files (in /home/owner/Code/github.com/zsrv/goscape-rev225):**
+**Files (in ~/Code/github.com/zsrv/goscape-rev225):**
 - Create: `pkg/render/**` (model decoder INTRODUCED here — copy the rev-274 `pkg/render/model` port verbatim; it decodes 225 content models per Task 1 Step 2), `cmd/goscape-cli/cmd_icons.go`, `tools/iconref/java/`, `pkg/render/testdata/**`
 - Modify: `cmd/goscape-cli/main.go`, `docs/PORTING.md`
 

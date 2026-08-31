@@ -200,7 +200,7 @@ and palette math + docsgen determinism/floor gates + strict site builds.
 
 ## Amendment 1 (2026-07-07): reuse goscape-client — supersedes Architecture/inputs/phasing
 
-**Trigger:** the user surfaced `/home/owner/Code/github.com/zsrv/goscape-client`
+**Trigger:** the user surfaced `~/Code/github.com/zsrv/goscape-client`
 — an existing MIT-licensed Go port of the RS2 client with the SAME five-branch
 model (rev-225 … rev-274), per-revision faithful ports with inline Java `@pin`
 provenance, and a completed `audit-274` correctness audit. Exploration verified

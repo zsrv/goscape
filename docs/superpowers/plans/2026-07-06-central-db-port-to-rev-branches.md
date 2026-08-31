@@ -14,10 +14,10 @@
 ## Global Constraints
 
 - Branch order is HARD: rev-254 → rev-245.2 → rev-244 → rev-225. A branch's phase completes (all tasks + reviews + verification green) before the next branch starts.
-- Work in each branch's existing worktree: `/home/owner/Code/github.com/zsrv/goscape-rev254`, `…-rev245.2`, `…-rev244`, `…-rev225`. Commits land directly on the rev branch (no feature branches). Every shell command in a phase runs from that phase's worktree root unless stated otherwise.
-- After EVERY implementer task: controller checks `git status --short` + `git log --oneline -3` in the MAIN checkout (`/home/owner/Code/github.com/zsrv/goscape`) AND the other worktrees' tips for stray writes/commits (known failure mode).
+- Work in each branch's existing worktree: `~/Code/github.com/zsrv/goscape-rev254`, `…-rev245.2`, `…-rev244`, `…-rev225`. Commits land directly on the rev branch (no feature branches). Every shell command in a phase runs from that phase's worktree root unless stated otherwise.
+- After EVERY implementer task: controller checks `git status --short` + `git log --oneline -3` in the MAIN checkout (`~/Code/github.com/zsrv/goscape`) AND the other worktrees' tips for stray writes/commits (known failure mode).
 - Go commands: prefix `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go ...`. Git commits: `git commit --no-gpg-sign`; `git status --short` before staging; stage only named paths. Report SHAs only from observed `git log` output.
-- TS reference reads: `git -C /home/owner/Code/github.com/LostCityRS/Engine-TS show <PIN>:<path>` — never move that checkout's branch. Pins (verified against main:REFERENCES.md and present locally): **rev-254 → `2e3bcf43`, rev-245.2 → `3c16994c`, rev-244 → `9aadcec4`, rev-225 → `e1dea19f`**. No other LostCityRS paths may be read.
+- TS reference reads: `git -C ~/Code/github.com/LostCityRS/Engine-TS show <PIN>:<path>` — never move that checkout's branch. Pins (verified against main:REFERENCES.md and present locally): **rev-254 → `2e3bcf43`, rev-245.2 → `3c16994c`, rev-244 → `9aadcec4`, rev-225 → `e1dea19f`**. No other LostCityRS paths may be read.
 - Per-branch TS fidelity is BINDING: where the branch's audit contract disagrees with rev-274 behavior OR with this plan's expectations, the audit wins.
 - FK posture: FK + `ON DELETE CASCADE` on account-id columns goscape reads/writes; NO FK on free-string ignore targets or session-uuid soft references; dormant tables bare. An account-id-keyed `public_chat` (if the audit confirms it, e.g. rev-244) DOES get the FK.
 - Timestamps: timestamptz (postgres) ⇔ DATETIME declared type (sqlite) on the same column set per branch; Go reads/writes via time.Time / sql.NullTime; the load-bearing modernc-decltype comment appears in every sqlite DDL.
@@ -53,7 +53,7 @@ All audit/report files live in the MAIN checkout's `.superpowers/sdd/` (shared a
 ### Task T1: TS behavior audit for <branch>
 
 **Files:**
-- Create: `/home/owner/Code/github.com/zsrv/goscape/.superpowers/sdd/audit-<prefix>.md`
+- Create: `~/Code/github.com/zsrv/goscape/.superpowers/sdd/audit-<prefix>.md`
 - No repo files change. Read-only against the TS checkout at <PIN> and the branch's current goscape sources.
 
 **Interfaces:**
@@ -62,7 +62,7 @@ All audit/report files live in the MAIN checkout's `.superpowers/sdd/` (shared a
 - [ ] **Step 1: Locate the TS sources at the pin**
 
 ```bash
-TS=/home/owner/Code/github.com/LostCityRS/Engine-TS
+TS=~/Code/github.com/LostCityRS/Engine-TS
 git -C $TS show <PIN> --stat --oneline | head -3          # confirm the pin resolves
 git -C $TS ls-tree -r --name-only <PIN> | grep -iE "friend(server|serverrepository)?\.ts|schema\.prisma" 
 ```
@@ -169,7 +169,7 @@ git commit --no-gpg-sign -m "feat(gamedb): central-db client + <branch> unified 
 - [ ] **Step 1: Extract the rev-274 reference patch and apply**
 
 ```bash
-git -C /home/owner/Code/github.com/zsrv/goscape diff 8b9a889b..3c428bbf -- cmd/goscape/app/ > /tmp/t3-ref.patch
+git -C ~/Code/github.com/zsrv/goscape diff 8b9a889b..3c428bbf -- cmd/goscape/app/ > /tmp/t3-ref.patch
 git apply --3way /tmp/t3-ref.patch || true   # expect fuzz/conflicts from branch drift — resolve by hand to the same end state
 ```
 

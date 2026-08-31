@@ -47,7 +47,7 @@ Current branch tips at spec time: rev-254 `21f76eda`, rev-245.2 `1c8698d1`, rev-
 
 rev-254 → rev-245.2 → rev-244 → rev-225, each branch completing (implementation + reviews + verification) before the next starts. Work happens in each branch's existing worktree; commits land directly on the rev branch (no feature branches — matches the tech-debt-cleanup port pattern). After each subagent task, the controller verifies no stray writes landed in other worktrees or the main checkout (`git status` + `git log` on main tree — the known haiku-class failure mode).
 
-The TS reference for every branch is the single local canonical checkout `/home/owner/Code/github.com/LostCityRS/Engine-TS`, read at each branch's pin via `git -C <checkout> show <pin>:<path>` — the checkout's own branch (274-GOSCAPE) never moves. Pins from `main:REFERENCES.md`: rev-254 → `2e3bcf43`, rev-245.2 → `3c16994c`, rev-244 → `9aadcec4`, rev-225 → `e1dea19f`. The prisma schema path at older pins may differ (e.g. `prisma/schema.prisma` vs `prisma/singleworld/schema.prisma`); the audit locates it per pin.
+The TS reference for every branch is the single local canonical checkout `~/Code/github.com/LostCityRS/Engine-TS`, read at each branch's pin via `git -C <checkout> show <pin>:<path>` — the checkout's own branch (274-GOSCAPE) never moves. Pins from `main:REFERENCES.md`: rev-254 → `2e3bcf43`, rev-245.2 → `3c16994c`, rev-244 → `9aadcec4`, rev-225 → `e1dea19f`. The prisma schema path at older pins may differ (e.g. `prisma/schema.prisma` vs `prisma/singleworld/schema.prisma`); the audit locates it per pin.
 
 ### 2. COPYABLE vs ADAPT inventory
 

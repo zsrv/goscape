@@ -16,7 +16,7 @@
 - Go version: 1.26. Use modern idioms (`t.Context()`, `any`, `for i := range n`, `errors.Is`).
 - All go commands: prefix `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go ...`.
 - All git commits: `git commit --no-gpg-sign`. Run `git status --short` before every commit; stage only files you changed.
-- TS reference is ONLY `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/` and its `prisma/` (branch `274-GOSCAPE` @ `dee467c8`). No other LostCityRS paths.
+- TS reference is ONLY `~/Code/github.com/LostCityRS/Engine-TS/src/` and its `prisma/` (branch `274-GOSCAPE` @ `dee467c8`). No other LostCityRS paths.
 - Clean break: no data-migration tooling; old `login.db`/`friends.db` files are never read or deleted.
 - Fidelity: every TS-behavior claim in code comments cites the TS file:line. FK constraints are a documented goscape extension; `ignorelist.value` and `public_chat.session_uuid` deliberately get NO FK.
 - Every new query string is wrapped in `db.Rebind(...)` at its call site (identity on SQLite; `$N` on Postgres) — the Phase 2 seam, built from day one.
@@ -2483,7 +2483,7 @@ and verify: clean boot (database module logs "central database schema up to date
 - [ ] **Step 1: Add the dependency**
 
 Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go get github.com/jackc/pgx/v5@latest && GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go mod tidy`
-(Module proxy goes through the configured artifactory; if the fetch is blocked, stop and report — do not vendor by hand.)
+(Module fetches go through whatever proxy the environment configures; if the fetch is blocked, stop and report — do not vendor by hand.)
 
 - [ ] **Step 2: Update config validation + tests**
 

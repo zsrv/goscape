@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Supersedes:** `2026-07-07-item-icon-rasterizer.md` per the spec's Amendment 1 (reuse `/home/owner/Code/github.com/zsrv/goscape-client` instead of porting ~4,450 lines). Tasks R1–R3 of the v1 plan are DONE and carry over: R1 verifications, R2 decoder promotion in goscape (to be reverted by V1), R3 harness + goldens on goscape rev-274 (to be migrated by V1).
+**Supersedes:** `2026-07-07-item-icon-rasterizer.md` per the spec's Amendment 1 (reuse `~/Code/github.com/zsrv/goscape-client` instead of porting ~4,450 lines). Tasks R1–R3 of the v1 plan are DONE and carry over: R1 verifications, R2 decoder promotion in goscape (to be reverted by V1), R3 harness + goldens on goscape rev-274 (to be migrated by V1).
 
 **Goal:** A headless `cmd/icondump` in goscape-client on all five branches — golden-pixel-verified against R3's reference goldens and per-pin Java harnesses — plus the docsgen step that fills the docs site's Icon column for all five revisions.
 
@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Repos & branches:** goscape-client at `/home/owner/Code/github.com/zsrv/goscape-client` (rev-274 checked out; create sibling worktrees `../goscape-client-rev{225,244,245.2,254}` as needed). goscape server repo at `/home/owner/Code/github.com/zsrv/goscape` (rev-274) — V1 reverts its rasterizer-era commits; after V1 it is READ-ONLY for this project except docsgen work on `main` via a docs worktree. Reference repos Client-TS/Client-Java: READ-ONLY. Reference data: `Server{244,245.2,254,274}-ref/unpack-ref/cache/` (main_file_cache), `Server225_2` jag archives (locate at V7).
+- **Repos & branches:** goscape-client at `~/Code/github.com/zsrv/goscape-client` (rev-274 checked out; create sibling worktrees `../goscape-client-rev{225,244,245.2,254}` as needed). goscape server repo at `~/Code/github.com/zsrv/goscape` (rev-274) — V1 reverts its rasterizer-era commits; after V1 it is READ-ONLY for this project except docsgen work on `main` via a docs worktree. Reference repos Client-TS/Client-Java: READ-ONLY. Reference data: `Server{244,245.2,254,274}-ref/unpack-ref/cache/` (main_file_cache), `Server225_2` jag archives (locate at V7).
 - **goscape-client conventions:** read its `CLAUDE.md` before first commit on each branch and follow it (build/test commands, doc conventions). Provenance comments cite Java `File.java:line @<pin>` like the surrounding code. Its pins per branch are authoritative in `docs/shared/REFERENCES.md` on its `main`.
 - **Fidelity rule for golden mismatches:** R3 goldens are ground truth (generated from verbatim pinned Client-TS with `Math.random` pinned to 0.5 → brightness exactly 0.8). A goscape-client mismatch is a REAL fidelity bug: diagnose against the vendored TS in goscape rev-274's `tools/iconref/vendor/` (until V1 migrates it) and fix in goscape-client citing the reference line. If a fix would be non-trivial (>~20 lines or touching shared render state), STOP and report.
 - **Determinism:** icondump must be byte-deterministic (deterministic palette hook, sorted outputs, no timestamps). The faithful jittered `InitColourTable` stays untouched for the real client.
@@ -33,7 +33,7 @@
 **Interfaces:**
 - Produces: goldens at goscape-client rev-274 `cmd/icondump/testdata/` (paths every later test uses); harness rerunnable from its new home (update its README paths).
 
-- [ ] **Step 1:** Copy `tools/iconref/**` and `pkg/render/testdata/**` from goscape rev-274 into goscape-client rev-274 at the paths above (adjust dump.ts's default `--out` and README paths to the new testdata location). `npm install` in the new location; rerun `npx tsx dump.ts --cache /home/owner/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache --out ../../cmd/icondump/testdata` and verify byte-identical outputs vs the copied goldens (`git status` clean after rerun = proof the move didn't break rerunnability).
+- [ ] **Step 1:** Copy `tools/iconref/**` and `pkg/render/testdata/**` from goscape rev-274 into goscape-client rev-274 at the paths above (adjust dump.ts's default `--out` and README paths to the new testdata location). `npm install` in the new location; rerun `npx tsx dump.ts --cache ~/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache --out ../../cmd/icondump/testdata` and verify byte-identical outputs vs the copied goldens (`git status` clean after rerun = proof the move didn't break rerunnability).
 - [ ] **Step 2:** Commit on goscape-client rev-274: `test(icondump): import reference harness + rev-274 golden pixels (from goscape rev-274)` — note the source commits in the body.
 - [ ] **Step 3:** In goscape rev-274: revert per above; gates `go test ./pkg/unpack/... -count=1` + compile-all green (decoder back home, importers restored). Commit: `revert(render): rasterizer moves to goscape-client (spec Amendment 1)` citing the amendment.
 - [ ] **Step 4:** Verify goscape tree has no `pkg/render` and no `tools/iconref`; `git grep -c 'pkg/render/model'` = 0.

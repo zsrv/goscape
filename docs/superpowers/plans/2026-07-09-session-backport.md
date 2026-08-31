@@ -6,7 +6,7 @@
 
 **Architecture:** Branch-major waves (254 → 245.2 → 244 → 225), three tasks per wave: goscape port → goscape-client port → singleplayer branch. Ports follow the cross-rev methodology: COPYABLE files come via `git checkout rev-274 -- <file>` after a byte-identity guard; everything else is same-anchor adaptation with the rev-274 commits (visible in every worktree via `git show`) as the source of truth. Spec: `docs/superpowers/specs/2026-07-09-session-backport-design.md`.
 
-**Tech Stack:** Go 1.26, existing per-rev worktrees (verified present + clean): goscape at `../goscape-rev{254,245.2,244,225}`, client at `../goscape-client-rev{254,245.2,244,225}`, singleplayer at `/home/owner/Code/github.com/zsrv/goscape-singleplayer`.
+**Tech Stack:** Go 1.26, existing per-rev worktrees (verified present + clean): goscape at `../goscape-rev{254,245.2,244,225}`, client at `../goscape-client-rev{254,245.2,244,225}`, singleplayer at `~/Code/github.com/zsrv/goscape-singleplayer`.
 
 ## Global Constraints
 
@@ -122,7 +122,7 @@ Parameters: ⟨BR⟩ (new branch name = rev name), ⟨GWT⟩/⟨CWT⟩ (sibling 
 - [ ] **Step 1: Create the branch from rev-274**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape-singleplayer
+cd ~/Code/github.com/zsrv/goscape-singleplayer
 git status --short   # must be clean apart from untracked profiles/
 git checkout -b ⟨BR⟩ rev-274
 ```
@@ -146,10 +146,10 @@ One commit: `feat: ⟨BR⟩ singleplayer branch — paired to ⟨GWT⟩/⟨CWT�
 
 ---
 
-### Task 1: goscape rev-254 — P-GOSCAPE with ⟨WT⟩=`/home/owner/Code/github.com/zsrv/goscape-rev254`, ⟨BR⟩=`rev-254`
+### Task 1: goscape rev-254 — P-GOSCAPE with ⟨WT⟩=`~/Code/github.com/zsrv/goscape-rev254`, ⟨BR⟩=`rev-254`
 No extra adaptations (closest branch to 274).
 
-### Task 2: goscape-client rev-254 — P-CLIENT with ⟨WT⟩=`/home/owner/Code/github.com/zsrv/goscape-client-rev254`, ⟨BR⟩=`rev-254`
+### Task 2: goscape-client rev-254 — P-CLIENT with ⟨WT⟩=`~/Code/github.com/zsrv/goscape-client-rev254`, ⟨BR⟩=`rev-254`
 **ADAPT table:** (1) `platform.Main` title argument stays this branch's `"RS2 user client - release #"+strconv.Itoa(signlink.ClientVersion)` (274 uses `"Jagex"` — do NOT copy that); dimensions 765,503 unchanged. Nothing else differs; Options has all 8 fields; signlink import is `pkg/sign/signlink`.
 
 ### Task 3: singleplayer rev-254 — P-SP with ⟨BR⟩=`rev-254`, ⟨GWT⟩=`goscape-rev254`, ⟨CWT⟩=`goscape-client-rev254`

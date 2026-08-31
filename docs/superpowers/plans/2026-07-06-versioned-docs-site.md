@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Workspace:** ALL implementation work happens in a dedicated worktree `/home/owner/Code/github.com/zsrv/goscape-docs` on a new branch `docs-site` cut from `main` (created in Task 1). NEVER write to the rev-274 checkout at `/home/owner/Code/github.com/zsrv/goscape` or to any rev branch — they are read-only sources. Subagents MUST be given the absolute worktree path.
+- **Workspace:** ALL implementation work happens in a dedicated worktree `~/Code/github.com/zsrv/goscape-docs` on a new branch `docs-site` cut from `main` (created in Task 1). NEVER write to the rev-274 checkout at `~/Code/github.com/zsrv/goscape` or to any rev branch — they are read-only sources. Subagents MUST be given the absolute worktree path.
 - **Reading sources:** rev-branch files are read either via `git show rev-N:<path>` (run in the worktree; all branches are local) or from the rev-274 checkout path above (read-only).
 - **Git:** every commit uses `git commit --no-gpg-sign`; message ends with `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`. Run `git status --short` before every commit and stage only intended files.
 - **Go:** every `go` invocation is prefixed `CGO_ENABLED=0 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`.
@@ -32,7 +32,7 @@
 ### Task 1: Workspace, worktree, Python environment
 
 **Files:**
-- Create: worktree `/home/owner/Code/github.com/zsrv/goscape-docs` (branch `docs-site` from `main`)
+- Create: worktree `~/Code/github.com/zsrv/goscape-docs` (branch `docs-site` from `main`)
 - Create: `requirements.txt`
 - Modify: `.gitignore`
 
@@ -42,7 +42,7 @@
 - [ ] **Step 1: Create the worktree**
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd ~/Code/github.com/zsrv/goscape
 git worktree add -b docs-site ../goscape-docs main
 cd ../goscape-docs
 git log --oneline -3   # expect main's tip: "chore: add MIT LICENSE" lineage, 5 files
@@ -74,7 +74,7 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 Expected: installs zensical (+ rust-built wheel), mike from git, pytest.
-Troubleshooting: connection errors → sandbox network allowlist; retry with override (prompts user). If PyPI has no zensical wheel for this platform, fallback `.venv/bin/pip install /home/owner/Code/github.com/zensical/zensical` (needs Rust toolchain — prefer the wheel).
+Troubleshooting: connection errors → sandbox network allowlist; retry with override (prompts user). If PyPI has no zensical wheel for this platform, fallback `.venv/bin/pip install ~/Code/github.com/zensical/zensical` (needs Rust toolchain — prefer the wheel).
 
 - [ ] **Step 5: Verify tools**
 
@@ -115,37 +115,37 @@ latest = "274"
 [revisions.225]
 branch = "rev-225"
 unpack_revision = 225
-content_dir = "/home/owner/Code/github.com/LostCityRS/Server225_2/content"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server2/engine/data/pack"
+content_dir = "~/Code/github.com/LostCityRS/Server225_2/content"
+cache_dir = "~/Code/github.com/LostCityRS/Server2/engine/data/pack"
 
 [revisions.244]
 branch = "rev-244"
 unpack_revision = 244
-content_dir = "/home/owner/Code/github.com/LostCityRS/Server244-ref/content"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server244-ref/unpack-ref/cache"
+content_dir = "~/Code/github.com/LostCityRS/Server244-ref/content"
+cache_dir = "~/Code/github.com/LostCityRS/Server244-ref/unpack-ref/cache"
 
 [revisions."245.2"]
 branch = "rev-245.2"
 unpack_revision = 245
-content_dir = "/home/owner/Code/github.com/LostCityRS/Server245.2-ref/content"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server245.2-ref/unpack-ref/cache"
+content_dir = "~/Code/github.com/LostCityRS/Server245.2-ref/content"
+cache_dir = "~/Code/github.com/LostCityRS/Server245.2-ref/unpack-ref/cache"
 
 [revisions.254]
 branch = "rev-254"
 unpack_revision = 254
-content_dir = "/home/owner/Code/github.com/LostCityRS/Server254-ref/content"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server254-ref/unpack-ref/cache"
+content_dir = "~/Code/github.com/LostCityRS/Server254-ref/content"
+cache_dir = "~/Code/github.com/LostCityRS/Server254-ref/unpack-ref/cache"
 
 [revisions.274]
 branch = "rev-274"
 unpack_revision = 274
-content_dir = "/home/owner/Code/github.com/LostCityRS/Server274-ref/content"
-cache_dir = "/home/owner/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache"
+content_dir = "~/Code/github.com/LostCityRS/Server274-ref/content"
+cache_dir = "~/Code/github.com/LostCityRS/Server274-ref/unpack-ref/cache"
 ```
 
 - [ ] **Step 2: Write `mkdocs.yml.tmpl`**
 
-Copy the `markdown_extensions:` block **verbatim** from `/home/owner/Code/github.com/zensical/docs/mkdocs.yml` (the dogfooded reference — includes the mermaid superfences custom fence), minus its `zensical.extensions.preview` and `snippets` entries, then add `zensical.extensions.macros`. Full template (adjust the extensions block from the reference file):
+Copy the `markdown_extensions:` block **verbatim** from `~/Code/github.com/zensical/docs/mkdocs.yml` (the dogfooded reference — includes the mermaid superfences custom fence), minus its `zensical.extensions.preview` and `snippets` entries, then add `zensical.extensions.macros`. Full template (adjust the extensions block from the reference file):
 
 ```yaml
 site_name: goscape
@@ -173,7 +173,7 @@ extra:
     alias: true
 
 markdown_extensions:
-  # ... copied from /home/owner/Code/github.com/zensical/docs/mkdocs.yml ...
+  # ... copied from ~/Code/github.com/zensical/docs/mkdocs.yml ...
   # must include: admonition, attr_list, def_list, footnotes, md_in_html,
   # toc(permalink), pymdownx.details, pymdownx.highlight, pymdownx.inlinehilite,
   # pymdownx.superfences (with the mermaid custom fence), pymdownx.tabbed,
@@ -392,7 +392,7 @@ Expected: build succeeds; site at `.build/rev-274/site/`.
 grep -o "game revision.*274" .build/rev-274/site/index.html
 ```
 Expected: match containing `274`.
-Troubleshooting if `{{ revision }}` appears literally: the macros extension isn't exposing `extra`. Fix: check `/home/owner/Code/github.com/zensical/zensical/python/zensical/extensions/macros*` for the supported options (`module_name`, `include_yaml`); if `extra` isn't auto-exposed, add a `tools/macros_env.py` with `def define_env(env): env.variables.update(env.conf["extra"])` and configure `module_name` on the extension in the template.
+Troubleshooting if `{{ revision }}` appears literally: the macros extension isn't exposing `extra`. Fix: check `~/Code/github.com/zensical/zensical/python/zensical/extensions/macros*` for the supported options (`module_name`, `include_yaml`); if `extra` isn't auto-exposed, add a `tools/macros_env.py` with `def define_env(env): env.variables.update(env.conf["extra"])` and configure `module_name` on the extension in the template.
 
 - [ ] **Step 8: Assemble and strict-build the other four revisions**
 
@@ -767,7 +767,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-REPO = Path("/home/owner/Code/github.com/zsrv/goscape")
+REPO = Path("~/Code/github.com/zsrv/goscape")
 
 
 def _go_env() -> dict:
@@ -1458,7 +1458,7 @@ git show gh-pages:versions.json | python3 -m json.tool   # still 5 versions
 
 ## Phase 3 — Administrator's Guide (Tasks 10–13)
 
-Prose tasks share this loop: write the page(s) per outline → `python tools/build.py assemble --revision 274 && zensical build --strict -f .build/rev-274/mkdocs.yml` → fact-check every command/flag/port against the cited sources → commit. Sources are read from the rev-274 checkout `/home/owner/Code/github.com/zsrv/goscape` (read-only) unless a `git show` ref is given. Write for an operator who has never seen the repo. Use admonitions for warnings, Mermaid for diagrams, content tabs where alternatives exist. Where behavior differs by revision, use `{{ revision }}` conditionals only for small wording differences — anything structural goes in an overlay page.
+Prose tasks share this loop: write the page(s) per outline → `python tools/build.py assemble --revision 274 && zensical build --strict -f .build/rev-274/mkdocs.yml` → fact-check every command/flag/port against the cited sources → commit. Sources are read from the rev-274 checkout `~/Code/github.com/zsrv/goscape` (read-only) unless a `git show` ref is given. Write for an operator who has never seen the repo. Use admonitions for warnings, Mermaid for diagrams, content tabs where alternatives exist. Where behavior differs by revision, use `{{ revision }}` conditionals only for small wording differences — anything structural goes in an overlay page.
 
 ### Task 10: Admin overview & architecture (`docs/admin/index.md`)
 
@@ -1521,7 +1521,7 @@ Prose tasks share this loop: write the page(s) per outline → `python tools/bui
 
 ### Task 15: RuneScript intro + writing scripts + examples (`docs/runescript/index.md`, `writing-scripts.md`, `examples.md`)
 
-**Sources:** `git show rev-274:docs/RUNESCRIPT.md` (§1–§9, §11), the content repo `/home/owner/Code/github.com/LostCityRS/Server274-ref/content` for real script examples.
+**Sources:** `git show rev-274:docs/RUNESCRIPT.md` (§1–§9, §11), the content repo `~/Code/github.com/LostCityRS/Server274-ref/content` for real script examples.
 
 The per-revision `language.md` snapshot is the *reference*; these three pages are the *tutorial* and must not duplicate it — link into it heavily.
 

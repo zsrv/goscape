@@ -7,6 +7,10 @@
 cmd/goscape/goscape
 cmd/goscape/goscape-debug
 cmd/goscape-cli/goscape-cli
+# `make all` writes the binaries to the repo root, where a `git add -A` would
+# otherwise sweep ~56 MB of them into a commit.
+/goscape
+/goscape-cli
 dist/
 
 

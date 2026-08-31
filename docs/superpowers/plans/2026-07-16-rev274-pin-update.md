@@ -12,11 +12,11 @@
 
 - Every commit: `git commit --no-gpg-sign`, message trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - True-to-TS fidelity gate: every behavioral divergence from the TS at the NEW pin needs an explicit PORTING.md row or inline PORTING-EXCEPTION; none are expected in this plan.
-- Canonical TS source: `/home/owner/Code/github.com/LostCityRS/Engine-TS` ONLY (at `4c95f87e` — `git -C … show 4c95f87e:<file>` when the working tree is elsewhere). Never read `Engine-TS_274` or `Server/engine`.
+- Canonical TS source: `~/Code/github.com/LostCityRS/Engine-TS` ONLY (at `4c95f87e` — `git -C … show 4c95f87e:<file>` when the working tree is elsewhere). Never read `Engine-TS_274` or `Server/engine`.
 - TS citation convention: code comments cite `TS <File>.ts:<line> @4c95f87e` for regions changed by this update; leave `@dee467c8`/older citations alone in untouched regions (they remain accurate — the delta touched only 8 files).
-- The upstream work list is `git -C /home/owner/Code/github.com/LostCityRS/Engine-TS diff dee467c8..4c95f87e` (fast-forward; commits in order: `3da10133`, `e31a8719`, `3b653372`, `4c95f87e`).
-- Server274-ref (`/home/owner/Code/github.com/LostCityRS/Server274-ref`) is OUTSIDE the sandbox write allowlist — commands touching it need the sandbox override (expected, user-gated).
-- Reference-cache-dependent tests resolve via `GOSCAPE_REF274_DIR=/home/owner/Code/github.com/LostCityRS/Server274-ref/engine`.
+- The upstream work list is `git -C ~/Code/github.com/LostCityRS/Engine-TS diff dee467c8..4c95f87e` (fast-forward; commits in order: `3da10133`, `e31a8719`, `3b653372`, `4c95f87e`).
+- Server274-ref (`~/Code/github.com/LostCityRS/Server274-ref`) is OUTSIDE the sandbox write allowlist — commands touching it need the sandbox override (expected, user-gated).
+- Reference-cache-dependent tests resolve via `GOSCAPE_REF274_DIR=~/Code/github.com/LostCityRS/Server274-ref/engine`.
 
 ---
 
@@ -256,7 +256,7 @@ Wire `s.processPlayerReorient()` (with `statPlayer` timing, matching sibling pas
 
 - [ ] **Step 4: Run the world suite**
 
-Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache GOSCAPE_REF274_DIR=/home/owner/Code/github.com/LostCityRS/Server274-ref/engine go test ./modules/world/ 2>&1 | tail -20`
+Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache GOSCAPE_REF274_DIR=~/Code/github.com/LostCityRS/Server274-ref/engine go test ./modules/world/ 2>&1 | tail -20`
 Expected: PASS. Any failure in order-sensitive tests (`rsbuf_per_tick_test.go`, `npc_masks_test.go`, `tick_zero_players_test.go`) means a pinned old-order expectation — update the pin to the @4c95f87e order with a citation, not the implementation.
 
 - [ ] **Step 5: Commit**
@@ -449,7 +449,7 @@ git commit --no-gpg-sign -m "fix(script): STAT_RANDOM clamps level to 99 (TS 4c9
 The reference checkouts already contain both target commits locally (verified in pre-flight; no network needed). The upstream pack run takes ~12s (`build.log` precedent). Everything under Server274-ref needs the sandbox override.
 
 **Files:**
-- Modify (outside repo): `/home/owner/Code/github.com/LostCityRS/Server274-ref/engine` (checkout `4c95f87e`, rebuild `data/pack`), `…/content` (checkout `376072662`)
+- Modify (outside repo): `~/Code/github.com/LostCityRS/Server274-ref/engine` (checkout `4c95f87e`, rebuild `data/pack`), `…/content` (checkout `376072662`)
 - Modify: `pkg/packall/testdata/ref274_manifest.txt` (regenerate sha256s + header pins)
 - Modify: `pkg/unpack/testdata/ref274/*.manifest.txt` (regenerate if the unpack goldens shifted)
 - Modify: `pkg/unpack/unpacktest/harness.go` + `pkg/pack/compiler/runescript/jag_file_writer.go:22` + `modules/world/testdata_path_test.go` header comments IF their pinned-commit citations are now wrong (they cite @dee467c8/7f97b0a5 as "the pinned Content" — bump to the new SHAs)
@@ -460,7 +460,7 @@ The reference checkouts already contain both target commits locally (verified in
 - [ ] **Step 1: Preserve the old reference cache, advance the pins**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Server274-ref
+cd ~/Code/github.com/LostCityRS/Server274-ref
 mv engine/data/pack engine/data/pack.dee467c8.bak   # keep the old baseline until parity passes
 git -C engine checkout 4c95f87efe00b068cadbd229d94736626907bd1a
 git -C content checkout 376072662e78a314bf35bb18815be39521491a6b
@@ -472,7 +472,7 @@ git -C engine log --oneline -1 && git -C content log --oneline -1   # verify
 - [ ] **Step 2: Rebuild the reference cache with the upstream toolchain**
 
 ```bash
-cd /home/owner/Code/github.com/LostCityRS/Server274-ref/engine
+cd ~/Code/github.com/LostCityRS/Server274-ref/engine
 npm run build 2>&1 | tail -20
 ```
 
@@ -483,9 +483,9 @@ Expected: `pack: ~12s`, exit 0 (a few known `missing model` WARNs are normal —
 Manifest format is `<sha256> <path-relative-to-engine>` with `#` comments. Regenerate each existing entry's hash from the NEW reference cache (the file list should be unchanged — same 56-file scope; if a file appeared/disappeared, investigate before proceeding):
 
 ```bash
-cd /home/owner/Code/github.com/zsrv/goscape
+cd ~/Code/github.com/zsrv/goscape
 awk '!/^#/ && NF==2 {print $2}' pkg/packall/testdata/ref274_manifest.txt | while read -r f; do
-  sha=$(sha256sum "/home/owner/Code/github.com/LostCityRS/Server274-ref/engine/$f" | cut -d' ' -f1)
+  sha=$(sha256sum "~/Code/github.com/LostCityRS/Server274-ref/engine/$f" | cut -d' ' -f1)
   echo "$sha $f"
 done
 ```
@@ -496,7 +496,7 @@ Splice the new hashes back in, update the header comment pins (`Engine-TS 4c95f8
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-GOSCAPE_REF274_DIR=/home/owner/Code/github.com/LostCityRS/Server274-ref/engine \
+GOSCAPE_REF274_DIR=~/Code/github.com/LostCityRS/Server274-ref/engine \
 go test ./pkg/packall/ -run Parity -v 2>&1 | tail -30
 ```
 
@@ -506,7 +506,7 @@ Expected: PASS — goscape's packer (with Task 3's change) reproduces the new TS
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-GOSCAPE_REF274_DIR=/home/owner/Code/github.com/LostCityRS/Server274-ref/engine \
+GOSCAPE_REF274_DIR=~/Code/github.com/LostCityRS/Server274-ref/engine \
 go test ./pkg/unpack/... 2>&1 | tail -15
 ```
 
@@ -516,9 +516,9 @@ If `AssertManifest` failures appear, regenerate `pkg/unpack/testdata/ref274/<fam
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-GOSCAPE_REF274_DIR=/home/owner/Code/github.com/LostCityRS/Server274-ref/engine \
+GOSCAPE_REF274_DIR=~/Code/github.com/LostCityRS/Server274-ref/engine \
 go test ./modules/world/ 2>&1 | tail -10
-rm -rf /home/owner/Code/github.com/LostCityRS/Server274-ref/engine/data/pack.dee467c8.bak
+rm -rf ~/Code/github.com/LostCityRS/Server274-ref/engine/data/pack.dee467c8.bak
 ```
 
 Expected: PASS (script.dat recompiled from 31 Content commits — script-dependent world tests exercise the new bytecode).
@@ -544,7 +544,7 @@ git commit --no-gpg-sign -m "test: re-pin ref274 byte-parity baseline at Engine-
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-GOSCAPE_REF274_DIR=/home/owner/Code/github.com/LostCityRS/Server274-ref/engine \
+GOSCAPE_REF274_DIR=~/Code/github.com/LostCityRS/Server274-ref/engine \
 go test ./... 2>&1 | grep -v '^ok\|no test files' | tail -20
 ```
 
@@ -552,7 +552,7 @@ Expected: clean. Then the race gate on touched packages (`-short` per the alloc-
 
 ```bash
 CGO_ENABLED=1 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache \
-GOSCAPE_REF274_DIR=/home/owner/Code/github.com/LostCityRS/Server274-ref/engine \
+GOSCAPE_REF274_DIR=~/Code/github.com/LostCityRS/Server274-ref/engine \
 go test -race -short ./modules/world/ ./pkg/script/ ./pkg/pack/... ./pkg/unpack/... ./pkg/packall/ 2>&1 | tail -10
 ```
 

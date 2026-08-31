@@ -17,7 +17,7 @@
 - This is a **documented TS-fidelity divergence**: every removal site's replacement comment must cite the spec path (the code blocks below already do — keep those citations).
 - Delivery guarantee is fire-and-forget per the existing `telemetry.Emitter` contract ("must not block") — do NOT add blocking/retry logic.
 - Do NOT touch `000001_init.up.sql`; the drop is a new `000002` migration.
-- Tasks 1–5 run on branch `rev-274` in `/home/owner/Code/github.com/zsrv/goscape`. Tasks 6–9 run in the sibling worktrees (`goscape-rev254`, `goscape-rev245.2`, `goscape-rev244`, `goscape-rev225`).
+- Tasks 1–5 run on branch `rev-274` in `~/Code/github.com/zsrv/goscape`. Tasks 6–9 run in the sibling worktrees (`goscape-rev254`, `goscape-rev245.2`, `goscape-rev244`, `goscape-rev225`).
 - Never inspect generated artifacts across worktrees; regenerate protos inside whichever worktree you're editing (`make protos` there).
 - After editing files in a sibling worktree, verify with `git -C <worktree> status` that the edits actually landed there (sandbox writes to sibling worktrees may be blocked or silently no-op; if blocked, rerun the failing command with sandbox off).
 - Tests: never call `t.Context()` inside `t.Cleanup` callbacks.
@@ -853,7 +853,7 @@ Expected: no output. Any hit is an unfinished edit from Tasks 1–3 — fix it t
 
 ### Tasks 6–9: Port to rev-254, rev-245.2, rev-244, rev-225
 
-One task per branch, executed in this order (nearest branch first; each port may inform the next). Worktrees: `/home/owner/Code/github.com/zsrv/goscape-rev254`, `…-rev245.2`, `…-rev244`, `…-rev225`. The target-state code is Tasks 1–4 of this plan plus the rev-274 commits (list them with `git log --oneline rev-274 -6`); this section defines the per-branch adaptation procedure and known deltas.
+One task per branch, executed in this order (nearest branch first; each port may inform the next). Worktrees: `~/Code/github.com/zsrv/goscape-rev254`, `…-rev245.2`, `…-rev244`, `…-rev225`. The target-state code is Tasks 1–4 of this plan plus the rev-274 commits (list them with `git log --oneline rev-274 -6`); this section defines the per-branch adaptation procedure and known deltas.
 
 **Interfaces (all four tasks):**
 - Consumes: the five rev-274 commits from Tasks 1–4 (+ any Task 5 fix-forward commit).
@@ -868,7 +868,7 @@ One task per branch, executed in this order (nearest branch first; each port may
 
 - [ ] **Step 1: Baseline sanity**
 
-Run (substituting the worktree): `git -C /home/owner/Code/github.com/zsrv/goscape-rev254 status --short && git -C /home/owner/Code/github.com/zsrv/goscape-rev254 log --oneline -1`
+Run (substituting the worktree): `git -C ~/Code/github.com/zsrv/goscape-rev254 status --short && git -C ~/Code/github.com/zsrv/goscape-rev254 log --oneline -1`
 Expected: clean tree on the branch tip. If dirty, STOP and report.
 
 - [ ] **Step 2: COPYABLE check for the event protos**
