@@ -8,7 +8,7 @@ SHELL = /usr/bin/env bash -o pipefail
 CI ?= false
 
 # Ensure you run `make release-workflows` after changing this
-GO_VERSION         := 1.26.3
+GO_VERSION         := 1.27.0
 
 IMAGE_TAG          ?= $(shell ./tools/image-tag)
 GIT_REVISION       := $(shell git rev-parse --short HEAD)
