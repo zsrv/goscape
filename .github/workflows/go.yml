@@ -12,6 +12,9 @@ on:
     branches: ['rev-*']
   pull_request:
     branches: ['rev-*']
+  # Called by release.yml so a tag build reuses this gate rather than
+  # duplicating it.
+  workflow_call:
 
 jobs:
   build-test:
