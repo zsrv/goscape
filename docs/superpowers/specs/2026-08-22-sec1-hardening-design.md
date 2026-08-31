@@ -1,11 +1,11 @@
 # SEC1 — Security hardening batch 1 (M-1, M-2, M-7, M-8, M-12)
 
-Source: goscape security review 2026-08-20 (rev-274 @ d509f14a). This batch
+Source: goscape security review 2026-08-20 (rev-274 @ 60db51ba). This batch
 addresses five Medium findings the user selected. Criticals/Highs are
 deliberately out of scope here and remain open.
 
 **rev-225 back-port note.** This branch carries the same batch (commits
-`89fe03ec`, `3599dade`, `96c8e2b1`, `9ef0cd52`, `36770f92`), user-directed,
+`6208ff06`, `2f7291f1`, `5253149c`, `69bfe5e5`, `79f44af5`), user-directed,
 with two adaptations.
 
 1. **SEC1-D3's producer-side yield is N/A here.** rev-225's world has no
