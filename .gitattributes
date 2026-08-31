@@ -1,0 +1,16 @@
+# Normalise line endings on the way into the repository, so a checkout on
+# Windows can be CRLF locally without every file coming back as modified.
+# No tracked file currently contains CRLF; this keeps it that way.
+* text=auto
+
+# Rendered item icons — binary, and by count the overwhelming majority of
+# files on this branch. Marked generated so they do not drown the language
+# statistics or fill up diffs on the docs hub.
+*.png binary
+overlays/**/items/icons/** linguist-generated=true
+
+# The per-revision overlay pages are produced by tools/docsgen; edit the
+# generator or the rev branch's source, never these.
+overlays/**/*.md linguist-generated=true
+
+docs/** linguist-documentation=true
