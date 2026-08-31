@@ -615,7 +615,9 @@ func TestPackHuntConfigs_OpcodeCheckInvWithoutTypeErrors(t *testing.T) {
 }
 
 func TestPackHuntConfigs_OpcodeExtraCheckVar1Through3(t *testing.T) {
-	// 3 extracheck_var entries → emits opcodes 18, 19, 20.
+	// 3 extracheck_var entries → emits opcodes 19, 20, 21. Renumbered from
+	// 18-20 by Engine-TS 8139461a, which claims 18 for check_invcat
+	// (TS HuntConfig.ts:562 @1d25566c).
 	pf := buildHuntPF("hev")
 	configs := map[string][]ConfigLine{
 		"hev": {
@@ -630,16 +632,16 @@ func TestPackHuntConfigs_OpcodeExtraCheckVar1Through3(t *testing.T) {
 		t.Fatal(err)
 	}
 	// opcode 1 + 1(player)
-	// opcode 18 + p2(7) + pjstr(">") + p4(10)
-	// opcode 19 + p2(8) + pjstr("<") + p4(5)
-	// opcode 20 + p2(9) + pjstr("=") + p4(0)
+	// opcode 19 + p2(7) + pjstr(">") + p4(10)
+	// opcode 20 + p2(8) + pjstr("<") + p4(5)
+	// opcode 21 + p2(9) + pjstr("=") + p4(0)
 	// 250 + "hev"\n + terminator
 	want := []byte{
 		0x00, 0x01,
 		0x01, 0x01, // type=player
-		0x12, 0x00, 0x07, '>', 0x0a, 0x00, 0x00, 0x00, 0x0a, // opcode 18 + p2(7) + ">" + p4(10)
-		0x13, 0x00, 0x08, '<', 0x0a, 0x00, 0x00, 0x00, 0x05, // opcode 19 + p2(8) + "<" + p4(5)
-		0x14, 0x00, 0x09, '=', 0x0a, 0x00, 0x00, 0x00, 0x00, // opcode 20 + p2(9) + "=" + p4(0)
+		0x13, 0x00, 0x07, '>', 0x0a, 0x00, 0x00, 0x00, 0x0a, // opcode 19 + p2(7) + ">" + p4(10)
+		0x14, 0x00, 0x08, '<', 0x0a, 0x00, 0x00, 0x00, 0x05, // opcode 20 + p2(8) + "<" + p4(5)
+		0x15, 0x00, 0x09, '=', 0x0a, 0x00, 0x00, 0x00, 0x00, // opcode 21 + p2(9) + "=" + p4(0)
 		0xfa, 'h', 'e', 'v', 0x0a,
 		0x00,
 	}
@@ -777,4 +779,81 @@ func TestPackHuntConfigs_CheckNpcWithMutexConflictErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("want error for check_npc with mutex conflict (check_category present)")
 	}
+}
+
+// TestPackHuntConfigs_OpcodeCheckInvCat pins the check_invcat emission added by
+// Engine-TS 8139461a (TS HuntConfig.ts:543-556 @1d25566c): opcode 18 carrying
+// p2(inv), p2(category), pjstr(condition), p4(val).
+func TestPackHuntConfigs_OpcodeCheckInvCat(t *testing.T) {
+	pf := buildHuntPF("hic")
+	configs := map[string][]ConfigLine{
+		"hic": {
+			{Key: "type", Value: objtype.HuntModePlayer},
+			{Key: "check_invcat", Value: huntCheckInvCat{inv: 7, category: 31, condition: ">", val: 5}},
+		},
+	}
+	pd, err := packHuntConfigs(configs, pf, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []byte{
+		0x00, 0x01,
+		0x01, 0x01, // type=player
+		0x12, 0x00, 0x07, 0x00, 0x1f, '>', 0x0a, 0x00, 0x00, 0x00, 0x05, // 18 + p2(7) + p2(31) + ">" + p4(5)
+		0xfa, 'h', 'i', 'c', 0x0a,
+		0x00,
+	}
+	if !bytes.Equal(pd.Dat.Data, want) {
+		t.Fatalf("got % x\nwant % x", pd.Dat.Data, want)
+	}
+}
+
+// TestPackHuntConfigs_CheckInvCatMutex pins that check_invcat is mutually
+// exclusive with the other five check_* keys, and that they are mutually
+// exclusive with it (TS HuntConfig.ts:477-556 @1d25566c added check_invcat to
+// every one of those every() guards).
+func TestPackHuntConfigs_CheckInvCatMutex(t *testing.T) {
+	for _, other := range []string{"check_category", "check_npc", "check_obj", "check_loc"} {
+		t.Run(other, func(t *testing.T) {
+			pf := buildHuntPF("hmx")
+			configs := map[string][]ConfigLine{
+				"hmx": {
+					{Key: "type", Value: objtype.HuntModePlayer},
+					{Key: other, Value: 3},
+					{Key: "check_invcat", Value: huntCheckInvCat{inv: 7, category: 31, condition: ">", val: 5}},
+				},
+			}
+			if _, err := packHuntConfigs(configs, pf, nil); err == nil {
+				t.Errorf("check_invcat + %s: got nil error, want mutex rejection", other)
+			}
+		})
+	}
+
+	t.Run("check_inv", func(t *testing.T) {
+		pf := buildHuntPF("hmx2")
+		configs := map[string][]ConfigLine{
+			"hmx2": {
+				{Key: "type", Value: objtype.HuntModePlayer},
+				{Key: "check_inv", Value: huntCheckInv{inv: 1, obj: 2, condition: "=", val: 1}},
+				{Key: "check_invcat", Value: huntCheckInvCat{inv: 7, category: 31, condition: ">", val: 5}},
+			},
+		}
+		if _, err := packHuntConfigs(configs, pf, nil); err == nil {
+			t.Error("check_invcat + check_inv: got nil error, want mutex rejection")
+		}
+	})
+
+	t.Run("check_invparam", func(t *testing.T) {
+		pf := buildHuntPF("hmx3")
+		configs := map[string][]ConfigLine{
+			"hmx3": {
+				{Key: "type", Value: objtype.HuntModePlayer},
+				{Key: "check_invparam", Value: huntCheckInvParam{inv: 1, param: 2, condition: "=", val: 1}},
+				{Key: "check_invcat", Value: huntCheckInvCat{inv: 7, category: 31, condition: ">", val: 5}},
+			},
+		}
+		if _, err := packHuntConfigs(configs, pf, nil); err == nil {
+			t.Error("check_invcat + check_invparam: got nil error, want mutex rejection")
+		}
+	})
 }

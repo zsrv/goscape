@@ -23,6 +23,15 @@ type huntCheckInvParam struct {
 	val       int
 }
 
+// huntCheckInvCat is the parser-produced value for check_invcat=inv,category,condition+val.
+// Added by Engine-TS 8139461a (TS HuntConfig.ts:354-379 @1d25566c).
+type huntCheckInvCat struct {
+	inv       int
+	category  int
+	condition string
+	val       int
+}
+
 // huntCheckVarParsed is the parser-produced value for extracheck_var=%varp,condition+val.
 type huntCheckVarParsed struct {
 	varp      int
@@ -383,6 +392,36 @@ func parseHuntConfigFor(
 			}
 			return huntCheckInvParam{inv: inv, param: param, condition: condition, val: val}, true, nil
 
+		case "check_invcat":
+			// check_invcat=inv,category,condition+val
+			// TS HuntConfig.ts:354-379 @1d25566c. Same shape as check_invparam
+			// but resolves the second field against the category registry.
+			parts := parseCsv(value)
+			if len(parts) != 3 {
+				return nil, true, fmt.Errorf("check_invcat requires 3 parts: %s", value)
+			}
+			inv := invPack.GetByName(parts[0])
+			if inv == -1 {
+				return nil, true, fmt.Errorf("unknown inv %q for check_invcat", parts[0])
+			}
+			category := categoryPack.GetByName(parts[1])
+			if category == -1 {
+				return nil, true, fmt.Errorf("unknown category %q for check_invcat", parts[1])
+			}
+			conditionWithVal := parts[2]
+			if len(conditionWithVal) == 0 {
+				return nil, true, fmt.Errorf("empty condition in check_invcat: %s", value)
+			}
+			condition := string(conditionWithVal[0])
+			if condition != "=" && condition != ">" && condition != "<" && condition != "!" {
+				return nil, true, fmt.Errorf("invalid condition %q in check_invcat: %s", condition, value)
+			}
+			val, err := strconv.Atoi(conditionWithVal[1:])
+			if err != nil {
+				return nil, true, fmt.Errorf("invalid val in check_invcat: %s", value)
+			}
+			return huntCheckInvCat{inv: inv, category: category, condition: condition, val: val}, true, nil
+
 		case "extracheck_var":
 			// extracheck_var=%varp,condition+val
 			parts := parseCsv(value)
@@ -536,10 +575,10 @@ func packHuntConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags [
 
 				case "check_category":
 					// Opcode 12: mutex — must NOT have check_npc, check_obj, check_loc,
-					// check_inv, check_invparam; must have type ∈ {NPC, OBJ, SCENERY}.
+					// check_inv, check_invparam, check_invcat; must have type ∈ {NPC, OBJ, SCENERY}.
 					if !hasKey(cfg, "check_npc") && !hasKey(cfg, "check_obj") &&
 						!hasKey(cfg, "check_loc") && !hasKey(cfg, "check_inv") &&
-						!hasKey(cfg, "check_invparam") {
+						!hasKey(cfg, "check_invparam") && !hasKey(cfg, "check_invcat") {
 						tv := findTypeValue(cfg)
 						if tv == objtype.HuntModeNpc || tv == objtype.HuntModeObj || tv == objtype.HuntModeScenery {
 							pd.P1(12)
@@ -553,10 +592,10 @@ func packHuntConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags [
 
 				case "check_npc":
 					// Opcode 13: mutex — must NOT have check_category, check_obj, check_loc,
-					// check_inv, check_invparam; must have type=NPC.
+					// check_inv, check_invparam, check_invcat; must have type=NPC.
 					if !hasKey(cfg, "check_category") && !hasKey(cfg, "check_obj") &&
 						!hasKey(cfg, "check_loc") && !hasKey(cfg, "check_inv") &&
-						!hasKey(cfg, "check_invparam") {
+						!hasKey(cfg, "check_invparam") && !hasKey(cfg, "check_invcat") {
 						if findTypeValue(cfg) == objtype.HuntModeNpc {
 							pd.P1(13)
 							pd.P2(uint16(line.Value.(int)))
@@ -569,10 +608,10 @@ func packHuntConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags [
 
 				case "check_obj":
 					// Opcode 14: mutex — must NOT have check_category, check_npc, check_loc,
-					// check_inv, check_invparam; must have type=OBJ.
+					// check_inv, check_invparam, check_invcat; must have type=OBJ.
 					if !hasKey(cfg, "check_category") && !hasKey(cfg, "check_npc") &&
 						!hasKey(cfg, "check_loc") && !hasKey(cfg, "check_inv") &&
-						!hasKey(cfg, "check_invparam") {
+						!hasKey(cfg, "check_invparam") && !hasKey(cfg, "check_invcat") {
 						if findTypeValue(cfg) == objtype.HuntModeObj {
 							pd.P1(14)
 							pd.P2(uint16(line.Value.(int)))
@@ -585,10 +624,10 @@ func packHuntConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags [
 
 				case "check_loc":
 					// Opcode 15: mutex — must NOT have check_category, check_npc, check_obj,
-					// check_inv, check_invparam; must have type=SCENERY.
+					// check_inv, check_invparam, check_invcat; must have type=SCENERY.
 					if !hasKey(cfg, "check_category") && !hasKey(cfg, "check_npc") &&
 						!hasKey(cfg, "check_obj") && !hasKey(cfg, "check_inv") &&
-						!hasKey(cfg, "check_invparam") {
+						!hasKey(cfg, "check_invparam") && !hasKey(cfg, "check_invcat") {
 						if findTypeValue(cfg) == objtype.HuntModeScenery {
 							pd.P1(15)
 							pd.P2(uint16(line.Value.(int)))
@@ -601,10 +640,10 @@ func packHuntConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags [
 
 				case "check_inv":
 					// Opcode 16: mutex — must NOT have check_category, check_npc, check_obj,
-					// check_loc, check_invparam; must have type=PLAYER.
+					// check_loc, check_invparam, check_invcat; must have type=PLAYER.
 					if !hasKey(cfg, "check_category") && !hasKey(cfg, "check_npc") &&
 						!hasKey(cfg, "check_obj") && !hasKey(cfg, "check_loc") &&
-						!hasKey(cfg, "check_invparam") {
+						!hasKey(cfg, "check_invparam") && !hasKey(cfg, "check_invcat") {
 						if findTypeValue(cfg) == objtype.HuntModePlayer {
 							checkInv := line.Value.(huntCheckInv)
 							pd.P1(16)
@@ -621,10 +660,10 @@ func packHuntConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags [
 
 				case "check_invparam":
 					// Opcode 17: mutex — must NOT have check_category, check_npc, check_obj,
-					// check_loc, check_inv; must have type=PLAYER.
+					// check_loc, check_inv, check_invcat; must have type=PLAYER.
 					if !hasKey(cfg, "check_category") && !hasKey(cfg, "check_npc") &&
 						!hasKey(cfg, "check_obj") && !hasKey(cfg, "check_loc") &&
-						!hasKey(cfg, "check_inv") {
+						!hasKey(cfg, "check_inv") && !hasKey(cfg, "check_invcat") {
 						if findTypeValue(cfg) == objtype.HuntModePlayer {
 							checkInv := line.Value.(huntCheckInvParam)
 							pd.P1(17)
@@ -639,15 +678,38 @@ func packHuntConfigs(configs map[string][]ConfigLine, pf *PackFile, modelFlags [
 						return nil, packStepError(name, "unable to pack line!!!\nInvalid property value: check_invparam=%v", line.Value)
 					}
 
+				case "check_invcat":
+					// Opcode 18: mutex — must NOT have check_category, check_npc, check_obj,
+					// check_loc, check_inv, check_invparam; must have type=PLAYER.
+					// TS HuntConfig.ts:543-556 @1d25566c.
+					if !hasKey(cfg, "check_category") && !hasKey(cfg, "check_npc") &&
+						!hasKey(cfg, "check_obj") && !hasKey(cfg, "check_loc") &&
+						!hasKey(cfg, "check_inv") && !hasKey(cfg, "check_invparam") {
+						if findTypeValue(cfg) == objtype.HuntModePlayer {
+							checkInv := line.Value.(huntCheckInvCat)
+							pd.P1(18)
+							pd.P2(uint16(checkInv.inv))
+							pd.P2(uint16(checkInv.category))
+							pd.PJStr(checkInv.condition)
+							pd.P4(uint32(int32(checkInv.val)))
+						} else {
+							return nil, packStepError(name, "unable to pack line!!!\nInvalid property value: check_invcat=%v", line.Value)
+						}
+					} else {
+						return nil, packStepError(name, "unable to pack line!!!\nInvalid property value: check_invcat=%v", line.Value)
+					}
+
 				case "extracheck_var":
-					// Opcodes 18-20: max 3 entries.
+					// Opcodes 19-21: max 3 entries. Renumbered from 18-20 by
+					// Engine-TS 8139461a, which claims 18 for check_invcat
+					// (TS HuntConfig.ts:562 @1d25566c).
 					if extracheckVarsCount > 2 {
 						return nil, packStepError(name, "unable to pack line!!!\nLimit of 3 extracheck_var properties exceeded.")
 					}
 					// TS gates: value != null AND type=PLAYER.
 					if findTypeValue(cfg) == objtype.HuntModePlayer {
 						checkVar := line.Value.(huntCheckVarParsed)
-						pd.P1(uint8(18 + extracheckVarsCount))
+						pd.P1(uint8(19 + extracheckVarsCount))
 						pd.P2(uint16(checkVar.varp))
 						pd.PJStr(checkVar.condition)
 						pd.P4(uint32(int32(checkVar.val)))

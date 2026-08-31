@@ -66,9 +66,12 @@ type HuntType struct {
 	CheckLoc           int
 	CheckInv           int
 	CheckObjParam      int
-	CheckInvCondition  string
-	CheckInvVal        int
-	CheckVars          []HuntCheckVar
+	// CheckObjCat is the obj-category variant of CheckObjParam, added by
+	// Engine-TS 8139461a (server opcode 18, TS HuntType.ts:96 @1d25566c).
+	CheckObjCat       int
+	CheckInvCondition string
+	CheckInvVal       int
+	CheckVars         []HuntCheckVar
 }
 
 // NewHuntType returns a HuntType populated with TS defaults.
@@ -93,6 +96,7 @@ func NewHuntType(id int) *HuntType {
 		CheckLoc:           -1,
 		CheckInv:           -1,
 		CheckObjParam:      -1,
+		CheckObjCat:        -1,
 		CheckInvVal:        -1,
 	}
 }
@@ -104,7 +108,7 @@ type HuntTypeConfigs struct {
 }
 
 // Decode dispatches on the hunt-config opcode, matching TS HuntType.decode
-// at Engine-TS/src/cache/config/HuntType.ts:99-147.
+// at Engine-TS/src/cache/config/HuntType.ts:99-152 @1d25566c.
 func (t *HuntType) Decode(code uint8, dat *packet.Packet) error {
 	switch code {
 	case 1:
@@ -147,7 +151,15 @@ func (t *HuntType) Decode(code uint8, dat *packet.Packet) error {
 		t.CheckObjParam = int(dat.G2())
 		t.CheckInvCondition = dat.GJStrLF()
 		t.CheckInvVal = int(int32(dat.G4()))
-	case 18, 19, 20:
+	case 18:
+		// check_invcat — TS HuntType.ts:142-147 @1d25566c. Claims the opcode
+		// that used to be the first extracheck_var slot, which is why the
+		// extracheck_var window below moved to 19-21.
+		t.CheckInv = int(dat.G2())
+		t.CheckObjCat = int(dat.G2())
+		t.CheckInvCondition = dat.GJStrLF()
+		t.CheckInvVal = int(int32(dat.G4()))
+	case 19, 20, 21:
 		t.CheckVars = append(t.CheckVars, HuntCheckVar{
 			VarID:     int(dat.G2()),
 			Condition: dat.GJStrLF(),

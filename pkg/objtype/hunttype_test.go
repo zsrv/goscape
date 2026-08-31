@@ -261,9 +261,9 @@ func TestHuntTypeDecodeAllOpcodes(t *testing.T) {
 			},
 		},
 		{
-			name: "code 18 single CheckVar",
+			name: "code 19 single CheckVar",
 			build: func(p *packet2.Packet) {
-				p.P1(18)
+				p.P1(19)
 				p.P2(33) // VarID
 				p.PJStrLF("=")
 				v := int32(-1)
@@ -322,8 +322,10 @@ func TestHuntTypeDecodeUnknownOpcode(t *testing.T) {
 
 func TestHuntTypeDecodeCheckVarsAppend(t *testing.T) {
 	pkt := packet2.NewPacket(nil)
-	// Three consecutive CheckVars via codes 18, 19, 20.
-	for i, code := range []uint8{18, 19, 20} {
+	// Three consecutive CheckVars via codes 19, 20, 21 (renumbered from
+	// 18-20 by Engine-TS 8139461a, which claims 18 for check_invcat —
+	// TS HuntType.ts:148 @1d25566c `code > 18 && code < 22`).
+	for i, code := range []uint8{19, 20, 21} {
 		pkt.P1(code)
 		pkt.P2(uint16(100 + i))
 		pkt.PJStrLF("=")
@@ -460,5 +462,67 @@ func TestHuntTypeCheckHuntCondition(t *testing.T) {
 					tc.value, tc.condition, tc.check, got, tc.want)
 			}
 		})
+	}
+}
+
+
+// TestHuntTypeDecodeCheckObjCat pins the new server opcode 18 introduced by
+// Engine-TS 8139461a (TS HuntType.ts:142-147 @1d25566c): check_invcat carries
+// inv, category, condition, val — the category variant of opcode 17's param
+// check.
+func TestHuntTypeDecodeCheckObjCat(t *testing.T) {
+	ht := NewHuntType(1)
+	if ht.CheckObjCat != -1 {
+		t.Fatalf("CheckObjCat default: got %d, want -1", ht.CheckObjCat)
+	}
+
+	pkt := packet2.NewPacket(nil)
+	pkt.P1(18)
+	pkt.P2(7)  // inv
+	pkt.P2(31) // category
+	pkt.PJStrLF(">")
+	pkt.P4(5) // val
+	pkt.P1(0) // terminator
+
+	if err := DecodeType(packet2.NewPacket(pkt.Bytes()), ht); err != nil {
+		t.Fatalf("DecodeType: %v", err)
+	}
+
+	if ht.CheckInv != 7 {
+		t.Errorf("CheckInv: got %d, want 7", ht.CheckInv)
+	}
+	if ht.CheckObjCat != 31 {
+		t.Errorf("CheckObjCat: got %d, want 31", ht.CheckObjCat)
+	}
+	if ht.CheckInvCondition != ">" {
+		t.Errorf("CheckInvCondition: got %q, want %q", ht.CheckInvCondition, ">")
+	}
+	if ht.CheckInvVal != 5 {
+		t.Errorf("CheckInvVal: got %d, want 5", ht.CheckInvVal)
+	}
+	// Opcode 18 no longer appends an extracheck_var entry.
+	if len(ht.CheckVars) != 0 {
+		t.Errorf("CheckVars: got %d entries, want 0 (18 is now check_invcat)", len(ht.CheckVars))
+	}
+	// CheckObjParam must stay untouched — 17 and 18 are distinct checks.
+	if ht.CheckObjParam != -1 {
+		t.Errorf("CheckObjParam: got %d, want -1", ht.CheckObjParam)
+	}
+}
+
+// TestHuntTypeDecodeOpcode22Rejected pins the upper bound of the renumbered
+// extracheck_var window: TS accepts 19, 20, 21 and nothing beyond
+// (HuntType.ts:148 @1d25566c).
+func TestHuntTypeDecodeOpcode22Rejected(t *testing.T) {
+	ht := NewHuntType(1)
+	pkt := packet2.NewPacket(nil)
+	pkt.P1(22)
+	pkt.P2(1)
+	pkt.PJStrLF("=")
+	pkt.P4(0)
+	pkt.P1(0)
+
+	if err := DecodeType(packet2.NewPacket(pkt.Bytes()), ht); err == nil {
+		t.Error("DecodeType(opcode 22): got nil error, want unrecognized-opcode error")
 	}
 }
