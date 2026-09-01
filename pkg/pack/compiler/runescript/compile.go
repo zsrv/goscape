@@ -131,6 +131,9 @@ func Compile(cfg Config) error {
 	}
 	c.Setup()
 	c.BinaryWriter = NewBinaryScriptWriter(mapper, c.Writer)
+	// Record script paths relative to the roots they were found under; see
+	// BinaryScriptWriter.SourceRoots.
+	c.BinaryWriter.SourceRoots = c.SourcePaths
 
 	return c.Run("rs2")
 }
