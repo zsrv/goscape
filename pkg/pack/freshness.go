@@ -43,6 +43,12 @@ func GetLatestModified(path, ext string) int64 {
 //
 // TS source: tools/pack/PackFile.ts:shouldBuild.
 func ShouldBuild(srcPath, ext, out string) bool {
+	// PSG: a packer-format change makes every output stale regardless of
+	// mtimes. See FormatVersion in format_stamp.go.
+	if ForceRebuild() {
+		return true
+	}
+
 	if !FileExists(out) {
 		return true
 	}
@@ -57,6 +63,12 @@ func ShouldBuild(srcPath, ext, out string) bool {
 //
 // TS source: tools/pack/PackFile.ts:shouldBuildFile.
 func ShouldBuildFile(src, dest string) bool {
+	// PSG: a packer-format change makes every output stale regardless of
+	// mtimes. See FormatVersion in format_stamp.go.
+	if ForceRebuild() {
+		return true
+	}
+
 	if !FileExists(dest) {
 		return true
 	}
@@ -76,6 +88,12 @@ func ShouldBuildFile(src, dest string) bool {
 //
 // TS source: tools/pack/PackFile.ts:shouldBuildFileAny.
 func ShouldBuildFileAny(path, dest string) bool {
+	// PSG: a packer-format change makes every output stale regardless of
+	// mtimes. See FormatVersion in format_stamp.go.
+	if ForceRebuild() {
+		return true
+	}
+
 	if !FileExists(dest) {
 		return true
 	}

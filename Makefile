@@ -69,7 +69,7 @@ endif
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-45s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-.PHONY: all images check-generated-files goscape goscape-debug goscape-cli pack lint test clean protos proto
+.PHONY: all images check-generated-files goscape goscape-debug goscape-cli pack pack-incremental lint test clean protos proto
 .PHONY: format check-format
 .PHONY: goscape-image goscape-cli-image build-image build-image-push
 .PHONY: benchmark-store check-mod
@@ -143,8 +143,21 @@ cmd/goscape-cli/goscape-cli:
 cmd/goscape-cli/goscape-cli-debug:
 	CGO_ENABLED=0 go build $(DEBUG_GO_FLAGS) -o ./cmd/goscape-cli/goscape-cli-debug ./cmd/goscape-cli
 
+# `pack` wipes $(CACHE_OUT_DIR) first so a full rebuild is the default. The
+# packer's own format stamp (pkg/pack.FormatVersion) already forces a rebuild
+# when the byte layout changes, but that only helps someone running THIS
+# binary; a clean default also covers the cases the stamp cannot see, such as
+# a half-finished pack from an interrupted run. Use `pack-incremental` for the
+# fast inner loop when you know only content changed.
 .PHONY: pack
-pack: goscape-cli ## pack the game cache from $(CACHE_SRC_DIR) into $(CACHE_OUT_DIR)
+pack: goscape-cli ## pack the game cache from $(CACHE_SRC_DIR) into $(CACHE_OUT_DIR) (full rebuild)
+	rm -rf $(CACHE_OUT_DIR)
+	CGO_ENABLED=0 ./cmd/goscape-cli/goscape-cli pack \
+		--src-dir $(CACHE_SRC_DIR) \
+		--out-dir $(CACHE_OUT_DIR)
+
+.PHONY: pack-incremental
+pack-incremental: goscape-cli ## pack incrementally, reusing up-to-date artifacts in $(CACHE_OUT_DIR)
 	CGO_ENABLED=0 ./cmd/goscape-cli/goscape-cli pack \
 		--src-dir $(CACHE_SRC_DIR) \
 		--out-dir $(CACHE_OUT_DIR)
