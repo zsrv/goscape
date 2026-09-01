@@ -52,3 +52,35 @@ func CrawlConfigNames(srcDir, ext string, includeBrackets bool) ([]string, error
 	}
 	return names, nil
 }
+
+// CrawlConfigCategories collects category names from the `category=` lines of
+// .loc, .npc and .obj sources, in that extension order, first-seen wins.
+//
+// Categories are the one config family with no source files of their own —
+// Content ships no .category files — so pack/category.pack cannot be derived
+// from a header crawl the way every other index is. Content gitignores it, so
+// a fresh clone has none and every `category=` reference fails to resolve
+// until it is rebuilt from these references.
+//
+// TS source: tools/pack/PackFile.ts:crawlConfigCategories.
+func CrawlConfigCategories(srcDir string) ([]string, error) {
+	scripts := filepath.Join(srcDir, "scripts")
+	var names []string
+	for _, ext := range []string{".loc", ".npc", ".obj"} {
+		err := LoadDirExtFull(scripts, ext, func(lines []string, file string) {
+			for _, line := range lines {
+				after, ok := strings.CutPrefix(line, "category=")
+				if !ok {
+					continue
+				}
+				if !slices.Contains(names, after) {
+					names = append(names, after)
+				}
+			}
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return names, nil
+}

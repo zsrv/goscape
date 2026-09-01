@@ -15,7 +15,8 @@ type Registry struct {
 
 	Interface, Obj, Seq, Loc, Npc, Model, Anim, Base,
 	Synth, Texture, Varp, Varn, Vars, Inv, SpotAnim, Idk,
-	Flo, Category, Hunt, Param, DbTable, DbRow, MesAnim, Struct *PackFile
+	Flo, Category, Hunt, Param, DbTable, DbRow, MesAnim, Struct,
+	Enum, Script *PackFile
 }
 
 func (r *Registry) ensure(field **PackFile, packType string) (*PackFile, error) {
@@ -30,6 +31,8 @@ func (r *Registry) ensure(field **PackFile, packType string) (*PackFile, error) 
 	return pf, nil
 }
 
+func (r *Registry) EnsureEnum() (*PackFile, error)      { return r.ensure(&r.Enum, "enum") }
+func (r *Registry) EnsureScript() (*PackFile, error)    { return r.ensure(&r.Script, "script") }
 func (r *Registry) EnsureInterface() (*PackFile, error) { return r.ensure(&r.Interface, "interface") }
 func (r *Registry) EnsureObj() (*PackFile, error)       { return r.ensure(&r.Obj, "obj") }
 func (r *Registry) EnsureSeq() (*PackFile, error)       { return r.ensure(&r.Seq, "seq") }

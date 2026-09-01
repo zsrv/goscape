@@ -114,12 +114,19 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 		if lk != nil {
 			return nil
 		}
-		newLk, err := loadParamLookups(srcDir, reg.Varp)
+		newLk, err := loadParamLookups(reg)
 		if err != nil {
 			return err
 		}
 		lk = newLk
 		return nil
+	}
+
+	// Build every non-transmitted config index before anything packs — a
+	// fresh Content clone ships none of them, and the families reference each
+	// other across a fixed order. See generateConfigPackIndexes.
+	if err := generateConfigPackIndexes(srcDir, reg); err != nil {
+		return err
 	}
 
 	// .param — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
@@ -142,6 +149,45 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	paramTypes, err := objtype.LoadParamTypes(outDir)
 	if err != nil {
 		return fmt.Errorf("load param types: %w", err)
+	}
+
+	// category index — rebuilt from the `category=` references in .loc/.npc/
+	// .obj, because categories have no source files of their own and Content
+	// gitignores pack/category.pack. Ids are assigned from 0 in crawl order:
+	// TS rebuilds the whole index rather than appending, so a removed category
+	// renumbers the rest. Must run before .loc/.npc/.obj pack, which resolve
+	// `category=` through this index.
+	//
+	// TS source: tools/pack/PackFile.ts:validateCategoryPack. TS's third gate
+	// arm (didFileSetChange on a revalidate stamp) is dev-mode hot-reload,
+	// which goscape does not model — same reasoning as the revalidatePack row
+	// in docs/PORTING.md.
+	{
+		categoryPackPath := filepath.Join(srcDir, "pack", "category.pack")
+		scriptsDir := filepath.Join(srcDir, "scripts")
+		if ShouldBuild(scriptsDir, ".loc", categoryPackPath) ||
+			ShouldBuild(scriptsDir, ".npc", categoryPackPath) ||
+			ShouldBuild(scriptsDir, ".obj", categoryPackPath) {
+			categories, err := CrawlConfigCategories(srcDir)
+			if err != nil {
+				return err
+			}
+			categoryPF, err := reg.EnsureCategory()
+			if err != nil {
+				return err
+			}
+			// No Clear(): TS registers over the loaded index from id 0 and
+			// leaves anything beyond the crawl length in place, so an empty
+			// crawl must not wipe a hand-authored index.
+			for i, name := range categories {
+				categoryPF.Register(i, name)
+			}
+			categoryPF.RefreshNames()
+			if err := categoryPF.Save(); err != nil {
+				return err
+			}
+			ClearFsCache()
+		}
 	}
 
 	// category — server-only special. TS PackShared.ts:341-352.
@@ -184,7 +230,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	// .enum — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".enum") > 0 &&
 		ShouldBuild(scriptsDir, ".enum", filepath.Join(serverOut, "enum.dat")) {
-		enumPack, err := NewPackFile(srcDir, "enum", nil)
+		enumPack, err := reg.EnsureEnum()
 		if err != nil {
 			return err
 		}
@@ -511,28 +557,38 @@ func packAndSaveVars(srcDir, serverOut string, pf *PackFile, c Constants) error 
 // var-domain trio). Called only when .param source is present so the
 // cost is amortized for the no-source case.
 //
-// NAI-194-D-PACKFILE-SINGLETONS-DEFERRED: TS uses module-level
-// EnumPack/ObjPack/etc.; goscape constructs from srcDir per call.
-func loadParamLookups(srcDir string, varpPF *PackFile) (*paramLookups, error) {
+// NAI-194-D-PACKFILE-SINGLETONS: CLOSED. TS uses module-level
+// EnumPack/ObjPack/etc., so a name registered anywhere is visible to every
+// consumer. goscape used to construct these from srcDir per call, which
+// snapshots each .pack file at construction time — harmless while the indexes
+// always existed before packing, but wrong once the packer generates them
+// mid-run: a lookup built earlier stays empty and cross-family references fail.
+// The lookups now share the Registry's instances, which varpPF already did.
+func loadParamLookups(reg *Registry) (*paramLookups, error) {
+	varpPF, err := reg.EnsureVarp()
+	if err != nil {
+		return nil, fmt.Errorf("load varp pack: %w", err)
+	}
 	lk := &paramLookups{varpPF: varpPF}
 	for _, t := range []struct {
-		name string
-		dst  **PackFile
+		name   string
+		ensure func() (*PackFile, error)
+		dst    **PackFile
 	}{
-		{"enum", &lk.enumPF},
-		{"obj", &lk.objPF},
-		{"loc", &lk.locPF},
-		{"interface", &lk.interfacePF},
-		{"struct", &lk.structPF},
-		{"category", &lk.categoryPF},
-		{"spotanim", &lk.spotanimPF},
-		{"npc", &lk.npcPF},
-		{"inv", &lk.invPF},
-		{"synth", &lk.synthPF},
-		{"seq", &lk.seqPF},
-		{"dbrow", &lk.dbrowPF},
+		{"enum", reg.EnsureEnum, &lk.enumPF},
+		{"obj", reg.EnsureObj, &lk.objPF},
+		{"loc", reg.EnsureLoc, &lk.locPF},
+		{"interface", reg.EnsureInterface, &lk.interfacePF},
+		{"struct", reg.EnsureStruct, &lk.structPF},
+		{"category", reg.EnsureCategory, &lk.categoryPF},
+		{"spotanim", reg.EnsureSpotAnim, &lk.spotanimPF},
+		{"npc", reg.EnsureNpc, &lk.npcPF},
+		{"inv", reg.EnsureInv, &lk.invPF},
+		{"synth", reg.EnsureSynth, &lk.synthPF},
+		{"seq", reg.EnsureSeq, &lk.seqPF},
+		{"dbrow", reg.EnsureDbRow, &lk.dbrowPF},
 	} {
-		pf, err := NewPackFile(srcDir, t.name, nil)
+		pf, err := t.ensure()
 		if err != nil {
 			return nil, fmt.Errorf("load %s pack: %w", t.name, err)
 		}
@@ -784,4 +840,85 @@ func packAndSaveIdk(srcDir, serverOut string, idkPack, modelPack *PackFile, c Co
 	}
 	server, client := packIdkConfigs(cfgs, idkPack)
 	return saveTransmittedConfig(serverOut, "idk", server, client, clientJag)
+}
+
+// generateConfigPackIndexes rebuilds the ten NON-TRANSMITTED config indexes
+// before any family is packed.
+//
+// Content gitignores these ("generated for the server only"), so a fresh clone
+// has none of them. They cannot be filled in lazily as each family packs,
+// because families reference each other across the fixed pack order: npc
+// resolves `huntmode=` through the hunt index but packs before hunt, and struct
+// resolves `param=` through the param index. TS registers each pack on first
+// access, which makes its order irrelevant; goscape's order is fixed, so the
+// indexes are built up front instead.
+//
+// Transmitted families are excluded: their ids are baked into the client cache
+// and Content tracks those .pack files, so they are never auto-assigned.
+//
+// PIG-D3 (this pin only): rev-254 and later thread a transmitted flag through
+// readAndValidate, which lets a per-family seam self-heal and lets transmitted
+// packs raise TS's missing-id error. rev-225 has neither — it has no
+// readAndValidate helper at all, and config-name validation is not wired into
+// the live path (NAI-191-D-VALIDATE-FLAGS-DEFERRED) — so generation lives
+// entirely in this function.
+//
+// TS source: tools/pack/PackFile.ts:validateConfigPack (register + save).
+func generateConfigPackIndexes(srcDir string, reg *Registry) error {
+	for _, f := range []struct {
+		ext      string
+		ensure   func() (*PackFile, error)
+		brackets bool
+	}{
+		{".param", reg.EnsureParam, false},
+		{".enum", reg.EnsureEnum, false},
+		{".struct", reg.EnsureStruct, false},
+		{".inv", reg.EnsureInv, false},
+		{".mesanim", reg.EnsureMesAnim, false},
+		{".dbtable", reg.EnsureDbTable, false},
+		{".dbrow", reg.EnsureDbRow, false},
+		{".hunt", reg.EnsureHunt, false},
+		{".varn", reg.EnsureVarn, false},
+		{".vars", reg.EnsureVars, false},
+		// Scripts keep their brackets: the compiler loads this index as its
+		// "runescript" symbol table, and without it nothing compiles.
+		// TS source: tools/pack/PackFile.ts:regenScriptPack.
+		{".rs2", reg.EnsureScript, true},
+	} {
+		pf, err := f.ensure()
+		if err != nil {
+			return err
+		}
+		if err := registerMissingNames(srcDir, pf, f.ext, f.brackets); err != nil {
+			return err
+		}
+	}
+	ClearFsCache()
+	return nil
+}
+
+// registerMissingNames adds any config name absent from pf's index, assigning
+// ids in crawl order, and persists the index when anything was added.
+//
+// Ordering matters: ids are written into the packed .dat files, so ranging a
+// map here would make two packs of identical content differ.
+func registerMissingNames(srcDir string, pf *PackFile, ext string, includeBrackets bool) error {
+	names, err := CrawlConfigNames(srcDir, ext, includeBrackets)
+	if err != nil {
+		return err
+	}
+	added := false
+	for _, name := range names {
+		if _, ok := pf.Names[name]; ok {
+			continue
+		}
+		pf.Register(pf.Max, name)
+		pf.Max++
+		added = true
+	}
+	if !added {
+		return nil
+	}
+	pf.RefreshNames()
+	return pf.Save()
 }
