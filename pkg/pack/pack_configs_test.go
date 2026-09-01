@@ -846,3 +846,250 @@ func TestClientConfigCRCConstants_Rev254(t *testing.T) {
 		}
 	}
 }
+
+// TestSyncConfigPackNames_RegistersMissingNonTransmitted pins the half of
+// TS validateConfigPack that goscape had not ported: for a NON-transmitted
+// pack, names found in the config sources but absent from the .pack index
+// are registered with fresh ids and the index is written back to disk.
+//
+// Content gitignores these ten indexes ("generated for the server only"),
+// so a fresh clone has none of them and every struct `param=` lookup fails
+// until they are generated.
+//
+// TS source: tools/pack/PackFile.ts:validateConfigPack (register loop at
+// :144-148, pack.save() at :183).
+func TestSyncConfigPackNames_RegistersMissingNonTransmitted(t *testing.T) {
+	srcDir := t.TempDir()
+	writeScript(t, filepath.Join(srcDir, "scripts"), "a.param",
+		"[alpha]\ntype=int\n\n[beta]\ntype=int\n")
+	ClearFsCache()
+
+	pf := &PackFile{
+		Type:     "param",
+		SrcDir:   srcDir,
+		Pack:     map[int]string{},
+		Names:    map[string]struct{}{},
+		NameToID: map[string]int{},
+	}
+	cfgs := map[string][]ConfigLine{"alpha": nil, "beta": nil}
+
+	if err := syncConfigPackNames(srcDir, pf, cfgs, ".param", false); err != nil {
+		t.Fatalf("syncConfigPackNames: %v", err)
+	}
+
+	// Ids follow crawl order, not map order — see the determinism test.
+	if got := pf.NameToID["alpha"]; got != 0 {
+		t.Errorf("alpha id = %d, want 0", got)
+	}
+	if got := pf.NameToID["beta"]; got != 1 {
+		t.Errorf("beta id = %d, want 1", got)
+	}
+
+	data, err := os.ReadFile(filepath.Join(srcDir, "pack", "param.pack"))
+	if err != nil {
+		t.Fatalf("index was not written: %v", err)
+	}
+	if want := "0=alpha\n1=beta\n"; string(data) != want {
+		t.Errorf("param.pack = %q, want %q", string(data), want)
+	}
+}
+
+// TestSyncConfigPackNames_DeterministicAcrossRuns pins that ids come from
+// the ORDERED crawl, not from ranging the cfgs map. Go randomises map
+// iteration, so registering from cfgs keys would assign different ids on
+// different runs — and since these ids are written into param.dat, two
+// packs of identical content would produce different bytes, breaking both
+// the release digest and the byte-parity gates.
+func TestSyncConfigPackNames_DeterministicAcrossRuns(t *testing.T) {
+	// Enough names that a map-order bug is overwhelmingly likely to show.
+	body := ""
+	for _, n := range []string{"p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"} {
+		body += "[" + n + "]\ntype=int\n\n"
+	}
+	cfgs := map[string][]ConfigLine{}
+	for _, n := range []string{"p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"} {
+		cfgs[n] = nil
+	}
+
+	var first string
+	for run := range 5 {
+		srcDir := t.TempDir()
+		writeScript(t, filepath.Join(srcDir, "scripts"), "a.param", body)
+		ClearFsCache()
+		pf := &PackFile{
+			Type: "param", SrcDir: srcDir,
+			Pack: map[int]string{}, Names: map[string]struct{}{}, NameToID: map[string]int{},
+		}
+		if err := syncConfigPackNames(srcDir, pf, cfgs, ".param", false); err != nil {
+			t.Fatalf("run %d: %v", run, err)
+		}
+		data, err := os.ReadFile(filepath.Join(srcDir, "pack", "param.pack"))
+		if err != nil {
+			t.Fatalf("run %d: %v", run, err)
+		}
+		if run == 0 {
+			first = string(data)
+			if want := "0=p1\n1=p2\n2=p3\n3=p4\n4=p5\n5=p6\n6=p7\n7=p8\n"; first != want {
+				t.Fatalf("param.pack = %q, want crawl order %q", first, want)
+			}
+			continue
+		}
+		if string(data) != first {
+			t.Fatalf("run %d differs from run 0:\n got %q\nwant %q", run, string(data), first)
+		}
+	}
+}
+
+// TestSyncConfigPackNames_MissingTransmittedIsAnError pins the other half of
+// TS validateConfigPack's verify path: a config name with no id in a
+// TRANSMITTED pack is an error, not a silent skip. Transmitted ids are baked
+// into the client cache, so goscape never auto-assigns them — it must say so
+// plainly instead of failing later and obscurely.
+//
+// TS source: tools/pack/PackFile.ts:154-172 (missing loop + throw).
+func TestSyncConfigPackNames_MissingTransmittedIsAnError(t *testing.T) {
+	srcDir := t.TempDir()
+	writeScript(t, filepath.Join(srcDir, "scripts"), "a.obj",
+		"[coins]\nmodel=c\n\n[bronze_dagger]\nmodel=bd\n")
+	ClearFsCache()
+
+	// The index knows coins but not bronze_dagger.
+	pf := &PackFile{
+		Type: "obj", SrcDir: srcDir,
+		Pack:     map[int]string{0: "coins"},
+		Names:    map[string]struct{}{"coins": {}},
+		NameToID: map[string]int{"coins": 0},
+	}
+	cfgs := map[string][]ConfigLine{"coins": nil, "bronze_dagger": nil}
+
+	err := syncConfigPackNames(srcDir, pf, cfgs, ".obj", true)
+	if err == nil {
+		t.Fatal("want an error for a transmitted config name with no pack id, got nil")
+	}
+	for _, want := range []string{"obj", "bronze_dagger", "may need to edit"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error should mention %q; got: %v", want, err)
+		}
+	}
+	// Auto-assignment must NOT have happened for a transmitted pack.
+	if _, ok := pf.NameToID["bronze_dagger"]; ok {
+		t.Error("transmitted packs must never be auto-assigned an id")
+	}
+}
+
+// TestSyncConfigPackNames_MissingTransmittedExemptsCert mirrors the cert_
+// carve-out the orphan check already honours (TS PackFile.ts:157).
+func TestSyncConfigPackNames_MissingTransmittedExemptsCert(t *testing.T) {
+	srcDir := t.TempDir()
+	writeScript(t, filepath.Join(srcDir, "scripts"), "a.obj",
+		"[coins]\nmodel=c\n\n[cert_coins]\nmodel=cc\n")
+	ClearFsCache()
+
+	pf := &PackFile{
+		Type: "obj", SrcDir: srcDir,
+		Pack:     map[int]string{0: "coins"},
+		Names:    map[string]struct{}{"coins": {}},
+		NameToID: map[string]int{"coins": 0},
+	}
+	cfgs := map[string][]ConfigLine{"coins": nil, "cert_coins": nil}
+
+	if err := syncConfigPackNames(srcDir, pf, cfgs, ".obj", true); err != nil {
+		t.Fatalf("cert_ names must be exempt from the missing-id check, got: %v", err)
+	}
+}
+
+// TestParamLookupsSeeRegistryRegistrations closes NAI-194-D-PACKFILE-SINGLETONS.
+//
+// TS keeps EnumPack/ObjPack/etc. as module-level singletons, so a name
+// registered anywhere is instantly visible to every consumer. goscape used to
+// build paramLookups from its own NewPackFile instances, which snapshot the
+// .pack files from disk at construction time. That was invisible while the
+// indexes always existed before packing began — but once the packer generates
+// them mid-run, a lookup built earlier stays empty and cross-family references
+// fail with "double-check the reference exists".
+//
+// The property that matters is not identity but visibility: a registration
+// made after the lookups are built must be observable through them.
+func TestParamLookupsSeeRegistryRegistrations(t *testing.T) {
+	srcDir := t.TempDir()
+	reg := &Registry{SrcDir: srcDir}
+
+	lk, err := loadParamLookups(reg)
+	if err != nil {
+		t.Fatalf("loadParamLookups: %v", err)
+	}
+
+	enumPF, err := reg.EnsureEnum()
+	if err != nil {
+		t.Fatalf("EnsureEnum: %v", err)
+	}
+	enumPF.Register(7, "levelup_unlocks_attack")
+	enumPF.RefreshNames()
+
+	if got := lk.enumPF.GetByName("levelup_unlocks_attack"); got != 7 {
+		t.Errorf("lookup sees id %d, want 7 — paramLookups is not sharing the registry's enum pack", got)
+	}
+}
+
+// TestGenerateConfigPackIndexes_RunsAheadOfPacking pins the pre-pass.
+//
+// goscape registers a family's names while packing that family, but families
+// reference each other: npc resolves `huntmode=` through the hunt index, and
+// npc packs first. TS gets away with registering lazily because each pack is
+// validated on first access; goscape's order is fixed, so the indexes must all
+// exist before any family packs.
+func TestGenerateConfigPackIndexes_RunsAheadOfPacking(t *testing.T) {
+	srcDir := t.TempDir()
+	scripts := filepath.Join(srcDir, "scripts")
+	writeScript(t, scripts, "a.hunt", "[duck_hunt]\ntype=player\n")
+	writeScript(t, scripts, "a.param", "[pyre_level]\ntype=int\n")
+	ClearFsCache()
+
+	reg := &Registry{SrcDir: srcDir}
+	if err := generateConfigPackIndexes(srcDir, reg); err != nil {
+		t.Fatalf("generateConfigPackIndexes: %v", err)
+	}
+
+	for _, tc := range []struct{ file, name string }{
+		{"hunt.pack", "duck_hunt"},
+		{"param.pack", "pyre_level"},
+	} {
+		data, err := os.ReadFile(filepath.Join(srcDir, "pack", tc.file))
+		if err != nil {
+			t.Errorf("%s not written: %v", tc.file, err)
+			continue
+		}
+		if !strings.Contains(string(data), "="+tc.name) {
+			t.Errorf("%s = %q, want it to contain %q", tc.file, string(data), tc.name)
+		}
+	}
+}
+
+// TestGenerateConfigPackIndexes_ScriptPack pins the script index, which the
+// RuneScript compiler loads as its "runescript" symbol table
+// (compiler/symbols.go: loadOrFail("script")). Without it every script symbol
+// is unknown and the compiler emits an empty script.dat — a silent 6 MB hole
+// in the pack rather than an error.
+//
+// Script names keep their brackets, unlike every other config index.
+//
+// TS source: tools/pack/PackFile.ts:regenScriptPack (crawlConfigNames('.rs2', true)).
+func TestGenerateConfigPackIndexes_ScriptPack(t *testing.T) {
+	srcDir := t.TempDir()
+	writeScript(t, filepath.Join(srcDir, "scripts"), "a.rs2",
+		"[proc,alpha]\nreturn;\n\n[label,beta]\nreturn;\n")
+	ClearFsCache()
+
+	reg := &Registry{SrcDir: srcDir}
+	if err := generateConfigPackIndexes(srcDir, reg); err != nil {
+		t.Fatalf("generateConfigPackIndexes: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(srcDir, "pack", "script.pack"))
+	if err != nil {
+		t.Fatalf("script.pack not written: %v", err)
+	}
+	if want := "0=[proc,alpha]\n1=[label,beta]\n"; string(data) != want {
+		t.Errorf("script.pack = %q, want %q", string(data), want)
+	}
+}
