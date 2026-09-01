@@ -81,3 +81,28 @@ func TestCrawlConfigNamesIncludeBrackets(t *testing.T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
+
+// TestCrawlConfigCategoriesOrderAndDedup pins the category-name harvest.
+// Categories have no source files of their own — Content ships zero
+// .category files — so their names are collected from `category=` lines in
+// .loc, .npc and .obj, in that file-extension order, first-seen wins.
+//
+// TS source: tools/pack/PackFile.ts:crawlConfigCategories.
+func TestCrawlConfigCategoriesOrderAndDedup(t *testing.T) {
+	srcDir := t.TempDir()
+	scripts := filepath.Join(srcDir, "scripts")
+	writeScript(t, scripts, "a.loc", "[gate]\ncategory=hemenster_gate\n")
+	writeScript(t, scripts, "a.npc", "[guard]\ncategory=guards\n")
+	// duplicate across families, plus a new one from .obj
+	writeScript(t, scripts, "a.obj", "[key]\ncategory=hemenster_gate\n[log]\ncategory=logs\n")
+	ClearFsCache()
+
+	got, err := CrawlConfigCategories(srcDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"hemenster_gate", "guards", "logs"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
