@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -70,6 +71,23 @@ import (
 // B3-deferred app.ts packAll row.
 func PackAll(srcDir, outDir, dataPackDir, rawDir string) error {
 	pack.ClearFsCache()
+
+	// PSG: incremental freshness is keyed on SOURCE mtimes, so it cannot see
+	// that this packer emits a different byte layout than the one that built
+	// outDir. Compare the recorded format against ours and, on a mismatch,
+	// latch a full rebuild for the run. The stamp is written only on success,
+	// at the bottom of this function.
+	//
+	// This lives here rather than in the CLI because PackAll is not the CLI's
+	// alone: modules/world/rebuild_worker.go calls it in-process for the
+	// ::rebuild cheat, so a server upgraded to a new binary hits the same
+	// hazard. See docs/superpowers/specs/2026-08-31-pack-staleness-guard-design.md.
+	formatChanged, restoreForce := pack.BeginPack(outDir)
+	defer restoreForce()
+	if formatChanged {
+		slog.Default().Info("packer format changed since this cache was built; forcing a full rebuild",
+			"out_dir", outDir, "format_version", pack.FormatVersion)
+	}
 
 	// TS PackAll.ts:38-40: modelFlags zeroed to ModelPack.max before cache open.
 	reg := &pack.Registry{SrcDir: srcDir}
@@ -167,6 +185,13 @@ func PackAll(srcDir, outDir, dataPackDir, rawDir string) error {
 	// content is identical. See docs/PORTING.md §B6 decision rows.
 	if err := WriteOndemandZip(outDir, cache); err != nil {
 		return fmt.Errorf("PackAll: ondemand.zip: %w", err)
+	}
+
+	// PSG: record the format only now that every stage has succeeded. Writing
+	// it up front would leave a failed run's genuinely-stale outputs sitting
+	// behind an all-clear stamp.
+	if err := pack.WriteFormatStamp(outDir); err != nil {
+		return fmt.Errorf("PackAll: %w", err)
 	}
 
 	return nil
