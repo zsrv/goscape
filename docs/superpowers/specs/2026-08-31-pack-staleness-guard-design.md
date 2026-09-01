@@ -1,8 +1,8 @@
 # Pack Staleness Guard — Design
 
-**Status:** proposed, not implemented
+**Status:** implemented
 **Date:** 2026-08-31
-**Branch:** would originate on `rev-274`
+**Branch:** originated on `rev-274`; back-ported to rev-254, rev-245.2, rev-244, rev-225
 **Deviation ID prefix:** `PSG-D{n}`
 
 ---
