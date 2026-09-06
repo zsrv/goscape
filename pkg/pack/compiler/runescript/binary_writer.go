@@ -3,6 +3,7 @@ package runescript
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -30,6 +31,17 @@ type BinaryScriptWriter struct {
 	IdProvider writer.IdProvider
 	Output     BinaryOutput
 
+	// SourceRoots are the absolute directories the compiler walked for
+	// scripts. Each script's recorded source name is made relative to the
+	// first root containing it, so packing the same sources twice agrees
+	// byte for byte no matter where the tree was checked out — otherwise a
+	// clone into `mktemp -d` gives every build a different pack digest.
+	//
+	// Deviation from Engine-TS, which records the literal path it was given.
+	// A writer with no roots (every sink that builds its own
+	// BinaryScriptWriter) keeps the TS behaviour.
+	SourceRoots []string
+
 	ctx *BinaryScriptWriterContext // set per Write() call
 }
 
@@ -45,11 +57,30 @@ func NewBinaryScriptWriter(idp writer.IdProvider, output BinaryOutput) *BinarySc
 // dispatch through writer.WriteScript, then call Finish + emit via Output.
 func (b *BinaryScriptWriter) Write(script *codegen.RuneScript) {
 	b.ctx = NewBinaryScriptWriterContext(script, b.generateLookupKey(script))
+	b.ctx.SourceName = relativeSourceName(b.SourceRoots, script.SourceName)
 	writer.WriteScript(b, b.ctx.BaseContext, script)
 	data := b.ctx.Finish()
 	if b.Output != nil {
 		b.Output.OutputScript(script, data)
 	}
+}
+
+// relativeSourceName returns sourceName relative to the first root that
+// contains it, in slash form so a pack built on Windows matches one built on
+// Unix. sourceName is returned unchanged when no root contains it — including
+// when roots is empty — rather than as a "../.." path escaping the root.
+func relativeSourceName(roots []string, sourceName string) string {
+	for _, root := range roots {
+		rel, err := filepath.Rel(root, sourceName)
+		if err != nil {
+			continue
+		}
+		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+		return filepath.ToSlash(rel)
+	}
+	return sourceName
 }
 
 // =============================================================================

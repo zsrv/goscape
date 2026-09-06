@@ -2,6 +2,7 @@
 package runescript
 
 import (
+	"cmp"
 	"encoding/binary"
 
 	"github.com/zsrv/goscape/pkg/pack/compiler/codegen"
@@ -25,6 +26,12 @@ const binaryCtxInitialCapacity = 512
 // sinks (JagFileScriptWriter / Js5PackScriptWriter).
 type BinaryScriptWriterContext struct {
 	*writer.BaseContext
+
+	// SourceName is written into the header in place of script.SourceName.
+	// BinaryScriptWriter sets it to the source-root-relative path so the blob
+	// does not record where the content tree happened to be checked out.
+	// Empty falls back to the script's own name.
+	SourceName string
 
 	LookupKey         int32
 	instructionBuffer []byte
@@ -142,7 +149,7 @@ func (c *BinaryScriptWriterContext) Finish() []byte {
 	var buf []byte
 
 	buf = appendNULString(buf, script.FullName)
-	buf = appendNULString(buf, script.SourceName)
+	buf = appendNULString(buf, cmp.Or(c.SourceName, script.SourceName))
 	buf = binary.BigEndian.AppendUint32(buf, uint32(c.LookupKey))
 
 	if script.Trigger != nil && script.Trigger.Identifier == "debugproc" {
