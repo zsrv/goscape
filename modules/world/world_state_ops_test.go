@@ -165,10 +165,21 @@ func TestWorldStateOps_Reload_CallsReloadConfigOnly(t *testing.T) {
 	}
 }
 
-// TestWorldStateOps_ClearLogins_EmptiesNewPlayers pins that
-// ClearLogins() enqueues a closure that clears s.newPlayers.
-func TestWorldStateOps_ClearLogins_EmptiesNewPlayers(t *testing.T) {
+// TestWorldStateOps_ClearLogins_IsTaggedNoop pins that ClearLogins() runs
+// without panic, emits a single Info log line referencing the no-op, and —
+// the regression that matters — leaves s.newPlayers ALONE.
+//
+// It replaces TestWorldStateOps_ClearLogins_EmptiesNewPlayers, which pinned
+// the withdrawn slice-5b mapping. Draining newPlayers kicked whichever
+// authenticated players had logged in during the preceding tick; TS's
+// CLEARLOGINS clears a queue of clients still awaiting the login server's
+// reply, which goscape does not have.
+// NAI-S5B-D-CLEARLOGINS-NO-GOSCAPE-QUEUE.
+func TestWorldStateOps_ClearLogins_IsTaggedNoop(t *testing.T) {
 	s := newTestServer(t)
+	buf := &syncBuffer{}
+	s.log = slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
 	// Seed two pending logins. Bypass addPlayer (which requires a wired
 	// client) — directly populate the slice under playersMu.
 	s.playersMu.Lock()
@@ -179,11 +190,16 @@ func TestWorldStateOps_ClearLogins_EmptiesNewPlayers(t *testing.T) {
 	ops.ClearLogins()
 	s.drainRelayActions()
 
+	if !strings.Contains(buf.String(), "RELAY_CLEARLOGINS") {
+		t.Fatalf("expected ClearLogins Info log; got: %s", buf.String())
+	}
+
 	s.playersMu.RLock()
 	got := len(s.newPlayers)
 	s.playersMu.RUnlock()
-	if got != 0 {
-		t.Fatalf("newPlayers len after ClearLogins + drain: got %d, want 0", got)
+	if got != 2 {
+		t.Fatalf("newPlayers len after ClearLogins + drain: got %d, want 2 "+
+			"(the queue must survive — these players are already authenticated)", got)
 	}
 }
 
