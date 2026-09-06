@@ -22,8 +22,15 @@ data/*
 !data/raw/
 !data/raw/**
 
-# Runtime assets (soundfonts etc.) — not source
-public/
+# public/ is the ondemand static-serve root (--ondemand.public-dir, default
+# ./public), so whatever an operator drops there stays out of git. The
+# soundfont is the exception: it is engine-owned content that Engine-TS
+# (public/client/) and 2004Scape-Server (public/) both commit, the client
+# fetches it from this root as /SCC1_Florestan.sf2, and a build without it
+# plays no music at all. Same trailing-/ caveat as data/ above — public/*
+# so the one file can be negated.
+public/*
+!public/SCC1_Florestan.sf2
 
 .cache/
 .serena/
