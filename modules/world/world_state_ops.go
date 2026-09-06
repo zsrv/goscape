@@ -194,14 +194,55 @@ func (s *Server) RelayReload() {
 }
 
 // ClearLogins drains the pending-logins queue (s.newPlayers). Mirrors
-// TS World.loginRequests.clear() at World.ts:2038.
+// TS World.loginRequests.clear() at World.ts:2077 @9aadcec4.
 //
 // NAI-S5A-D-DISPATCHER-NO-ACTION (CLEARLOGINS bullet) — retired here.
+//
+// Deliberately does NOT close the dropped connections. The TS structure this
+// mirrors (loginRequests: Map<uuid, ClientSocket>) holds sockets still
+// awaiting the LOGIN SERVER's reply, and clearing it abandons them without
+// closing — the late reply is then dropped by the
+// `if (!this.loginRequests.has(socket)) return;` guard. goscape has no
+// pre-reply queue at all (its login RPC is synchronous on the conn
+// goroutine), so s.newPlayers is a LATER stage: sendLoginOK has already sent
+// the 3-byte login-accepted reply and the client believes it is in-game.
+// That mismatch is what makes "should we close?" a live question here and
+// not upstream.
+//
+// Closing is unnecessary — the client's own recovery covers it. Its
+// server-silence counter trips at 750 cycles of GameShell.deltime = 20 ms
+// (verified at every revision's Client-Java pin), so after ~15 s it calls
+// lostCon() and re-logs with opcode 18. modules/login admits that via the
+// `account.LoggedIn == 1 && account.NodeID == req.NodeId && req.Reconnecting`
+// branch, so the player re-enters on the same node reusing the same login
+// row, and the client's close of the old socket releases the conn goroutine.
+//
+// Closing the way the world-full rejection does (writeOut(OpLogout) + close)
+// would be WORSE, not better: the LOGOUT packet drives the client into
+// logout(), which clears username/password back to the title screen, so the
+// next login is a FRESH opcode 16 — rejected with ALREADY_LOGGED_IN, because
+// nothing ever sends PlayerLogout for a player that never entered the world.
+// The account would be stranded until an operator force-logout. A bare close
+// with no LOGOUT packet is safe (IOException -> lostCon -> the same opcode-18
+// reconnect, ~1 s instead of ~15 s) but buys 14 s on an operator escape hatch
+// that has no in-world caller wired, at the cost of a TS deviation. Not taken.
 func (s *Server) ClearLogins() {
 	s.enqueueRelayAction(func() {
 		s.playersMu.Lock()
+		dropped := s.newPlayers
 		s.newPlayers = nil
 		s.playersMu.Unlock()
+		// Dropping the queue is the tick's last touch of these
+		// connections — they never reach processLogins, so no removal path
+		// will ever run for them (removePlayerOnTick no-ops on an
+		// unregistered player). Release the tick's buffer ref here or the
+		// pooled bufio buffers are never returned. The conn goroutine
+		// keeps its own ref and closes the socket on its own path.
+		for _, p := range dropped {
+			if p.client != nil {
+				p.client.dropTickRef()
+			}
+		}
 	})
 }
 

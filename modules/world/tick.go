@@ -395,6 +395,12 @@ func (s *Server) processLogins() {
 			p.writeOut(gameserver.OpLogout, nil)
 			_ = p.client.flushWrite()
 			p.client.closeConn()
+			// The player never entered the world, so no removal path will
+			// ever run for it (removePlayerOnTick no-ops on an unregistered
+			// player): this is the tick's last touch of the connection, so
+			// release the tick's buffer ref here or the pooled bufio
+			// buffers are never returned.
+			p.client.dropTickRef()
 			continue
 		}
 		p.lastConnected = s.currentTick
