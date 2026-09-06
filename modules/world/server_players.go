@@ -88,6 +88,22 @@ func (s *Server) scaleByPlayerCount(rate int) int {
 	return ((4000 - playerCount) * rate) / 4000
 }
 
+// registeredLocked reports whether p currently occupies its own slot in
+// s.players, i.e. whether processLogins has registered it into the world.
+// False for a Player that is still only queued in s.newPlayers (slot stays
+// -1 until login assigns one) and for one already removed. Callers must
+// hold playersMu.
+func (s *Server) registeredLocked(p *Player) bool {
+	return p.slot >= 1 && p.slot < len(s.players) && s.players[p.slot] == p
+}
+
+// registered is registeredLocked under the read lock.
+func (s *Server) registered(p *Player) bool {
+	s.playersMu.RLock()
+	defer s.playersMu.RUnlock()
+	return s.registeredLocked(p)
+}
+
 // removePlayerInternal performs the slot/zone/playerLoop cleanup for p.
 // Must only be called from the tick goroutine.
 //
@@ -106,7 +122,7 @@ func (s *Server) removePlayerInternal(p *Player) {
 	s.playersMu.Lock()
 	defer s.playersMu.Unlock()
 
-	if p.slot < 1 || p.slot >= len(s.players) || s.players[p.slot] != p {
+	if !s.registeredLocked(p) {
 		return
 	}
 	// arch-29.6: past the slot-identity guard this is a genuine removal, so
@@ -202,6 +218,30 @@ func (s *Server) sendPlayerLogoutWithRetry(username string, save []byte) {
 // PlayerLogout RPC contents pinned by TestRemovePlayerOnTick_*
 // (server_logout_test.go).
 func (s *Server) removePlayerOnTick(p *Player) {
+	// TS World.removePlayer (World.ts:1587-1590 @e1dea19f) opens with
+	// `if (player.slot === -1) return;`: a Player that sendLoginOK
+	// published to s.newPlayers but processLogins has not registered yet
+	// has no slot, so removal is a complete no-op — no save, no logout
+	// RPCs, no session log. goscape must ALSO skip the tick's dropRef
+	// here, and for the same reason: the tick is not done with this
+	// connection. drainRemovals runs at the top of the tick body and
+	// processLogins later in the same body, so a socket that dies inside
+	// that window lands here while the Player is still queued; dropping
+	// the tick's buffer ref would return c.bufw/c.bufr/c.in to their
+	// pools (bufio.Writer.Reset(nil)) and processLogins would then
+	// register the player anyway — the next processClientsOut wrote into
+	// and flushed a pooled writer with a nil underlying writer and
+	// panicked inside bufio.(*Writer).Flush.
+	//
+	// The dead-socket player instead enters the world normally and leaves
+	// through the ordinary timeoutNoConnection / timeoutNoResponse logout
+	// (TS behaviour too: a dropped player lingers until the idle logout),
+	// which saves it, releases the login-server session and drops the
+	// tick's ref exactly once. This guard also makes a second removal for
+	// an already-removed player a no-op instead of a duplicate save.
+	if !s.registered(p) {
+		return
+	}
 	if s.loginClient != nil && p.username != "" {
 		save := p.Save(s.invTypes, s.varpTypes)
 		username := p.username
