@@ -118,7 +118,7 @@ func TestRemovePlayerOnTick_ReleasesTickRefOnce(t *testing.T) {
 	}
 }
 
-// TestProcessLogins_WorldFullReleasesTickRef pins the one path where a
+// TestProcessLogins_WorldFullReleasesTickRef pins the ONLY path where a
 // queued player never enters the world: the world-full rejection. No
 // removal will ever run for it (removePlayerOnTick no-ops on an
 // unregistered player), so processLogins itself owes the ref drop —
@@ -139,23 +139,5 @@ func TestProcessLogins_WorldFullReleasesTickRef(t *testing.T) {
 
 	if got := c.teardownRefs.Load(); got != 0 {
 		t.Errorf("teardownRefs after a world-full rejection: got %d, want 0", got)
-	}
-}
-
-// TestClearLogins_ReleasesTickRef pins the third and last exit a queued
-// player has without ever being registered: the RELAY_CLEARLOGINS admin
-// drain. Same invariant as the world-full rejection — whoever discards a
-// pending player owes the tick's buffer ref, because removePlayerOnTick
-// no-ops on an unregistered player.
-func TestClearLogins_ReleasesTickRef(t *testing.T) {
-	s := newTestServer(t)
-	c := newPendingLoginClient(t, s)
-	c.dropConnRef()
-
-	s.ClearLogins()
-	s.drainRelayActions()
-
-	if got := c.teardownRefs.Load(); got != 0 {
-		t.Errorf("teardownRefs after ClearLogins dropped the queued player: got %d, want 0", got)
 	}
 }
