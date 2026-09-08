@@ -736,6 +736,11 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 // runs after the module manager has committed to starting this module.
 // Must be called before Run/serveTCP; both assume s.tcpListener is non-nil.
 func (s *Server) Listen() error {
+	if s.cfg.Listener != nil {
+		s.log.Info("tcp server listening", "addr", s.cfg.Listener.Addr())
+		s.tcpListener = s.cfg.Listener
+		return nil
+	}
 	tcpListener, err := net.Listen(s.cfg.TCPListenNetwork, net.JoinHostPort(s.cfg.TCPListenAddress, strconv.Itoa(s.cfg.TCPListenPort)))
 	if err != nil {
 		return fmt.Errorf("failed to create tcp listener: %w", err)
