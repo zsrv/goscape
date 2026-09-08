@@ -73,6 +73,10 @@ func newGRPCServer(cfg Config, repo *Repository, subs *subscriptions, worldSubs 
 // listen binds the TCP port and returns the listener. Called during
 // Starting phase so the service is not Running until the port is bound.
 func (s *grpcServer) listen(cfg Config) (net.Listener, error) {
+	if cfg.Listener != nil {
+		s.log.Info("friends gRPC server listening", slog.String("addr", cfg.Listener.Addr().String()))
+		return cfg.Listener, nil
+	}
 	addr := fmt.Sprintf("%s:%d", cfg.GRPCListenAddress, cfg.GRPCListenPort)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
