@@ -34,11 +34,14 @@ type grpcLoginClient struct {
 
 // NewLoginClient creates a non-blocking gRPC client to the login server.
 // grpc.NewClient does not block — connection is established lazily with automatic retry.
-func NewLoginClient(addr string, log *slog.Logger) (LoginClient, error) {
-	conn, err := grpc.NewClient(addr,
+// Extra dial options are appended last, so an embedder can supply
+// grpc.WithContextDialer to run the RPC over an in-memory transport.
+func NewLoginClient(addr string, log *slog.Logger, opts ...grpc.DialOption) (LoginClient, error) {
+	dialOpts := append([]grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		worldClientKeepalive(),
-	)
+	}, opts...)
+	conn, err := grpc.NewClient(addr, dialOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("grpc dial login server: %w", err)
 	}
