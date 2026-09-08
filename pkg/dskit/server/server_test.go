@@ -16,6 +16,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/dskit/middleware"
 	"github.com/zsrv/goscape/pkg/dskit/services"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 // discardLogger returns a logger that discards output.
@@ -519,5 +520,38 @@ func TestServerServiceLifecycle(t *testing.T) {
 	svc.StopAsync()
 	if err := svc.AwaitTerminated(context.Background()); err != nil {
 		t.Errorf("AwaitTerminated: %v", err)
+	}
+}
+
+func TestNewServesInjectedListener(t *testing.T) {
+	lis := bufconn.Listen(64 * 1024)
+	cfg := Config{
+		Listener: lis,
+		Log:      slog.New(slog.DiscardHandler),
+	}
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer srv.Close()
+
+	srv.HTTP.HandleFunc("GET /ping", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("pong"))
+	})
+	go func() { _ = srv.HTTPServer.Serve(lis) }()
+
+	client := &http.Client{Transport: &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return lis.DialContext(ctx)
+		},
+	}}
+	resp, err := client.Get("http://bufconn/ping")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != "pong" {
+		t.Fatalf("body = %q, want %q", body, "pong")
 	}
 }
