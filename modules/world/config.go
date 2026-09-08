@@ -3,6 +3,7 @@ package world
 import (
 	"flag"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/zsrv/goscape/pkg/dskit/server"
@@ -11,15 +12,21 @@ import (
 )
 
 type Config struct {
-	SignalHandler     SignalHandler `yaml:"-"`
-	LogLevel          *log.Level    `yaml:"log_level"`
-	LogFormat         string        `yaml:"log_format"`
-	NodeDebugprocChar string        `yaml:"node_debugproc_char"`
-	TCPListenNetwork  string        `yaml:"tcp_listen_network"`
-	TCPListenAddress  string        `yaml:"tcp_listen_address"`
-	NodeProfile       string        `yaml:"node_profile"`
-	CachePath         string        `yaml:"cache_path"`
-	ContentPath       string        `yaml:"content_path"`
+	SignalHandler SignalHandler `yaml:"-"`
+	// Listener, when non-nil, is adopted by Listen() instead of binding
+	// TCPListenAddress:TCPListenPort, and TCPListenPort is ignored. The
+	// accept loop, admission gate and shutdown path are unchanged — they
+	// operate on the net.Listener interface. Set by embedders running the
+	// world on an in-memory transport.
+	Listener          net.Listener `yaml:"-"`
+	LogLevel          *log.Level   `yaml:"log_level"`
+	LogFormat         string       `yaml:"log_format"`
+	NodeDebugprocChar string       `yaml:"node_debugproc_char"`
+	TCPListenNetwork  string       `yaml:"tcp_listen_network"`
+	TCPListenAddress  string       `yaml:"tcp_listen_address"`
+	NodeProfile       string       `yaml:"node_profile"`
+	CachePath         string       `yaml:"cache_path"`
+	ContentPath       string       `yaml:"content_path"`
 	// RSAPrivateKeyPath optionally points to a PEM-encoded RSA private key
 	// (PKCS#1 or PKCS#8) used to decrypt the login block, replacing the
 	// built-in default key in pkg/io/protocol/rsakey.go. Empty (default) uses
@@ -138,7 +145,9 @@ func (c *Config) Validate() error {
 	// config-merge whether target=world or not, and ondemand-only deployments
 	// have no world settings to gate.
 	if c.Enable {
-		if c.TCPListenPort < 1 || c.TCPListenPort > 65535 {
+		// An injected listener makes TCPListenPort meaningless — skip the
+		// range check rather than force embedders to set a fake port.
+		if c.Listener == nil && (c.TCPListenPort < 1 || c.TCPListenPort > 65535) {
 			return fmt.Errorf("world.tcp-listen-port must be in [1, 65535], got %d", c.TCPListenPort)
 		}
 		if c.CachePath == "" {
