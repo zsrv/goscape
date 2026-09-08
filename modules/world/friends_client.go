@@ -83,11 +83,14 @@ type grpcFriendsClient struct {
 
 // NewFriendsClient creates a non-blocking gRPC client to the friends server.
 // grpc.NewClient does not block — connection is established lazily with automatic retry.
-func NewFriendsClient(addr string, log *slog.Logger) (FriendsClient, error) {
-	conn, err := grpc.NewClient(addr,
+// Extra dial options are appended last, so an embedder can supply
+// grpc.WithContextDialer to run the RPC over an in-memory transport.
+func NewFriendsClient(addr string, log *slog.Logger, opts ...grpc.DialOption) (FriendsClient, error) {
+	dialOpts := append([]grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		worldClientKeepalive(),
-	)
+	}, opts...)
+	conn, err := grpc.NewClient(addr, dialOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("grpc dial friends server: %w", err)
 	}
