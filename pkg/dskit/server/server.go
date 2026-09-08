@@ -66,6 +66,13 @@ type Config struct {
 	SignalHandler SignalHandler `yaml:"-"`
 
 	PathPrefix string `yaml:"http_path_prefix"`
+
+	// Listener, when non-nil, is served instead of binding
+	// HTTPListenAddress:HTTPListenPort. The Server takes ownership and
+	// closes it on shutdown exactly as it would a bound listener. Set by
+	// embedders that run the server on an in-memory transport; nil (the
+	// default) preserves the bind-a-socket behaviour.
+	Listener net.Listener `yaml:"-"`
 }
 
 // Server wraps an HTTP server, and some common initialization.
@@ -87,15 +94,20 @@ func New(cfg Config) (*Server, error) {
 func newServer(cfg Config) (*Server, error) {
 	logger := cfg.Log
 
-	network := cfg.HTTPListenNetwork
-	if network == "" {
-		network = DefaultNetwork
-	}
-
-	// Set up listeners first, so we can fail early if the port is in use
-	httpListener, err := net.Listen(network, net.JoinHostPort(cfg.HTTPListenAddress, strconv.Itoa(cfg.HTTPListenPort)))
-	if err != nil {
-		return nil, err
+	// Set up listeners first, so we can fail early if the port is in use.
+	// An injected listener short-circuits the bind entirely (in-process
+	// transports); ownership transfers to the Server either way.
+	httpListener := cfg.Listener
+	if httpListener == nil {
+		network := cfg.HTTPListenNetwork
+		if network == "" {
+			network = DefaultNetwork
+		}
+		var err error
+		httpListener, err = net.Listen(network, net.JoinHostPort(cfg.HTTPListenAddress, strconv.Itoa(cfg.HTTPListenPort)))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	logger.Info("server listening", "http", httpListener.Addr())
