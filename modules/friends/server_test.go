@@ -2,12 +2,14 @@ package friends
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"testing"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/zsrv/goscape/pkg/friendspb"
 )
@@ -128,5 +130,35 @@ func TestGRPCServer_Shutdown_FastWhenIdle(t *testing.T) {
 	srv.shutdown()
 	if elapsed := time.Since(start); elapsed >= srv.grace {
 		t.Fatalf("shutdown took %v with no subscribers; want well under the grace window %v", elapsed, srv.grace)
+	}
+}
+
+func TestListenReturnsInjectedListener(t *testing.T) {
+	lis := bufconn.Listen(64 * 1024)
+	s := &grpcServer{log: slog.New(slog.DiscardHandler)}
+
+	got, err := s.listen(Config{Listener: lis})
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	if got != lis {
+		t.Fatalf("listen returned %v, want the injected listener", got)
+	}
+}
+
+func TestValidateSkipsPortCheckWhenListenerInjected(t *testing.T) {
+	cfg := Config{
+		Enable:           true,
+		Listener:         bufconn.Listen(64 * 1024),
+		WorldPlayerLimit: 2000,
+		Profile:          "main",
+		// GracefulShutdownTimeout must be > 0 per Validate (independent of
+		// the Listener/port-check relaxation this test targets), so it's
+		// set here to isolate the port-check assertion from that rule.
+		GracefulShutdownTimeout: defaultGracefulStopBound,
+		// GRPCListenPort deliberately 0.
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
 	}
 }
