@@ -3,6 +3,7 @@ package login
 import (
 	"flag"
 	"fmt"
+	"net"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -33,6 +34,11 @@ type Config struct {
 	// account password, case-sensitive, no auto-register).
 	AuthMode           string `yaml:"auth_mode"`
 	AccountGRPCAddress string `yaml:"account_grpc_address"`
+
+	// Listener, when non-nil, is served instead of binding
+	// GRPCListenAddress:GRPCListenPort, and GRPCListenPort is ignored.
+	// Set by embedders running login on an in-memory transport.
+	Listener net.Listener `yaml:"-"`
 }
 
 func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
@@ -59,7 +65,9 @@ func (c *Config) Validate() error {
 	if c.BCryptCost < bcrypt.MinCost || c.BCryptCost > bcrypt.MaxCost {
 		return fmt.Errorf("login: BCryptCost must be in [%d, %d], got %d", bcrypt.MinCost, bcrypt.MaxCost, c.BCryptCost)
 	}
-	if c.GRPCListenPort < 1 || c.GRPCListenPort > 65535 {
+	// An injected listener makes GRPCListenPort meaningless — skip the
+	// range check rather than force embedders to set a fake port.
+	if c.Listener == nil && (c.GRPCListenPort < 1 || c.GRPCListenPort > 65535) {
 		return fmt.Errorf("login: GRPCListenPort must be in [1, 65535], got %d", c.GRPCListenPort)
 	}
 	if c.SavePath == "" {
