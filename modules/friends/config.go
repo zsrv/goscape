@@ -3,6 +3,7 @@ package friends
 import (
 	"flag"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/zsrv/goscape/pkg/util/log"
@@ -16,6 +17,11 @@ type Config struct {
 	WorldPlayerLimit        int           `yaml:"world_player_limit"`
 	Enable                  bool          `yaml:"enable"`
 	GracefulShutdownTimeout time.Duration `yaml:"graceful_shutdown_timeout"`
+
+	// Listener, when non-nil, is served instead of binding
+	// GRPCListenAddress:GRPCListenPort, and GRPCListenPort is ignored.
+	// Set by embedders running friends on an in-memory transport.
+	Listener net.Listener `yaml:"-"`
 }
 
 func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
@@ -32,7 +38,9 @@ func (c *Config) Validate() error {
 	if !c.Enable {
 		return nil
 	}
-	if c.GRPCListenPort < 1 || c.GRPCListenPort > 65535 {
+	// An injected listener makes GRPCListenPort meaningless — skip the
+	// range check rather than force embedders to set a fake port.
+	if c.Listener == nil && (c.GRPCListenPort < 1 || c.GRPCListenPort > 65535) {
 		return fmt.Errorf("friends: GRPCListenPort must be in [1, 65535], got %d", c.GRPCListenPort)
 	}
 	if c.WorldPlayerLimit < 1 {
