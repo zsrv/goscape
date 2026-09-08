@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"path/filepath"
 
+	"google.golang.org/grpc"
+
 	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/dskit/modules"
 	"github.com/zsrv/goscape/pkg/dskit/services"
@@ -55,7 +57,11 @@ func New(cfg Config, logger *slog.Logger, tap tapper.Tapper) (*World, error) {
 
 	var loginClient LoginClient
 	if cfg.LoginServerEnabled {
-		lc, err := NewLoginClient(cfg.LoginServerAddress, logger.With("component", compLogin))
+		var opts []grpc.DialOption
+		if cfg.LoginServerDialer != nil {
+			opts = append(opts, grpc.WithContextDialer(cfg.LoginServerDialer))
+		}
+		lc, err := NewLoginClient(cfg.LoginServerAddress, logger.With("component", compLogin), opts...)
 		if err != nil {
 			// Log the error but don't fail startup — the world should run even if login is unreachable.
 			w.log.Warn("failed to create login client", slog.Any("err", err))
@@ -67,7 +73,11 @@ func New(cfg Config, logger *slog.Logger, tap tapper.Tapper) (*World, error) {
 
 	var friendsClient FriendsClient
 	if cfg.FriendsServerEnabled {
-		fc, err := NewFriendsClient(cfg.FriendsServerAddress, logger.With("component", compFriends))
+		var opts []grpc.DialOption
+		if cfg.FriendsServerDialer != nil {
+			opts = append(opts, grpc.WithContextDialer(cfg.FriendsServerDialer))
+		}
+		fc, err := NewFriendsClient(cfg.FriendsServerAddress, logger.With("component", compFriends), opts...)
 		if err != nil {
 			w.log.Warn("failed to create friends client", slog.Any("err", err))
 		} else {

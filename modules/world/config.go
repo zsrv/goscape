@@ -1,6 +1,7 @@
 package world
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net"
@@ -18,15 +19,23 @@ type Config struct {
 	// accept loop, admission gate and shutdown path are unchanged — they
 	// operate on the net.Listener interface. Set by embedders running the
 	// world on an in-memory transport.
-	Listener          net.Listener `yaml:"-"`
-	LogLevel          *log.Level   `yaml:"log_level"`
-	LogFormat         string       `yaml:"log_format"`
-	NodeDebugprocChar string       `yaml:"node_debugproc_char"`
-	TCPListenNetwork  string       `yaml:"tcp_listen_network"`
-	TCPListenAddress  string       `yaml:"tcp_listen_address"`
-	NodeProfile       string       `yaml:"node_profile"`
-	CachePath         string       `yaml:"cache_path"`
-	ContentPath       string       `yaml:"content_path"`
+	Listener net.Listener `yaml:"-"`
+	// LoginServerDialer and FriendsServerDialer, when non-nil, are passed to
+	// grpc.WithContextDialer so the bridge RPCs run over an in-memory
+	// transport. LoginServerAddress / FriendsServerAddress are then only a
+	// gRPC target string — use "passthrough:///login" and
+	// "passthrough:///friends", since gRPC still resolves the target even
+	// when a dialer is supplied.
+	LoginServerDialer   func(context.Context, string) (net.Conn, error) `yaml:"-"`
+	FriendsServerDialer func(context.Context, string) (net.Conn, error) `yaml:"-"`
+	LogLevel            *log.Level                                      `yaml:"log_level"`
+	LogFormat           string                                          `yaml:"log_format"`
+	NodeDebugprocChar   string                                          `yaml:"node_debugproc_char"`
+	TCPListenNetwork    string                                          `yaml:"tcp_listen_network"`
+	TCPListenAddress    string                                          `yaml:"tcp_listen_address"`
+	NodeProfile         string                                          `yaml:"node_profile"`
+	CachePath           string                                          `yaml:"cache_path"`
+	ContentPath         string                                          `yaml:"content_path"`
 	// RSAPrivateKeyPath optionally points to a PEM-encoded RSA private key
 	// (PKCS#1 or PKCS#8) used to decrypt the login block, replacing the
 	// built-in default key in pkg/io/protocol/rsakey.go. Empty (default) uses
