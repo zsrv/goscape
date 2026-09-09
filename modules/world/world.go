@@ -228,6 +228,15 @@ func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToW
 			return fmt.Errorf("world: preload client assets: %w", err)
 		}
 		cache.MakeCRCs(cachePath)
+		// arch-29.8: bind the TCP listener here, not in NewServer — this
+		// startingFn only runs once the module manager has committed to
+		// starting world, so a failed init of a LATER module (e.g. a port
+		// conflict discovered while starting ondemand) never leaves this
+		// socket bound. Must happen before Run, which assumes
+		// serv.tcpListener is live.
+		if err := serv.Listen(); err != nil {
+			return fmt.Errorf("listen: %w", err)
+		}
 		// arch-29.3: WorldStartup/WorldConnect are idempotent registration
 		// calls (the former also clears stale account_login.logged_in rows
 		// from an ungraceful shutdown). Retry them in the background on

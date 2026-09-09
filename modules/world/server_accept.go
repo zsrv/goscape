@@ -66,6 +66,10 @@ func (s *Server) closeLiveConns() {
 	}
 }
 
+// serveTCP assumes s.tcpListener is already bound. It is only reachable via
+// Run, which is spawned from world.go's startingBody after Listen() has
+// already succeeded (arch-29.8) — never call serveTCP directly without
+// calling Listen() first.
 func (s *Server) serveTCP() error {
 	// Shutdown is the primary listener owner (nil-guarded, under the admission
 	// gate); this defer additionally covers a serveTCP accept error that
