@@ -78,6 +78,19 @@ func New(cfg Config, logger *slog.Logger, tap tapper.Tapper) (*World, error) {
 
 	server, err := NewServer(cfg, loginClient, friendsClient, logger, tap)
 	if err != nil {
+		// arch-29.8: NewServer failed after the bridge clients above were
+		// already dialed — close them so a construction failure doesn't
+		// leak their underlying gRPC connections.
+		if loginClient != nil {
+			if closeErr := loginClient.Close(); closeErr != nil {
+				w.log.Warn("failed to close login client after server init failure", slog.Any("err", closeErr))
+			}
+		}
+		if friendsClient != nil {
+			if closeErr := friendsClient.Close(); closeErr != nil {
+				w.log.Warn("failed to close friends client after server init failure", slog.Any("err", closeErr))
+			}
+		}
 		return nil, fmt.Errorf("failed to create server: %w", err)
 	}
 	w.Server = server
