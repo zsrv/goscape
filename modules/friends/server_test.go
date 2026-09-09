@@ -150,6 +150,7 @@ func TestValidateSkipsPortCheckWhenListenerInjected(t *testing.T) {
 	cfg := Config{
 		Enable:           true,
 		Listener:         bufconn.Listen(64 * 1024),
+		NodeProfile:      "main",
 		WorldPlayerLimit: 2000,
 		// GracefulShutdownTimeout must be > 0 per Validate (independent of
 		// the Listener/port-check relaxation this test targets), so it's
