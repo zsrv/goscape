@@ -237,6 +237,13 @@ func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToW
 		if err := serv.Listen(); err != nil {
 			return fmt.Errorf("listen: %w", err)
 		}
+		// arch-29.8: spawn the friends-bridge subscriber here rather than in
+		// NewServer. World depends on {Common, Login, Friends} in
+		// cmd/goscape/app/modules.go, so by the time THIS startingFn runs,
+		// friends has already reached Running — spawning from NewServer
+		// (called during world's own module initFn, before any service is
+		// Running) could race a friends listener that doesn't exist yet.
+		serv.startWorldEventsSubscriber()
 		// arch-29.3: WorldStartup/WorldConnect are idempotent registration
 		// calls (the former also clears stale account_login.logged_in rows
 		// from an ungraceful shutdown). Retry them in the background on

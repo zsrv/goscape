@@ -540,12 +540,6 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// AND applies its world-state effect.
 	innerSlog := newSlogWorldEventsDispatcher(logger.With("component", compFriends))
 	s.worldEventsDispatcher = newActionWorldEventsDispatcher(innerSlog, s)
-	if friendsClient != nil {
-		ctx, cancel := context.WithCancel(context.Background())
-		s.worldEventsCancel = cancel
-		sub := newWorldEventsSubscriber(friendsClient, int32(cfg.NodeID), s.worldEventsDispatcher, logger.With("component", compFriends))
-		go sub.run(ctx)
-	}
 	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.bridgesCtx, logger.With("component", compLogin))
 	s.loggerBridge = NewSlogLoggerBridge(logger)
 	s.locOps = &serverLocOps{s: s}
@@ -749,6 +743,23 @@ func (s *Server) Listen() error {
 	s.log.Info("tcp server listening", "addr", tcpListener.Addr())
 	s.tcpListener = tcpListener
 	return nil
+}
+
+// startWorldEventsSubscriber spawns the friends-bridge world-events
+// subscriber goroutine. arch-29.8: moved out of NewServer — construction
+// must not spawn a goroutine that talks to a peer server (friends) before
+// that peer is guaranteed to be running. Called from world.go's
+// startingBody, which runs after friends has reached Running per the
+// module DAG (World depends on {Common, Login, Friends} in
+// cmd/goscape/app/modules.go).
+func (s *Server) startWorldEventsSubscriber() {
+	if s.friendsClient == nil {
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.worldEventsCancel = cancel
+	sub := newWorldEventsSubscriber(s.friendsClient, int32(s.cfg.NodeID), s.worldEventsDispatcher, s.logFriends)
+	go sub.run(ctx)
 }
 
 // shouldSpawnNpc gates a boot-time NPC spawn against the world's members
