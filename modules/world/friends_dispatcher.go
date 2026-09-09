@@ -80,11 +80,9 @@ var friendsDispatchWarnThresholds = []int{256, 1024}
 // out each call's full timeout).
 //
 // Lifecycle: run must be started exactly once, from NewWorldService's
-// startingBody (alongside the retryBridgeRegistration calls — this
-// branch predates arch-29.8's Listen()/subscriber-in-starting
-// refactor, so the world-events subscriber itself still starts from
-// NewServer; the dispatcher worker does not depend on that and starts
-// from startingBody directly), folded into Server.bridgeWg so
+// startingBody (alongside Server.Listen, startWorldEventsSubscriber and
+// the retryBridgeRegistration calls — arch-29.8's
+// acquisition-in-starting convention), folded into Server.bridgeWg so
 // Shutdown's existing bridgeWg.Wait() (called after bridgesCancel)
 // joins it. run exits as soon as its ctx (bridgesCtx) is Done, WHETHER
 // OR NOT the queue is empty — it does not attempt to drain remaining
