@@ -232,16 +232,21 @@ func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToW
 		if err := serv.Listen(); err != nil {
 			return fmt.Errorf("listen: %w", err)
 		}
+		// arch-29.8: spawn the friends-bridge subscriber here rather than in
+		// NewServer. World depends on {Common, Login, Friends} in
+		// cmd/goscape/app/modules.go, so by the time THIS startingFn runs,
+		// friends has already reached Running — spawning from NewServer
+		// (called during world's own module initFn, before any service is
+		// Running) could race a friends listener that doesn't exist yet.
+		serv.startWorldEventsSubscriber()
 		// arch-29.13: start the single friends-mutation dispatcher worker
-		// here, alongside the other bridge goroutine spawns below (this
-		// branch predates arch-29.8's acquisition-in-starting convention
-		// for the world-events subscriber, which still starts directly
-		// from NewServer — see server.go — so there is no sibling
-		// startWorldEventsSubscriber() call to place this next to).
-		// Folded into bridgeWg (Go 1.25's WaitGroup.Go, same pattern as
-		// retryBridgeRegistration below) so Shutdown's existing
-		// bridgeWg.Wait() call (after bridgesCancel) joins this worker
-		// too — no separate Wait needed.
+		// from startingBody rather than NewServer, so it is acquired
+		// during the service's starting phase like the other bridge
+		// goroutines above — same acquisition-in-starting rationale as
+		// startWorldEventsSubscriber. Folded into bridgeWg (Go 1.25's
+		// WaitGroup.Go, same pattern as retryBridgeRegistration) so
+		// Shutdown's existing bridgeWg.Wait() call (after bridgesCancel)
+		// joins this worker too — no separate Wait needed.
 		serv.bridgeWg.Go(func() {
 			serv.friendsMutationDispatcher.run(serv.bridgesCtx)
 		})

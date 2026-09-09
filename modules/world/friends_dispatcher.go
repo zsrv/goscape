@@ -80,18 +80,19 @@ var friendsDispatchWarnThresholds = []int{256, 1024}
 // out each call's full timeout).
 //
 // Lifecycle: run must be started exactly once, from NewWorldService's
-// startingBody (post-Listen, alongside the other bridge/subscriber
-// spawns — the arch-29.8 acquisition-in-starting convention), folded
-// into Server.bridgeWg so Shutdown's existing bridgeWg.Wait() (called
-// after bridgesCancel) joins it. run exits as soon as its ctx
-// (bridgesCtx) is Done, WHETHER OR NOT the queue is empty — it does not
-// attempt to drain remaining entries first. By the time bridgesCancel
-// fires, the tick goroutine (the sole producer for every converted call
-// site) has already exited (Server.Shutdown joins tickWg before
-// cancelling bridgesCtx), so any items still queued at that point are
-// best-effort presence traffic that will never be produced again this
-// process lifetime — dropping them here matches TS, which also loses
-// its unprocessed postMessage queue on process exit.
+// startingBody (alongside Server.Listen, startWorldEventsSubscriber and
+// the retryBridgeRegistration calls — arch-29.8's
+// acquisition-in-starting convention), folded into Server.bridgeWg so
+// Shutdown's existing bridgeWg.Wait() (called after bridgesCancel)
+// joins it. run exits as soon as its ctx (bridgesCtx) is Done, WHETHER
+// OR NOT the queue is empty — it does not attempt to drain remaining
+// entries first. By the time bridgesCancel fires, the tick goroutine
+// (the sole producer for every converted call site) has already
+// exited (Server.Shutdown joins tickWg before cancelling bridgesCtx),
+// so any items still queued at that point are best-effort presence
+// traffic that will never be produced again this process lifetime —
+// dropping them here matches TS, which also loses its unprocessed
+// postMessage queue on process exit.
 type friendsMutationDispatcher struct {
 	mu    sync.Mutex
 	queue []func(context.Context)
