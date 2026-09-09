@@ -11,6 +11,7 @@ import (
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
 	"github.com/zsrv/goscape/modules/world"
+	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/dskit/modules"
 	"github.com/zsrv/goscape/pkg/dskit/server"
 	"github.com/zsrv/goscape/pkg/dskit/services"
@@ -73,6 +74,13 @@ func (g *App) initOnDemand() (services.Service, error) {
 	if g.world != nil && g.world.Server != nil {
 		worldConn = g.world.Server
 		worldSrv = g.world.Server
+	} else if g.cfg.OnDemand.CachePath != "" {
+		// arch-29.8: standalone ondemand (world disabled/not part of this
+		// target) must build its own CRC snapshot — previously it silently
+		// served the zero-value cache.CRC() left over from whatever ran
+		// last (or all-zero on a fresh process), because only world's
+		// startingFn ever called MakeCRCs.
+		cache.MakeCRCs(g.cfg.OnDemand.CachePath)
 	}
 
 	a, err := ondemand.New(g.cfg.OnDemand, logger, serv, worldConn)
