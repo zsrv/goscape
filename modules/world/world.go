@@ -223,6 +223,15 @@ func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToW
 	startingBody := func(ctx context.Context) error {
 		cachePath := serv.cfg.CachePath
 		cache.MakeCRCs(cachePath)
+		// arch-29.8: bind the TCP listener here, not in NewServer — this
+		// startingFn only runs once the module manager has committed to
+		// starting world, so a failed init of a LATER module (e.g. a port
+		// conflict discovered while starting ondemand) never leaves this
+		// socket bound. Must happen before Run, which assumes
+		// serv.tcpListener is live.
+		if err := serv.Listen(); err != nil {
+			return fmt.Errorf("listen: %w", err)
+		}
 		// arch-29.13: start the single friends-mutation dispatcher worker
 		// from startingBody rather than NewServer, so it is acquired
 		// during the service's starting phase like the other bridge
