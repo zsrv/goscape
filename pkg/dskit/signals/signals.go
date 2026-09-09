@@ -39,10 +39,9 @@ func NewHandler(log *slog.Logger, receivers ...SignalReceiver) *Handler {
 }
 
 // Stop the handler. Idempotent (arch-29.8 backfill): a real OS signal can
-// already have unblocked Loop before a caller also calls Stop (e.g. the
-// App's deferred cleanup running after Loop already returned via a
-// SIGINT/SIGTERM) — without this guard, the second close(h.quit) would
-// panic.
+// already have unblocked Loop before a caller also calls Stop (e.g.
+// App.Stop() delegating straight to h.Stop() with no guard of its own) —
+// without this guard, the second close(h.quit) would panic.
 func (h *Handler) Stop() {
 	h.stopOnce.Do(func() { close(h.quit) })
 }
