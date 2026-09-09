@@ -18,7 +18,9 @@ type Config struct {
 	// TCPListenAddress:TCPListenPort, and TCPListenPort is ignored. The
 	// accept loop, admission gate and shutdown path are unchanged — they
 	// operate on the net.Listener interface. Set by embedders running the
-	// world on an in-memory transport.
+	// world on an in-memory transport. The Server takes ownership and
+	// closes it on shutdown exactly as it would a bound listener, so the
+	// caller must not close it itself.
 	Listener net.Listener `yaml:"-"`
 	// LoginServerDialer and FriendsServerDialer, when non-nil, are passed to
 	// grpc.WithContextDialer so the bridge RPCs run over an in-memory
