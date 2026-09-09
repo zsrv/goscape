@@ -41,8 +41,13 @@ const (
 
 func (g *App) initOnDemand() (services.Service, error) {
 	if !g.cfg.OnDemand.Enable {
-		// TODO: still makes module appear to be running, move the check elsewhere?
-		return services.NewIdleService(nil, nil), nil
+		// arch-29.8: a disabled module contributes no service — returning
+		// an IdleService made it masquerade as Running, which vacuously
+		// satisfied AwaitRunning for any dependent and (for ondemand
+		// specifically) is what let a standalone ondemand serve a
+		// zero-value CRC snapshot instead of failing to start.
+		g.logger.Info("module disabled", "module", "ondemand")
+		return nil, nil
 	}
 
 	logLevel := slog.Level(g.cfg.LogLevel)
@@ -133,8 +138,9 @@ func (g *App) initOnDemand() (services.Service, error) {
 
 func (g *App) initLogin() (services.Service, error) {
 	if !g.cfg.Login.Enable {
-		// TODO: still makes module appear to be running, move the check elsewhere?
-		return services.NewIdleService(nil, nil), nil
+		// arch-29.8: see initOnDemand's disabled branch for rationale.
+		g.logger.Info("module disabled", "module", "login")
+		return nil, nil
 	}
 
 	logLevel := slog.Level(g.cfg.LogLevel)
@@ -159,8 +165,9 @@ func (g *App) initLogin() (services.Service, error) {
 
 func (g *App) initFriends() (services.Service, error) {
 	if !g.cfg.Friends.Enable {
-		// TODO: still makes module appear to be running, move the check elsewhere?
-		return services.NewIdleService(nil, nil), nil
+		// arch-29.8: see initOnDemand's disabled branch for rationale.
+		g.logger.Info("module disabled", "module", "friends")
+		return nil, nil
 	}
 
 	logLevel := slog.Level(g.cfg.LogLevel)
@@ -185,8 +192,9 @@ func (g *App) initFriends() (services.Service, error) {
 
 func (g *App) initAccount() (services.Service, error) {
 	if !g.cfg.Account.Enable {
-		// TODO: still makes module appear to be running, move the check elsewhere?
-		return services.NewIdleService(nil, nil), nil
+		// arch-29.8: see initOnDemand's disabled branch for rationale.
+		g.logger.Info("module disabled", "module", "account")
+		return nil, nil
 	}
 
 	logLevel := slog.Level(g.cfg.LogLevel)
@@ -211,8 +219,9 @@ func (g *App) initAccount() (services.Service, error) {
 
 func (g *App) initHiscore() (services.Service, error) {
 	if !g.cfg.Hiscore.Enable {
-		// TODO: still makes module appear to be running, move the check elsewhere?
-		return services.NewIdleService(nil, nil), nil
+		// arch-29.8: see initOnDemand's disabled branch for rationale.
+		g.logger.Info("module disabled", "module", "hiscore")
+		return nil, nil
 	}
 
 	logLevel := slog.Level(g.cfg.LogLevel)
@@ -270,8 +279,9 @@ func (g *App) initDatabase() (services.Service, error) {
 
 func (g *App) initWorld() (services.Service, error) {
 	if !g.cfg.World.Enable {
-		// TODO: still makes module appear to be running, move the check elsewhere?
-		return services.NewIdleService(nil, nil), nil
+		// arch-29.8: see initOnDemand's disabled branch for rationale.
+		g.logger.Info("module disabled", "module", "world")
+		return nil, nil
 	}
 
 	logLevel := slog.Level(g.cfg.LogLevel)
