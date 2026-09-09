@@ -469,13 +469,6 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		rsaKey = k
 	}
 
-	tcpListener, err := net.Listen(cfg.TCPListenNetwork, net.JoinHostPort(cfg.TCPListenAddress, strconv.Itoa(cfg.TCPListenPort)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tcp listener: %w", err)
-	}
-
-	logger.Info("tcp server listening", "addr", tcpListener.Addr())
-
 	handler := cfg.SignalHandler
 	if handler == nil {
 		handler = signals.NewHandler(logger)
@@ -484,7 +477,6 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	s := &Server{
 		cfg:           cfg,
 		handler:       handler,
-		tcpListener:   tcpListener,
 		loginClient:   loginClient,
 		friendsClient: friendsClient,
 		tap:           tap,
@@ -774,6 +766,22 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	return s, nil
 }
 
+// Listen binds the TCP listener. arch-29.8: moved out of NewServer —
+// construction must not acquire real resources (a bound socket outlives
+// this call and must be torn down on any later init failure); acquisition
+// belongs to the service's starting phase (world.go's startingBody), which
+// runs after the module manager has committed to starting this module.
+// Must be called before Run/serveTCP; both assume s.tcpListener is non-nil.
+func (s *Server) Listen() error {
+	tcpListener, err := net.Listen(s.cfg.TCPListenNetwork, net.JoinHostPort(s.cfg.TCPListenAddress, strconv.Itoa(s.cfg.TCPListenPort)))
+	if err != nil {
+		return fmt.Errorf("failed to create tcp listener: %w", err)
+	}
+	s.log.Info("tcp server listening", "addr", tcpListener.Addr())
+	s.tcpListener = tcpListener
+	return nil
+}
+
 // shouldSpawnNpc gates a boot-time NPC spawn against the world's members
 // flag, mirroring TS GameMap.loadNpcs (GameMap.ts:132 at pin 9aadcec4): a
 // members-only NpcType (npcType.members == true) spawns only on a members
@@ -916,7 +924,13 @@ func (s *Server) Shutdown() {
 	close(s.quit)
 	s.admissionGateMu.Unlock()
 	s.log.Debug("closing tcp listener")
-	s.tcpListener.Close()
+	// arch-29.8: nil-guarded — Listen() is now called from world.go's
+	// startingBody, so a service that fails before reaching Listen() (or a
+	// test-constructed Server that never bound) can still call Shutdown
+	// without a nil-interface panic.
+	if s.tcpListener != nil {
+		s.tcpListener.Close()
+	}
 	// Close every accepted connection: read loops re-arm their deadlines
 	// per read, so without this a connected client blocks tcpWg.Wait
 	// indefinitely. Closing is safe concurrently with in-flight reads and
