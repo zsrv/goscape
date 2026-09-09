@@ -153,7 +153,7 @@ func worldServiceFns(
 			// arch-29.8 fix wave: BasicService skips stoppingFn entirely
 			// when startingFn returns an error ("if StartingFn returns
 			// error, no other functions are called" —
-			// pkg/dskit/services/basic_service.go:45; the runFn-skip half
+			// pkg/dskit/services/basic_service.go:44; the runFn-skip half
 			// of that contract is pinned by
 			// TestWorldServiceFnsStartingBodyErrorSkipsRun). The bridge
 			// client closes live only in stopping, so a startingBody
