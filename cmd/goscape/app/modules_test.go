@@ -13,6 +13,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/dskit/modules"
 	"github.com/zsrv/goscape/pkg/dskit/services"
+	"github.com/zsrv/goscape/pkg/dskit/signals"
 )
 
 // discardLogger returns a logger that discards output, suitable for tests
@@ -408,4 +409,16 @@ func TestApp_Stop_DispatchesToSignalHandler(t *testing.T) {
 	if !fh.Stopped() {
 		t.Error("App.Stop() did not invoke signalsHandler.Stop")
 	}
+}
+
+// TestApp_Stop_DoubleCallIsSafe pins arch-29.8: calling Stop() twice with a
+// live (non-nil) handler must not panic. Before signals.Handler.Stop grew
+// its own sync.Once, a second Stop() closed an already-closed channel.
+// Uses the real *signals.Handler (not the test-package fake, which already
+// carried its own Once) so the fix is exercised at the layer it lives in.
+func TestApp_Stop_DoubleCallIsSafe(t *testing.T) {
+	a := &App{}
+	a.signalsHandler = signals.NewHandler(discardLogger())
+	a.Stop()
+	a.Stop() // must not panic
 }
