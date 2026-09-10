@@ -104,13 +104,25 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 	// prior interaction. Mirrors (*Npc).SetInteraction (npc_interaction.go).
 	// For Loc/Obj this also re-asserts what the OpLoc/OpObj handlers snapshot
 	// afterwards (identical value); the Npc and non-typed cases are new.
+	//
+	// Loc/Obj additionally snapshot x/z/level, which locStillValid and
+	// objStillValid use to re-find the entity in its zone on later ticks.
+	// Only the engine click handlers used to set them, so a SCRIPT-initiated
+	// interaction — p_oploc / p_opobj, which reach here via StopAction() →
+	// ClearInteraction() and so arrive with the fields reset to -1 — left the
+	// re-armed interaction pointing at zone (-1,-1,-1). The next tick's
+	// locStillValid missed and cleared the interaction with no message. That
+	// silently broke every content loop that sustains itself by re-arming
+	// from inside its own OP trigger, woodcutting's [oploc3,_tree] included.
 	switch t := target.(type) {
 	case *Npc:
 		p.targetSubject.typ = t.typeId
 	case *entitypkg.Loc:
 		p.targetSubject.typ = t.Type()
+		p.targetSubject.x, p.targetSubject.z, p.targetSubject.level = t.Coords()
 	case *entitypkg.Obj:
 		p.targetSubject.typ = t.Type
+		p.targetSubject.x, p.targetSubject.z, p.targetSubject.level = t.Coords()
 	default:
 		p.targetSubject.typ = -1
 	}
