@@ -887,6 +887,41 @@ func (s *Server) populateStaticObjsIntoZones() {
 	s.log.Info("static objs loaded", "count", len(s.gamemap.ObjSpawns()))
 }
 
+// startBackgroundLoops registers and spawns the two long-lived loops that
+// Shutdown waits on: the game tick (tickWg) and the OnDemand pump (odWg).
+// Both stop on s.quit.
+//
+// Called from NewWorldService's startingBody, NOT from Run. Run cannot do it:
+// world.go's startingFn spawns run() in a goroutine and returns immediately,
+// so stoppingFn — and therefore Shutdown — can reach tickWg.Wait() before that
+// goroutine has been scheduled as far as the .Go() calls here. Wait would then
+// see a zero counter, return at once, and the loops would start AFTER Shutdown
+// reported them finished, which is exactly what the tickWg doc comment above
+// promises cannot happen (Arc 18 R2). The race detector reports it as a
+// write/read race on tickWg.
+//
+// Registering in the starting phase closes that window: startingBody
+// happens-before the service can be stopped. Same reasoning arch-29.8/29.13
+// used to move Listen, startWorldEventsSubscriber and the friends-mutation
+// dispatcher out of NewServer and into startingBody.
+//
+// A Server whose starting phase never ran has registered nothing, so
+// Shutdown's Waits return immediately rather than wedging — which is what lets
+// tests construct a bare Server and call Shutdown directly
+// (conn_handler_test.go, server_shutdown_test.go).
+func (s *Server) startBackgroundLoops() {
+	s.tickWg.Go(func() {
+		s.runTickLoop()
+	})
+
+	// OnDemand.ts:357 (World.ts): OnDemand.cycle() is started once when the
+	// world is ready, alongside the tick loop. Go uses a dedicated goroutine
+	// running a 50ms ticker (onDemand.run) stopped by the same s.quit signal.
+	s.odWg.Go(func() {
+		s.onDemand.run(s.quit)
+	})
+}
+
 func (s *Server) Run() error {
 	errChan := make(chan error, 1)
 
@@ -914,17 +949,6 @@ func (s *Server) Run() error {
 		default:
 		}
 	}()
-
-	s.tickWg.Go(func() {
-		s.runTickLoop()
-	})
-
-	// OnDemand.ts:357 (World.ts): OnDemand.cycle() is started once when the
-	// world is ready, alongside the tick loop. Go uses a dedicated goroutine
-	// running a 50ms ticker (onDemand.run) stopped by the same s.quit signal.
-	s.odWg.Go(func() {
-		s.onDemand.run(s.quit)
-	})
 
 	select {
 	case err := <-errChan:
