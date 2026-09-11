@@ -278,6 +278,11 @@ func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToW
 		serv.bridgeWg.Go(func() {
 			serv.friendsMutationDispatcher.run(serv.bridgesCtx)
 		})
+		// Register the tick loop and the OnDemand pump here rather than in
+		// Run: Shutdown waits on tickWg/odWg, and it can be reached before
+		// the run goroutine below has executed a single statement. See
+		// Server.startBackgroundLoops.
+		serv.startBackgroundLoops()
 		// arch-29.3: WorldStartup/WorldConnect are idempotent registration
 		// calls (the former also clears stale account_login.logged_in rows
 		// from an ungraceful shutdown). Retry them in the background on
