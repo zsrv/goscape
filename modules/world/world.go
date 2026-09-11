@@ -304,6 +304,10 @@ func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToW
 		serv.bridgeWg.Go(func() {
 			serv.friendsMutationDispatcher.run(serv.bridgesCtx)
 		})
+		// Register the tick loop here rather than in Run: Shutdown waits on
+		// tickWg, and it can be reached before the run goroutine below has
+		// executed a single statement. See Server.startBackgroundLoops.
+		serv.startBackgroundLoops()
 		// NAI-REBUILD-ASYNC: spawn long-lived pack worker + optional
 		// fsnotify watcher when ContentPath is configured. Both exit
 		// when serv.quit closes (via stoppingFn → Shutdown).
