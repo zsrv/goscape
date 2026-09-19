@@ -87,6 +87,36 @@ func TestConfig_HiscoreDefaults(t *testing.T) {
 	}
 }
 
+// TestDefaultConfigLeavesExportDisabled pins that the two event-export
+// modules are opt-in: a stock config must neither enable them nor fail
+// validation because of them. Both open a Kafka client when enabled, so a
+// default-on here would make every deployment dial a broker it never
+// configured.
+func TestDefaultConfigLeavesExportDisabled(t *testing.T) {
+	cfg := NewDefaultConfig()
+	if cfg.Telemetry.Enabled || cfg.PacketCapture.Enabled {
+		t.Fatalf("telemetry/packetcapture must default to disabled: %+v %+v", cfg.Telemetry, cfg.PacketCapture)
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("default config must validate: %v", err)
+	}
+}
+
+// TestPacketCaptureRejectsForeignRevision confirms Validate fans out to the
+// packetcapture module. Captured packets are decoded against the revision
+// they were recorded at, so a capture tagged with a revision this binary
+// does not speak produces silently undecodable rows — it must fail at
+// startup instead.
+func TestPacketCaptureRejectsForeignRevision(t *testing.T) {
+	cfg := NewDefaultConfig()
+	cfg.PacketCapture.Enabled = true
+	cfg.PacketCapture.Kafka.Brokers = []string{"127.0.0.1:9092"}
+	cfg.PacketCapture.Revision = 1
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("want a revision-mismatch error")
+	}
+}
+
 // TestDefaultListenPortsDoNotCollide pins that no two modules claim the
 // same bind address and port by default. account and friends both once
 // defaulted their gRPC listener to 127.0.0.1:2005, so enabling account

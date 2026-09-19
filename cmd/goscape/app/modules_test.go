@@ -14,6 +14,7 @@ import (
 	"github.com/zsrv/goscape/pkg/dskit/modules"
 	"github.com/zsrv/goscape/pkg/dskit/services"
 	"github.com/zsrv/goscape/pkg/dskit/signals"
+	"github.com/zsrv/goscape/pkg/tapper"
 )
 
 // discardLogger returns a logger that discards output, suitable for tests
@@ -126,7 +127,10 @@ func TestSetupModuleManager_CommonIsInvisible(t *testing.T) {
 // Database (task 3, database module) is the migration anchor and sits
 // between Common and every DB-using module: Friends:{Common,Database},
 // Login:{Common,Database}, Account:{Common,Database},
-// Hiscore:{Common,Database}.
+// Hiscore:{Common,Database}. Telemetry is the emitter anchor — every
+// module that emits events (login, world) depends on it so the Emitter is
+// registered before the first emit call; PacketCapture sits between it and
+// world, which takes its Tapper at init time.
 // Changing
 // any edge here is load-bearing and should be a deliberate decision.
 // COV-1 (Arc 18).
@@ -136,15 +140,17 @@ func TestSetupModuleManager_DAGTopology(t *testing.T) {
 		t.Fatalf("setupModuleManager: %v", err)
 	}
 	want := map[string][]string{
-		"common":     {},
-		Database:     {"common"},
-		OnDemand:     {"common", World},
-		Friends:      {"common", Database},
-		Login:        {"common", Database},
-		World:        {"common", Login, Friends},
-		Account:      {"common", Database},
-		Hiscore:      {"common", Database},
-		SingleBinary: {OnDemand, Friends, Login, World, Account, Hiscore},
+		"common":      {},
+		Database:      {"common"},
+		OnDemand:      {"common", World},
+		Friends:       {"common", Database},
+		Login:         {"common", Database, Telemetry},
+		World:         {"common", Login, Friends, Telemetry, PacketCapture},
+		Account:       {"common", Database},
+		Hiscore:       {"common", Database},
+		Telemetry:     {"common"},
+		PacketCapture: {"common", Telemetry},
+		SingleBinary:  {OnDemand, Friends, Login, World, Account, Hiscore},
 	}
 	for mod, expected := range want {
 		got := g.deps[mod]
@@ -158,6 +164,31 @@ func sortedCopy(s []string) []string {
 	out := slices.Clone(s)
 	slices.Sort(out)
 	return out
+}
+
+// TestDisabledPacketCaptureHandsWorldANoopTapper pins the disabled path the
+// stock binary runs on: initPacketCapture contributes no service (so no Kafka
+// client is ever opened) yet still constructs the module, because initWorld
+// takes its Capture() and that must be the no-op Tapper rather than nil.
+func TestDisabledPacketCaptureHandsWorldANoopTapper(t *testing.T) {
+	g := &App{cfg: *NewDefaultConfig(), logger: discardLogger()}
+
+	svc, err := g.initPacketCapture()
+	if err != nil {
+		t.Fatalf("initPacketCapture: %v", err)
+	}
+	if svc != nil {
+		t.Errorf("disabled packetcapture contributed a service (%T), want none", svc)
+	}
+
+	capture := g.packetcapture.Capture()
+	if capture == nil {
+		t.Fatal("Capture() = nil; initWorld would pass a nil Tapper to world.New")
+	}
+	if capture.Enabled() {
+		t.Error("Capture() is enabled although packetcapture.enabled is false")
+	}
+	var _ tapper.Tapper = capture
 }
 
 // TestApp_New_OnDemand confirms App.New succeeds with --target=ondemand and that

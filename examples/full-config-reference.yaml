@@ -34,8 +34,10 @@
 # file is a coherent "run the game server" config (the code default for each is
 # `false`). The two extension modules, `account` and `hiscore`, are left at their
 # code default of `false`: neither is needed to run the game, and `account`
-# additionally requires `public_url` before it will validate. A module runs only
-# when BOTH its `enable:` is true AND it is included by the active `target`.
+# additionally requires `public_url` before it will validate. The two
+# event-export modules, `telemetry` and `packetcapture`, spell their switch
+# `enabled:` rather than `enable:` and are likewise left off. A module runs only
+# when BOTH its switch is true AND it is included by the active `target`.
 # =============================================================================
 
 
@@ -541,21 +543,96 @@ hiscore:
 
 
 # ----------------------------------------------------------------------------
-# NOT a config section: pkg/telemetry exists in the codebase but is NOT wired
-# into the application config. There is no top-level `telemetry:` block — adding
-# one fails strict decoding. This is intentional, not a TODO:
-#
-#   - pkg/telemetry is a dormant emit seam. The engine calls
-#     telemetry.Get().Emit*(...) in a few places (login, world, wealth), but the
-#     default Emitter is a no-op and nothing in THIS build calls telemetry.Set()
-#     or InitProviders() outside tests — so every event lands in the no-op sink.
-#   - app.Config only aggregates configs for modules that run here, and there is
-#     no telemetry module. No code path reads telemetry.Config to construct a
-#     real Emitter, so a `telemetry:` block would configure nothing.
-#   - A real Emitter / transport (OTLP, Kafka, …) is supplied out-of-tree; that
-#     is where telemetry.Config is consumed. The public core keeps only the
-#     interface, the call sites, and the pkg/eventspb schema.
-#
-# Wiring telemetry.Config in here would surface keys (kafka / otlp / …) that do
-# nothing in this build — strictly worse under strict decoding than omitting it.
+# telemetry — OpenTelemetry providers + optional Kafka event export
 # ----------------------------------------------------------------------------
+# An invisible module: it is never a `target`, it is pulled in by login and
+# world, and it runs whenever its own `enabled:` is true. Enabling it boots the
+# global OTel meter / tracer / logger providers and, when `kafka.brokers` is
+# non-empty, installs the buffering Emitter that the engine's emit call sites
+# (login, world, wealth) write to. With `brokers` left empty the module is
+# otlp-only: metrics, traces and logs are exported, no Kafka client is created,
+# and events keep landing in the built-in no-op sink. Disabled — the default —
+# there are no providers, no Emitter and no Kafka client at all.
+#
+# NOTE: the switch is spelled `enabled:` here, not `enable:` as the game
+# modules above spell it.
+telemetry:
+  # CLI: --telemetry.enabled (default: false)
+  enabled: false
+
+  kafka:
+    # Seed brokers (host:port). Empty selects otlp-only mode, above; at least
+    # one entry is required to export events. (yaml-only; no CLI flag.)
+    brokers: []
+    # CLI: --telemetry.kafka.client-id (default: goscape)
+    client_id: goscape
+
+  otlp:
+    # OTLP gRPC collector endpoint; required whenever the module is enabled.
+    # CLI: --telemetry.otlp.endpoint (default: localhost:4317)
+    endpoint: localhost:4317
+    # Connect to the collector without TLS.
+    # CLI: --telemetry.otlp.insecure (default: true)
+    insecure: true
+    # Trace sampling ratio, in [0.0, 1.0].
+    # CLI: --telemetry.otlp.sample-ratio (default: 0.01)
+    sample_ratio: 0.01
+
+  # Capacity of the in-process event buffer. It drops the oldest record when
+  # full, so an unreachable broker costs events, never game ticks.
+  # CLI: --telemetry.ring-buffer-size (default: 65536)
+  ring_buffer_size: 65536
+  # Cadence at which the shipper drains that buffer into Kafka.
+  # CLI: --telemetry.drain-interval (default: 10ms)
+  drain_interval: 10ms
+  # Maximum records drained per tick.
+  # CLI: --telemetry.drain-batch-max (default: 1024)
+  drain_batch_max: 1024
+  # Budget for the final flush at shutdown.
+  # CLI: --telemetry.stop-timeout (default: 5s)
+  stop_timeout: 5s
+
+
+# ----------------------------------------------------------------------------
+# packetcapture — optional wire-packet export to Kafka (pkg/tapper implementation)
+# ----------------------------------------------------------------------------
+# An invisible module pulled in by world. Enabled, it supplies the Tapper the
+# world module hands every inbound and outbound game packet to, encodes them as
+# events.v1 envelopes and ships them to Kafka. Disabled — the default — world
+# gets the built-in no-op Tapper and the tap costs one interface call per
+# packet. Like telemetry, the switch is spelled `enabled:`.
+packetcapture:
+  # CLI: --packetcapture.enabled (default: false)
+  enabled: false
+  # Wire-protocol revision stamped on captured packets. Must equal the revision
+  # this binary speaks (244 on this branch) or startup fails: a capture tagged
+  # with a revision the decoder does not speak cannot be read back.
+  # CLI: --packetcapture.revision (default: 244)
+  revision: 244
+  # Capacity of the capture buffer (valid 1..1048576). Drops the oldest record
+  # when full, so an unreachable broker never stalls the world tick.
+  # CLI: --packetcapture.ring-buffer-size (default: 65536)
+  ring_buffer_size: 65536
+  # Cadence at which the shipper drains that buffer into Kafka.
+  # CLI: --packetcapture.drain-interval (default: 10ms)
+  drain_interval: 10ms
+  # Maximum records drained per tick.
+  # CLI: --packetcapture.drain-batch-max (default: 1024)
+  drain_batch_max: 1024
+  # Budget for the final flush at shutdown.
+  # CLI: --packetcapture.stop-timeout (default: 5s)
+  stop_timeout: 5s
+  # World ID stamped on captured packets. Accepted but inert: the value is
+  # taken from world.node_id at startup. (yaml-only; no CLI flag.)
+  world_id: 0
+  kafka:
+    # Seed brokers (host:port). Empty inherits telemetry.kafka.brokers, so on a
+    # server that already exports events the only knob to flip is
+    # packetcapture.enabled. (yaml-only; no CLI flag.)
+    brokers: []
+    # CLI: --packetcapture.kafka.client-id (default: goscape)
+    client_id: goscape
+    # Destination topic. Consumers are keyed on this name; change it only
+    # together with them.
+    # CLI: --packetcapture.kafka.topic (default: events.replay_packets)
+    topic: events.replay_packets
