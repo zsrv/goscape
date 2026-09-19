@@ -23,7 +23,11 @@ The binary is module-targeted (Grafana dskit-style service lifecycle; see `pkg/d
 | `hiscore`  | read-only public hiscores JSON API            |
 | `all`      | all of the above (default)                    |
 
-Select with `--target` or `target:` in the config file. Configuration follows a layered
+Select with `--target` or `target:` in the config file. A target also pulls in the
+modules it depends on (`world` → `login`, `friends`; `ondemand` → `world`), and a module
+runs only when it is in that set **and** its own `enable:` is `true` (all default to
+`false`). A world-only host pointing at a remote login server therefore needs
+`login.enable` and `friends.enable` left false, not just `target: world`. Configuration follows a layered
 precedence: defaults → config file → env vars → CLI flags. Verify a config without
 starting: `--config.verify`. Every option is documented at its default in
 `examples/full-config-reference.yaml`.
