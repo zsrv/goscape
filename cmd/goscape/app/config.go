@@ -9,6 +9,8 @@ import (
 	"github.com/zsrv/goscape/modules/hiscore"
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
+	packetcapturemodule "github.com/zsrv/goscape/modules/packetcapture"
+	telemetrymodule "github.com/zsrv/goscape/modules/telemetry"
 	"github.com/zsrv/goscape/modules/world"
 	"github.com/zsrv/goscape/pkg/gamedb"
 	"github.com/zsrv/goscape/pkg/util/log"
@@ -28,6 +30,12 @@ type Config struct {
 	World    world.Config    `yaml:"world,omitempty"`
 	Account  account.Config  `yaml:"account,omitempty"`
 	Hiscore  hiscore.Config  `yaml:"hiscore,omitempty"`
+
+	// Telemetry and PacketCapture are user-invisible modules: they are never
+	// a --target, they run whenever their own `enabled:` is true, and both
+	// default to off.
+	Telemetry     telemetrymodule.Config     `yaml:"telemetry,omitempty"`
+	PacketCapture packetcapturemodule.Config `yaml:"packetcapture,omitempty"`
 }
 
 func NewDefaultConfig() *Config {
@@ -56,9 +64,25 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	c.World.RegisterFlagsAndApplyDefaults(f)
 	c.Account.RegisterFlagsAndApplyDefaults(f)
 	c.Hiscore.RegisterFlagsAndApplyDefaults(f)
+	c.Telemetry.RegisterFlagsAndApplyDefaults(f)
+	packetcapturemodule.RegisterFlagsAndApplyDefaults(&c.PacketCapture, f)
 }
 
 // Validate fans out to each module's Validate, returning the first error.
+//
+// Telemetry's and PacketCapture's own Validate errors already self-prefix
+// ("telemetry: ...", "packetcapture: ..."), so they're returned unwrapped
+// here to avoid a doubled prefix.
+//
+// Telemetry goes through the module-level Validate, never the embedded
+// Config.Validate: the module accepts an otlp-only shape (enabled with no
+// Kafka brokers) that the embedded one reads as a missing broker list. See
+// modules/telemetry.Validate.
+//
+// PacketCapture is validated through packetCaptureConfig so the brokers it
+// inherits from telemetry are in place first — otherwise a capture that
+// deliberately names no brokers of its own would fail here on the very
+// value initPacketCapture is about to supply.
 func (c *Config) Validate() error {
 	// database module (task 3): Database.Validate runs before the
 	// module fan-out below — unlike World/Login/Friends it has no
@@ -78,7 +102,32 @@ func (c *Config) Validate() error {
 	if err := c.Hiscore.Validate(); err != nil {
 		return err
 	}
+	if err := telemetrymodule.Validate(&c.Telemetry); err != nil {
+		return err
+	}
+	capture := c.packetCaptureConfig()
+	if err := capture.Validate(); err != nil {
+		return err
+	}
 	return nil
+}
+
+// packetCaptureConfig returns the packetcapture config with the values it
+// borrows from its neighbours filled in: the world ID it tags rows with, and
+// the Kafka brokers it falls back to when it names none of its own. Both are
+// owned by another module's config, so an operator enabling capture on a
+// telemetry-exporting server flips one knob (packetcapture.enabled).
+//
+// The receiver is not mutated — c.PacketCapture stays the config as written,
+// and both Validate and initPacketCapture read the resolved copy from here so
+// the two cannot drift.
+func (c *Config) packetCaptureConfig() packetcapturemodule.Config {
+	cfg := c.PacketCapture
+	cfg.WorldID = int32(c.World.NodeID)
+	if len(cfg.Kafka.Brokers) == 0 {
+		cfg.Kafka.Brokers = c.Telemetry.Kafka.Brokers
+	}
+	return cfg
 }
 
 // CheckConfig checks if config values are suspect and returns a bundled list of warnings and explanation.

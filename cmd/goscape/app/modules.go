@@ -10,13 +10,14 @@ import (
 	"github.com/zsrv/goscape/modules/hiscore"
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
+	packetcapturemodule "github.com/zsrv/goscape/modules/packetcapture"
+	telemetrymodule "github.com/zsrv/goscape/modules/telemetry"
 	"github.com/zsrv/goscape/modules/world"
 	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/dskit/modules"
 	"github.com/zsrv/goscape/pkg/dskit/server"
 	"github.com/zsrv/goscape/pkg/dskit/services"
 	"github.com/zsrv/goscape/pkg/gamedb"
-	"github.com/zsrv/goscape/pkg/tapper"
 	"github.com/zsrv/goscape/pkg/util/log"
 	"github.com/zsrv/goscape/pkg/world/connhandler"
 )
@@ -33,6 +34,9 @@ const (
 	Database string = "database"
 	Account  string = "account"
 	Hiscore  string = "hiscore"
+
+	Telemetry     string = "telemetry"
+	PacketCapture string = "packetcapture"
 
 	// Composite targets
 
@@ -276,6 +280,59 @@ func (g *App) initDatabase() (services.Service, error) {
 	return gamedb.NewMigratorService(g.cfg.Database, logger), nil
 }
 
+// initTelemetry brings up the OpenTelemetry providers and, when Kafka
+// brokers are configured, the buffering Emitter behind pkg/telemetry's
+// registry. Every emit call site in the engine goes through that registry,
+// so with the module off they keep hitting the no-op Emitter.
+func (g *App) initTelemetry() (services.Service, error) {
+	if !g.cfg.Telemetry.Enabled {
+		// arch-29.8: see initOnDemand's disabled branch for rationale.
+		g.logger.Info("module disabled", "module", "telemetry")
+		return nil, nil
+	}
+
+	logger, err := log.NewLogger(slog.Level(g.cfg.LogLevel), g.cfg.LogFormat, os.Stdout, log.WithSourceFormat(g.cfg.LogSource))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create telemetry logger: %w", err)
+	}
+	logger = logger.With("component", "telemetry")
+
+	t, err := telemetrymodule.New(g.cfg.Telemetry, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create telemetry: %w", err)
+	}
+	g.telemetry = t
+
+	return g.telemetry, nil
+}
+
+// initPacketCapture constructs the capture module unconditionally — even
+// when it is disabled — because initWorld snapshots g.packetcapture.Capture()
+// and a disabled module hands it the no-op Tapper. Only the SERVICE is
+// withheld when disabled, so nothing starts and no Kafka client is opened.
+func (g *App) initPacketCapture() (services.Service, error) {
+	logger, err := log.NewLogger(slog.Level(g.cfg.LogLevel), g.cfg.LogFormat, os.Stdout, log.WithSourceFormat(g.cfg.LogSource))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create packetcapture logger: %w", err)
+	}
+	logger = logger.With("component", "packetcapture")
+
+	cfg := g.cfg.packetCaptureConfig()
+	m, err := packetcapturemodule.New(cfg, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create packetcapture: %w", err)
+	}
+	g.packetcapture = m
+
+	if !cfg.Enabled {
+		// arch-29.8: see initOnDemand's disabled branch for rationale.
+		g.logger.Info("module disabled", "module", "packetcapture")
+		return nil, nil
+	}
+
+	return g.packetcapture, nil
+}
+
 func (g *App) initWorld() (services.Service, error) {
 	if !g.cfg.World.Enable {
 		// arch-29.8: see initOnDemand's disabled branch for rationale.
@@ -295,7 +352,10 @@ func (g *App) initWorld() (services.Service, error) {
 	}
 
 	world.DisableSignalHandling(&g.cfg.World)
-	w, err := world.New(g.cfg.World, logger, tapper.NoopTapper())
+	// The DAG declares World: {..., PacketCapture}, so g.packetcapture has
+	// been initialised by the time we get here; Capture() is the no-op
+	// Tapper unless the capture module is enabled.
+	w, err := world.New(g.cfg.World, logger, g.packetcapture.Capture())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create world: %w", err)
 	}
@@ -323,20 +383,26 @@ func (g *App) setupModuleManager(logger *slog.Logger) error {
 	mm.RegisterModule(Database, g.initDatabase, modules.UserInvisibleModule)
 	mm.RegisterModule(Account, g.initAccount)
 	mm.RegisterModule(Hiscore, g.initHiscore)
+	mm.RegisterModule(Telemetry, g.initTelemetry, modules.UserInvisibleModule)
+	mm.RegisterModule(PacketCapture, g.initPacketCapture, modules.UserInvisibleModule)
 
 	mm.RegisterModule(SingleBinary, nil)
 
 	deps := map[string][]string{
 		Common: {},
 
-		Database: {Common},
-		OnDemand: {Common, World},
-		Friends:  {Common, Database},
-		Login:    {Common, Database},
-		World:    {Common, Login, Friends},
-		Account:  {Common, Database},
-		Hiscore:  {Common, Database},
+		Database:      {Common},
+		OnDemand:      {Common, World},
+		Friends:       {Common, Database},
+		Login:         {Common, Database, Telemetry},
+		World:         {Common, Login, Friends, Telemetry, PacketCapture},
+		Account:       {Common, Database},
+		Hiscore:       {Common, Database},
+		Telemetry:     {Common},
+		PacketCapture: {Common, Telemetry},
 
+		// Telemetry and PacketCapture are not listed here: both are
+		// user-invisible and arrive as dependencies of login and world.
 		SingleBinary: {OnDemand, Friends, Login, World, Account, Hiscore},
 	}
 
