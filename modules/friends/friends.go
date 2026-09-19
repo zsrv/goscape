@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net"
 
+	"google.golang.org/grpc"
+
 	"github.com/zsrv/goscape/pkg/dskit/services"
 	"github.com/zsrv/goscape/pkg/gamedb"
 )
@@ -25,6 +27,19 @@ type Friends struct {
 	worldSubs *worldSubscriptions
 	srv       *grpcServer
 	lis       net.Listener
+
+	// extraGRPC are registrations the embedder wants on this module's gRPC
+	// server (the app root registers grpc.health.v1 this way). See
+	// modules/login.Login.extraGRPC for why they are collected rather than
+	// applied through an accessor.
+	extraGRPC []func(grpc.ServiceRegistrar)
+}
+
+// RegisterGRPCService arranges for register to be called with this module's
+// gRPC server once it exists, during the Starting phase and before Serve.
+// Call it before the service is started.
+func (f *Friends) RegisterGRPCService(register func(grpc.ServiceRegistrar)) {
+	f.extraGRPC = append(f.extraGRPC, register)
 }
 
 // New validates the config and constructs the Friends module. dbCfg is
@@ -49,6 +64,9 @@ func (f *Friends) starting(_ context.Context) error {
 	subs := newSubscriptions(f.log)
 	worldSubs := newWorldSubscriptions(f.log)
 	srv := newGRPCServer(f.cfg, repo, subs, worldSubs, f.log)
+	for _, register := range f.extraGRPC {
+		register(srv.server)
+	}
 	lis, err := srv.listen(f.cfg)
 	if err != nil {
 		db.Close()

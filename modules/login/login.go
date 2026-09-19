@@ -44,6 +44,22 @@ type Login struct {
 	srv      *grpcServer
 	lis      net.Listener
 	acctConn *grpc.ClientConn
+
+	// extraGRPC are registrations the embedder wants on this module's gRPC
+	// server (the app root registers grpc.health.v1 this way). The server
+	// itself is built in starting(), so there is no registrar to hand out
+	// before then — and once running() calls Serve, gRPC accepts no further
+	// registrations. Collect the callbacks here instead and apply them at
+	// the one moment both constraints allow. Written before the service
+	// starts, read once inside starting().
+	extraGRPC []func(grpc.ServiceRegistrar)
+}
+
+// RegisterGRPCService arranges for register to be called with this module's
+// gRPC server once it exists, during the Starting phase and before Serve.
+// Call it before the service is started.
+func (l *Login) RegisterGRPCService(register func(grpc.ServiceRegistrar)) {
+	l.extraGRPC = append(l.extraGRPC, register)
 }
 
 // New validates the config and constructs the Login module. dbCfg is
@@ -84,6 +100,9 @@ func (l *Login) starting(ctx context.Context) error {
 	}
 
 	srv := newGRPCServer(l.cfg, db, acct, l.log)
+	for _, register := range l.extraGRPC {
+		register(srv.server)
+	}
 	lis, err := srv.listen(l.cfg)
 	if err != nil {
 		db.Close()

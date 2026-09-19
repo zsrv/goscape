@@ -5,10 +5,12 @@ import (
 	"crypto/subtle"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
@@ -42,13 +44,28 @@ func newGRPCServer(cfg Config, store *Store, log *slog.Logger) *grpc.Server {
 	return s
 }
 
-// adminAuthInterceptor gates every RPC except VerifyGameLogin behind
-// `authorization: Bearer <token>` metadata. Empty configured token =
-// admin surface disabled (PermissionDenied), distinct from a bad
-// credential (Unauthenticated).
+// healthMethodPrefix is the gRPC Health Checking Protocol's method prefix.
+// The app root registers that service on this server (whole-process health),
+// and kubelet probes and service meshes cannot present an admin token, so the
+// interceptor lets it through unauthenticated — the same posture as the
+// unauthenticated VerifyGameLogin RPC. It exposes nothing but a SERVING /
+// NOT_SERVING enum for the process.
+var healthMethodPrefix = "/" + grpc_health_v1.Health_ServiceDesc.ServiceName + "/"
+
+// adminAuthInterceptor gates every RPC except VerifyGameLogin and the gRPC
+// health service behind `authorization: Bearer <token>` metadata. Empty
+// configured token = admin surface disabled (PermissionDenied), distinct from
+// a bad credential (Unauthenticated).
+//
+// This is a unary interceptor only, which is enough: the health service's one
+// streaming method, Watch, is deliberately unimplemented (see
+// pkg/dskit/grpcutil).
 func adminAuthInterceptor(token string) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		if info.FullMethod == accountpb.AccountService_VerifyGameLogin_FullMethodName {
+			return handler(ctx, req)
+		}
+		if strings.HasPrefix(info.FullMethod, healthMethodPrefix) {
 			return handler(ctx, req)
 		}
 		if token == "" {

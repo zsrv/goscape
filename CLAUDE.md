@@ -101,6 +101,39 @@ own `enabled:` (not `enable:`) is true. Both default to off, and with them off
 
 Adding a new module: register it in `modules.go`, wire its dependencies, and add its config to `cmd/goscape/app/config.go`.
 
+### Health checking
+
+There is one process-wide readiness definition, `cmd/goscape/app.App.Ready`,
+modelled on Grafana Loki (same dskit module/service system). It checks, first
+failure wins: (1) no shutdown requested, (2) `services.Manager.IsHealthy()`,
+(3) every wired module-specific `CheckReady` hook — today just
+`world.Server.CheckReady`, the tick-loop staleness check (10s stale, 30s boot
+grace) that used to be private to the ondemand `/healthz` route. It is the
+analogue of Loki's `Ingester.CheckReady`.
+
+That verdict reaches operators over three surfaces:
+
+- `pkg/admin` — an optional HTTP listener (`admin.listen`, default `""`)
+  serving `GET /healthz` (liveness, always 200) and `GET /readyz` (readiness,
+  with a reason and every module's state). It is owned by `App.Run`, **outside**
+  the module graph, because each goscape module owns its own listener: a
+  `--target=login` host has no HTTP surface at all, and the probes must answer
+  before, during and after module init. It is Loki's `internal_server`. Bind it
+  inside the pod only — `/readyz` names modules and states.
+- `grpc.health.v1` on every gRPC server (login, friends, account), via
+  `pkg/dskit/grpcutil` (a port of dskit's `grpcutil.HealthCheck`). Whole-process
+  status; the request's `service` field is ignored, as in dskit. Registration is
+  unconditional and opens no port. `modules/account`'s admin-token interceptor
+  exempts it — kubelet cannot send a token.
+- The legacy ondemand `GET /healthz`, whose status codes and bodies are
+  unchanged. It is the one surface that still treats `world.ErrStarting` (inside
+  the boot grace) as 200; the app adapter in `initOnDemand` does that
+  translation, so `modules/ondemand` never imports `modules/world`.
+
+`--shutdown-delay` (default `0`) holds the process between SIGTERM and the
+actual stop; during that window both readiness surfaces report not-ready while
+the game keeps serving, so a pod drains from Service endpoints before it stops.
+
 ### Module Packages
 
 Each feature module lives under `modules/<name>/` and contains:

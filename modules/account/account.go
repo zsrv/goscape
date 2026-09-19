@@ -37,6 +37,19 @@ type Account struct {
 	grpcLis net.Listener
 	httpSrv *http.Server
 	httpLis net.Listener
+
+	// extraGRPC are registrations the embedder wants on this module's gRPC
+	// server (the app root registers grpc.health.v1 this way). See
+	// modules/login.Login.extraGRPC for why they are collected rather than
+	// applied through an accessor.
+	extraGRPC []func(grpc.ServiceRegistrar)
+}
+
+// RegisterGRPCService arranges for register to be called with this module's
+// gRPC server once it exists, during the Starting phase and before Serve.
+// Call it before the service is started.
+func (a *Account) RegisterGRPCService(register func(grpc.ServiceRegistrar)) {
+	a.extraGRPC = append(a.extraGRPC, register)
 }
 
 func New(cfg Config, dbCfg gamedb.Config, logger *slog.Logger) (*Account, error) {
@@ -66,6 +79,9 @@ func (a *Account) starting(ctx context.Context) error {
 	}
 
 	grpcSrv := newGRPCServer(a.cfg, store, a.log)
+	for _, register := range a.extraGRPC {
+		register(grpcSrv)
+	}
 	grpcAddr := fmt.Sprintf("%s:%d", a.cfg.GRPCListenAddress, a.cfg.GRPCListenPort)
 	grpcLis, err := net.Listen("tcp", grpcAddr)
 	if err != nil {
