@@ -1,0 +1,56 @@
+// proto/events/v1/replay.proto
+syntax = "proto3";
+
+package events.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/zsrv/goscape/pkg/eventspb";
+
+// ReplayEnvelope wraps every record published to events.replay_packets.
+// One Kafka topic; the oneof discriminates packet vs. session-lifecycle
+// payloads. Consumers route on the populated field.
+message ReplayEnvelope {
+  uint32 schema_version = 1;
+  string event_id = 2;
+  google.protobuf.Timestamp ts = 3;
+  int32 world_id = 4;
+  uint32 revision = 5;
+
+  oneof payload {
+    PacketEvent packet = 100;
+    SessionEvent session = 101;
+  }
+}
+
+// PacketEvent: one captured wire packet (in either direction).
+// `payload` is the raw packet BODY ONLY — the opcode is in its own field,
+// not prefixed onto `payload`. Same convention for both directions.
+message PacketEvent {
+  int64 account_id = 1;
+  string session_id = 2; // UUID as 36-char string
+  uint32 dir = 3; // 0 = inbound, 1 = outbound
+  uint32 opcode = 4; // 0-255
+  bytes payload = 5;
+}
+
+// SessionEvent: connection lifecycle. STARTED on login OK; ENDED on
+// teardown, carrying total counters captured during the session.
+message SessionEvent {
+  int64 account_id = 1;
+  string session_id = 2;
+  Kind kind = 3;
+  string close_reason = 4; // empty for STARTED
+  uint64 packet_count_in = 5;
+  uint64 packet_count_out = 6;
+  uint64 byte_count_in = 7;
+  uint64 byte_count_out = 8;
+  google.protobuf.Timestamp started_at = 9;
+  google.protobuf.Timestamp ended_at = 10; // zero for STARTED
+
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_STARTED = 1;
+    KIND_ENDED = 2;
+  }
+}
