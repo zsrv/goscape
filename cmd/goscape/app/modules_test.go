@@ -414,6 +414,42 @@ func TestApp_Run_ModuleRuntimeFailure(t *testing.T) {
 	fh.Stop()
 }
 
+// TestApp_Run_StopsSignalHandlerOnNonSignalExit pins the deferred once-only
+// handler.Stop() in Run: when Run exits WITHOUT a signal — here because a
+// module fails — the handler.Loop() goroutine must be released rather than
+// left parked forever waiting for a signal that will never come. Drop the
+// defer from Run and this test fails: Run returns with the handler still
+// unstopped.
+func TestApp_Run_StopsSignalHandlerOnNonSignalExit(t *testing.T) {
+	a, fh := newAppForTest(t, "failing")
+	mm := modules.NewManager(discardLogger())
+	mm.RegisterModule("failing", func() (services.Service, error) {
+		return services.NewBasicService(
+			nil,
+			func(_ context.Context) error { return errors.New("intentional runtime failure") },
+			nil,
+		), nil
+	})
+	if err := mm.AddDependency("failing"); err != nil {
+		t.Fatalf("AddDependency: %v", err)
+	}
+	a.ModuleManager = mm
+
+	runDone := make(chan error, 1)
+	go func() { runDone <- a.Run() }()
+
+	select {
+	case <-runDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return within 5s after module runtime failure")
+	}
+
+	// Run has returned, so its defers have already run.
+	if !fh.Stopped() {
+		t.Error("Run returned without stopping the signal handler; handler.Loop() is leaked")
+	}
+}
+
 // TestApp_Stop_PanicsBeforeRun confirms Stop() panics when called before
 // Run() (signalsHandler is nil). Pinned because the panic is the contract.
 // COV-1 (Arc 18).
