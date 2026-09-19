@@ -47,13 +47,15 @@ path — `--config.file` is always required. Decoding is strict: an unknown key 
 fatal boot error.
 
 The `--target` flag (or `target:` in the config file) selects which modules to run:
-- `ondemand` — HTTP OnDemand server only
-- `world` — TCP game server only
-- `login` — gRPC login service only
-- `friends` — friends server only
-- `account` — portal (SSR web app) + AccountService gRPC only
-- `hiscore` — read-only hiscores JSON API only
+- `ondemand` — HTTP OnDemand server (pulls in `world`)
+- `world` — TCP game server (pulls in `login`, `friends`)
+- `login` — gRPC login service
+- `friends` — friends server
+- `account` — portal (SSR web app) + AccountService gRPC
+- `hiscore` — read-only hiscores JSON API
 - `all` (default) — all of the above
+
+A target pulls in its dependencies (see the module graph below), and a module runs only when it is in the target's set **and** its own `enable:` is `true` (every module defaults to `false`). So `--target=world` with `login.enable: true` also starts login (and the database migration) in-process. A world-only host that talks to a remote login/friends server via `world.login_server_address` / `world.friends_server_address` must leave `login.enable` and `friends.enable` false.
 
 Verify a config file without starting: `--config.verify=true`. Expand env vars in config: `--config.expand-env=true`. (Both are value flags and require the `=true`; the bare form errors with `flag needs an argument`.)
 
