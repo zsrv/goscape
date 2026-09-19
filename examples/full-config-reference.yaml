@@ -43,13 +43,15 @@
 # Global settings (top level)
 # ----------------------------------------------------------------------------
 
-# Which module(s) to run. The selected target pulls in its dependencies.
-#   ondemand  HTTP OnDemand server only
-#   world     TCP game server only
-#   login     gRPC login service only
-#   friends   friends server only
-#   account   player portal + AccountService gRPC only
-#   hiscore   read-only hiscores JSON API only
+# Which module(s) to run. The selected target pulls in its dependencies, and
+# each module in that set still runs only if its own `enable:` is true — e.g.
+# `target: world` with `login.enable: true` also starts login in-process.
+#   ondemand  HTTP OnDemand server (pulls in world)
+#   world     TCP game server (pulls in login, friends)
+#   login     gRPC login service
+#   friends   friends server
+#   account   player portal + AccountService gRPC
+#   hiscore   read-only hiscores JSON API
 #   all       run everything (default)
 # CLI: --target
 target: all
