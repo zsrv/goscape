@@ -77,6 +77,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 target: all
 log_level: {{ $g.logLevel | quote }}
 log_format: {{ $g.logFormat | quote }}
+shutdown_delay: {{ $g.shutdownDelay | quote }}
+{{- if .Values.admin.enabled }}
+# Supervisor listener for the container's probes. Bound on all interfaces
+# because the kubelet reaches it on the pod IP, never published through a
+# Service.
+admin:
+  listen: {{ printf ":%d" (int .Values.admin.port) | quote }}
+{{- end }}
 {{- if or (eq $mode "SingleBinary") (eq $mode "Management") }}
 database:
 {{- if eq $g.database.backend "postgres" }}
@@ -296,8 +304,26 @@ spec:
         - name: account-grpc
           containerPort: {{ $ctx.Values.goscape.ports.accountGRPC }}
         {{- end }}
+        {{- if $ctx.Values.admin.enabled }}
+        {{- /* Every mode gets this one: the admin listener is owned by the
+               process root, not by a module, so it exists even in Management
+               where no module serves HTTP. Deliberately absent from the
+               Service, the Ingresses and the Kong route — /readyz names the
+               modules and their states. */}}
+        - name: admin
+          containerPort: {{ $ctx.Values.admin.port }}
+        {{- end }}
       readinessProbe:
-        {{- if eq $mode "Management" }}
+        {{- if $ctx.Values.admin.enabled }}
+        {{- /* /readyz is the whole-process verdict: no shutdown in progress,
+               every module Running, and the world's tick loop still moving.
+               It subsumes the ondemand /healthz readiness probe below and
+               extends the same tick check to Management, which previously had
+               nothing finer than a tcpSocket connect (arch-29.6). */}}
+        httpGet:
+          path: /readyz
+          port: admin
+        {{- else if eq $mode "Management" }}
         {{- /* Management runs login-grpc/friends-grpc/hiscore-http — no
                ondemand HTTP port exists to httpGet /healthz against (the
                hiscore listener serves the API only, not /healthz), so this
@@ -318,12 +344,21 @@ spec:
         periodSeconds: 10
       {{- if $w.livenessProbe.enabled }}
       livenessProbe:
+        {{- if $ctx.Values.admin.enabled }}
+        {{- /* /healthz checks nothing by design, so liveness keeps meaning
+               "the process is up" — a pod whose tick loop has stalled or whose
+               cold cache is still loading is removed from endpoints by the
+               readiness probe above and must NOT be restart-looped. */}}
+        httpGet:
+          path: /healthz
+          port: admin
+        {{- else if eq $mode "Management" }}
         tcpSocket:
-          {{- if eq $mode "Management" }}
           port: login-grpc
-          {{- else }}
+        {{- else }}
+        tcpSocket:
           port: world-tcp
-          {{- end }}
+        {{- end }}
         initialDelaySeconds: {{ $w.livenessProbe.initialDelaySeconds }}
         periodSeconds: {{ $w.livenessProbe.periodSeconds }}
         failureThreshold: {{ $w.livenessProbe.failureThreshold }}

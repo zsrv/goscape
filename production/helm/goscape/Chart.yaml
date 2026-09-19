@@ -2,7 +2,7 @@ apiVersion: v2
 name: goscape
 description: Helm chart for goscape — a Go RuneScape server supporting single-binary, central management, and per-world deployment modes.
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "0.1.0"
 home: https://github.com/zsrv/goscape
 sources:
