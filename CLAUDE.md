@@ -79,16 +79,25 @@ Everything in `pkg/dskit/` is a port of [Grafana's dskit](https://github.com/gra
 `pkg/dskit/modules.Manager` resolves a dependency graph of named modules and initialises them in topological order. Modules and their dependencies (from `cmd/goscape/app/modules.go`, where `X → Y` means X depends on Y so Y starts first):
 
 ```
-common    invisible; no deps — exists only to anchor the graph
-database  invisible; central-DB migration anchor (pkg/gamedb)  → common
-friends   friends server                                       → common, database
-login     gRPC login service                                   → common, database
-world     TCP game server (world.Server)                       → common, login, friends
-ondemand  HTTP OnDemand server (dskit server + OnDemand)       → common, world
-account   portal + AccountService gRPC                         → common, database
-hiscore   read-only hiscores JSON API (dskit server)           → common, database
-all       composite "run everything" target                    → ondemand, friends, login, world, account, hiscore
+common         invisible; no deps — exists only to anchor the graph
+database       invisible; central-DB migration anchor (pkg/gamedb)      → common
+telemetry      invisible; OpenTelemetry providers + optional Kafka
+               event export                                            → common
+packetcapture  invisible; optional wire-packet export to Kafka
+               (pkg/tapper implementation)                             → common, telemetry
+friends        friends server                                          → common, database
+login          gRPC login service                                      → common, database, telemetry
+world          TCP game server (world.Server)                          → common, login, friends, telemetry, packetcapture
+ondemand       HTTP OnDemand server (dskit server + OnDemand)          → common, world
+account        portal + AccountService gRPC                            → common, database
+hiscore        read-only hiscores JSON API (dskit server)              → common, database
+all            composite "run everything" target                       → ondemand, friends, login, world, account, hiscore
 ```
+
+`telemetry` and `packetcapture` are user-invisible: they are never a `--target`,
+they arrive as dependencies of `login` and `world`, and each runs only when its
+own `enabled:` (not `enable:`) is true. Both default to off, and with them off
+`world` receives the no-op `pkg/tapper.Tapper` and no Kafka client is created.
 
 Adding a new module: register it in `modules.go`, wire its dependencies, and add its config to `cmd/goscape/app/config.go`.
 

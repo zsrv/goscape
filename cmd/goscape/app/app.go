@@ -13,6 +13,8 @@ import (
 	"github.com/zsrv/goscape/modules/hiscore"
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/modules/ondemand"
+	packetcapturemodule "github.com/zsrv/goscape/modules/packetcapture"
+	telemetrymodule "github.com/zsrv/goscape/modules/telemetry"
 	"github.com/zsrv/goscape/modules/world"
 	"github.com/zsrv/goscape/pkg/dskit/modules"
 	"github.com/zsrv/goscape/pkg/dskit/services"
@@ -40,6 +42,9 @@ type App struct {
 	world    *world.World
 	account  *account.Account
 	hiscore  *hiscore.Hiscore
+
+	telemetry     *telemetrymodule.Telemetry
+	packetcapture *packetcapturemodule.Module
 
 	// signalsHandlerMu guards signalsHandler against the Run/Stop race
 	// surfaced by COV-1's race detector: Run() writes signalsHandler at
