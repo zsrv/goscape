@@ -126,10 +126,53 @@ consumer. Use `kubectl port-forward` when running `goscape-cli account`.
 Pods run as uid `65532` with a read-only root filesystem and all capabilities
 dropped; the ServiceAccount token is not mounted (goscape never talks to the
 Kubernetes API). The default memory limit is `2Gi` per workload (the world
-process fills to its GC ceiling at ~1.1–1.3Gi under load). Liveness is a
-`tcpSocket` probe on the primary port (`world-tcp`, or `login-grpc` in
-Management) — `/healthz` is used only for readiness, since it can legitimately
-return 503 during a slow cold-cache boot.
+process fills to its GC ceiling at ~1.1–1.3Gi under load).
+
+### Probes
+
+`admin.enabled` (default `true`) runs goscape's admin listener on
+`admin.port` (default `8083`) and probes **every** workload through it:
+
+| Probe | Endpoint | What it proves |
+| --- | --- | --- |
+| `livenessProbe` | `httpGet /healthz` on `admin` | the process is up. It checks nothing else, on purpose. |
+| `readinessProbe` | `httpGet /readyz` on `admin` | no shutdown in progress, every module `Running`, and — where a world runs — its tick loop ticked recently. |
+
+That split is load-bearing: a stalled tick loop or a slow cold-cache boot must
+take the pod out of Service endpoints (readiness) and must **not** restart-loop
+it (liveness). The timing knobs (`<mode>.livenessProbe.initialDelaySeconds` /
+`periodSeconds` / `failureThreshold`) are unchanged.
+
+`/readyz` subsumes the older ondemand-port `httpGet /healthz` readiness probe
+and extends the same tick check to **Management**, which previously had nothing
+finer than a `tcpSocket` connect. The ondemand `/healthz` route itself is
+unchanged and still available.
+
+The admin port is a named `containerPort` only. It is deliberately absent from
+every Service, Ingress and Kong route, because `/readyz` reports the module
+names this pod runs and the state of each. It is likewise absent from the
+NetworkPolicy: that template writes no rule for probe traffic at all today (the
+Management mode's `login-grpc` probe port is already only allowed from goscape
+pods), so the chart relies on the CNI treating kubelet probes as node-local
+rather than as policy-governed ingress. If your CNI enforces policy on probe
+traffic, add a rule via `extraManifests`.
+
+Set `admin.enabled: false` to bind nothing and fall back to the previous probes
+(`tcpSocket` liveness on `world-tcp`/`login-grpc`; `httpGet /healthz` on
+`ondemand-http`, or `tcpSocket` on `login-grpc` in Management).
+
+The same readiness verdict is also served over the standard
+`grpc.health.v1.Health` service on each gRPC port (login, friends, account) —
+usable from `grpc_health_probe` or a service mesh with no extra configuration
+and no extra port. It reports whole-process status; the request's `service`
+field is ignored.
+
+`goscape.shutdownDelay` (default `0s`) makes the process keep serving for that
+long after SIGTERM while both readiness surfaces already report not-ready, so
+the pod leaves its Service endpoints before it stops accepting. Keep it
+comfortably below the pod's `terminationGracePeriodSeconds`; this chart does not
+set that field, so the Kubernetes default of 30s applies unless you add one via
+`extraManifests` or a patch.
 
 `--config.expand-env=true` is now always on, so `${VAR}` references inside
 `goscape.extraConfig` resolve from the container's environment — set the var

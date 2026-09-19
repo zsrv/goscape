@@ -5,6 +5,29 @@
     "deploymentMode": {
       "type": "string",
       "enum": ["SingleBinary", "Management", "World"]
+    },
+    "admin": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      },
+      "additionalProperties": false
+    },
+    "goscape": {
+      "type": "object",
+      "properties": {
+        "shutdownDelay": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h)([0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h))*$"
+        }
+      }
     }
   },
   "required": ["deploymentMode"]
