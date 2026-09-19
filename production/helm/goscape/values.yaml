@@ -34,12 +34,49 @@ serviceAccount:
   # -- goscape never talks to the Kubernetes API; keep the token unmounted.
   automountServiceAccountToken: false
 
+# Admin (supervisor) HTTP listener — the container's Kubernetes probes.
+#
+# goscape modules each own their listener, so a Management pod (login + friends
+# gRPC) has no HTTP surface of its own and could only be tcpSocket-probed, which
+# proves a socket is open and nothing else. This listener gives every mode the
+# same two endpoints:
+#
+#   GET /healthz  liveness — 200 as soon as the process is up; checks nothing.
+#   GET /readyz   readiness — 200 only when no shutdown is in progress, every
+#                 module is Running, and (where a world runs) its tick loop has
+#                 ticked recently. It subsumes the ondemand `/healthz` readiness
+#                 probe and extends the same tick check to Management.
+#
+# The port is deliberately NOT on any Service, Ingress or Kong route: /readyz
+# reports module names and states, so it stays inside the pod. It is likewise
+# absent from the NetworkPolicy, which today writes no rule for probe traffic at
+# all (the Management mode's existing tcpSocket probe port is already only
+# allowed from goscape pods) — this chart relies on the CNI treating kubelet
+# probes as node-local rather than as policy-governed ingress.
+#
+# Set enabled: false to fall back to the previous probes (tcpSocket liveness,
+# ondemand `/healthz` or tcpSocket readiness) and bind nothing.
+admin:
+  # -- Run the admin listener and probe every workload through it
+  enabled: true
+  # -- Admin HTTP container port. 8083 continues the chart's 808x block
+  # (ondemand 8080, account 8081, hiscore 8082) and clashes with no other
+  # container port in this chart.
+  port: 8083
+
 # goscape application config (rendered into config.yaml)
 goscape:
   # -- Log level: debug | info | warn | error
   logLevel: info
   # -- Log format: text | json
   logFormat: json
+  # -- How long the process keeps serving after SIGTERM while reporting
+  # not-ready on /readyz and over grpc.health.v1, so the pod leaves its Service
+  # endpoints before it stops accepting (sets shutdown_delay). Keep it well
+  # below the pod's terminationGracePeriodSeconds — this chart does not change
+  # that field, so the Kubernetes default of 30s applies unless you set one.
+  # "0s" (the default) stops immediately, as before.
+  shutdownDelay: 0s
   # -- Path to the baked-in packed cache (must match the image)
   cachePath: /usr/share/goscape/pack
   # -- Data dir for stateful modes (central sqlite DB + player saves)
