@@ -156,6 +156,12 @@ type Server struct {
 	currentTickAtomic atomic.Int64 // snapshot of s.currentTick
 	lastCycleMillis   atomic.Int64 // snapshot of lastCycleStats[statCycle]
 
+	// bootTime is the boot-grace reference CheckReady measures against
+	// (ready.go): how long this world has been allowed to reach its first
+	// tick. Written once in NewServer, before the Server escapes it, and
+	// read-only afterwards, so CheckReady is safe from any goroutine.
+	bootTime time.Time
+
 	// shutdownTick is the tick on which the world will halt. -1 means
 	// no shutdown scheduled. Set by Server.rebootTimer; consumed by
 	// Server.processShutdown (called at top of tick body when
@@ -515,6 +521,10 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		rebuildResult:    make(chan rebuildResult, 1),
 		relayActionQueue: make(chan func(), 64),
 		players:          newPlayerList(2048),
+		// ready.go's boot grace is measured from here: module init, which
+		// is ≈ process start and precedes the slow startingFn work (cache
+		// load, Listen, WorldStartup) the grace is meant to cover.
+		bootTime: time.Now(),
 	}
 	// pmCount inits to 1 per TS World.ts:167 ("can't be 0 as clients will
 	// ignore the pm, their array is filled with 0 as default"). R4: atomic

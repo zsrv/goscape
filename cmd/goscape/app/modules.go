@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -117,12 +119,29 @@ func (g *App) initOnDemand() (services.Service, error) {
 	}
 
 	// arch-29.6: /healthz + /debug/status. worldSrv is nil when the world
-	// module is disabled (standalone ondemand) — snap then reports
+	// module is disabled (standalone ondemand) — both adapters then report
 	// hasWorld=false and /healthz degrades to a plain process-up 200. Two
 	// mirrored HealthSnapshot structs (world's and ondemand's) avoid a
 	// modules/ondemand → modules/world import; this adapter is the only
 	// place that converts between them.
-	ondemand.RegisterHealthRoutes(g.ondemand.Server.HTTP, func() (ondemand.HealthSnapshot, bool) {
+	//
+	// The readiness verdict itself is world.Server.CheckReady (the same one
+	// App.Ready feeds into /readyz). ErrStarting is translated to nil here
+	// and only here: the legacy /healthz route has always answered 200 while
+	// a world is inside its boot grace, and the Helm chart and operators
+	// depend on that. Translating in the adapter also keeps modules/ondemand
+	// free of any world sentinel — a non-nil error is simply a 503.
+	ready := func(ctx context.Context) (error, bool) {
+		if worldSrv == nil {
+			return nil, false
+		}
+		if err := worldSrv.CheckReady(ctx); err != nil && !errors.Is(err, world.ErrStarting) {
+			return err, true
+		}
+		return nil, true
+	}
+
+	ondemand.RegisterHealthRoutes(g.ondemand.Server.HTTP, ready, func() (ondemand.HealthSnapshot, bool) {
 		if worldSrv == nil {
 			return ondemand.HealthSnapshot{}, false
 		}
