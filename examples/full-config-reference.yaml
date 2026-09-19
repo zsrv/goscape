@@ -75,6 +75,61 @@ log_format: text
 # CLI: --log.source   (default: relative)
 log_source: relative
 
+# How long to wait between receiving SIGTERM and actually stopping the modules.
+# For the whole of this window the process keeps serving players, but /readyz
+# answers 503 ("shutting down") and every gRPC server's grpc.health.v1 service
+# answers NOT_SERVING — so an orchestrator removes this pod from its Service
+# endpoints BEFORE it stops accepting. Pair it with a container
+# terminationGracePeriodSeconds comfortably larger than this value plus the
+# time the modules themselves need to stop. 0 (the default) stops immediately,
+# exactly as before.
+# CLI: --shutdown-delay   (default: 0s)
+shutdown_delay: 0s
+
+
+# ----------------------------------------------------------------------------
+# admin — supervisor HTTP listener (Kubernetes liveness / readiness probes)
+# ----------------------------------------------------------------------------
+# A tiny HTTP listener, owned by the process root rather than by any module,
+# serving exactly two routes:
+#
+#   GET /healthz  liveness. Always 200 with the body "ok\n" as soon as the
+#                 process is up. It deliberately checks nothing: a process
+#                 that is merely not ready must be drained, never
+#                 restart-looped.
+#   GET /readyz   readiness. 200 with {"status":"ready","modules":{...}}, or
+#                 503 with {"status":"not ready","reason":"...","modules":{...}}.
+#                 It checks, in order: (1) no shutdown has been requested,
+#                 (2) the service manager is built and every module is
+#                 Running, (3) the world (when this target runs one) has
+#                 completed a recent tick — the same tick-loop check the
+#                 ondemand /healthz route uses, except that a world still
+#                 inside its 30s boot grace counts as NOT ready here, since a
+#                 pod must not receive players before its first tick.
+#                 `modules` maps each module in this target to its dskit
+#                 state (New/Starting/Running/Stopping/Terminated/Failed).
+#
+# Why it exists: every goscape module owns its own listener, so a host running
+# only `target: login` or `target: friends` serves no HTTP at all and could
+# previously be probed no better than with a bare TCP connect. This listener
+# gives every target the same probe surface. It is the counterpart of Grafana
+# Loki's internal_server.
+#
+# Kubernetes: livenessProbe -> httpGet /healthz, readinessProbe -> httpGet
+# /readyz, both on this port. Bind it INSIDE the pod (":9100" or
+# "127.0.0.1:9100") and never expose it through a Service, Ingress or gateway:
+# /readyz names the modules this process runs and the state each is in.
+#
+# gRPC hosts get the same verdict for free: login, friends and account each
+# register the standard grpc.health.v1 Health service on their existing gRPC
+# port, reporting the health of the WHOLE process (the request's `service`
+# field is ignored, as in dskit). grpc_health_probe and service meshes can use
+# that with no extra configuration and no extra port.
+admin:
+  # Address for the admin HTTP listener. Empty (the default) disables it and
+  # binds nothing. CLI: --admin.listen
+  listen: ""
+
 
 # ----------------------------------------------------------------------------
 # ondemand — HTTP OnDemand server (serves the client cache + /rs2.cgi bootstrap,

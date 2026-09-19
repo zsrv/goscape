@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/zsrv/goscape/modules/account"
 	"github.com/zsrv/goscape/modules/friends"
@@ -13,6 +14,7 @@ import (
 	packetcapturemodule "github.com/zsrv/goscape/modules/packetcapture"
 	telemetrymodule "github.com/zsrv/goscape/modules/telemetry"
 	"github.com/zsrv/goscape/modules/world"
+	"github.com/zsrv/goscape/pkg/admin"
 	"github.com/zsrv/goscape/pkg/gamedb"
 	"github.com/zsrv/goscape/pkg/util/log"
 )
@@ -22,6 +24,17 @@ type Config struct {
 	LogFormat string           `yaml:"log_format,omitempty"`
 	LogLevel  log.Level        `yaml:"log_level,omitempty"`  // global log level, default for modules too
 	LogSource log.SourceFormat `yaml:"log_source,omitempty"` // how the `source` attribute is rendered
+
+	// Admin is the optional supervisor HTTP listener (GET /healthz, GET
+	// /readyz). Empty admin.listen — the default — binds nothing.
+	Admin admin.Config `yaml:"admin,omitempty"`
+
+	// ShutdownDelay is how long to wait between SIGTERM and actually
+	// stopping the modules. During that window /readyz and the gRPC health
+	// service report not-ready, so an orchestrator has time to take this
+	// pod out of its Service endpoints before it stops serving. 0 (the
+	// default) stops immediately, exactly as before.
+	ShutdownDelay time.Duration `yaml:"shutdown_delay,omitempty"`
 
 	Database gamedb.Config `yaml:"database,omitempty"`
 
@@ -55,9 +68,11 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.TextVar(&c.LogLevel, "log.level", log.Level(slog.LevelInfo), "Only log messages with the given severity or above. Valid levels: [trace, debug, info, warn, error]")
 	f.StringVar(&c.LogFormat, "log.format", "text", "Output log messages in the given format. Valid formats: [text, json]")
 	f.TextVar(&c.LogSource, "log.source", log.SourceRelative, "Render the source attribute as a path. relative (default): module-root-relative, e.g. modules/world/file.go:42 (clickable from the repo root). short: filename only. full: the compiler's path.")
+	f.DurationVar(&c.ShutdownDelay, "shutdown-delay", 0, "How long to wait between SIGTERM and shutdown. After receiving SIGTERM, /readyz and the gRPC health service report not-ready/NOT_SERVING.")
 
 	// Everything else
 
+	c.Admin.RegisterFlagsAndApplyDefaults(f)
 	c.Database.RegisterFlagsAndApplyDefaults(f)
 	c.OnDemand.RegisterFlagsAndApplyDefaults(f)
 	c.Friends.RegisterFlagsAndApplyDefaults(f)
