@@ -43,7 +43,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 
 	// Global settings
 
-	f.StringVar(&c.Target, "target", SingleBinary, "Target module")
+	f.StringVar(&c.Target, "target", SingleBinary, "Target module: ondemand, world, login, friends, account, hiscore, or all. Dependencies are pulled in (world pulls in login and friends; ondemand pulls in world), and each module still runs only if its <module>.enable is true.")
 	f.TextVar(&c.LogLevel, "log.level", log.Level(slog.LevelInfo), "Only log messages with the given severity or above. Valid levels: [trace, debug, info, warn, error]")
 	f.StringVar(&c.LogFormat, "log.format", "text", "Output log messages in the given format. Valid formats: [text, json]")
 	f.TextVar(&c.LogSource, "log.source", log.SourceRelative, "Render the source attribute as a path. relative (default): module-root-relative, e.g. modules/world/file.go:42 (clickable from the repo root). short: filename only. full: the compiler's path.")
