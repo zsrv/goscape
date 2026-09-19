@@ -6,16 +6,15 @@ import (
 	"testing"
 )
 
-// TestHandler_StopIdempotent guards the arch-29.8 backfill: calling Stop
-// twice must not panic with "close of closed channel". A real OS signal
-// unblocking Loop and a caller also invoking Stop is exactly the race this
-// protects against.
-func TestHandler_StopIdempotent(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h := NewHandler(logger)
-
+// TestHandlerStopIsIdempotent pins arch-29.8: a second Stop() call must not
+// panic (close of a closed channel), and Stop must genuinely close quit
+// rather than silently do nothing. Production hits the double call when a
+// real OS signal already unblocked Loop and a caller (e.g. App.Run's
+// deferred cleanup, or an explicit App.Stop) also calls Stop.
+func TestHandlerStopIsIdempotent(t *testing.T) {
+	h := NewHandler(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	h.Stop()
-	h.Stop()
+	h.Stop() // must not panic
 
 	select {
 	case <-h.quit:
