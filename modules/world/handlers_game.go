@@ -20,6 +20,7 @@ import (
 	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
+	"github.com/zsrv/goscape/pkg/io/protocol/revision"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 	"github.com/zsrv/goscape/pkg/rsbuf"
@@ -411,6 +412,8 @@ func handleMessagePublic(p *Player, payload []byte) error {
 			Ts:            timestamppb.Now(),
 			WorldId:       int32(s.cfg.NodeID),
 			AccountId:     p.accountID,
+			Revision:      revision.Expected,
+			Profile:       s.cfg.NodeProfile,
 			Payload: &eventspb.WorldEnvelope_PublicChat{
 				PublicChat: &eventspb.PublicChatEvent{
 					Text:        decoded,

@@ -25,6 +25,7 @@ type Capture struct {
 	metrics  *Metrics
 	worldID  int32
 	revision uint16
+	profile  string
 
 	mu         sync.Mutex
 	sessions   map[string]*sessionStats // keyed by session_id
@@ -45,6 +46,7 @@ type CaptureOpts struct {
 	Enabled      bool
 	WorldID      int32
 	Revision     uint16
+	Profile      string
 	RingCapacity int
 	Metrics      *Metrics
 }
@@ -61,6 +63,7 @@ func New(opts CaptureOpts) *Capture {
 		metrics:    opts.Metrics,
 		worldID:    opts.WorldID,
 		revision:   opts.Revision,
+		profile:    opts.Profile,
 		sessions:   make(map[string]*sessionStats),
 		closedLast: make(map[string]sessionStats),
 	}
@@ -84,6 +87,7 @@ func (c *Capture) SessionStarted(accountID int64, sessionID string, ts time.Time
 	rec, err := EncodeSessionStarted(SessionRecord{
 		WorldID:   c.worldID,
 		Revision:  c.revision,
+		Profile:   c.profile,
 		AccountID: accountID,
 		SessionID: sessionID,
 		StartedAt: ts,
@@ -116,6 +120,7 @@ func (c *Capture) Tap(accountID int64, sessionID string, dir tapper.Direction, o
 	rec, err := EncodePacket(PacketRecord{
 		WorldID:   c.worldID,
 		Revision:  c.revision,
+		Profile:   c.profile,
 		AccountID: accountID,
 		SessionID: sessionID,
 		Direction: dir,
@@ -160,6 +165,7 @@ func (c *Capture) SessionEnded(accountID int64, sessionID string, ts time.Time, 
 	rec, err := EncodeSessionEnded(SessionRecord{
 		WorldID:        c.worldID,
 		Revision:       c.revision,
+		Profile:        c.profile,
 		AccountID:      accountID,
 		SessionID:      sessionID,
 		StartedAt:      stats.StartedAt,

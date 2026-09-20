@@ -10,6 +10,7 @@ import (
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/inventory"
+	"github.com/zsrv/goscape/pkg/io/protocol/revision"
 	"github.com/zsrv/goscape/pkg/telemetry"
 	applog "github.com/zsrv/goscape/pkg/util/log"
 )
@@ -318,6 +319,8 @@ func handleObjTakeItem(s *ScriptState) error {
 		Ts:            timestamppb.Now(),
 		AccountId:     s.activePlayer().AccountID(),
 		WorldId:       worldID,
+		Revision:      revision.Expected,
+		Profile:       s.worldProfile(),
 		Payload: &eventspb.WealthEnvelope_ItemPickedUp{
 			ItemPickedUp: &eventspb.ItemPickedUpEvent{
 				ItemId:             int32(objTypeID),
