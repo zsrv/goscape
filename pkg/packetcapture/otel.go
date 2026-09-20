@@ -6,14 +6,16 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
-// Metrics holds the seven replay-domain instruments. Names and attribute keys
+// Metrics holds the eight replay-domain instruments. Names and attribute keys
 // follow OpenTelemetry semantic conventions (general/naming.md, no _total
 // suffix, dot-namespaced, direction as attribute).
 //
 // Standard messaging-semconv producer metrics (messaging.client.sent.messages,
 // messaging.client.operation.duration) are emitted by the kgo client's
 // kotel integration — wired separately in the dskit module, not constructed
-// here.
+// here. They count what the client SENT, which is why a record whose produce
+// promise comes back with an error needs ProduceErrors: it appears in none of
+// them.
 type Metrics struct {
 	PacketRecorded       metric.Int64Counter
 	PacketDropped        metric.Int64Counter
@@ -21,6 +23,7 @@ type Metrics struct {
 	PacketSize           metric.Int64Histogram
 	SessionStarted       metric.Int64Counter
 	SessionEnded         metric.Int64Counter
+	ProduceErrors        metric.Int64Counter
 	ShipperBatchDuration metric.Float64Histogram
 }
 
@@ -30,16 +33,30 @@ const (
 	AttrDropReason         = "goscape.replay.drop.reason"
 	AttrSessionCloseReason = "goscape.replay.session.close_reason"
 
+	// AttrTopic is the semconv messaging.destination.name attribute carried
+	// by goscape.replay.produce.errors, spelled exactly as pkg/telemetry's
+	// shipper instruments spell it.
+	AttrTopic = "messaging.destination.name"
+
 	// Drop reasons carried by goscape.replay.packet.dropped. Every record the
-	// pipeline loses is counted under exactly one of them.
+	// pipeline loses is counted under exactly one of them. The first two are
+	// charged to the PUSH that found the ring full, not to the record that was
+	// evicted (which may be of either kind) — that is how the packet path has
+	// read since it was written.
 	//
-	//	ringbuf_full        the ring buffer's drop-oldest policy evicted the
-	//	                    oldest record to make room for a new one.
-	//	shutdown_abandoned  the shipper's stop-timeout budget expired with
-	//	                    records still buffered, so the final drain left
-	//	                    them behind.
-	DropReasonRingbufFull       = "ringbuf_full"
-	DropReasonShutdownAbandoned = "shutdown_abandoned"
+	//	ringbuf_full                the ring buffer's drop-oldest policy made
+	//	                            room for a captured packet.
+	//	session_marker_ringbuf_full the same policy made room for a SESSION
+	//	                            STARTED / ENDED marker. Worth its own
+	//	                            value: markers are how a consumer knows a
+	//	                            session's bounds, so losing one is worse
+	//	                            than losing a packet.
+	//	shutdown_abandoned          the shipper's stop-timeout budget expired
+	//	                            with records still buffered, so the final
+	//	                            drain left them behind.
+	DropReasonRingbufFull              = "ringbuf_full"
+	DropReasonSessionMarkerRingbufFull = "session_marker_ringbuf_full"
+	DropReasonShutdownAbandoned        = "shutdown_abandoned"
 )
 
 func NewMetrics(meter metric.Meter) (*Metrics, error) {
@@ -57,7 +74,7 @@ func NewMetrics(meter metric.Meter) (*Metrics, error) {
 
 	m.PacketDropped, err = meter.Int64Counter(
 		"goscape.replay.packet.dropped",
-		metric.WithDescription("Number of captured packets dropped before reaching Kafka."),
+		metric.WithDescription("Number of captured records — packets and session markers alike — dropped before reaching Kafka."),
 		metric.WithUnit("{packet}"),
 	)
 	if err != nil {
@@ -98,6 +115,15 @@ func NewMetrics(meter metric.Meter) (*Metrics, error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("session.ended: %w", err)
+	}
+
+	m.ProduceErrors, err = meter.Int64Counter(
+		"goscape.replay.produce.errors",
+		metric.WithDescription("Number of captured records whose Kafka produce callback returned an error."),
+		metric.WithUnit("{error}"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("produce.errors: %w", err)
 	}
 
 	m.ShipperBatchDuration, err = meter.Float64Histogram(

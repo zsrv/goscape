@@ -3,6 +3,7 @@ package packetcapture
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -22,6 +23,11 @@ type ProducerClient interface {
 // configures no explicit StopTimeout. Matches pkg/telemetry.
 const defaultStopTimeout = 5 * time.Second
 
+// produceWarnInterval is the floor between two produce-failure warnings. A
+// broker outage fails every record in the drain batch, so an unsampled Warn
+// would drown the process output. Matches pkg/telemetry.
+const produceWarnInterval = 10 * time.Second
+
 type Shipper struct {
 	client      ProducerClient
 	buf         *RingBuffer
@@ -29,6 +35,7 @@ type Shipper struct {
 	batchMax    int
 	metrics     *Metrics
 	log         *slog.Logger
+	warn        *warnSampler
 	stopTimeout time.Duration
 }
 
@@ -60,6 +67,7 @@ func NewShipper(client ProducerClient, buf *RingBuffer, tick time.Duration, batc
 		tick:        tick,
 		batchMax:    batchMax,
 		metrics:     m,
+		warn:        &warnSampler{interval: produceWarnInterval, now: time.Now},
 		stopTimeout: defaultStopTimeout,
 	}
 	for _, o := range opts {
@@ -137,7 +145,54 @@ func (s *Shipper) reportAbandoned() {
 	}
 }
 
-func (s *Shipper) onProduce(_ *kgo.Record, _ error) {
-	// Kafka failures are surfaced via the standard messaging.client.* metrics
-	// from kotel; this callback exists to satisfy the kgo.Produce signature.
+// onProduce is the kgo produce promise. franz-go runs it on its own goroutine,
+// after the drain context may already be gone, so it always measures against
+// context.Background.
+//
+// It used to be empty, on the claim that kotel already surfaced these. It does
+// not: kotel's messaging.client.* instruments count what the client SENT, and a
+// record whose promise comes back with an error was never sent — it appeared in
+// no instrument and in no log. Mirrors pkg/telemetry's shipper.
+func (s *Shipper) onProduce(rec *kgo.Record, err error) {
+	if err == nil {
+		return
+	}
+	topic := ""
+	if rec != nil {
+		topic = rec.Topic
+	}
+	if s.metrics != nil {
+		s.metrics.ProduceErrors.Add(context.Background(), 1,
+			metric.WithAttributes(attribute.String(AttrTopic, topic)))
+	}
+	if s.log != nil && s.warn.allow() {
+		s.log.Warn("packetcapture: kafka produce failed", "topic", topic, "err", err)
+	}
+}
+
+// warnSampler admits at most one event per interval. Both fields are set once
+// at construction and never written again, so allow() is the only reader of
+// now and needs no synchronisation around it.
+//
+// pkg/telemetry has the same type and does not export it, so this package
+// keeps its own rather than widening that package's API for one caller; the
+// two are independent by design anyway, since a broker outage should not let
+// one shipper's warning suppress the other's.
+type warnSampler struct {
+	interval time.Duration
+	now      func() time.Time
+
+	mu   sync.Mutex
+	last time.Time
+}
+
+func (s *warnSampler) allow() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.now()
+	if !s.last.IsZero() && now.Sub(s.last) < s.interval {
+		return false
+	}
+	s.last = now
+	return true
 }
