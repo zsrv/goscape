@@ -11,6 +11,17 @@ spec:
       {{- include "goscape.selectorLabels" . | nindent 6 }}
   policyTypes:
     - Ingress
+  # Probe traffic needs no rule below. The kubelet reaches /healthz and /readyz
+  # on the admin container port from the node this pod runs on, and Kubernetes
+  # documents that as outside the policy's reach: "traffic to and from the node
+  # where a Pod is running is always allowed, regardless of the IP address of
+  # the Pod or the node", and Pods have no "ability to block access from their
+  # resident node"
+  # (kubernetes.io/docs/concepts/services-networking/network-policies/).
+  # Keeping the admin port off this list is therefore the deliberate posture,
+  # not an omission: /readyz names the modules this pod runs and the state of
+  # each, so no other pod should be able to reach it. A CNI that enforces
+  # policy on probe traffic regardless would need a rule via extraManifests.
   ingress:
     {{- if eq .Values.deploymentMode "Management" }}
     # Allow gRPC only from goscape world/single-binary pods in this namespace
