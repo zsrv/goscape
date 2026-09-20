@@ -1544,6 +1544,16 @@ func (p *Player) StopAction() {
 // (P_LOGOUT) — `state.activePlayer.requestLogout = true`.
 func (p *Player) RequestLogout() {
 	p.requestLogout = true
+	p.setCloseReason(closeReasonCodeLogout)
+}
+
+// setCloseReason records why this player's connection is ending (first reason
+// wins). Nil-safe for the struct-literal Players some tests build without a
+// client.
+func (p *Player) setCloseReason(code closeReasonCode) {
+	if p.client != nil {
+		p.client.setCloseReason(code)
+	}
 }
 
 // ClearPendingAction implements script.ActivePlayer.ClearPendingAction.

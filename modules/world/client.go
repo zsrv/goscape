@@ -133,6 +133,27 @@ type client struct {
 	teardownRefs atomic.Int32
 	connRefOnce  sync.Once
 	tickRefOnce  sync.Once
+	// closeReason records WHY this connection is ending. The goroutine that
+	// decides to end it writes the reason; handleTCPConn's teardown defer
+	// reads it and hands it to the tap. Zero means "nobody decided", which
+	// reports as tapper.CloseReasonDisconnect.
+	//
+	// Every writer today runs on the TICK goroutine (processLogouts' two
+	// timeout branches, the ::kick and RELAY_KICK arms, processShutdown,
+	// recoverPlayer, handlePlayerScriptError, RequestLogout, and readPacket's
+	// protocol rejections) while the reader is the CONNECTION goroutine, so
+	// the field has to be synchronised. It holds a small code rather than the
+	// pkg/tapper string because a string header is two words and cannot be
+	// stored atomically, and because the write sits on paths that must not
+	// allocate. An atomic word is also what client already uses for its other
+	// cross-goroutine field (teardownRefs), so this adds no lock and no lock
+	// ordering to reason about.
+	//
+	// Written at most once — first reason wins, via CompareAndSwap from
+	// unset. The decision that STARTED the teardown is the one that explains
+	// it; the socket error that follows as the peer goes away must not
+	// overwrite it.
+	closeReason atomic.Uint32
 	// out is the asynchronous socket writer that bufw drains into
 	// (SEC1 M-2). Nothing but out's own goroutine calls conn.Write, so a
 	// stalled peer can no longer hold the tick goroutine inside a socket
@@ -200,6 +221,62 @@ func (c *client) tryRef() bool {
 			return true
 		}
 	}
+}
+
+// closeReasonCode enumerates the reasons a connection can end. It exists so
+// the reason fits in one atomic word (see client.closeReason); the wire value
+// a consumer sees is the pkg/tapper sentinel this maps to.
+type closeReasonCode uint32
+
+const (
+	closeReasonCodeUnset closeReasonCode = iota
+	closeReasonCodeLogout
+	closeReasonCodeTimeout
+	closeReasonCodeKick
+	closeReasonCodeProtocol
+	closeReasonCodeShutdown
+	closeReasonCodeCrash
+)
+
+// tapperCloseReasons maps each code to the sentinel the tap carries. Indexed
+// by closeReasonCode, so the order must match the constants above; the unset
+// slot deliberately reports a disconnect.
+var tapperCloseReasons = [...]string{
+	closeReasonCodeUnset:    tapper.CloseReasonDisconnect,
+	closeReasonCodeLogout:   tapper.CloseReasonLogout,
+	closeReasonCodeTimeout:  tapper.CloseReasonTimeout,
+	closeReasonCodeKick:     tapper.CloseReasonKick,
+	closeReasonCodeProtocol: tapper.CloseReasonProtocol,
+	closeReasonCodeShutdown: tapper.CloseReasonShutdown,
+	closeReasonCodeCrash:    tapper.CloseReasonCrash,
+}
+
+// setCloseReason records why this connection is ending, keeping the FIRST
+// reason offered. Cheap enough (one CAS, no allocation) to sit on the packet
+// read path.
+func (c *client) setCloseReason(code closeReasonCode) {
+	c.closeReason.CompareAndSwap(uint32(closeReasonCodeUnset), uint32(code))
+}
+
+// tapCloseReason is the pkg/tapper sentinel for the recorded reason, or
+// CloseReasonDisconnect when nothing recorded one.
+func (c *client) tapCloseReason() string {
+	code := c.closeReason.Load()
+	if code >= uint32(len(tapperCloseReasons)) {
+		return tapper.CloseReasonDisconnect
+	}
+	return tapperCloseReasons[code]
+}
+
+// reportSessionEnded tells the tap this connection's session is over, with the
+// reason whoever ended it recorded. Clearing sessionID makes it a no-op on a
+// second call, so a session is reported exactly once.
+func (c *client) reportSessionEnded(ts time.Time) {
+	if c.tap == nil || c.sessionID == "" {
+		return
+	}
+	c.tap.SessionEnded(c.accountID, c.sessionID, ts, c.tapCloseReason())
+	c.sessionID = ""
 }
 
 // bufferData appends data to the incoming buffer, returning false and discarding

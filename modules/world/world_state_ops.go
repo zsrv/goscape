@@ -124,6 +124,7 @@ func (s *Server) KickPlayer(username37 uint64) {
 			return
 		}
 		p.loggingOut = true
+		p.setCloseReason(closeReasonCodeKick)
 	})
 }
 
