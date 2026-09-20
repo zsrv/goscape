@@ -16,7 +16,10 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/zsrv/goscape/pkg/cache"
+	loginreq "github.com/zsrv/goscape/pkg/io/protocol/login/req"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
+	"github.com/zsrv/goscape/pkg/io/protocol/revision"
 	"github.com/zsrv/goscape/pkg/loginpb"
 )
 
@@ -49,6 +52,65 @@ func sampleLoginReq(t *testing.T, c *client) *loginpb.PlayerLoginRequest {
 		RemoteAddress: c.conn.RemoteAddr().String(),
 		Reconnecting:  false,
 		HasSave:       false,
+		Revision:      revision.Expected,
+	}
+}
+
+// TestHandleLogin_RequestCarriesWorldRevision pins the world half of the auth
+// event's origin: the login RPC request carries THIS binary's wire revision,
+// so a revision-agnostic login server shared by worlds of several revisions
+// can attribute each auth event to the world that produced it instead of to
+// itself. Driven through handleLogin (not the sampleLoginReq fixture) so the
+// real build site is what is under test; the fake rejects the login, which
+// keeps the assertion clear of the post-login path.
+func TestHandleLogin_RequestCarriesWorldRevision(t *testing.T) {
+	prevCRC := cache.CRC()
+	sentinel := [9]uint32{11, 22, 33, 44, 55, 66, 77, 88, 99}
+	cache.SetCRCForTest(&cache.CRCSnapshot{Table: sentinel[:]})
+	t.Cleanup(func() { cache.SetCRCForTest(prevCRC) })
+
+	fake := newFakeLoginClient()
+	fake.playerLoginResp = &loginpb.PlayerLoginResponse{
+		Result: loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS,
+	}
+	c, clientConn := newClientWithFakeLoginServer(t, fake)
+
+	q := &loginreq.GameLogin{
+		Username:         "test",
+		Password:         "pw",
+		ArchiveChecksums: sentinel,
+		ISAACSeed:        [4]uint32{1, 2, 3, 4},
+		UID:              0x1234,
+		Revision:         revision.Expected,
+	}
+	data, err := q.MarshalBinary()
+	if err != nil {
+		t.Fatalf("MarshalBinary: %v", err)
+	}
+	c.bufferData(data)
+
+	// net.Pipe is unbuffered — drain the reject byte so the flush inside
+	// handleLogin does not block.
+	drained := make(chan struct{})
+	go func() {
+		defer close(drained)
+		buf := make([]byte, 8)
+		_ = clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		_, _ = clientConn.Read(buf)
+	}()
+
+	if err := c.handleLogin(); !errors.Is(err, errCloseConn) {
+		t.Fatalf("handleLogin: got err %v, want errCloseConn", err)
+	}
+	<-drained
+
+	got := fake.snapshotPlayerLoginReq()
+	if got == nil {
+		t.Fatal("no PlayerLoginRequest captured")
+	}
+	if got.Revision != uint32(revision.Expected) {
+		t.Errorf("Revision = %d, want %d (revision.Expected — this world binary's wire revision)",
+			got.Revision, uint32(revision.Expected))
 	}
 }
 
