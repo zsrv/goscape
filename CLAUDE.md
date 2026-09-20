@@ -99,6 +99,23 @@ they arrive as dependencies of `login` and `world`, and each runs only when its
 own `enabled:` (not `enable:`) is true. Both default to off, and with them off
 `world` receives the no-op `pkg/tapper.Tapper` and no Kafka client is created.
 
+Every event envelope in `pkg/eventspb` carries two **origin** fields beside
+`world_id`/`account_id`: `revision`, the wire revision of the binary that
+emitted it (`revision.Expected`), and `profile`, the emitting module's
+configured deployment profile (`world.node_profile`, or the originating
+world's profile off the request in `modules/login`; `modules/friends` serves
+one profile, which `WorldConnect` pins to the world's, so it stamps its own
+`friends.node_profile`).
+One world id can be served by several revisions and profiles at once and
+account ids are global across profiles, so neither pair alone identifies where
+an event came from. `0` / `""` mean the record predates these fields. Every
+`eventspb.*Envelope` composite literal must set both — stamping cannot be
+centralised, because `pkg/telemetry`/`modules/telemetry` are revision-neutral
+and import neither `pkg/io/protocol/revision` nor any module —
+and `cmd/goscape/app/origin_guard_test.go` fails, naming file:line, if a new
+emit site forgets. `pkg/packetcapture` borrows its profile the same inert way
+it borrows `world_id`.
+
 Adding a new module: register it in `modules.go`, wire its dependencies, and add its config to `cmd/goscape/app/config.go`.
 
 ### Health checking
