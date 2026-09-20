@@ -79,7 +79,7 @@ help: ## Display this help
 .PHONY: validate-example-configs
 .PHONY: clean clean-protos
 .PHONY: dev-k3d-goscape dev-k3d-down
-.PHONY: helm-test helm-lint helm-test-account
+.PHONY: helm-test helm-lint helm-test-account helm-test-networkpolicy
 
 #############
 # Variables #
@@ -189,6 +189,39 @@ helm-test: ## render the chart for each example values file (cluster-free smoke)
 		--set goscape.loginServerAddress=mgmt:2004 \
 		--set goscape.friendsServerAddress=mgmt:2005 >/dev/null
 	$(MAKE) helm-test-account
+	$(MAKE) helm-test-networkpolicy
+
+# The probes hit the admin container port, which the NetworkPolicy deliberately
+# leaves closed: kubelet probes come from the node the pod runs on, and
+# Kubernetes documents that "traffic to and from the node where a Pod is
+# running is always allowed, regardless of the IP address of the Pod or the
+# node" — so a rule would buy nothing and would expose /readyz, which names
+# this pod's modules and their states, to every other pod. Pinned here so the
+# port cannot drift into the policy unnoticed, and so the probes cannot quietly
+# move off it.
+helm-test-networkpolicy: ADMIN_PORT := 8083
+helm-test-networkpolicy: ## the admin port stays out of the NetworkPolicy in every deployment mode
+	@set -e; \
+	for mode in single-binary management world; do \
+		case $$mode in \
+		world) addr="--set goscape.loginServerAddress=mgmt:2004 --set goscape.friendsServerAddress=mgmt:2005";; \
+		*) addr="";; \
+		esac; \
+		echo "  $$mode: no admin-port ingress rule"; \
+		np=$$(helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/$$mode-values.yaml \
+			$$addr --set networkPolicy.enabled=true -s templates/networkpolicy.yaml); \
+		echo "$$np" | grep -q 'kind: NetworkPolicy'; \
+		if echo "$$np" | grep -q 'port: $(ADMIN_PORT)'; then \
+			echo "    FAIL: $$mode NetworkPolicy has an ingress rule for admin port $(ADMIN_PORT)"; \
+			exit 1; \
+		fi; \
+		echo "  $$mode: workload still probes the admin port"; \
+		wl=$$(helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/$$mode-values.yaml \
+			$$addr --set networkPolicy.enabled=true); \
+		echo "$$wl" | grep -q 'containerPort: $(ADMIN_PORT)'; \
+		echo "$$wl" | grep -A1 'path: /readyz' | grep -q 'port: admin'; \
+		echo "$$wl" | grep -A1 'path: /healthz' | grep -q 'port: admin'; \
+	done
 
 # The account module is opt-in and has guard rails the other modules do not
 # (a required public_url, a database it can only reach in the stateful modes,
