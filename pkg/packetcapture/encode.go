@@ -16,6 +16,7 @@ import (
 type PacketRecord struct {
 	WorldID   int32
 	Revision  uint16
+	Profile   string
 	AccountID int64
 	SessionID string // UUID 36-char string
 	Direction tapper.Direction
@@ -28,6 +29,7 @@ type PacketRecord struct {
 type SessionRecord struct {
 	WorldID        int32
 	Revision       uint16
+	Profile        string
 	AccountID      int64
 	SessionID      string
 	StartedAt      time.Time
@@ -57,6 +59,7 @@ func EncodePacket(rec PacketRecord) (*kgo.Record, error) {
 		Ts:            timestamppb.New(rec.TS),
 		WorldId:       rec.WorldID,
 		Revision:      uint32(rec.Revision),
+		Profile:       rec.Profile,
 		Payload: &eventspb.ReplayEnvelope_Packet{
 			Packet: &eventspb.PacketEvent{
 				AccountId: rec.AccountID,
@@ -104,6 +107,7 @@ func encodeSession(rec SessionRecord, kind eventspb.SessionEvent_Kind) (*kgo.Rec
 		Ts:            timestamppb.New(rec.TS),
 		WorldId:       rec.WorldID,
 		Revision:      uint32(rec.Revision),
+		Profile:       rec.Profile,
 		Payload:       &eventspb.ReplayEnvelope_Session{Session: se},
 	}
 	return marshal(env, rec.AccountID)

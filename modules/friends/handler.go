@@ -13,6 +13,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/friendspb"
+	"github.com/zsrv/goscape/pkg/io/protocol/revision"
 	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
@@ -196,6 +197,14 @@ func (h *handler) PrivateMessage(ctx context.Context, req *friendspb.PrivateMess
 		Ts:            timestamppb.Now(),
 		AccountId:     fromID,
 		WorldId:       req.WorldId,
+		Revision:      revision.Expected,
+		// This friends server's own profile: it serves exactly one
+		// (NewRepository scopes every query by cfg.NodeProfile), and
+		// WorldConnect rejects any world whose profile differs, so the
+		// originating world's profile — the one the event describes,
+		// matching req.WorldId on the line above — is this same value.
+		// PrivateMessageRequest carries no profile of its own here.
+		Profile: h.cfg.NodeProfile,
 		Payload: &eventspb.PlayerInputEnvelope_PrivateChat{
 			PrivateChat: &eventspb.PrivateChatEvent{
 				RecipientAccountId: toID,

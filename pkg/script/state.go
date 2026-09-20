@@ -185,6 +185,25 @@ type WorldVars interface {
 	// INV_DROPITEM). Mirrors the same value threaded through emission sites
 	// in modules/world/ that read cfg.NodeID directly.
 	NodeID() int
+
+	// NodeProfile returns the world's configured deployment profile
+	// (cfg.NodeProfile in the production impl, default "main"). Stamped as
+	// the `profile` origin field on telemetry envelopes emitted from script
+	// handlers: account_id is global across profiles, so profile is what
+	// separates the same account seen under two deployments. Sibling to
+	// NodeID above, threaded the same way.
+	NodeProfile() string
+}
+
+// worldProfile returns s.World's deployment profile, or "" when no world is
+// wired (unit tests build a ScriptState without one). Stamped as the
+// `profile` origin field on every telemetry envelope a script handler emits,
+// alongside revision.Expected.
+func (s *ScriptState) worldProfile() string {
+	if s.World == nil {
+		return ""
+	}
+	return s.World.NodeProfile()
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.

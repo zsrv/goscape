@@ -10,13 +10,14 @@ import (
 
 // mockWorld implements WorldVars for tests.
 type mockWorld struct {
-	ints       map[int]int32
-	strings    map[int]string
-	tick       int
-	players    int
-	mapMembers int
-	mapLive    int
-	nodeID     int
+	ints        map[int]int32
+	strings     map[int]string
+	tick        int
+	players     int
+	mapMembers  int
+	mapLive     int
+	nodeID      int
+	nodeProfile string
 	// NAI-127 Bundle 1: LookupPlayerByUID lookup table. Distinct from
 	// the existing `players int` field (which backs PlayerCount).
 	playersByUID map[int]ActivePlayer
@@ -44,6 +45,7 @@ func (m *mockWorld) PlayerCount() int                 { return m.players }
 func (m *mockWorld) MapMembers() int                  { return m.mapMembers }
 func (m *mockWorld) MapLive() int                     { return m.mapLive }
 func (m *mockWorld) NodeID() int                      { return m.nodeID }
+func (m *mockWorld) NodeProfile() string              { return m.nodeProfile }
 
 // NAI-35-T6: default no-op stubs for the WorldVars surface extension. Tests
 // that exercise MAP_FINDSQUARE override these via mapFindSquareWorld

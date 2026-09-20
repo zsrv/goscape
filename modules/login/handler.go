@@ -317,7 +317,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	}
 	committed = true
 
-	emitLogin(int64(account.ID), req.NodeId, ip, req.Uid)
+	emitLogin(int64(account.ID), req.NodeId, req.Profile, ip, req.Uid)
 
 	return buildLoginResponse(result, account, saveBytes, sessionUUID), nil
 }
