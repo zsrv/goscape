@@ -16,7 +16,7 @@ func TestNewMetricsAllInstrumentsConstructed(t *testing.T) {
 	}
 	if m.PacketRecorded == nil || m.PacketDropped == nil || m.PacketIO == nil ||
 		m.PacketSize == nil || m.SessionStarted == nil || m.SessionEnded == nil ||
-		m.ShipperBatchDuration == nil {
+		m.ProduceErrors == nil || m.ShipperBatchDuration == nil {
 		t.Fatal("one or more instruments unset")
 	}
 }
