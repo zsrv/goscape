@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
@@ -96,8 +97,20 @@ func (c *Capture) SessionStarted(accountID int64, sessionID string, ts time.Time
 	if err != nil {
 		return
 	}
-	c.ring.Push(rec)
+	c.pushSessionMarker(rec)
 	c.metrics.SessionStarted.Add(context.Background(), 1)
+}
+
+// pushSessionMarker enqueues a SESSION STARTED / ENDED record and accounts for
+// an eviction exactly as the packet path does, under a drop reason of its own:
+// a marker is how a consumer knows where a session begins and ends, so losing
+// one leaves a session that never opens or never closes and is worth telling
+// apart from a lost packet.
+func (c *Capture) pushSessionMarker(rec *kgo.Record) {
+	if c.ring.Push(rec) {
+		c.metrics.PacketDropped.Add(context.Background(), 1,
+			metric.WithAttributes(attribute.String(AttrDropReason, DropReasonSessionMarkerRingbufFull)))
+	}
 }
 
 // Tap records a single packet. Safe when disabled.
@@ -180,7 +193,7 @@ func (c *Capture) SessionEnded(accountID int64, sessionID string, ts time.Time, 
 	if err != nil {
 		return
 	}
-	c.ring.Push(rec)
+	c.pushSessionMarker(rec)
 	c.metrics.SessionEnded.Add(context.Background(), 1,
 		metric.WithAttributes(attribute.String(AttrSessionCloseReason, closeReason)))
 }
