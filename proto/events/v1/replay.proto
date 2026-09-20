@@ -15,7 +15,19 @@ message ReplayEnvelope {
   string event_id = 2;
   google.protobuf.Timestamp ts = 3;
   int32 world_id = 4;
+  // revision is the wire revision of the binary that emitted this record
+  // (the revision.Expected constant). One world_id can be served by
+  // several revisions at once, so revision is part of the record's origin.
+  // 0 means the record was emitted by a build that predates this field.
   uint32 revision = 5;
+  // profile is the deployment profile the capturing world was configured
+  // with (default "main"). account_id is global across profiles, so
+  // profile is what separates the same account seen under two deployments.
+  // "" means the record was emitted by a build that predates this field.
+  // Tag 7 is deliberately left unused here: the other four envelopes
+  // carry revision on 6 and profile on 7, while this one already had
+  // revision on 5.
+  string profile = 6;
 
   oneof payload {
     PacketEvent packet = 100;
