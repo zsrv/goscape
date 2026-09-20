@@ -276,6 +276,29 @@ func (c *client) tapCloseReason() string {
 	return tapperCloseReasons[code]
 }
 
+// maxRejectedTapBytes caps how much of a rejected inbound frame the tap
+// records. The signal is the opcode itself — a consumer will not find it in
+// that revision's packet table — so a little context is enough, and whatever
+// else is buffered behind it may belong to another frame entirely.
+const maxRejectedTapBytes = 64
+
+// tapRejectedInbound records the inbound packet the server is about to close
+// the connection over: the DECRYPTED opcode, and the payload bytes that are
+// ALREADY buffered behind it, capped at maxRejectedTapBytes.
+//
+// It never waits for more bytes — the connection is ending — and it never
+// allocates: buf aliases the connection's own buffer, and copying it is the
+// Tapper implementation's job (see the contract in pkg/tapper). Guarded on
+// Enabled() so an untapped build pays one interface call and nothing else,
+// and it never logs the bytes.
+func (c *client) tapRejectedInbound(accountID int64, opcode int, buf []byte) {
+	if c.tap == nil || !c.tap.Enabled() {
+		return
+	}
+	c.tap.Tap(accountID, c.sessionID, tapper.DirIn, uint8(opcode),
+		buf[:min(len(buf), maxRejectedTapBytes)], time.Now())
+}
+
 // reportSessionEnded tells the tap this connection's session is over, with the
 // reason whoever ended it recorded. Clearing sessionID makes it a no-op on a
 // second call, so a session is reported exactly once.
