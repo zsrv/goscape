@@ -27,12 +27,32 @@ func (d Direction) String() string {
 	return DirInbound
 }
 
-// CloseReason sentinel values carried in SessionEnded events.
+// CloseReason sentinel values carried in SessionEnded events. One lower-case
+// word each. A consumer groups sessions by them, so a value's meaning must not
+// drift once it has shipped: add a value rather than repurposing one.
+//
+//	logout      the session ended by request — the player's own logout.
+//	disconnect  the socket went away on its own: a read error, an EOF, or a
+//	            peer that simply vanished. This is the fallback when no
+//	            server-side decision preceded the close.
+//	kick        a staff action or an administrative relay ended the session.
+//	crash       the server recovered a fault on this player (a panic, or a
+//	            fatal script error) and tore the connection down to contain it.
+//	timeout     the player stopped responding, or signalled that they had gone
+//	            idle, and the world timed the session out.
+//	protocol    the client sent something the server would not decode — an
+//	            opcode outside the revision's packet table, or an oversized
+//	            frame — and the server closed the connection over it.
+//	shutdown    the world itself is stopping or rebooting and evicted the
+//	            session.
 const (
 	CloseReasonLogout     = "logout"
 	CloseReasonDisconnect = "disconnect"
 	CloseReasonKick       = "kick"
 	CloseReasonCrash      = "crash"
+	CloseReasonTimeout    = "timeout"
+	CloseReasonProtocol   = "protocol"
+	CloseReasonShutdown   = "shutdown"
 )
 
 // Tapper is the seam the world module taps. The public no-op discards

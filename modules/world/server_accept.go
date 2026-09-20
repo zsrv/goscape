@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/zsrv/goscape/pkg/io/protocol"
-	"github.com/zsrv/goscape/pkg/tapper"
 	applog "github.com/zsrv/goscape/pkg/util/log"
 )
 
@@ -189,10 +188,10 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 	}
 
 	defer func() {
-		if c.tap != nil && c.sessionID != "" {
-			c.tap.SessionEnded(c.accountID, c.sessionID, time.Now(), tapper.CloseReasonDisconnect)
-			c.sessionID = ""
-		}
+		// Reports whatever ended this connection — a logout, a timeout, a
+		// kick, a protocol rejection, the world shutting down — falling back
+		// to a plain disconnect when the socket simply went away.
+		c.reportSessionEnded(time.Now())
 		// rev-274 Task 22a: drop this connection's OnDemand queue + round-robin
 		// entry (TS OnDemandThread 'client_closed' → deleteClient). Harmless for
 		// non-ondemand connections (the connID was never inserted → map miss).

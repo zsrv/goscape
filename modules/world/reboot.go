@@ -73,6 +73,7 @@ func (s *Server) processShutdown() {
 	for p := range s.players.all() {
 		if p.client != nil {
 			p.loggingOut = true
+			p.setCloseReason(closeReasonCodeShutdown)
 		}
 	}
 
@@ -107,6 +108,7 @@ func (s *Server) processShutdown() {
 		s.playersMu.RUnlock()
 		for _, p := range stuck {
 			s.log.Error("player force removed", "player", p.username)
+			p.setCloseReason(closeReasonCodeShutdown)
 			s.removePlayerOnTick(p)
 		}
 	}
