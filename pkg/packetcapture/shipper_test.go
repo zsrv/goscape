@@ -2,13 +2,65 @@ package packetcapture
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel/metric/noop"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
+
+// recordingHandler collects every slog record the shipper emits so a test can
+// assert both the message and how many times it was logged.
+type recordingHandler struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
+
+func (h *recordingHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *recordingHandler) Handle(_ context.Context, r slog.Record) error {
+	h.mu.Lock()
+	h.records = append(h.records, r.Clone())
+	h.mu.Unlock()
+	return nil
+}
+
+func (h *recordingHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *recordingHandler) WithGroup(string) slog.Handler      { return h }
+
+func (h *recordingHandler) snapshot() []slog.Record {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]slog.Record(nil), h.records...)
+}
+
+// sumInt64ForReason totals the data points of the named int64 counter whose
+// AttrDropReason attribute equals reason.
+func sumInt64ForReason(t *testing.T, rm *metricdata.ResourceMetrics, name, reason string) int64 {
+	t.Helper()
+	var total int64
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != name {
+				continue
+			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			if !ok {
+				t.Fatalf("%s: unexpected data type %T", name, m.Data)
+			}
+			for _, dp := range sum.DataPoints {
+				if v, ok := dp.Attributes.Value(AttrDropReason); ok && v.AsString() == reason {
+					total += dp.Value
+				}
+			}
+		}
+	}
+	return total
+}
 
 // fakeProducer records produced records; never errors.
 type fakeProducer struct {
@@ -91,6 +143,119 @@ func TestShipper_FinalDrainOnCancel(t *testing.T) {
 
 	if got := fake.count(); got != 1 {
 		t.Fatalf("produced %d, want 1 on cancel-drain", got)
+	}
+}
+
+// TestShipper_FinalDrainEmptiesTheWholeRing pins that a shutdown ships every
+// buffered record, not just the first batchMax of them. The pre-existing
+// coverage pushed ONE record with batchMax=100, so a final drain that popped a
+// single batch looked correct; a production ring holds 65,536 slots and drains
+// 1,024 at a time, so all but the first batch — including the session-ended
+// markers the world pushes as it stops — used to be discarded in silence.
+func TestShipper_FinalDrainEmptiesTheWholeRing(t *testing.T) {
+	const total = 5000
+	buf := NewRingBuffer(1 << 13)
+	for range total {
+		buf.Push(&kgo.Record{Topic: KafkaTopic})
+	}
+	fake := &fakeProducer{}
+	m, _ := NewMetrics(noop.NewMeterProvider().Meter("test"))
+	// Long tick so the only drain that runs is the final one on cancel.
+	s := NewShipper(fake, buf, time.Hour, 1024, m)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { s.Run(ctx); close(done) }()
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Run did not return")
+	}
+
+	if got := fake.count(); got != total {
+		t.Fatalf("produced %d records on the final drain, want %d", got, total)
+	}
+	if got := buf.Len(); got != 0 {
+		t.Fatalf("ring still holds %d records after shutdown, want 0", got)
+	}
+}
+
+// stallingProducer stands in for an unreachable broker: every Produce waits
+// out the caller's context instead of accepting the record.
+type stallingProducer struct{}
+
+func (stallingProducer) Produce(ctx context.Context, _ *kgo.Record, promise func(*kgo.Record, error)) {
+	<-ctx.Done()
+	if promise != nil {
+		promise(nil, ctx.Err())
+	}
+}
+
+func (stallingProducer) Flush(ctx context.Context) error { return ctx.Err() }
+func (stallingProducer) Close()                          {}
+
+// TestShipper_AbandonedRecordsAreCountedAndLoggedOnce pins the other half of
+// the shutdown contract: when the stop-timeout budget runs out with records
+// still buffered, Run still returns inside that budget and the loss is
+// reported — once in the log, and on the drop counter under its own reason.
+func TestShipper_AbandonedRecordsAreCountedAndLoggedOnce(t *testing.T) {
+	const (
+		total    = 5000
+		batchMax = 1024
+	)
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
+	m, err := NewMetrics(mp.Meter("test"))
+	if err != nil {
+		t.Fatalf("NewMetrics: %v", err)
+	}
+
+	buf := NewRingBuffer(1 << 13)
+	for range total {
+		buf.Push(&kgo.Record{Topic: KafkaTopic})
+	}
+
+	h := &recordingHandler{}
+	s := NewShipper(stallingProducer{}, buf, time.Hour, batchMax, m,
+		WithStopTimeout(100*time.Millisecond), WithLogger(slog.New(h)))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	start := time.Now()
+	go func() { s.Run(ctx); close(done) }()
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return: the whole-ring drain is not bounded by the stop timeout")
+	}
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Fatalf("Run took %v, want it bounded by the 100ms stop timeout", elapsed)
+	}
+
+	// The stalled producer consumed exactly one batch before the budget
+	// expired; everything behind it stayed in the ring.
+	wantAbandoned := int64(total - batchMax)
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &rm); err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if got := sumInt64ForReason(t, &rm, "goscape.replay.packet.dropped", DropReasonShutdownAbandoned); got != wantAbandoned {
+		t.Errorf("dropped[%s] = %d, want %d", DropReasonShutdownAbandoned, got, wantAbandoned)
+	}
+
+	warns := 0
+	for _, r := range h.snapshot() {
+		if r.Level == slog.LevelWarn {
+			warns++
+		}
+	}
+	if warns != 1 {
+		t.Fatalf("logged %d warnings about the abandoned records, want exactly 1", warns)
 	}
 }
 
