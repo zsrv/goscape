@@ -607,8 +607,10 @@ func (s *Server) processLogouts() {
 		if s.currentTick-p.lastResponse >= timeoutNoResponse {
 			p.loggingOut = true
 			force = true
+			p.setCloseReason(closeReasonCodeTimeout)
 		} else if s.currentTick-p.lastConnected >= timeoutNoConnection {
 			p.requestIdleLogout = true
+			p.setCloseReason(closeReasonCodeTimeout)
 		}
 
 		if p.requestLogout || p.requestIdleLogout {
