@@ -143,6 +143,19 @@ func TestInitReleaseAllocBytes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("benchmark-backed gate; skipped in -short")
 	}
+	if raceEnabled {
+		// Under -race, sync.Pool.Put throws away one Put in four by
+		// design (GOROOT src/sync/pool.go, func Put: `if race.Enabled {
+		// if runtime_randn(4) == 0 { // Randomly drop x on floor.
+		// return } }`), so a quarter of the Gets miss and rebuild a
+		// ~27 KB bundle through buffersPool.New. Measured on go1.27.1:
+		// 833 B/op and 3 allocs/op plain, ~8400 B/op and 4 allocs/op
+		// with -race — the extra allocation is exactly 1/4 of the four
+		// that New performs. That number describes the race build's
+		// pool, not this package's pooling, so the gate would be
+		// asserting nothing here.
+		t.Skip("sync.Pool deliberately drops 1-in-4 Puts under -race, so B/op measures the race build rather than the buffer pool")
+	}
 	res := testing.Benchmark(BenchmarkInitRelease)
 	if bpo := res.AllocedBytesPerOp(); bpo > 4096 {
 		t.Fatalf("Init+Release allocates %d B/op, want ≤4096 (buffer-pool regression; pre-pool ≈26500)", bpo)
