@@ -51,6 +51,7 @@ func New(cfg Config, logger *slog.Logger) (*Module, error) {
 			Enabled:      true,
 			WorldID:      cfg.WorldID,
 			Revision:     cfg.Revision,
+			Profile:      cfg.Profile,
 			RingCapacity: cfg.RingBufferSize,
 			Metrics:      metrics,
 		})

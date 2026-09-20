@@ -101,6 +101,16 @@ func (w worldVarsView) NodeID() int {
 	return w.s.cfg.NodeID
 }
 
+// NodeProfile returns the server's configured deployment profile. Stamped as
+// the `profile` origin field on telemetry envelopes emitted from script
+// handlers.
+func (w worldVarsView) NodeProfile() string {
+	if w.s == nil {
+		return ""
+	}
+	return w.s.cfg.NodeProfile
+}
+
 // IsMapBlocked mirrors TS GameMap.isMapBlocked = isFlagged(x, z, level,
 // CollisionFlag.WALK_BLOCKED). rsmod WALK_BLOCKED = 0x240100 =
 // LOC | FLOOR | FLOOR_DECORATION = goscape FlagWalkBlocked — the combined
