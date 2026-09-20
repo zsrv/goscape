@@ -97,7 +97,8 @@ func (m *Module) starting(ctx context.Context) error {
 
 	m.shipper = pkgcapture.NewShipper(m.client, m.capture.Ring(),
 		m.cfg.DrainInterval, m.cfg.DrainBatchMax, m.metrics,
-		pkgcapture.WithStopTimeout(m.cfg.StopTimeout))
+		pkgcapture.WithStopTimeout(m.cfg.StopTimeout),
+		pkgcapture.WithLogger(m.log))
 
 	m.shipperCtx, m.shipperStop = context.WithCancel(context.Background())
 	m.shipperDone = make(chan struct{})

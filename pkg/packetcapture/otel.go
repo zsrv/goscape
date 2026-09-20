@@ -30,10 +30,16 @@ const (
 	AttrDropReason         = "goscape.replay.drop.reason"
 	AttrSessionCloseReason = "goscape.replay.session.close_reason"
 
-	// The ring buffer's drop-oldest policy is the only drop path in the
-	// capture pipeline; shipper-overload and broker-unreachable losses are
-	// visible through the kotel messaging.kafka.* client metrics instead.
-	DropReasonRingbufFull = "ringbuf_full"
+	// Drop reasons carried by goscape.replay.packet.dropped. Every record the
+	// pipeline loses is counted under exactly one of them.
+	//
+	//	ringbuf_full        the ring buffer's drop-oldest policy evicted the
+	//	                    oldest record to make room for a new one.
+	//	shutdown_abandoned  the shipper's stop-timeout budget expired with
+	//	                    records still buffered, so the final drain left
+	//	                    them behind.
+	DropReasonRingbufFull       = "ringbuf_full"
+	DropReasonShutdownAbandoned = "shutdown_abandoned"
 )
 
 func NewMetrics(meter metric.Meter) (*Metrics, error) {
