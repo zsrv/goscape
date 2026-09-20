@@ -2,12 +2,15 @@ package packetcapture
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric/noop"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
@@ -38,9 +41,9 @@ func (h *recordingHandler) snapshot() []slog.Record {
 	return append([]slog.Record(nil), h.records...)
 }
 
-// sumInt64ForReason totals the data points of the named int64 counter whose
-// AttrDropReason attribute equals reason.
-func sumInt64ForReason(t *testing.T, rm *metricdata.ResourceMetrics, name, reason string) int64 {
+// sumInt64ForAttr totals the data points of the named int64 counter whose
+// attribute key carries want.
+func sumInt64ForAttr(t *testing.T, rm *metricdata.ResourceMetrics, name, key, want string) int64 {
 	t.Helper()
 	var total int64
 	for _, sm := range rm.ScopeMetrics {
@@ -53,13 +56,25 @@ func sumInt64ForReason(t *testing.T, rm *metricdata.ResourceMetrics, name, reaso
 				t.Fatalf("%s: unexpected data type %T", name, m.Data)
 			}
 			for _, dp := range sum.DataPoints {
-				if v, ok := dp.Attributes.Value(AttrDropReason); ok && v.AsString() == reason {
+				if v, ok := dp.Attributes.Value(attribute.Key(key)); ok && v.AsString() == want {
 					total += dp.Value
 				}
 			}
 		}
 	}
 	return total
+}
+
+// sumInt64ForReason totals the named counter's points for one drop reason.
+func sumInt64ForReason(t *testing.T, rm *metricdata.ResourceMetrics, name, reason string) int64 {
+	t.Helper()
+	return sumInt64ForAttr(t, rm, name, AttrDropReason, reason)
+}
+
+// sumInt64ForTopic totals the named counter's points for one topic.
+func sumInt64ForTopic(t *testing.T, rm *metricdata.ResourceMetrics, name, topic string) int64 {
+	t.Helper()
+	return sumInt64ForAttr(t, rm, name, AttrTopic, topic)
 }
 
 // fakeProducer records produced records; never errors.
@@ -248,14 +263,101 @@ func TestShipper_AbandonedRecordsAreCountedAndLoggedOnce(t *testing.T) {
 		t.Errorf("dropped[%s] = %d, want %d", DropReasonShutdownAbandoned, got, wantAbandoned)
 	}
 
-	warns := 0
+	// The stalled producer also fails every record it was handed, so filter
+	// the abandonment warning out of the produce-failure ones.
+	if got := countWarns(h, "abandoned"); got != 1 {
+		t.Fatalf("logged %d warnings about the abandoned records, want exactly 1", got)
+	}
+}
+
+// countWarns returns how many Warn records carry substr in their message.
+func countWarns(h *recordingHandler, substr string) int {
+	n := 0
 	for _, r := range h.snapshot() {
-		if r.Level == slog.LevelWarn {
-			warns++
+		if r.Level == slog.LevelWarn && strings.Contains(r.Message, substr) {
+			n++
 		}
 	}
-	if warns != 1 {
-		t.Fatalf("logged %d warnings about the abandoned records, want exactly 1", warns)
+	return n
+}
+
+// failingProducer fails every record's promise, standing in for a broker that
+// rejects or never acknowledges what it is sent.
+type failingProducer struct{ err error }
+
+func (f failingProducer) Produce(_ context.Context, rec *kgo.Record, promise func(*kgo.Record, error)) {
+	if promise != nil {
+		promise(rec, f.err)
+	}
+}
+
+func (failingProducer) Flush(context.Context) error { return nil }
+func (failingProducer) Close()                      {}
+
+// TestShipper_ProduceFailuresAreCountedAndSampled pins that a failed produce
+// is accounted for. onProduce used to be empty, with a comment claiming kotel
+// surfaced these: kotel counts what the client SENT, so a record whose promise
+// came back with an error appeared in no instrument at all and in no log.
+func TestShipper_ProduceFailuresAreCountedAndSampled(t *testing.T) {
+	const total = 5
+
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
+	m, err := NewMetrics(mp.Meter("test"))
+	if err != nil {
+		t.Fatalf("NewMetrics: %v", err)
+	}
+
+	buf := NewRingBuffer(64)
+	for range total {
+		buf.Push(&kgo.Record{Topic: KafkaTopic})
+	}
+
+	h := &recordingHandler{}
+	s := NewShipper(failingProducer{err: errors.New("broker unreachable")}, buf,
+		time.Hour, 64, m, WithLogger(slog.New(h)))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { s.Run(ctx); close(done) }()
+	cancel()
+	<-done
+
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &rm); err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if got := sumInt64ForTopic(t, &rm, "goscape.replay.produce.errors", KafkaTopic); got != total {
+		t.Errorf("goscape.replay.produce.errors{%s} = %d, want %d", KafkaTopic, got, total)
+	}
+
+	// A broker outage fails every record in the batch; the sampler admits at
+	// most one warning per interval so the output is not drowned.
+	if got := countWarns(h, "produce"); got != 1 {
+		t.Fatalf("logged %d produce-failure warnings, want exactly 1 per sampler interval", got)
+	}
+}
+
+// TestWarnSampler_AdmitsOnePerInterval drives the local sampler with a fake
+// clock. pkg/telemetry's twin is unexported, so this package keeps its own.
+func TestWarnSampler_AdmitsOnePerInterval(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	s := &warnSampler{interval: 10 * time.Second, now: func() time.Time { return now }}
+
+	if !s.allow() {
+		t.Fatal("the first event must be admitted")
+	}
+	if s.allow() {
+		t.Fatal("a second event at the same instant must be suppressed")
+	}
+	now = now.Add(9 * time.Second)
+	if s.allow() {
+		t.Fatal("an event at t+9s must still be suppressed")
+	}
+	now = now.Add(2 * time.Second)
+	if !s.allow() {
+		t.Fatal("an event at t+11s must be admitted")
 	}
 }
 
