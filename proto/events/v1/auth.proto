@@ -17,6 +17,17 @@ message AuthEnvelope {
   int64 account_id = 4;
   int32 world_id = 5;
 
+  // revision is the wire revision of the binary that emitted this event
+  // (the revision.Expected constant). One world_id can be served by
+  // several revisions at once, so revision is part of the event's origin.
+  // 0 means the event was emitted by a build that predates this field.
+  uint32 revision = 6;
+  // profile is the deployment profile the emitting module was configured
+  // with (default "main"). account_id is global across profiles, so
+  // profile is what separates the same account seen under two deployments.
+  // "" means the event was emitted by a build that predates this field.
+  string profile = 7;
+
   oneof payload {
     LoginEvent login = 100;
     LogoutEvent logout = 101;

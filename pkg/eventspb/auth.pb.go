@@ -92,6 +92,16 @@ type AuthEnvelope struct {
 	Ts            *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=ts,proto3" json:"ts,omitempty"`
 	AccountId     int64                  `protobuf:"varint,4,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
 	WorldId       int32                  `protobuf:"varint,5,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
+	// revision is the wire revision of the binary that emitted this event
+	// (the revision.Expected constant). One world_id can be served by
+	// several revisions at once, so revision is part of the event's origin.
+	// 0 means the event was emitted by a build that predates this field.
+	Revision uint32 `protobuf:"varint,6,opt,name=revision,proto3" json:"revision,omitempty"`
+	// profile is the deployment profile the emitting module was configured
+	// with (default "main"). account_id is global across profiles, so
+	// profile is what separates the same account seen under two deployments.
+	// "" means the event was emitted by a build that predates this field.
+	Profile string `protobuf:"bytes,7,opt,name=profile,proto3" json:"profile,omitempty"`
 	// Types that are valid to be assigned to Payload:
 	//
 	//	*AuthEnvelope_Login
@@ -164,6 +174,20 @@ func (x *AuthEnvelope) GetWorldId() int32 {
 		return x.WorldId
 	}
 	return 0
+}
+
+func (x *AuthEnvelope) GetRevision() uint32 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *AuthEnvelope) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
 }
 
 func (x *AuthEnvelope) GetPayload() isAuthEnvelope_Payload {
@@ -349,14 +373,16 @@ var File_events_v1_auth_proto protoreflect.FileDescriptor
 
 const file_events_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x14events/v1/auth.proto\x12\tevents.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa2\x02\n" +
+	"\x14events/v1/auth.proto\x12\tevents.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd8\x02\n" +
 	"\fAuthEnvelope\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\rR\rschemaVersion\x12\x19\n" +
 	"\bevent_id\x18\x02 \x01(\tR\aeventId\x12*\n" +
 	"\x02ts\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x02ts\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x04 \x01(\x03R\taccountId\x12\x19\n" +
-	"\bworld_id\x18\x05 \x01(\x05R\aworldId\x12-\n" +
+	"\bworld_id\x18\x05 \x01(\x05R\aworldId\x12\x1a\n" +
+	"\brevision\x18\x06 \x01(\rR\brevision\x12\x18\n" +
+	"\aprofile\x18\a \x01(\tR\aprofile\x12-\n" +
 	"\x05login\x18d \x01(\v2\x15.events.v1.LoginEventH\x00R\x05login\x120\n" +
 	"\x06logout\x18e \x01(\v2\x16.events.v1.LogoutEventH\x00R\x06logoutB\t\n" +
 	"\apayload\"\xb3\x01\n" +
