@@ -234,18 +234,30 @@ helm-test-account: ## render the account-enabled chart variants, including the g
 		--set accountIngress.hosts[0].paths[0].path=/ \
 		--set accountIngress.hosts[0].paths[0].pathType=Prefix | grep -q 'kind: Ingress'; \
 	echo "  default render still has no account block"; \
-	! helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml \
-		| grep -qE '^ +account:$$'; \
+	if helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml \
+		| grep -qE '^ +account:$$'; then \
+		echo "    FAIL: the default render carries an account: config block"; \
+		exit 1; \
+	fi; \
 	echo "  guard: World mode cannot run the portal"; \
-	! helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/world-values.yaml \
+	if helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/world-values.yaml \
 		--set goscape.loginServerAddress=mgmt:2004 --set goscape.friendsServerAddress=mgmt:2005 \
-		$(ACCOUNT_ON) >/dev/null 2>&1; \
+		$(ACCOUNT_ON) >/dev/null 2>&1; then \
+		echo "    FAIL: World mode rendered with goscape.account.enabled=true"; \
+		exit 1; \
+	fi; \
 	echo "  guard: public_url is required"; \
-	! helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml \
-		--set goscape.account.enabled=true >/dev/null 2>&1; \
+	if helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml \
+		--set goscape.account.enabled=true >/dev/null 2>&1; then \
+		echo "    FAIL: the portal rendered without goscape.account.publicUrl"; \
+		exit 1; \
+	fi; \
 	echo "  guard: gameLogin needs the portal"; \
-	! helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml \
-		--set goscape.account.gameLogin=true >/dev/null 2>&1
+	if helm template goscape-test $(HELM_CHART_DIR) -f $(HELM_CHART_DIR)/single-binary-values.yaml \
+		--set goscape.account.gameLogin=true >/dev/null 2>&1; then \
+		echo "    FAIL: goscape.account.gameLogin rendered without the portal enabled"; \
+		exit 1; \
+	fi
 
 #############
 # Releasing #
