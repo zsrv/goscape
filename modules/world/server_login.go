@@ -19,6 +19,7 @@ import (
 	"github.com/zsrv/goscape/pkg/io/protocol"
 	loginreq "github.com/zsrv/goscape/pkg/io/protocol/login/req"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
+	"github.com/zsrv/goscape/pkg/io/protocol/revision"
 	"github.com/zsrv/goscape/pkg/loginpb"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
 	applog "github.com/zsrv/goscape/pkg/util/log"
@@ -235,6 +236,11 @@ func (c *client) handleLogin() error {
 				RemoteAddress: c.conn.RemoteAddr().String(),
 				Reconnecting:  reconnecting,
 				HasSave:       false,
+				// The login service is revision-agnostic and may serve
+				// worlds of several revisions at once, so the auth event's
+				// revision has to travel with the request: this world's
+				// own wire revision, not the login binary's.
+				Revision: revision.Expected,
 			}
 
 			var err error
