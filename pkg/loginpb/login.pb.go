@@ -166,6 +166,12 @@ type PlayerLoginRequest struct {
 	RemoteAddress string                 `protobuf:"bytes,8,opt,name=remote_address,json=remoteAddress,proto3" json:"remote_address,omitempty"`
 	Reconnecting  bool                   `protobuf:"varint,9,opt,name=reconnecting,proto3" json:"reconnecting,omitempty"`
 	HasSave       bool                   `protobuf:"varint,10,opt,name=has_save,json=hasSave,proto3" json:"has_save,omitempty"`
+	// The wire revision of the calling world binary (`revision.Expected`).
+	// `0` means "a world build that predates this field". The login service
+	// and its central DB are revision-agnostic, so one login server may serve
+	// worlds of several revisions; the tag number is therefore fixed across
+	// every goscape revision branch.
+	Revision      uint32 `protobuf:"varint,11,opt,name=revision,proto3" json:"revision,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -261,6 +267,13 @@ func (x *PlayerLoginRequest) GetHasSave() bool {
 		return x.HasSave
 	}
 	return false
+}
+
+func (x *PlayerLoginRequest) GetRevision() uint32 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
 }
 
 type PlayerLoginResponse struct {
@@ -794,7 +807,7 @@ const file_login_login_proto_rawDesc = "" +
 	"\x11login/login.proto\x12\blogin.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"H\n" +
 	"\x13WorldStartupRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\x05R\x06nodeId\x12\x18\n" +
-	"\aprofile\x18\x02 \x01(\tR\aprofile\"\xa8\x02\n" +
+	"\aprofile\x18\x02 \x01(\tR\aprofile\"\xc4\x02\n" +
 	"\x12PlayerLoginRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\x05R\x06nodeId\x12\x18\n" +
 	"\aprofile\x18\x02 \x01(\tR\aprofile\x12!\n" +
@@ -805,7 +818,8 @@ const file_login_login_proto_rawDesc = "" +
 	"\x0eremote_address\x18\b \x01(\tR\rremoteAddress\x12\"\n" +
 	"\freconnecting\x18\t \x01(\bR\freconnecting\x12\x19\n" +
 	"\bhas_save\x18\n" +
-	" \x01(\bR\ahasSaveJ\x04\b\a\x10\bR\x06socket\"\xe1\x02\n" +
+	" \x01(\bR\ahasSave\x12\x1a\n" +
+	"\brevision\x18\v \x01(\rR\brevisionJ\x04\b\a\x10\bR\x06socket\"\xe1\x02\n" +
 	"\x13PlayerLoginResponse\x12-\n" +
 	"\x06result\x18\x01 \x01(\x0e2\x15.login.v1.LoginResultR\x06result\x12\x1d\n" +
 	"\n" +
