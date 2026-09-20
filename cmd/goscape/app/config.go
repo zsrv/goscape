@@ -143,10 +143,11 @@ func (c *Config) Validate() error {
 }
 
 // packetCaptureConfig returns the packetcapture config with the values it
-// borrows from its neighbours filled in: the world ID it tags rows with, and
-// the Kafka brokers it falls back to when it names none of its own. Both are
-// owned by another module's config, so an operator enabling capture on a
-// telemetry-exporting server flips one knob (packetcapture.enabled).
+// borrows from its neighbours filled in: the world ID and deployment profile
+// it tags rows with, and the Kafka brokers it falls back to when it names none
+// of its own. All are owned by another module's config, so an operator
+// enabling capture on a telemetry-exporting server flips one knob
+// (packetcapture.enabled).
 //
 // The receiver is not mutated — c.PacketCapture stays the config as written,
 // and both Validate and initPacketCapture read the resolved copy from here so
@@ -154,6 +155,7 @@ func (c *Config) Validate() error {
 func (c *Config) packetCaptureConfig() packetcapturemodule.Config {
 	cfg := c.PacketCapture
 	cfg.WorldID = int32(c.World.NodeID)
+	cfg.Profile = c.World.NodeProfile
 	if len(cfg.Kafka.Brokers) == 0 {
 		cfg.Kafka.Brokers = c.Telemetry.Kafka.Brokers
 	}

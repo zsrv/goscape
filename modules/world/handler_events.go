@@ -7,6 +7,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/io/protocol/revision"
 	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
@@ -55,6 +56,8 @@ func handleEventMouseMove(p *Player, payload []byte) error {
 			Ts:            timestamppb.Now(),
 			WorldId:       int32(p.client.server.cfg.NodeID),
 			AccountId:     p.accountID,
+			Revision:      revision.Expected,
+			Profile:       p.client.server.cfg.NodeProfile,
 			Payload: &eventspb.PlayerInputEnvelope_MouseMove{
 				MouseMove: &eventspb.MouseMoveEvent{X: 0, Y: 0},
 			},

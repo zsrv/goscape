@@ -8,6 +8,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/inventory"
+	"github.com/zsrv/goscape/pkg/io/protocol/revision"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/telemetry"
 	applog "github.com/zsrv/goscape/pkg/util/log"
@@ -1513,6 +1514,8 @@ func handleInvDropItem(s *ScriptState) error {
 			Ts:            timestamppb.Now(),
 			AccountId:     s.activePlayer().AccountID(),
 			WorldId:       worldID,
+			Revision:      revision.Expected,
+			Profile:       s.worldProfile(),
 			Payload: &eventspb.WealthEnvelope_ItemDropped{
 				ItemDropped: &eventspb.ItemDroppedEvent{
 					ItemId:      int32(obj),
@@ -1757,6 +1760,8 @@ func handleBothMoveInv(s *ScriptState) error {
 				Ts:            timestamppb.Now(),
 				AccountId:     s.activePlayer().AccountID(),
 				WorldId:       tradeWorldID,
+				Revision:      revision.Expected,
+				Profile:       s.worldProfile(),
 				Payload: &eventspb.WealthEnvelope_TradeCompleted{
 					TradeCompleted: &eventspb.TradeCompletedEvent{
 						PartnerAccountId: toPlayer.AccountID(),

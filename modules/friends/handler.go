@@ -13,6 +13,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/friendspb"
+	"github.com/zsrv/goscape/pkg/io/protocol/revision"
 	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
@@ -222,6 +223,14 @@ func (h *handler) PrivateMessage(ctx context.Context, req *friendspb.PrivateMess
 		Ts:            timestamppb.Now(),
 		AccountId:     fromID,
 		WorldId:       req.WorldId,
+		Revision:      revision.Expected,
+		// The ORIGINATING world's profile (bridges.go sends cfg.NodeProfile
+		// on every PrivateMessageRequest), matching req.WorldId on the line
+		// above — not h.profile(), this friends server's own. WorldConnect
+		// makes the two equal here by rejecting a profile mismatch, but the
+		// event describes where the PM came from, so it reads it from the
+		// request like world_id does.
+		Profile: req.Profile,
 		Payload: &eventspb.PlayerInputEnvelope_PrivateChat{
 			PrivateChat: &eventspb.PrivateChatEvent{
 				RecipientAccountId: toID,

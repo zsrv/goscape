@@ -7,6 +7,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/eventspb"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/io/protocol/revision"
 	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
@@ -27,6 +28,8 @@ func (p *Player) updatePlayers() {
 		Ts:            timestamppb.Now(),
 		WorldId:       int32(s.cfg.NodeID),
 		AccountId:     p.accountID,
+		Revision:      revision.Expected,
+		Profile:       s.cfg.NodeProfile,
 		Payload: &eventspb.WorldEnvelope_TilePosition{
 			TilePosition: &eventspb.TilePositionEvent{
 				X:     int32(p.x),

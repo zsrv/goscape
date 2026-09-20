@@ -684,6 +684,9 @@ packetcapture:
   # World ID stamped on captured packets. Accepted but inert: the value is
   # taken from world.node_id at startup. (yaml-only; no CLI flag.)
   world_id: 0
+  # Deployment profile stamped on captured packets. Accepted but inert: the
+  # value is taken from world.node_profile at startup. (yaml-only; no CLI flag.)
+  profile: ""
   kafka:
     # Seed brokers (host:port). Empty inherits telemetry.kafka.brokers, so on a
     # server that already exports events the only knob to flip is

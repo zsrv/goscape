@@ -370,7 +370,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	}
 	committed = true
 
-	emitLogin(int64(account.ID), req.NodeId, ip, req.Uid)
+	emitLogin(int64(account.ID), req.NodeId, req.Profile, ip, req.Uid)
 
 	// 2e3bcf43: messageCount is the literal 0 on every reply (TS deleted
 	// Messages.ts/getUnreadMessageCount; LoginServer success replies send
