@@ -17,6 +17,7 @@ type Config struct {
 	DrainBatchMax  int           `yaml:"drain_batch_max"`
 	StopTimeout    time.Duration `yaml:"stop_timeout"`
 	WorldID        int32         `yaml:"world_id"`
+	Profile        string        `yaml:"profile"`
 	Kafka          KafkaConfig   `yaml:"kafka"`
 }
 

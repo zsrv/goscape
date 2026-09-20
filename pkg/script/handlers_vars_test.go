@@ -19,6 +19,7 @@ type mockWorld struct {
 	// (DebugOps.ts:16-18 MAP_PRODUCTION).
 	mapProduction int
 	nodeID        int
+	nodeProfile   string
 	// NAI-127 Bundle 1: LookupPlayerByUID lookup table. Distinct from
 	// the existing `players int` field (which backs PlayerCount).
 	playersByUID map[int]ActivePlayer
@@ -55,6 +56,7 @@ func (m *mockWorld) MapMembers() int                  { return m.mapMembers }
 func (m *mockWorld) MapProduction() int               { return m.mapProduction }
 func (m *mockWorld) LastCycleStat(stat int) int       { return m.lastCycleStats[stat] }
 func (m *mockWorld) NodeID() int                      { return m.nodeID }
+func (m *mockWorld) NodeProfile() string              { return m.nodeProfile }
 
 // NAI-35-T6: default no-op stubs for the WorldVars surface extension. Tests
 // that exercise MAP_FINDSQUARE override these via mapFindSquareWorld

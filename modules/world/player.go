@@ -16,6 +16,7 @@ import (
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/io/protocol/revision"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
@@ -1353,6 +1354,8 @@ func (p *Player) readPacket() (opcode int, ok bool, handled bool, err error) {
 			Ts:            timestamppb.Now(),
 			WorldId:       int32(c.server.cfg.NodeID),
 			AccountId:     p.accountID,
+			Revision:      revision.Expected,
+			Profile:       c.server.cfg.NodeProfile,
 			Payload: &eventspb.WorldEnvelope_PacketReceived{
 				PacketReceived: &eventspb.PacketReceivedEvent{
 					Opcode: uint32(opcode),

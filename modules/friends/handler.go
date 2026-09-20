@@ -13,6 +13,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/friendspb"
+	"github.com/zsrv/goscape/pkg/io/protocol/revision"
 	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
@@ -211,6 +212,14 @@ func (h *handler) PrivateMessage(ctx context.Context, req *friendspb.PrivateMess
 		Ts:            timestamppb.Now(),
 		AccountId:     fromID,
 		WorldId:       req.WorldId,
+		Revision:      revision.Expected,
+		// The ORIGINATING world's profile (bridges.go sends cfg.NodeProfile
+		// on every PrivateMessageRequest), matching req.WorldId on the line
+		// above. This friends server has no profile of its own: it is
+		// multi-profile, keying its repository per RPC off the same
+		// req.Profile, so the request is the only thing that says where the
+		// PM came from — as it is for world_id.
+		Profile: req.Profile,
 		Payload: &eventspb.PlayerInputEnvelope_PrivateChat{
 			PrivateChat: &eventspb.PrivateChatEvent{
 				RecipientAccountId: toID,
