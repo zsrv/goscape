@@ -151,11 +151,17 @@ unchanged and still available.
 The admin port is a named `containerPort` only. It is deliberately absent from
 every Service, Ingress and Kong route, because `/readyz` reports the module
 names this pod runs and the state of each. It is likewise absent from the
-NetworkPolicy: that template writes no rule for probe traffic at all today (the
-Management mode's `login-grpc` probe port is already only allowed from goscape
-pods), so the chart relies on the CNI treating kubelet probes as node-local
-rather than as policy-governed ingress. If your CNI enforces policy on probe
-traffic, add a rule via `extraManifests`.
+NetworkPolicy, and that is correct rather than an omission: kubelet probes
+originate on the node the pod runs on, and Kubernetes documents that ingress
+policy never applies to them — "traffic to and from the node where a Pod is
+running is always allowed, regardless of the IP address of the Pod or the
+node", and Pods have no "ability to block access from their resident node"
+([NetworkPolicy concepts](https://kubernetes.io/docs/concepts/services-networking/network-policies/)).
+So the probes keep working with `networkPolicy.enabled=true` while `/readyz` —
+whose body names the modules this pod runs and the state of each — stays
+unreachable from every other pod. Opening the port would give that up for
+nothing. A CNI that enforces policy on probe traffic anyway is outside what the
+docs promise; add a rule via `extraManifests` there.
 
 Set `admin.enabled: false` to bind nothing and fall back to the previous probes
 (`tcpSocket` liveness on `world-tcp`/`login-grpc`; `httpGet /healthz` on
