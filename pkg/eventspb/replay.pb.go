@@ -82,7 +82,19 @@ type ReplayEnvelope struct {
 	EventId       string                 `protobuf:"bytes,2,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
 	Ts            *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=ts,proto3" json:"ts,omitempty"`
 	WorldId       int32                  `protobuf:"varint,4,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
-	Revision      uint32                 `protobuf:"varint,5,opt,name=revision,proto3" json:"revision,omitempty"`
+	// revision is the wire revision of the binary that emitted this record
+	// (the revision.Expected constant). One world_id can be served by
+	// several revisions at once, so revision is part of the record's origin.
+	// 0 means the record was emitted by a build that predates this field.
+	Revision uint32 `protobuf:"varint,5,opt,name=revision,proto3" json:"revision,omitempty"`
+	// profile is the deployment profile the capturing world was configured
+	// with (default "main"). account_id is global across profiles, so
+	// profile is what separates the same account seen under two deployments.
+	// "" means the record was emitted by a build that predates this field.
+	// Tag 7 is deliberately left unused here: the other four envelopes
+	// carry revision on 6 and profile on 7, while this one already had
+	// revision on 5.
+	Profile string `protobuf:"bytes,6,opt,name=profile,proto3" json:"profile,omitempty"`
 	// Types that are valid to be assigned to Payload:
 	//
 	//	*ReplayEnvelope_Packet
@@ -155,6 +167,13 @@ func (x *ReplayEnvelope) GetRevision() uint32 {
 		return x.Revision
 	}
 	return 0
+}
+
+func (x *ReplayEnvelope) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
 }
 
 func (x *ReplayEnvelope) GetPayload() isReplayEnvelope_Payload {
@@ -399,13 +418,14 @@ var File_events_v1_replay_proto protoreflect.FileDescriptor
 
 const file_events_v1_replay_proto_rawDesc = "" +
 	"\n" +
-	"\x16events/v1/replay.proto\x12\tevents.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa7\x02\n" +
+	"\x16events/v1/replay.proto\x12\tevents.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc1\x02\n" +
 	"\x0eReplayEnvelope\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\rR\rschemaVersion\x12\x19\n" +
 	"\bevent_id\x18\x02 \x01(\tR\aeventId\x12*\n" +
 	"\x02ts\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x02ts\x12\x19\n" +
 	"\bworld_id\x18\x04 \x01(\x05R\aworldId\x12\x1a\n" +
-	"\brevision\x18\x05 \x01(\rR\brevision\x120\n" +
+	"\brevision\x18\x05 \x01(\rR\brevision\x12\x18\n" +
+	"\aprofile\x18\x06 \x01(\tR\aprofile\x120\n" +
 	"\x06packet\x18d \x01(\v2\x16.events.v1.PacketEventH\x00R\x06packet\x123\n" +
 	"\asession\x18e \x01(\v2\x17.events.v1.SessionEventH\x00R\asessionB\t\n" +
 	"\apayload\"\x8f\x01\n" +

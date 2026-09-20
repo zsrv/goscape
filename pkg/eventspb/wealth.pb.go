@@ -31,6 +31,16 @@ type WealthEnvelope struct {
 	Ts            *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=ts,proto3" json:"ts,omitempty"`
 	AccountId     int64                  `protobuf:"varint,4,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"` // partition key
 	WorldId       int32                  `protobuf:"varint,5,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
+	// revision is the wire revision of the binary that emitted this event
+	// (the revision.Expected constant). One world_id can be served by
+	// several revisions at once, so revision is part of the event's origin.
+	// 0 means the event was emitted by a build that predates this field.
+	Revision uint32 `protobuf:"varint,6,opt,name=revision,proto3" json:"revision,omitempty"`
+	// profile is the deployment profile the emitting module was configured
+	// with (default "main"). account_id is global across profiles, so
+	// profile is what separates the same account seen under two deployments.
+	// "" means the event was emitted by a build that predates this field.
+	Profile string `protobuf:"bytes,7,opt,name=profile,proto3" json:"profile,omitempty"`
 	// Types that are valid to be assigned to Payload:
 	//
 	//	*WealthEnvelope_TradeCompleted
@@ -104,6 +114,20 @@ func (x *WealthEnvelope) GetWorldId() int32 {
 		return x.WorldId
 	}
 	return 0
+}
+
+func (x *WealthEnvelope) GetRevision() uint32 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *WealthEnvelope) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
 }
 
 func (x *WealthEnvelope) GetPayload() isWealthEnvelope_Payload {
@@ -470,14 +494,16 @@ var File_events_v1_wealth_proto protoreflect.FileDescriptor
 
 const file_events_v1_wealth_proto_rawDesc = "" +
 	"\n" +
-	"\x16events/v1/wealth.proto\x12\tevents.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x96\x03\n" +
+	"\x16events/v1/wealth.proto\x12\tevents.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xcc\x03\n" +
 	"\x0eWealthEnvelope\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\rR\rschemaVersion\x12\x19\n" +
 	"\bevent_id\x18\x02 \x01(\tR\aeventId\x12*\n" +
 	"\x02ts\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x02ts\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x04 \x01(\x03R\taccountId\x12\x19\n" +
-	"\bworld_id\x18\x05 \x01(\x05R\aworldId\x12I\n" +
+	"\bworld_id\x18\x05 \x01(\x05R\aworldId\x12\x1a\n" +
+	"\brevision\x18\x06 \x01(\rR\brevision\x12\x18\n" +
+	"\aprofile\x18\a \x01(\tR\aprofile\x12I\n" +
 	"\x0ftrade_completed\x18d \x01(\v2\x1e.events.v1.TradeCompletedEventH\x00R\x0etradeCompleted\x12@\n" +
 	"\fitem_dropped\x18e \x01(\v2\x1b.events.v1.ItemDroppedEventH\x00R\vitemDropped\x12D\n" +
 	"\x0eitem_picked_up\x18f \x01(\v2\x1c.events.v1.ItemPickedUpEventH\x00R\fitemPickedUpB\t\n" +
