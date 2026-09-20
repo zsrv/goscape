@@ -76,6 +76,7 @@ func (s *Server) processShutdown() {
 	for _, p := range s.playerLoop {
 		if p != nil && p.client != nil {
 			p.loggingOut = true
+			p.setCloseReason(closeReasonCodeShutdown)
 		}
 	}
 
@@ -112,6 +113,7 @@ func (s *Server) processShutdown() {
 				continue
 			}
 			s.log.Error("player force removed", "player", p.username)
+			p.setCloseReason(closeReasonCodeShutdown)
 			s.removePlayerOnTick(p)
 		}
 	}

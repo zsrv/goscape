@@ -363,6 +363,11 @@ func (s *Server) handlePlayerScriptError(state *script.ScriptState, self script.
 		self.MessageGame(line)
 	}
 	if s.cfg.NodeProduction {
+		if p, ok := self.(*Player); ok {
+			// Claim the reason before RequestLogout does: a script the engine
+			// could not finish is a server-side fault, not a player logout.
+			p.setCloseReason(closeReasonCodeCrash)
+		}
 		self.RequestLogout()
 		if p, ok := self.(*Player); ok {
 			p.loggingOut = true

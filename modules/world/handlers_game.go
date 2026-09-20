@@ -203,6 +203,7 @@ func handleIdleTimer(p *Player, _ []byte) error {
 	}
 	if !p.client.server.cfg.NodeDebug {
 		p.requestIdleLogout = true
+		p.setCloseReason(closeReasonCodeTimeout)
 	}
 	return nil
 }
@@ -1284,6 +1285,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 			username := sub[0]
 			if other := p.client.server.LookupPlayerByUsername(username); other != nil {
 				other.loggingOut = true
+				other.setCloseReason(closeReasonCodeKick)
 				p.MessageGame(fmt.Sprintf("Player '%s' has been kicked from the game.", username))
 			} else {
 				p.MessageGame(fmt.Sprintf("Player '%s' does not exist or is not logged in.", username))

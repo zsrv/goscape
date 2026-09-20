@@ -60,6 +60,9 @@ func recoverPlayer(p *Player, op string, log *slog.Logger) {
 	if p == nil {
 		return
 	}
+	// Ahead of requestLogout, whose RequestLogout twin would otherwise claim
+	// the reason: this session is ending because the server faulted on it.
+	p.setCloseReason(closeReasonCodeCrash)
 	p.requestLogout = true
 	if p.client != nil && p.client.conn != nil {
 		p.client.closeConn()

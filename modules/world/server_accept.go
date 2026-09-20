@@ -11,7 +11,6 @@ import (
 
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/io/protocol"
-	"github.com/zsrv/goscape/pkg/tapper"
 	applog "github.com/zsrv/goscape/pkg/util/log"
 )
 
@@ -186,10 +185,10 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 	}
 
 	defer func() {
-		if c.tap != nil && c.sessionID != "" {
-			c.tap.SessionEnded(c.accountID, c.sessionID, time.Now(), tapper.CloseReasonDisconnect)
-			c.sessionID = ""
-		}
+		// Reports whatever ended this connection — a logout, a timeout, a
+		// kick, a protocol rejection, the world shutting down — falling back
+		// to a plain disconnect when the socket simply went away.
+		c.reportSessionEnded(time.Now())
 		if c.player != nil {
 			// Post-login: the tick co-owns bufw/c.in until it processes
 			// the removal — no flush here (it would race the tick's own

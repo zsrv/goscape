@@ -180,6 +180,7 @@ func (t *InputTracking) submitEvents() {
 		t.player.AddSessionLog(LoggerEventTypeEngine,
 			"Client did not submit an input tracking report")
 		t.player.requestIdleLogout = true
+		t.player.setCloseReason(closeReasonCodeTimeout)
 	}
 	t.waitingForRemainingData = false
 	t.recordedBlobs = nil
