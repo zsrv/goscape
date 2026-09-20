@@ -46,6 +46,12 @@ message PlayerLoginRequest {
   string remote_address = 8;
   bool reconnecting = 9;
   bool has_save = 10;
+  // The wire revision of the calling world binary (`revision.Expected`).
+  // `0` means "a world build that predates this field". The login service
+  // and its central DB are revision-agnostic, so one login server may serve
+  // worlds of several revisions; the tag number is therefore fixed across
+  // every goscape revision branch.
+  uint32 revision = 11;
 }
 
 message PlayerLoginResponse {

@@ -177,6 +177,11 @@ func (c *client) handleLogin() error {
 				RemoteAddress: c.conn.RemoteAddr().String(),
 				Reconnecting:  reconnecting,
 				HasSave:       false,
+				// The login service is revision-agnostic and may serve
+				// worlds of several revisions at once, so the auth event's
+				// revision has to travel with the request: this world's
+				// own wire revision, not the login binary's.
+				Revision: revision.Expected,
 			}
 
 			var err error

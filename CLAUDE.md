@@ -114,7 +114,12 @@ centralised, because `pkg/telemetry`/`modules/telemetry` are revision-neutral
 and import neither `pkg/io/protocol/revision` nor any module —
 and `cmd/goscape/app/origin_guard_test.go` fails, naming file:line, if a new
 emit site forgets. `pkg/packetcapture` borrows its profile the same inert way
-it borrows `world_id`.
+it borrows `world_id`. An auth event takes BOTH halves of its origin from the
+login request — the originating world's profile and, on
+`PlayerLoginRequest.revision`, that world's `revision.Expected` (falling back
+to the login binary's own when a pre-upgrade world sends `0`) — so one
+revision-agnostic login server may serve worlds of other revisions without
+misattributing their events to itself.
 
 Adding a new module: register it in `modules.go`, wire its dependencies, and add its config to `cmd/goscape/app/config.go`.
 
